@@ -1,0 +1,802 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# working directory: /workspace
+# repository root: /workspace
+# revision: eb7de1cff16aa2b730e98bbc092fe8bf2c71a2ce
+# dirty: false
+# source metadata: informational; no source snapshot authentication
+# started: 2026-10-17T18:09:13Z
+# package: .
+# bench regex: ^Benchmark(ParserCoreFreshFullCanonical|GoParseFullDFA|GoParseIncrementalSingleByteEditDFA|GoParseIncrementalNoEditDFA|AdmissionR4Compact|CompactGoFullConsume)$
+# required benchmarks: BenchmarkParserCoreFreshFullCanonical/rewrite,BenchmarkParserCoreFreshFullCanonical/query_compile,BenchmarkParserCoreFreshFullCanonical/language,BenchmarkParserCoreFreshFullCanonical/grammargen_lr,BenchmarkGoParseFullDFA,BenchmarkGoParseIncrementalSingleByteEditDFA,BenchmarkGoParseIncrementalNoEditDFA,BenchmarkAdmissionR4Compact,BenchmarkCompactGoFullConsume/real_sample,BenchmarkCompactGoFullConsume/rewrite,BenchmarkCompactGoFullConsume/query_compile,BenchmarkCompactGoFullConsume/language,BenchmarkCompactGoFullConsume/grammargen_lr
+# build tags: gts_parsercorephase0
+# seeds: 31901..31920
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 31901; position: 2
+-test.shuffle 31901
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactGoFullConsume/real_sample    	    1047	    857654 ns/op	   2.39 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile  	      94	   9901172 ns/op	   2.04 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite        	     405	   2174191 ns/op	   2.35 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language       	      92	   9638704 ns/op	   4.29 MB/s	  150435 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr  	       8	  99428826 ns/op	   2.37 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseFullDFA                      	     210	   4010034 ns/op	   4.81 MB/s	    1161 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     524	   1715096 ns/op	   2.98 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8170859 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8454023 ns/op	   4.90 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86481334 ns/op	   2.72 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8972	     98515 ns/op	 195.85 MB/s	     394 B/op	       5 allocs/op
+BenchmarkAdmissionR4Compact                           	    1093	    827558 ns/op	   2.47 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	286135039	         3.165 ns/op	6095398.99 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	14.003s
+# completed seed: 31901; at: 2026-10-17T18:09:48Z
+# seed: 31902; position: 1
+-test.shuffle 31902
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     516	   1738334 ns/op	   2.94 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8277514 ns/op	   2.44 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8714973 ns/op	   4.75 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  88453980 ns/op	   2.66 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkAdmissionR4Compact                           	    1140	    840931 ns/op	   2.43 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8479	     99635 ns/op	 193.65 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                               	     218	   3946858 ns/op	   4.89 MB/s	    1160 B/op	       6 allocs/op
+BenchmarkCompactGoFullConsume/real_sample             	    1110	    806044 ns/op	   2.54 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile           	      96	   9345754 ns/op	   2.16 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite                 	     457	   1992652 ns/op	   2.57 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language                	      94	   9620712 ns/op	   4.30 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr           	       8	  98974465 ns/op	   2.38 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseIncrementalNoEditDFA                  	281475348	         3.179 ns/op	6068658.27 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	14.116s
+# completed seed: 31902; at: 2026-10-17T18:10:23Z
+# seed: 31903; position: 2
+-test.shuffle 31903
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseFullDFA                      	     228	   3908184 ns/op	   4.94 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkAdmissionR4Compact                  	    1144	    791271 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkCompactGoFullConsume/real_sample    	    1123	    805597 ns/op	   2.54 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile  	      91	   9268373 ns/op	   2.18 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite        	     458	   1948203 ns/op	   2.63 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language       	      96	   9427590 ns/op	   4.39 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr  	       8	  98358376 ns/op	   2.40 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     517	   1731518 ns/op	   2.95 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8226992 ns/op	   2.45 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8475115 ns/op	   4.88 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  89311356 ns/op	   2.64 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	291336524	         3.097 ns/op	6230736.95 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8996	     98836 ns/op	 195.21 MB/s	     394 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.954s
+# completed seed: 31903; at: 2026-10-17T18:10:57Z
+# seed: 31904; position: 1
+-test.shuffle 31904
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     525	   1715784 ns/op	   2.98 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8170362 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8548222 ns/op	   4.84 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150422 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87919478 ns/op	   2.68 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkAdmissionR4Compact                           	    1108	    786704 ns/op	   2.60 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                               	     228	   3927108 ns/op	   4.91 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8706	     99021 ns/op	 194.85 MB/s	     394 B/op	       5 allocs/op
+BenchmarkCompactGoFullConsume/real_sample             	    1095	    801464 ns/op	   2.55 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile           	      97	   9189873 ns/op	   2.19 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite                 	     458	   1943779 ns/op	   2.63 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language                	      93	   9342018 ns/op	   4.43 MB/s	  150435 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr           	       8	  97813200 ns/op	   2.41 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseIncrementalNoEditDFA                  	285417178	         3.132 ns/op	6160992.92 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.908s
+# completed seed: 31904; at: 2026-10-17T18:11:31Z
+# seed: 31905; position: 2
+-test.shuffle 31905
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact                  	    1117	    791227 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                      	     226	   3924004 ns/op	   4.92 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8918	     98603 ns/op	 195.67 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	288065911	         3.124 ns/op	6175304.73 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     518	   1721846 ns/op	   2.97 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8213992 ns/op	   2.46 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8523335 ns/op	   4.86 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87689999 ns/op	   2.69 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkCompactGoFullConsume/real_sample             	    1108	    805620 ns/op	   2.54 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile           	      98	   9143998 ns/op	   2.21 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite                 	     460	   1958485 ns/op	   2.61 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language                	      93	   9422264 ns/op	   4.39 MB/s	  150435 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr           	       8	  97222817 ns/op	   2.42 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.929s
+# completed seed: 31905; at: 2026-10-17T18:12:05Z
+# seed: 31906; position: 1
+-test.shuffle 31906
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalNoEditDFA         	292143904	         3.104 ns/op	6215671.05 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCompactGoFullConsume/real_sample    	    1138	    799032 ns/op	   2.56 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile  	      97	   9194966 ns/op	   2.19 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite        	     462	   1954528 ns/op	   2.62 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language       	      94	   9431566 ns/op	   4.39 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr  	       8	  96733608 ns/op	   2.44 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8842	     98684 ns/op	 195.51 MB/s	     394 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     520	   1736801 ns/op	   2.95 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8162780 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8483383 ns/op	   4.88 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  85943291 ns/op	   2.74 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkAdmissionR4Compact                           	    1068	    824806 ns/op	   2.48 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                               	     226	   3958776 ns/op	   4.87 MB/s	    1159 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.875s
+# completed seed: 31906; at: 2026-10-17T18:12:39Z
+# seed: 31907; position: 2
+-test.shuffle 31907
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8985	     98554 ns/op	 195.77 MB/s	     394 B/op	       5 allocs/op
+BenchmarkAdmissionR4Compact                  	    1147	    807926 ns/op	   2.53 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkCompactGoFullConsume/real_sample    	    1111	    803527 ns/op	   2.55 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile  	      98	   9160399 ns/op	   2.20 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite        	     458	   1966517 ns/op	   2.60 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language       	      96	   9480633 ns/op	   4.37 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr  	       8	  96708935 ns/op	   2.44 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseFullDFA                      	     226	   3946677 ns/op	   4.89 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     523	   1742992 ns/op	   2.94 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8179335 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8483417 ns/op	   4.88 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  85584469 ns/op	   2.75 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	286852434	         3.126 ns/op	6172964.75 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.949s
+# completed seed: 31907; at: 2026-10-17T18:13:14Z
+# seed: 31908; position: 1
+-test.shuffle 31908
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseFullDFA                      	     224	   3968396 ns/op	   4.86 MB/s	    1160 B/op	       6 allocs/op
+BenchmarkAdmissionR4Compact                  	    1125	    797398 ns/op	   2.57 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     522	   1725209 ns/op	   2.97 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8172362 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8563387 ns/op	   4.83 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  89486314 ns/op	   2.63 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8989	     98984 ns/op	 194.92 MB/s	     394 B/op	       5 allocs/op
+BenchmarkCompactGoFullConsume/real_sample             	    1110	    812796 ns/op	   2.52 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile           	      93	   9381833 ns/op	   2.15 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite                 	     458	   1961285 ns/op	   2.61 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language                	      96	   9617852 ns/op	   4.30 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr           	       8	  99362015 ns/op	   2.37 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseIncrementalNoEditDFA                  	289199169	         3.141 ns/op	6142367.05 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	15.030s
+# completed seed: 31908; at: 2026-10-17T18:13:49Z
+# seed: 31909; position: 2
+-test.shuffle 31909
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactGoFullConsume/real_sample    	    1122	    797701 ns/op	   2.57 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile  	      98	   9111081 ns/op	   2.21 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite        	     460	   1936398 ns/op	   2.64 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language       	      93	   9384576 ns/op	   4.41 MB/s	  150435 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr  	       8	  95878903 ns/op	   2.46 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkAdmissionR4Compact                  	    1069	    829408 ns/op	   2.47 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     522	   1723204 ns/op	   2.97 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8135919 ns/op	   2.48 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8505496 ns/op	   4.87 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87275347 ns/op	   2.70 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseFullDFA                               	     229	   3921148 ns/op	   4.92 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    9012	     98411 ns/op	 196.06 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	289730211	         3.101 ns/op	6220919.85 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.864s
+# completed seed: 31909; at: 2026-10-17T18:14:23Z
+# seed: 31910; position: 1
+-test.shuffle 31910
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact                  	    1140	    795634 ns/op	   2.57 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     524	   1716584 ns/op	   2.98 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8263592 ns/op	   2.44 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     104	   8556493 ns/op	   4.84 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87920057 ns/op	   2.68 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8226	     99224 ns/op	 194.45 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                               	     228	   3916514 ns/op	   4.93 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	293451435	         3.133 ns/op	6157474.50 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCompactGoFullConsume/real_sample             	    1130	    818226 ns/op	   2.50 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile           	      88	   9108837 ns/op	   2.21 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite                 	     463	   2027614 ns/op	   2.52 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language                	      96	   9489828 ns/op	   4.36 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr           	       8	  98098425 ns/op	   2.40 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+PASS
+ok  	github.com/odvcencio/gotreesitter	14.720s
+# completed seed: 31910; at: 2026-10-17T18:14:58Z
+# seed: 31911; position: 2
+-test.shuffle 31911
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact                  	    1142	    788253 ns/op	   2.60 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	288878554	         3.110 ns/op	6204241.71 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     523	   1732475 ns/op	   2.95 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8209076 ns/op	   2.46 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     105	   8520984 ns/op	   4.86 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86160269 ns/op	   2.73 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseFullDFA                               	     229	   3919577 ns/op	   4.92 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8929	     98206 ns/op	 196.46 MB/s	     394 B/op	       5 allocs/op
+BenchmarkCompactGoFullConsume/real_sample             	    1128	    801716 ns/op	   2.55 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile           	      98	   9165548 ns/op	   2.20 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite                 	     459	   1942801 ns/op	   2.63 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language                	      96	   9356310 ns/op	   4.42 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr           	       8	  97430456 ns/op	   2.42 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+PASS
+ok  	github.com/odvcencio/gotreesitter	14.697s
+# completed seed: 31911; at: 2026-10-17T18:15:32Z
+# seed: 31912; position: 1
+-test.shuffle 31912
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     519	   1726660 ns/op	   2.96 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8505218 ns/op	   2.37 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8509135 ns/op	   4.86 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87925432 ns/op	   2.68 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseFullDFA                               	     226	   3956349 ns/op	   4.88 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkCompactGoFullConsume/real_sample             	    1108	    804621 ns/op	   2.54 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile           	      98	   9206440 ns/op	   2.19 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite                 	     463	   1950584 ns/op	   2.62 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language                	      96	   9415772 ns/op	   4.40 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr           	       8	  96525324 ns/op	   2.44 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8671	     98295 ns/op	 196.29 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	288907212	         3.121 ns/op	6182115.02 MB/s	       0 B/op	       0 allocs/op
+BenchmarkAdmissionR4Compact                           	    1081	    818400 ns/op	   2.50 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	14.012s
+# completed seed: 31912; at: 2026-10-17T18:16:06Z
+# seed: 31913; position: 2
+-test.shuffle 31913
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseFullDFA                      	     226	   3998600 ns/op	   4.83 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkCompactGoFullConsume/real_sample    	    1123	    808003 ns/op	   2.53 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile  	      97	   9222529 ns/op	   2.19 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite        	     462	   1943584 ns/op	   2.63 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language       	      96	   9415631 ns/op	   4.40 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr  	       8	  96713998 ns/op	   2.44 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8940	     98342 ns/op	 196.19 MB/s	     394 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     525	   1738928 ns/op	   2.94 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8230394 ns/op	   2.45 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8494697 ns/op	   4.87 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86207175 ns/op	   2.73 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	287010123	         3.161 ns/op	6104729.09 MB/s	       0 B/op	       0 allocs/op
+BenchmarkAdmissionR4Compact                           	    1076	    832919 ns/op	   2.46 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.954s
+# completed seed: 31913; at: 2026-10-17T18:16:40Z
+# seed: 31914; position: 1
+-test.shuffle 31914
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactGoFullConsume/real_sample    	    1132	    801253 ns/op	   2.55 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile  	      97	   9204323 ns/op	   2.19 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite        	     458	   1962725 ns/op	   2.61 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language       	      94	   9541124 ns/op	   4.34 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr  	       8	  98795580 ns/op	   2.38 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseFullDFA                      	     225	   3957602 ns/op	   4.88 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkAdmissionR4Compact                  	    1076	    834348 ns/op	   2.45 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8973	     98571 ns/op	 195.74 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	290420668	         3.123 ns/op	6177272.14 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     520	   1712713 ns/op	   2.99 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8151120 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8458581 ns/op	   4.89 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86814555 ns/op	   2.71 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.958s
+# completed seed: 31914; at: 2026-10-17T18:17:14Z
+# seed: 31915; position: 2
+-test.shuffle 31915
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseFullDFA                      	     229	   3903341 ns/op	   4.94 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkAdmissionR4Compact                  	    1134	    791642 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8947	     98462 ns/op	 195.95 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	289856658	         3.095 ns/op	6233453.55 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCompactGoFullConsume/real_sample    	    1065	    882927 ns/op	   2.32 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile  	      98	   9166475 ns/op	   2.20 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite        	     460	   1945748 ns/op	   2.63 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language       	      96	   9413235 ns/op	   4.40 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr  	       8	  96647726 ns/op	   2.44 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     519	   1732630 ns/op	   2.95 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8207875 ns/op	   2.46 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8547492 ns/op	   4.84 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87980489 ns/op	   2.68 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.979s
+# completed seed: 31915; at: 2026-10-17T18:17:49Z
+# seed: 31916; position: 1
+-test.shuffle 31916
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseFullDFA                      	     225	   3943681 ns/op	   4.89 MB/s	    1160 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     518	   1730795 ns/op	   2.96 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8142644 ns/op	   2.48 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     105	   8518272 ns/op	   4.86 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150419 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87514145 ns/op	   2.69 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkCompactGoFullConsume/real_sample             	    1113	    811194 ns/op	   2.52 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile           	      98	   9200950 ns/op	   2.19 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite                 	     460	   1954327 ns/op	   2.62 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language                	      96	   9475746 ns/op	   4.37 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr           	       8	 101617713 ns/op	   2.32 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseIncrementalNoEditDFA                  	283564058	         3.178 ns/op	6070789.70 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8838	     98891 ns/op	 195.10 MB/s	     394 B/op	       5 allocs/op
+BenchmarkAdmissionR4Compact                           	    1075	    832694 ns/op	   2.46 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	14.768s
+# completed seed: 31916; at: 2026-10-17T18:18:24Z
+# seed: 31917; position: 2
+-test.shuffle 31917
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8731	     98285 ns/op	 196.31 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	286183081	         3.113 ns/op	6198806.89 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	     229	   3922296 ns/op	   4.92 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     526	   1712716 ns/op	   2.99 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8160431 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     105	   8443545 ns/op	   4.90 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86573831 ns/op	   2.72 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkCompactGoFullConsume/real_sample             	    1123	    797951 ns/op	   2.57 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile           	      97	   9133632 ns/op	   2.21 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite                 	     462	   1935808 ns/op	   2.64 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language                	      91	   9357345 ns/op	   4.42 MB/s	  150435 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr           	       8	  97485298 ns/op	   2.42 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkAdmissionR4Compact                           	    1075	    834583 ns/op	   2.45 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	14.573s
+# completed seed: 31917; at: 2026-10-17T18:18:58Z
+# seed: 31918; position: 1
+-test.shuffle 31918
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact                  	    1137	    800460 ns/op	   2.56 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                      	     228	   4045188 ns/op	   4.77 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkCompactGoFullConsume/real_sample    	    1108	    805518 ns/op	   2.54 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile  	      96	   9225854 ns/op	   2.19 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite        	     453	   1968034 ns/op	   2.60 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language       	      94	   9488906 ns/op	   4.36 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr  	       8	  96572603 ns/op	   2.44 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8768	     99064 ns/op	 194.76 MB/s	     394 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     520	   1719512 ns/op	   2.98 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8173453 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8499620 ns/op	   4.87 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87477902 ns/op	   2.69 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	285753012	         3.113 ns/op	6198792.80 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.904s
+# completed seed: 31918; at: 2026-10-17T18:19:32Z
+# seed: 31919; position: 2
+-test.shuffle 31919
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseFullDFA                      	     226	   3921675 ns/op	   4.92 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     524	   1738463 ns/op	   2.94 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8187443 ns/op	   2.46 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     105	   8504158 ns/op	   4.87 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  88907233 ns/op	   2.65 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	286516804	         3.110 ns/op	6203045.16 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCompactGoFullConsume/real_sample             	    1124	    800696 ns/op	   2.56 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile           	      98	   9191745 ns/op	   2.19 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite                 	     458	   1941493 ns/op	   2.64 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language                	      96	   9429059 ns/op	   4.39 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr           	       8	  98405437 ns/op	   2.39 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8916	     98792 ns/op	 195.30 MB/s	     394 B/op	       5 allocs/op
+BenchmarkAdmissionR4Compact                           	    1058	    859776 ns/op	   2.38 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	14.751s
+# completed seed: 31919; at: 2026-10-17T18:20:07Z
+# seed: 31920; position: 1
+-test.shuffle 31920
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactGoFullConsume/real_sample    	    1116	    798745 ns/op	   2.56 MB/s	    1600 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/real_sample
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=real_sample digest=51033ad1d41555783c0b9a7e6fb29e5764b38480af58d4df5429851957f62ee5 checksum=14049023290538258828
+BenchmarkCompactGoFullConsume/query_compile  	      97	   9163566 ns/op	   2.20 MB/s	    8112 B/op	     121 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/query_compile
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=query_compile digest=ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5 checksum=12671580261533744780
+BenchmarkCompactGoFullConsume/rewrite        	     466	   1947789 ns/op	   2.63 MB/s	    1792 B/op	      22 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/rewrite
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=rewrite digest=b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1 checksum=2104309567939196057
+BenchmarkCompactGoFullConsume/language       	      94	   9365653 ns/op	   4.42 MB/s	  150434 B/op	     240 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/language
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=language digest=583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539 checksum=8515717651518575708
+BenchmarkCompactGoFullConsume/grammargen_lr  	       8	  95770288 ns/op	   2.46 MB/s	 1155600 B/op	    1706 allocs/op
+--- BENCH: BenchmarkCompactGoFullConsume/grammargen_lr
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+    hidden_tail_consume_benchmark_test.go:76: CONSUME_TREE fixture=grammargen_lr digest=1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2 checksum=15472023025600388441
+BenchmarkGoParseFullDFA                      	     228	   3921087 ns/op	   4.92 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkAdmissionR4Compact                  	    1074	    833687 ns/op	   2.46 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     524	   1716327 ns/op	   2.98 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8153753 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8462445 ns/op	   4.89 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  85126078 ns/op	   2.77 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8925	     98525 ns/op	 195.83 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	288215538	         3.102 ns/op	6219106.18 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	13.852s
+# completed seed: 31920; at: 2026-10-17T18:20:41Z
+# repository root at end: /workspace
+# revision at end: eb7de1cff16aa2b730e98bbc092fe8bf2c71a2ce
+# dirty at end: false
+# completed runs: 20
+# status: complete

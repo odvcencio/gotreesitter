@@ -1,0 +1,7 @@
+internal/parsercorephase0/link_record_packed.go:31:6: can inline packedLinkRecord.unpackInline with cost 76 as: method(packedLinkRecord) func() (linkRecord, bool) { if packed.metadata & uint32(3221225472) == uint32(3221225472) { return linkRecord{}, false }; link := linkRecord{...}; if packed.metadata & uint32(2147483648) == uint32(0) { link.order = uint64(packed.metadata >> uint(1)); link.flags = packed.metadata & uint32(1) } else { link.scoreDelta = int64(int16(uint16(packed.metadata))); link.order = uint64(packed.metadata >> uint(16) & uint32(8191)); link.flags = packed.metadata >> uint(29) & uint32(1) }; return link, true }
+internal/parsercorephase0/graph_link_storage.go:45:6: can inline (*Core).coldGraphLinkLowerBound with cost 44 as: method(*Core) func(LinkID) int { lo, hi := 0, len(c.linkCold); for loop; return lo }
+internal/parsercorephase0/graph_link_storage.go:30:6: cannot inline (*Core).coldGraphLink: function too complex: cost 110 exceeds budget 80
+internal/parsercorephase0/graph_link_storage.go:19:6: cannot inline (*Core).graphLink: function too complex: cost 194 exceeds budget 80
+internal/parsercorephase0/link_record_packed.go:15:6: cannot inline packInlineLinkRecord: function too complex: cost 94 exceeds budget 80
+internal/parsercorephase0/link_provenance.go:41:6: cannot inline (*Core).appendGraphLink: function too complex: cost 140 exceeds budget 80
+internal/parsercorephase0/link_provenance.go:32:6: cannot inline (*Core).appendGraphLinkChecked: function too complex: cost 149 exceeds budget 80

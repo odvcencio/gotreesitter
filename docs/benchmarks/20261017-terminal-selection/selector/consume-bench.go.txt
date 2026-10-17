@@ -1,0 +1,98 @@
+//go:build gts_parsercorephase0
+
+package gotreesitter_test
+
+import (
+	gts "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	"os"
+	"testing"
+)
+
+func BenchmarkCompactGoFullConsume(b *testing.B) {
+	fixtures, err := benchfixtures.LoadGoFullParseFixtures()
+	if err != nil {
+		b.Fatal(err)
+	}
+	type sample struct {
+		name   string
+		source []byte
+	}
+	source, err := os.ReadFile("internal/benchfixtures/testdata/real/go")
+	if err != nil {
+		b.Fatal(err)
+	}
+	samples := []sample{{"real_sample", source}}
+	for _, f := range fixtures {
+		samples = append(samples, sample{f.Fixture.ID, f.Source})
+	}
+	for _, row := range samples {
+		b.Run(row.name, func(b *testing.B) {
+			lang := grammars.GoLanguage()
+			p := gts.NewParser(lang)
+			p.SetAdmissionCandidateRoute(true)
+			stack := make([]*gts.Node, 0, 128)
+			consume := func(root *gts.Node) uint64 {
+				var sum uint64 = 1469598103934665603
+				stack = append(stack[:0], root)
+				for len(stack) != 0 {
+					n := stack[len(stack)-1]
+					stack[len(stack)-1] = nil
+					stack = stack[:len(stack)-1]
+					if n == nil {
+						b.Fatal("nil child")
+					}
+					sum = (sum ^ uint64(n.Symbol())) * 1099511628211
+					sum = (sum ^ uint64(n.StartByte())) * 1099511628211
+					sum = (sum ^ uint64(n.EndByte())) * 1099511628211
+					if n != root && n.Parent() == nil {
+						b.Fatal("missing parent link")
+					}
+					for i := n.ChildCount() - 1; i >= 0; i-- {
+						field := n.FieldNameForChild(i, lang)
+						for j := 0; j < len(field); j++ {
+							sum = (sum ^ uint64(field[j])) * 1099511628211
+						}
+						stack = append(stack, n.Child(i))
+					}
+				}
+				return sum
+			}
+			gts.ResetAdmissionCandidateCountersForTest()
+			warm, err := p.Parse(row.source)
+			if err != nil || warm == nil {
+				b.Fatalf("warm parse: %v", err)
+			}
+			if routed, fallback := gts.AdmissionCandidateCounters(); routed != 1 || fallback != 0 {
+				b.Fatalf("warm route: %d/%d", routed, fallback)
+			}
+			inspection, err := benchfixtures.InspectGoTree(warm.RootNode(), lang)
+			if err != nil {
+				b.Fatal(err)
+			}
+			want := consume(warm.RootNode())
+			warm.Release()
+			b.Logf("CONSUME_TREE fixture=%s digest=%s checksum=%d", row.name, inspection.SHA256, want)
+			gts.ResetAdmissionCandidateCountersForTest()
+			b.ReportAllocs()
+			b.SetBytes(int64(len(row.source)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				tree, err := p.Parse(row.source)
+				if err != nil || tree == nil {
+					b.Fatalf("parse: %v", err)
+				}
+				root := tree.RootNode()
+				if root.HasError() || root.EndByte() != uint32(len(row.source)) || consume(root) != want {
+					b.Fatal("consumed tree changed")
+				}
+				tree.Release()
+			}
+			b.StopTimer()
+			if routed, fallback := gts.AdmissionCandidateCounters(); routed != uint64(b.N) || fallback != 0 {
+				b.Fatalf("timed route: %d/%d want %d/0", routed, fallback, b.N)
+			}
+		})
+	}
+}

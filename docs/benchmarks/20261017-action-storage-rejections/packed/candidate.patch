@@ -1,0 +1,247 @@
+--- a/internal/parsercorephase0/core.go
++++ b/internal/parsercorephase0/core.go
+@@ -111 +110,0 @@
+-	actions    []Action
+@@ -113,0 +113,2 @@
++	packed     packedAction
++	actions    []Action
+@@ -158,0 +160,8 @@
++	if len(actions) == 1 {
++		action := actions[0]
++		if packed := packSingleAction(action); packed != 0 {
++			return ActionRow{data: &actionRowData{
++				descriptor: describeActionRow([]Action{action}), reusable: reusable, packed: packed,
++			}}
++		}
++	}
+@@ -169,0 +179,3 @@
++	if r.data.packed != 0 {
++		return 1
++	}
+@@ -175 +187,6 @@
+-func (r ActionRow) At(index int) Action { return r.data.actions[index] }
++func (r ActionRow) At(index int) Action {
++	if r.data.packed != 0 {
++		return [1]Action{r.data.packed.action()}[index]
++	}
++	return r.data.actions[index]
++}
+@@ -195 +212,7 @@
+-func (r ActionRow) actionRef(index int) *Action { return &r.data.actions[index] }
++func (r ActionRow) actionRef(index int, storage *Action) *Action {
++	if r.data.packed != 0 {
++		*storage = r.At(index)
++		return storage
++	}
++	return &r.data.actions[index]
++}
+@@ -2823 +2846 @@
+-func (c *Core) classifiedActionRef(boundary ClassifiedBoundary, ordinal int) (*Action, error) {
++func (c *Core) classifiedActionRef(boundary ClassifiedBoundary, ordinal int, storage *Action) (*Action, error) {
+@@ -2830 +2853 @@
+-	return boundary.actions.actionRef(ordinal), nil
++	return boundary.actions.actionRef(ordinal, storage), nil
+--- a/internal/parsercorephase0/link_provenance.go
++++ b/internal/parsercorephase0/link_provenance.go
+@@ -230 +230,2 @@
+-	act, err := c.classifiedActionRef(boundary, selectedOrdinal)
++	var actionStorage Action
++	act, err := c.classifiedActionRef(boundary, selectedOrdinal, &actionStorage)
+--- /dev/null
++++ b/internal/parsercorephase0/packed_action.go
+@@ -0,0 +1,58 @@
++package parsercorephase0
++
++// packedAction stores a canonical singleton row without a second allocation.
++// The low byte holds the kind and flags. Shifts use the next four bytes for
++// the full-width state; reductions use child/symbol/precedence/production.
++// Noncanonical unused fields retain the ordinary full Action representation.
++type packedAction uint64
++
++const packedActionPresent packedAction = 1 << 7
++
++func packSingleAction(a Action) packedAction {
++	if a.Type > ActionRecover {
++		return 0
++	}
++	p := packedActionPresent | packedAction(a.Type)
++	if a.Extra {
++		p |= 1 << 2
++	}
++	if a.ExtraChain {
++		p |= 1 << 3
++	}
++	if a.Repetition {
++		p |= 1 << 4
++	}
++	switch a.Type {
++	case ActionShift:
++		if a.Symbol != 0 || a.ChildCount != 0 || a.DynamicPrecedence != 0 || a.ProductionID != 0 {
++			return 0
++		}
++		p |= packedAction(a.State) << 8
++	case ActionReduce:
++		if a.State != 0 {
++			return 0
++		}
++		p |= packedAction(a.ChildCount)<<8 | packedAction(a.Symbol)<<16 |
++			packedAction(uint16(a.DynamicPrecedence))<<32 | packedAction(a.ProductionID)<<48
++	default:
++		if a.State != 0 || a.Symbol != 0 || a.ChildCount != 0 || a.DynamicPrecedence != 0 || a.ProductionID != 0 {
++			return 0
++		}
++	}
++	return p
++}
++
++func (p packedAction) action() Action {
++	a := Action{Type: ActionType(p & 3), Extra: p&(1<<2) != 0,
++		ExtraChain: p&(1<<3) != 0, Repetition: p&(1<<4) != 0}
++	switch a.Type {
++	case ActionShift:
++		a.State = StateID(p >> 8)
++	case ActionReduce:
++		a.ChildCount = uint8(p >> 8)
++		a.Symbol = Symbol(p >> 16)
++		a.DynamicPrecedence = int16(p >> 32)
++		a.ProductionID = uint16(p >> 48)
++	}
++	return a
++}
+--- /dev/null
++++ b/internal/parsercorephase0/packed_action_test.go
+@@ -0,0 +1,112 @@
++package parsercorephase0
++
++import (
++	"math"
++	"testing"
++	"unsafe"
++)
++
++var packedActionRowSink ActionRow
++var packedActionValueSink Action
++
++func TestPackedSingleActionPreservesAllFields(t *testing.T) {
++	cases := []Action{
++		{Type: ActionShift},
++		{Type: ActionShift, State: math.MaxUint32},
++		{Type: ActionReduce},
++		{Type: ActionReduce, Symbol: math.MaxUint16, ChildCount: math.MaxUint8,
++			DynamicPrecedence: math.MinInt16, ProductionID: math.MaxUint16},
++		{Type: ActionReduce, Symbol: 1, ChildCount: 1, DynamicPrecedence: math.MaxInt16, ProductionID: 1},
++		{Type: ActionAccept},
++		{Type: ActionRecover},
++	}
++	for _, original := range cases {
++		for flags := 0; flags < 8; flags++ {
++			action := original
++			action.Extra, action.ExtraChain, action.Repetition = flags&1 != 0, flags&2 != 0, flags&4 != 0
++			word := packSingleAction(action)
++			if word == 0 || word.action() != action {
++				t.Fatalf("round trip=%+v, want %+v; word=%x", word.action(), action, word)
++			}
++		}
++	}
++	for _, action := range []Action{
++		{Type: ActionShift, Symbol: 1}, {Type: ActionShift, ChildCount: 1},
++		{Type: ActionShift, DynamicPrecedence: -1}, {Type: ActionShift, ProductionID: 1},
++		{Type: ActionReduce, State: 1}, {Type: ActionAccept, State: 1},
++		{Type: ActionAccept, Symbol: 1}, {Type: ActionAccept, ChildCount: 1},
++		{Type: ActionAccept, DynamicPrecedence: -1}, {Type: ActionAccept, ProductionID: 1},
++		{Type: ActionRecover, Symbol: 1}, {Type: ActionType(math.MaxUint8)},
++	} {
++		if word := packSingleAction(action); word != 0 {
++			t.Fatalf("noncanonical action packed: %+v -> %x", action, word)
++		}
++		row := NewActionRow([]Action{action}, true)
++		if row.Len() != 1 || row.At(0) != action || !row.Reusable() {
++			t.Fatalf("fallback changed %+v", action)
++		}
++	}
++}
++
++func TestPackedSingleActionRowKeepsOwnershipAndBounds(t *testing.T) {
++	for _, input := range [][]Action{
++		{{Type: ActionShift, State: 2}},
++		{{Type: ActionReduce, Symbol: 8, ChildCount: 2, DynamicPrecedence: -5, ProductionID: 65535}},
++		{{Type: ActionShift, State: 2, Symbol: 9}},
++		{{Type: ActionShift, State: 2}, {Type: ActionReduce, Symbol: 8, ChildCount: 1}},
++	} {
++		want := append([]Action(nil), input...)
++		row := NewActionRow(input, true)
++		descriptor := row.Descriptor()
++		for index := range input {
++			input[index] = Action{Type: ActionRecover, State: 99}
++		}
++		if row.Len() != len(want) || row.Descriptor() != descriptor || !row.Reusable() {
++			t.Fatal("caller mutation changed immutable row metadata")
++		}
++		for index, action := range want {
++			if row.At(index) != action {
++				t.Fatalf("action %d=%+v, want %+v", index, row.At(index), action)
++			}
++			copy := row.At(index)
++			copy.State = 123
++			if row.At(index) != action {
++				t.Fatal("returned value aliases the row")
++			}
++		}
++		for _, index := range []int{-1, len(want)} {
++			func() {
++				defer func() {
++					if recover() == nil {
++						t.Fatalf("out-of-range index %d did not panic", index)
++					}
++				}()
++				_ = row.At(index)
++			}()
++		}
++	}
++}
++
++func TestPackedSingleActionRowAllocationAndHandleSize(t *testing.T) {
++	if unsafe.Sizeof(ActionRow{}) != unsafe.Sizeof(uintptr(0)) || unsafe.Sizeof(packedAction(0)) != 8 {
++		t.Fatal("public row handle widened or packed action is not eight bytes")
++	}
++	if count := testing.AllocsPerRun(100, func() {
++		packedActionRowSink = NewActionRow([]Action{{Type: ActionShift, State: 2}}, true)
++	}); count != 1 {
++		t.Fatalf("singleton row allocations=%v, want one immutable header", count)
++	}
++	c, _, boundary := newSchedulerTransactionShiftFixture(t)
++	if count := testing.AllocsPerRun(100, func() {
++		var storage Action
++		action, err := c.classifiedActionRef(boundary, 0, &storage)
++		if err != nil {
++			t.Fatal(err)
++		}
++		packedActionValueSink = *action
++	}); count != 0 {
++		t.Fatalf("classified action lookup allocations=%v, want zero", count)
++	}
++	t.Logf("Action=%d packed=%d row_handle=%d row_header=%d", unsafe.Sizeof(Action{}),
++		unsafe.Sizeof(packedAction(0)), unsafe.Sizeof(ActionRow{}), unsafe.Sizeof(actionRowData{}))
++}
+--- a/internal/parsercorephase0/scheduler_owned.go
++++ b/internal/parsercorephase0/scheduler_owned.go
+@@ -1110 +1110,2 @@
+-	act, err := c.classifiedActionRef(boundary, actionOrdinal)
++	var actionStorage Action
++	act, err := c.classifiedActionRef(boundary, actionOrdinal, &actionStorage)
+@@ -1267 +1268,2 @@
+-		action, err := c.classifiedActionRef(boundary, 0)
++		var actionStorage Action
++		action, err := c.classifiedActionRef(boundary, 0, &actionStorage)
+@@ -1410 +1412,2 @@
+-		action, err := c.classifiedActionRef(boundary, 0)
++		var actionStorage Action
++		action, err := c.classifiedActionRef(boundary, 0, &actionStorage)
+@@ -1719,0 +1723 @@
++	var actionStorage Action
+@@ -1725 +1729 @@
+-		act = boundary.actions.actionRef(0)
++		act = boundary.actions.actionRef(0, &actionStorage)
+@@ -1727 +1731 @@
+-		act, err = c.classifiedActionRef(boundary, actionOrdinal)
++		act, err = c.classifiedActionRef(boundary, actionOrdinal, &actionStorage)

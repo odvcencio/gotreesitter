@@ -1,0 +1,25 @@
+{
+  "baseline-inline.log": {
+    "sha256": "53b2f3c05e31a89f75a48b0db5b2a2ceebf21264a588b1a2641118118d1e064c",
+    "bytes": 2328877,
+    "lines": [
+      "internal/parsercorephase0/core.go:4978:6: can inline (*Core).externalPayloadScannerProvenance with cost 71 as: method(*Core) func(SubtreeID) (externalPayloadProvenance, bool) { low, high := 0, len(c.externalProvenance); for loop; if low >= len(c.externalProvenance) || c.externalProvenance[low].payload != payload { return externalPayloadProvenance{}, false }; return c.externalProvenance[low], true }",
+      "internal/parsercorephase0/core.go:4855:56: inlining call to (*Core).externalPayloadScannerProvenance",
+      "internal/parsercorephase0/core.go:5254:66: inlining call to (*Core).externalPayloadScannerProvenance",
+      "internal/parsercorephase0/core.go:5255:68: inlining call to (*Core).externalPayloadScannerProvenance",
+      "internal/parsercorephase0/reduction_child_selection.go:110:60: inlining call to (*Core).externalPayloadScannerProvenance",
+      "internal/parsercorephase0/core.go:4913:55: inlining call to (*Core).externalPayloadScannerProvenance",
+      "internal/parsercorephase0/eager_materialization.go:72:58: inlining call to (*Core).externalPayloadScannerProvenance",
+      "internal/parsercorephase0/drop_cohort_arena.go:1238:58: inlining call to (*Core).externalPayloadScannerProvenance",
+      "internal/parsercorephase0/drop_cohort_arena.go:1354:48: inlining call to (*Core).externalPayloadScannerProvenance",
+      "internal/parsercorephase0/drop_cohort_arena.go:1355:48: inlining call to (*Core).externalPayloadScannerProvenance"
+    ]
+  },
+  "candidate-inline.log": {
+    "sha256": "8ca78ce1a43998393a85ee71db2f56274e9be5d15ba3a2e802eee182c1870c72",
+    "bytes": 2328167,
+    "lines": [
+      "internal/parsercorephase0/external_provenance_hints.go:10:6: cannot inline (*Core).externalPayloadScannerProvenance: function too complex: cost 128 exceeds budget 80"
+    ]
+  }
+}

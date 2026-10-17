@@ -71,10 +71,10 @@ func TestG18HistoricalReferencesSurviveLineageArenaGrowth(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			var want DropCohortRefSet
-			var oldBacking *nodeLineageRecord
+			var oldBacking *nodeLineageHot
 			compact, outputs := g18HistoricalAlternativeSetProducerFixtureWithCertificateAndAuth(t, func(c *Core) {
 				for i := range c.nodeLineages {
-					if refs := mustLineageRefs(t, c, c.nodeLineages[i].dropCohortRefIndex); !refs.Empty() {
+					if refs := mustLineageRefs(t, c, c.testLineageAt(int(i)).dropCohortRefIndex); !refs.Empty() {
 						want = refs
 						break
 					}
@@ -163,7 +163,7 @@ func TestG18HistoricalAlternativeSetImportRejectsIdentityCorruption(t *testing.T
 	mutateRef := func(mutate func(*DropCohortRef)) func(*Core) {
 		return func(compact *Core) {
 			for index := range compact.nodeLineages {
-				refIndex := compact.nodeLineages[index].dropCohortRefIndex
+				refIndex := compact.testLineageAt(int(index)).dropCohortRefIndex
 				if refIndex == 0 {
 					continue
 				}

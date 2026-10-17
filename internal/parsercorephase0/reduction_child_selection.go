@@ -61,16 +61,46 @@ func (c *Core) reductionTerminalHistoriesEqual(left, right SubtreeID) (bool, err
 	budget := uint64(len(c.subtrees)) + uint64(len(c.children))
 	var work uint64
 	for {
-		l, clean, err := c.nextReductionTerminal(&leftStack, &work, budget)
+		l, clean, err := c.nextReductionTerminalCandidate(&leftStack, &work, budget)
 		if err != nil || !clean {
 			return false, err
 		}
-		r, clean, err := c.nextReductionTerminal(&rightStack, &work, budget)
+		// Validate the left terminal before visiting the right history, retaining
+		// the original decline/error order. No callbacks or metadata writes run
+		// between these cursor steps, so a shared ID needs this proof once.
+		if l != 0 {
+			valid, err := c.reductionTerminalScannerExact(l)
+			if err != nil || !valid {
+				return false, err
+			}
+			if last := len(rightStack) - 1; last >= 0 && rightStack[last] == l {
+				// The right cursor already points at this validated terminal.
+				// Consume its one budgeted visit; no parent walk is skipped.
+				if work >= budget {
+					return false, nil
+				}
+				work++
+				rightStack = rightStack[:last]
+				continue
+			}
+		}
+		r, clean, err := c.nextReductionTerminalCandidate(&rightStack, &work, budget)
 		if err != nil || !clean {
 			return false, err
+		}
+		if r != 0 && r != l {
+			valid, err := c.reductionTerminalScannerExact(r)
+			if err != nil || !valid {
+				return false, err
+			}
 		}
 		if l == 0 || r == 0 {
 			return l == r, nil
+		}
+		if l == r {
+			// Both traversals and their shared budget still ran. The same live
+			// payload also has the same scalar data and skipped-prefix row.
+			continue
 		}
 		equal, err := c.subtreesStructurallyEqual(l, r)
 		if err != nil || !equal {
@@ -84,7 +114,9 @@ func (c *Core) reductionTerminalHistoriesEqual(left, right SubtreeID) (bool, err
 	}
 }
 
-func (c *Core) nextReductionTerminal(stack *[]SubtreeID, work *uint64, budget uint64) (SubtreeID, bool, error) {
+// nextReductionTerminalCandidate keeps traversal validation and the shared work
+// budget. The caller must validate the scanner pair before comparing a candidate.
+func (c *Core) nextReductionTerminalCandidate(stack *[]SubtreeID, work *uint64, budget uint64) (SubtreeID, bool, error) {
 	for len(*stack) != 0 {
 		if *work >= budget {
 			return 0, false, nil
@@ -106,19 +138,7 @@ func (c *Core) nextReductionTerminal(stack *[]SubtreeID, work *uint64, budget ui
 			if !record.external {
 				return 0, false, nil
 			}
-			if record.external {
-				provenance, exact := c.externalPayloadScannerProvenance(id)
-				if !exact {
-					return 0, false, nil
-				}
-				for _, checkpoint := range [...]CheckpointID{provenance.start, provenance.end} {
-					if checkpoint != 0 {
-						if _, ok := c.checkpoints.record(checkpoint); !ok {
-							return 0, false, errors.New("parser-core phase zero: reduction terminal checkpoint is unavailable")
-						}
-					}
-				}
-			}
+
 			return id, true, nil
 		}
 		for index := record.childCount; index > 0; index-- {

@@ -1,0 +1,16 @@
+{
+  "baseline": "5e52cf2a2644f3d38785513eebc39f8cf8a506b2",
+  "scope": "first-slot plus collision-only remainder, independent timing source from caller-owned sink",
+  "order": [
+    "empty table completes with the original zero slot and absent ID",
+    "first bucket is hash & (n-1), exactly the original offset zero",
+    "generation mismatch or full key equality completes in that bucket",
+    "only a same-generation different key enters remainingProbe",
+    "remaining offsets 1 through n-1 visit every remaining bucket once in the original masked order",
+    "a full-table miss restores the original zero slot"
+  ],
+  "key_equality": "full state, byteOffset, checkpoint and flags remain compared",
+  "Core_preconditions": "fresh boundaryProbeForKey literal supplies zero slot/found; full lookup wrapper clears reused scratch before firstProbe",
+  "storage_and_lifetime": "same index/slot/probe/journal types; caller scratch never retained and no callback or table mutation between checks",
+  "preserved_failure_and_mutation_order": "Core frontier, predecessor, payload and stored-cost validations still precede probing; publish and rollback mechanics unchanged"
+}

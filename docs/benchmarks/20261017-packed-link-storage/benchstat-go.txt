@@ -1,0 +1,167 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                         sec/op                                          │                              sec/op                               vs base               │
+GoParseIncrementalNoEditDFA                                                                                              3.148n ± 0%                                                        3.132n ± 1%       ~ (p=0.279 n=20)
+AdmissionR4Compact                                                                                                       784.2µ ± 3%                                                        835.9µ ± 4%  +6.60% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA                                                                                      98.85µ ± 0%                                                       100.20µ ± 0%  +1.36% (p=0.000 n=20)
+CompactGoFullConsume/real_sample                                                                                         798.3µ ± 0%                                                        847.2µ ± 1%  +6.12% (p=0.000 n=20)
+CompactGoFullConsume/query_compile                                                                                       9.119m ± 1%                                                        9.693m ± 1%  +6.30% (p=0.000 n=20)
+CompactGoFullConsume/rewrite                                                                                             1.936m ± 0%                                                        2.061m ± 1%  +6.44% (p=0.000 n=20)
+CompactGoFullConsume/language                                                                                            9.372m ± 1%                                                       10.032m ± 0%  +7.04% (p=0.000 n=20)
+CompactGoFullConsume/grammargen_lr                                                                                       97.00m ± 1%                                                       102.61m ± 1%  +5.78% (p=0.000 n=20)
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.702m ± 0%                                                        1.825m ± 1%  +7.19% (p=0.000 n=20)
+ParserCoreFreshFullCanonical/query_compile                                                                               8.113m ± 0%                                                        8.660m ± 5%  +6.75% (p=0.000 n=20)
+ParserCoreFreshFullCanonical/language                                                                                    8.448m ± 1%                                                        9.123m ± 1%  +7.99% (p=0.000 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               86.42m ± 1%                                                        92.25m ± 2%  +6.75% (p=0.000 n=20)
+GoParseFullDFA                                                                                                           3.917m ± 0%                                                        3.888m ± 0%  -0.73% (p=0.001 n=20)
+geomean                                                                                                                  1.448m                                                             1.523m       +5.12%
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                           B/s                                           │                               B/s                                 vs base               │
+GoParseIncrementalNoEditDFA                                                                                             5.574Ti ± 0%                                                       5.602Ti ± 1%       ~ (p=0.265 n=20)
+AdmissionR4Compact                                                                                                      2.489Mi ± 3%                                                       2.337Mi ± 4%  -6.13% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA                                                                                     186.2Mi ± 0%                                                       183.6Mi ± 0%  -1.35% (p=0.000 n=20)
+CompactGoFullConsume/real_sample                                                                                        2.446Mi ± 1%                                                       2.303Mi ± 1%  -5.85% (p=0.000 n=20)
+CompactGoFullConsume/query_compile                                                                                      2.112Mi ± 1%                                                       1.984Mi ± 0%  -6.09% (p=0.000 n=20)
+CompactGoFullConsume/rewrite                                                                                            2.518Mi ± 0%                                                       2.365Mi ± 1%  -6.06% (p=0.000 n=20)
+CompactGoFullConsume/language                                                                                           4.215Mi ± 1%                                                       3.934Mi ± 1%  -6.67% (p=0.000 n=20)
+CompactGoFullConsume/grammargen_lr                                                                                      2.317Mi ± 1%                                                       2.189Mi ± 1%  -5.56% (p=0.000 n=20)
+ParserCoreFreshFullCanonical/rewrite                                                                                    2.866Mi ± 0%                                                       2.670Mi ± 1%  -6.82% (p=0.000 n=20)
+ParserCoreFreshFullCanonical/query_compile                                                                              2.375Mi ± 0%                                                       2.222Mi ± 4%  -6.43% (p=0.000 n=20)
+ParserCoreFreshFullCanonical/language                                                                                   4.673Mi ± 1%                                                       4.325Mi ± 1%  -7.45% (p=0.000 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                                                              2.599Mi ± 1%                                                       2.437Mi ± 2%  -6.24% (p=0.000 n=20)
+GoParseFullDFA                                                                                                          4.697Mi ± 0%                                                       4.730Mi ± 0%  +0.71% (p=0.001 n=20)
+geomean                                                                                                                 12.21Mi                                                            11.61Mi       -4.92%
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                          B/op                                           │                              B/op                               vs base                 │
+GoParseIncrementalNoEditDFA                                                                                             0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                                    1.562Ki ± 0%                                                       1.562Ki ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                                                                     394.0 ± 0%                                                         394.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactGoFullConsume/real_sample                                                                                      1.562Ki ± 0%                                                       1.562Ki ± 0%       ~ (p=1.000 n=20) ¹
+CompactGoFullConsume/query_compile                                                                                    7.922Ki ± 0%                                                       7.922Ki ± 0%       ~ (p=1.000 n=20) ¹
+CompactGoFullConsume/rewrite                                                                                          1.750Ki ± 0%                                                       1.750Ki ± 0%       ~ (p=1.000 n=20) ¹
+CompactGoFullConsume/language                                                                                         146.9Ki ± 0%                                                       146.9Ki ± 0%  +0.00% (p=0.000 n=20)
+CompactGoFullConsume/grammargen_lr                                                                                    1.102Mi ± 0%                                                       1.102Mi ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                                                                  1.734Ki ± 0%                                                       1.734Ki ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                            7.906Ki ± 0%                                                       7.906Ki ± 0%       ~ (p=1.000 n=20)
+ParserCoreFreshFullCanonical/language                                                                                 146.9Ki ± 0%                                                       146.9Ki ± 0%       ~ (p=0.604 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                                                            1.102Mi ± 0%                                                       1.102Mi ± 0%       ~ (p=1.000 n=20)
+GoParseFullDFA                                                                                                        1.132Ki ± 0%                                                       1.132Ki ± 0%       ~ (p=1.000 n=20)
+geomean                                                                                                                            ²                                                                   +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                        allocs/op                                        │                           allocs/op                             vs base                 │
+GoParseIncrementalNoEditDFA                                                                                             0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                                      22.00 ± 0%                                                         22.00 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                                                                     5.000 ± 0%                                                         5.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactGoFullConsume/real_sample                                                                                        22.00 ± 0%                                                         22.00 ± 0%       ~ (p=1.000 n=20) ¹
+CompactGoFullConsume/query_compile                                                                                      121.0 ± 0%                                                         121.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactGoFullConsume/rewrite                                                                                            22.00 ± 0%                                                         22.00 ± 0%       ~ (p=1.000 n=20) ¹
+CompactGoFullConsume/language                                                                                           240.0 ± 0%                                                         240.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactGoFullConsume/grammargen_lr                                                                                     1.706k ± 0%                                                        1.706k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                                                                    21.00 ± 0%                                                         21.00 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                              120.0 ± 0%                                                         120.0 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                   239.0 ± 0%                                                         239.0 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                             1.705k ± 0%                                                        1.705k ± 0%       ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                                                                          6.000 ± 0%                                                         6.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                            ²                                                                   +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                   │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                   │                                  compact-fallbacks/op                                   │                        compact-fallbacks/op                          vs base            │
+AdmissionR4Compact                                                                                0.000 ± 0%                                                            0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                   │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                   │                                    compact-routes/op                                    │                          compact-routes/op                           vs base            │
+AdmissionR4Compact                                                                                1.000 ± 0%                                                            1.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                  candidate_fallback/op                                  │                     candidate_fallback/op                       vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                    0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                              0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                   0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                              0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                            ²                                                                   +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                              compact_leaf_constructions/op                              │                 compact_leaf_constructions/op                   vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.109k ± 0%                                                      1.109k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               5.546k ± 0%                                                      5.546k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    5.375k ± 0%                                                      5.375k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               53.90k ± 0%                                                      53.90k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  6.497k                                                           6.497k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                compact_link_additions/op                                │                   compact_link_additions/op                     vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     2.995k ± 0%                                                      2.995k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               14.66k ± 0%                                                      14.66k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    15.07k ± 0%                                                      15.07k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               148.4k ± 0%                                                      148.4k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  17.70k                                                           17.70k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                             compact_parent_constructions/op                             │                compact_parent_constructions/op                  vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.504k ± 0%                                                      1.504k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               7.415k ± 0%                                                      7.415k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    7.623k ± 0%                                                      7.623k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               75.77k ± 0%                                                      75.77k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  8.959k                                                           8.959k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                  compact_pop_paths/op                                   │                      compact_pop_paths/op                       vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.635k ± 0%                                                      1.635k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               7.981k ± 0%                                                      7.981k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    8.326k ± 0%                                                      8.326k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               82.26k ± 0%                                                      82.26k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  9.723k                                                           9.723k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                 compact_pop_payloads/op                                 │                    compact_pop_payloads/op                      vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     2.982k ± 0%                                                      2.982k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               14.60k ± 0%                                                      14.60k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    15.77k ± 0%                                                      15.77k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               150.5k ± 0%                                                      150.5k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  17.93k                                                           17.93k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                 compact_pop_requests/op                                 │                    compact_pop_requests/op                      vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.493k ± 0%                                                      1.493k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               7.382k ± 0%                                                      7.382k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    7.513k ± 0%                                                      7.513k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               74.91k ± 0%                                                      74.91k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  8.875k                                                           8.875k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                  compact_reductions/op                                  │                     compact_reductions/op                       vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.493k ± 0%                                                      1.493k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               7.382k ± 0%                                                      7.382k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    7.513k ± 0%                                                      7.513k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               74.91k ± 0%                                                      74.91k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  8.875k                                                           8.875k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/go-head.txt │
+                                           │                                    compact_shifts/op                                    │                       compact_shifts/op                         vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.348k ± 0%                                                      1.348k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               6.685k ± 0%                                                      6.685k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    6.512k ± 0%                                                      6.512k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               66.11k ± 0%                                                      66.11k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  7.892k                                                           7.892k       +0.00%
+¹ all samples are equal

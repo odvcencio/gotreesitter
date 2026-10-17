@@ -1,0 +1,114 @@
+=== RUN   TestDiagnosticParserCoreGenericReductionUnchangedDistinctLexerSnapshotFailsClosedBeforePhysicalMerge
+--- PASS: TestDiagnosticParserCoreGenericReductionUnchangedDistinctLexerSnapshotFailsClosedBeforePhysicalMerge (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericReductionUnchangedEqualSnapshotDoesNotDuplicatePhysicalHead
+--- PASS: TestDiagnosticParserCoreGenericReductionUnchangedEqualSnapshotDoesNotDuplicatePhysicalHead (0.00s)
+=== RUN   TestParserCoreFreshFullRunnerRepeatedCanonicalLifecycle
+--- PASS: TestParserCoreFreshFullRunnerRepeatedCanonicalLifecycle (0.29s)
+=== RUN   TestDiagnosticParserCoreGenericWorkSaturatesCausalCounters
+--- PASS: TestDiagnosticParserCoreGenericWorkSaturatesCausalCounters (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericRepetitionFoldMatchesProductionScope
+--- PASS: TestDiagnosticParserCoreGenericRepetitionFoldMatchesProductionScope (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericRepetitionFoldReducesWithoutFork
+--- PASS: TestDiagnosticParserCoreGenericRepetitionFoldReducesWithoutFork (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericRepetitionForkMatchesProductionOptOut
+--- PASS: TestDiagnosticParserCoreGenericRepetitionForkMatchesProductionOptOut (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericConflictPolicySelectsRepetitionReduce
+--- PASS: TestDiagnosticParserCoreGenericConflictPolicySelectsRepetitionReduce (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericConflictPolicySelectsRepetitionShift
+--- PASS: TestDiagnosticParserCoreGenericConflictPolicySelectsRepetitionShift (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericConflictPolicyRequiresExactRow
+--- PASS: TestDiagnosticParserCoreGenericConflictPolicyRequiresExactRow (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericConflictIgnoresNoArmsWhenRepetitionDeclinesCell
+--- PASS: TestDiagnosticParserCoreGenericConflictIgnoresNoArmsWhenRepetitionDeclinesCell (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericConflictArbitraryNOrdering
+--- PASS: TestDiagnosticParserCoreGenericConflictArbitraryNOrdering (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericConflictMultiOutputSequencing
+=== RUN   TestDiagnosticParserCoreGenericConflictMultiOutputSequencing/branch-order-overflow
+=== RUN   TestDiagnosticParserCoreGenericConflictMultiOutputSequencing/creation-sequence-overflow
+--- PASS: TestDiagnosticParserCoreGenericConflictMultiOutputSequencing (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericConflictMultiOutputSequencing/branch-order-overflow (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericConflictMultiOutputSequencing/creation-sequence-overflow (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericConflictArenaCapsRollback
+=== RUN   TestDiagnosticParserCoreGenericConflictArenaCapsRollback/partial-secondary
+=== RUN   TestDiagnosticParserCoreGenericConflictArenaCapsRollback/partial-primary
+--- PASS: TestDiagnosticParserCoreGenericConflictArenaCapsRollback (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericConflictArenaCapsRollback/partial-secondary (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericConflictArenaCapsRollback/partial-primary (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericConflictRejectsUnsupportedArmBeforeMutation
+--- PASS: TestDiagnosticParserCoreGenericConflictRejectsUnsupportedArmBeforeMutation (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation
+=== RUN   TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation/accept-and-no-action
+=== RUN   TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation/accept-and-shifted-sibling
+=== RUN   TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation/accept-and-reduction-sibling
+=== RUN   TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation/multiple-accepts
+=== RUN   TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation/accept-in-fork
+--- PASS: TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation/accept-and-no-action (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation/accept-and-shifted-sibling (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation/accept-and-reduction-sibling (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation/multiple-accepts (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation/accept-in-fork (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericSingleExtraPreservesPayloadAndState
+--- PASS: TestDiagnosticParserCoreGenericSingleExtraPreservesPayloadAndState (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericZeroWidthExternalExtraAdvancesCheckpoint
+--- PASS: TestDiagnosticParserCoreGenericZeroWidthExternalExtraAdvancesCheckpoint (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericZeroWidthExtraRequiresProgress
+=== RUN   TestDiagnosticParserCoreGenericZeroWidthExtraRequiresProgress/no_progress
+=== RUN   TestDiagnosticParserCoreGenericZeroWidthExtraRequiresProgress/parser_state_progress
+=== RUN   TestDiagnosticParserCoreGenericZeroWidthExtraRequiresProgress/byte_boundary_progress
+--- PASS: TestDiagnosticParserCoreGenericZeroWidthExtraRequiresProgress (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericZeroWidthExtraRequiresProgress/no_progress (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericZeroWidthExtraRequiresProgress/parser_state_progress (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericZeroWidthExtraRequiresProgress/byte_boundary_progress (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericMultiHeadExtraSharesPayload
+--- PASS: TestDiagnosticParserCoreGenericMultiHeadExtraSharesPayload (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericExtraRejectsMixedFrontier
+=== RUN   TestDiagnosticParserCoreGenericExtraRejectsMixedFrontier/mixed-runnable-frontier
+=== RUN   TestDiagnosticParserCoreGenericExtraRejectsMixedFrontier/no-action-sibling
+=== RUN   TestDiagnosticParserCoreGenericExtraRejectsMixedFrontier/already-shifted-sibling
+--- PASS: TestDiagnosticParserCoreGenericExtraRejectsMixedFrontier (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericExtraRejectsMixedFrontier/mixed-runnable-frontier (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericExtraRejectsMixedFrontier/no-action-sibling (0.00s)
+    --- PASS: TestDiagnosticParserCoreGenericExtraRejectsMixedFrontier/already-shifted-sibling (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericExtraPostExecutionFailureRollsBack
+--- PASS: TestDiagnosticParserCoreGenericExtraPostExecutionFailureRollsBack (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericExtraConflictFailsPreflight
+--- PASS: TestDiagnosticParserCoreGenericExtraConflictFailsPreflight (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericReductionPauseIsFinite
+--- PASS: TestDiagnosticParserCoreGenericReductionPauseIsFinite (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericReductionSequenceOverflowRollsBack
+--- PASS: TestDiagnosticParserCoreGenericReductionSequenceOverflowRollsBack (0.00s)
+=== RUN   TestCompactAcceptanceComparisonWorkspaceMemoryBudget
+--- PASS: TestCompactAcceptanceComparisonWorkspaceMemoryBudget (0.00s)
+=== RUN   TestCompactAcceptanceComparisonWorkspaceRetentionBound
+--- PASS: TestCompactAcceptanceComparisonWorkspaceRetentionBound (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericSeedConstructorFailsClosed
+--- PASS: TestDiagnosticParserCoreGenericSeedConstructorFailsClosed (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericSeedConstructorInitializesZeroWidthRelexBudgetElection
+--- PASS: TestDiagnosticParserCoreGenericSeedConstructorInitializesZeroWidthRelexBudgetElection (0.00s)
+=== RUN   TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte
+--- PASS: TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte (0.05s)
+=== RUN   TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing
+=== RUN   TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing/before-first-shift
+=== RUN   TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing/before-first-conflict
+=== RUN   TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing/before-first-extra
+=== RUN   TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing/before-accept
+--- PASS: TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing (0.11s)
+    --- PASS: TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing/before-first-shift (0.02s)
+    --- PASS: TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing/before-first-conflict (0.03s)
+    --- PASS: TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing/before-first-extra (0.03s)
+    --- PASS: TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing/before-accept (0.04s)
+=== RUN   TestDiagnosticParserCoreGenericSchedulerRejectsOvershotClosedByte
+--- PASS: TestDiagnosticParserCoreGenericSchedulerRejectsOvershotClosedByte (0.01s)
+=== RUN   TestDiagnosticParserCoreGenericSchedulerContinuesToNextRequestedClosedByte
+--- PASS: TestDiagnosticParserCoreGenericSchedulerContinuesToNextRequestedClosedByte (0.01s)
+=== RUN   TestDiagnosticParserCoreGenericSchedulerCrossesFirstShallowLinkCap
+--- PASS: TestDiagnosticParserCoreGenericSchedulerCrossesFirstShallowLinkCap (0.02s)
+=== RUN   TestDiagnosticParserCoreGenericSchedulerCrossesReductionFreshnessCycle
+--- PASS: TestDiagnosticParserCoreGenericSchedulerCrossesReductionFreshnessCycle (0.01s)
+=== RUN   TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort
+--- PASS: TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort (0.08s)
+=== RUN   TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite
+--- PASS: TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite (0.08s)
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.681s

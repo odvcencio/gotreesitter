@@ -86,7 +86,9 @@ func TestReusedSubtreeInvalidAdmission(t *testing.T) {
 		{"zero width", func(_ *Core, _ Head, r *ReusedSubtree) { r.EndByte = r.StartByte }},
 		{"before head", func(c *Core, h Head, _ *ReusedSubtree) { c.nodes[h.Node-1].byteOffset = 3 }},
 		{"ambiguous", func(c *Core, h Head, _ *ReusedSubtree) { c.nodes[h.Node-1].pathCount = 2 }},
-		{"recovery", func(c *Core, h Head, _ *ReusedSubtree) { c.nodeLineages[h.Node-1].storedErrorCost = 1 }},
+		{"recovery", func(c *Core, h Head, _ *ReusedSubtree) {
+			c.mutateTestLineage(int(h.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 1 })
+		}},
 		{"conflict", func(c *Core, _ Head, _ *ReusedSubtree) { c.reduceConflictContext = true }},
 		{"unauthenticated", func(c *Core, _ Head, _ *ReusedSubtree) { c.metadataConstructionAuthenticated = false }},
 	}

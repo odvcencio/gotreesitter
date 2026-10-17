@@ -717,8 +717,8 @@ func TestRecoveryDiscontinuityMergeRejectsDifferentStoredCostsBeforeMutation(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	core.nodeLineages[leftSeed.Node-1].storedErrorCost = 7
-	core.nodeLineages[rightSeed.Node-1].storedErrorCost = 8
+	core.mutateTestLineage(int(leftSeed.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 7 })
+	core.mutateTestLineage(int(rightSeed.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 8 })
 	var left, right Head
 	context := RecoveryDiscontinuityContext{ByteOffset: 0}
 	if err := core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
@@ -759,7 +759,7 @@ func TestRecordHeadStoredErrorCostRequiresFreshSpeculationPublication(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	core.nodeLineages[seed.Node-1].storedErrorCost = 7
+	core.mutateTestLineage(int(seed.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 7 })
 	if err := core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
 		if err := core.RecordHeadStoredErrorCostOwned(owner, seed, 7); err != nil {
 			return err

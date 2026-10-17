@@ -1,0 +1,241 @@
+--- a/internal/parsercorephase0/core.go
++++ b/internal/parsercorephase0/core.go
+@@ -2568,13 +2568 @@
+-	if c.checkpoint == end && c.externalTokenScannerExact &&
+-		c.externalTokenScannerStart == start && c.externalTokenScannerEnd == end {
+-		return nil
+-	}
+-	if c.classificationPhase == math.MaxUint64 {
+-		return errors.New("parser-core phase zero: classification phase overflow")
+-	}
+-	c.classificationPhase++
+-	c.checkpoint = end
+-	c.externalTokenScannerStart = start
+-	c.externalTokenScannerEnd = end
+-	c.externalTokenScannerExact = true
+-	return nil
++	return c.setPhaseExternalTokenScannerCheckpoints(start, end)
+--- /dev/null
++++ b/internal/parsercorephase0/scanner_election_binding.go
+@@ -0,0 +1,42 @@
++package parsercorephase0
++
++import (
++	"errors"
++	"math"
++)
++
++// ErrUnknownScannerCheckpoint identifies a scanner election whose checkpoint
++// IDs do not belong to the current interner contents.
++var ErrUnknownScannerCheckpoint = errors.New("parser-core phase zero: unknown checkpoint identity")
++
++// BindScannerElection validates both core-local checkpoint IDs and binds their
++// exact pair in one operation. Identity errors precede transaction errors, as
++// they do for a scheduler that resolves both receipts before binding. No user
++// code runs between validation and mutation.
++func (c *Core) BindScannerElection(start, end CheckpointID) error {
++	if c == nil || uint64(start) > uint64(len(c.checkpoints.records)) ||
++		uint64(end) > uint64(len(c.checkpoints.records)) {
++		return ErrUnknownScannerCheckpoint
++	}
++	if len(c.transactions) != 0 {
++		return errors.New("parser-core phase zero: set checkpoint during active transaction")
++	}
++	return c.setPhaseExternalTokenScannerCheckpoints(start, end)
++}
++
++// Both callers validate the pair and reject active transactions first.
++func (c *Core) setPhaseExternalTokenScannerCheckpoints(start, end CheckpointID) error {
++	if c.checkpoint == end && c.externalTokenScannerExact &&
++		c.externalTokenScannerStart == start && c.externalTokenScannerEnd == end {
++		return nil
++	}
++	if c.classificationPhase == math.MaxUint64 {
++		return errors.New("parser-core phase zero: classification phase overflow")
++	}
++	c.classificationPhase++
++	c.checkpoint = end
++	c.externalTokenScannerStart = start
++	c.externalTokenScannerEnd = end
++	c.externalTokenScannerExact = true
++	return nil
++}
+--- /dev/null
++++ b/internal/parsercorephase0/scanner_election_binding_test.go
+@@ -0,0 +1,129 @@
++package parsercorephase0
++
++import (
++	"errors"
++	"fmt"
++	"math"
++	"strings"
++	"testing"
++)
++
++func scannerElectionBindingState(c *Core) [6]uint64 {
++	exact := uint64(0)
++	if c.externalTokenScannerExact {
++		exact = 1
++	}
++	return [6]uint64{c.frontier, c.classificationPhase, uint64(c.checkpoint),
++		uint64(c.externalTokenScannerStart), uint64(c.externalTokenScannerEnd), exact}
++}
++
++func TestBindScannerElectionMatchesReceiptThenBinding(t *testing.T) {
++	for _, start := range []CheckpointID{0, 1, 2, 3, math.MaxUint32} {
++		for _, end := range []CheckpointID{0, 1, 2, 3, math.MaxUint32} {
++			t.Run(fmt.Sprintf("%d/%d", start, end), func(t *testing.T) {
++				old := newTinyCoreWithLimits(t, Limits{})
++				got := newTinyCoreWithLimits(t, Limits{})
++				for _, c := range []*Core{old, got} {
++					mustInternCheckpoint(t, c, []byte{1})
++					mustInternCheckpoint(t, c, []byte{2})
++					if err := c.SetPhaseExternalTokenScannerCheckpoints(1, 1); err != nil {
++						t.Fatal(err)
++					}
++				}
++				legacyBind := func(c *Core) error {
++					if _, _, ok := c.CheckpointReceipt(start); !ok {
++						return ErrUnknownScannerCheckpoint
++					}
++					if _, _, ok := c.CheckpointReceipt(end); !ok {
++						return ErrUnknownScannerCheckpoint
++					}
++					return c.SetPhaseExternalTokenScannerCheckpoints(start, end)
++				}
++				wantErr, gotErr := legacyBind(old), got.BindScannerElection(start, end)
++				if fmt.Sprint(gotErr) != fmt.Sprint(wantErr) ||
++					errors.Is(gotErr, ErrUnknownScannerCheckpoint) != errors.Is(wantErr, ErrUnknownScannerCheckpoint) {
++					t.Fatalf("error=%v, want %v", gotErr, wantErr)
++				}
++				if scannerElectionBindingState(got) != scannerElectionBindingState(old) || got.Work() != old.Work() {
++					t.Fatalf("state=%v, want %v", scannerElectionBindingState(got), scannerElectionBindingState(old))
++				}
++			})
++		}
++	}
++}
++
++func TestBindScannerElectionRejectsAtomically(t *testing.T) {
++	c := newTinyCoreWithLimits(t, Limits{})
++	id := mustInternCheckpoint(t, c, []byte{1})
++	if err := c.BindScannerElection(0, id); err != nil {
++		t.Fatal(err)
++	}
++	if err := c.ApplySchedulerAtomic(func(SchedulerTransactionToken) error {
++		before := scannerElectionBindingState(c)
++		if err := c.BindScannerElection(id, id); err == nil || !strings.Contains(err.Error(), "active transaction") {
++			t.Fatalf("transaction error=%v", err)
++		}
++		if err := c.BindScannerElection(id+1, id); !errors.Is(err, ErrUnknownScannerCheckpoint) {
++			t.Fatalf("invalid-ID error precedence=%v", err)
++		}
++		if scannerElectionBindingState(c) != before {
++			t.Fatal("rejection changed scanner election")
++		}
++		return nil
++	}); err != nil {
++		t.Fatal(err)
++	}
++	c.classificationPhase = math.MaxUint64
++	before := scannerElectionBindingState(c)
++	if err := c.BindScannerElection(id, id); err == nil || !strings.Contains(err.Error(), "overflow") {
++		t.Fatalf("overflow error=%v", err)
++	}
++	if scannerElectionBindingState(c) != before {
++		t.Fatal("overflow changed scanner election")
++	}
++	if err := c.BindScannerElection(0, id); err != nil {
++		t.Fatalf("unchanged election at maximum phase: %v", err)
++	}
++	c.classificationPhase = 1
++	if err := c.Reset(); err != nil {
++		t.Fatal(err)
++	}
++	if err := c.BindScannerElection(id, 0); !errors.Is(err, ErrUnknownScannerCheckpoint) {
++		t.Fatalf("pre-reset ID error=%v", err)
++	}
++	if err := c.BindScannerElection(0, 0); err != nil {
++		t.Fatalf("empty scanner election: %v", err)
++	}
++	var missing *Core
++	if err := missing.BindScannerElection(0, 0); !errors.Is(err, ErrUnknownScannerCheckpoint) {
++		t.Fatalf("nil-core error=%v", err)
++	}
++}
++
++func TestBindScannerElectionStartChangeInvalidatesBoundary(t *testing.T) {
++	c := newTinyCoreWithLimits(t, Limits{})
++	first := mustInternCheckpoint(t, c, []byte{1})
++	second := mustInternCheckpoint(t, c, []byte{2})
++	end := mustInternCheckpoint(t, c, []byte{3})
++	if err := c.BindScannerElection(first, end); err != nil {
++		t.Fatal(err)
++	}
++	head, err := c.Seed(1, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	boundary, err := c.ClassifyBoundary(head, 9)
++	if err != nil {
++		t.Fatal(err)
++	}
++	generation := c.AuthenticationGeneration()
++	if err := c.BindScannerElection(second, end); err != nil {
++		t.Fatal(err)
++	}
++	if c.AuthenticationGeneration() <= generation {
++		t.Fatal("changed start did not advance authentication")
++	}
++	if err := c.validateClassification(boundary); err == nil || !strings.Contains(err.Error(), "stale") {
++		t.Fatalf("old boundary error=%v", err)
++	}
++}
+--- a/parsercore_phase0_driver.go
++++ b/parsercore_phase0_driver.go
+@@ -6331,7 +6331,4 @@
+-	if _, _, ok := s.compact.CheckpointReceipt(request.beforeID); !ok {
+-		return errDiagnosticParserCoreUnknownCheckpointIdentity
+-	}
+-	if _, _, ok := s.compact.CheckpointReceipt(request.afterID); !ok {
+-		return errDiagnosticParserCoreUnknownCheckpointIdentity
+-	}
+-	if err := s.compact.SetPhaseExternalTokenScannerCheckpoints(request.beforeID, request.afterID); err != nil {
++	if err := s.compact.BindScannerElection(request.beforeID, request.afterID); err != nil {
++		if errors.Is(err, core.ErrUnknownScannerCheckpoint) {
++			return errDiagnosticParserCoreUnknownCheckpointIdentity
++		}
+--- a/parsercore_phase0_per_version_lexer_lifecycle_internal_test.go
++++ b/parsercore_phase0_per_version_lexer_lifecycle_internal_test.go
+@@ -866,0 +867,30 @@
++
++func TestDiagnosticParserCoreOwnedLexerBindingRejectsUnknownCheckpointsAtomically(t *testing.T) {
++	compact, err := core.New(&genericConflictTable{}, core.Limits{})
++	if err != nil {
++		t.Fatal(err)
++	}
++	known, err := compact.InternCheckpoint([]byte{1})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := compact.SetPhaseExternalTokenScannerCheckpoints(known, known); err != nil {
++		t.Fatal(err)
++	}
++	scheduler := diagnosticParserCoreGenericScheduler{compact: compact, electionIndex: 7, token: Token{Symbol: 9}, checkpointBeforeID: known, checkpointID: known}
++	request := diagnosticParserCoreVersionLexerRequest{valid: true, electionIndex: 7, token: Token{Symbol: 10}, beforeID: known, afterID: known}
++	prior := scheduler
++	for _, pair := range [][2]core.CheckpointID{{known + 1, known}, {known, known + 1}} {
++		request.beforeID, request.afterID = pair[0], pair[1]
++		if err := scheduler.bindVersionLexerRequest(&request); err != errDiagnosticParserCoreUnknownCheckpointIdentity {
++			t.Fatalf("pair=%v error=%v", pair, err)
++		}
++		if !reflect.DeepEqual(scheduler, prior) {
++			t.Fatal("invalid request changed scheduler")
++		}
++		_, start, end, exact := compact.PhaseScannerCheckpoints()
++		if !exact || start != known || end != known {
++			t.Fatalf("scanner phase changed: %d/%d/%t", start, end, exact)
++		}
++	}
++}

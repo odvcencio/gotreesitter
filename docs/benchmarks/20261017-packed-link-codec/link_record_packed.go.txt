@@ -1,0 +1,45 @@
+package parsercorephase0
+
+// packedLinkRecord keeps the three graph references and an inline metadata
+// word in sixteen bytes. Values outside either lossless inline format retain
+// the original complete linkRecord through the caller's cold path.
+type packedLinkRecord struct {
+	prev     NodeID
+	payload  SubtreeID
+	next     LinkID
+	metadata uint32
+}
+
+const packedLinkColdMetadata uint32 = 3 << 30
+
+func packInlineLinkRecord(link linkRecord) (packedLinkRecord, bool) {
+	packed := packedLinkRecord{prev: link.prev, payload: link.payload, next: link.next, metadata: packedLinkColdMetadata}
+	if link.flags & ^linkFlagHasOrder != 0 {
+		return packed, false
+	}
+	if link.scoreDelta == 0 && link.order < 1<<30 {
+		packed.metadata = uint32(link.order)<<1 | link.flags&linkFlagHasOrder
+		return packed, true
+	}
+	if link.scoreDelta == int64(int16(link.scoreDelta)) && link.order < 1<<13 {
+		packed.metadata = 1<<31 | uint32(uint16(int16(link.scoreDelta))) | uint32(link.order)<<16 | (link.flags&linkFlagHasOrder)<<29
+		return packed, true
+	}
+	return packed, false
+}
+
+func (packed packedLinkRecord) unpackInline() (linkRecord, bool) {
+	if packed.metadata&packedLinkColdMetadata == packedLinkColdMetadata {
+		return linkRecord{}, false
+	}
+	link := linkRecord{prev: packed.prev, payload: packed.payload, next: packed.next}
+	if packed.metadata&(1<<31) == 0 {
+		link.order = uint64(packed.metadata >> 1)
+		link.flags = packed.metadata & linkFlagHasOrder
+	} else {
+		link.scoreDelta = int64(int16(uint16(packed.metadata)))
+		link.order = uint64(packed.metadata >> 16 & ((1 << 13) - 1))
+		link.flags = packed.metadata >> 29 & linkFlagHasOrder
+	}
+	return link, true
+}

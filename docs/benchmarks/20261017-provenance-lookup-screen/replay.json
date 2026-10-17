@@ -1,0 +1,12 @@
+{
+  "baseline": "a03d0842994a85aa26cf494c8c67404e1e64e999",
+  "source_pins": "../20261017-action-storage-rejections/source-pins.json",
+  "diagnostic_shims": "../20261017-action-storage-rejections/inline/owned-{benchmark,ledger}.go.txt",
+  "original_evidence": [
+    "/home/draco/.local/state/gotreesitter-evidence/20261017-provenance-index-hints",
+    "/home/draco/.local/state/gotreesitter-evidence/20261017-provenance-hints-inline",
+    "/home/draco/.local/state/gotreesitter-evidence/20261017-terminal-provenance-lookup"
+  ],
+  "patches": "zero context; replay with git apply --unidiff-zero",
+  "original_absolute_overlays": "retained in original evidence directories with their hashes in input-pins.json"
+}

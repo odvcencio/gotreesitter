@@ -160,7 +160,7 @@ func TestReusedSubtreeProofRollbackAndOrderedKeys(t *testing.T) {
 		}
 		return stop
 	})
-	if !errors.Is(err, stop) || !c.reuseProof.invalid || c.nodeLineages[head.Node-1].converged {
+	if !errors.Is(err, stop) || !c.reuseProof.invalid || c.nodeLineages[head.Node-1].isConverged() {
 		t.Fatal("rollback resurrected a proof or retained lineage mutation")
 	}
 }

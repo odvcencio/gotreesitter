@@ -1,0 +1,12 @@
+{
+  "baseline": "87997c2fa33d0789e057827f031eabcdaec88ca5",
+  "amd64_measured": {
+    "old_record_bytes": 264,
+    "active_state_bytes": 120,
+    "cold_pair_bytes": 80,
+    "total_retained_election_bytes": 200
+  },
+  "stale_source_comment": "old driver says 280; measured unsafe.Sizeof is 264",
+  "semantics": "all production token writers audited; public full record and immutable election golden preserved; EOF state vector and all existing checkpoint authentication retained",
+  "qualification": "focused correctness/counters/race/386 passed; no throughput claim before randomized comparison"
+}

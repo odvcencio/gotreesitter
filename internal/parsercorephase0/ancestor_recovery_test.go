@@ -292,7 +292,7 @@ func TestAncestorStateWithActionExistsPreservesSilentVisitedCap(t *testing.T) {
 		MaxLinksPerBoundary: predecessorCount,
 	})
 	compact.nodes = make([]nodeRecord, predecessorCount+1)
-	compact.nodeLineages = make([]nodeLineageRecord, predecessorCount+1)
+	compact.nodeLineages = make([]nodeLineageHot, predecessorCount+1)
 	compact.links = make([]linkRecord, predecessorCount)
 	compact.subtrees = []subtreeRecord{{terminal: true}}
 	for index := range compact.links {
@@ -604,7 +604,7 @@ func TestRecoverToAncestorStateWithCostAccumulatesTrailingExtras(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	compact.nodeLineages[seed.Node-1].storedErrorCost = 9
+	compact.mutateTestLineage(int(seed.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 9 })
 	child := appendAncestorRecoveryPayload(t, compact, 1, 0, 1, false)
 	firstExtra := appendAncestorRecoveryPayload(t, compact, 2, 1, 2, true)
 	secondExtra := appendAncestorRecoveryPayload(t, compact, 3, 2, 3, true)

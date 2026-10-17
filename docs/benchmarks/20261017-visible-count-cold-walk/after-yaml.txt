@@ -1,0 +1,262 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# working directory: /workspace
+# repository root: /workspace
+# revision: 3283538b94f686e5622ff6d874b2366156e67ab4
+# dirty: false
+# source metadata: informational; no source snapshot authentication
+# started: 2026-10-17T14:37:25Z
+# package: .
+# bench regex: ^Benchmark(AdmissionR4Compact|AdmissionR4OwnedExternalLexer|AdmissionYAMLDocumentStreamOwned)$
+# required benchmarks: BenchmarkAdmissionR4Compact,BenchmarkAdmissionR4OwnedExternalLexer,BenchmarkAdmissionYAMLDocumentStreamOwned
+# build tags: gts_parsercorephase0
+# seeds: 31201..31220
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 31201; position: 2
+-test.shuffle 31201
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact               	    4840	    188896 ns/op	  10.58 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     702	   1306886 ns/op	   6.13 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44313 B/op	     336 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2736	    338783 ns/op	   5.90 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.006s
+# completed seed: 31201; at: 2026-10-17T14:37:37Z
+# seed: 31202; position: 1
+-test.shuffle 31202
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     700	   1301720 ns/op	   6.15 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44313 B/op	     336 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2800	    337433 ns/op	   5.92 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionR4Compact               	    4862	    190280 ns/op	  10.50 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.028s
+# completed seed: 31202; at: 2026-10-17T14:37:49Z
+# seed: 31203; position: 2
+-test.shuffle 31203
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4OwnedExternalLexer    	    2668	    333992 ns/op	   5.98 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionR4Compact               	    4880	    194410 ns/op	  10.28 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     696	   1299980 ns/op	   6.16 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.993s
+# completed seed: 31203; at: 2026-10-17T14:38:01Z
+# seed: 31204; position: 1
+-test.shuffle 31204
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact               	    4848	    188921 ns/op	  10.58 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     704	   1321610 ns/op	   6.06 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2710	    337677 ns/op	   5.92 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.010s
+# completed seed: 31204; at: 2026-10-17T14:38:14Z
+# seed: 31205; position: 2
+-test.shuffle 31205
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact               	    4971	    190434 ns/op	  10.49 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     684	   1336922 ns/op	   5.99 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2694	    341651 ns/op	   5.85 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.034s
+# completed seed: 31205; at: 2026-10-17T14:38:26Z
+# seed: 31206; position: 1
+-test.shuffle 31206
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact               	    4585	    188908 ns/op	  10.58 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2664	    341214 ns/op	   5.86 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     699	   1304285 ns/op	   6.14 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.938s
+# completed seed: 31206; at: 2026-10-17T14:38:40Z
+# seed: 31207; position: 2
+-test.shuffle 31207
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact               	    4996	    191107 ns/op	  10.45 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     697	   1318603 ns/op	   6.08 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44313 B/op	     336 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2722	    340194 ns/op	   5.87 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.049s
+# completed seed: 31207; at: 2026-10-17T14:38:52Z
+# seed: 31208; position: 1
+-test.shuffle 31208
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact               	    4932	    189374 ns/op	  10.55 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     690	   1302799 ns/op	   6.15 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2694	    335520 ns/op	   5.95 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.989s
+# completed seed: 31208; at: 2026-10-17T14:39:05Z
+# seed: 31209; position: 2
+-test.shuffle 31209
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact               	    4977	    190705 ns/op	  10.48 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2689	    335850 ns/op	   5.95 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     694	   1304037 ns/op	   6.14 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.007s
+# completed seed: 31209; at: 2026-10-17T14:39:17Z
+# seed: 31210; position: 1
+-test.shuffle 31210
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4OwnedExternalLexer    	    2751	    334350 ns/op	   5.98 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionR4Compact               	    4873	    190595 ns/op	  10.48 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     706	   1304461 ns/op	   6.14 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.016s
+# completed seed: 31210; at: 2026-10-17T14:39:29Z
+# seed: 31211; position: 2
+-test.shuffle 31211
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     684	   1341663 ns/op	   5.97 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44314 B/op	     336 allocs/op
+BenchmarkAdmissionR4Compact               	    4854	    194116 ns/op	  10.29 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2608	    341390 ns/op	   5.85 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.004s
+# completed seed: 31211; at: 2026-10-17T14:39:41Z
+# seed: 31212; position: 1
+-test.shuffle 31212
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4OwnedExternalLexer    	    2745	    336649 ns/op	   5.93 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionR4Compact               	    4832	    187948 ns/op	  10.63 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     680	   1312436 ns/op	   6.10 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.976s
+# completed seed: 31212; at: 2026-10-17T14:39:54Z
+# seed: 31213; position: 2
+-test.shuffle 31213
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4OwnedExternalLexer    	    2749	    338864 ns/op	   5.90 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionR4Compact               	    4848	    190916 ns/op	  10.47 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     700	   1294691 ns/op	   6.19 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.011s
+# completed seed: 31213; at: 2026-10-17T14:40:06Z
+# seed: 31214; position: 1
+-test.shuffle 31214
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact               	    4959	    192103 ns/op	  10.40 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2708	    334938 ns/op	   5.97 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     696	   1339961 ns/op	   5.98 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.042s
+# completed seed: 31214; at: 2026-10-17T14:40:18Z
+# seed: 31215; position: 2
+-test.shuffle 31215
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     687	   1301686 ns/op	   6.16 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44313 B/op	     336 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2804	    329133 ns/op	   6.07 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionR4Compact               	    4873	    188307 ns/op	  10.61 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.980s
+# completed seed: 31215; at: 2026-10-17T14:40:30Z
+# seed: 31216; position: 1
+-test.shuffle 31216
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     702	   1306467 ns/op	   6.13 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44314 B/op	     336 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2713	    332445 ns/op	   6.01 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionR4Compact               	    4855	    190562 ns/op	  10.48 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.988s
+# completed seed: 31216; at: 2026-10-17T14:40:43Z
+# seed: 31217; position: 2
+-test.shuffle 31217
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4OwnedExternalLexer    	    2726	    341312 ns/op	   5.85 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     693	   1329950 ns/op	   6.02 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44313 B/op	     336 allocs/op
+BenchmarkAdmissionR4Compact               	    4818	    189761 ns/op	  10.53 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.014s
+# completed seed: 31217; at: 2026-10-17T14:40:55Z
+# seed: 31218; position: 1
+-test.shuffle 31218
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4OwnedExternalLexer    	    2760	    335865 ns/op	   5.95 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     699	   1288613 ns/op	   6.22 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44313 B/op	     336 allocs/op
+BenchmarkAdmissionR4Compact               	    4914	    190794 ns/op	  10.47 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.010s
+# completed seed: 31218; at: 2026-10-17T14:41:07Z
+# seed: 31219; position: 2
+-test.shuffle 31219
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact               	    4843	    190707 ns/op	  10.48 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2588	    338977 ns/op	   5.89 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     699	   1324518 ns/op	   6.05 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44312 B/op	     336 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.978s
+# completed seed: 31219; at: 2026-10-17T14:41:20Z
+# seed: 31220; position: 1
+-test.shuffle 31220
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionYAMLDocumentStreamOwned 	     682	   1300050 ns/op	   6.16 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44314 B/op	     336 allocs/op
+BenchmarkAdmissionR4OwnedExternalLexer    	    2584	    331152 ns/op	   6.03 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   12872 B/op	     109 allocs/op
+BenchmarkAdmissionR4Compact               	    4802	    191197 ns/op	  10.45 MB/s	         1.000 compact-fallbacks/op	         0 compact-routes/op	   15608 B/op	      37 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.912s
+# completed seed: 31220; at: 2026-10-17T14:41:32Z
+# repository root at end: /workspace
+# revision at end: 3283538b94f686e5622ff6d874b2366156e67ab4
+# dirty at end: false
+# completed runs: 20
+# status: complete

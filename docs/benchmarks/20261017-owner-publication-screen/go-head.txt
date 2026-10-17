@@ -1,0 +1,362 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# working directory: /workspace
+# repository root: /workspace
+# revision: a03d0842994a85aa26cf494c8c67404e1e64e999
+# dirty: false
+# source metadata: informational; no source snapshot authentication
+# started: 2026-10-17T12:08:36Z
+# package: .
+# bench regex: ^Benchmark(ParserCoreFreshFullCanonical|GoParseFullDFA|GoParseIncrementalSingleByteEditDFA|GoParseIncrementalNoEditDFA|AdmissionR4Compact)$
+# required benchmarks: BenchmarkParserCoreFreshFullCanonical/rewrite,BenchmarkParserCoreFreshFullCanonical/query_compile,BenchmarkParserCoreFreshFullCanonical/language,BenchmarkParserCoreFreshFullCanonical/grammargen_lr,BenchmarkGoParseFullDFA,BenchmarkGoParseIncrementalSingleByteEditDFA,BenchmarkGoParseIncrementalNoEditDFA,BenchmarkAdmissionR4Compact
+# build tags: gts_parsercorephase0
+# seeds: 29601..29620
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 29601; position: 2
+-test.shuffle 29601
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact                  	    1154	    783399 ns/op	   2.61 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                      	     228	   3865323 ns/op	   4.99 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     523	   1711832 ns/op	   2.99 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8092837 ns/op	   2.49 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     106	   8566439 ns/op	   4.83 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87143868 ns/op	   2.70 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155589 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	282723157	         3.209 ns/op	6012747.22 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8974	    102539 ns/op	 188.16 MB/s	     394 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.655s
+# completed seed: 29601; at: 2026-10-17T12:09:02Z
+# seed: 29602; position: 1
+-test.shuffle 29602
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalNoEditDFA         	275744250	         3.221 ns/op	5990337.24 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	     231	   3910726 ns/op	   4.93 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8812	     99625 ns/op	 193.67 MB/s	     394 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     500	   1737943 ns/op	   2.94 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8170454 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     106	   8440619 ns/op	   4.90 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  89811718 ns/op	   2.62 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkAdmissionR4Compact                           	    1053	    785046 ns/op	   2.61 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.522s
+# completed seed: 29602; at: 2026-10-17T12:09:27Z
+# seed: 29603; position: 2
+-test.shuffle 29603
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     517	   1713390 ns/op	   2.99 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8111848 ns/op	   2.49 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8459045 ns/op	   4.89 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86663487 ns/op	   2.72 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkAdmissionR4Compact                           	    1108	    786236 ns/op	   2.60 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8792	     99396 ns/op	 194.11 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	268489372	         3.259 ns/op	5919815.48 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                               	     231	   3895222 ns/op	   4.95 MB/s	    1159 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	8.829s
+# completed seed: 29603; at: 2026-10-17T12:09:52Z
+# seed: 29604; position: 1
+-test.shuffle 29604
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     516	   1716249 ns/op	   2.98 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8133993 ns/op	   2.48 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8460680 ns/op	   4.89 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86584034 ns/op	   2.72 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8799	     99482 ns/op	 193.94 MB/s	     394 B/op	       5 allocs/op
+BenchmarkAdmissionR4Compact                           	    1147	    783167 ns/op	   2.61 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                               	     231	   3859181 ns/op	   5.00 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	278189910	         3.209 ns/op	6013287.53 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	8.859s
+# completed seed: 29604; at: 2026-10-17T12:10:16Z
+# seed: 29605; position: 2
+-test.shuffle 29605
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact                  	    1150	    783281 ns/op	   2.61 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8556	     99176 ns/op	 194.54 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	281238042	         3.215 ns/op	6000632.22 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                      	     229	   3870742 ns/op	   4.98 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     530	   1708990 ns/op	   2.99 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8181398 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     106	   8481931 ns/op	   4.88 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87307759 ns/op	   2.70 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.606s
+# completed seed: 29605; at: 2026-10-17T12:10:42Z
+# seed: 29606; position: 1
+-test.shuffle 29606
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     526	   1738331 ns/op	   2.94 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8275394 ns/op	   2.44 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8496546 ns/op	   4.87 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86279299 ns/op	   2.73 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8175	     99993 ns/op	 192.95 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                               	     231	   3885758 ns/op	   4.97 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	277556592	         3.260 ns/op	5917697.37 MB/s	       0 B/op	       0 allocs/op
+BenchmarkAdmissionR4Compact                           	    1141	    791657 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	8.864s
+# completed seed: 29606; at: 2026-10-17T12:11:07Z
+# seed: 29607; position: 2
+-test.shuffle 29607
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact                  	    1082	    779297 ns/op	   2.63 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                      	     228	   3903514 ns/op	   4.94 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	272138054	         3.269 ns/op	5901678.90 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8816	     99351 ns/op	 194.20 MB/s	     394 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     528	   1720847 ns/op	   2.97 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8138932 ns/op	   2.48 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     104	   8522738 ns/op	   4.86 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86840077 ns/op	   2.71 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.571s
+# completed seed: 29607; at: 2026-10-17T12:11:33Z
+# seed: 29608; position: 1
+-test.shuffle 29608
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalNoEditDFA         	280440657	         3.244 ns/op	5947998.09 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     525	   1725810 ns/op	   2.96 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8176773 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     106	   8542675 ns/op	   4.84 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150419 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87313466 ns/op	   2.70 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkAdmissionR4Compact                           	    1120	    787182 ns/op	   2.60 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                               	     234	   3857146 ns/op	   5.00 MB/s	    1158 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8935	     98472 ns/op	 195.93 MB/s	     394 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.599s
+# completed seed: 29608; at: 2026-10-17T12:11:58Z
+# seed: 29609; position: 2
+-test.shuffle 29609
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact                  	    1140	    789602 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     520	   1735324 ns/op	   2.95 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8225548 ns/op	   2.45 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     104	   8440618 ns/op	   4.90 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86668222 ns/op	   2.72 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseFullDFA                               	     231	   3896421 ns/op	   4.95 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    9015	     99082 ns/op	 194.73 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	283652618	         3.262 ns/op	5915456.55 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.709s
+# completed seed: 29609; at: 2026-10-17T12:12:24Z
+# seed: 29610; position: 1
+-test.shuffle 29610
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseFullDFA                      	     226	   3872341 ns/op	   4.98 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkAdmissionR4Compact                  	    1150	    789372 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8938	     98607 ns/op	 195.66 MB/s	     394 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     532	   1713260 ns/op	   2.99 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8167234 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     105	   8469437 ns/op	   4.89 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86364790 ns/op	   2.73 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	280603468	         3.182 ns/op	6062757.77 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.613s
+# completed seed: 29610; at: 2026-10-17T12:12:50Z
+# seed: 29611; position: 2
+-test.shuffle 29611
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseFullDFA                      	     232	   3856034 ns/op	   5.00 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	278100339	         3.241 ns/op	5953024.94 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     526	   1718092 ns/op	   2.98 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8123934 ns/op	   2.48 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     106	   8426808 ns/op	   4.91 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87122300 ns/op	   2.70 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8112	     99125 ns/op	 194.64 MB/s	     394 B/op	       5 allocs/op
+BenchmarkAdmissionR4Compact                           	    1128	    788886 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.526s
+# completed seed: 29611; at: 2026-10-17T12:13:16Z
+# seed: 29612; position: 1
+-test.shuffle 29612
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     522	   1718834 ns/op	   2.98 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8212625 ns/op	   2.46 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8426035 ns/op	   4.91 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86024333 ns/op	   2.74 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkAdmissionR4Compact                           	    1143	    780920 ns/op	   2.62 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	284307998	         3.191 ns/op	6046617.19 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseFullDFA                               	     234	   3878735 ns/op	   4.97 MB/s	    1158 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8834	     99237 ns/op	 194.42 MB/s	     394 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	8.864s
+# completed seed: 29612; at: 2026-10-17T12:13:40Z
+# seed: 29613; position: 2
+-test.shuffle 29613
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8864	     98758 ns/op	 195.37 MB/s	     394 B/op	       5 allocs/op
+BenchmarkAdmissionR4Compact                  	    1147	    791851 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA         	279750662	         3.213 ns/op	6004583.12 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     526	   1712767 ns/op	   2.99 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8267348 ns/op	   2.44 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8498973 ns/op	   4.87 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86580570 ns/op	   2.72 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseFullDFA                               	     234	   3849959 ns/op	   5.01 MB/s	    1158 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	8.916s
+# completed seed: 29613; at: 2026-10-17T12:14:04Z
+# seed: 29614; position: 1
+-test.shuffle 29614
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact                  	    1134	    800877 ns/op	   2.56 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                      	     219	   3875775 ns/op	   4.98 MB/s	    1160 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     522	   1719675 ns/op	   2.97 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8196804 ns/op	   2.46 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     106	   8399832 ns/op	   4.93 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86838090 ns/op	   2.71 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	277537669	         3.216 ns/op	5999047.66 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8883	     99143 ns/op	 194.61 MB/s	     394 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.658s
+# completed seed: 29614; at: 2026-10-17T12:14:30Z
+# seed: 29615; position: 2
+-test.shuffle 29615
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalNoEditDFA         	279316170	         3.255 ns/op	5927825.61 MB/s	       0 B/op	       0 allocs/op
+BenchmarkAdmissionR4Compact                  	    1126	    785717 ns/op	   2.61 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                      	     232	   3862397 ns/op	   5.00 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8943	     98929 ns/op	 195.03 MB/s	     394 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     524	   1697311 ns/op	   3.01 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8180530 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     100	   8501152 ns/op	   4.87 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87203856 ns/op	   2.70 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	8.884s
+# completed seed: 29615; at: 2026-10-17T12:14:55Z
+# seed: 29616; position: 1
+-test.shuffle 29616
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalNoEditDFA         	279248570	         3.186 ns/op	6055977.23 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     526	   1709239 ns/op	   2.99 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8254515 ns/op	   2.44 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     105	   8438773 ns/op	   4.90 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  85828843 ns/op	   2.75 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8862	     99117 ns/op	 194.66 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                               	     230	   3886080 ns/op	   4.96 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkAdmissionR4Compact                           	    1154	    790131 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.603s
+# completed seed: 29616; at: 2026-10-17T12:15:21Z
+# seed: 29617; position: 2
+-test.shuffle 29617
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkAdmissionR4Compact                  	    1126	    791072 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     528	   1725483 ns/op	   2.96 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8183017 ns/op	   2.46 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     104	   8465145 ns/op	   4.89 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150421 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86726411 ns/op	   2.72 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	277356949	         3.269 ns/op	5901723.26 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8648	    100247 ns/op	 192.46 MB/s	     394 B/op	       5 allocs/op
+BenchmarkGoParseFullDFA                               	     230	   3854081 ns/op	   5.01 MB/s	    1159 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.565s
+# completed seed: 29617; at: 2026-10-17T12:15:45Z
+# seed: 29618; position: 1
+-test.shuffle 29618
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8904	     98399 ns/op	 196.08 MB/s	     394 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     523	   1714833 ns/op	   2.98 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8150402 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     106	   8462203 ns/op	   4.89 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150419 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  87241710 ns/op	   2.70 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseFullDFA                               	     231	   3874357 ns/op	   4.98 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	279092875	         3.187 ns/op	6054794.30 MB/s	       0 B/op	       0 allocs/op
+BenchmarkAdmissionR4Compact                           	    1132	    790987 ns/op	   2.59 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.579s
+# completed seed: 29618; at: 2026-10-17T12:16:11Z
+# seed: 29619; position: 2
+-test.shuffle 29619
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalNoEditDFA         	280524104	         3.271 ns/op	5898378.02 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     522	   1693520 ns/op	   3.02 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8144527 ns/op	   2.48 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     105	   8452504 ns/op	   4.90 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  88209651 ns/op	   2.67 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkAdmissionR4Compact                           	    1141	    794373 ns/op	   2.58 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                               	     226	   3922781 ns/op	   4.92 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA          	    8755	     98566 ns/op	 195.75 MB/s	     394 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.608s
+# completed seed: 29619; at: 2026-10-17T12:16:36Z
+# seed: 29620; position: 1
+-test.shuffle 29620
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalSingleByteEditDFA 	    8906	     98279 ns/op	 196.32 MB/s	     394 B/op	       5 allocs/op
+BenchmarkAdmissionR4Compact                  	    1124	    792399 ns/op	   2.58 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
+BenchmarkGoParseFullDFA                      	     232	   3846210 ns/op	   5.02 MB/s	    1159 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite         	     528	   1707193 ns/op	   3.00 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      2995 compact_link_additions/op	      1504 compact_parent_constructions/op	      1635 compact_pop_paths/op	      2982 compact_pop_payloads/op	      1493 compact_pop_requests/op	      1493 compact_reductions/op	      1348 compact_shifts/op	    1776 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile   	     100	   8076820 ns/op	   2.50 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14662 compact_link_additions/op	      7415 compact_parent_constructions/op	      7981 compact_pop_paths/op	     14603 compact_pop_payloads/op	      7382 compact_pop_requests/op	      7382 compact_reductions/op	      6685 compact_shifts/op	    8096 B/op	     120 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language        	     106	   8469113 ns/op	   4.89 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15073 compact_link_additions/op	      7623 compact_parent_constructions/op	      8326 compact_pop_paths/op	     15765 compact_pop_payloads/op	      7513 compact_pop_requests/op	      7513 compact_reductions/op	      6512 compact_shifts/op	  150418 B/op	     239 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr   	       9	  86197126 ns/op	   2.73 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    148367 compact_link_additions/op	     75769 compact_parent_constructions/op	     82259 compact_pop_paths/op	    150516 compact_pop_payloads/op	     74911 compact_pop_requests/op	     74911 compact_reductions/op	     66115 compact_shifts/op	 1155584 B/op	    1705 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                  	278334520	         3.216 ns/op	5999019.41 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	9.578s
+# completed seed: 29620; at: 2026-10-17T12:17:01Z
+# repository root at end: /workspace
+# revision at end: 93c2c88714baebf262e5e7a8c4d5c0aad23cc4f1
+# dirty at end: false
+# completed runs: 20
+# status: complete

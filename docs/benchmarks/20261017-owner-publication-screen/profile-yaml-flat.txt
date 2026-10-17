@@ -1,0 +1,54 @@
+File: profile-yaml.test
+Build ID: 214b7d9109b23bcf6da4d8a835b7746b9c9fa3b7
+Type: cpu
+Time: 2026-10-17 12:21:26 UTC
+Duration: 12.40s, Total samples = 12.18s (98.25%)
+Showing nodes accounting for 6.33s, 51.97% of 12.18s total
+Dropped 351 nodes (cum <= 0.06s)
+Showing top 45 nodes out of 200
+      flat  flat%   sum%        cum   cum%
+     0.47s  3.86%  3.86%      0.47s  3.86%  runtime.duffcopy
+     0.41s  3.37%  7.22%      0.41s  3.37%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).externalPayloadScannerProvenance (inline)
+     0.40s  3.28% 10.51%      2.43s 19.95%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).reduceOutputsClassifiedIntoActive
+     0.24s  1.97% 12.48%      0.28s  2.30%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).appendSubtreeRecord
+     0.23s  1.89% 14.37%      0.23s  1.89%  memeqbody
+     0.21s  1.72% 16.09%      0.63s  5.17%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).nextReductionTerminal
+     0.21s  1.72% 17.82%      0.26s  2.13%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.ScannerFingerprint
+     0.18s  1.48% 19.29%      1.09s  8.95%  github.com/odvcencio/gotreesitter/grammars/runtime.YamlExternalScanner.Scan
+     0.18s  1.48% 20.77%      1.40s 11.49%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).condenseWithOutcomeAtomic
+     0.17s  1.40% 22.17%      1.45s 11.90%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).nextExternalToken
+     0.15s  1.23% 23.40%      0.30s  2.46%  github.com/odvcencio/gotreesitter.(*ExternalLexer).Advance
+     0.15s  1.23% 24.63%      1.26s 10.34%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).classifyVersionLexerCell
+     0.15s  1.23% 25.86%      0.15s  1.23%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).subtree
+     0.15s  1.23% 27.09%      0.15s  1.23%  runtime.memmove
+     0.14s  1.15% 28.24%      0.22s  1.81%  github.com/odvcencio/gotreesitter.(*ExternalLexer).recordReadFrontier
+     0.14s  1.15% 29.39%      0.17s  1.40%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).corridorClassify
+     0.13s  1.07% 30.46%      3.79s 31.12%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).applyGenericReductionOwned
+     0.13s  1.07% 31.53%      0.83s  6.81%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreVersionLexerSnapshot).validateDestination
+     0.12s  0.99% 32.51%      0.15s  1.23%  github.com/odvcencio/gotreesitter.diagnosticParserCoreVersionLexerCheckpointIdentity
+     0.12s  0.99% 33.50%      0.12s  0.99%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).fillMaterializationReplayViewForRecord
+     0.11s   0.9% 34.40%      0.42s  3.45%  github.com/odvcencio/gotreesitter.diagnosticParserCoreVersionLexerScannerContractForLanguage
+     0.11s   0.9% 35.30%      1.67s 13.71%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).VisitMaterializationPostorderPrebuiltWithBorrowedReplay
+     0.10s  0.82% 36.12%      0.17s  1.40%  github.com/odvcencio/gotreesitter.(*ExternalLexer).Lookahead
+     0.10s  0.82% 36.95%      0.76s  6.24%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).applyGenericShiftsOwned
+     0.10s  0.82% 37.77%      3.39s 27.83%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).dispatchVersionLexerPassActive
+     0.10s  0.82% 38.59%      0.10s  0.82%  github.com/odvcencio/gotreesitter.corridorDispatch
+     0.10s  0.82% 39.41%      0.86s  7.06%  github.com/odvcencio/gotreesitter/grammars/runtime.(*yamlEnv).scan
+     0.10s  0.82% 40.23%      0.17s  1.40%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).appendGraphLinkChecked
+     0.10s  0.82% 41.05%      0.10s  0.82%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*boundaryIndex).probeWithHash
+     0.10s  0.82% 41.87%      0.39s  3.20%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*checkpointInterner).internHash
+     0.10s  0.82% 42.69%      0.10s  0.82%  sync/atomic.(*Int32).Add (inline)
+     0.09s  0.74% 43.43%      1.02s  8.37%  github.com/odvcencio/gotreesitter.(*compactMaterializer).visit
+     0.09s  0.74% 44.17%      0.11s   0.9%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).classifiedActionRef
+     0.09s  0.74% 44.91%      0.09s  0.74%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).node
+     0.09s  0.74% 45.65%      0.09s  0.74%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).recoveryVisibleSubtreeCount
+     0.08s  0.66% 46.31%      0.15s  1.23%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).bindVersionLexerRequest
+     0.08s  0.66% 46.96%      2.40s 19.70%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).elect
+     0.08s  0.66% 47.62%      0.61s  5.01%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).persistHeaderLineageOwned
+     0.08s  0.66% 48.28%      0.36s  2.96%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).persistHeaderLineageOwned.(*Core).RecordHeadLineageOwned.func1
+     0.08s  0.66% 48.93%      0.09s  0.74%  github.com/odvcencio/gotreesitter.copyMissingNodeDependency
+     0.08s  0.66% 49.59%      0.12s  0.99%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).appendNodeRecord
+     0.08s  0.66% 50.25%      0.08s  0.66%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*checkpointInterner).receipt (inline)
+     0.07s  0.57% 50.82%      0.07s  0.57%  github.com/odvcencio/gotreesitter.(*Parser).lookupActionIndexSmall
+     0.07s  0.57% 51.40%      0.07s  0.57%  github.com/odvcencio/gotreesitter.tokenInvariantExaminedEnd
+     0.07s  0.57% 51.97%      0.11s   0.9%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).reductionPlanForPair

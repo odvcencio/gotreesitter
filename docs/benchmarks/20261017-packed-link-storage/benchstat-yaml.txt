@@ -1,0 +1,51 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                 │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-head.txt │
+                                 │                                          sec/op                                           │                               sec/op                                vs base               │
+AdmissionYAMLDocumentStreamOwned                                                                                 1.305m ± 1%                                                          1.355m ± 0%  +3.82% (p=0.000 n=20)
+AdmissionR4OwnedExternalLexer                                                                                    334.9µ ± 1%                                                          348.5µ ± 1%  +4.05% (p=0.000 n=20)
+AdmissionR4Compact                                                                                               189.8µ ± 1%                                                          188.6µ ± 1%  -0.66% (p=0.049 n=20)
+geomean                                                                                                          436.2µ                                                               446.5µ       +2.38%
+
+                                 │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-head.txt │
+                                 │                                            B/s                                            │                                B/s                                  vs base               │
+AdmissionYAMLDocumentStreamOwned                                                                                5.856Mi ± 1%                                                         5.636Mi ± 0%  -3.75% (p=0.000 n=20)
+AdmissionR4OwnedExternalLexer                                                                                   5.693Mi ± 1%                                                         5.469Mi ± 1%  -3.94% (p=0.000 n=20)
+AdmissionR4Compact                                                                                              10.04Mi ± 1%                                                         10.11Mi ± 1%  +0.66% (p=0.041 n=20)
+geomean                                                                                                         6.944Mi                                                              6.780Mi       -2.36%
+
+                                 │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-head.txt │
+                                 │                                   compact-fallbacks/op                                    │                       compact-fallbacks/op                        vs base                 │
+AdmissionYAMLDocumentStreamOwned                                                                                0.000 ± 0%                                                           0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4OwnedExternalLexer                                                                                   0.000 ± 0%                                                           0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                              1.000 ± 0%                                                           1.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                    ²                                                                     +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                 │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-head.txt │
+                                 │                                     compact-routes/op                                     │                        compact-routes/op                          vs base                 │
+AdmissionYAMLDocumentStreamOwned                                                                                1.000 ± 0%                                                           1.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4OwnedExternalLexer                                                                                   1.000 ± 0%                                                           1.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                              0.000 ± 0%                                                           0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                    ²                                                                     +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                 │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-head.txt │
+                                 │                                           B/op                                            │                               B/op                                vs base                 │
+AdmissionYAMLDocumentStreamOwned                                                                                43.27Ki ± 0%                                                       43.27Ki ± 0%       ~ (p=0.884 n=20)
+AdmissionR4OwnedExternalLexer                                                                                   12.57Ki ± 0%                                                       12.57Ki ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                              15.24Ki ± 0%                                                       13.74Ki ± 0%  -9.84% (p=0.000 n=20)
+geomean                                                                                                         20.24Ki                                                            19.55Ki       -3.39%
+¹ all samples are equal
+
+                                 │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-storage/yaml-head.txt │
+                                 │                                         allocs/op                                         │                            allocs/op                              vs base                 │
+AdmissionYAMLDocumentStreamOwned                                                                                  336.0 ± 0%                                                         336.0 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4OwnedExternalLexer                                                                                     109.0 ± 0%                                                         109.0 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                                37.00 ± 0%                                                         37.00 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                           110.7                                                              110.7       +0.00%
+¹ all samples are equal

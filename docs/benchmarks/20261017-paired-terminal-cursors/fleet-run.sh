@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+test -f /evidence/screen-pass.json
+export GOWORK=off GOMAXPROCS=1 GOFLAGS='-p=1 -buildvcs=false -overlay=/evidence/fleet/overlay.json'
+for role in baseline candidate;do
+ if [[ $role == baseline ]];then cd /baseline;else cd /workspace;fi
+ go test . -tags gts_parsercorephase0 -run '^TestCanonicalMaskCensus$' -count=1 -v -timeout=6m > /evidence/fleet/$role-canonical-work.log 2>&1
+done
+python3 - <<'CHECKWORK'
+from pathlib import Path
+import json
+p=Path('/evidence/fleet');rows={}
+for role in ['baseline','candidate']:
+ rows[role]={}
+ for line in (p/f'{role}-canonical-work.log').read_text().splitlines():
+  if 'CANONICAL_WORK_CENSUS ' in line:
+   x=json.loads(line.split('CANONICAL_WORK_CENSUS ',1)[1]);rows[role][x['Fixture']]=x
+ assert len(rows[role])==4
+assert rows['baseline']==rows['candidate'],'canonical core/scheduler work or deep tree changed'
+(p/'canonical-work.json').write_text(json.dumps(rows,indent=2)+'\n')
+print('all four canonical full core/scheduler vectors and deep digests exact',flush=True)
+CHECKWORK
+cd /workspace
+go test . -tags gts_parsercorephase0 -run '^Test(CompactMemoryBudgetDetectsGrowthAfterSmallPoll|CompactAcceptance.*(MemoryBudget|RetentionBound|RebuildBudget)|CompactArenaReserve.*(Budget|RetentionCap)|CompactExternalScannerCheckpointCopyMemoryBudget|CompactRecoveryMemoMemoryBudget|CompactBorrowedMaterializationProjectionMemoryBudget|G18RefSetSchedulerMemoryBudgetAccounting)$' -count=1 -v -timeout=8m > /evidence/fleet/memory-budgets.log 2>&1
+go test -c -tags gts_parsercorephase0 -o /evidence/fleet/candidate-root.test . > /evidence/fleet/root-build.log 2>&1
+for role in baseline candidate;do
+ if [[ $role == baseline ]];then cd /baseline/cgo_harness;else cd /workspace/cgo_harness;fi
+ go test -c -tags gts_parsercorephase0,treesitter_c_parity -o /evidence/fleet/$role-cgo.test . > /evidence/fleet/$role-cgo-build.log 2>&1
+ /usr/bin/time -v -o /evidence/fleet/$role-go-1m.rss /evidence/fleet/$role-cgo.test -test.run '^TestCompactLineageLargeGoLockedC$' -test.count=1 -test.v -test.timeout=8m > /evidence/fleet/$role-go-1m.log 2>&1
+ for mode in ordinary owned;do
+  GTS_YAML_LARGE_PROBE=1 /usr/bin/time -v -o /evidence/fleet/$role-yaml-$mode-1m.rss /evidence/fleet/$role-cgo.test -test.run "^TestCompactYAMLDocumentStreamLockedC$/^large_${mode}_documents$" -test.count=1 -test.v -test.timeout=8m > /evidence/fleet/$role-yaml-$mode-1m.log 2>&1
+ done
+ echo "$role one-MiB Go/YAML locked-C RSS probes passed"
+done
+for role in baseline candidate;do
+ if [[ $role == baseline ]];then cd /baseline;else cd /workspace;fi
+ go test -c -tags gts_parsercorephase0 -o /evidence/fleet/$role-rss-root.test . > /evidence/fleet/$role-rss-root-build.log 2>&1
+ for name in go yaml_ordinary yaml_owned;do
+  /usr/bin/time -v -o /evidence/fleet/$role-standalone-$name.rss /evidence/fleet/$role-rss-root.test -test.run "^TestCompactLineageRSS$/^${name}$" -test.count=1 -test.v -test.timeout=8m > /evidence/fleet/$role-standalone-$name.log 2>&1
+ done
+ echo "$role standalone one-MiB parser RSS probes passed"
+done
+python3 - <<'CHECK'
+from pathlib import Path
+import re,json
+p=Path('/evidence/fleet');rows=[]
+for role in ['baseline','candidate']:
+ for name in ['go','yaml_ordinary','yaml_owned']:
+  log=(p/f'{role}-standalone-{name}.log').read_text();rss=(p/f'{role}-standalone-{name}.rss').read_text()
+  assert '--- PASS:' in log and '--- SKIP:' not in log,(role,name)
+  size=int(re.search(r'bytes=(\d+)',log)[1]);peak=int(re.search(r'Maximum resident set size \(kbytes\): (\d+)',rss)[1])*1024
+  assert peak<=size*400,(role,name,size,peak,'RSS ceiling')
+  row=dict(role=role,case=name,input_bytes=size,peak_rss_bytes=peak,rss_bytes_per_source_byte=peak/size);rows.append(row);print(row,flush=True)
+(p/'standalone-rss.json').write_text(json.dumps(rows,indent=2)+'\n')
+CHECK
+cd /workspace
+while IFS= read -r grammar;do
+ GTS_ADMISSION_CANDIDATE=1 GOTREESITTER_V1_INVARIANT_LANGUAGE="$grammar" /evidence/fleet/candidate-root.test -test.run '^TestV1InvariantGateR4EditSession$' -test.count=1 -test.v -test.timeout=4m > /evidence/fleet/invariant-$grammar.log 2>&1
+ printf 'invariant %s passed\n' "$grammar"
+done < /evidence/fleet/languages.txt
+GTS_LAYOUT_OWNED_PROBE=1 GTS_ADMISSION_CANDIDATE=1 GOTREESITTER_V1_INVARIANT_LANGUAGE=yaml /evidence/fleet/candidate-root.test -test.run '^TestV1InvariantGateR4EditSession$' -test.count=1 -test.v -test.timeout=4m > /evidence/fleet/owned-yaml-invariant.log 2>&1
+cd /workspace/cgo_harness
+while IFS= read -r grammar;do
+ GTS_ADMISSION_CANDIDATE=1 GTS_PARITY_MODE=exhaustive /evidence/fleet/candidate-cgo.test -test.run "^(TestParityFreshParse|TestParityIncrementalParse|TestParityHasNoErrors)$/^${grammar}$" -test.count=1 -test.v -test.timeout=4m > /evidence/fleet/c-$grammar.log 2>&1
+ printf 'C parity %s passed\n' "$grammar"
+done < /evidence/fleet/languages.txt
+for role in baseline candidate;do
+ python3 /evidence/fleet/strict.py "$role" > /evidence/fleet/$role-strict.log 2>&1
+ echo "$role strict 204-file census finished"
+done
+cd /workspace
+go test ./internal/parsercorephase0 -tags gts_parsercorephase0_selectedstore_onepass -count=1 -timeout=8m > /evidence/fleet/core-onepass.log 2>&1
+for lang in go yaml;do
+ GTS_ADMISSION_CANDIDATE=1 GOTREESITTER_V1_INVARIANT_LANGUAGE=$lang go test . -race -tags gts_parsercorephase0 -run '^TestV1InvariantGateR4EditSession$' -count=1 -v -timeout=8m > /evidence/fleet/$lang-invariant-race.log 2>&1
+done
+GTS_LAYOUT_OWNED_PROBE=1 GTS_ADMISSION_CANDIDATE=1 GOTREESITTER_V1_INVARIANT_LANGUAGE=yaml go test . -race -tags gts_parsercorephase0 -run '^TestV1InvariantGateR4EditSession$' -count=1 -v -timeout=8m > /evidence/fleet/owned-yaml-invariant-race.log 2>&1
+printf 'complete\n' > /evidence/fleet/complete.txt
+echo 'paired terminal cursor full invariant, C, strict-census, memory and race qualification complete'

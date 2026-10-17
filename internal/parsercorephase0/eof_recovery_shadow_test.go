@@ -37,7 +37,7 @@ func TestDiagnosticEOFRecoveryClonePlanAccountsEveryRequestedByte(t *testing.T) 
 		metadataConstructionAuthenticated: true,
 		plans:                             &diagnosticEOFRecoveryPlanOnlyProvider{identity: 1},
 		nodes:                             make([]nodeRecord, 2),
-		nodeLineages:                      make([]nodeLineageRecord, 2),
+		nodeLineages:                      make([]nodeLineageHot, 2),
 		nodeCheckpoints:                   make([]CheckpointID, 2),
 		links:                             make([]linkRecord, 3),
 		subtrees:                          make([]subtreeRecord, 4),

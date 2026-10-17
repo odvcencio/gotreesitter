@@ -1,0 +1,145 @@
+--- a/internal/parsercorephase0/core.go
++++ b/internal/parsercorephase0/core.go
+@@ -4978,17 +4977,0 @@
+-func (c *Core) externalPayloadScannerProvenance(payload SubtreeID) (externalPayloadProvenance, bool) {
+-	low, high := 0, len(c.externalProvenance)
+-	for low < high {
+-		mid := low + (high-low)/2
+-		candidate := c.externalProvenance[mid]
+-		if candidate.payload < payload {
+-			low = mid + 1
+-			continue
+-		}
+-		high = mid
+-	}
+-	if low >= len(c.externalProvenance) || c.externalProvenance[low].payload != payload {
+-		return externalPayloadProvenance{}, false
+-	}
+-	return c.externalProvenance[low], true
+-}
+-
+--- /dev/null
++++ b/internal/parsercorephase0/terminal_provenance_lookup.go
+@@ -0,0 +1,32 @@
++package parsercorephase0
++
++// Keep the empty-sidecar case small enough to inline in ordinary DFA callers.
++func (c *Core) externalPayloadScannerProvenance(payload SubtreeID) (externalPayloadProvenance, bool) {
++	if len(c.externalProvenance) == 0 {
++		return externalPayloadProvenance{}, false
++	}
++	return c.lookupTerminalScannerProvenance(payload)
++}
++
++func (c *Core) lookupTerminalScannerProvenance(payload SubtreeID) (externalPayloadProvenance, bool) {
++	// appendAuthenticatedTerminal is the only sparse-table producer and rejects
++	// nonterminals. A parent can still contain external descendants: this skips
++	// only its own pair lookup; recursive descendant provenance is unchanged.
++	// Ordinary terminals can carry pairs too, so external alone is not a gate.
++	if payload != 0 && uint64(payload) <= uint64(len(c.subtrees)) && !c.subtrees[payload-1].terminal {
++		return externalPayloadProvenance{}, false
++	}
++	low, high := 0, len(c.externalProvenance)
++	for low < high {
++		mid := low + (high-low)/2
++		if c.externalProvenance[mid].payload < payload {
++			low = mid + 1
++		} else {
++			high = mid
++		}
++	}
++	if low >= len(c.externalProvenance) || c.externalProvenance[low].payload != payload {
++		return externalPayloadProvenance{}, false
++	}
++	return c.externalProvenance[low], true
++}
+--- /dev/null
++++ b/internal/parsercorephase0/terminal_provenance_lookup_test.go
+@@ -0,0 +1,87 @@
++package parsercorephase0
++
++import "testing"
++
++func TestTerminalProvenanceParentKeepsExternalDescendants(t *testing.T) {
++	c := newTinyCoreWithLimits(t, Limits{})
++	start := mustInternCheckpoint(t, c, []byte{1})
++	end := mustInternCheckpoint(t, c, []byte{2})
++	if err := c.SetPhaseExternalTokenScannerCheckpoints(start, end); err != nil {
++		t.Fatal(err)
++	}
++	leaf, err := c.appendAuthenticatedTerminal(subtreeRecord{symbol: 10, terminal: true, external: true}, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	parent, err := c.appendSubtree(subtreeRecord{symbol: 11}, []SubtreeID{leaf}, nil, nil)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if got, ok := c.externalPayloadScannerProvenance(parent); ok || got != (externalPayloadProvenance{}) {
++		t.Fatalf("parent own pair: %+v %t", got, ok)
++	}
++	if got, ok := c.externalPayloadScannerProvenance(leaf); !ok || got.start != start || got.end != end {
++		t.Fatalf("external terminal pair: %+v %t", got, ok)
++	}
++	if has, exact, err := c.subtreeExternalProvenance(parent); err != nil || !has || !exact {
++		t.Fatalf("external descendants lost: has=%t exact=%t err=%v", has, exact, err)
++	}
++	if same, err := c.subtreeScannerStatePairsEqual(leaf, parent); err != nil || same {
++		t.Fatalf("parent acquired terminal root state: same=%t err=%v", same, err)
++	}
++	unproven, err := c.appendSubtree(subtreeRecord{symbol: 10, terminal: true, external: true}, nil, nil, nil)
++	if err != nil {
++		t.Fatal(err)
++	}
++	inexactParent, err := c.appendSubtree(subtreeRecord{symbol: 11}, []SubtreeID{unproven}, nil, nil)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if has, exact, err := c.subtreeExternalProvenance(inexactParent); err != nil || !has || exact {
++		t.Fatalf("inexact descendant proof became exact: has=%t exact=%t err=%v", has, exact, err)
++	}
++}
++
++func TestTerminalProvenanceRetainsOrdinaryTerminalStates(t *testing.T) {
++	c := newTinyCoreWithLimits(t, Limits{})
++	c.EnableTerminalScannerCheckpointProvenance()
++	start := mustInternCheckpoint(t, c, []byte{3})
++	end := mustInternCheckpoint(t, c, []byte{4})
++	if err := c.SetPhaseExternalTokenScannerCheckpoints(start, end); err != nil {
++		t.Fatal(err)
++	}
++	leaf, err := c.appendAuthenticatedTerminal(subtreeRecord{symbol: 10, terminal: true}, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if got, ok := c.externalPayloadScannerProvenance(leaf); !ok || got.start != start || got.end != end {
++		t.Fatalf("ordinary terminal states discarded: %+v %t", got, ok)
++	}
++	view, err := c.MaterializationView(leaf)
++	if err != nil || !view.ExternalScannerCheckpointExact || view.ExternalScannerCheckpointEnd != end {
++		t.Fatalf("ordinary terminal materialization: %+v err=%v", view, err)
++	}
++	if n := testing.AllocsPerRun(1000, func() { c.externalPayloadScannerProvenance(leaf) }); n != 0 {
++		t.Fatalf("lookup allocations=%v", n)
++	}
++}
++
++func TestTerminalProvenanceProducerAndUnknownIdentity(t *testing.T) {
++	c := newTinyCoreWithLimits(t, Limits{})
++	if _, err := c.appendAuthenticatedTerminal(subtreeRecord{symbol: 10}, 0); err == nil {
++		t.Fatal("nonterminal entered the terminal-only producer")
++	}
++	if len(c.subtrees) != 0 || len(c.externalProvenance) != 0 {
++		t.Fatal("rejected producer changed records")
++	}
++	// Preserve the old sparse lookup for diagnostic IDs without a live record.
++	id := ^SubtreeID(0)
++	want := externalPayloadProvenance{payload: id, start: 1, end: 2}
++	c.externalProvenance = append(c.externalProvenance, want)
++	if got, ok := c.externalPayloadScannerProvenance(id); !ok || got != want {
++		t.Fatalf("unknown identity fallback: %+v %t", got, ok)
++	}
++	if got, ok := c.externalPayloadScannerProvenance(0); ok || got != (externalPayloadProvenance{}) {
++		t.Fatalf("zero identity: %+v %t", got, ok)
++	}
++}

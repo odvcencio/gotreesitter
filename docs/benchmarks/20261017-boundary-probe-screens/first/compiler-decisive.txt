@@ -1,0 +1,15 @@
+internal/parsercorephase0/boundary_probe_sink.go:4:6: can inline boundaryProbeForKey with cost 53 as: func(boundaryIdentity) boundaryProbe { return boundaryProbe{...} }
+internal/parsercorephase0/boundary_probe_sink.go:21:6: can inline (*boundaryIndex).firstProbe with cost 58 as: method(*boundaryIndex) func(*boundaryProbe) (NodeID, bool) { if len(i.slots) == 0 { return NodeID(0), true }; result.slot = uint32(result.hash & uint64(len(i.slots) - 1)); slot := &i.slots[result.slot]; if slot.generation != i.generation { return NodeID(0), true }; if slot.key == result.key { result.found = true; return slot.id, true }; return NodeID(0), false }
+internal/parsercorephase0/boundary_probe_sink.go:39:6: cannot inline (*boundaryIndex).remainingProbe: function too complex: cost 91 exceeds budget 80
+internal/parsercorephase0/boundary_probe_sink.go:10:6: cannot inline (*boundaryIndex).locateProbe: function too complex: cost 141 exceeds budget 80
+internal/parsercorephase0/core.go:3702:54: inlining call to boundaryIdentityFromKey
+internal/parsercorephase0/core.go:3702:30: inlining call to boundaryProbeForKey
+internal/parsercorephase0/core.go:3703:49: inlining call to (*boundaryIndex).firstProbe
+internal/parsercorephase0/core.go:3707:53: inlining call to (*Core).condenseNodeHasIndependentOwner
+internal/parsercorephase0/core.go:3702:30: inlining call to boundaryIdentityHash
+internal/parsercorephase0/boundary_probe_sink.go:39:7: i does not escape
+internal/parsercorephase0/boundary_probe_sink.go:39:40: result does not escape
+internal/parsercorephase0/boundary_probe_sink.go:10:7: i does not escape
+internal/parsercorephase0/boundary_probe_sink.go:10:37: result does not escape
+internal/parsercorephase0/boundary_probe_sink.go:21:7: i does not escape
+internal/parsercorephase0/boundary_probe_sink.go:21:36: result does not escape

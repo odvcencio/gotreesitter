@@ -1,0 +1,343 @@
+{
+  "baseline": "aa49318d79ead29a15dc94eab9b5be413d395790",
+  "status": "qualified",
+  "protocol": {
+    "Go": "go1.25.14",
+    "GOMAXPROCS": 1,
+    "CPU": 6,
+    "memory": "6g",
+    "benchtime": "750ms",
+    "count_per_process": 1,
+    "benchmem": true,
+    "go_pairs": 20,
+    "yaml_pairs": 40,
+    "yaml_repetition": "all first 20 and confirmation 20 retained; first marginal stream result did not replicate",
+    "seeds": {
+      "go": "27501..27520",
+      "yaml": [
+        "27601..27620",
+        "27701..27720"
+      ]
+    }
+  },
+  "baseline_source": "immutable full 3501-file source overlay equivalent to aa49318d79; raw baseline checkout metadata describes its integration worktree",
+  "baseline_source_set_sha256": "33f18c83c4b2bdcc5860271b749427cfbc09103148a3202c39c7b2fad69c31d2",
+  "candidate_files": {
+    "parsercore_phase0_driver.go": "7afaa8078536e46651c79d2acd6f4d124f6cf9f469d4517801ff09e7f9f67f7e",
+    "parsercore_phase0_canonical_scratch_internal_test.go": "58c33bcca018690ff5b7e6691afdbfe61b37ff2721e2659dd5eaec37002589a2",
+    "internal/parsercorephase0/canonical_head_mask.go": "25202d8ce3935f19c45096ca548f4da3a794201084adff6759e8228b6143aa4c",
+    "internal/parsercorephase0/canonical_head_mask_test.go": "153e1917fcafcfe0c269c0acfdfa7ea885a60ec602c8ef89ce6f97bdc33ed77e"
+  },
+  "benchmarks": {
+    "go/BenchmarkGoParseIncrementalSingleByteEditDFA": {
+      "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+      "pairs": 20,
+      "before": {
+        "ns/op": 99518.0,
+        "MB/s": 193.875,
+        "B/op": 394.0,
+        "allocs/op": 5.0
+      },
+      "after": {
+        "ns/op": 99872.0,
+        "MB/s": 193.185,
+        "B/op": 394.0,
+        "allocs/op": 5.0
+      },
+      "time_percent": 0.35571454410257,
+      "p": "0.055",
+      "control": true,
+      "supported_runtime_win": false
+    },
+    "go/BenchmarkGoParseIncrementalNoEditDFA": {
+      "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+      "pairs": 20,
+      "before": {
+        "ns/op": 3.165,
+        "MB/s": 6096399.359999999,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      "after": {
+        "ns/op": 3.119,
+        "MB/s": 6185570.205,
+        "B/op": 0.0,
+        "allocs/op": 0.0
+      },
+      "time_percent": -1.453396524486561,
+      "p": "<.001",
+      "control": true,
+      "supported_runtime_win": false
+    },
+    "go/BenchmarkParserCoreFreshFullCanonical/rewrite": {
+      "benchmark": "BenchmarkParserCoreFreshFullCanonical/rewrite",
+      "pairs": 20,
+      "before": {
+        "ns/op": 1735349.5,
+        "MB/s": 2.95,
+        "candidate_fallback/op": 0.0,
+        "compact_leaf_constructions/op": 1109.0,
+        "compact_link_additions/op": 2995.0,
+        "compact_parent_constructions/op": 1504.0,
+        "compact_pop_paths/op": 1635.0,
+        "compact_pop_payloads/op": 2982.0,
+        "compact_pop_requests/op": 1493.0,
+        "compact_reductions/op": 1493.0,
+        "compact_shifts/op": 1348.0,
+        "B/op": 1776.0,
+        "allocs/op": 21.0
+      },
+      "after": {
+        "ns/op": 1714799.5,
+        "MB/s": 2.9850000000000003,
+        "candidate_fallback/op": 0.0,
+        "compact_leaf_constructions/op": 1109.0,
+        "compact_link_additions/op": 2995.0,
+        "compact_parent_constructions/op": 1504.0,
+        "compact_pop_paths/op": 1635.0,
+        "compact_pop_payloads/op": 2982.0,
+        "compact_pop_requests/op": 1493.0,
+        "compact_reductions/op": 1493.0,
+        "compact_shifts/op": 1348.0,
+        "B/op": 1776.0,
+        "allocs/op": 21.0
+      },
+      "time_percent": -1.1841994941076739,
+      "p": "<.001",
+      "control": false,
+      "supported_runtime_win": true
+    },
+    "go/BenchmarkParserCoreFreshFullCanonical/query_compile": {
+      "benchmark": "BenchmarkParserCoreFreshFullCanonical/query_compile",
+      "pairs": 20,
+      "before": {
+        "ns/op": 8294895.0,
+        "MB/s": 2.43,
+        "candidate_fallback/op": 0.0,
+        "compact_leaf_constructions/op": 5546.0,
+        "compact_link_additions/op": 14662.0,
+        "compact_parent_constructions/op": 7415.0,
+        "compact_pop_paths/op": 7981.0,
+        "compact_pop_payloads/op": 14603.0,
+        "compact_pop_requests/op": 7382.0,
+        "compact_reductions/op": 7382.0,
+        "compact_shifts/op": 6685.0,
+        "B/op": 8096.0,
+        "allocs/op": 120.0
+      },
+      "after": {
+        "ns/op": 8150674.0,
+        "MB/s": 2.475,
+        "candidate_fallback/op": 0.0,
+        "compact_leaf_constructions/op": 5546.0,
+        "compact_link_additions/op": 14662.0,
+        "compact_parent_constructions/op": 7415.0,
+        "compact_pop_paths/op": 7981.0,
+        "compact_pop_payloads/op": 14603.0,
+        "compact_pop_requests/op": 7382.0,
+        "compact_reductions/op": 7382.0,
+        "compact_shifts/op": 6685.0,
+        "B/op": 8096.0,
+        "allocs/op": 120.0
+      },
+      "time_percent": -1.7386717975332977,
+      "p": "0.001",
+      "control": false,
+      "supported_runtime_win": true
+    },
+    "go/BenchmarkParserCoreFreshFullCanonical/language": {
+      "benchmark": "BenchmarkParserCoreFreshFullCanonical/language",
+      "pairs": 20,
+      "before": {
+        "ns/op": 8581243.0,
+        "MB/s": 4.82,
+        "candidate_fallback/op": 0.0,
+        "compact_leaf_constructions/op": 5375.0,
+        "compact_link_additions/op": 15073.0,
+        "compact_parent_constructions/op": 7623.0,
+        "compact_pop_paths/op": 8326.0,
+        "compact_pop_payloads/op": 15765.0,
+        "compact_pop_requests/op": 7513.0,
+        "compact_reductions/op": 7513.0,
+        "compact_shifts/op": 6512.0,
+        "B/op": 150418.5,
+        "allocs/op": 239.0
+      },
+      "after": {
+        "ns/op": 8481118.5,
+        "MB/s": 4.88,
+        "candidate_fallback/op": 0.0,
+        "compact_leaf_constructions/op": 5375.0,
+        "compact_link_additions/op": 15073.0,
+        "compact_parent_constructions/op": 7623.0,
+        "compact_pop_paths/op": 8326.0,
+        "compact_pop_payloads/op": 15765.0,
+        "compact_pop_requests/op": 7513.0,
+        "compact_reductions/op": 7513.0,
+        "compact_shifts/op": 6512.0,
+        "B/op": 150418.5,
+        "allocs/op": 239.0
+      },
+      "time_percent": -1.1667831804786366,
+      "p": "0.015",
+      "control": false,
+      "supported_runtime_win": true
+    },
+    "go/BenchmarkParserCoreFreshFullCanonical/grammargen_lr": {
+      "benchmark": "BenchmarkParserCoreFreshFullCanonical/grammargen_lr",
+      "pairs": 20,
+      "before": {
+        "ns/op": 87824337.5,
+        "MB/s": 2.68,
+        "candidate_fallback/op": 0.0,
+        "compact_leaf_constructions/op": 53896.0,
+        "compact_link_additions/op": 148367.0,
+        "compact_parent_constructions/op": 75769.0,
+        "compact_pop_paths/op": 82259.0,
+        "compact_pop_payloads/op": 150516.0,
+        "compact_pop_requests/op": 74911.0,
+        "compact_reductions/op": 74911.0,
+        "compact_shifts/op": 66115.0,
+        "B/op": 1155584.0,
+        "allocs/op": 1705.0
+      },
+      "after": {
+        "ns/op": 86583416.5,
+        "MB/s": 2.725,
+        "candidate_fallback/op": 0.0,
+        "compact_leaf_constructions/op": 53896.0,
+        "compact_link_additions/op": 148367.0,
+        "compact_parent_constructions/op": 75769.0,
+        "compact_pop_paths/op": 82259.0,
+        "compact_pop_payloads/op": 150516.0,
+        "compact_pop_requests/op": 74911.0,
+        "compact_reductions/op": 74911.0,
+        "compact_shifts/op": 66115.0,
+        "B/op": 1155584.0,
+        "allocs/op": 1705.0
+      },
+      "time_percent": -1.412957996978914,
+      "p": "0.004",
+      "control": false,
+      "supported_runtime_win": true
+    },
+    "go/BenchmarkGoParseFullDFA": {
+      "benchmark": "BenchmarkGoParseFullDFA",
+      "pairs": 20,
+      "before": {
+        "ns/op": 3915954.0,
+        "MB/s": 4.93,
+        "B/op": 1159.0,
+        "allocs/op": 6.0
+      },
+      "after": {
+        "ns/op": 3918273.5,
+        "MB/s": 4.92,
+        "B/op": 1159.0,
+        "allocs/op": 6.0
+      },
+      "time_percent": 0.059232054309110715,
+      "p": "0.989",
+      "control": true,
+      "supported_runtime_win": false
+    },
+    "go/BenchmarkAdmissionR4Compact": {
+      "benchmark": "BenchmarkAdmissionR4Compact",
+      "pairs": 20,
+      "before": {
+        "ns/op": 797606.0,
+        "MB/s": 2.57,
+        "compact-fallbacks/op": 0.0,
+        "compact-routes/op": 1.0,
+        "B/op": 1600.0,
+        "allocs/op": 22.0
+      },
+      "after": {
+        "ns/op": 790498.5,
+        "MB/s": 2.59,
+        "compact-fallbacks/op": 0.0,
+        "compact-routes/op": 1.0,
+        "B/op": 1600.0,
+        "allocs/op": 22.0
+      },
+      "time_percent": -0.891104129106346,
+      "p": "0.004",
+      "control": false,
+      "supported_runtime_win": true
+    },
+    "yaml/BenchmarkAdmissionYAMLDocumentStreamOwned": {
+      "benchmark": "BenchmarkAdmissionYAMLDocumentStreamOwned",
+      "pairs": 40,
+      "before": {
+        "ns/op": 1357522.5,
+        "MB/s": 5.9,
+        "compact-fallbacks/op": 0.0,
+        "compact-routes/op": 1.0,
+        "B/op": 44312.5,
+        "allocs/op": 336.0
+      },
+      "after": {
+        "ns/op": 1347250.0,
+        "MB/s": 5.945,
+        "compact-fallbacks/op": 0.0,
+        "compact-routes/op": 1.0,
+        "B/op": 44313.0,
+        "allocs/op": 336.0
+      },
+      "time_percent": -0.7567093731411401,
+      "p": "0.057",
+      "control": false,
+      "supported_runtime_win": false
+    },
+    "yaml/BenchmarkAdmissionR4Compact": {
+      "benchmark": "BenchmarkAdmissionR4Compact",
+      "pairs": 40,
+      "before": {
+        "ns/op": 189513.5,
+        "MB/s": 10.545,
+        "compact-fallbacks/op": 1.0,
+        "compact-routes/op": 0.0,
+        "B/op": 15608.0,
+        "allocs/op": 37.0
+      },
+      "after": {
+        "ns/op": 190178.0,
+        "MB/s": 10.504999999999999,
+        "compact-fallbacks/op": 1.0,
+        "compact-routes/op": 0.0,
+        "B/op": 15608.0,
+        "allocs/op": 37.0
+      },
+      "time_percent": 0.35063465135729555,
+      "p": "0.276",
+      "control": false,
+      "supported_runtime_win": false
+    },
+    "yaml/BenchmarkAdmissionR4OwnedExternalLexer": {
+      "benchmark": "BenchmarkAdmissionR4OwnedExternalLexer",
+      "pairs": 40,
+      "before": {
+        "ns/op": 348521.5,
+        "MB/s": 5.73,
+        "compact-fallbacks/op": 0.0,
+        "compact-routes/op": 1.0,
+        "B/op": 12872.0,
+        "allocs/op": 109.0
+      },
+      "after": {
+        "ns/op": 345448.0,
+        "MB/s": 5.78,
+        "compact-fallbacks/op": 0.0,
+        "compact-routes/op": 1.0,
+        "B/op": 12872.0,
+        "allocs/op": 109.0
+      },
+      "time_percent": -0.8818681200442491,
+      "p": "0.058",
+      "control": false,
+      "supported_runtime_win": false
+    }
+  },
+  "no_graduation_claim": true,
+  "runtime_commit": "75507f35ec6caece2125157b192e7c54060573e3"
+}

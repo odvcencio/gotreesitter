@@ -144,7 +144,7 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		}
 		id := NodeID(c.reuseProof.nodes + 1)
 		node := &c.nodes[id-1]
-		lineage, err := c.nodeLineage(id)
+		lineage, err := c.lineageView(id)
 		if err != nil {
 			return err
 		}
@@ -173,8 +173,8 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 	return poll()
 }
 
-func reuseLineageClean(lineage *nodeLineageRecord) bool {
-	return lineage.storedErrorCost == 0 && !lineage.blended && !lineage.converged && lineage.set.count == 0 && lineage.lineage == 0
+func reuseLineageClean(lineage nodeLineageView) bool {
+	return lineage.storedErrorCost == 0 && !lineage.isBlended() && !lineage.isConverged() && lineage.set.count == 0 && lineage.lineage == 0
 }
 
 func (c *Core) invalidateReusedSubtreeProof(id SubtreeID) {
@@ -190,9 +190,12 @@ func (c *Core) markSubtreeFragile(id SubtreeID) {
 	}
 }
 
-func (c *Core) invalidateReusedLineageProof(id NodeID, lineage *nodeLineageRecord) {
-	if id != 0 && uint64(id) <= uint64(c.reuseProof.nodes) && !reuseLineageClean(lineage) {
-		c.reuseProof.invalid = true
+func (c *Core) invalidateReusedLineageProof(id NodeID) {
+	if id != 0 && uint64(id) <= uint64(c.reuseProof.nodes) {
+		lineage, err := c.lineageView(id)
+		if err != nil || !reuseLineageClean(lineage) {
+			c.reuseProof.invalid = true
+		}
 	}
 }
 

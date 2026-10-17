@@ -361,7 +361,7 @@ func (c *Core) UnionDropCohortRefsChecked(dst *DropCohortRefSet, src DropCohortR
 }
 
 func (c *Core) NodeLineageDropCohortRefs(id NodeID) (DropCohortRefSet, error) {
-	record, err := c.nodeLineage(id)
+	record, err := c.lineageView(id)
 	if err != nil {
 		return DropCohortRefSet{}, err
 	}

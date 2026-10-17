@@ -1,0 +1,5 @@
+=== RUN   TestV1InvariantGateR4EditSession
+    incremental_invariant_gate_test.go:715: language=yaml fixture=r4 sample_bytes=1998 session_steps=72 no_edit_allocs=0
+--- PASS: TestV1InvariantGateR4EditSession (0.08s)
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.090s

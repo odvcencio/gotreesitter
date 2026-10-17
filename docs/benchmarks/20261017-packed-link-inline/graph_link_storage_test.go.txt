@@ -1,0 +1,198 @@
+package parsercorephase0
+
+import (
+	"errors"
+	"testing"
+)
+
+// Existing adversarial tests operate on complete logical metadata. Rebuilding
+// the private arena avoids relying on a particular inline encoding or leaving
+// the cold entries out of logical-ID order.
+func mutateGraphLinkForTest(t *testing.T, c *Core, index int, mutate func(*linkRecord)) {
+	t.Helper()
+	links := make([]linkRecord, len(c.links))
+	for i := range links {
+		var err error
+		links[i], err = c.graphLink(LinkID(i + 1))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	mutate(&links[index])
+	sidecar := c.dropCohortLinkRefIndexes
+	c.dropCohortLinkRefIndexes = nil
+	c.truncateGraphLinks(0)
+	for _, link := range links {
+		c.appendGraphLink(link)
+	}
+	c.dropCohortLinkRefIndexes = sidecar
+}
+
+func TestPackedGraphLinksPreserveFullMetadataAndAccounting(t *testing.T) {
+	c := &Core{}
+	links := []linkRecord{
+		{prev: 1, payload: 2, next: 3},
+		{prev: ^NodeID(0), payload: ^SubtreeID(0), next: ^LinkID(0), order: 1<<30 - 1, flags: linkFlagHasOrder},
+		{prev: 3, payload: 4, scoreDelta: -32768, order: 8191},
+		{prev: 4, payload: 5, scoreDelta: 32767, order: 8191, flags: linkFlagHasOrder},
+		{prev: 5, payload: 6, scoreDelta: 1<<63 - 1, order: ^uint64(0), flags: linkFlagHasOrder},
+		{prev: 6, payload: 7, scoreDelta: -1 << 63, order: ^uint64(0)},
+		{prev: 7, flags: linkFlagRecoveryDiscontinuity},
+		{prev: 8, payload: 9, flags: ^uint32(0)},
+	}
+	before := c.Work()
+	for i, link := range links {
+		id := c.appendGraphLink(link)
+		if id != LinkID(i+1) {
+			t.Fatalf("id=%d want=%d", id, i+1)
+		}
+		got, err := c.graphLink(id)
+		if err != nil || got != link {
+			t.Fatalf("link %d: %+v, %v; want %+v", id, got, err, link)
+		}
+	}
+	if len(c.linkCold) != 4 {
+		t.Fatalf("cold records=%d want=4", len(c.linkCold))
+	}
+	if c.Work() != before {
+		t.Fatal("packing changed work counters")
+	}
+	want := uint64(len(c.links))*16 + uint64(len(c.linkCold))*24
+	if c.StorageBytes() != want {
+		t.Fatalf("storage=%d want=%d", c.StorageBytes(), want)
+	}
+	wantFootprint := uint64(cap(c.links))*16 + uint64(cap(c.linkCold))*24
+	if c.FootprintBytes() != wantFootprint {
+		t.Fatalf("footprint=%d want=%d", c.FootprintBytes(), wantFootprint)
+	}
+	if corePackedLinkRecordBytes != 16 || coreColdLinkRecordBytes != 24 || coreLinkRecordBytes != 32 {
+		t.Fatalf("layout sizes=%d/%d/%d", corePackedLinkRecordBytes, coreColdLinkRecordBytes, coreLinkRecordBytes)
+	}
+}
+
+func TestPackedGraphLinksRollbackResetAndIDReuse(t *testing.T) {
+	c := newTinyCoreWithLimits(t, Limits{})
+	first := linkRecord{prev: 1, payload: 2, order: ^uint64(0), flags: linkFlagHasOrder}
+	c.appendGraphLink(first)
+	beforeWork, beforeStorage := c.Work(), c.StorageBytes()
+	sentinel := errors.New("abort speculative graph")
+	err := c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		c.appendGraphLink(linkRecord{prev: 1, payload: 2})
+		c.appendGraphLink(linkRecord{prev: 2, payload: 3, scoreDelta: -1 << 63})
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) || len(c.links) != 1 || len(c.linkCold) != 1 || c.StorageBytes() != beforeStorage || c.Work() != beforeWork {
+		t.Fatalf("rollback err=%v links=%d cold=%d storage=%d/%d", err, len(c.links), len(c.linkCold), c.StorageBytes(), beforeStorage)
+	}
+	second := linkRecord{prev: 1, flags: linkFlagRecoveryDiscontinuity}
+	if id := c.appendGraphLink(second); id != 2 {
+		t.Fatalf("reused id=%d", id)
+	}
+	for i, want := range []linkRecord{first, second} {
+		got, err := c.graphLink(LinkID(i + 1))
+		if err != nil || got != want {
+			t.Fatalf("reused link %d=%+v err=%v", i+1, got, err)
+		}
+	}
+	capacity := cap(c.linkCold)
+	if err := c.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.links) != 0 || len(c.linkCold) != 0 || cap(c.linkCold) != capacity {
+		t.Fatal("reset changed retention or left logical cold records")
+	}
+	if id := c.appendGraphLink(second); id != 1 {
+		t.Fatalf("reset id=%d", id)
+	}
+	if got, err := c.graphLink(1); err != nil || got != second {
+		t.Fatalf("reset roundtrip=%+v %v", got, err)
+	}
+}
+
+func TestPackedGraphLinksColdIndexEscapeAndCorruption(t *testing.T) {
+	c := &Core{}
+	for i := 0; i < 4; i++ {
+		c.appendGraphLink(linkRecord{prev: NodeID(i + 1), flags: linkFlagRecoveryDiscontinuity})
+	}
+	// Force the large-index escape without allocating over a billion records.
+	c.links[2].metadata = packedLinkColdMetadata | packedLinkColdIndexMask
+	got, err := c.graphLink(3)
+	if err != nil || got.prev != 3 || got.flags != linkFlagRecoveryDiscontinuity {
+		t.Fatalf("escape=%+v %v", got, err)
+	}
+	for _, metadata := range []uint32{packedLinkColdMetadata | 99, packedLinkColdMetadata | 1, packedLinkColdMetadata | packedLinkColdIndexMask} {
+		c.links[2].metadata = metadata
+		original := c.linkCold[2].link
+		c.linkCold[2].link = 2
+		if _, err := c.graphLink(3); err == nil {
+			t.Fatalf("cold corruption %x was accepted", metadata)
+		}
+		c.linkCold[2].link = original
+	}
+	c.truncateGraphLinks(2)
+	if len(c.linkCold) != 2 {
+		t.Fatalf("truncated cold=%d", len(c.linkCold))
+	}
+	for _, id := range []LinkID{0, 3, ^LinkID(0)} {
+		if _, err := c.graphLink(id); err == nil {
+			t.Fatalf("invalid id=%d", id)
+		}
+	}
+}
+
+func TestPackedGraphLinksReleaseColdRetention(t *testing.T) {
+	c := newTinyCoreWithLimits(t, Limits{})
+	c.linkCold = make([]coldLinkRecord, 0, int(coreRetentionCapBytes/coreColdLinkRecordBytes)+1)
+	if c.FootprintBytes() <= coreRetentionCapBytes {
+		t.Fatal("cold capacity absent from footprint")
+	}
+	if err := c.ResetReleasingRetention(); err != nil {
+		t.Fatal(err)
+	}
+	if c.linkCold != nil {
+		t.Fatal("oversized cold capacity retained")
+	}
+}
+
+// The production append path now encodes its common case directly. Exercise
+// that encoder as well as the standalone codec across complete logical values.
+func TestPackedGraphLinksProductionGeneratedRoundTrips(t *testing.T) {
+	c := &Core{}
+	state := uint64(0x716e46a95329c1bd)
+	next := func() uint64 { state ^= state << 13; state ^= state >> 7; state ^= state << 17; return state }
+	for i := 0; i < 10000; i++ {
+		link := linkRecord{prev: NodeID(next()), payload: SubtreeID(next()), next: LinkID(next()), scoreDelta: int64(next()), order: next(), flags: uint32(next() & 1)}
+		switch i % 8 {
+		case 0:
+			link.scoreDelta = 0
+			link.order &= 1<<30 - 1
+		case 1:
+			link.scoreDelta = int64(int16(link.scoreDelta))
+			link.order &= 1<<13 - 1
+		case 2:
+			link.scoreDelta = int64(int16(link.scoreDelta))
+			link.order = 1<<13 + link.order%(1<<30)
+		case 3:
+			link.scoreDelta = 0
+			link.order = 0
+			link.payload = 0
+			link.flags = linkFlagRecoveryDiscontinuity
+		case 4:
+			link.flags = uint32(next()) | 1<<31
+		case 5:
+			link.scoreDelta = -1 << 63
+			link.order = ^uint64(0)
+		case 6:
+			link.scoreDelta = 1<<63 - 1
+			link.order = ^uint64(0)
+		case 7:
+			link.flags = 0
+			link.order |= 1 << 63
+		}
+		id := c.appendGraphLink(link)
+		got, err := c.graphLink(id)
+		if err != nil || got != link {
+			t.Fatalf("case=%d id=%d got=%+v err=%v want=%+v", i, id, got, err, link)
+		}
+	}
+}

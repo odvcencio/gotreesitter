@@ -1,0 +1,132 @@
+{
+  "base-ledger.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tail": []
+  },
+  "base-owned-ledger.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tail": []
+  },
+  "baseline-boundary-tests.log": {
+    "sha256": "fd323d207a8e37408d371c284e7cf367e1b41b8541b8a76190bdd6547ee18c19",
+    "tail": [
+      "    --- PASS: TestWorkRollbackAndOverflowAreTransactional/nested-outer-rollback (0.00s)",
+      "    --- PASS: TestWorkRollbackAndOverflowAreTransactional/cohort-cap-rollback (0.00s)",
+      "    --- PASS: TestWorkRollbackAndOverflowAreTransactional/saturating-overflow (0.00s)",
+      "PASS",
+      "ok  \tgithub.com/odvcencio/gotreesitter/internal/parsercorephase0\t0.075s"
+    ]
+  },
+  "head-callback-fixed.log": {
+    "sha256": "4278fa93ac1fc410e1b7e8b05e53c8bd82242c1c33331d42ee0e3235d83d8198",
+    "tail": [
+      "--- PASS: TestCanonicalHeadMask (0.00s)",
+      "=== RUN   TestLineageRecoveryCostReadAfterPlanCallback",
+      "--- PASS: TestLineageRecoveryCostReadAfterPlanCallback (0.00s)",
+      "PASS",
+      "ok  \tgithub.com/odvcencio/gotreesitter/internal/parsercorephase0\t0.002s"
+    ]
+  },
+  "head-core-386.log": {
+    "sha256": "2ce8a88bb7944ad5bf52e3c1d288dcd818274b7919e13d67a51357c4d07447a3",
+    "tail": [
+      "ok  \tgithub.com/odvcencio/gotreesitter/internal/parsercorephase0\t0.190s"
+    ]
+  },
+  "head-core-phase0a.log": {
+    "sha256": "22859c40c8e6d6f19f48562dedd851024fb424b464204f197dd654e658b38218",
+    "tail": [
+      "ok  \tgithub.com/odvcencio/gotreesitter/internal/parsercorephase0\t0.193s"
+    ]
+  },
+  "head-core-race.log": {
+    "sha256": "c35d9f0470a8c635d9ac7b59e636b586cca9a9573885665bdaa09aa3a66153db",
+    "tail": [
+      "ok  \tgithub.com/odvcencio/gotreesitter/internal/parsercorephase0\t2.088s"
+    ]
+  },
+  "head-core.log": {
+    "sha256": "1506b12716e57bc4257e1657a7671c98d10b025d01b6b79d80ecdff163af4d54",
+    "tail": [
+      "ok  \tgithub.com/odvcencio/gotreesitter/internal/parsercorephase0\t0.181s"
+    ]
+  },
+  "head-extra-c.log": {
+    "sha256": "0e986a4074d8602f617dfac38d4d24454f84ef832aa245ac44b6dc2d5db78411",
+    "tail": [
+      "            --- PASS: TestCompactYAMLDocumentStreamLockedC/scanner_cursor_transitions/15/legacy (0.00s)",
+      "            --- PASS: TestCompactYAMLDocumentStreamLockedC/scanner_cursor_transitions/15/candidate (0.00s)",
+      "            --- PASS: TestCompactYAMLDocumentStreamLockedC/scanner_cursor_transitions/15/owned (0.00s)",
+      "PASS",
+      "ok  \tgithub.com/odvcencio/gotreesitter/cgo_harness\t0.073s"
+    ]
+  },
+  "head-go-c.log": {
+    "sha256": "1374f3eb78ddddd4878ffb2faef9577904aeab12a8f283deec5a1648ffb56e5d",
+    "tail": [
+      "=== RUN   TestParityHasNoErrors/go",
+      "--- PASS: TestParityHasNoErrors (0.01s)",
+      "    --- PASS: TestParityHasNoErrors/go (0.01s)",
+      "PASS",
+      "ok  \tgithub.com/odvcencio/gotreesitter/cgo_harness\t0.055s"
+    ]
+  },
+  "head-go-invariant.log": {
+    "sha256": "b883e390acbd78fec745a4d4ef2f14aea244a28e49caff589dc4412182bad656",
+    "tail": [
+      "=== RUN   TestV1InvariantGateR4EditSession",
+      "    incremental_invariant_gate_test.go:715: language=go fixture=r4 sample_bytes=2047 session_steps=72 no_edit_allocs=0",
+      "--- PASS: TestV1InvariantGateR4EditSession (1.55s)",
+      "PASS",
+      "ok  \tgithub.com/odvcencio/gotreesitter\t1.558s"
+    ]
+  },
+  "head-ledger.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tail": []
+  },
+  "head-owned-ledger.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tail": []
+  },
+  "head-owned-yaml-invariant.log": {
+    "sha256": "f3ac6df43013fa1a88cab4d5e7add551d0f06c5196b81be79d6ca94e6ed93831",
+    "tail": [
+      "=== RUN   TestV1InvariantGateR4EditSession",
+      "    incremental_invariant_gate_test.go:715: language=yaml fixture=r4 sample_bytes=1998 session_steps=72 no_edit_allocs=0",
+      "--- PASS: TestV1InvariantGateR4EditSession (0.08s)",
+      "PASS",
+      "ok  \tgithub.com/odvcencio/gotreesitter\t0.090s"
+    ]
+  },
+  "head-root-focus.log": {
+    "sha256": "856ad5f6be45350db57a674f6ec3e6a62fa7c10949d2125c4bbd0313eed6f28f",
+    "tail": [
+      "--- PASS: TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite (0.07s)",
+      "=== RUN   TestDiagnosticParserCoreSeedMatchesImmutableLegacyGolden",
+      "--- PASS: TestDiagnosticParserCoreSeedMatchesImmutableLegacyGolden (0.02s)",
+      "PASS",
+      "ok  \tgithub.com/odvcencio/gotreesitter\t1.314s"
+    ]
+  },
+  "head-yaml-c.log": {
+    "sha256": "1d68bb1b647cca94ef4fc6f7e192e144cea5682b7710b96dc59b7532d1ca0e00",
+    "tail": [
+      "=== RUN   TestParityHasNoErrors/yaml",
+      "--- PASS: TestParityHasNoErrors (0.01s)",
+      "    --- PASS: TestParityHasNoErrors/yaml (0.01s)",
+      "PASS",
+      "ok  \tgithub.com/odvcencio/gotreesitter/cgo_harness\t0.055s"
+    ]
+  },
+  "head-yaml-invariant.log": {
+    "sha256": "6381c7e629b0806376743669ec9407ec8fdfb8fcbfbaae2aa29638769b60f12f",
+    "tail": [
+      "=== RUN   TestV1InvariantGateR4EditSession",
+      "    incremental_invariant_gate_test.go:715: language=yaml fixture=r4 sample_bytes=1998 session_steps=72 no_edit_allocs=0",
+      "--- PASS: TestV1InvariantGateR4EditSession (0.06s)",
+      "PASS",
+      "ok  \tgithub.com/odvcencio/gotreesitter\t0.066s"
+    ]
+  }
+}

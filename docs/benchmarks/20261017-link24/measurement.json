@@ -1,0 +1,325 @@
+{
+  "go": {
+    "GoParseIncrementalSingleByteEditDFA": {
+      "ns/op": {
+        "before": 99252.0,
+        "after": 99248.5,
+        "relative_percent": -0.00352637730222094,
+        "supported": false,
+        "p": "p=0.862 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 394.0,
+        "after": 394.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 5.0,
+        "after": 5.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/rewrite": {
+      "ns/op": {
+        "before": 1712687.5000000002,
+        "after": 1806954.5,
+        "relative_percent": 5.504039703682073,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1776.0,
+        "after": 1776.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 21.0,
+        "after": 21.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/query_compile": {
+      "ns/op": {
+        "before": 8167514.000000001,
+        "after": 8573489.5,
+        "relative_percent": 4.9706128449856335,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "3%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 8096.0,
+        "after": 8096.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 120.0,
+        "after": 120.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/language": {
+      "ns/op": {
+        "before": 8493617.500000002,
+        "after": 8970296.5,
+        "relative_percent": 5.612202338991579,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "2%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 150420.0,
+        "after": 150420.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=0.968 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 239.0,
+        "after": 239.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/grammargen_lr": {
+      "ns/op": {
+        "before": 88243863.0,
+        "after": 91639117.5,
+        "relative_percent": 3.8475814459754565,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "3%",
+        "after_ci": "3%"
+      },
+      "B/op": {
+        "before": 1155584.0,
+        "after": 1155584.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 1705.0,
+        "after": 1705.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "GoParseIncrementalNoEditDFA": {
+      "ns/op": {
+        "before": 3.1555,
+        "after": 3.1575,
+        "relative_percent": 0.06338139755981409,
+        "supported": false,
+        "p": "p=0.963 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 0.0,
+        "after": 0.0,
+        "relative_percent": 0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 0.0,
+        "after": 0.0,
+        "relative_percent": 0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "GoParseFullDFA": {
+      "ns/op": {
+        "before": 3968957.0000000005,
+        "after": 3898939.0,
+        "relative_percent": -1.764141057713653,
+        "supported": true,
+        "p": "p=0.005 n=20",
+        "before_ci": "3%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1159.0,
+        "after": 1159.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=0.716 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 6.0,
+        "after": 6.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "AdmissionR4Compact": {
+      "ns/op": {
+        "before": 792073.5000000001,
+        "after": 832176.5000000001,
+        "relative_percent": 5.0630402355337,
+        "supported": true,
+        "p": "p=0.001 n=20",
+        "before_ci": "4%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1600.0,
+        "after": 1600.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 22.0,
+        "after": 22.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    }
+  },
+  "yaml": {
+    "AdmissionR4OwnedExternalLexer": {
+      "ns/op": {
+        "before": 336486.50000000006,
+        "after": 346896.0,
+        "relative_percent": 3.093586221141109,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 12872.0,
+        "after": 12872.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 109.0,
+        "after": 109.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "AdmissionYAMLDocumentStreamOwned": {
+      "ns/op": {
+        "before": 1310503.5,
+        "after": 1348708.0,
+        "relative_percent": 2.9152535647558597,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 44313.0,
+        "after": 44313.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=0.633 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 336.0,
+        "after": 336.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "AdmissionR4Compact": {
+      "ns/op": {
+        "before": 190512.0,
+        "after": 190767.0,
+        "relative_percent": 0.13384983623079272,
+        "supported": false,
+        "p": "p=0.779 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 15608.0,
+        "after": 14840.0,
+        "relative_percent": -4.920553562275753,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 37.0,
+        "after": 37.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    }
+  }
+}

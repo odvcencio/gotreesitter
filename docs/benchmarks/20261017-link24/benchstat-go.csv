@@ -1,0 +1,133 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+GoParseIncrementalSingleByteEditDFA,9.9252e-05,1%,9.92485e-05,1%,~,p=0.862 n=20
+ParserCoreFreshFullCanonical/rewrite,0.0017126875000000002,1%,0.0018069545000000001,1%,+5.50%,p=0.000 n=20
+ParserCoreFreshFullCanonical/query_compile,0.008167514,3%,0.0085734895,1%,+4.97%,p=0.000 n=20
+ParserCoreFreshFullCanonical/language,0.008493617500000002,2%,0.0089702965,1%,+5.61%,p=0.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,0.088243863,3%,0.0916391175,3%,+3.85%,p=0.000 n=20
+GoParseIncrementalNoEditDFA,3.1555e-09,1%,3.1575000000000003e-09,1%,~,p=0.963 n=20
+GoParseFullDFA,0.003968957,3%,0.003898939,1%,-1.76%,p=0.005 n=20
+AdmissionR4Compact,0.0007920735000000001,4%,0.0008321765000000001,1%,+5.06%,p=0.001 n=20
+geomean,0.0005645784790194297,,0.0005808014829847228,,+2.87%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,B/s,CI,B/s,CI,vs base,P
+GoParseIncrementalSingleByteEditDFA,1.94395e+08,1%,1.944e+08,1%,~,p=0.856 n=20
+ParserCoreFreshFullCanonical/rewrite,2.99e+06,1%,2.83e+06,1%,-5.35%,p=0.000 n=20
+ParserCoreFreshFullCanonical/query_compile,2.47e+06,3%,2.35e+06,1%,-4.86%,p=0.000 n=20
+ParserCoreFreshFullCanonical/language,4.87e+06,2%,4.615e+06,1%,-5.24%,p=0.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,2.67e+06,3%,2.57e+06,3%,-3.75%,p=0.000 n=20
+GoParseIncrementalNoEditDFA,6.1140886e+12,1%,6.11017566e+12,1%,~,p=0.968 n=20
+GoParseFullDFA,4.86e+06,2%,4.95e+06,1%,+1.85%,p=0.005 n=20
+AdmissionR4Compact,2.585e+06,4%,2.46e+06,1%,-4.84%,p=0.002 n=20
+geomean,3.3079980881288256e+07,,3.2148163885882333e+07,,-2.82%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,B/op,CI,B/op,CI,vs base,P
+GoParseIncrementalSingleByteEditDFA,394,0%,394,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/rewrite,1776,0%,1776,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,8096,0%,8096,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,150420,0%,150420,0%,~,p=0.968 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,1.155584e+06,0%,1.155584e+06,0%,~,p=1.000 n=20
+GoParseIncrementalNoEditDFA,0,0%,0,0%,~,p=1.000 n=20
+GoParseFullDFA,1159,0%,1159,0%,~,p=0.716 n=20
+AdmissionR4Compact,1600,0%,1600,0%,~,p=1.000 n=20
+geomean,,,,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,allocs/op,CI,allocs/op,CI,vs base,P
+GoParseIncrementalSingleByteEditDFA,5,0%,5,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/rewrite,21,0%,21,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,120,0%,120,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,239,0%,239,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,1705,0%,1705,0%,~,p=1.000 n=20
+GoParseIncrementalNoEditDFA,0,0%,0,0%,~,p=1.000 n=20
+GoParseFullDFA,6,0%,6,0%,~,p=1.000 n=20
+AdmissionR4Compact,22,0%,22,0%,~,p=1.000 n=20
+geomean,,,,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,candidate_fallback/op,CI,candidate_fallback/op,CI,vs base,P
+ParserCoreFreshFullCanonical/rewrite,0,0%,0,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,0,0%,0,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,0,0%,0,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,0,0%,0,0%,~,p=1.000 n=20
+geomean,,,,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,compact_leaf_constructions/op,CI,compact_leaf_constructions/op,CI,vs base,P
+ParserCoreFreshFullCanonical/rewrite,1109,0%,1109,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,5546,0%,5546,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,5375,0%,5375,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,53896,0%,53896,0%,~,p=1.000 n=20
+geomean,6496.981102918792,,6496.981102918792,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,compact_link_additions/op,CI,compact_link_additions/op,CI,vs base,P
+ParserCoreFreshFullCanonical/rewrite,2995,0%,2995,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,14662,0%,14662,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,15073,0%,15073,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,148367,0%,148367,0%,~,p=1.000 n=20
+geomean,17702.384279398368,,17702.384279398368,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,compact_parent_constructions/op,CI,compact_parent_constructions/op,CI,vs base,P
+ParserCoreFreshFullCanonical/rewrite,1504,0%,1504,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,7415,0%,7415,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,7623,0%,7623,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,75769,0%,75769,0%,~,p=1.000 n=20
+geomean,8958.681911161504,,8958.681911161504,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,compact_pop_paths/op,CI,compact_pop_paths/op,CI,vs base,P
+ParserCoreFreshFullCanonical/rewrite,1635,0%,1635,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,7981,0%,7981,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,8326,0%,8326,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,82259,0%,82259,0%,~,p=1.000 n=20
+geomean,9722.965057685085,,9722.965057685085,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,compact_pop_payloads/op,CI,compact_pop_payloads/op,CI,vs base,P
+ParserCoreFreshFullCanonical/rewrite,2982,0%,2982,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,14603,0%,14603,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,15765,0%,15765,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,150516,0%,150516,0%,~,p=1.000 n=20
+geomean,17929.021661720097,,17929.021661720097,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,compact_pop_requests/op,CI,compact_pop_requests/op,CI,vs base,P
+ParserCoreFreshFullCanonical/rewrite,1493,0%,1493,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,7382,0%,7382,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,7513,0%,7513,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,74911,0%,74911,0%,~,p=1.000 n=20
+geomean,8874.588159255132,,8874.588159255132,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,compact_reductions/op,CI,compact_reductions/op,CI,vs base,P
+ParserCoreFreshFullCanonical/rewrite,1493,0%,1493,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,7382,0%,7382,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,7513,0%,7513,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,74911,0%,74911,0%,~,p=1.000 n=20
+geomean,8874.588159255132,,8874.588159255132,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,compact_shifts/op,CI,compact_shifts/op,CI,vs base,P
+ParserCoreFreshFullCanonical/rewrite,1348,0%,1348,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/query_compile,6685,0%,6685,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/language,6512,0%,6512,0%,~,p=1.000 n=20
+ParserCoreFreshFullCanonical/grammargen_lr,66115,0%,66115,0%,~,p=1.000 n=20
+geomean,7892.2607345040815,,7892.2607345040815,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,compact-fallbacks/op,CI,compact-fallbacks/op,CI,vs base,P
+AdmissionR4Compact,0,0%,0,0%,~,p=1.000 n=20
+geomean,,,,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-link24/go-head.txt,,,
+,compact-routes/op,CI,compact-routes/op,CI,vs base,P
+AdmissionR4Compact,1,0%,1,0%,~,p=1.000 n=20
+geomean,1,,1,,+0.00%,

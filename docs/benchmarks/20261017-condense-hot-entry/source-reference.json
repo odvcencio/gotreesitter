@@ -1,0 +1,13 @@
+{
+  "baseline": "5e52cf2a2644f3d38785513eebc39f8cf8a506b2",
+  "baseline_Go_files": 3508,
+  "baseline_source_reference": "../20261017-paired-terminal-cursors/source-reference.json",
+  "candidate_files": {
+    "internal/parsercorephase0/core.go": "86daff9a6f935fa12a260a745904cdb9f228b76e04a16feb6636b0afce352d90",
+    "internal/parsercorephase0/condense_existing_boundary.go": "7dd7692e88599c88fa76380d4d2bf0de97cc234afe6b6767aeb6a6f30b945d9d"
+  },
+  "diagnostic_shims": "../20261017-action-storage-rejections/inline/owned-{benchmark,ledger}.go.txt",
+  "original_evidence": "/home/draco/.local/state/gotreesitter-evidence/20261017-condense-hot-entry",
+  "status": "rejected; candidate files never promoted",
+  "frame_scope": "Linux amd64 Go1.25.14 entry SUBQ reservation; fixed BP/return slots excluded; no RSS or speed claim"
+}

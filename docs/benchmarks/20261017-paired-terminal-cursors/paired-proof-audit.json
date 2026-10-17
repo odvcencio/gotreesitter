@@ -1,0 +1,28 @@
+{
+  "baseline": "a03d0842994a85aa26cf494c8c67404e1e64e999",
+  "scope": "pair-local proof audit; full qualification is recorded separately in qualification.json",
+  "frozen_source_files": {
+    "internal/parsercorephase0/core.go": "4618b77fbf9a7ac45d14b18753aeae32a901cb3e5fae10515591438920461806",
+    "internal/parsercorephase0/checkpoint_interner.go": "dfaef704524290b24aef7343de03d6f9f338a79b40df83baef4e20af1b27d131",
+    "internal/parsercorephase0/reused_subtree.go": "a8533d19b2018a37347bc357b16512f15a1ad06f1491fda77376833b6200c199",
+    "internal/parsercorephase0/reduction_child_selection.go": "96b8f36d7c05baf9c36cd2435dbf32087483b623d849fb9f9c93ce3d38135a8e"
+  },
+  "observed_contracts": [
+    "subtree validates ID and reused-opaque records; validateReusedRecord and reusedSubtree are pure array/sparse-table reads",
+    "externalPayloadScannerProvenance and checkpointInterner.record are pure reads in this baseline",
+    "candidate cursor changes only its local traversal stack and shared local work count; no callback or metadata write occurs between left validation and the matching right terminal",
+    "every new pair validates the left terminal before traversing right; a distinct right terminal validates its own scanner pair",
+    "both logical cursor visits, missing/error/opaque/external checks, child ordering and the same shared budget remain; an already validated matching right leaf spends one visit without a second metadata lookup",
+    "same-ID structural equality is already immediate true; skipped-prefix lookup is a pure same-key read, so shared-ID continuation preserves it",
+    "no cross-pair, cross-Core or cross-callback proof memo; no new retained memory or record layout"
+  ],
+  "regressions_exercised_on_both_roles": [
+    "valid shared prefix with missing or unavailable shared tail proof",
+    "ordinary/missing/opaque terminals",
+    "distinct terminals with different scanner states or prefixes",
+    "left decline/checkpoint error versus malformed right child order"
+  ],
+  "canopy_scope": "private changed internal directory only, depth 2; remaining Core methods reviewed directly from frozen source",
+  "additional_fast_path": "If the current right-stack top equals the fully validated left terminal, spend exactly one right visit and pop it. Right parent walks are not skipped. Budget is checked after left validation, preserving error order.",
+  "additional_regression": "14 logical visits against an arena-derived budget of 13 must still reject, even when the right leaf can be consumed directly."
+}

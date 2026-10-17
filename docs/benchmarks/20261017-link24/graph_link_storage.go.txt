@@ -1,0 +1,79 @@
+package parsercorephase0
+
+import "errors"
+
+// coldLinkRecord preserves the full metadata of values outside the inline
+// formats. Entries append in logical LinkID order and never change in place.
+// The logical ID occupies the alignment word after flags on 64-bit platforms.
+type coldLinkRecord struct {
+	scoreDelta int64
+	order      uint64
+	flags      uint32
+	link       LinkID
+}
+
+const packedLinkColdIndexMask uint32 = 1<<31 - 1
+
+var errGraphLinkCold = errors.New("parser-core phase zero: invalid full-width graph link metadata")
+
+func (c *Core) graphLink(id LinkID) (linkRecord, error) {
+	if id == 0 || uint64(id) > uint64(len(c.links)) {
+		return linkRecord{}, errors.New("parser-core phase zero: graph link is outside its arena")
+	}
+	packed := c.links[id-1]
+	if link, inline := packed.unpackInline(); inline {
+		return link, nil
+	}
+	return c.coldGraphLink(id, packed)
+}
+
+func (c *Core) coldGraphLink(id LinkID, packed packedLinkRecord) (linkRecord, error) {
+	index := uint64(packed.metadata & packedLinkColdIndexMask)
+	if index == uint64(packedLinkColdIndexMask) {
+		// More cold records than fit in the inline index remain addressable by
+		// their full logical ID. This escape adds no new graph size limit.
+		index = uint64(c.coldGraphLinkLowerBound(id))
+	}
+	if index >= uint64(len(c.linkCold)) || c.linkCold[index].link != id {
+		return linkRecord{}, errGraphLinkCold
+	}
+	cold := c.linkCold[index]
+	return linkRecord{prev: packed.prev, payload: packed.payload, next: packed.next,
+		scoreDelta: cold.scoreDelta, order: cold.order, flags: cold.flags}, nil
+}
+
+func (c *Core) coldGraphLinkLowerBound(id LinkID) int {
+	lo, hi := 0, len(c.linkCold)
+	for lo < hi {
+		mid := lo + (hi-lo)/2
+		if c.linkCold[mid].link < id {
+			lo = mid + 1
+		} else {
+			hi = mid
+		}
+	}
+	return lo
+}
+
+// truncateGraphLinks keeps the prefix named by existing checkpoints. A later
+// append can safely reuse both its logical ID and a discarded cold index.
+func (c *Core) truncateGraphLinks(count int) {
+	c.links = c.links[:count]
+	if len(c.linkCold) != 0 {
+		if count == 0 {
+			c.linkCold = c.linkCold[:0]
+		} else if uint64(c.linkCold[len(c.linkCold)-1].link) > uint64(count) {
+			// count+1 is evaluated wide: retaining MaxUint32 links cannot wrap.
+			lo, hi := 0, len(c.linkCold)
+			for lo < hi {
+				mid := lo + (hi-lo)/2
+				if uint64(c.linkCold[mid].link) <= uint64(count) {
+					lo = mid + 1
+				} else {
+					hi = mid
+				}
+			}
+			c.linkCold = c.linkCold[:lo]
+		}
+	}
+}

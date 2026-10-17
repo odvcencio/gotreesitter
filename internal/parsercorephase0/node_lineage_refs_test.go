@@ -32,12 +32,12 @@ func TestNodeLineageRefsLazyStorageAndIdempotentUpdate(t *testing.T) {
 	if err := c.recordNodeLineageRefs(head, refs); err != nil {
 		t.Fatal(err)
 	}
-	index := c.nodeLineages[head.Node-1].dropCohortRefIndex
+	index := c.testLineageAt(int(head.Node - 1)).dropCohortRefIndex
 	before := c.FootprintBytes()
 	if err := c.recordNodeLineageRefs(head, refs); err != nil {
 		t.Fatal(err)
 	}
-	if c.nodeLineages[head.Node-1].dropCohortRefIndex != index || len(c.nodeLineageRefSets) != 1 || c.FootprintBytes() != before {
+	if c.testLineageAt(int(head.Node-1)).dropCohortRefIndex != index || len(c.nodeLineageRefSets) != 1 || c.FootprintBytes() != before {
 		t.Fatal("duplicate references allocated or changed their index")
 	}
 	more := g18RefSetFrom(t, c, g18Ref(1, 1, 2, 0))
@@ -62,7 +62,7 @@ func TestNodeLineageRefsNestedRollbackRestoresStorage(t *testing.T) {
 	if err := c.recordNodeLineageRefs(head, first); err != nil {
 		t.Fatal(err)
 	}
-	before := c.nodeLineages[head.Node-1]
+	before := c.testLineageAt(int(head.Node - 1))
 	beforeArena := c.nodeLineageRefSets
 	sentinel := errors.New("rollback references")
 	err = c.ApplyAtomic(func() error {
@@ -89,7 +89,7 @@ func TestNodeLineageRefsNestedRollbackRestoresStorage(t *testing.T) {
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("outer rollback=%v", err)
 	}
-	if c.nodeLineages[head.Node-1] != before || !reflect.DeepEqual(c.nodeLineageRefSets, beforeArena) || cap(c.nodeLineageRefSets) != cap(beforeArena) {
+	if c.testLineageAt(int(head.Node-1)) != before || !reflect.DeepEqual(c.nodeLineageRefSets, beforeArena) || cap(c.nodeLineageRefSets) != cap(beforeArena) {
 		t.Fatal("outer rollback did not restore references and their storage")
 	}
 
@@ -111,18 +111,18 @@ func TestNodeLineageRefsMergeSharesEqualSets(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	before := c.nodeLineages[heads[0].Node-1]
+	before := c.testLineageAt(int(heads[0].Node - 1))
 	bytes := c.FootprintBytes()
 	if err := c.mergeNodeLineageMetadata(heads[0].Node, heads[1].Node, heads[0].Node); err != nil {
 		t.Fatal(err)
 	}
-	if c.nodeLineages[heads[0].Node-1] != before || c.FootprintBytes() != bytes {
+	if c.testLineageAt(int(heads[0].Node-1)) != before || c.FootprintBytes() != bytes {
 		t.Fatal("equal sets at different indices changed the incumbent")
 	}
 	if err := c.mergeNodeLineageMetadata(heads[0].Node, heads[1].Node, heads[2].Node); err != nil {
 		t.Fatal(err)
 	}
-	if c.nodeLineages[heads[2].Node-1].dropCohortRefIndex != before.dropCohortRefIndex || c.FootprintBytes() != bytes {
+	if c.testLineageAt(int(heads[2].Node-1)).dropCohortRefIndex != before.dropCohortRefIndex || c.FootprintBytes() != bytes {
 		t.Fatal("new lineage did not share the immutable reference set")
 	}
 }
@@ -141,7 +141,7 @@ func TestNodeLineageRefsFlagsAccountingResetAndRelease(t *testing.T) {
 	if got, err := c.NodeLineageDropCohortRefs(head.Node); err != nil || got != flags {
 		t.Fatalf("flags=%+v err=%v", got, err)
 	}
-	want := uint64(cap(c.nodeLineageRefSets)) * uint64(unsafe.Sizeof(DropCohortRefSet{}))
+	want := uint64(cap(c.nodeLineageRefSets))*uint64(unsafe.Sizeof(DropCohortRefSet{})) + uint64(cap(c.nodeLineageRecovery))*8
 	if c.FootprintBytes()-before != want {
 		t.Fatal("reference storage is missing from footprint")
 	}

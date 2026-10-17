@@ -1,0 +1,52 @@
+=== RUN   TestMaterializationOrderRejectsRepeatedOwnership
+--- PASS: TestMaterializationOrderRejectsRepeatedOwnership (0.00s)
+=== RUN   TestPrebuiltMaterializationRejectsSharedDescendants
+--- PASS: TestPrebuiltMaterializationRejectsSharedDescendants (0.00s)
+=== RUN   TestMaterializationOrderRejectsCycle
+--- PASS: TestMaterializationOrderRejectsCycle (0.00s)
+=== RUN   TestMaterializationOrderValidatesRemappedMetadata
+--- PASS: TestMaterializationOrderValidatesRemappedMetadata (0.00s)
+=== RUN   TestMaterializationMetadataAuthenticationIsConstructionScoped
+--- PASS: TestMaterializationMetadataAuthenticationIsConstructionScoped (0.00s)
+=== RUN   TestMaterializationOrderPollsAndPublishesNothingOnStop
+--- PASS: TestMaterializationOrderPollsAndPublishesNothingOnStop (0.00s)
+=== RUN   TestVisitMaterializationPostorderDeepIterativeTree
+--- PASS: TestVisitMaterializationPostorderDeepIterativeTree (0.00s)
+=== RUN   TestVisitMaterializationPostorderStopsBeforeVisit
+--- PASS: TestVisitMaterializationPostorderStopsBeforeVisit (0.00s)
+=== RUN   TestVisitMaterializationPostorderScratchReusesAndResets
+--- PASS: TestVisitMaterializationPostorderScratchReusesAndResets (0.00s)
+=== RUN   TestVisitMaterializationPostorderScratchRollsBackVisitorFailure
+--- PASS: TestVisitMaterializationPostorderScratchRollsBackVisitorFailure (0.00s)
+=== RUN   TestVisitMaterializationPostorderScratchRejectsInvalidScratchBeforePoll
+--- PASS: TestVisitMaterializationPostorderScratchRejectsInvalidScratchBeforePoll (0.00s)
+=== RUN   TestVisitMaterializationPostorderScratchRollsBackFinalPollFailure
+--- PASS: TestVisitMaterializationPostorderScratchRollsBackFinalPollFailure (0.00s)
+=== RUN   TestMaterializationParentUsePreservesWalk
+--- PASS: TestMaterializationParentUsePreservesWalk (0.00s)
+=== RUN   TestHiddenTailTerminalRequiresExactUse
+=== RUN   TestHiddenTailTerminalRequiresExactUse/nonterminal
+=== RUN   TestHiddenTailTerminalRequiresExactUse/missing
+=== RUN   TestHiddenTailTerminalRequiresExactUse/extra
+=== RUN   TestHiddenTailTerminalRequiresExactUse/fragile
+=== RUN   TestHiddenTailTerminalRequiresExactUse/reused
+=== RUN   TestHiddenTailTerminalRequiresExactUse/error
+=== RUN   TestHiddenTailTerminalRequiresExactUse/prefix
+=== RUN   TestHiddenTailTerminalRequiresExactUse/root
+=== RUN   TestHiddenTailTerminalRequiresExactUse/middle
+=== RUN   TestHiddenTailTerminalRequiresExactUse/unary
+=== RUN   TestHiddenTailTerminalRequiresExactUse/recovery_parent
+--- PASS: TestHiddenTailTerminalRequiresExactUse (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/nonterminal (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/missing (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/extra (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/fragile (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/reused (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/error (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/prefix (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/root (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/middle (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/unary (0.00s)
+    --- PASS: TestHiddenTailTerminalRequiresExactUse/recovery_parent (0.00s)
+PASS
+ok  	github.com/odvcencio/gotreesitter/internal/parsercorephase0	0.008s

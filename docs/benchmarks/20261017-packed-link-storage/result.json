@@ -1,0 +1,39 @@
+{
+  "status": "rejected",
+  "runtime_promoted": false,
+  "timed_rows": 640,
+  "seeds": {
+    "go": [
+      32301,
+      32320
+    ],
+    "yaml": [
+      32401,
+      32420
+    ]
+  },
+  "settings": {
+    "GOMAXPROCS": 1,
+    "count": 1,
+    "benchtime": "750ms",
+    "benchmem": true,
+    "go": "1.25.14",
+    "cpu": 6,
+    "docker_memory": "6GiB",
+    "GOMEMLIMIT": "5GiB"
+  },
+  "counter_rows": 414,
+  "construction_vectors": 5,
+  "all_counters_and_consumption_digests_exact": true,
+  "scope_not_run": [
+    "all-language invariant fleet",
+    "full locked-C fleet",
+    "strict C census",
+    "RSS qualification"
+  ],
+  "profile_is_attribution_only": true,
+  "active_link_record_bytes": 32,
+  "private_packed_link_bytes": 16,
+  "private_cold_metadata_bytes": 24,
+  "cold_records_add_to_packed_records": true
+}

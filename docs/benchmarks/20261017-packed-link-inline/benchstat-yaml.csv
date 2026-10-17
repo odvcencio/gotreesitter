@@ -1,0 +1,45 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-head.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+AdmissionYAMLDocumentStreamOwned,0.0013126905000000002,1%,0.0013377095,2%,+1.91%,p=0.004 n=20
+AdmissionR4Compact,0.00019164250000000001,2%,0.0001907955,1%,~,p=0.989 n=20
+AdmissionR4OwnedExternalLexer,0.00033963950000000004,4%,0.0003444825,2%,+1.43%,p=0.046 n=20
+geomean,0.000440444090717183,,0.0004446644067772831,,+0.96%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-head.txt,,,
+,B/s,CI,B/s,CI,vs base,P
+AdmissionYAMLDocumentStreamOwned,6.105e+06,1%,5.99e+06,2%,-1.88%,p=0.003 n=20
+AdmissionR4Compact,1.0425e+07,2%,1.0475e+07,1%,~,p=0.941 n=20
+AdmissionR4OwnedExternalLexer,5.885e+06,4%,5.8e+06,2%,-1.44%,p=0.048 n=20
+geomean,7.208353332906596e+06,,7.13952988558901e+06,,-0.95%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-head.txt,,,
+,compact-fallbacks/op,CI,compact-fallbacks/op,CI,vs base,P
+AdmissionYAMLDocumentStreamOwned,0,0%,0,0%,~,p=1.000 n=20
+AdmissionR4Compact,1,0%,1,0%,~,p=1.000 n=20
+AdmissionR4OwnedExternalLexer,0,0%,0,0%,~,p=1.000 n=20
+geomean,,,,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-head.txt,,,
+,compact-routes/op,CI,compact-routes/op,CI,vs base,P
+AdmissionYAMLDocumentStreamOwned,1,0%,1,0%,~,p=1.000 n=20
+AdmissionR4Compact,0,0%,0,0%,~,p=1.000 n=20
+AdmissionR4OwnedExternalLexer,1,0%,1,0%,~,p=1.000 n=20
+geomean,,,,,+0.00%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-head.txt,,,
+,B/op,CI,B/op,CI,vs base,P
+AdmissionYAMLDocumentStreamOwned,44313,0%,44313,0%,~,p=1.000 n=20
+AdmissionR4Compact,15608,0%,14072,0%,-9.84%,p=0.000 n=20
+AdmissionR4OwnedExternalLexer,12872,0%,12872,0%,~,p=1.000 n=20
+geomean,20725.64937743359,,20022.163499385453,,-3.39%,
+
+,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-base.txt,,/home/draco/.local/state/gotreesitter-evidence/20261017-packed-link-inline/yaml-head.txt,,,
+,allocs/op,CI,allocs/op,CI,vs base,P
+AdmissionYAMLDocumentStreamOwned,336,0%,336,0%,~,p=1.000 n=20
+AdmissionR4Compact,37,0%,37,0%,~,p=1.000 n=20
+AdmissionR4OwnedExternalLexer,109,0%,109,0%,~,p=1.000 n=20
+geomean,110.65961794430501,,110.65961794430501,,+0.00%,

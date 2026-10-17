@@ -1,0 +1,2680 @@
+[
+  {
+    "language": "ada",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "bb1fdb19fe07a0df33ebb25ea9c9429d9adeb03913bde5f0e1cbcc49141f89af",
+    "C_log_sha256": "62b4c39b468e992639ebf31b2a5030aefe80135b83fdb15879932a1ce2ed6a3e"
+  },
+  {
+    "language": "agda",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "485dadf62e789cf4348f453a2a3b0eb4dcc3039a0272e4edb685349b47f8a269",
+    "C_log_sha256": "9ff2fc120ca68f7ff62afefd7d7b4ce473433ab3cf7ddea6977dd50d8f6d886b"
+  },
+  {
+    "language": "angular",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "89e81a0a258c0362be746248211278b11529a85b1b72e566823c86ba117ec75c",
+    "C_log_sha256": "9bd8183f26632ae728570120ecad71f12aa5ae632b5d5e4a06d7f5901c883bdb"
+  },
+  {
+    "language": "apex",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ee4faab97211eb0e4cef37b49e12954c7973901654d61a1db2856616601fdfe3",
+    "C_log_sha256": "468364bf8d25f651b29aeb0ec66e5f250078f7162b3a34e9cd6837010d00bd71"
+  },
+  {
+    "language": "arduino",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "eb2de2905b9653d18c52f402f494f3ff9a27365d14ac5aebb3aa6284a5df5fe3",
+    "C_log_sha256": "a23ac246d22bf49acb39f13a7b5b07c9e9631edd284cc91f3b96dd80d01165e1"
+  },
+  {
+    "language": "asm",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "6cdb330bbafc7583e8508b235bc5a72d1e9b3c00cea20856edfc724a8f0719b5",
+    "C_log_sha256": "453c6664d70f6b5a46f55c80bc370a0131a760c7219d3a1709cc3c19b2e70403"
+  },
+  {
+    "language": "astro",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "90db428b5a3325f097d353ff64b4512aebf9c40fa8fad182cfcb090af37dd853",
+    "C_log_sha256": "b374e5857ff0b90af90e3a16bc8d723a12b6d9939920eeb8da147bdc0623f813"
+  },
+  {
+    "language": "authzed",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ea0163e8d305e05ebd0ebf27c1368f34ea93eed04b76f034c5ee54309d313d0c",
+    "C_log_sha256": "439b94363b12dab67d158fd0c9df6a34c79ee884004719a537de2d0e9eef87f4"
+  },
+  {
+    "language": "awk",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "fa6f3aa91b93ccc3084e7aa5fb691c59d6b3d128038427d147e36a76316a6a11",
+    "C_log_sha256": "f4ca7295a89b850e52ed85e77715de21cb39bb00701a358435592117323944b8"
+  },
+  {
+    "language": "bash",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "490b7cd898e8ef91c98ef63dbc05573dfea69663d8858a7cd522d162a09a50de",
+    "C_log_sha256": "c74f1a4078fc9790af4ee84d14a12a5f15cd14a0c726fb630bbf3eb310644ac1"
+  },
+  {
+    "language": "bass",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "b2139cb5010f6ea66d9cebd74935665648c75d7416dc25e7a83f90c48d2b3e34",
+    "C_log_sha256": "87dec669f53bc4b621e12d18109f5cf1256a52f18c7f43b86fdce029ac352bc6"
+  },
+  {
+    "language": "beancount",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "7d2977cf5a9f843a7cf85c9332d523e8d1248ba2b452fb54413177911c9cb307",
+    "C_log_sha256": "ac5adbc24732faeedac64814619f8e5907ee3db2320ebd85376c3733c3aae31f"
+  },
+  {
+    "language": "bibtex",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ae8150934ccfa9f06a138366767e487ed068c6e6bc3be0bbea1939e97c56fce2",
+    "C_log_sha256": "0bb41d2f43fc32d30b5bd57651afd33adcc1f9c9eef39fb3f059c845048910b6"
+  },
+  {
+    "language": "bicep",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ffba9e51fe1cfe2d19c947d8cd867ebe42f8e869c1da5843132cc061b53698a3",
+    "C_log_sha256": "c14b779a937d4b33c5393f0647d39e702c76cc0efc80b13a50636026c41c3054"
+  },
+  {
+    "language": "bitbake",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "17b7b8700e3d9d542addff96e8cbebed24fc78941496b9b06aed825962c94942",
+    "C_log_sha256": "647607bd533a305311ed04ed74d7c016fb901605b992a74fd8c7020ac5f044d8"
+  },
+  {
+    "language": "blade",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "25376842434c248ecaa2e5bda2b1e11859512d824f566d1672719e0346671619",
+    "C_log_sha256": "bfdba898bc3c805fe222b8d58f75017dc7ab33e437a059758a6e4cf4ad09ab03"
+  },
+  {
+    "language": "brightscript",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "9c593b55ca00d98cdcaf3e794b9d91e0f407cfc283f1c7ec5cb98b10bf60c188",
+    "C_log_sha256": "79fb69103a8a1f2e515e7f821638a59bcc05935543688d01f073a6d64f279427"
+  },
+  {
+    "language": "c",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "5ac041015066739a439f0adea8e71b466daec1bc4415a6c20ee2ac841f866c70",
+    "C_log_sha256": "d3ba6cfae1a2819dbbdd8a731b7b0b9c5f3424be9498e068942c3d23fa7c6f48"
+  },
+  {
+    "language": "c_sharp",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "59d76a889f0f710a0cc6b32bd431eebe2269655bda3d0e9155f6120b83b06e65",
+    "C_log_sha256": "c867f8da795491cf8494b8e4d7d9d8916f7cd937b233cd32ea0a2e64509ced8e"
+  },
+  {
+    "language": "caddy",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "5718913fccf4ea48cbb587a904702b29db94bf262f1f9e052ab6881ce04ef9d5",
+    "C_log_sha256": "5d63e28b3d942e6460f87f86f4684eed36ad8792eb468d4456893d143e962f7c"
+  },
+  {
+    "language": "cairo",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f5b9177c8b17a0226f8bde6cf189888abd5b17f54ac19b510a165f60899d417e",
+    "C_log_sha256": "49c9ab61d5125383de02403e39ddb1841c9178e022110ace20e37b2010ebc694"
+  },
+  {
+    "language": "capnp",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "620105e40811b4962f77cd20a2e074c6f5cdd6a7409462efec2d5ff4b31482ad",
+    "C_log_sha256": "9bb2052ed9dea6b3fbceca6b184aa9b6c4ac0b7d87745e8dd792ff9ad3da46f2"
+  },
+  {
+    "language": "chatito",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "a201330b72977cefa54cd94601293ec3abff6cecf12b2e475fc7c84c3eb26afe",
+    "C_log_sha256": "7e602575a0027a139849e79f3ff00eab741593a9b9784df085605219f976862c"
+  },
+  {
+    "language": "circom",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "2e21f3ef2a6c6d6e2b27da486a7e875f00aa01a5c00556fe91350286a73929d2",
+    "C_log_sha256": "899c834d99a31d4867cc9d1d465fb33c01330a314c8680b20258de62df61194d"
+  },
+  {
+    "language": "clojure",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ee8900a4d882a4a054c7c2d7381eff6cce3207275c7e023ca41de0fda81a9b44",
+    "C_log_sha256": "1658d2347a20193401328395809f204d03b863d942d3b5007393af84a455ccb4"
+  },
+  {
+    "language": "cmake",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ece1349cde3c7891588a92eebe8468542263e326ba51440edd9698f0fae84ee9",
+    "C_log_sha256": "78f38a93e2f91c69c3691aa8e09bd59bfbf7341c3e3f66a4fd9fcddba0562c41"
+  },
+  {
+    "language": "cobol",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "4a993d4b403307e301338fb8bdbd6449d577a731e1b6ded13ce7e6d1cd8f86ba",
+    "C_log_sha256": "6769119aa29442d0d878aeceac05d74602b4924e5a2c30785fb39392bf9c60d1"
+  },
+  {
+    "language": "comment",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ea9587903a33b4ed85373cd7b35fff60d4e677b3accfc374eafedb89c8572f83",
+    "C_log_sha256": "f6c75a24fcaf92d1c0a8e8fd441db2111d772439f158c23fb9ef3a37311002c0"
+  },
+  {
+    "language": "commonlisp",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "829fdf4a82f520081e93bdb4e333fe4602d06d97558813a2cbb1f8ef09ee4f82",
+    "C_log_sha256": "b630f6d906b5db1406c9550305616f13b79a8cbc4ad665284d2898a8d7adf9ca"
+  },
+  {
+    "language": "cooklang",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "d58ecb458514708ab8bfc63db249934e29f238507dce699987682e36bf4926de",
+    "C_log_sha256": "81f154579a3767daf2de51780f9c5b77345f30616f2dd5677000165fd66b7ae8"
+  },
+  {
+    "language": "corn",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "51eb499d8ed35f87dee15dd30e3f94595ccdac4c742c2e5ed5417fe12699c250",
+    "C_log_sha256": "e2706fe9843bb8c4b79f816561e46c39c32a7513ddd601c703a50d5d2992f60b"
+  },
+  {
+    "language": "cpon",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "fb9dc0a9e50e0249fb8d57d522e6d39522c2afab6fc27344e42d4ba9ba154f6e",
+    "C_log_sha256": "efaf981b27f07c949f4d80e631a382254731c13105aabd836496087e4592f7fd"
+  },
+  {
+    "language": "cpp",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "b403dd10130cc96c8895ea5e11c51dd39aa4ab8397ab5fdb1612699b5802aa54",
+    "C_log_sha256": "e2ad6f8062903f206de7847e427a589d5f1904698d0136ff129f29aa06861309"
+  },
+  {
+    "language": "crystal",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "9681dc2920edf8232e5e508ea966d85b3b1c4725714637358ccfe234b449399b",
+    "C_log_sha256": "b6bfe8bb73a49feec5e52492a1337164c6969405cc2f8f5977bd509aa2c1e6ea"
+  },
+  {
+    "language": "css",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "150b7e453491bef890a67d9500db78be99816e2dcb85c8533a8809767576bd6b",
+    "C_log_sha256": "cec215eeeec74e39dfbe2e6c0baafff3101f8b77858e918b42cf47c73e381a18"
+  },
+  {
+    "language": "csv",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "247c3ec1fc5441d4f4ff14c1dcdd25f8bcf3c567021cf4acb89f2a68a6d865d7",
+    "C_log_sha256": "535ea925831bdd031286869d78cb0733ca647a58e6a800d3a58f3335a239a377"
+  },
+  {
+    "language": "cuda",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "4a6d542c56426ab21922c11a4b2402eeb6f9d4b5fbfcb0a997a7e772e9e59dad",
+    "C_log_sha256": "01a8efcf5dc90c785c3cb126132c725e0136f26f45e2f97a82a7627e84d0d2a0"
+  },
+  {
+    "language": "cue",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ead1c4535ea4be3d36f62d06561c4321019c57ca39c72f7a73fda4cdd0a04f85",
+    "C_log_sha256": "da133913d04f5cef9e1545b02d34cccbe3efbd34c85ee09eb1b9ef79b9e92054"
+  },
+  {
+    "language": "cylc",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "2b77e86aab2c818d9c3ba8232b90178d34d3310a28c809ccb3d8d4ddeccdf001",
+    "C_log_sha256": "a2a5b3d18f4757390be303d74eb7060eb27ec3e67a7521f315da3a1f9d3372d6"
+  },
+  {
+    "language": "d",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "2d979214a977e690083be8dc73ad69ef7672264fabf0551d00e6cb370f93d9a0",
+    "C_log_sha256": "8b64347a8b7f2b69e5920683f7f4148943c996be737d7c4a8bfac0150e486ba0"
+  },
+  {
+    "language": "dart",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f5537b88e9aa9b0aa16ed27d644f4ceda406fadf2f4ba7f0fe4c00e8cfddb180",
+    "C_log_sha256": "ce0503ca2952ad56d0c05546ec08efee5699ce104880775a16d85f0bdf11aa53"
+  },
+  {
+    "language": "desktop",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "9003d6bbc5ce46f826df85980de04f321acb217c08c3631dce94d6c4a3a9ae42",
+    "C_log_sha256": "f5bb91e874a02b139165263d7706f13af83be15282327fa2dc59f44828b238b9"
+  },
+  {
+    "language": "devicetree",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "512310d29f0545685f0a1d64b2b04734629250358b5e84758bc403aaebe8e9c1",
+    "C_log_sha256": "c48c5b0c64e4a18be45037534a9d35a014fdff17e7975086b315dfb5b6796aea"
+  },
+  {
+    "language": "dhall",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "a1e93ec0f90826360933d7fc9576f8f80b7106606f6fd51a8cd2f2c649d494c8",
+    "C_log_sha256": "deeebf101fe32a3d87feec7b2a1d92f5ab96c3a06e581ba3c333a96f7e8658ca"
+  },
+  {
+    "language": "diff",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "28a8653cb50a474eaa7828e7b24fff3cb32aa89474092e6c0faa40e7c8fe89c8",
+    "C_log_sha256": "bf6f2becc981bd1c82a9a494c89c2126f13017fc3fb658074fe8ff170413dda8"
+  },
+  {
+    "language": "disassembly",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "261e4000df8ea45fe02ca2cb71c291a5468de387f3808694d23686d01fe7aa1c",
+    "C_log_sha256": "3e7403d720c43e050cfbcab43dbac7ba55213e036919f0524d85f7d14e284f9e"
+  },
+  {
+    "language": "djot",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "b0f5508e6a78e4229bd4af65c69146f1632b6fbd5c20f776111135bef709b050",
+    "C_log_sha256": "363fbd6ba7eada4c6b40aeb07e83302bad0fcba8a8810fcb4786a743febb31b0"
+  },
+  {
+    "language": "dockerfile",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f8f283377d9086240d686637912eac2a18b579ccb1753c35786530add262f56b",
+    "C_log_sha256": "767d65d470f0f0aad3da019713cb3ab26d1f82b5f9fc52ca8d5faa1fe830c444"
+  },
+  {
+    "language": "dot",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ea426c3d537ae2cf5d9eb36d74d9ccae4e9e5d116a4a7dc6ed8c0ae51653ea7b",
+    "C_log_sha256": "288084f54fdde06001eef240b3f0fcd4d223f2b0e4a7962269554c8ed989a838"
+  },
+  {
+    "language": "doxygen",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "44108fd35869e2688bd87838e1dea564dd438f66e9a8d8145be2ad7d6306359d",
+    "C_log_sha256": "5c1f7738ada49d403fdcb40a07e2784e577cf7a12791e74f77c95440bb61e528"
+  },
+  {
+    "language": "dtd",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "baffb1f66772d5d4763fcd631b0ef81f900813641c4b106535e3267a2a6e79d1",
+    "C_log_sha256": "795e329ecb775465e9b4e0d1d639101c9bf38ef030ba16dd0c3e202cfaf9090b"
+  },
+  {
+    "language": "earthfile",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "41797c7c1682f0a47fb2d7fb3fa822815f766df1839f27c5e6c48ca0e6e2e7da",
+    "C_log_sha256": "8c8cb5b6fee796d3d4c6434590fca1fcebca55eaf4dfcc371afcd76178046646"
+  },
+  {
+    "language": "ebnf",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "a0f33b96f28dbd1aba000075728fa91b98e79ba3c59da98d606189a522e07156",
+    "C_log_sha256": "b63e48466f9c3821d9d7ff64c3a2f0d873658d3954e1e2c00b8ada8974bf4f36"
+  },
+  {
+    "language": "editorconfig",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "d7f21fa7376651a29f918861c0c09ffb918753f4e3398a0332cbd07236520534",
+    "C_log_sha256": "3bec7ff6f3a66b8c6137ce904d29d29317f560183a98aab739d57b28b2136cac"
+  },
+  {
+    "language": "eds",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "7599c323311be9a1e3df010f306d11438157fd13038dc372dc3da01eb0953b19",
+    "C_log_sha256": "836de5cdbb69674c5620dbd1113a70ee86be2e284bf367fed1b609390a588f4f"
+  },
+  {
+    "language": "eex",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "447f2ca02e869dfdf136a793d6f03f3f71636779fc7f2561bae960dbe30ee4fd",
+    "C_log_sha256": "588deb4da0687885f0431206eaf7f02c899affcbf725be2cbcb34155b57410db"
+  },
+  {
+    "language": "elisp",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "fd93f0e590e69ceb29c1c4d43cf43ae8c62889b711d4319b36dbe83482a40e0f",
+    "C_log_sha256": "cb6d30c4e4ee15ebca814b6229d009a5af69b5f8cd1975e4e7aaaa0af67fb474"
+  },
+  {
+    "language": "elixir",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "150d602d84d6d94c0d61074135de446bfd33f2e001103855ff309804ff032fc8",
+    "C_log_sha256": "6d3bcd06c14bfc2f7c97af71b06be8953ad59aecd2b7cd75cad1ac09a573f4df"
+  },
+  {
+    "language": "elm",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f208b586f296dff416ba72085677779320bb2a74e00d36f86d5647d90c3254d2",
+    "C_log_sha256": "e2e5ff30a46e97b8b73a3d99cc1eddc1acd41d291bcd51744887e1dc2cea70e6"
+  },
+  {
+    "language": "elsa",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "a6cbea0c919625a0a47fa0a803420b2ce5164de65a0a58ec144708648c820962",
+    "C_log_sha256": "d7d808a27ae3d09d213422b107897df95a82c296df9b63acae4aac754b7de64b"
+  },
+  {
+    "language": "embedded_template",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "d5bac67c58cc467643cd93f43aa82cf9bcb0bc8c249283931d5554e3a9091114",
+    "C_log_sha256": "7ad25270153826405563eb6e4d76a80926ee99447cfe2c20f4e1ddba96f8b8a5"
+  },
+  {
+    "language": "enforce",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "a35c2408d17d6611b79ed714a73bafa7912d7c171a3db8c89a386490428eafe8",
+    "C_log_sha256": "d9d6fcd6c94aa6d12a77525066a52f0845341ba17326e830f5311fb7e7e108d8"
+  },
+  {
+    "language": "erlang",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "8ab8127f237f08eafdb52dc8d68fd2410ce76cffc245f9f1da6e47831101c248",
+    "C_log_sha256": "9871aa998314b86a18b7bd25e27ca3e9b3fd3dcf938a2fd48488b0e142b6ea87"
+  },
+  {
+    "language": "facility",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "0be4692a566633299502e6405c92da0b3ff0b8fb60c09f2c4041e1123b2b845f",
+    "C_log_sha256": "a234520e63fa7512cb085b3fac13501df1b2a229928f5f6525480cf310146f4a"
+  },
+  {
+    "language": "faust",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "27eae9973486268744a60ccaf55779a8b0f1bbc1ed107c2e423bbc87c916c8c7",
+    "C_log_sha256": "907a8a481c15624a69891d49a9d14c81e212c91162d3b8ede67eacab45055972"
+  },
+  {
+    "language": "fennel",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "2c93c56de9ab461363969f11216b412cf186b24615961f99ec5c0d0b972d00dd",
+    "C_log_sha256": "e659391cade577c17357cb7466a4f9aa42f4671ea1645abd7c77240894bc5f02"
+  },
+  {
+    "language": "fidl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "4ce1781d158d2fa092d8d195e39832f9bcd352436a2cacd05a1ef82c8b31e34a",
+    "C_log_sha256": "f859c24976b244d3406c9e0a63c4ab052b8fef74dfb34d276576666b574b3a9e"
+  },
+  {
+    "language": "firrtl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "18ff65c8510f15b95bcc4fbb3081f843f9007ddb201af8aa0ba32d30438be529",
+    "C_log_sha256": "89cea223c5d4b3924ddd08843d0a60a927e81d637e849173772a420a61e8e2cf"
+  },
+  {
+    "language": "fish",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "e8cf72cc7dc22fea6a7cdc08c4138aee34106512c1ccd384bb8c56d08a9bc668",
+    "C_log_sha256": "4a0224736c08023f2708c880d138bf3cd7d0894e18840ee0d74aaf04b56bf6f3"
+  },
+  {
+    "language": "foam",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ebb16bca782589ef3b0a61ed5316c3716fddfb086cb2bcd0e8c0665df908d93e",
+    "C_log_sha256": "1e4315e1a6c000468da179be81990ad9c7d59d95fa358935045ae760293e6ecd"
+  },
+  {
+    "language": "forth",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "bd71b5c926ce8d99a33279ab73aeef826b5a87c4c9fc3a436f59373c592a204f",
+    "C_log_sha256": "8568e863edc303a855447061954237b6343920cc2cb70ee6919054e208690c40"
+  },
+  {
+    "language": "fortran",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "a9683f80fa8cdd158f301111d839786329a1d09de37f189a7fea02bef935b8cf",
+    "C_log_sha256": "2902d2c90c07c9210978fa5c2e9adf304fe8eade1522d8942c92471c97e26a6a"
+  },
+  {
+    "language": "fsharp",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "5f8024c297032394421595232a2c03d806fced93e064414b63a6a321d9881bfd",
+    "C_log_sha256": "f708495357c048ca1de6b2fd2ad713eaf2163d903c8d89343e65c2816cc41557"
+  },
+  {
+    "language": "gdscript",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "1e43592a91621fcb435048807e7572021517327c6300e69e821f62f369caf1e4",
+    "C_log_sha256": "fd0a9eaa7ccf849d70308ab1f8c5f303c537584652a0b034b34a1b069ca654af"
+  },
+  {
+    "language": "git_config",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "1e4f45829e5a18be88ea8b40e35941fd07da17dacc0173a56f8cd36740e81e9c",
+    "C_log_sha256": "e2dbdba42a8888791001fd012ded1fb13c668725898ae9eea3c6546bcbe04e82"
+  },
+  {
+    "language": "git_rebase",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "c240d8ce7b9984c9685e187b98ecac4a1dcd0c3210d5386ce7f4d448fcf2a4e4",
+    "C_log_sha256": "bb691adaa029ea19d20ca933c08c8b288ce039160de5c53c746037793b319f77"
+  },
+  {
+    "language": "gitattributes",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "388539bcf7b7fea73ac61820b0756c730740ca50509be678c438301385a50d4d",
+    "C_log_sha256": "83d69006a4de605516f78b4e63e9352fad826cfbfcceeb6f847c693dcce2b7e4"
+  },
+  {
+    "language": "gitcommit",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "66a2d183710e06e9876f3c50756917fda321527c73f0ef3efa37b91caa04ab7a",
+    "C_log_sha256": "85f90225ba85b4c3d57e5fa122a33f0d1e04870866538cd773d334c691f71733"
+  },
+  {
+    "language": "gitignore",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "e4d0a274fcf0751cabace0b47f41e514819d98a85241b28ee6d3da94d282854d",
+    "C_log_sha256": "1cacc4e1bd8c592436439ccfba7de182ed2b964b225983f68b278314ff53cd0e"
+  },
+  {
+    "language": "gleam",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "8e926c106b8cd7c1be08736afe99cfa9d6fb331dcfa27bb5c76975872a4b88cc",
+    "C_log_sha256": "6becfe1bc5103013660e4b3df553f1a3309139b938eef02b2fa355b3144b4ba8"
+  },
+  {
+    "language": "glsl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "e5870525330f978ecc6bc4e3b04121b3732932b18d4711312717575c8551c2e1",
+    "C_log_sha256": "3000cc40f9bf40d289cf8759944ba7f4dad21bab64c54b9144db3da5725ba681"
+  },
+  {
+    "language": "gn",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "54fbf06465ba0da480da1ed636959d80267bdb0931b4b91c0a25f4aca8ff0be9",
+    "C_log_sha256": "3a7e0f4fe1e65048ec85043a301def9553b96a5aaec0739d3a56c9a08b998be5"
+  },
+  {
+    "language": "go",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "22bf197b7f425a9e721193cee0ed8173611823eb0708e3dca748e5e0c3789ad0",
+    "C_log_sha256": "e83288f0195495143224b4ed43393f2a2541af021b65df149a8d40b122b6f511"
+  },
+  {
+    "language": "godot_resource",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "07462af0708ac4ea0ce4c031f2cf7d32c1aec95ea7fb2deea246021af68f8ab5",
+    "C_log_sha256": "d16d2cb2750e20e00b27cd2f21039eb19aaf76ac380b92c794a2995eb63daddd"
+  },
+  {
+    "language": "gomod",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "557920149ec8afc737948ff79df8e8aaab992591a2f49f937a1218240635808d",
+    "C_log_sha256": "269f46b5aef85cad431abb7cb05f6c7a1e4f8a08bacf984f049fce47f83b9182"
+  },
+  {
+    "language": "graphql",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "da1037af6e83a0c9c47c7ab27474f5a7c650fb1bd6e49b55c277febfdeb4bc12",
+    "C_log_sha256": "f6a9b0d9eb4242b2ecdc3296e5e1866eebaf32082b7cb55c2b831e1800f14f46"
+  },
+  {
+    "language": "groovy",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "a3fe150ce6de797a5bf56e4fe9e377acf690fb6099d8a67a02693e167737617a",
+    "C_log_sha256": "7baf826b15f3c80a8ad5c942e027c98d53a73b898548868e6af94aad24895550"
+  },
+  {
+    "language": "hack",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "94c0f2457e7f7b13fb06ea8c8be0a0e23cdda2a4630b735c2080ac9bf8f998b5",
+    "C_log_sha256": "c72d667fec373d8266deef809506fc38ab45d20c4775ce5335c421483046bbb7"
+  },
+  {
+    "language": "hare",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "2930277f57f3682eda4a11291138b9fbf8bc11fd0e2d4b1d4cee5ccf67c6b3d7",
+    "C_log_sha256": "45e6ef3d502bbf4d68ccb8b5cbe1c46177b97a1e045b61737e96829660b1c602"
+  },
+  {
+    "language": "haskell",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "292f2c8df8faa284caa194f75e574ca14ff25e1f308763aad83c591479a40ebb",
+    "C_log_sha256": "aa6afc75d7d7951586a0a0c63b1cef48cbaddeb0e776f5f63e27d7f352eb80ed"
+  },
+  {
+    "language": "haxe",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "68ab91b17bbb8020add7d2d4fb95ef9aebe902ab9e5523deb9394469d6397256",
+    "C_log_sha256": "004928536e161d7e4938e01b14f48fdf1915783e82c1e61931386a74514e2fb1"
+  },
+  {
+    "language": "hcl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "981f8676631b22da223a0e655168cd48de1963c35fb0a0bdaa01e82afc46e0f5",
+    "C_log_sha256": "9665cfb2f351c0ec9bebe249634cc2528b9213175d1c7a548682132de7ef94ad"
+  },
+  {
+    "language": "heex",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f80b9616278a329c8767d370b944ff559b548e41dc63f9519a0b6b0594d5d2e0",
+    "C_log_sha256": "a86c01beccd371c86628384133cb4829fdea579be2b315aa428b16c931625023"
+  },
+  {
+    "language": "hlsl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "9a64f0cf3203fc35c52cbe935a12e90bca168c24c0b1d675e2089794089d36ae",
+    "C_log_sha256": "5b747adfb51bf74ddd5c2d63510ede893b945b833e70e5fc9cce6d7aa370f6ae"
+  },
+  {
+    "language": "html",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "878587e1aaa241b735ac6c76364756ec9eb9d0aad616743ef07ed528e1ea3ba6",
+    "C_log_sha256": "39ed0eaf08b3e88f468bf50024c3109ada4144be427784399b3d1b704e585736"
+  },
+  {
+    "language": "http",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "e66d4799e1a6e9bf1a7a1f53093da151e431da024297534082e8cb5dd5dcaaf6",
+    "C_log_sha256": "dd494b1b04ed57bc9b0fe8c0d89727bfc270fa61f2fd2352af1ef09564d07005"
+  },
+  {
+    "language": "hurl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "22613cc63790519f9bde0ed02cd222e30e2b6e134a249036bf748d3ec072b842",
+    "C_log_sha256": "a9edfaf9709b608647055ee49c0f0f1d44b56cf66cc584fe11eeab0109e27c50"
+  },
+  {
+    "language": "hyprlang",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "740e6f67f879df988537f712e39f68a6a0619b32739405139af8da03259fc03e",
+    "C_log_sha256": "2f60517d8f704f3f19f6fd0814368d723d1d180fe29b2250e8051e475f546368"
+  },
+  {
+    "language": "ini",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "57255b3a5089647a6bca4301997b6c9dac0f836dd6a65be5c51bcf51980dcc3a",
+    "C_log_sha256": "773f6685cc7ef0bf2752dea3d4d305dbf71ef590d892b1a14665e8d827a81f29"
+  },
+  {
+    "language": "janet",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "3055a0aefdcbeafe3d8e0bae5bea68718b11e2f15a55bc81a92a828427ae3658",
+    "C_log_sha256": "ba502e1cb7e3eb2012608978c625ad03b1ba7a6314bc439b9ccc0ec352f9ea73"
+  },
+  {
+    "language": "java",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "9ae7735e12b95d22eb94e4a4591d9c328052f05f31c651dcabc3a6c9edd341bd",
+    "C_log_sha256": "122e95c475cdde73807b983e5576c2dd9e0bf6ec3c8c93c166b5cfb2eefd3b11"
+  },
+  {
+    "language": "javascript",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "d249ad41627f32d4b03cd73e10e5bc8e84eb6e2a07410ecd528cfaaa03886df1",
+    "C_log_sha256": "588d3f177e589d4958fe60b84be49a1a5ecbc2374dd6c904ca4457478c849c21"
+  },
+  {
+    "language": "jinja2",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "4e103f5628390962d2893c99f43f2400136c78c6a3b73cec5f7c9d81c043ecaa",
+    "C_log_sha256": "ed9aef42c55b3d7a7a0f76248c9382d20510db669040637381e793cf886f699b"
+  },
+  {
+    "language": "jq",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "2f2c9c2e3a5218e5ef5e6f89c7e7d01e47b8a2873c561a1fcb19c6c7f5c62339",
+    "C_log_sha256": "5cc233179c7a22492802b412d0f1d99194e999d79a7364c718c15f167e7acd71"
+  },
+  {
+    "language": "jsdoc",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "47a28da2bc7f07d48c5348329e49ed7c361a1729a675621b62acfb83bc613c81",
+    "C_log_sha256": "9809b0c206fea8ab174527b77811138fd7e160e55985052802e5c363c5830f1f"
+  },
+  {
+    "language": "json",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "6be274891db31ae1490701d3a9048584b33b704055e95507f4ce62571e6bf913",
+    "C_log_sha256": "6ee28761167a41c586071e1506fa3dfb0bed4bf6e80a6dedf0109cd310eed5bf"
+  },
+  {
+    "language": "json5",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "1674034176f7fe8f782fb43e0d2b727ab748d115ce2b3f2414630c29f502dcd9",
+    "C_log_sha256": "73bae0947f40e192ce9641f7b4904e31a902d276374106a279b7a5533e22aebd"
+  },
+  {
+    "language": "jsonnet",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "4c9401f197096631a449a41b68a858a5dc3c7ffad64146523ab50d067445735b",
+    "C_log_sha256": "fe6ffd1d8d677e27df8505b65f4fd353a20ea45952beb814ed82d816483546e0"
+  },
+  {
+    "language": "julia",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "694df9307759897fccf8ae498b291ba46c1ac30226d5b5761620d0605774f726",
+    "C_log_sha256": "e02d6d3c12bd489d2a0d460f82d06c6a606d82ba5cdc3e009889e2e106025bc0"
+  },
+  {
+    "language": "just",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "884331e0dc29d26c61cc13194ab2c709ff024861a283eb98ad497f26d12d186a",
+    "C_log_sha256": "c567028bac2ff1608b68dcba0106b9619684c9bf54acd3f2d62fa99c243534f4"
+  },
+  {
+    "language": "kconfig",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "2fc22d8ecde992f26ea8b780842d79b5b5be96ced1e72fb20ec7d840c10a705a",
+    "C_log_sha256": "29fdd27fe8182b1c28273a840ba3342f8808347be2688f10e5a81c510b1daf06"
+  },
+  {
+    "language": "kdl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "70b28c1dcb41c4de14fe5b8b525e1b62ba609dff4caec59166810bce52563629",
+    "C_log_sha256": "c483e0c372043c800aa34dd7dc96fdf37fe4c2cdb6aa4c7f81610ed80bd9deaa"
+  },
+  {
+    "language": "kotlin",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "c4a36c70942ceda73c2c182ce313d94dacb27c058c90678e311f48a4033e31bd",
+    "C_log_sha256": "11aaccf64aa89ddd62b18d54e6b5a7f7e4ac580a0d6ce20857c4246448663554"
+  },
+  {
+    "language": "ledger",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "5790fb9d6ce77b04a407ad798148fff58cf9fab73c9907535e18707508630935",
+    "C_log_sha256": "23a4825c62fb34da0b7264bb8892d4aead4d3114f3302c873828d14500ecf15c"
+  },
+  {
+    "language": "less",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "b7b8da89250560a1a87576fc7910a088f1d5709e9ca8aaecb608ac0692c734ff",
+    "C_log_sha256": "e33ee763256b8584b3b5be3aa02169f745b86bb901498d2b8384243f553b056b"
+  },
+  {
+    "language": "linkerscript",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f21582a2e41043afa25513fc43c0d11fbe033b86d90ffbbb12cae7dca02d63ff",
+    "C_log_sha256": "3c0bed0928392dab345c123e2dbea5a845aa382e08312c543ebed995485f325c"
+  },
+  {
+    "language": "liquid",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "930963327281dda40d028ec4cdc0d58238a2c1bf6127447106151dbd550d475c",
+    "C_log_sha256": "19481ac44f6107e836dd497760c1fa7bd5e1f38a400854b78cc7dee4ea23ef4e"
+  },
+  {
+    "language": "llvm",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "e6aa1b523d2f9d32de48263aa933e65ed615e164b18414b1fa1210646647ccf8",
+    "C_log_sha256": "832f687d27a10a09f9c6fedf417c054e3565c14119a61d66e2c66385720e071b"
+  },
+  {
+    "language": "lua",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "7ecedb1276da5305f91169f5b782c2043d053fa17b2bf23a7ced58361f4cc665",
+    "C_log_sha256": "0b41e712c743c166d5c098fe26ac3b03ee95c23f300c46de51781cf05b6ab0cc"
+  },
+  {
+    "language": "luau",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "250deb3d8428f1715ccd700657f0e39b6705453d862099463e9821b633b54193",
+    "C_log_sha256": "0c857b8aa61dd5fbdc7c08ae7f90eb1380d2d0362dd79f918bf169cf02684738"
+  },
+  {
+    "language": "make",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "5ad3802143225c50a12b7a7916cfcf158a7b7d6a9544c767b5cf95d40058f0a3",
+    "C_log_sha256": "b96b634524ce2f218b66a76f580e9d8744cf294f41a62bc52958c41a2412f54a"
+  },
+  {
+    "language": "markdown",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "06b773665ae580e5b7264d025673597afba3c7560b51d29f27f19faffe2ab903",
+    "C_log_sha256": "dc0591a065ba8477a121658d0cb40e105e9e04e4c57209702b24151ebadf2dc0"
+  },
+  {
+    "language": "markdown_inline",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "7c829688281285deca12cbef135ec0bae4314b1687aa2161eb590cb516a4c4a7",
+    "C_log_sha256": "e8078e9ee5a743018933ff6e54a272ecd1ec5441ac00891e9751325a411e752b"
+  },
+  {
+    "language": "matlab",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "78d563d147510022ff302992bd3850a5abcda8debf05d21c4605d111672ad0d5",
+    "C_log_sha256": "3e8d9f28e60b10e7f04c9c2af99a72610612bed9a6349404d5bee5dcd20d42a2"
+  },
+  {
+    "language": "mermaid",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "e486963c7cc78700c91755a7649459b3a3c1c8d43995e354603b5896bc3e42a7",
+    "C_log_sha256": "6e458011cc69a196e5f1c9402ee71ab61ffb228e833f8f558d4ca3212653a619"
+  },
+  {
+    "language": "meson",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "c2e4cb0954f3027951b842452ab8e8520567ae9183da224344a46f199dff46ce",
+    "C_log_sha256": "94d78607bea55deff3b43cf434b37fa5d3e6604082defd918f691eff80d1b3d7"
+  },
+  {
+    "language": "mojo",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "068c7167a1dcf93cad9587319e8c01d5dd12335efcd9c01253486a2dd911ea13",
+    "C_log_sha256": "6ef46fbc19c1460d86f18ea704db2c035b86d9800e179b23a3a6b19e4fe813d3"
+  },
+  {
+    "language": "move",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "4311e4dbd3077d9ae9a17357cc083b4c9cf1d5a2d40b345d69e5aa836ca7b9a7",
+    "C_log_sha256": "2945c5865fdde347f6281895cae955e5d26a9c88762bbed7db55c87d7b61c2d5"
+  },
+  {
+    "language": "nginx",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "bddb7ffb566389ce9f78a5418e4b705544a57dec3e6618bfa856b0d3d3dc4647",
+    "C_log_sha256": "9b436babdb65a1bc79a50d8756a9a51f0aaf6ed38c379aed0c424a5a4d04bb55"
+  },
+  {
+    "language": "nickel",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "8b9ecfb19f0172eedbf8b30fb194f03b96d3303fed4ec312e48a13ed7b4ccb80",
+    "C_log_sha256": "a91afaa67977eb6b3cc4963df11bd61b7b25fdfcc31a3f15a0ad529986f1b324"
+  },
+  {
+    "language": "nim",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "aa6c70a20e7c3fbe87a310a5fb905e07d2c7df1e116e34a2fd4683ad0e5a13a2",
+    "C_log_sha256": "6ed77e31c4e0c4d9fd7a5e9e98e01cce681184efbf6fa480c15a177df0960f5b"
+  },
+  {
+    "language": "ninja",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "30d4dc00334267560c29bdda7a1dd888db097a71e8ca4dc5add8d43a04b79910",
+    "C_log_sha256": "bfe2f8814d79c340f9c8d27d05f78cf51dc0d8a01d2779fc9656c703557334b4"
+  },
+  {
+    "language": "nix",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "53da63234be9e8f112c711e6b9a49d172060884ef1b6920c51ca887689567289",
+    "C_log_sha256": "c7f385af711d70d0c22e3f71214a3eabe49b951856f5834d5284a546851ef1d9"
+  },
+  {
+    "language": "norg",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "6c16ecf68cde99b78395b8277b968e6e67fe3adf5f72c13eb6b7e09caf298a79",
+    "C_log_sha256": "ca5df1b3b15473ab0a0d5ed91eb02be812c23e94a48deb99a54f95dba9660bea"
+  },
+  {
+    "language": "nushell",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "2061e650c66fd7a6fa94819857c2b2645a508833e14848053a5b1baa6c3c419e",
+    "C_log_sha256": "115b8dbf522f6c1605619e9448bea1f1c5683589d72dacc5a98ce2b89e6c6ea9"
+  },
+  {
+    "language": "objc",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "3e45d3cd18d8d377e9fe6fd8bd76d9c1129290d95fbbcec51735e2b4ab437790",
+    "C_log_sha256": "3f4eb7643c98610a8b862b51b2ce55aae80005dd7464240cab135ca1b3a4cdb7"
+  },
+  {
+    "language": "ocaml",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "4be0026e639b2e2e46b12f6c58542ceded0f086c6c3703d90883c62b5547b8bb",
+    "C_log_sha256": "23e0905c92a87b4fcbb5d20885eedb8f504e7fac8bc16d89d1f375ba3d666a1a"
+  },
+  {
+    "language": "odin",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "6b18f301eb19ddeaa9674a8f53dbbaf208dbaf32488d085dc20d5c7af413e61f",
+    "C_log_sha256": "7497378d2607f95b74e199e1d4ff5eebf429ed8b615cb782e953802742a62dd0"
+  },
+  {
+    "language": "org",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "350c85533dde26949aa1ab068d4893fdc871bbf33aad9a4f3311132fe647947f",
+    "C_log_sha256": "0bc49494365ada819092e4d1101bc78b9ec044103d928ffa6f2978bb39b1b6c4"
+  },
+  {
+    "language": "pascal",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "eb2ef0e9be333243997b8037a6e80fe943f44735831280b2196d8870ac3ba4c0",
+    "C_log_sha256": "c90792d80c45aafd5fb6b25475a2c6a84722770991632432d6307b8591422143"
+  },
+  {
+    "language": "pem",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f730242b5e656a91cd0ac0f4b97e8730f5f666be8ecf1ec9a42b3321ad12ad36",
+    "C_log_sha256": "13948ff7335c67f80d0c42a70c5447adde6646ebdcee693cf401180e6070d2bb"
+  },
+  {
+    "language": "perl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "15a1d6adaa975b1bff0cc29d2f076e0b4972b1e9936aaf82ca603f4d9bbc0898",
+    "C_log_sha256": "6b645c06a2728e64428c9d4884470fa69853f1cf62edf0c9a633695bb6136516"
+  },
+  {
+    "language": "php",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "8e22416e53a70a8654eabda8b707c1685e907439c07027fa1040227fd7ef7682",
+    "C_log_sha256": "2e091cd64bc1fbf1108e49b754c3e22a7a84b18c36935ea11ae92406e9e5a364"
+  },
+  {
+    "language": "pkl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "de83e9c06bdbb64782d5be599a808a7c6e0f763ed592bacc0e50e9069139b5d4",
+    "C_log_sha256": "2d7ff78de2f5faa07ad7772e455ad75de0369cd19b14fb07a9cf6749a9278c01"
+  },
+  {
+    "language": "powershell",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ba20cd8126fa33e8aac77b2d56f3dc07bda8275e701f505a9833f9b062329050",
+    "C_log_sha256": "edb872a4f2a128456c379753f1d7263fc9747be8aefd194c2a5e68b6da80bd8b"
+  },
+  {
+    "language": "prisma",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "46ae306106c9a69dbf52dfe3a267bc46da34e178e9a6976ee59a60f8845f266f",
+    "C_log_sha256": "cb5274180e710fa8ad17d964e4bb18ff93e1f903263cde0419be6496498a817a"
+  },
+  {
+    "language": "prolog",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "9afdcb6511cf6ae3589fb15c05dce060b12b8fa6477065502d315e545a2aa668",
+    "C_log_sha256": "cc982035527ef0205b3c27ab6ec41559fc228282cd087c492034779c8ca1c045"
+  },
+  {
+    "language": "promql",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "37c2e4dbc63a407ac1d351e94a92c090f82df2721f27adaae12cf8fb50b4bcbf",
+    "C_log_sha256": "81a00d020bdb837841d9fb57d5922b80918cf9b5acf27811fb7cb66f2ab2b371"
+  },
+  {
+    "language": "properties",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "bd31347f5c17f04901c0d7f5c1157acee797b89d34e96f1d8574f97b60036d59",
+    "C_log_sha256": "619ace6eadbb9b76772c6cbf78c7e9faaf40aff41d4920adffd2e048bff53d26"
+  },
+  {
+    "language": "proto",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "7e19d9e09e1695d2c1cf1509845a18a61daed2f3d2ddd19fef8426977f5cf712",
+    "C_log_sha256": "69e72dfb9cdd9f63763e582adc34282d140ea086b5299a4fbb1dd60016c70a54"
+  },
+  {
+    "language": "pug",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "66864c0dfb169ce8b54694670e3d7b8ab0cc628ac1ed1213cf86f9c62f5db98b",
+    "C_log_sha256": "75fcc5386998ceb374a34b539d0b0909ae3fa8cb10dfd54ed5efa555f1fd9257"
+  },
+  {
+    "language": "puppet",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "4f999185fc0684755b03eb285d8f4d90e8c7e28d9e3d3849799cd4a35e58b450",
+    "C_log_sha256": "fab4fcc364a4f997557877d004f1896ea4f832142272105150c67a1c53f9c5c5"
+  },
+  {
+    "language": "purescript",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "e47fdda5123eb865ba472169f9b1b28423ea9d920fe8f3a30422f592190b4adc",
+    "C_log_sha256": "001cf92394742f869021a3bd56f81191bcf71fd076c72dbd2306da2944ac6cb0"
+  },
+  {
+    "language": "python",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f53fe82f54ca40b3cc173cdea2ccea0d7705838bf265f04afa66fbe3b03fd214",
+    "C_log_sha256": "2caac5f3f86744e9a453b51cf442fca998bc99d90a1e47c1ad65e0f0ba134cfb"
+  },
+  {
+    "language": "ql",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "c16cb7e433b9f104bade1c09e13b7ad02bf4bf9eeb07e3b0812dd53268b4aa57",
+    "C_log_sha256": "42174f55ab9dd1203116fbea394e9dc8257f14848ad04f8e97acb0b2db093051"
+  },
+  {
+    "language": "r",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "11ffc72d4765e23b6c81fbf2c8c675f44cc06f68143b239db4992c8d3939bbe1",
+    "C_log_sha256": "09bb5e0c9ccfa40a75283f3764884502ea67262e11d979701b87375d0c4d06fe"
+  },
+  {
+    "language": "racket",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f146afb27a1794f3a6733947b18bcbae6f31501cbc84fd321327f2f07a369664",
+    "C_log_sha256": "bb34de7120197987052701aab4d31992a430d836314c03fb413db8af8bfe3ae2"
+  },
+  {
+    "language": "regex",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "e85168b325f0e6973193994430d48c224e28c16372313690294d9f444c2fc6c4",
+    "C_log_sha256": "fefedaa63f5ec8d3ff0d2adfd4ff4de2ddef1ba20fca4db0db0c96f6a0e2a224"
+  },
+  {
+    "language": "rego",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f4aae9998f9d1ab5965b5c98be634ec6794031532071251c8630b83e3b9b2f73",
+    "C_log_sha256": "fe0a545c69effd85382b4668d22221e487806d344bfe245f940efb7de712b598"
+  },
+  {
+    "language": "requirements",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "a1464c5f37f3cc80abfc3e0133c8142c61c7fc6d8b71393a9284e2660b472227",
+    "C_log_sha256": "949653b94eaeeeda3b41d02d5eb16780aa2850e26709523ded4ecfb32bb96fb1"
+  },
+  {
+    "language": "rescript",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "3d6a854ea2367fa3d816de5a3580ebbe9b2953f1bb742b9034949863bb9f26e7",
+    "C_log_sha256": "afdaf267cdeb5cb07295371e256638a2900a9620c100e02cc47ef3b468c681e5"
+  },
+  {
+    "language": "robot",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "352ffd7ea68e113410873fc91e8d43722bf437591217355c1994c66753b88955",
+    "C_log_sha256": "583498ce663b11e6054909734ffaf4484d48a552fc0595ce4853058d029ba883"
+  },
+  {
+    "language": "ron",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "94d5fb9c72285685a88c156c2b73ef2e6375f0eaf72cfd5efd6d23e580b6c60e",
+    "C_log_sha256": "0c444f34dcfcf870401fb565cacce82346326d346c4d3741c79fc3a01dd3c5db"
+  },
+  {
+    "language": "rst",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "634a5bae3a0748ae20e7787f85bc6626d3c88a6ba1d3d973a5970fcc3be48cb9",
+    "C_log_sha256": "c3b741221cefb26e98236db3d98074af42529fc068ca9e11c643c7be0bd1c9b3"
+  },
+  {
+    "language": "ruby",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "41006e91a15bcd1cf32a4b669cce1948e35e1612ebca34bf04c213049071cb11",
+    "C_log_sha256": "12c78166ae05de1b83e3499b5a698a7f73e4caf32262789b1ed1d8673b94d559"
+  },
+  {
+    "language": "rust",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "0d58e3be27650751262679d96177d459e0d8fe6810e6781b8e31041693e474ca",
+    "C_log_sha256": "a3a4475fcb67dcdff52d7a2fe7ec21b76a87784a23ddf3af4d1cd0b18e602835"
+  },
+  {
+    "language": "scala",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "bfb66046754d1609c5ed829fa5e508061fef8f4ce4b248427b9bc479a693f88d",
+    "C_log_sha256": "f1d207e5d537b2a02c6e2b0ddec4d4d6d58eb0ee2479fbb3aa91ef846e6a51bc"
+  },
+  {
+    "language": "scheme",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "e0aa0cd9b26619a15f5db86c91aee5d1972040854c868bdc57d2c1b9133b6501",
+    "C_log_sha256": "77129a684c33a0ba2bb037ffb5000d89431575f27af7d624c7d231439471ed65"
+  },
+  {
+    "language": "scss",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "848a22e74ec94d6534f45058b57ee98b5f40754315d665407fd450f5442cedbb",
+    "C_log_sha256": "365de448e8cbc0c65a3f18630e0b122d3624c0f5279bea87a44b2dc59892414c"
+  },
+  {
+    "language": "smithy",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f75b19b5945006ad58b9fbeeea5b2f7568ec3c0dee4d9c555380162eaec1e8d6",
+    "C_log_sha256": "b7464ab9ebe0546726b229ea4ce95d00da6982f0875f4b29b446e857fd09ca60"
+  },
+  {
+    "language": "solidity",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "1233173d93584c344cc3ef471fc3f1193b19b3978468f23338bb7224a1863eb9",
+    "C_log_sha256": "f96d2b322697802aed8b867f3d985691b424250e60517dac3cd203fd315da0e1"
+  },
+  {
+    "language": "sparql",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "a32deb77968a617a41800f52246ac7b4964edbc923a6394c58a5fe0196311eac",
+    "C_log_sha256": "35b84de2521eb9c5f25cc730e3fca6c4ad0f61d659c089885a1dd47518643cdf"
+  },
+  {
+    "language": "sql",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "b5a7d12c265a9682db1f558a49129c01c6f09019ac61e16f303d2d008f07d9ae",
+    "C_log_sha256": "58df41023faeaa893b74aff610b611e9d0b119874dac08b16be6c6278c081bec"
+  },
+  {
+    "language": "squirrel",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "80c2084af94091192537b209e265a8ba3476725653509b49e2dcdb053b23d342",
+    "C_log_sha256": "baa1e656201d3a2dde46ecd78f6a3f33608ec4ed8137f38c1a4ce377f3922517"
+  },
+  {
+    "language": "ssh_config",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "c2aa0c96018f5ead6b71aad68eacf5bc6a76c63b2ffe50eb589c108f5a5e1c1a",
+    "C_log_sha256": "25c4caefa7f616ead3a2f4e0ad46310d85ddf38e23532eb83ab2840a9fe69ae1"
+  },
+  {
+    "language": "starlark",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "58ad075166f3e72bb7c0031113e44ff8bcf180f623bd25303444b1c400e4dde0",
+    "C_log_sha256": "d0dda071cea89bd0e49a9d0a1c54ab992c3b48f3843f8c75fa664b30614d97cb"
+  },
+  {
+    "language": "svelte",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "7615a9fe55384ef1fc4c19802ae9c6fb0b7458964981890738f3fe97922fc3bf",
+    "C_log_sha256": "dddcdc20c69ab4aadce4ef732d0e8c4d3ab3b387e085556d529a8662210eea0b"
+  },
+  {
+    "language": "swift",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "bd1482d352d217b4333e59ce33e660c6dfda9fa2e636fc10d798e584fbf09e6f",
+    "C_log_sha256": "7f71e5f98b00b9a7c3f644fe04fc48ec5a357e3810b78374199f6d41e4e12e06"
+  },
+  {
+    "language": "tablegen",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "6031c9b8177b044babaa751d571905f69b2e4abaf9d4bc8581c6faf0b7606a3c",
+    "C_log_sha256": "6c8dbdc12111b685d6f344e2dfd23b72aad93581233455b8b6341d28ad7cddf5"
+  },
+  {
+    "language": "tcl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "2e7bf1fe8e3350472729671cf535936c44cef6d5c3c29f86ae7bdd95369e1cfb",
+    "C_log_sha256": "28eae1d681671c7aec8787cb6c8510655b8ac72a4da3f843cec40a24eb04fcf6"
+  },
+  {
+    "language": "teal",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "2ec498e685663756a1cf4da8683aee25a232758053d2983e3d6d6fbf14d02d8c",
+    "C_log_sha256": "7e37bc7b3c5a1f0df9d4097526d48e2ab16d252aa30cda60d3cfd22d2f4b7faa"
+  },
+  {
+    "language": "templ",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "4bd14665ed8db12fc7d1b72028506fcf05ccf105457d67aea4d0725d3bd1a1e3",
+    "C_log_sha256": "cb92e800c7779a7ef89ef87c2bc9c81dc5964f2356aefe75ace3c9d14c224cce"
+  },
+  {
+    "language": "textproto",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "bf3dec870b0f85a0772b401d57b3a041595c8d47c29f7ab0daaa1ab8cf176898",
+    "C_log_sha256": "98a93d7420af13138560d37b31671a645656222ef31caecf412eaf9c98302bb2"
+  },
+  {
+    "language": "thrift",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ddf809baa91c0c28e1628899f0a26163f6e81fa3d3c295625a40b5f48e0b02cf",
+    "C_log_sha256": "4b0325b8770c3a610765544d28d057943fff68b81a69245ed1720d93b6184ce8"
+  },
+  {
+    "language": "tlaplus",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ad2b5744d014c706d23507170bdf8629dcceab6dd0355d868c65690cdfae2461",
+    "C_log_sha256": "725f30300b875a30dd651b59afc084a6b03c48c1af5e2dcf8d17cd3f7acd1cbb"
+  },
+  {
+    "language": "tmux",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "198b60366070558eca8b9e97a49bc6537c6862d307ba75ba982be687e6aea1f5",
+    "C_log_sha256": "5891dfba9d6b72e5ccc3871cf25811c0010b3767f9b50749a51099c73a5f44a0"
+  },
+  {
+    "language": "todotxt",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "bdaddc61b4b5fb77fc577ecd57c108634a049f35ca492b689ded37d53bb723e8",
+    "C_log_sha256": "2726f23afe1e82aac0e4f60b4a5e567d57ae956a9cab6d10c8890c89718aafc1"
+  },
+  {
+    "language": "toml",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "0ef36d33cffc82209fae715910337e85d90081a94d529f458a4ea0a5412970ea",
+    "C_log_sha256": "e851d8c842fb086b4b375d569da5f0ecaf04e54b8360f94c4c9b6eb6c6b9f470"
+  },
+  {
+    "language": "tsx",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "ebd90fbfe60eafa35c1862226fae07cac60bc060d26a8a141ff3b3e1b867fdcf",
+    "C_log_sha256": "1a4e21e2c55a8f1be0310cd76e90bb84d3c38950c85a8194490517831b8faaa4"
+  },
+  {
+    "language": "turtle",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "06f1b1adbee7f49fa4cbe7ded8c4f822b69365474af673264d680e1c37f3a5d8",
+    "C_log_sha256": "e0ed60b7af1a654d32fc62659f40a092c9e4f3826b978b9e89708e8cc42510d1"
+  },
+  {
+    "language": "twig",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "58af445acdbb3ca141c9f383a041528a7eac5c17a0bc9c14f1ce9f4854f8f149",
+    "C_log_sha256": "009f99f1bfb00b558a0bd6c6689f11953d15958c766c125c5440aa587d4a322d"
+  },
+  {
+    "language": "typescript",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "9d520b212a54e8a4b47c6855f31124bca79073b9daddc0e49267d0bf9a05f8a2",
+    "C_log_sha256": "3af20aa07200a797575edb8767067c9e54cd3115fcfdb18259e96d8416abc1ee"
+  },
+  {
+    "language": "typst",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "0209e9cd4318efc8db16cf0700db65ab607dd71c89b490f2f8381361fb7708a9",
+    "C_log_sha256": "505c63dbe5851201f53fe36081b9260fc7f9794a560e8312b694a9990a8316fe"
+  },
+  {
+    "language": "uxntal",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "20896813e85af291a1ec1e0aaf762b59fb4152bd7058801732816705059886a8",
+    "C_log_sha256": "c33fcd054b2cfb4a163c860b45cd1ae05e32d5dd204591b44ba0373c827027c2"
+  },
+  {
+    "language": "v",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "113b1ec26328f530c788127e6040db123e7f4eed11269ba3e8c2637a2dbcad06",
+    "C_log_sha256": "01200a242e5190c3390794a970941ee8693b5fcf3f4cfd75be1c63488056f048"
+  },
+  {
+    "language": "verilog",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "d3081d5745c3b0122b78c44d41b1d46027954687ab39f0dd1d29bba747afed4b",
+    "C_log_sha256": "12d1595e8dd6268ad1717de21007839cd895cb7f4e31a0942bf34e73678beab7"
+  },
+  {
+    "language": "vhdl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "df2ccad453463beb3432ecc5c7a52836c21498f7b40071a00e4a18ad5429627c",
+    "C_log_sha256": "3ee801d23977adeca3fd2b990c57b1c28857723223064b34c236139593a92797"
+  },
+  {
+    "language": "vimdoc",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "783b973167532b2d0c905a4b3eab0e371f20cf5a80df5076b182e652871bc2d4",
+    "C_log_sha256": "6957bf1d20aafa248db247076ef7a74010041ba40fc93a1c6b563a1799fa12e8"
+  },
+  {
+    "language": "vue",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "06c664f42a8510ddee85b7291fd215dc27f61cf42f235cd479c11a33b52f75af",
+    "C_log_sha256": "8d8e306e1e50b437f925022b4e9c064c5e476d6814b84b0047e944e0d8b3f1ab"
+  },
+  {
+    "language": "wat",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "f64dee82598e56f6b823680c21fce7c1be9b3f89c2c7b5ff02a0908b11a9d1c7",
+    "C_log_sha256": "d8aa1c4fed643813890f689d3b56aeba8e71195f90c20f5a254b2fecc7ffec04"
+  },
+  {
+    "language": "wgsl",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "9297995e3c22c90c9814228e335f5c3b95c147f644ddd7b06165314f78387149",
+    "C_log_sha256": "3e9309283fdc5a8824232b9b19e0e5c8f33633659e588668a2095fe47a08fc05"
+  },
+  {
+    "language": "wolfram",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "7b4bca972315d3af9fc200482ba97fd2513f4bb86b12001d08f689287d3475f0",
+    "C_log_sha256": "3d5c71e9a315bebd8e767244e03075cf6c294cb5f30db9c1db6c2326d4198040"
+  },
+  {
+    "language": "xml",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "6690c6f2203ab6b2bf21daca513d82ff65de7006472c6c7da1facce040a596ac",
+    "C_log_sha256": "01d4343f2ca94434a4aa5cbee082f4bcfe90532afb3ccd9cf61deef914b8459a"
+  },
+  {
+    "language": "yaml",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "06accdcc75bdfad73e3be6c116038e6f14b9a34f67208ab5aecb8745e47f6b5c",
+    "C_log_sha256": "57e064fc672b80458001ef89460e11818e1ac2d198beb432317349b7d6c33ce4"
+  },
+  {
+    "language": "yuck",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "6293d7ef804a7156e2d0dca3a8a949994060b9a31c323bdd3ee5fdaab589379e",
+    "C_log_sha256": "09051321cde8943a2086b3394f8efb30650d7a43a32a693d7fe94e293ea796e6"
+  },
+  {
+    "language": "zig",
+    "invariant_steps": 72,
+    "no_edit_allocations": 0,
+    "C_checks": {
+      "TestParityFreshParse": "PASS",
+      "TestParityIncrementalParse": "PASS",
+      "TestParityHasNoErrors": "PASS"
+    },
+    "skips": 0,
+    "invariant_log_sha256": "949d5773a8eec01fae2c0d72f1ae7c96df502fe2d61f7fb83526eaf24a965fa1",
+    "C_log_sha256": "f3e1928a853785b85b918d8f0e0fb66b0dbdddcf6d78a336a3c7f022ed358232"
+  }
+]

@@ -1,0 +1,7 @@
+internal/parsercorephase0/boundary_probe_sink.go:4:6: can inline boundaryProbeForKey with cost 53 as: func(boundaryIdentity) boundaryProbe { return boundaryProbe{...} }
+internal/parsercorephase0/boundary_probe_sink.go:12:6: cannot inline (*boundaryIndex).locateProbe: function too complex: cost 104 exceeds budget 80
+internal/parsercorephase0/core.go:3702:54: inlining call to boundaryIdentityFromKey
+internal/parsercorephase0/core.go:3702:30: inlining call to boundaryProbeForKey
+internal/parsercorephase0/core.go:3702:30: inlining call to boundaryIdentityHash
+internal/parsercorephase0/boundary_probe_sink.go:12:7: i does not escape
+internal/parsercorephase0/boundary_probe_sink.go:12:37: result does not escape

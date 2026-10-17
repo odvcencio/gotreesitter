@@ -1,0 +1,1084 @@
+--- a/arena.go
++++ b/arena.go
+@@ -87,7 +87,8 @@
+-	budgetBytes         int64
+-	budgetBaselineBytes int64
+-	allocatedBytes      int64
+-	parentLinkMu        sync.Mutex
+-	deferredParentRoot  *Node
+-	parentLinksDeferred atomic.Bool
+-	finalChildRefs      bool
++	budgetBytes            int64
++	budgetBaselineBytes    int64
++	allocatedBytes         int64
++	parentLinkMu           sync.Mutex
++	deferredParentRoot     *Node
++	parentLinksDeferred    atomic.Bool
++	finalChildRefs         bool
++	compactLeafPublication compactLeafPublicationObserver
+@@ -611,0 +613 @@
++	a.compactLeafPublication = nil
+--- /dev/null
++++ b/internal/parsercorephase0/publication_refs.go
+@@ -0,0 +1,158 @@
++package parsercorephase0
++
++import "unsafe"
++
++// PublicationRefs retains one pointer per compact ID and a lazily allocated
++// kind bitmap. It keeps node and deferred-leaf references distinct without
++// retaining two pointer arrays. IDs are occurrence identities; zero is empty.
++// The pointer slice keeps both allocation types visible to the Go collector.
++type PublicationRefs[N, L any] struct {
++	refs      []unsafe.Pointer
++	leafKinds []uint64
++	leafCount int
++}
++
++func (r *PublicationRefs[N, L]) Len() int {
++	if r == nil {
++		return 0
++	}
++	return len(r.refs)
++}
++func (r *PublicationRefs[N, L]) Cap() int {
++	if r == nil {
++		return 0
++	}
++	return cap(r.refs)
++}
++
++func (r *PublicationRefs[N, L]) Has(id SubtreeID) bool {
++	return r != nil && id != 0 && uint64(id) < uint64(len(r.refs)) && r.refs[id] != nil
++}
++
++func (r *PublicationRefs[N, L]) Node(id SubtreeID) *N {
++	if !r.Has(id) || r.isLeaf(id) {
++		return nil
++	}
++	return (*N)(r.refs[id])
++}
++
++func (r *PublicationRefs[N, L]) Leaf(id SubtreeID) *L {
++	if !r.Has(id) || !r.isLeaf(id) {
++		return nil
++	}
++	return (*L)(r.refs[id])
++}
++
++func (r *PublicationRefs[N, L]) isLeaf(id SubtreeID) bool {
++	word := uint64(id) >> 6
++	return word < uint64(len(r.leafKinds)) && r.leafKinds[word]&(uint64(1)<<(id&63)) != 0
++}
++
++func (r *PublicationRefs[N, L]) SetNode(id SubtreeID, node *N) bool {
++	if id == 0 || uint64(id) >= uint64(len(r.refs)) {
++		return false
++	}
++	if r.isLeaf(id) {
++		r.leafKinds[uint64(id)>>6] &^= uint64(1) << (id & 63)
++		r.leafCount--
++	}
++	r.refs[id] = unsafe.Pointer(node)
++	return true
++}
++
++func (r *PublicationRefs[N, L]) SetLeaf(id SubtreeID, leaf *L) bool {
++	if id == 0 || uint64(id) >= uint64(len(r.refs)) {
++		return false
++	}
++	if leaf == nil {
++		return r.SetNode(id, nil)
++	}
++	words := (len(r.refs) + 63) / 64
++	if len(r.leafKinds) < words {
++		if cap(r.leafKinds) < words {
++			grown := make([]uint64, words)
++			copy(grown, r.leafKinds)
++			r.leafKinds = grown
++		} else {
++			old := len(r.leafKinds)
++			r.leafKinds = r.leafKinds[:words]
++			clear(r.leafKinds[old:])
++		}
++	}
++	if !r.isLeaf(id) {
++		r.leafKinds[uint64(id)>>6] |= uint64(1) << (id & 63)
++		r.leafCount++
++	}
++	r.refs[id] = unsafe.Pointer(leaf)
++	return true
++}
++
++func (r *PublicationRefs[N, L]) Prepare(n int) {
++	r.Reset(0)
++	if n <= 0 {
++		return
++	}
++	if cap(r.refs) < n {
++		r.refs = make([]unsafe.Pointer, n)
++	} else {
++		r.refs = r.refs[:n]
++	}
++}
++
++func (r *PublicationRefs[N, L]) Ensure(n int) {
++	if n <= len(r.refs) {
++		return
++	}
++	if cap(r.refs) < n {
++		grown := make([]unsafe.Pointer, n, max(n, 2*cap(r.refs), 1024))
++		copy(grown, r.refs)
++		r.refs = grown
++	} else {
++		old := len(r.refs)
++		r.refs = r.refs[:n]
++		clear(r.refs[old:])
++	}
++	// Bits beyond the current bitmap are implicitly node references. Allocate
++	// them only when SetLeaf first needs that part of the ID range.
++}
++
++// Reset clears the full retained pointer capacity, including borrowed views.
++// A positive limit drops storage above that reference count.
++func (r *PublicationRefs[N, L]) Reset(limit int) {
++	clear(r.refs[:cap(r.refs)])
++	clear(r.leafKinds[:cap(r.leafKinds)])
++	if limit > 0 && cap(r.refs) > limit {
++		*r = PublicationRefs[N, L]{}
++		return
++	}
++	r.refs = r.refs[:0]
++	r.leafKinds = r.leafKinds[:0]
++	r.leafCount = 0
++}
++
++func (r *PublicationRefs[N, L]) RetainedBytes() uint64 {
++	return uint64(cap(r.refs))*uint64(unsafe.Sizeof(unsafe.Pointer(nil))) + r.KindRetainedBytes()
++}
++
++func (r *PublicationRefs[N, L]) KindRetainedBytes() uint64 {
++	return uint64(cap(r.leafKinds)) * 8
++}
++
++// RetainedEmpty checks capacity, not just length, so lifetime checks detect
++// references left in a reused table's otherwise inaccessible tail.
++func (r *PublicationRefs[N, L]) RetainedEmpty() bool {
++	if r == nil {
++		return true
++	}
++	for _, ref := range r.refs[:cap(r.refs)] {
++		if ref != nil {
++			return false
++		}
++	}
++	for _, kinds := range r.leafKinds[:cap(r.leafKinds)] {
++		if kinds != 0 {
++			return false
++		}
++	}
++	return true
++}
+--- /dev/null
++++ b/internal/parsercorephase0/publication_refs_test.go
+@@ -0,0 +1,89 @@
++package parsercorephase0
++
++import (
++	"runtime"
++	"testing"
++	"unsafe"
++)
++
++func TestPublicationRefsKeepKindsAcrossGrowthAndCollection(t *testing.T) {
++	type node struct{ text *string }
++	type leaf struct{ bytes []byte }
++	var refs PublicationRefs[node, leaf]
++	refs.Prepare(130)
++	text := "node"
++	n := &node{text: &text}
++	l := &leaf{bytes: []byte("leaf")}
++	if !refs.SetNode(64, n) || !refs.SetLeaf(65, l) {
++		t.Fatal("valid references rejected")
++	}
++	refs.Ensure(300)
++	n, l = nil, nil
++	runtime.GC()
++	if got := refs.Node(64); got == nil || *got.text != "node" || refs.Leaf(64) != nil {
++		t.Fatal("node identity/kind lost after growth and collection")
++	}
++	if got := refs.Leaf(65); got == nil || string(got.bytes) != "leaf" || refs.Node(65) != nil {
++		t.Fatal("leaf identity/kind lost after growth and collection")
++	}
++	if refs.SetNode(0, &node{}) || refs.SetLeaf(300, &leaf{}) || refs.Has(0) || refs.Has(300) {
++		t.Fatal("invalid identity accepted")
++	}
++	replacement := &node{text: &text}
++	refs.SetNode(65, replacement)
++	if refs.Node(65) != replacement || refs.Leaf(65) != nil {
++		t.Fatal("replacement retained the previous kind")
++	}
++
++}
++
++func TestPublicationRefsResetClearsBorrowedCapacityAndRetention(t *testing.T) {
++	var refs PublicationRefs[int, string]
++	refs.Prepare(130)
++	n := 7
++	view := refs.refs[:cap(refs.refs)]
++	view[len(view)-1] = unsafe.Pointer(&n)
++	retained := refs.RetainedBytes()
++	if refs.RetainedEmpty() {
++		t.Fatal("tail reference was not observed")
++	}
++	refs.Reset(0)
++	if view[len(view)-1] != nil || !refs.RetainedEmpty() || refs.Len() != 0 || refs.RetainedBytes() != retained {
++		t.Fatal("reset lost retention or kept a tail pointer")
++	}
++	view = nil
++	refs.Prepare(130)
++	s := "leaf"
++	refs.SetLeaf(65, &s)
++	retained = refs.RetainedBytes()
++	refs.Reset(0)
++	if refs.RetainedBytes() != retained {
++		t.Fatal("reset dropped kind storage")
++	}
++	refs.Prepare(130)
++	if refs.Has(65) || refs.Leaf(65) != nil {
++		t.Fatal("reset retained a leaf or kind")
++	}
++	refs.Reset(1)
++	if refs.Cap() != 0 || refs.RetainedBytes() != 0 {
++		t.Fatal("retention limit kept storage")
++	}
++}
++
++func TestPublicationRefsColdPrepareKeepsRequestedFootprint(t *testing.T) {
++	var refs PublicationRefs[int, string]
++	refs.Prepare(17)
++	if refs.Len() != 17 || refs.Cap() != 17 || refs.KindRetainedBytes() != 0 {
++		t.Fatalf("cold references = %d/%d, kind bytes=%d", refs.Len(), refs.Cap(), refs.KindRetainedBytes())
++	}
++	refs.Ensure(33)
++	if refs.Cap() < 33 {
++		t.Fatal("eager growth did not preserve capacity")
++	}
++	n := 9
++	refs.SetNode(32, &n)
++	refs.Prepare(17)
++	if refs.Len() != 17 || refs.Node(16) != nil {
++		t.Fatal("repreparation retained a prior node")
++	}
++}
+--- a/no_tree_node.go
++++ b/no_tree_node.go
+@@ -43,0 +44,12 @@
++	// A scanner-free publication can use checkpoint.start.off for its
++	// authenticated lexer-read word. The discriminator fits in existing
++	// padding; scanner snapshots and read words are mutually exclusive.
++	hasLegacyRead bool
++	publication   bool
++}
++
++// The observer is installed only while an unpublished compact tree owns the
++// arena. It keeps the publication table current when projection requests a
++// public view. Escaped trees retain no observer or materializer reference.
++type compactLeafPublicationObserver interface {
++	compactLeafMaterialized(*compactFullLeaf, *Node)
+@@ -645,0 +658,3 @@
++	n.hasLegacyRead = false
++	n.publication = false
++	n.dependsOnColumn = false
+@@ -670,0 +686,5 @@
++	if leaf.hasLegacyRead && !leaf.hasCheckpoint && arena != nil {
++		if word := legacyReuseWord(node, true); word != nil {
++			*word = leaf.checkpoint.start.off
++		}
++	}
+@@ -680,0 +701,3 @@
++	if leaf.publication && arena != nil && arena.compactLeafPublication != nil {
++		arena.compactLeafPublication.compactLeafMaterialized(leaf, node)
++	}
+--- a/parsercore_phase0_coverage_stage_test.go
++++ b/parsercore_phase0_coverage_stage_test.go
+@@ -23 +23 @@
+-				func() error { return nil }, 2, &coverage, nodesByID)
++				func() error { return nil }, 2, &coverage, publicationRefsForNodes(nodesByID))
+--- /dev/null
++++ b/parsercore_phase0_deferred_publication_internal_test.go
+@@ -0,0 +1,211 @@
++//go:build !gts_no_parsercorephase0
++
++package gotreesitter
++
++import (
++	"github.com/odvcencio/gotreesitter/internal/incr"
++	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
++	"testing"
++)
++
++func TestCompactDeferredPublicationReadTransfer(t *testing.T) {
++	arena := acquireNodeArena(arenaClassFull)
++	defer arena.Release()
++	m := compactMaterializer{arena: arena}
++	m.nodesByID.Prepare(4)
++	arena.compactLeafPublication = &m
++	leaf := newCompactFullLeafInArena(arena, 1, true, 0, 4, Point{}, Point{Column: 4})
++	leaf.publication = true
++	leaf.checkpoint.end.off = 1
++	leaf.setFlag(nodeFlagCompactMaterialized, true)
++	leaf.setFlag(nodeFlagCompactParseStateProven, true)
++	leaf.parseState = 7
++	m.nodesByID.SetLeaf(1, leaf)
++	reads := incr.NewReads(8)
++	reads.Record(0, 5)
++	reads.Record(4, 9)
++	s := diagnosticParserCoreGenericScheduler{}
++	s.reuseDependencies.reads = reads
++	s.reuseDependencies.leafWords = make([]uint32, 1)
++	incr.SetLeafReceipt(s.reuseDependencies.leafWords, 1, legacyReuseLeafKnown|legacyReuseKeyword)
++	points := diagnosticParserCorePointIndex{lineStarts: []uint32{0}}
++	if err := s.publishCompactLegacyReads(arena, &m.nodesByID, func(core.SubtreeID) (core.SubtreeGeometry, error) { return core.SubtreeGeometry{EndByte: 4}, nil }, &points, func() error { return nil }); err != nil {
++		t.Fatal(err)
++	}
++	if !leaf.hasLegacyRead {
++		t.Fatal("deferred leaf lacks a read receipt")
++	}
++	rng, refs := arena.allocPendingChildEntries(1)
++	refs[0] = newPendingChildEntry(newStackEntryCompactFullLeaf(0, leaf))
++	parent := newParentNodeInArenaWithFinalChildRefs(arena, 2, true, rng, 0, true)
++	child := parent.Child(0)
++	if m.nodesByID.Node(1) != child || child != parent.Child(0) || child.Parent() != parent {
++		t.Fatal("public view identity or publication mapping changed")
++	}
++	want, known := reads.LeafLookahead(4)
++	if got, ok := legacyReuseLookahead(child); got != want || ok != known {
++		t.Fatalf("lookahead=%d/%t want=%d/%t", got, ok, want, known)
++	}
++	if word := legacyReuseWord(child, false); word == nil || *word&(legacyReuseKeyword|legacyReuseLeafKnown) != legacyReuseKeyword|legacyReuseLeafKnown {
++		t.Fatal("elected token provenance lost")
++	}
++	if child.parseState != 7 || !compactNodeStateProofAvailable(child) {
++		t.Fatal("replay proof lost")
++	}
++	m.releaseOwned()
++	if arena.compactLeafPublication != nil {
++		t.Fatal("escaped arena retains materializer")
++	}
++}
++
++func TestCompactDeferredPublicationDirectFieldsAndExtras(t *testing.T) {
++	arena := acquireNodeArena(arenaClassFull)
++	defer arena.Release()
++	lang := &Language{SymbolMetadata: make([]SymbolMetadata, 4), FieldNames: []string{"", "left", "right"}, FieldMapSlices: [][2]uint16{{0, 2}}, FieldMapEntries: []FieldMapEntry{{FieldID: 1, ChildIndex: 0}, {FieldID: 2, ChildIndex: 1}}}
++	for i := range lang.SymbolMetadata {
++		lang.SymbolMetadata[i] = SymbolMetadata{Visible: true, Named: true}
++	}
++	m := compactMaterializer{arena: arena, parser: NewParser(lang), points: diagnosticParserCorePointIndex{lineStarts: []uint32{0}}}
++	left := newCompactFullLeafInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
++	extra := newLeafNodeInArena(arena, 2, true, 1, 2, Point{Column: 1}, Point{Column: 2})
++	extra.setExtra(true)
++	right := newCompactFullLeafInArena(arena, 1, true, 2, 3, Point{Column: 2}, Point{Column: 3})
++	left.dynamicPrecedence = 2
++	right.dynamicPrecedence = 3
++	entries := []stackEntry{newStackEntryCompactFullLeaf(0, left), newStackEntryNode(0, extra), newStackEntryCompactFullLeaf(0, right)}
++	parent := m.makeDirectPublicationParent(&core.MaterializationSubtreeView{Symbol: 3, EndByte: 3, DynamicPrecedence: 4}, entries, 2, true)
++	if parent == nil || !nodeHasFinalChildRefs(parent) {
++		t.Fatal("direct projection forced public leaves")
++	}
++	if parent.ChildCount() != 3 || parent.NamedChildCount() != 3 || parent.FieldNameForChild(0, lang) != "left" || parent.FieldNameForChild(1, lang) != "" || parent.FieldNameForChild(2, lang) != "right" {
++		t.Fatal("field ordinals consumed an extra or child count changed")
++	}
++	if parent.dynamicPrecedence != 9 || parent.EndPoint() != (Point{Column: 3}) || extra.Parent() != parent {
++		t.Fatal("parent metadata or existing child link lost")
++	}
++	if left.publication || right.publication {
++		t.Fatal("fixture leaf unexpectedly marked as a compact publication")
++	}
++	if parent.ChildByFieldName("right", lang) != parent.Child(2) {
++		t.Fatal("field and index access disagree")
++	}
++}
++
++func TestCompactDeferredPublicationTilingGuard(t *testing.T) {
++	leaf := &compactFullLeaf{noTreeNode: noTreeNode{startByte: 0, endByte: 1}}
++	entries := []stackEntry{newStackEntryCompactFullLeaf(0, leaf)}
++	if start, end, gap := diagnosticParserCoreReduceChildrenTilingGap(0, 3, entries, []byte("a b")); !gap || start != 1 || end != 3 {
++		t.Fatalf("uncovered bytes escaped: %d..%d/%t", start, end, gap)
++	}
++	if _, _, gap := diagnosticParserCoreReduceChildrenTilingGap(0, 3, entries, []byte("a  ")); gap {
++		t.Fatal("ordinary trivia rejected")
++	}
++}
++
++func TestCompactDeferredPublicationNonLeafReuse(t *testing.T) {
++	p, session, node, _, _, points := compactBorrowedMaterializationFixture(t)
++	arena := node.ownerArena
++	top := session.oldTree.root
++	// Both candidate levels must work when the root and its child retain typed
++	// references. Reading only Node.children would silently lose these receipts.
++	topRange, topRefs := arena.allocPendingChildEntries(len(top.children))
++	for i, child := range top.children {
++		topRefs[i] = newPendingChildEntry(newStackEntryNode(0, child))
++	}
++	top.children = nil
++	arena.attachFinalChildRefs(top, topRange)
++	rootRange, rootRefs := arena.allocPendingChildEntries(1)
++	rootRefs[0] = newPendingChildEntry(newStackEntryNode(0, top))
++	root := newParentNodeInArenaWithFinalChildRefs(arena, 4, true, rootRange, 0, true)
++	s := diagnosticParserCoreGenericScheduler{}
++	s.reuseDependencies.ends = []uint32{0, 4, 6}
++	refs := publicationRefsForNodes([]*Node{nil, node, node})
++	if err := s.publishCompactReuseDependencies(p, root, arena, refs, compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
++		t.Fatal(err)
++	}
++	if bytes, ok := compactReuseDependencyForNode(node); !ok || bytes != 5 {
++		t.Fatalf("nested final reference lost dependency: %d/%t", bytes, ok)
++	}
++	if root.children != nil || top.children != nil {
++		t.Fatal("dependency publication forced child arrays")
++	}
++	s.reuseDependencies.disabled = true
++	if err := s.publishCompactReuseDependencies(p, root, arena, refs, compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
++		t.Fatal(err)
++	}
++	if _, ok := compactReuseDependencyForNode(node); ok {
++		t.Fatal("disabled producer retained a deferred candidate's receipt")
++	}
++}
++
++func TestCompactDeferredPublicationProofDoesNotConstructViews(t *testing.T) {
++	proven := nodeFlagCompactMaterialized | nodeFlagCompactParseStateProven
++	for _, row := range []struct {
++		name               string
++		flags, parentFlags nodeFlags
++		want               bool
++	}{
++		{"proven", proven, 0, true},
++		{"unknown", 0, 0, false},
++		{"not_materialized", nodeFlagCompactParseStateProven, 0, false},
++		{"no_state_proof", nodeFlagCompactMaterialized, 0, false},
++		{"extra", nodeFlagExtra, 0, true},
++		{"missing", nodeFlagMissing, 0, true},
++		{"error", nodeFlagHasError, 0, true},
++		{"fragile", nodeFlagFragileLeft, 0, true},
++		{"sibling_error_does_not_exempt", 0, nodeFlagHasError, false},
++		{"recovery_ancestor", 0, nodeFlagMissing, true},
++	} {
++		t.Run(row.name, func(t *testing.T) {
++			arena := acquireNodeArena(arenaClassFull)
++			defer arena.Release()
++			leaf := newCompactFullLeafInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
++			leaf.publication = true
++			leaf.flags = row.flags
++			rng, refs := arena.allocPendingChildEntries(1)
++			refs[0] = newPendingChildEntry(newStackEntryCompactFullLeaf(0, leaf))
++			root := newParentNodeInArenaWithFinalChildRefs(arena, 2, true, rng, 0, true)
++			root.flags = row.parentFlags
++			before := arena.used
++			scratch := make([]*Node, 0, 4)
++			if got := compactTreeIncrementalReuseProven(root, &scratch); got != row.want {
++				t.Fatalf("proof=%t want=%t", got, row.want)
++			}
++			if arena.used != before || stackEntryCompactFullLeaf(rng.refs(arena)[0].stackEntry()) != leaf {
++				t.Fatal("proof check constructed a public view")
++			}
++			if len(scratch) != 0 {
++				t.Fatal("proof check retained traversal nodes")
++			}
++		})
++	}
++}
++
++func TestCompactDeferredPublicationParentWiringDoesNotConstructViews(t *testing.T) {
++	arena := acquireNodeArena(arenaClassFull)
++	defer arena.Release()
++	leaf := newCompactFullLeafInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
++	leaf.publication = true
++	leaf.setHasError(true)
++	sibling := newLeafNodeInArena(arena, 1, true, 1, 2, Point{Column: 1}, Point{Column: 2})
++	rng, refs := arena.allocPendingChildEntries(2)
++	refs[0] = newPendingChildEntry(newStackEntryCompactFullLeaf(0, leaf))
++	refs[1] = newPendingChildEntry(newStackEntryNode(0, sibling))
++	root := newParentNodeInArenaWithFinalChildRefs(arena, 2, true, rng, 0, true)
++	before := arena.used
++	scratch := make([]*Node, 0, 4)
++	summary := resultErrorSummaryUnknown
++	if !wireParentLinksWithScratchUntil(root, &scratch, NewParser(nil), &summary) {
++		t.Fatal("parent wiring stopped")
++	}
++	if arena.used != before || stackEntryCompactFullLeaf(rng.refs(arena)[0].stackEntry()) != leaf {
++		t.Fatal("parent wiring constructed a terminal view")
++	}
++	if summary != resultErrorSummaryPresent || sibling.Parent() != root {
++		t.Fatal("wiring lost child errors or existing node links")
++	}
++	child := root.Child(0)
++	if child.Parent() != root || child.NextSibling() != sibling || sibling.PrevSibling() != child {
++		t.Fatal("deferred view has inconsistent parent or sibling links")
++	}
++}
+--- a/parsercore_phase0_driver.go
++++ b/parsercore_phase0_driver.go
+@@ -1211 +1211 @@
+-	stack := []*Node{root}
++	stack := []stackEntry{newStackEntryNode(0, root)}
+@@ -1214 +1214 @@
+-		node := stack[last]
++		entry := stack[last]
+@@ -1215,0 +1216,5 @@
++		if entry.node == nil {
++			continue
++		}
++		census.total++
++		node := stackEntryNode(entry)
+@@ -1216,0 +1222 @@
++			census.leaves++
+@@ -1219,2 +1225,2 @@
+-		census.total++
+-		if len(node.children) == 0 {
++		count := nodeChildCountNoMaterialize(node)
++		if count == 0 {
+@@ -1224,2 +1230,6 @@
+-		}
+-		stack = append(stack, node.children...)
++			for i := 0; i < count; i++ {
++				if child, ok := nodeChildEntryAtNoMaterialize(node, i); ok {
++					stack = append(stack, child)
++				}
++			}
++		}
+@@ -7024 +7034 @@
+-	nodesByID []*Node,
++	nodesByID *core.PublicationRefs[Node, compactFullLeaf],
+@@ -7030 +7040 @@
+-		if uint64(childID) >= uint64(len(nodesByID)) || uint64(childID) >= uint64(len(scratch.leadingLexerSkippedPrefixStarts)) {
++		if uint64(childID) >= uint64(nodesByID.Len()) || uint64(childID) >= uint64(len(scratch.leadingLexerSkippedPrefixStarts)) {
+@@ -7033,2 +7043,6 @@
+-		child := nodesByID[childID]
+-		if child == nil || child.startByte > startByte {
++		childStart, childEnd := uint32(0), uint32(0)
++		if child := nodesByID.Node(childID); child != nil {
++			childStart, childEnd = child.startByte, child.endByte
++		} else if leaf := nodesByID.Leaf(childID); leaf != nil {
++			childStart, childEnd = leaf.startByte, leaf.endByte
++		} else {
+@@ -7037 +7051,4 @@
+-		if child.startByte < startByte {
++		if childStart > startByte {
++			return
++		}
++		if childStart < startByte {
+@@ -7044 +7061 @@
+-		if child.endByte > startByte {
++		if childEnd > startByte {
+@@ -7053 +7070 @@
+-	nodesByID []*Node,
++	nodesByID *core.PublicationRefs[Node, compactFullLeaf],
+@@ -7056 +7073,8 @@
+-		uint64(id) >= uint64(len(nodesByID)) || nodesByID[id] == nil || nodesByID[id].startByte != endByte {
++		!nodesByID.Has(id) {
++		return false
++	}
++	if child := nodesByID.Node(id); child != nil {
++		if child.startByte != endByte {
++			return false
++		}
++	} else if nodesByID.Leaf(id).startByte != endByte {
+@@ -7093 +7117 @@
+-func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) hasVisibleTerminalNode(startByte, endByte uint32, node *Node, nodesByID []*Node) bool {
++func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) hasVisibleTerminalNode(startByte, endByte uint32, node *Node, nodesByID *core.PublicationRefs[Node, compactFullLeaf]) bool {
+@@ -7102 +7126 @@
+-		if !span.hidden && span.borrowed == nil && span.endByte == endByte && uint64(span.id) < uint64(len(nodesByID)) && nodesByID[span.id] == node {
++		if !span.hidden && span.borrowed == nil && span.endByte == endByte && uint64(span.id) < uint64(nodesByID.Len()) && nodesByID.Node(core.SubtreeID(span.id)) == node {
+@@ -7124 +7148 @@
+-	nodesByID []*Node,
++	nodesByID *core.PublicationRefs[Node, compactFullLeaf],
+@@ -7343 +7367 @@
+-func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node) error {
++func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID *core.PublicationRefs[Node, compactFullLeaf]) error {
+@@ -7347 +7371 @@
+-func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node, nativeAcceptSplice bool) error {
++func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID *core.PublicationRefs[Node, compactFullLeaf], nativeAcceptSplice bool) error {
+@@ -7534 +7558 @@
+-func diagnosticParserCoreAcceptedTreeLeafCoverageGap(root *Node, source []byte, expectedStart, sourceLen, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node, poll func() error) (gapStart, gapEnd uint32, gapped bool, err error) {
++func diagnosticParserCoreAcceptedTreeLeafCoverageGap(root *Node, source []byte, expectedStart, sourceLen, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID *core.PublicationRefs[Node, compactFullLeaf], poll func() error) (gapStart, gapEnd uint32, gapped bool, err error) {
+@@ -7788 +7812 @@
+-	nodesByID []*Node,
++	nodesByID *core.PublicationRefs[Node, compactFullLeaf],
+@@ -7793,2 +7817 @@
+-		child := stackEntryNode(entry)
+-		if child == nil {
++		if entry.node == nil {
+@@ -7797 +7820,2 @@
+-		if child.startByte > lastEnd && !diagnosticParserCoreGapIsTolerated(source[lastEnd:child.startByte]) {
++		childStart, childEnd := stackEntryNodeStartByte(entry), stackEntryNodeEndByte(entry)
++		if childStart > lastEnd && !diagnosticParserCoreGapIsTolerated(source[lastEnd:childStart]) {
+@@ -7802,6 +7826,6 @@
+-			if !allowLexerSkippedPrefix || !coverage.childHasLexerSkippedPrefix(childID, lastEnd, child.startByte, nodesByID) {
+-				return lastEnd, child.startByte, true
+-			}
+-		}
+-		if child.endByte > lastEnd {
+-			lastEnd = child.endByte
++			if !allowLexerSkippedPrefix || !coverage.childHasLexerSkippedPrefix(childID, lastEnd, childStart, nodesByID) {
++				return lastEnd, childStart, true
++			}
++		}
++		if childEnd > lastEnd {
++			lastEnd = childEnd
+@@ -8082 +8106 @@
+-	nodesByID := m.nodesByID
++	nodesByID := &m.nodesByID
+@@ -8092 +8116,5 @@
+-		if uint64(payload) >= uint64(len(nodesByID)) || nodesByID[payload] == nil {
++		if leaf := nodesByID.Leaf(payload); leaf != nil {
++			entry := newStackEntryCompactFullLeaf(0, leaf)
++			materializeStackEntryCompactFullLeaf(arena, &entry, compactFullLeafMaterializeForFinalTree)
++		}
++		if uint64(payload) >= uint64(nodesByID.Len()) || nodesByID.Node(core.SubtreeID(payload)) == nil {
+@@ -8095 +8123 @@
+-		nodes[index] = nodesByID[payload]
++		nodes[index] = nodesByID.Node(core.SubtreeID(payload))
+--- a/parsercore_phase0_driver_coverage_internal_test.go
++++ b/parsercore_phase0_driver_coverage_internal_test.go
+@@ -168 +168 @@
+-	if _, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(root, []byte("x"), 0, 1, 100, &coverage, nodesByID, nil); err != nil || gapped {
++	if _, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(root, []byte("x"), 0, 1, 100, &coverage, publicationRefsForNodes(nodesByID), nil); err != nil || gapped {
+@@ -186 +186 @@
+-	if _, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(root, []byte("x"), 0, 1, 100, &coverage, nodesByID, nil); err != nil || !gapped {
++	if _, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(root, []byte("x"), 0, 1, 100, &coverage, publicationRefsForNodes(nodesByID), nil); err != nil || !gapped {
+@@ -209 +209 @@
+-		parser, []stackEntry{newStackEntryNode(0, raw)}, []*Node{root}, 1, Symbol(101), nodesByID,
++		parser, []stackEntry{newStackEntryNode(0, raw)}, []*Node{root}, 1, Symbol(101), publicationRefsForNodes(nodesByID),
+@@ -211 +211 @@
+-	if _, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(root, []byte("x"), 0, 1, 100, &coverage, nodesByID, nil); err != nil || gapped {
++	if _, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(root, []byte("x"), 0, 1, 100, &coverage, publicationRefsForNodes(nodesByID), nil); err != nil || gapped {
+@@ -235 +235 @@
+-		parser, []stackEntry{newStackEntryNode(0, raw)}, []*Node{authenticated}, 1, Symbol(101), nodesByID,
++		parser, []stackEntry{newStackEntryNode(0, raw)}, []*Node{authenticated}, 1, Symbol(101), publicationRefsForNodes(nodesByID),
+@@ -237 +237 @@
+-	if _, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(unrelated, []byte("x"), 0, 1, 100, &coverage, nodesByID, nil); err != nil || !gapped {
++	if _, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(unrelated, []byte("x"), 0, 1, 100, &coverage, publicationRefsForNodes(nodesByID), nil); err != nil || !gapped {
+@@ -278 +278 @@
+-			coverage.authenticateDirectTerminalAliases(parser, []stackEntry{newStackEntryNode(0, raw)}, children, production, 0, nodesByID)
++			coverage.authenticateDirectTerminalAliases(parser, []stackEntry{newStackEntryNode(0, raw)}, children, production, 0, publicationRefsForNodes(nodesByID))
+@@ -283 +283 @@
+-				_, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(clone, []byte("x"), 0, 1, 100, &coverage, nodesByID, nil)
++				_, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(clone, []byte("x"), 0, 1, 100, &coverage, publicationRefsForNodes(nodesByID), nil)
+--- a/parsercore_phase0_lexer_skip_tiling_test.go
++++ b/parsercore_phase0_lexer_skip_tiling_test.go
+@@ -23 +23 @@
+-		0, 3, entries, childIDs, source, coverage, nodesByID, true,
++		0, 3, entries, childIDs, source, coverage, publicationRefsForNodes(nodesByID), true,
+@@ -43 +43 @@
+-				0, 3, entries, test.ids, source, coverage, nodesByID, test.certified,
++				0, 3, entries, test.ids, source, coverage, publicationRefsForNodes(nodesByID), test.certified,
+--- a/parsercore_phase0_materialization_scratch_internal_test.go
++++ b/parsercore_phase0_materialization_scratch_internal_test.go
+@@ -167 +167,2 @@
+-	comparison.materializer.nodesByID = make([]*Node, 0, 64)
++	comparison.materializer.nodesByID.Prepare(64)
++	comparison.materializer.nodesByID.Reset(0)
+--- a/parsercore_phase0_materializer.go
++++ b/parsercore_phase0_materializer.go
+@@ -82 +82 @@
+-	nodesByID    []*Node
++	nodesByID    core.PublicationRefs[Node, compactFullLeaf]
+@@ -148,0 +149 @@
++	m.arena.compactLeafPublication = m
+@@ -233,0 +235,3 @@
++	if m.arena != nil {
++		m.arena.compactLeafPublication = nil
++	}
+@@ -259,0 +264 @@
++	nodesByID.Reset(parserCoreMaxRetainedNodeScratch)
+@@ -262 +267 @@
+-		nodesByID: clearNodeScratch(nodesByID), hasErrorByID: hasErrorByID, frames: frames[:0],
++		nodesByID: nodesByID, hasErrorByID: hasErrorByID, frames: frames[:0],
+@@ -286 +291 @@
+-	m.nodesByID = parserCoreNodeSlice(m.nodesByID, n)
++	m.nodesByID.Prepare(n)
+@@ -298 +303 @@
+-	if len(m.nodesByID) >= n {
++	if m.nodesByID.Len() >= n {
+@@ -301,9 +306 @@
+-	if cap(m.nodesByID) >= n {
+-		old := len(m.nodesByID)
+-		m.nodesByID = m.nodesByID[:n]
+-		clear(m.nodesByID[old:])
+-	} else {
+-		grown := make([]*Node, n, max(n, 2*cap(m.nodesByID), 1024))
+-		copy(grown, m.nodesByID)
+-		m.nodesByID = grown
+-	}
++	m.nodesByID.Ensure(n)
+@@ -323 +320,11 @@
+-	return uint64(id) < uint64(len(m.nodesByID)) && m.nodesByID[id] != nil
++	return m.nodesByID.Has(id)
++}
++
++func (m *compactMaterializer) compactLeafMaterialized(leaf *compactFullLeaf, node *Node) {
++	if leaf == nil || node == nil || node.ownerArena != m.arena {
++		return
++	}
++	id := core.SubtreeID(leaf.checkpoint.end.off)
++	if m.nodesByID.Leaf(id) == leaf {
++		m.nodesByID.SetNode(id, node)
++	}
+@@ -468 +475 @@
+-	m.stampReplay(m.nodesByID[id], view)
++	m.stampReplay(m.nodesByID.Node(id), view)
+@@ -524 +531 @@
+-	m.nodesByID[id] = node
++	m.nodesByID.SetNode(id, node)
+@@ -602,0 +610,72 @@
++// makeDirectPublicationParent is the adapter for the existing all-visible
++// projection. Aliases, hidden flattening, inherited fields, and unary
++// ownership transformations keep the general projector.
++func (m *compactMaterializer) makeDirectPublicationParent(view *core.MaterializationSubtreeView, entries []stackEntry, structuralChildren int, named bool) *Node {
++	p, arena := m.parser, m.arena
++	if m.incrementalReuse != nil || m.allowErrorRoot || m.eager || m.usesScannerCheckpoints ||
++		!p.isVisibleSymbol(Symbol(view.Symbol)) || len(entries) < 2 || len(p.unaryWrapperFlatteningSet) != 0 ||
++		len(p.reduceAliasSequence(view.ProductionID)) != 0 {
++		return nil
++	}
++	hasDeferred := false
++	for _, entry := range entries {
++		if !p.isVisibleSymbol(stackEntryNodeSymbol(entry)) {
++			return nil
++		}
++		hasDeferred = hasDeferred || stackEntryCompactFullLeaf(entry) != nil
++	}
++	if !hasDeferred {
++		return nil
++	}
++	var rawFields []FieldID
++	if p.reduceProductionHasEffectiveFields(structuralChildren, view.ProductionID, arena) {
++		var inherited []bool
++		rawFields, inherited, _ = p.buildFieldIDs(structuralChildren, view.ProductionID, arena)
++		for _, value := range inherited {
++			if value {
++				return nil
++			}
++		}
++	}
++	var fields []FieldID
++	var sources []uint8
++	if rawFields != nil {
++		fields = arena.allocFieldIDSlice(len(entries))
++		sources = arena.allocFieldSourceSlice(len(entries))
++	}
++	childRange, refs := arena.allocPendingChildEntries(len(entries))
++	ordinal := 0
++	for index, entry := range entries {
++		refs[index] = newPendingChildEntry(entry)
++		if stackEntryNodeIsExtra(entry) {
++			continue
++		}
++		if ordinal < len(rawFields) {
++			fid := rawFields[ordinal]
++			child := stackEntryNode(entry)
++			if child == nil {
++				child = &Node{symbol: stackEntryNodeSymbol(entry)}
++			}
++			if !p.shouldSuppressVisibleDirectField(child, fid) {
++				fields[index] = fid
++				if fid != 0 {
++					sources[index] = fieldSourceDirect
++				}
++			}
++		}
++		ordinal++
++	}
++	parent := newParentNodeInArenaWithFinalChildRefs(arena, Symbol(view.Symbol), named, childRange, view.ProductionID, true)
++	parent.setFieldMetadata(fields, sources)
++	for index, entry := range entries {
++		parent.dynamicPrecedence += stackEntryDynamicPrecedence(entry)
++		if child := stackEntryNode(entry); child != nil {
++			setNodeParentLink(child, parent, index)
++		}
++	}
++	parent.dynamicPrecedence += int32(view.DynamicPrecedence)
++	m.setParentSpan(parent, view)
++	parent.setExtra(view.Extra)
++	return parent
++}
++
+@@ -606 +685 @@
+-	nodesByID, hasErrorByID, acceptedLeaves := m.nodesByID, m.hasErrorByID, m.acceptedLeaves
++	nodesByID, hasErrorByID, acceptedLeaves := &m.nodesByID, m.hasErrorByID, m.acceptedLeaves
+@@ -622 +701 @@
+-		nodesByID[id] = node
++		nodesByID.SetNode(id, node)
+@@ -653,0 +733,21 @@
++		if !m.eager && !m.usesScannerCheckpoints && m.incrementalReuse == nil &&
++			!m.allowErrorRoot && !view.Missing && Symbol(view.Symbol) != errorSymbol &&
++			m.rootFinalization == diagnosticParserCoreFinalizeDefault && m.purpose == core.MaterializationForPublication {
++			leaf := newCompactFullLeafInArena(arena, Symbol(view.Symbol), named, view.StartByte, view.EndByte,
++				m.points.point(view.StartByte), m.points.point(view.EndByte))
++			leaf.setExtra(view.Extra)
++			leaf.publication = true
++			leaf.checkpoint.end.off = uint32(id)
++			leaf.setExternalScannerToken(view.External)
++			leaf.setFlag(nodeFlagCompactMaterialized, true)
++			if m.replayEnabled && view.ReplayParseStateKnown {
++				leaf.parseState = StateID(view.ReplayParseState)
++				leaf.setFlag(nodeFlagCompactParseStateProven, true)
++			}
++			if m.replayEnabled && view.ReplayPreGotoKnown {
++				leaf.preGotoState = StateID(view.ReplayPreGotoState)
++				leaf.setFlag(nodeFlagCompactPreGotoStateProven, true)
++			}
++			m.nodesByID.SetLeaf(id, leaf)
++			return nil
++		}
+@@ -702 +802 @@
+-		if uint64(childID) >= uint64(len(nodesByID)) || nodesByID[childID] == nil {
++		if !nodesByID.Has(childID) {
+@@ -705 +804,0 @@
+-		child := nodesByID[childID]
+@@ -709,2 +808,6 @@
+-		entries[index] = newStackEntryNode(0, child)
+-		if !child.isExtra() {
++		if child := nodesByID.Node(childID); child != nil {
++			entries[index] = newStackEntryNode(0, child)
++		} else {
++			entries[index] = newStackEntryCompactFullLeaf(0, nodesByID.Leaf(childID))
++		}
++		if !stackEntryNodeIsExtra(entries[index]) {
+@@ -808,0 +912,9 @@
++	// A unary reduction may rename or reuse its child object. Preserve the
++	// established alias identity until deferred unary publication has its own
++	// authenticated ownership representation.
++	if len(entries) == 1 {
++		if leaf := nodesByID.Leaf(view.Children[0]); leaf != nil {
++			child := materializeStackEntryCompactFullLeaf(arena, &entries[0], compactFullLeafMaterializeForParentReduce)
++			nodesByID.SetNode(view.Children[0], child)
++		}
++	}
+@@ -818,0 +931,20 @@
++	}
++	if parent := m.makeDirectPublicationParent(view, entries, structuralChildren, named); parent != nil {
++		parent.setHasError(subtreeHasError)
++		hasErrorByID[id] = subtreeHasError
++		m.markFragile(parent, view.Fragile)
++		m.stamp(id, parent, view)
++		return nil
++	}
++	// The general projector still consumes public nodes. Materialize only
++	// the raw entries entering it, and expose children before an alias clone
++	// can copy a final-child sidecar index.
++	aliases := parser.reduceAliasSequence(view.ProductionID)
++	for index, childID := range view.Children {
++		if nodesByID.Leaf(childID) != nil {
++			child := materializeStackEntryCompactFullLeaf(arena, &entries[index], compactFullLeafMaterializeForParentReduce)
++			nodesByID.SetNode(childID, child)
++		}
++		if len(aliases) != 0 {
++			nodeChildrenForReason(stackEntryNode(entries[index]), materializeForNormalization)
++		}
+--- /dev/null
++++ b/parsercore_phase0_publication_refs_internal_test.go
+@@ -0,0 +1,19 @@
++//go:build !gts_no_parsercorephase0
++
++package gotreesitter
++
++import core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
++
++func publicationRefsForNodes(nodes []*Node) *core.PublicationRefs[Node, compactFullLeaf] {
++	if nodes == nil {
++		return nil
++	}
++	refs := &core.PublicationRefs[Node, compactFullLeaf]{}
++	refs.Prepare(len(nodes))
++	for id, node := range nodes {
++		if id != 0 {
++			refs.SetNode(core.SubtreeID(id), node)
++		}
++	}
++	return refs
++}
+--- a/parsercore_phase0_recovery_allocation_test.go
++++ b/parsercore_phase0_recovery_allocation_test.go
+@@ -40 +40 @@
+-	if len(scratch.materializer.nodesByID) != 0 || len(scratch.nodes) != 0 {
++	if scratch.materializer.nodesByID.Len() != 0 || len(scratch.nodes) != 0 {
+--- a/parsercore_phase0_reuse_dependency.go
++++ b/parsercore_phase0_reuse_dependency.go
+@@ -172 +172 @@
+-	p *Parser, root *Node, arena *nodeArena, nodesByID []*Node,
++	p *Parser, root *Node, arena *nodeArena, nodesByID *core.PublicationRefs[Node, compactFullLeaf],
+@@ -188 +188,2 @@
+-	for _, item := range root.children {
++	for index := 0; index < nodeChildCountNoMaterialize(root); index++ {
++		item := nodeMaterializedChildAtNoMaterialize(root, index)
+@@ -198 +199,2 @@
+-		for _, node := range item.children {
++		for childIndex := 0; childIndex < nodeChildCountNoMaterialize(item); childIndex++ {
++			node := nodeMaterializedChildAtNoMaterialize(item, childIndex)
+@@ -253 +255,2 @@
+-	for _, item := range root.children {
++	for index := 0; index < nodeChildCountNoMaterialize(root); index++ {
++		item := nodeMaterializedChildAtNoMaterialize(root, index)
+@@ -260 +263,2 @@
+-		for _, node := range item.children {
++		for childIndex := 0; childIndex < nodeChildCountNoMaterialize(item); childIndex++ {
++			node := nodeMaterializedChildAtNoMaterialize(item, childIndex)
+@@ -272 +276,2 @@
+-	for id, node := range nodesByID {
++	for id := 0; id < nodesByID.Len(); id++ {
++		node := nodesByID.Node(core.SubtreeID(id))
+@@ -401 +406 @@
+-func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(arena *nodeArena, nodes []*Node, geometryFor func(core.SubtreeID) (core.SubtreeGeometry, error), points *diagnosticParserCorePointIndex, poll func() error) error {
++func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(arena *nodeArena, nodes *core.PublicationRefs[Node, compactFullLeaf], geometryFor func(core.SubtreeID) (core.SubtreeGeometry, error), points *diagnosticParserCorePointIndex, poll func() error) error {
+@@ -417,2 +422,2 @@
+-		for _, node := range nodes[:processed] {
+-			if node != nil && node.ownerArena == arena {
++		for id := 0; id < processed; id++ {
++			if node := nodes.Node(core.SubtreeID(id)); node != nil && node.ownerArena == arena {
+@@ -419,0 +425,2 @@
++			} else if leaf := nodes.Leaf(core.SubtreeID(id)); leaf != nil && leaf.publication {
++				leaf.flags &^= rejected
+@@ -423,2 +430,12 @@
+-	for id, node := range nodes {
+-		if node == nil || node.ownerArena != arena {
++	for id := 0; id < nodes.Len(); id++ {
++		node, leaf := nodes.Node(core.SubtreeID(id)), nodes.Leaf(core.SubtreeID(id))
++		var start, end uint32
++		var startPoint, endPoint Point
++		var flags *nodeFlags
++		if node != nil && node.ownerArena == arena {
++			start, end, startPoint, endPoint = node.startByte, node.endByte, node.startPoint, node.endPoint
++			flags = &node.flags
++		} else if leaf != nil && leaf.publication && !leaf.hasCheckpoint {
++			start, end, startPoint, endPoint = leaf.startByte, leaf.endByte, leaf.startPoint, leaf.endPoint
++			flags = &leaf.flags
++		} else {
+@@ -429,2 +446,2 @@
+-		if err != nil || view.StartByte != node.StartByte() || view.EndByte != node.EndByte() || points.point(node.StartByte()) != node.StartPoint() || points.point(node.EndByte()) != node.EndPoint() {
+-			node.flags |= rejected
++		if err != nil || view.StartByte != start || view.EndByte != end || points.point(start) != startPoint || points.point(end) != endPoint {
++			*flags |= rejected
+@@ -438,3 +455,2 @@
+-	// Allocation order is normally source order. Keep independent cursors for
+-	// the parent and leaf boundary rules; GLR backtracking uses their exact
+-	// binary-search fallback when a later projection ends earlier.
++	// Keep independent cursors for the two boundary rules. No public view is
++	// needed to authenticate an immutable terminal's geometry and state proof.
+@@ -442,2 +458,15 @@
+-	for id, node := range nodes {
+-		if node == nil || node.ownerArena != arena || node.flags&rejected != 0 || !compactNodeStateProofAvailable(node) {
++	for id := 0; id < nodes.Len(); id++ {
++		node, leaf := nodes.Node(core.SubtreeID(id)), nodes.Leaf(core.SubtreeID(id))
++		var end uint32
++		isLeaf := true
++		if node != nil && node.ownerArena == arena {
++			if node.flags&rejected != 0 || !compactNodeStateProofAvailable(node) {
++				continue
++			}
++			end, isLeaf = node.endByte, node.ChildCount() == 0
++		} else if leaf != nil && leaf.publication && !leaf.hasCheckpoint {
++			if leaf.flags&rejected != 0 || !leaf.hasFlag(nodeFlagCompactParseStateProven) {
++				continue
++			}
++			end = leaf.endByte
++		} else {
+@@ -448,2 +477,2 @@
+-		if node.ChildCount() == 0 {
+-			count, ok = leaves.Lookahead(node.EndByte())
++		if isLeaf {
++			count, ok = leaves.Lookahead(end)
+@@ -451 +480 @@
+-			count, ok = parents.Lookahead(node.EndByte())
++			count, ok = parents.Lookahead(end)
+@@ -455 +484,7 @@
+-				if word := legacyReuseWord(node, true); word != nil {
++				if isLeaf {
++					encoded |= incr.LeafReceipt(s.reuseDependencies.leafWords, uint32(id))
++				}
++				if leaf != nil {
++					leaf.checkpoint.start.off = encoded
++					leaf.hasLegacyRead = true
++				} else if word := legacyReuseWord(node, true); word != nil {
+@@ -457,3 +491,0 @@
+-					if node.ChildCount() == 0 {
+-						*word |= incr.LeafReceipt(s.reuseDependencies.leafWords, uint32(id))
+-					}
+--- a/parsercore_phase0_reuse_dependency_test.go
++++ b/parsercore_phase0_reuse_dependency_test.go
+@@ -25 +25 @@
+-		if err := s.publishCompactReuseDependencies(p, root, node.ownerArena, nodes, compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
++		if err := s.publishCompactReuseDependencies(p, root, node.ownerArena, publicationRefsForNodes(nodes), compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
+@@ -158 +158 @@
+-	if err := s.publishCompactReuseDependencies(p, root, node.ownerArena, []*Node{nil, deep, node, item, root}, compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
++	if err := s.publishCompactReuseDependencies(p, root, node.ownerArena, publicationRefsForNodes([]*Node{nil, deep, node, item, root}), compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
+@@ -171 +171 @@
+-	if err := s.publishCompactReuseDependencies(p, root, other, []*Node{nil, node}, compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
++	if err := s.publishCompactReuseDependencies(p, root, other, publicationRefsForNodes([]*Node{nil, node}), compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
+@@ -215 +215 @@
+-			if err := s.publishCompactReuseDependencies(p, root, node.ownerArena, []*Node{nil, node}, viewFor, pointIndex, 0, func() error { return nil }); err != nil {
++			if err := s.publishCompactReuseDependencies(p, root, node.ownerArena, publicationRefsForNodes([]*Node{nil, node}), viewFor, pointIndex, 0, func() error { return nil }); err != nil {
+@@ -283 +283 @@
+-	err := s.publishCompactLegacyReads(arena, nodes, func(id core.SubtreeID) (core.SubtreeGeometry, error) {
++	err := s.publishCompactLegacyReads(arena, publicationRefsForNodes(nodes), func(id core.SubtreeID) (core.SubtreeGeometry, error) {
+@@ -371 +371 @@
+-				err := s.publishCompactLegacyReads(arena, nodes, func(id core.SubtreeID) (core.SubtreeGeometry, error) {
++				err := s.publishCompactLegacyReads(arena, publicationRefsForNodes(nodes), func(id core.SubtreeID) (core.SubtreeGeometry, error) {
+--- a/parsercore_phase0_reuse_materialization_test.go
++++ b/parsercore_phase0_reuse_materialization_test.go
+@@ -130 +130 @@
+-	if !coverage.hasBorrowedSubtree(node) || coverage.hasVisibleTerminalNode(0, 1, node, nodes) {
++	if !coverage.hasBorrowedSubtree(node) || coverage.hasVisibleTerminalNode(0, 1, node, publicationRefsForNodes(nodes)) {
+@@ -136 +136 @@
+-	if _, _, gap, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(node, []byte("a"), 0, 1, 2, &coverage, nodes, nil); err != nil || gap {
++	if _, _, gap, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(node, []byte("a"), 0, 1, 2, &coverage, publicationRefsForNodes(nodes), nil); err != nil || gap {
+--- a/parsercore_phase0_shared_alias_materialization_test.go
++++ b/parsercore_phase0_shared_alias_materialization_test.go
+@@ -149,4 +149,2 @@
+-			for _, node := range comparison.materializer.nodesByID[:cap(comparison.materializer.nodesByID)] {
+-				if node != nil {
+-					t.Fatal("comparison storage retained a released public node")
+-				}
++			if !comparison.materializer.nodesByID.RetainedEmpty() {
++				t.Fatal("comparison storage retained a released public node or leaf kind")
+--- a/parsercore_phase0_stop_control.go
++++ b/parsercore_phase0_stop_control.go
+@@ -271 +271 @@
+-		{cap(s.materializer.nodesByID), unsafe.Sizeof((*Node)(nil))},
++		{s.materializer.nodesByID.Cap(), unsafe.Sizeof((*Node)(nil))},
+@@ -286,0 +287 @@
++		s.materializer.nodesByID.KindRetainedBytes(),
+--- a/tree.go
++++ b/tree.go
+@@ -545,0 +546,17 @@
++			entry, ok := nodeChildEntryAtNoMaterialize(n, i)
++			if !ok {
++				continue
++			}
++			if leaf := stackEntryCompactFullLeaf(entry); leaf != nil && leaf.publication {
++				// A terminal needs exactly the same parse-state proof as its
++				// public view. Reading it must not construct that view merely
++				// to check the scalar flags that materialization copies.
++				shadow := Node{flags: leaf.flags, symbol: leaf.symbol, parent: n}
++				if !compactNodeRecoveryBearing(&shadow) && !shadow.isExtra() &&
++					(!shadow.isCompactMaterialized() || !compactNodeStateProofAvailable(&shadow)) {
++					clear(stack)
++					*scratch = stack[:0]
++					return false
++				}
++				continue
++			}
+@@ -2972,0 +2990,10 @@
++			if entry, ok := nodeChildEntryAtNoMaterialize(n, i); ok {
++				if leaf := stackEntryCompactFullLeaf(entry); leaf != nil && leaf.publication {
++					// The final-child reference supplies the parent link when a
++					// view is requested. A terminal has no descendants to wire.
++					if errorSummary != nil && (leaf.symbol == errorSymbol || leaf.hasError()) {
++						*errorSummary = resultErrorSummaryPresent
++					}
++					continue
++				}
++			}

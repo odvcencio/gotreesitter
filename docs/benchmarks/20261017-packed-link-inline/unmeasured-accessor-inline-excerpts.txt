@@ -1,0 +1,2 @@
+internal/parsercorephase0/graph_link_storage.go:37:6: cannot inline (*Core).scoredGraphLinkAt: function too complex: cost 121 exceeds budget 80
+internal/parsercorephase0/graph_link_storage.go:28:6: cannot inline (*Core).graphLinkAt: function too complex: cost 106 exceeds budget 80

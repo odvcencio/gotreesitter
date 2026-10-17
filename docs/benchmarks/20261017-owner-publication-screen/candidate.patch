@@ -1,0 +1,137 @@
+--- /dev/null
++++ b/internal/parsercorephase0/head_owner_noop.go
+@@ -0,0 +1,11 @@
++package parsercorephase0
++
++// headOwnerUnchanged is read only and cannot panic: both the nonzero identity
++// and its bounds are checked before indexing. Callers authenticate the active
++// scheduler token first. It reads live lineage storage rather than caching a
++// successful publication across callbacks, rollback, or Reset.
++func (c *Core) headOwnerUnchanged(head Head, lineage uint32) bool {
++	return lineage != 0 && head.Node != 0 &&
++		uint64(head.Node) <= uint64(len(c.nodeLineages)) &&
++		c.nodeLineages[head.Node-1].owner == lineage
++}
+--- /dev/null
++++ b/internal/parsercorephase0/head_owner_noop_test.go
+@@ -0,0 +1,112 @@
++package parsercorephase0
++
++import (
++	"errors"
++	"math"
++	"reflect"
++	"strings"
++	"testing"
++)
++
++func TestHeadOwnerNoopReadsLiveStateWithoutWrites(t *testing.T) {
++	c := newTinyCoreWithLimits(t, Limits{})
++	head, err := c.Seed(1, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if c.headOwnerUnchanged(head, 0) || c.headOwnerUnchanged(head, 7) {
++		t.Fatal("unpublished ownership reported as unchanged")
++	}
++	rollback := errors.New("rollback publication")
++	if err := c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
++		if err := c.RecordHeadOwnerOwned(owner, head, 7); err != nil {
++			return err
++		}
++		before := captureSchedulerTransactionState(c)
++		journal := len(c.nodeLineageJournal)
++		for count := 0; count < 3; count++ {
++			if err := c.RecordHeadOwnerOwned(owner, head, 7); err != nil {
++				return err
++			}
++		}
++		if !c.headOwnerUnchanged(head, 7) || len(c.nodeLineageJournal) != journal ||
++			!reflect.DeepEqual(captureSchedulerTransactionState(c), before) {
++			t.Fatal("republication changed work or transaction storage")
++		}
++		return rollback
++	}); !errors.Is(err, rollback) {
++		t.Fatalf("rollback=%v", err)
++	}
++	if c.headOwnerUnchanged(head, 7) {
++		t.Fatal("rollback retained a stale publication proof")
++	}
++}
++
++func TestHeadOwnerNoopAuthenticatesBeforeMatchingOwner(t *testing.T) {
++	c := newTinyCoreWithLimits(t, Limits{})
++	head, err := c.Seed(1, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	var stale SchedulerTransactionToken
++	if err := c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
++		stale = owner
++		return c.RecordHeadOwnerOwned(owner, head, 7)
++	}); err != nil {
++		t.Fatal(err)
++	}
++	if !c.headOwnerUnchanged(head, 7) {
++		t.Fatal("fixture owner missing")
++	}
++	if err := c.RecordHeadOwnerOwned(stale, head, 7); err == nil || !strings.Contains(err.Error(), "stale") {
++		t.Fatalf("matching owner bypassed stale token: %v", err)
++	}
++	other := newTinyCoreWithLimits(t, Limits{})
++	if err := other.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
++		err := c.RecordHeadOwnerOwned(owner, head, 7)
++		if err == nil || !strings.Contains(err.Error(), "different core") {
++			t.Fatalf("matching owner bypassed foreign token: %v", err)
++		}
++		return nil
++	}); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func TestHeadOwnerNoopKeepsPoisonOnIgnoredError(t *testing.T) {
++	for _, test := range []struct {
++		name    string
++		head    Head
++		lineage uint32
++	}{
++		{name: "zero lineage", head: Head{Node: 1}},
++		{name: "zero head", lineage: 7},
++		{name: "outside storage", head: Head{Node: NodeID(math.MaxUint32)}, lineage: 7},
++		{name: "different lineage", head: Head{Node: 1}, lineage: 8},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			c := newTinyCoreWithLimits(t, Limits{})
++			head, err := c.Seed(1, 0)
++			if err != nil {
++				t.Fatal(err)
++			}
++			if err := c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
++				return c.RecordHeadOwnerOwned(owner, head, 7)
++			}); err != nil {
++				t.Fatal(err)
++			}
++			err = c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
++				if err := c.RecordHeadOwnerOwned(owner, test.head, test.lineage); err == nil {
++					t.Fatal("invalid publication accepted")
++				}
++				if err := c.RecordHeadOwnerOwned(owner, head, 7); err != nil {
++					t.Fatalf("unchanged publication error=%v", err)
++				}
++				return nil
++			})
++			if err == nil {
++				t.Fatal("successful no-op cleared the prior poison")
++			}
++		})
++	}
++}
+--- a/internal/parsercorephase0/scheduler_owned.go
++++ b/internal/parsercorephase0/scheduler_owned.go
+@@ -165,0 +166,5 @@
++	// Ownership is authenticated above. A bounded current-state read can
++	// prove this operation has no mutation and no panic-producing work.
++	if c.headOwnerUnchanged(head, lineage) {
++		return nil
++	}

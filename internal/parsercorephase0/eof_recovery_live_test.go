@@ -102,7 +102,7 @@ func TestRecoverEOFAcceptOwnedPublishesExactNonExtraRoot(t *testing.T) {
 
 func TestRecoverEOFAcceptWithCostPublishesSyntheticRootCost(t *testing.T) {
 	fixture := newRecoverEOFAcceptFixture(t)
-	fixture.core.nodeLineages[fixture.head.Node-1].storedErrorCost = 99
+	fixture.core.mutateTestLineage(int(fixture.head.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 99 })
 	var recovered Head
 	var root SubtreeID
 	err := fixture.core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {

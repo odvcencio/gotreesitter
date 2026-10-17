@@ -1,0 +1,23 @@
+{
+  "baseline": "a03d0842994a85aa26cf494c8c67404e1e64e999",
+  "baseline_Go_files": 3506,
+  "baseline_manifest": "../20261017-action-storage-rejections/source-pins.json",
+  "baseline_manifest_sha256": "1055ab6f7b6e38baca4ca4d1d6d95d93b39d0239fc33a40ea411e4d12f005640",
+  "runtime_files": {
+    "internal/parsercorephase0/reduction_child_selection.go": "b7bec35398c28ba5c629ad04910981d6bfdb5ef67db32dc33abe5a17c365cd8d",
+    "internal/parsercorephase0/reduction_terminal_scanner_validation.go": "103d2d5ef926b4ca2a28b9a11a9ac887987900c6505921401be074ba50bf7d82",
+    "internal/parsercorephase0/reduction_terminal_shared_identity_test.go": "d842c13d0e625de0c3df3ab3e2d0dd4e0cbf9e27c997eb23a0df4d8e2dae46a0"
+  },
+  "actual_Go_files_verified": 3508,
+  "actual_source_manifest_sha256": "220780d6aebbeb148e957f26452b84f6be0caa5d3e21b26116dba1c3446eeb7d",
+  "diagnostic_shims": "../20261017-action-storage-rejections/inline/owned-{benchmark,ledger}.go.txt",
+  "archived_Go_files": "restore .go.txt suffixes to .go when reconstructing external probe overlays",
+  "original_evidence": "/home/draco/.local/state/gotreesitter-evidence/20261017-paired-terminal-cursors",
+  "source_guards": "initial ignored-worktree failure retained; final full tracked-source scan passes unchanged rules",
+  "unmeasured_control": {
+    "path": "/home/draco/.local/state/gotreesitter-evidence/20261017-shared-terminal-validation",
+    "status": "focused gates passed; no timing claim; superseded by paired leaf cursors",
+    "first_baseline_fixture_failure": "expected nil for invalid reused-opaque terminal; baseline returned the correct stale-provenance error; expectation corrected in both roles, original attempt retained"
+  },
+  "runtime_commit": "5e52cf2a2644f3d38785513eebc39f8cf8a506b2"
+}

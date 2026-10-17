@@ -1,0 +1,470 @@
+{
+  "go": {
+    "GoParseIncrementalNoEditDFA": {
+      "ns/op": {
+        "before": 3.136,
+        "after": 3.1445,
+        "relative_percent": 0.2710459183673519,
+        "supported": false,
+        "p": "p=0.317 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 0.0,
+        "after": 0.0,
+        "relative_percent": 0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 0.0,
+        "after": 0.0,
+        "relative_percent": 0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "GoParseIncrementalSingleByteEditDFA": {
+      "ns/op": {
+        "before": 99172.5,
+        "after": 100290.50000000001,
+        "relative_percent": 1.1273286445335318,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "B/op": {
+        "before": 394.0,
+        "after": 394.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 5.0,
+        "after": 5.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/rewrite": {
+      "ns/op": {
+        "before": 1702706.5000000002,
+        "after": 1708885.0,
+        "relative_percent": 0.36286347647112027,
+        "supported": false,
+        "p": "p=0.086 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1776.0,
+        "after": 1776.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 21.0,
+        "after": 21.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/query_compile": {
+      "ns/op": {
+        "before": 8076854.500000001,
+        "after": 8107910.500000001,
+        "relative_percent": 0.38450612178293486,
+        "supported": false,
+        "p": "p=0.211 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 8096.0,
+        "after": 8096.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 120.0,
+        "after": 120.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/language": {
+      "ns/op": {
+        "before": 8413292.000000002,
+        "after": 8439305.000000002,
+        "relative_percent": 0.3091893161440318,
+        "supported": false,
+        "p": "p=0.201 n=20",
+        "before_ci": "1%",
+        "after_ci": "0%"
+      },
+      "B/op": {
+        "before": 150419.0,
+        "after": 150419.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 239.0,
+        "after": 239.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/grammargen_lr": {
+      "ns/op": {
+        "before": 85818995.50000001,
+        "after": 86310232.5,
+        "relative_percent": 0.5724105684737246,
+        "supported": false,
+        "p": "p=0.102 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1155584.0,
+        "after": 1155584.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 1705.0,
+        "after": 1705.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "CompactGoFullConsume/real_sample": {
+      "ns/op": {
+        "before": 794067.5,
+        "after": 794985.5000000001,
+        "relative_percent": 0.1156073003869329,
+        "supported": false,
+        "p": "p=0.565 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1600.0,
+        "after": 1600.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 22.0,
+        "after": 22.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "CompactGoFullConsume/query_compile": {
+      "ns/op": {
+        "before": 9110488.5,
+        "after": 9127932.000000002,
+        "relative_percent": 0.19146613268874457,
+        "supported": false,
+        "p": "p=0.820 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 8112.0,
+        "after": 8112.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 121.0,
+        "after": 121.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "CompactGoFullConsume/rewrite": {
+      "ns/op": {
+        "before": 1927973.5,
+        "after": 1935611.5,
+        "relative_percent": 0.3961672709712927,
+        "supported": false,
+        "p": "p=0.174 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "B/op": {
+        "before": 1792.0,
+        "after": 1792.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 22.0,
+        "after": 22.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "CompactGoFullConsume/language": {
+      "ns/op": {
+        "before": 9392084.500000002,
+        "after": 9379663.500000002,
+        "relative_percent": -0.13224966193606802,
+        "supported": false,
+        "p": "p=0.659 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 150434.0,
+        "after": 150434.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=0.741 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 240.0,
+        "after": 240.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "CompactGoFullConsume/grammargen_lr": {
+      "ns/op": {
+        "before": 96906706.50000001,
+        "after": 96335393.0,
+        "relative_percent": -0.589550012206852,
+        "supported": false,
+        "p": "p=0.174 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1155600.0,
+        "after": 1155600.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 1706.0,
+        "after": 1706.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "AdmissionR4Compact": {
+      "ns/op": {
+        "before": 811275.5000000001,
+        "after": 820643.0,
+        "relative_percent": 1.1546632432508863,
+        "supported": false,
+        "p": "p=0.134 n=20",
+        "before_ci": "3%",
+        "after_ci": "4%"
+      },
+      "B/op": {
+        "before": 1600.0,
+        "after": 1600.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 22.0,
+        "after": 22.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "GoParseFullDFA": {
+      "ns/op": {
+        "before": 3912743.4999999995,
+        "after": 3903519.0000000005,
+        "relative_percent": -0.2357552954851072,
+        "supported": false,
+        "p": "p=0.242 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1159.0,
+        "after": 1159.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=0.744 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 6.0,
+        "after": 6.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    }
+  },
+  "yaml": {
+    "AdmissionR4OwnedExternalLexer": {
+      "ns/op": {
+        "before": 333604.00000000006,
+        "after": 334816.00000000006,
+        "relative_percent": 0.3633049963429613,
+        "supported": false,
+        "p": "p=0.134 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 12872.0,
+        "after": 12872.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 109.0,
+        "after": 109.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "AdmissionYAMLDocumentStreamOwned": {
+      "ns/op": {
+        "before": 1294208.0,
+        "after": 1303878.5000000002,
+        "relative_percent": 0.7472137399861634,
+        "supported": true,
+        "p": "p=0.013 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 44313.0,
+        "after": 44313.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=0.701 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 336.0,
+        "after": 336.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "AdmissionR4Compact": {
+      "ns/op": {
+        "before": 189233.00000000003,
+        "after": 187904.5,
+        "relative_percent": -0.7020445693933008,
+        "supported": true,
+        "p": "p=0.026 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 15608.0,
+        "after": 15608.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 37.0,
+        "after": 37.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    }
+  }
+}

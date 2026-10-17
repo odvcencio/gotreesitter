@@ -1,0 +1,59 @@
+//go:build gts_parsercorephase0
+
+package gotreesitter
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestCanonicalMaskCensus(t *testing.T) {
+	for _, id := range []string{"rewrite", "query_compile", "language", "grammargen_lr"} {
+		t.Run(id, func(t *testing.T) {
+			fixture := loadDiagnosticParserCoreCanonicalFixture(t, id)
+			runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+			if err != nil {
+				t.Fatal(err)
+			}
+			scheduler, source, err := runner.executeSchedulerOpen(fixture.Source, runner.compact, true)
+			if source != nil {
+				defer source.Close()
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, workBefore := runner.compact.Work(), scheduler.work
+			if before != runner.compact.Work() || workBefore != scheduler.work {
+				t.Fatal("read-only census changed work")
+			}
+			tree, err := runner.materialize(fixture.Source, runner.compact, scheduler.acceptedHead)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			digest := requireDiagnosticParserCoreCanonicalTreeDigest(t, tree, runner.lang)
+			matched := false
+			for _, admission := range diagnosticParserCoreCanonicalAdmissions {
+				if admission.id == id {
+					matched = true
+					if digest != admission.deepTreeSHA256 {
+						t.Fatalf("digest changed: %s", digest)
+					}
+				}
+			}
+			if !matched {
+				t.Fatal("no canonical digest pin")
+			}
+			raw, err := json.Marshal(struct {
+				Fixture       string
+				DeepTree      string
+				CoreWork      any
+				SchedulerWork any
+			}{id, digest, before, workBefore})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("CANONICAL_WORK_CENSUS %s", raw)
+		})
+	}
+}

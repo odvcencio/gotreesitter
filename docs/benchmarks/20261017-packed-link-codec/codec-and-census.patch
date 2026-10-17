@@ -1,0 +1,327 @@
+--- /dev/null
++++ b/internal/parsercorephase0/link_record_packed.go
+@@ -0,0 +1,45 @@
++package parsercorephase0
++
++// packedLinkRecord keeps the three graph references and an inline metadata
++// word in sixteen bytes. Values outside either lossless inline format retain
++// the original complete linkRecord through the caller's cold path.
++type packedLinkRecord struct {
++	prev     NodeID
++	payload  SubtreeID
++	next     LinkID
++	metadata uint32
++}
++
++const packedLinkColdMetadata uint32 = 3 << 30
++
++func packInlineLinkRecord(link linkRecord) (packedLinkRecord, bool) {
++	packed := packedLinkRecord{prev: link.prev, payload: link.payload, next: link.next, metadata: packedLinkColdMetadata}
++	if link.flags & ^linkFlagHasOrder != 0 {
++		return packed, false
++	}
++	if link.scoreDelta == 0 && link.order < 1<<30 {
++		packed.metadata = uint32(link.order)<<1 | link.flags&linkFlagHasOrder
++		return packed, true
++	}
++	if link.scoreDelta == int64(int16(link.scoreDelta)) && link.order < 1<<13 {
++		packed.metadata = 1<<31 | uint32(uint16(int16(link.scoreDelta))) | uint32(link.order)<<16 | (link.flags&linkFlagHasOrder)<<29
++		return packed, true
++	}
++	return packed, false
++}
++
++func (packed packedLinkRecord) unpackInline() (linkRecord, bool) {
++	if packed.metadata&packedLinkColdMetadata == packedLinkColdMetadata {
++		return linkRecord{}, false
++	}
++	link := linkRecord{prev: packed.prev, payload: packed.payload, next: packed.next}
++	if packed.metadata&(1<<31) == 0 {
++		link.order = uint64(packed.metadata >> 1)
++		link.flags = packed.metadata & linkFlagHasOrder
++	} else {
++		link.scoreDelta = int64(int16(uint16(packed.metadata)))
++		link.order = uint64(packed.metadata >> 16 & ((1 << 13) - 1))
++		link.flags = packed.metadata >> 29 & linkFlagHasOrder
++	}
++	return link, true
++}
+--- /dev/null
++++ b/internal/parsercorephase0/link_record_packed_test.go
+@@ -0,0 +1,79 @@
++package parsercorephase0
++
++import (
++	"math"
++	"math/rand"
++	"testing"
++	"unsafe"
++)
++
++func TestPackedLinkRecordBoundaryRoundTrips(t *testing.T) {
++	if size := unsafe.Sizeof(packedLinkRecord{}); size != 16 {
++		t.Fatalf("hot link size=%d", size)
++	}
++	for _, row := range []struct {
++		name   string
++		score  int64
++		order  uint64
++		flags  uint32
++		inline bool
++	}{
++		{"zero", 0, 0, 0, true},
++		{"known_zero_order", 0, 0, linkFlagHasOrder, true},
++		{"unflagged_order", 0, 17, 0, true},
++		{"zero_score_largest_order", 0, (1 << 30) - 1, linkFlagHasOrder, true},
++		{"negative_score", -1, 0, 0, true},
++		{"small_min", math.MinInt16, (1 << 13) - 1, linkFlagHasOrder, true},
++		{"small_max", math.MaxInt16, (1 << 13) - 1, 0, true},
++		{"small_order_overflow", -1, 1 << 13, linkFlagHasOrder, false},
++		{"positive_score_overflow", math.MaxInt16 + 1, 0, 0, false},
++		{"negative_score_overflow", math.MinInt16 - 1, 0, 0, false},
++		{"zero_score_order_overflow", 0, 1 << 30, linkFlagHasOrder, false},
++		{"full_signed_min", math.MinInt64, 0, 0, false},
++		{"full_signed_max", math.MaxInt64, 0, 0, false},
++		{"full_unsigned_order", 0, math.MaxUint64, linkFlagHasOrder, false},
++		{"recovery", 0, 0, linkFlagRecoveryDiscontinuity, false},
++		{"unknown_flags", 0, 0, 1 << 31, false},
++	} {
++		t.Run(row.name, func(t *testing.T) {
++			original := linkRecord{scoreDelta: row.score, order: row.order, flags: row.flags, prev: NodeID(math.MaxUint32), payload: SubtreeID(math.MaxUint32), next: LinkID(math.MaxUint32)}
++			packed, ok := packInlineLinkRecord(original)
++			if ok != row.inline {
++				t.Fatalf("inline=%t want=%t", ok, row.inline)
++			}
++			got, decoded := packed.unpackInline()
++			if decoded != ok || ok && got != original {
++				t.Fatalf("metadata/reference corruption: original=%+v decoded=%+v/%t", original, got, decoded)
++			}
++			if !ok && packed.metadata != packedLinkColdMetadata {
++				t.Fatal("wide metadata did not request complete-width storage")
++			}
++		})
++	}
++}
++
++func TestPackedLinkRecordGeneratedRoundTrips(t *testing.T) {
++	random := rand.New(rand.NewSource(450196))
++	for i := 0; i < 10000; i++ {
++		original := linkRecord{prev: NodeID(random.Uint32()), payload: SubtreeID(random.Uint32()), next: LinkID(random.Uint32()), flags: random.Uint32() & linkFlagHasOrder}
++		switch i % 3 {
++		case 0:
++			original.order = random.Uint64() & ((1 << 30) - 1)
++		case 1:
++			original.scoreDelta = int64(int16(random.Uint32()))
++			original.order = random.Uint64() & ((1 << 13) - 1)
++		case 2:
++			original.scoreDelta = int64(random.Uint64())
++			original.order = random.Uint64()
++			original.flags = random.Uint32()
++		}
++		packed, ok := packInlineLinkRecord(original)
++		decoded, unpacked := packed.unpackInline()
++		if ok != unpacked || ok && original != decoded {
++			t.Fatalf("case %d changed: %+v -> %+v", i, original, decoded)
++		}
++		if i%3 != 2 && !ok {
++			t.Fatalf("representable metadata escaped inline storage at %d", i)
++		}
++	}
++}
+--- /dev/null
++++ b/internal/parsercorephase0/link_storage_census_probe.go
+@@ -0,0 +1,72 @@
++//go:build gts_link_storage_probe
++
++package parsercorephase0
++
++import "unsafe"
++
++type LinkStorageCensusForTest struct {
++	InlineRoundTrips, FullWidthRequests                          uint64
++	Nodes, Links, LinkCapacity, RecordBytes, MultiLinkNodes      uint64
++	ZeroMetadata, ZeroScoreOrder30, SmallScoreOrder13, ColdLinks uint64
++	OrderedLinks, UnflaggedOrders, RecoveryLinks, UnknownFlags   uint64
++	MinScore, MaxScore                                           int64
++	MaxOrder                                                     uint64
++}
++
++// Inspect only. This build-tagged probe does not select a layout or change
++// any parser state. The two packing buckets describe lossless fast cases;
++// all remaining values would require their complete-width cold representation.
++func (c *Core) LinkStorageCensusForTest() LinkStorageCensusForTest {
++	r := LinkStorageCensusForTest{Nodes: uint64(len(c.nodes)), Links: uint64(len(c.links)), LinkCapacity: uint64(cap(c.links)), RecordBytes: uint64(unsafe.Sizeof(linkRecord{}))}
++	for _, n := range c.nodes {
++		if n.linkCount > 1 {
++			r.MultiLinkNodes++
++		}
++	}
++	for _, l := range c.links {
++		if packed, ok := packInlineLinkRecord(l); ok {
++			r.InlineRoundTrips++
++			decoded, exact := packed.unpackInline()
++			if !exact || decoded != l {
++				panic("packed link census changed a logical link")
++			}
++		} else {
++			r.FullWidthRequests++
++		}
++		if l.scoreDelta == 0 && l.order == 0 && l.flags == 0 {
++			r.ZeroMetadata++
++		}
++		ordinary := l.flags & ^linkFlagHasOrder == 0
++		if ordinary && l.scoreDelta == 0 && l.order < 1<<30 {
++			r.ZeroScoreOrder30++
++		} else if ordinary && l.scoreDelta == int64(int16(l.scoreDelta)) && l.order < 1<<13 {
++			r.SmallScoreOrder13++
++		} else {
++			r.ColdLinks++
++		}
++		if l.hasOrder() {
++			r.OrderedLinks++
++		} else if l.order != 0 {
++			r.UnflaggedOrders++
++		}
++		if l.isRecoveryDiscontinuity() {
++			r.RecoveryLinks++
++		}
++		if l.flags & ^linkKnownFlags != 0 {
++			r.UnknownFlags++
++		}
++		if l.scoreDelta < r.MinScore {
++			r.MinScore = l.scoreDelta
++		}
++		if l.scoreDelta > r.MaxScore {
++			r.MaxScore = l.scoreDelta
++		}
++		if l.order > r.MaxOrder {
++			r.MaxOrder = l.order
++		}
++	}
++	if r.InlineRoundTrips != r.ZeroScoreOrder30+r.SmallScoreOrder13 || r.FullWidthRequests != r.ColdLinks {
++		panic("codec coverage differs from range census")
++	}
++	return r
++}
+--- /dev/null
++++ b/link_storage_census_probe.go
+@@ -0,0 +1,24 @@
++//go:build gts_link_storage_probe
++
++package gotreesitter
++
++import core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
++
++var linkStorageCensusObserverForTest func(core.LinkStorageCensusForTest)
++
++func SetLinkStorageCensusObserverForTest(fn func(core.LinkStorageCensusForTest)) func() {
++	previous := linkStorageCensusObserverForTest
++	linkStorageCensusObserverForTest = fn
++	return func() { linkStorageCensusObserverForTest = previous }
++}
++func recordLinkStorageCensusForTest(c *core.Core, purpose core.MaterializationPurpose) {
++	if purpose != core.MaterializationForPublication || linkStorageCensusObserverForTest == nil {
++		return
++	}
++	before := c.Work()
++	counts := c.LinkStorageCensusForTest()
++	if c.Work() != before {
++		panic("read-only link census changed core work")
++	}
++	linkStorageCensusObserverForTest(counts)
++}
+--- /dev/null
++++ b/link_storage_census_probe_test.go
+@@ -0,0 +1,88 @@
++//go:build gts_parsercorephase0 && gts_link_storage_probe
++
++package gotreesitter_test
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/json"
++	"fmt"
++	gts "github.com/odvcencio/gotreesitter"
++	"github.com/odvcencio/gotreesitter/grammars"
++	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
++	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
++	"os"
++	"testing"
++)
++
++func TestLinkStorageMetadataCensus(t *testing.T) {
++	type sample struct {
++		name   string
++		source []byte
++		lang   *gts.Language
++		owned  bool
++	}
++	read := func(name string) []byte {
++		data, err := os.ReadFile("internal/benchfixtures/testdata/real/" + name)
++		if err != nil {
++			t.Fatal(err)
++		}
++		return data
++	}
++	samples := []sample{{"go/real_sample", read("go"), grammars.GoLanguage(), false}}
++	fixtures, err := benchfixtures.LoadGoFullParseFixtures()
++	if err != nil {
++		t.Fatal(err)
++	}
++	for _, f := range fixtures {
++		samples = append(samples, sample{"go/" + f.Fixture.ID, f.Source, grammars.GoLanguage(), false})
++	}
++	yaml := read("yaml")
++	document := append(append([]byte("---\n"), yaml...), '\n')
++	samples = append(samples, sample{"yaml/owned_r4", yaml, grammars.YamlLanguage(), true}, sample{"yaml/owned_stream", bytes.Repeat(document, 4), grammars.YamlLanguage(), true})
++	for _, row := range samples {
++		t.Run(row.name, func(t *testing.T) {
++			if row.owned {
++				defer core.SetExternalLexerOwnershipProbeForTest(true)()
++			}
++			var snapshots []core.LinkStorageCensusForTest
++			restore := gts.SetLinkStorageCensusObserverForTest(func(c core.LinkStorageCensusForTest) { snapshots = append(snapshots, c) })
++			p := gts.NewParser(row.lang)
++			p.SetAdmissionCandidateRoute(true)
++			gts.ResetAdmissionCandidateCountersForTest()
++			tree, err := p.Parse(row.source)
++			restore()
++			if err != nil || tree == nil {
++				t.Fatalf("parse: %v", err)
++			}
++			defer tree.Release()
++			if routed, fallback := gts.AdmissionCandidateCounters(); routed != 1 || fallback != 0 || len(snapshots) != 1 {
++				t.Fatalf("route=%d/%d snapshots=%d", routed, fallback, len(snapshots))
++			}
++			digest := sha256.Sum256([]byte(tree.RootNode().SExpr(row.lang)))
++			runtime := tree.ParseRuntime()
++			second, err := p.Parse(row.source)
++			if err != nil || second == nil {
++				t.Fatalf("unobserved parse: %v", err)
++			}
++			defer second.Release()
++			if sha256.Sum256([]byte(second.RootNode().SExpr(row.lang))) != digest || runtime.TokensConsumed != second.ParseRuntime().TokensConsumed || runtime.NodesAllocated != second.ParseRuntime().NodesAllocated {
++				t.Fatal("census changed tree or native work")
++			}
++			if tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(row.source)) {
++				t.Fatal("not clean full span")
++			}
++			data, err := json.Marshal(struct {
++				Name         string
++				Bytes        int
++				SourceSHA256 string
++				TreeSHA256   string
++				Counts       core.LinkStorageCensusForTest
++			}{row.name, len(row.source), fmt.Sprintf("%x", sha256.Sum256(row.source)), fmt.Sprintf("%x", digest), snapshots[0]})
++			if err != nil {
++				t.Fatal(err)
++			}
++			t.Logf("LINK_STORAGE_CENSUS %s", data)
++		})
++	}
++}
+--- a/parsercore_phase0_driver.go
++++ b/parsercore_phase0_driver.go
+@@ -8045,0 +8046 @@
++	recordLinkStorageCensusForTest(compact, m.purpose)

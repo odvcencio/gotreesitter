@@ -1,0 +1,10 @@
+=== RUN   TestLinkStorageMetadataCensus
+=== RUN   TestLinkStorageMetadataCensus/yaml/owned_r4
+    link_storage_census_probe_test.go:85: LINK_STORAGE_CENSUS {"Name":"yaml/owned_r4","Bytes":1998,"SourceSHA256":"5aa2c70bccfe73254f13eca40476c3f88f522c6a47aea499f9d672dbc5aae8c4","TreeSHA256":"8f960f95a8b814725c41aae3fd40ec4b7e415c6539aceb3f2827dbec0b46faaa","Counts":{"InlineRoundTrips":355,"FullWidthRequests":0,"Nodes":356,"Links":355,"LinkCapacity":1499,"RecordBytes":32,"MultiLinkNodes":18,"ZeroMetadata":307,"ZeroScoreOrder30":355,"SmallScoreOrder13":0,"ColdLinks":0,"OrderedLinks":48,"UnflaggedOrders":0,"RecoveryLinks":0,"UnknownFlags":0,"MinScore":0,"MaxScore":0,"MaxOrder":4}}
+=== RUN   TestLinkStorageMetadataCensus/yaml/owned_stream
+    link_storage_census_probe_test.go:85: LINK_STORAGE_CENSUS {"Name":"yaml/owned_stream","Bytes":8012,"SourceSHA256":"778d1dec01bef4da1cef26acff6b8012c9701a23af67bdb9511b419912f04400","TreeSHA256":"0e57ca6d845a5e0d22720124a07809cf2387c190c6017a535bd9ae7e1d1c17d3","Counts":{"InlineRoundTrips":1402,"FullWidthRequests":0,"Nodes":1403,"Links":1402,"LinkCapacity":6009,"RecordBytes":32,"MultiLinkNodes":73,"ZeroMetadata":1227,"ZeroScoreOrder30":1402,"SmallScoreOrder13":0,"ColdLinks":0,"OrderedLinks":175,"UnflaggedOrders":0,"RecoveryLinks":0,"UnknownFlags":0,"MinScore":0,"MaxScore":0,"MaxOrder":16}}
+--- PASS: TestLinkStorageMetadataCensus (0.03s)
+    --- PASS: TestLinkStorageMetadataCensus/yaml/owned_r4 (0.01s)
+    --- PASS: TestLinkStorageMetadataCensus/yaml/owned_stream (0.00s)
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.037s

@@ -1,0 +1,44 @@
+{
+  "baseline_runtime": "5e52cf2a2644f3d38785513eebc39f8cf8a506b2",
+  "status": "both_rejected",
+  "runtime_promoted": false,
+  "timed_rows": 1280,
+  "seeds": {
+    "view": {
+      "go": [
+        31901,
+        31920
+      ],
+      "yaml": [
+        32001,
+        32020
+      ]
+    },
+    "selector": {
+      "go": [
+        32101,
+        32120
+      ],
+      "yaml": [
+        32201,
+        32220
+      ]
+    }
+  },
+  "settings": {
+    "GOMAXPROCS": 1,
+    "count": 1,
+    "benchtime": "750ms",
+    "benchmem": true,
+    "go": "1.25.14",
+    "cpu": 6,
+    "docker_memory": "6GiB",
+    "GOMEMLIMIT": "5GiB"
+  },
+  "scope_not_run": [
+    "all-language invariant fleet",
+    "full locked-C fleet",
+    "strict C census",
+    "RSS qualification"
+  ]
+}

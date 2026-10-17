@@ -1,0 +1,14 @@
+{
+  "baseline": "a03d0842994a85aa26cf494c8c67404e1e64e999",
+  "source_pins": "../20261017-action-storage-rejections/source-pins.json",
+  "diagnostic_shims": "../20261017-action-storage-rejections/inline/owned-{benchmark,ledger}.go.txt",
+  "profile_role": "unchanged baseline only; attribution, not comparison evidence",
+  "profile_artifacts": {
+    "profile-go.cpu": "cde9cbea2fbcc1fdb23b89e9c8a958e3e7b998ca12a95c4ea0766456864aff2d",
+    "profile-yaml.cpu": "24b5885d9a1975f318664cefa0515a0b94f290d2b4385df369c0b209a162435b",
+    "profile-go.test": "ec91f5c1d40d40a0e992780406ec2d419834b858f5620e59b405a8744adf3f48",
+    "profile-yaml.test": "ec91f5c1d40d40a0e992780406ec2d419834b858f5620e59b405a8744adf3f48",
+    "profile.sh": "292b31c8bce3a6be72da5391472006546aab5f38da5df83d73f8de9888140967"
+  },
+  "original_evidence": "/home/draco/.local/state/gotreesitter-evidence/20261017-owner-publication-noop"
+}

@@ -1,0 +1,278 @@
+{
+  "roots": [
+    {
+      "id": "parsercore_phase0_driver.go\u0000method_definition\u0000persistHeaderLineageOwned\u00001817",
+      "file": "parsercore_phase0_driver.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "persistHeaderLineageOwned",
+      "signature": "func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(",
+      "receiver": "s *diagnosticParserCoreGenericScheduler",
+      "start_line": 1817,
+      "end_line": 1873,
+      "callable": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "parsercore_phase0_driver.go\u0000method_definition\u0000persistHeaderLineageOwned\u00001817",
+      "file": "parsercore_phase0_driver.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "persistHeaderLineageOwned",
+      "signature": "func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(",
+      "receiver": "s *diagnosticParserCoreGenericScheduler",
+      "start_line": 1817,
+      "end_line": 1873,
+      "callable": true
+    },
+    {
+      "id": "parsercore_phase0_driver.go\u0000function_definition\u0000executeDiagnosticParserCoreGenericSchedulerFromSeedInto\u00006732",
+      "file": "parsercore_phase0_driver.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "executeDiagnosticParserCoreGenericSchedulerFromSeedInto",
+      "signature": "func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(",
+      "start_line": 6732,
+      "end_line": 6809,
+      "callable": true
+    },
+    {
+      "id": "parsercore_phase0_driver.go\u0000method_definition\u0000applyGenericReductionOwned\u000012505",
+      "file": "parsercore_phase0_driver.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "applyGenericReductionOwned",
+      "signature": "func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner core.SchedulerTransactionToken, before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) error",
+      "receiver": "s *diagnosticParserCoreGenericScheduler",
+      "start_line": 12505,
+      "end_line": 12924,
+      "callable": true
+    },
+    {
+      "id": "parsercore_phase0_driver.go\u0000method_definition\u0000applyGenericConflictOwned\u000013259",
+      "file": "parsercore_phase0_driver.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "applyGenericConflictOwned",
+      "signature": "func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner core.SchedulerTransactionToken, before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error)",
+      "receiver": "s *diagnosticParserCoreGenericScheduler",
+      "start_line": 13259,
+      "end_line": 13503,
+      "callable": true
+    },
+    {
+      "id": "parsercore_phase0_driver.go\u0000method_definition\u0000applyGenericShiftsOwned\u000013536",
+      "file": "parsercore_phase0_driver.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "applyGenericShiftsOwned",
+      "signature": "func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner core.SchedulerTransactionToken, before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) error",
+      "receiver": "s *diagnosticParserCoreGenericScheduler",
+      "start_line": 13536,
+      "end_line": 13687,
+      "callable": true
+    },
+    {
+      "id": "parsercore_phase0_driver.go\u0000method_definition\u0000applyGenericExtraShifts\u000013689",
+      "file": "parsercore_phase0_driver.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "applyGenericExtraShifts",
+      "signature": "func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) (err error)",
+      "receiver": "s *diagnosticParserCoreGenericScheduler",
+      "start_line": 13689,
+      "end_line": 13859,
+      "callable": true
+    }
+  ],
+  "edges": [
+    {
+      "caller": {
+        "id": "parsercore_phase0_driver.go\u0000function_definition\u0000executeDiagnosticParserCoreGenericSchedulerFromSeedInto\u00006732",
+        "file": "parsercore_phase0_driver.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "executeDiagnosticParserCoreGenericSchedulerFromSeedInto",
+        "signature": "func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(",
+        "start_line": 6732,
+        "end_line": 6809,
+        "callable": true
+      },
+      "callee": {
+        "id": "parsercore_phase0_driver.go\u0000method_definition\u0000persistHeaderLineageOwned\u00001817",
+        "file": "parsercore_phase0_driver.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "persistHeaderLineageOwned",
+        "signature": "func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(",
+        "receiver": "s *diagnosticParserCoreGenericScheduler",
+        "start_line": 1817,
+        "end_line": 1873,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "parsercore_phase0_driver.go",
+          "start_line": 6798,
+          "start_column": 25,
+          "kind": "reference.call",
+          "name": "persistHeaderLineageOwned"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "parsercore_phase0_driver.go\u0000method_definition\u0000applyGenericReductionOwned\u000012505",
+        "file": "parsercore_phase0_driver.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "applyGenericReductionOwned",
+        "signature": "func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner core.SchedulerTransactionToken, before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) error",
+        "receiver": "s *diagnosticParserCoreGenericScheduler",
+        "start_line": 12505,
+        "end_line": 12924,
+        "callable": true
+      },
+      "callee": {
+        "id": "parsercore_phase0_driver.go\u0000method_definition\u0000persistHeaderLineageOwned\u00001817",
+        "file": "parsercore_phase0_driver.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "persistHeaderLineageOwned",
+        "signature": "func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(",
+        "receiver": "s *diagnosticParserCoreGenericScheduler",
+        "start_line": 1817,
+        "end_line": 1873,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "parsercore_phase0_driver.go",
+          "start_line": 12902,
+          "start_column": 14,
+          "kind": "reference.call",
+          "name": "persistHeaderLineageOwned"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "parsercore_phase0_driver.go\u0000method_definition\u0000applyGenericConflictOwned\u000013259",
+        "file": "parsercore_phase0_driver.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "applyGenericConflictOwned",
+        "signature": "func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner core.SchedulerTransactionToken, before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error)",
+        "receiver": "s *diagnosticParserCoreGenericScheduler",
+        "start_line": 13259,
+        "end_line": 13503,
+        "callable": true
+      },
+      "callee": {
+        "id": "parsercore_phase0_driver.go\u0000method_definition\u0000persistHeaderLineageOwned\u00001817",
+        "file": "parsercore_phase0_driver.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "persistHeaderLineageOwned",
+        "signature": "func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(",
+        "receiver": "s *diagnosticParserCoreGenericScheduler",
+        "start_line": 1817,
+        "end_line": 1873,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "parsercore_phase0_driver.go",
+          "start_line": 13440,
+          "start_column": 14,
+          "kind": "reference.call",
+          "name": "persistHeaderLineageOwned"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "parsercore_phase0_driver.go\u0000method_definition\u0000applyGenericShiftsOwned\u000013536",
+        "file": "parsercore_phase0_driver.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "applyGenericShiftsOwned",
+        "signature": "func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner core.SchedulerTransactionToken, before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) error",
+        "receiver": "s *diagnosticParserCoreGenericScheduler",
+        "start_line": 13536,
+        "end_line": 13687,
+        "callable": true
+      },
+      "callee": {
+        "id": "parsercore_phase0_driver.go\u0000method_definition\u0000persistHeaderLineageOwned\u00001817",
+        "file": "parsercore_phase0_driver.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "persistHeaderLineageOwned",
+        "signature": "func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(",
+        "receiver": "s *diagnosticParserCoreGenericScheduler",
+        "start_line": 1817,
+        "end_line": 1873,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "parsercore_phase0_driver.go",
+          "start_line": 13655,
+          "start_column": 14,
+          "kind": "reference.call",
+          "name": "persistHeaderLineageOwned"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "parsercore_phase0_driver.go\u0000method_definition\u0000applyGenericExtraShifts\u000013689",
+        "file": "parsercore_phase0_driver.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "applyGenericExtraShifts",
+        "signature": "func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) (err error)",
+        "receiver": "s *diagnosticParserCoreGenericScheduler",
+        "start_line": 13689,
+        "end_line": 13859,
+        "callable": true
+      },
+      "callee": {
+        "id": "parsercore_phase0_driver.go\u0000method_definition\u0000persistHeaderLineageOwned\u00001817",
+        "file": "parsercore_phase0_driver.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "persistHeaderLineageOwned",
+        "signature": "func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(",
+        "receiver": "s *diagnosticParserCoreGenericScheduler",
+        "start_line": 1817,
+        "end_line": 1873,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "parsercore_phase0_driver.go",
+          "start_line": 13827,
+          "start_column": 15,
+          "kind": "reference.call",
+          "name": "persistHeaderLineageOwned"
+        }
+      ]
+    }
+  ],
+  "depth": 1,
+  "reverse": true,
+  "unresolved_call_count": 2079
+}

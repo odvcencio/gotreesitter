@@ -1,0 +1,15 @@
+{
+  "baseline": "5e52cf2a2644f3d38785513eebc39f8cf8a506b2",
+  "baseline_Go_files": 3508,
+  "baseline_source_reference": "../../20261017-paired-terminal-cursors/source-reference.json",
+  "candidate_files": {
+    "internal/parsercorephase0/boundary_index.go": "69611edf5f8b3869e313e25c5f7deb8eacdc33ff39df93b93f7446819d05043e",
+    "internal/parsercorephase0/boundary_probe_sink.go": "32cc7c70e4b54188f35d699ac580fd7f28f4a9e8283b87ea6d2b2e0d3cc83304",
+    "internal/parsercorephase0/boundary_probe_sink_test.go": "f3f64baaa3eacfcb19f625b1ee6b22f382e73b3929bae2889e356c9da132236f",
+    "internal/parsercorephase0/core.go": "6b3db5d9642fbada278f3e582122bfeddfb5eb6d9125eeb0c4aed92badebc525"
+  },
+  "diagnostic_shims": "../../20261017-action-storage-rejections/inline/owned-{benchmark,ledger}.go.txt",
+  "original_evidence": "/home/draco/.local/state/gotreesitter-evidence/20261017-boundary-first-probe",
+  "status": "rejected, private source never promoted",
+  "compiler_scope": "Go1.25.14 Linux amd64: initializer cost53 and firstProbe cost58, both actually inline at Core callsite; scratch does not escape"
+}

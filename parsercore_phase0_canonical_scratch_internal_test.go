@@ -756,3 +756,60 @@ func TestDiagnosticParserCoreCheckpointCompactLayoutsAMD64(t *testing.T) {
 		t.Fatalf("canonical phase key size=%d, want 24", got)
 	}
 }
+
+// Singleton canonical groups preserve every header field except freshness.
+// Exercise nonzero provenance, recovery and owned-state fields, including the
+// largest frontier accepted by the bounded shortcut.
+func TestDiagnosticParserCoreCanonicalScratchDistinctKeysPreserveMetadata(t *testing.T) {
+	for _, count := range []int{2, 3, 8} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			compact, err := core.New(&genericConflictTable{}, core.Limits{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			headers := make([]diagnosticParserCoreHeader, count)
+			for index := range headers {
+				head, err := compact.Seed(core.StateID(index+1), uint32(index))
+				if err != nil {
+					t.Fatal(err)
+				}
+				h := &headers[index]
+				*h = diagnosticParserCoreHeader{
+					head: head, creationSeq: uint64(index + 7), frontierSequence: uint32(index + 11),
+					cleanPathLineage: uint16(index + 3), cleanPathRank: core.CleanPathRankSelected,
+					freshness: core.ReductionNew, shifted: index%2 == 0, accepted: index%3 == 0, paused: index%2 != 0,
+					convergedReductionSplit: true, resurrectionUnproved: true, blended: true, lastPersistedBlended: true,
+					lastPersistedHead: head, acceptOrdinal: uint32(index + 1),
+					altSet:              core.NewAlternativeSetMember(uint16(index+1), 2),
+					lastPersistedAltSet: core.NewAlternativeSetMember(uint16(index+1), 1),
+					versionState:        &diagnosticParserCoreVersionState{lexerRequest: uint32(index + 1), recoveryGroup: uint64(index + 2), missingGroup: uint64(index + 3)},
+				}
+				h.markRecoveryLineage()
+				h.markRecoveryCosted()
+				h.markZeroWidthReopened()
+				if !compact.AddDropCohortRef(&h.dropCohortRefs, core.DropCohortRef{Owner: 1, Epoch: 2, Sequence: uint64(index + 1), Branch: 1}) {
+					t.Fatal("reference construction")
+				}
+			}
+			before := append([]diagnosticParserCoreHeader(nil), headers...)
+			want := append([]diagnosticParserCoreHeader(nil), headers...)
+			for index := range want {
+				want[index].freshness = 0
+			}
+			var scratch diagnosticParserCoreCanonicalScratch
+			got, mutation, err := scratch.canonicalizeWithMutation(compact, headers)
+			if err != nil || mutation != 0 || !reflect.DeepEqual(got, want) {
+				t.Fatalf("got=%+v want=%+v mutation=%v err=%v", got, want, mutation, err)
+			}
+			if !reflect.DeepEqual(headers, before) {
+				t.Fatal("input headers mutated")
+			}
+			if len(got) > 0 {
+				headers[0].paused = !headers[0].paused
+				if !reflect.DeepEqual(got, want) {
+					t.Fatal("output aliases input")
+				}
+			}
+		})
+	}
+}

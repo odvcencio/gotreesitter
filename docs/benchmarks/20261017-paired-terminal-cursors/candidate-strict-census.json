@@ -1,0 +1,1634 @@
+[
+  {
+    "language": "go",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "python",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "rust",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "typescript",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "javascript",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "java",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "ruby",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "php",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": ""
+  },
+  {
+    "language": "swift",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "kotlin",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file: has_error go=\"true\" c=\"false\""
+  },
+  {
+    "language": "cpp",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": "compact_r4_parity_test.go:26: /translation_unit: child_count go=\"7\" c=\"18\""
+  },
+  {
+    "language": "scala",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at accept_without_materialization [mechanism=scheduler-frontier-shape]: did not accept EOF: EOF recovery admission rejects extra or external closure\"",
+    "first_difference": ""
+  },
+  {
+    "language": "lua",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "dart",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "r",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "html",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "css",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "scss",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /stylesheet: type go=\"stylesheet\" c=\"ERROR\""
+  },
+  {
+    "language": "sql",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "markdown",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": ""
+  },
+  {
+    "language": "zig",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "fortran",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "haskell",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route error: parser-core phase zero: shared (10115,577) live-link cap exceeded: 9 > 8\"",
+    "first_difference": "compact_r4_parity_test.go:26: /haskell: has_error go=\"true\" c=\"false\""
+  },
+  {
+    "language": "ocaml",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "solidity",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": ""
+  },
+  {
+    "language": "json",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "yaml",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "xml",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "dockerfile",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "cmake",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "make",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /makefile: child_count go=\"10\" c=\"15\""
+  },
+  {
+    "language": "graphql",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "hcl",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "nix",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "elixir",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at extra [mechanism=extra-shift-shape]: did not accept EOF: generic scheduler requires a homogeneous all-runnable extra cohort\"",
+    "first_difference": ""
+  },
+  {
+    "language": "bicep",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /infrastructure: child_count go=\"28\" c=\"31\""
+  },
+  {
+    "language": "bibtex",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "blade",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "clojure",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "cue",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "json5",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "proto",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "purescript",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "crystal",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "dhall",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "janet",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "julia",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": ""
+  },
+  {
+    "language": "less",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /stylesheet: child_count go=\"5\" c=\"1\""
+  },
+  {
+    "language": "liquid",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "powershell",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "svelte",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "twig",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "typst",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "vue",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "wgsl",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "agda",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file: has_error go=\"true\" c=\"false\""
+  },
+  {
+    "language": "awk",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "bash",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "c",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "c_sharp",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "caddy",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file: type go=\"source_file\" c=\"ERROR\""
+  },
+  {
+    "language": "circom",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "faust",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "fennel",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "jinja2",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file/ERROR[0]/ERROR[1]: child_count go=\"68\" c=\"19\""
+  },
+  {
+    "language": "luau",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /chunk: child_count go=\"12\" c=\"11\""
+  },
+  {
+    "language": "move",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file/module_declaration[1]/module_body[2]/function_declaration[16]/block[5]/macro_call_expression[5]/arg_list[1]/not_expression[1]: type go=\"not_expression\" c=\"binary_expression\""
+  },
+  {
+    "language": "odin",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "puppet",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "rego",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "templ",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "yuck",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "astro",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "beancount",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "cooklang",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /recipe: child_count go=\"23\" c=\"42\""
+  },
+  {
+    "language": "dot",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "embedded_template",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "hare",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "hlsl",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": "compact_r4_parity_test.go:26: /translation_unit/function_definition[5]: child_count go=\"3\" c=\"4\""
+  },
+  {
+    "language": "ledger",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route error: parser-core phase zero: accepted compact root is incomplete or erroneous: span=0..932 expected=1..932 error=false allowErrorRoot=false\"",
+    "first_difference": ""
+  },
+  {
+    "language": "norg",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": "compact_r4_parity_test.go:26: /document: has_error go=\"true\" c=\"false\""
+  },
+  {
+    "language": "org",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "squirrel",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "teal",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "tmux",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /file/environment_assignment[68]/value[2]: child_count go=\"3\" c=\"1\""
+  },
+  {
+    "language": "tsx",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "vimdoc",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "ada",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "asm",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /program: child_count go=\"150\" c=\"149\""
+  },
+  {
+    "language": "authzed",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "devicetree",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "diff",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "firrtl",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "gn",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "http",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "kconfig",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": ""
+  },
+  {
+    "language": "linkerscript",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /linkerscript: child_count go=\"40\" c=\"6\""
+  },
+  {
+    "language": "matlab",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file: child_count go=\"44\" c=\"111\""
+  },
+  {
+    "language": "mojo",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "ninja",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "objc",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": ""
+  },
+  {
+    "language": "ql",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "angular",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /document/element[0]/element[1]/element[1]/element[1]/element[1]/self_closing_tag[0]: child_count go=\"11\" c=\"12\""
+  },
+  {
+    "language": "apex",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "arduino",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "corn",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "disassembly",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source: type go=\"source\" c=\"ERROR\""
+  },
+  {
+    "language": "elsa",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "facility",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "fidl",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "foam",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "ini",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "tablegen",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "comment",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "djot",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "doxygen",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at accept_without_materialization [mechanism=accepted-leaf-tiling-gap]: accepted-leaf-tiling-gap: compact subtree symbol=65 span=62..834 has an unaccounted byte range 816..818 not covered by any child\"",
+    "first_difference": "compact_r4_parity_test.go:26: /document/description[1]: child_count go=\"20\" c=\"16\""
+  },
+  {
+    "language": "gitcommit",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "gomod",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file: type go=\"source_file\" c=\"ERROR\""
+  },
+  {
+    "language": "jsdoc",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /document: child_count go=\"10\" c=\"15\""
+  },
+  {
+    "language": "markdown_inline",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at unsupported_route [mechanism=repetition-shift-class]: did not accept EOF: generic scheduler does not support repetition shifts\"",
+    "first_difference": "compact_r4_parity_test.go:26: /inline: child_count go=\"199\" c=\"190\""
+  },
+  {
+    "language": "jq",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "jsonnet",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "just",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "kdl",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /document/node[0]/node_children[2]/node[1]/node_children[1]/node[1]/node_field[1]/prop[0]/ERROR[1]: type go=\"ERROR\" c=\"=\""
+  },
+  {
+    "language": "mermaid",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file: type go=\"source_file\" c=\"ERROR\""
+  },
+  {
+    "language": "meson",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file/operatorunit[1]/var_unit[2]: type go=\"var_unit\" c=\"normal_command\""
+  },
+  {
+    "language": "nginx",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "nickel",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "nim",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": ""
+  },
+  {
+    "language": "nushell",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "elm",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "erlang",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "fish",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "groovy",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file: child_count go=\"15\" c=\"155\""
+  },
+  {
+    "language": "haxe",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /module/class_declaration[2]/block[2]/function_declaration[8]/block[6]: child_count go=\"13\" c=\"9\""
+  },
+  {
+    "language": "fsharp",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection\"",
+    "first_difference": "compact_r4_parity_test.go:26: /file/namespace[0]/preproc_if[4]/ERROR[1]: span go=\"5:3-5:5 @74..76\" c=\"5:4-5:5 @75..76\""
+  },
+  {
+    "language": "perl",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "racket",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "scheme",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "tcl",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file: child_count go=\"5\" c=\"40\""
+  },
+  {
+    "language": "brightscript",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "capnp",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "thrift",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "smithy",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "gleam",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "rescript",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file/type_declaration[2]/type_binding[1]/type_identifier[2]: field go=\"body\" c=\"\""
+  },
+  {
+    "language": "pkl",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "ron",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "cairo",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /program: child_count go=\"1\" c=\"2\""
+  },
+  {
+    "language": "cuda",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "d",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "v",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "robot",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route error: parser-core phase zero: persist header 6 head=125 owner=10 lexer_owned=true recovery_region=false: parser-core phase zero: compact head has multiple scheduler owners\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file/section[1]/test_cases_section[0]/test_case_definition[3]/body[1]: child_count go=\"2\" c=\"3\""
+  },
+  {
+    "language": "vhdl",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "glsl",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "starlark",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "textproto",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "wat",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "verilog",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file/package_or_generate_item_declaration[23]/class_declaration[0]/class_item[8]/class_method[0]/class_constructor_declaration[0]/list_of_arguments_parent[9]/expression[1]/primary[0]/let_expression[0]: type go=\"let_expression\" c=\"simple_identifier\""
+  },
+  {
+    "language": "bass",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "bitbake",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "commonlisp",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "desktop",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "dtd",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "earthfile",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file/target[4]/block[3]/copy_command[1]/string[1]: child_count go=\"3\" c=\"1\""
+  },
+  {
+    "language": "editorconfig",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "eex",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "heex",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "elisp",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "git_config",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "gitattributes",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "gitignore",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "hurl",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "llvm",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "prisma",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "requirements",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /file: child_count go=\"27\" c=\"78\""
+  },
+  {
+    "language": "rst",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "toml",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "properties",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "ssh_config",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "tlaplus",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file/module[0]/operator_definition[11]/bounded_quantification[2]/bound_prefix_op[3]/bound_nonfix_op[1]: type go=\"bound_nonfix_op\" c=\"bound_prefix_op\""
+  },
+  {
+    "language": "sparql",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "turtle",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "prolog",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "pug",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file: child_count go=\"27\" c=\"1\""
+  },
+  {
+    "language": "pem",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "pascal",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "chatito",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source/alias_def[20]: has_error go=\"false\" c=\"true\""
+  },
+  {
+    "language": "cobol",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "cpon",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /document: child_count go=\"50\" c=\"54\""
+  },
+  {
+    "language": "cylc",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor\"",
+    "first_difference": ""
+  },
+  {
+    "language": "ebnf",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "eds",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file/section[0]: has_error go=\"false\" c=\"true\""
+  },
+  {
+    "language": "forth",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "gdscript",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "git_rebase",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "godot_resource",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "hack",
+    "status": "PASS",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": ""
+  },
+  {
+    "language": "hyprlang",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "promql",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /query: type go=\"query\" c=\"ERROR\""
+  },
+  {
+    "language": "regex",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "todotxt",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "uxntal",
+    "status": "PASS",
+    "compact": 1,
+    "fallback": 0,
+    "reason": "\"\"",
+    "first_difference": ""
+  },
+  {
+    "language": "wolfram",
+    "status": "FAIL",
+    "compact": 0,
+    "fallback": 1,
+    "reason": "\"compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token\"",
+    "first_difference": "compact_r4_parity_test.go:26: /source_file: span go=\"0:0-61:23 @0..1661\" c=\"0:0-84:0 @0..2196\""
+  }
+]

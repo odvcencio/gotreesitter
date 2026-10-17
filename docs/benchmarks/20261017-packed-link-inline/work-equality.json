@@ -1,0 +1,21 @@
+{
+  "ledger": {
+    "ledger": {
+      "rows": 412,
+      "reference": "../20261017-packed-link-storage/ledger.json",
+      "new_run_sha256": "f56a46f0c76959e34f1a77e76b346b52f6f22406d953286cc12f24225635f243",
+      "reference_sha256": "f56a46f0c76959e34f1a77e76b346b52f6f22406d953286cc12f24225635f243"
+    },
+    "owned-ledger": {
+      "rows": 2,
+      "reference": "../20261017-packed-link-storage/owned-ledger.json",
+      "new_run_sha256": "41b45a642e7193e3562b6b5573cd4bba15b179e972aed5ca30776f23778f7287",
+      "reference_sha256": "41b45a642e7193e3562b6b5573cd4bba15b179e972aed5ca30776f23778f7287"
+    }
+  },
+  "construction": {
+    "reference": "../20261017-packed-link-storage/construction.json",
+    "sha256": "0779f954948cf65a8173fd2ce59d7b2dfc43051d881715896b6d5ce3fce0aa78",
+    "five_vectors_and_consumption_digests_exact": true
+  }
+}

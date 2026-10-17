@@ -1,0 +1,121 @@
+{
+  "roots": [
+    {
+      "id": "recovery_visible_count.go\u0000method_definition\u0000recoveryVisibleSubtreeCount\u0000135",
+      "file": "recovery_visible_count.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "recoveryVisibleSubtreeCount",
+      "signature": "func (c *Core) recoveryVisibleSubtreeCount(id SubtreeID, hasAlias, countErrorRepeat bool) (uint32, error)",
+      "receiver": "c *Core",
+      "start_line": 135,
+      "end_line": 156,
+      "callable": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "recovery_visible_count.go\u0000method_definition\u0000recoveryVisibleSubtreeCount\u0000135",
+      "file": "recovery_visible_count.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "recoveryVisibleSubtreeCount",
+      "signature": "func (c *Core) recoveryVisibleSubtreeCount(id SubtreeID, hasAlias, countErrorRepeat bool) (uint32, error)",
+      "receiver": "c *Core",
+      "start_line": 135,
+      "end_line": 156,
+      "callable": true
+    },
+    {
+      "id": "recovery_visible_count_build.go\u0000method_definition\u0000computeRecoveryVisibleCount\u000012",
+      "file": "recovery_visible_count_build.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "computeRecoveryVisibleCount",
+      "signature": "func (c *Core) computeRecoveryVisibleCount(id SubtreeID) (recoveryVisibleCount, error)",
+      "receiver": "c *Core",
+      "start_line": 12,
+      "end_line": 72,
+      "callable": true
+    }
+  ],
+  "edges": [
+    {
+      "caller": {
+        "id": "recovery_visible_count.go\u0000method_definition\u0000recoveryVisibleSubtreeCount\u0000135",
+        "file": "recovery_visible_count.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "recoveryVisibleSubtreeCount",
+        "signature": "func (c *Core) recoveryVisibleSubtreeCount(id SubtreeID, hasAlias, countErrorRepeat bool) (uint32, error)",
+        "receiver": "c *Core",
+        "start_line": 135,
+        "end_line": 156,
+        "callable": true
+      },
+      "callee": {
+        "id": "recovery_visible_count_build.go\u0000method_definition\u0000computeRecoveryVisibleCount\u000012",
+        "file": "recovery_visible_count_build.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "computeRecoveryVisibleCount",
+        "signature": "func (c *Core) computeRecoveryVisibleCount(id SubtreeID) (recoveryVisibleCount, error)",
+        "receiver": "c *Core",
+        "start_line": 12,
+        "end_line": 72,
+        "callable": true
+      },
+      "resolution": "package",
+      "count": 1,
+      "samples": [
+        {
+          "file": "recovery_visible_count.go",
+          "start_line": 142,
+          "start_column": 18,
+          "kind": "reference.call",
+          "name": "computeRecoveryVisibleCount"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "recovery_visible_count_build.go\u0000method_definition\u0000computeRecoveryVisibleCount\u000012",
+        "file": "recovery_visible_count_build.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "computeRecoveryVisibleCount",
+        "signature": "func (c *Core) computeRecoveryVisibleCount(id SubtreeID) (recoveryVisibleCount, error)",
+        "receiver": "c *Core",
+        "start_line": 12,
+        "end_line": 72,
+        "callable": true
+      },
+      "callee": {
+        "id": "recovery_visible_count_build.go\u0000method_definition\u0000computeRecoveryVisibleCount\u000012",
+        "file": "recovery_visible_count_build.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "computeRecoveryVisibleCount",
+        "signature": "func (c *Core) computeRecoveryVisibleCount(id SubtreeID) (recoveryVisibleCount, error)",
+        "receiver": "c *Core",
+        "start_line": 12,
+        "end_line": 72,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "recovery_visible_count_build.go",
+          "start_line": 50,
+          "start_column": 19,
+          "kind": "reference.call",
+          "name": "computeRecoveryVisibleCount"
+        }
+      ]
+    }
+  ],
+  "depth": 2,
+  "reverse": false,
+  "unresolved_call_count": 45
+}

@@ -1,0 +1,147 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                         sec/op                                          │                              sec/op                               vs base               │
+GoParseIncrementalSingleByteEditDFA                                                                                     101.8µ ±  4%                                                       101.0µ ±  4%       ~ (p=0.620 n=20)
+GoParseFullDFA                                                                                                          4.038m ± 12%                                                       3.981m ± 12%       ~ (p=0.947 n=20)
+AdmissionR4Compact                                                                                                      799.1µ ±  3%                                                       808.3µ ± 13%  +1.16% (p=0.038 n=20)
+ParserCoreFreshFullCanonical/rewrite                                                                                    1.796m ±  5%                                                       1.780m ±  4%       ~ (p=0.355 n=20)
+ParserCoreFreshFullCanonical/query_compile                                                                              8.250m ±  6%                                                       8.319m ±  2%       ~ (p=0.327 n=20)
+ParserCoreFreshFullCanonical/language                                                                                   8.690m ± 14%                                                       9.025m ±  7%       ~ (p=0.355 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                                                              90.01m ±  7%                                                       89.90m ±  6%       ~ (p=0.583 n=20)
+GoParseIncrementalNoEditDFA                                                                                             3.184n ±  1%                                                       3.238n ±  3%  +1.70% (p=0.038 n=20)
+geomean                                                                                                                 576.0µ                                                             579.1µ        +0.53%
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                           B/s                                           │                               B/s                                 vs base               │
+GoParseIncrementalSingleByteEditDFA                                                                                    180.8Mi ±  3%                                                      182.2Mi ±  4%       ~ (p=0.625 n=20)
+GoParseFullDFA                                                                                                         4.559Mi ± 10%                                                      4.621Mi ± 11%       ~ (p=0.931 n=20)
+AdmissionR4Compact                                                                                                     2.441Mi ±  3%                                                      2.418Mi ± 12%  -0.98% (p=0.043 n=20)
+ParserCoreFreshFullCanonical/rewrite                                                                                   2.718Mi ±  5%                                                      2.742Mi ±  4%       ~ (p=0.351 n=20)
+ParserCoreFreshFullCanonical/query_compile                                                                             2.332Mi ±  6%                                                      2.313Mi ±  2%       ~ (p=0.336 n=20)
+ParserCoreFreshFullCanonical/language                                                                                  4.544Mi ± 12%                                                      4.373Mi ±  7%       ~ (p=0.344 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                                                             2.494Mi ±  6%                                                      2.503Mi ±  6%       ~ (p=0.569 n=20)
+GoParseIncrementalNoEditDFA                                                                                            5.511Ti ±  1%                                                      5.419Ti ±  3%  -1.68% (p=0.038 n=20)
+geomean                                                                                                                30.92Mi                                                            30.77Mi        -0.50%
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                          B/op                                           │                              B/op                               vs base                 │
+GoParseIncrementalSingleByteEditDFA                                                                                     394.0 ± 0%                                                         394.0 ± 0%       ~ (p=1.000 n=20)
+GoParseFullDFA                                                                                                        1.133Ki ± 0%                                                       1.133Ki ± 0%       ~ (p=0.522 n=20)
+AdmissionR4Compact                                                                                                    1.562Ki ± 0%                                                       1.562Ki ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                                                                  1.734Ki ± 0%                                                       1.734Ki ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                            7.906Ki ± 0%                                                       7.906Ki ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                 146.9Ki ± 0%                                                       146.9Ki ± 0%       ~ (p=0.839 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                                                            1.102Mi ± 0%                                                       1.102Mi ± 0%       ~ (p=1.000 n=20)
+GoParseIncrementalNoEditDFA                                                                                             0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                            ²                                                                   +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                        allocs/op                                        │                           allocs/op                             vs base                 │
+GoParseIncrementalSingleByteEditDFA                                                                                     5.000 ± 0%                                                         5.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                                                                          6.000 ± 0%                                                         6.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                                      22.00 ± 0%                                                         22.00 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                                                                    21.00 ± 0%                                                         21.00 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                              120.0 ± 0%                                                         120.0 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                   239.0 ± 0%                                                         239.0 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                             1.705k ± 0%                                                        1.705k ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA                                                                                             0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                            ²                                                                   +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                   │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                   │                                  compact-fallbacks/op                                   │                        compact-fallbacks/op                          vs base            │
+AdmissionR4Compact                                                                                0.000 ± 0%                                                            0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                   │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                   │                                    compact-routes/op                                    │                          compact-routes/op                           vs base            │
+AdmissionR4Compact                                                                                1.000 ± 0%                                                            1.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                  candidate_fallback/op                                  │                     candidate_fallback/op                       vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                    0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                              0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                   0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                              0.000 ± 0%                                                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                            ²                                                                   +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                              compact_leaf_constructions/op                              │                 compact_leaf_constructions/op                   vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.109k ± 0%                                                      1.109k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               5.546k ± 0%                                                      5.546k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    5.375k ± 0%                                                      5.375k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               53.90k ± 0%                                                      53.90k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  6.497k                                                           6.497k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                compact_link_additions/op                                │                   compact_link_additions/op                     vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     2.995k ± 0%                                                      2.995k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               14.66k ± 0%                                                      14.66k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    15.07k ± 0%                                                      15.07k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               148.4k ± 0%                                                      148.4k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  17.70k                                                           17.70k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                             compact_parent_constructions/op                             │                compact_parent_constructions/op                  vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.504k ± 0%                                                      1.504k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               7.415k ± 0%                                                      7.415k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    7.623k ± 0%                                                      7.623k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               75.77k ± 0%                                                      75.77k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  8.959k                                                           8.959k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                  compact_pop_paths/op                                   │                      compact_pop_paths/op                       vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.635k ± 0%                                                      1.635k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               7.981k ± 0%                                                      7.981k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    8.326k ± 0%                                                      8.326k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               82.26k ± 0%                                                      82.26k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  9.723k                                                           9.723k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                 compact_pop_payloads/op                                 │                    compact_pop_payloads/op                      vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     2.982k ± 0%                                                      2.982k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               14.60k ± 0%                                                      14.60k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    15.77k ± 0%                                                      15.77k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               150.5k ± 0%                                                      150.5k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  17.93k                                                           17.93k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                 compact_pop_requests/op                                 │                    compact_pop_requests/op                      vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.493k ± 0%                                                      1.493k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               7.382k ± 0%                                                      7.382k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    7.513k ± 0%                                                      7.513k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               74.91k ± 0%                                                      74.91k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  8.875k                                                           8.875k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                  compact_reductions/op                                  │                     compact_reductions/op                       vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.493k ± 0%                                                      1.493k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               7.382k ± 0%                                                      7.382k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    7.513k ± 0%                                                      7.513k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               74.91k ± 0%                                                      74.91k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  8.875k                                                           8.875k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-boundary-probe-sink/go-head.txt │
+                                           │                                    compact_shifts/op                                    │                       compact_shifts/op                         vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                     1.348k ± 0%                                                      1.348k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                               6.685k ± 0%                                                      6.685k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                    6.512k ± 0%                                                      6.512k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                               66.11k ± 0%                                                      66.11k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                  7.892k                                                           7.892k       +0.00%
+¹ all samples are equal

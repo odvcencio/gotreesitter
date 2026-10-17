@@ -1,0 +1,147 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                           sec/op                                            │                                sec/op                                 vs base               │
+GoParseIncrementalNoEditDFA                                                                                                  3.155n ± 1%                                                            3.023n ± 0%  -4.17% (p=0.000 n=20)
+ParserCoreFreshFullCanonical/rewrite                                                                                         1.705m ± 1%                                                            1.709m ± 0%       ~ (p=0.355 n=20)
+ParserCoreFreshFullCanonical/query_compile                                                                                   8.114m ± 1%                                                            8.117m ± 0%       ~ (p=0.355 n=20)
+ParserCoreFreshFullCanonical/language                                                                                        8.471m ± 1%                                                            8.459m ± 1%       ~ (p=0.698 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                   86.71m ± 1%                                                            86.51m ± 1%       ~ (p=0.758 n=20)
+GoParseIncrementalSingleByteEditDFA                                                                                          99.25µ ± 0%                                                            98.88µ ± 0%       ~ (p=0.149 n=20)
+GoParseFullDFA                                                                                                               3.934m ± 1%                                                            3.913m ± 0%  -0.52% (p=0.020 n=20)
+AdmissionR4Compact                                                                                                           785.7µ ± 0%                                                            786.2µ ± 0%       ~ (p=0.718 n=20)
+geomean                                                                                                                      561.1µ                                                                 557.5µ       -0.64%
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                             B/s                                             │                                 B/s                                   vs base               │
+GoParseIncrementalNoEditDFA                                                                                                 5.563Ti ± 1%                                                           5.805Ti ± 0%  +4.34% (p=0.000 n=20)
+ParserCoreFreshFullCanonical/rewrite                                                                                        2.861Mi ± 1%                                                           2.851Mi ± 0%       ~ (p=0.331 n=20)
+ParserCoreFreshFullCanonical/query_compile                                                                                  2.370Mi ± 1%                                                           2.365Mi ± 0%       ~ (p=0.370 n=20)
+ParserCoreFreshFullCanonical/language                                                                                       4.659Mi ± 1%                                                           4.663Mi ± 0%       ~ (p=0.772 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                  2.594Mi ± 1%                                                           2.599Mi ± 1%       ~ (p=0.773 n=20)
+GoParseIncrementalSingleByteEditDFA                                                                                         185.4Mi ± 0%                                                           186.1Mi ± 0%       ~ (p=0.144 n=20)
+GoParseFullDFA                                                                                                              4.678Mi ± 1%                                                           4.702Mi ± 0%  +0.51% (p=0.026 n=20)
+AdmissionR4Compact                                                                                                          2.489Mi ± 0%                                                           2.484Mi ± 1%       ~ (p=0.609 n=20)
+geomean                                                                                                                     31.75Mi                                                                31.93Mi       +0.59%
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                            B/op                                             │                                B/op                                 vs base                 │
+GoParseIncrementalNoEditDFA                                                                                                 0.000 ± 0%                                                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                                                                      1.734Ki ± 0%                                                           1.734Ki ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                7.906Ki ± 0%                                                           7.906Ki ± 0%       ~ (p=1.000 n=20)
+ParserCoreFreshFullCanonical/language                                                                                     146.9Ki ± 0%                                                           146.9Ki ± 0%       ~ (p=1.000 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                1.102Mi ± 0%                                                           1.102Mi ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                                                                         394.0 ± 0%                                                             394.0 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                                                                            1.132Ki ± 0%                                                           1.132Ki ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                                        1.562Ki ± 0%                                                           1.562Ki ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                                ²                                                                       -0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                          allocs/op                                          │                             allocs/op                               vs base                 │
+GoParseIncrementalNoEditDFA                                                                                                 0.000 ± 0%                                                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                                                                        21.00 ± 0%                                                             21.00 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                  120.0 ± 0%                                                             120.0 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                       239.0 ± 0%                                                             239.0 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                 1.705k ± 0%                                                            1.705k ± 0%       ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                                                                         5.000 ± 0%                                                             5.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                                                                              6.000 ± 0%                                                             6.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                                          22.00 ± 0%                                                             22.00 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                                ²                                                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                    candidate_fallback/op                                    │                       candidate_fallback/op                         vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                        0.000 ± 0%                                                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                  0.000 ± 0%                                                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                       0.000 ± 0%                                                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                  0.000 ± 0%                                                             0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                                ²                                                                       +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                compact_leaf_constructions/op                                │                   compact_leaf_constructions/op                     vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                         1.109k ± 0%                                                          1.109k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                   5.546k ± 0%                                                          5.546k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                        5.375k ± 0%                                                          5.375k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                   53.90k ± 0%                                                          53.90k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                      6.497k                                                               6.497k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                  compact_link_additions/op                                  │                     compact_link_additions/op                       vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                         2.995k ± 0%                                                          2.995k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                   14.66k ± 0%                                                          14.66k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                        15.07k ± 0%                                                          15.07k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                   148.4k ± 0%                                                          148.4k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                      17.70k                                                               17.70k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                               compact_parent_constructions/op                               │                  compact_parent_constructions/op                    vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                         1.504k ± 0%                                                          1.504k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                   7.415k ± 0%                                                          7.415k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                        7.623k ± 0%                                                          7.623k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                   75.77k ± 0%                                                          75.77k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                      8.959k                                                               8.959k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                    compact_pop_paths/op                                     │                        compact_pop_paths/op                         vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                         1.635k ± 0%                                                          1.635k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                   7.981k ± 0%                                                          7.981k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                        8.326k ± 0%                                                          8.326k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                   82.26k ± 0%                                                          82.26k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                      9.723k                                                               9.723k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                   compact_pop_payloads/op                                   │                      compact_pop_payloads/op                        vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                         2.982k ± 0%                                                          2.982k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                   14.60k ± 0%                                                          14.60k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                        15.77k ± 0%                                                          15.77k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                   150.5k ± 0%                                                          150.5k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                      17.93k                                                               17.93k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                   compact_pop_requests/op                                   │                      compact_pop_requests/op                        vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                         1.493k ± 0%                                                          1.493k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                   7.382k ± 0%                                                          7.382k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                        7.513k ± 0%                                                          7.513k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                   74.91k ± 0%                                                          74.91k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                      8.875k                                                               8.875k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                    compact_reductions/op                                    │                       compact_reductions/op                         vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                         1.493k ± 0%                                                          1.493k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                   7.382k ± 0%                                                          7.382k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                        7.513k ± 0%                                                          7.513k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                   74.91k ± 0%                                                          74.91k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                      8.875k                                                               8.875k       +0.00%
+¹ all samples are equal
+
+                                           │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                                           │                                      compact_shifts/op                                      │                         compact_shifts/op                           vs base                 │
+ParserCoreFreshFullCanonical/rewrite                                                                                         1.348k ± 0%                                                          1.348k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                                                                   6.685k ± 0%                                                          6.685k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                                                                        6.512k ± 0%                                                          6.512k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                                                                   66.11k ± 0%                                                          66.11k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                                      7.892k                                                               7.892k       +0.00%
+¹ all samples are equal
+
+                   │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                   │                                    compact-fallbacks/op                                     │                          compact-fallbacks/op                            vs base            │
+AdmissionR4Compact                                                                                    0.000 ± 0%                                                                0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                   │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-base.txt │ /home/draco/.local/state/gotreesitter-evidence/20261017-visible-count-cold-walk/go-head.txt │
+                   │                                      compact-routes/op                                      │                            compact-routes/op                             vs base            │
+AdmissionR4Compact                                                                                    1.000 ± 0%                                                                1.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal

@@ -1,0 +1,67 @@
+//go:build cgo && treesitter_c_parity && gts_parsercorephase0 && !gts_no_parsercorephase0
+
+package cgoharness
+
+import (
+	"crypto/sha256"
+	gts "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	sitter "github.com/tree-sitter/go-tree-sitter"
+	"testing"
+)
+
+func TestCompactLineageLargeGoLockedC(t *testing.T) {
+	source, _, err := benchfixtures.GeneratedSource("go", 1024*1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(source) < 1024*1024 {
+		t.Fatal("fixture smaller than one MiB")
+	}
+	cl, err := ParityCLanguage("go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp := sitter.NewParser()
+	defer cp.Close()
+	if err := cp.SetLanguage(cl); err != nil {
+		t.Fatal(err)
+	}
+	ct := cp.Parse(source, nil)
+	if ct == nil {
+		t.Fatal("C returned no tree")
+	}
+	defer ct.Close()
+	if ct.RootNode().HasError() || ct.RootNode().EndByte() != uint(len(source)) {
+		t.Fatal("C rejected or truncated source")
+	}
+	want, err := COracleDeepDigest(ct)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lang := grammars.GoLanguage()
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(true)
+	br, bf := gts.AdmissionCandidateCounters()
+	tree, err := p.Parse(source)
+	if err != nil || tree == nil {
+		t.Fatalf("Go tree=%v err=%v", tree != nil, err)
+	}
+	defer tree.Release()
+	r, f := gts.AdmissionCandidateCounters()
+	if r-br != 1 || f-bf != 0 {
+		t.Fatalf("compact=%d fallback=%d", r-br, f-bf)
+	}
+	if tree.ParseStopReason() != gts.ParseStopAccepted || tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) {
+		t.Fatalf("Go completion: %+v", tree.ParseRuntime())
+	}
+	got, err := benchfixtures.InspectGoTree(tree.RootNode(), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SHA256 != want {
+		t.Fatalf("Go=%s C=%s", got.SHA256, want)
+	}
+	t.Logf("bytes=%d sha256=%x tree=%s compact=1 fallback=0 runtime=%s", len(source), sha256.Sum256(source), want, tree.ParseRuntime().Summary())
+}

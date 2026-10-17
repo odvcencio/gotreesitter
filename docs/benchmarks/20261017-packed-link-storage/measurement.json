@@ -1,0 +1,470 @@
+{
+  "go": {
+    "GoParseIncrementalNoEditDFA": {
+      "ns/op": {
+        "before": 3.148,
+        "after": 3.1325000000000003,
+        "relative_percent": -0.4923761118170278,
+        "supported": false,
+        "p": "p=0.279 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 0.0,
+        "after": 0.0,
+        "relative_percent": 0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 0.0,
+        "after": 0.0,
+        "relative_percent": 0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "AdmissionR4Compact": {
+      "ns/op": {
+        "before": 784151.0000000001,
+        "after": 835880.0,
+        "relative_percent": 6.596816174435771,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "3%",
+        "after_ci": "4%"
+      },
+      "B/op": {
+        "before": 1600.0,
+        "after": 1600.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 22.0,
+        "after": 22.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "GoParseIncrementalSingleByteEditDFA": {
+      "ns/op": {
+        "before": 98846.5,
+        "after": 100195.5,
+        "relative_percent": 1.3647423024588656,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "B/op": {
+        "before": 394.0,
+        "after": 394.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 5.0,
+        "after": 5.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "CompactGoFullConsume/real_sample": {
+      "ns/op": {
+        "before": 798329.5000000001,
+        "after": 847201.0000000001,
+        "relative_percent": 6.121720417446674,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1600.0,
+        "after": 1600.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 22.0,
+        "after": 22.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "CompactGoFullConsume/query_compile": {
+      "ns/op": {
+        "before": 9118834.5,
+        "after": 9693456.5,
+        "relative_percent": 6.30148512948665,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 8112.0,
+        "after": 8112.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 121.0,
+        "after": 121.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "CompactGoFullConsume/rewrite": {
+      "ns/op": {
+        "before": 1936066.5000000002,
+        "after": 2060803.5,
+        "relative_percent": 6.442805554457975,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1792.0,
+        "after": 1792.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 22.0,
+        "after": 22.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "CompactGoFullConsume/language": {
+      "ns/op": {
+        "before": 9372368.0,
+        "after": 10032456.5,
+        "relative_percent": 7.0429212766720095,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "1%",
+        "after_ci": "0%"
+      },
+      "B/op": {
+        "before": 150434.0,
+        "after": 150435.0,
+        "relative_percent": 0.0006647433425932547,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 240.0,
+        "after": 240.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "CompactGoFullConsume/grammargen_lr": {
+      "ns/op": {
+        "before": 97003295.00000001,
+        "after": 102606597.0,
+        "relative_percent": 5.776403780923078,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1155600.0,
+        "after": 1155600.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 1706.0,
+        "after": 1706.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/rewrite": {
+      "ns/op": {
+        "before": 1702486.5000000002,
+        "after": 1824877.0000000002,
+        "relative_percent": 7.1889263145405335,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 1776.0,
+        "after": 1776.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 21.0,
+        "after": 21.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/query_compile": {
+      "ns/op": {
+        "before": 8112810.500000001,
+        "after": 8660361.000000002,
+        "relative_percent": 6.749208551093355,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "5%"
+      },
+      "B/op": {
+        "before": 8096.0,
+        "after": 8096.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 120.0,
+        "after": 120.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/language": {
+      "ns/op": {
+        "before": 8447758.0,
+        "after": 9123006.0,
+        "relative_percent": 7.9932213967303545,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 150418.5,
+        "after": 150418.5,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=0.604 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 239.0,
+        "after": 239.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "ParserCoreFreshFullCanonical/grammargen_lr": {
+      "ns/op": {
+        "before": 86422544.5,
+        "after": 92253660.5,
+        "relative_percent": 6.747216289147784,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "1%",
+        "after_ci": "2%"
+      },
+      "B/op": {
+        "before": 1155584.0,
+        "after": 1155584.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 1705.0,
+        "after": 1705.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "GoParseFullDFA": {
+      "ns/op": {
+        "before": 3916662.5,
+        "after": 3888173.5,
+        "relative_percent": -0.7273794972122327,
+        "supported": true,
+        "p": "p=0.001 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "B/op": {
+        "before": 1159.0,
+        "after": 1159.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 6.0,
+        "after": 6.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    }
+  },
+  "yaml": {
+    "AdmissionYAMLDocumentStreamOwned": {
+      "ns/op": {
+        "before": 1305063.5000000002,
+        "after": 1354926.0000000002,
+        "relative_percent": 3.820695314825673,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "1%",
+        "after_ci": "0%"
+      },
+      "B/op": {
+        "before": 44313.0,
+        "after": 44313.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=0.884 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 336.0,
+        "after": 336.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "AdmissionR4OwnedExternalLexer": {
+      "ns/op": {
+        "before": 334933.00000000006,
+        "after": 348509.0,
+        "relative_percent": 4.053347983029432,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 12872.0,
+        "after": 12872.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 109.0,
+        "after": 109.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    },
+    "AdmissionR4Compact": {
+      "ns/op": {
+        "before": 189820.0,
+        "after": 188569.00000000003,
+        "relative_percent": -0.6590454114424049,
+        "supported": true,
+        "p": "p=0.049 n=20",
+        "before_ci": "1%",
+        "after_ci": "1%"
+      },
+      "B/op": {
+        "before": 15608.0,
+        "after": 14072.0,
+        "relative_percent": -9.841107124551506,
+        "supported": true,
+        "p": "p=0.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      },
+      "allocs/op": {
+        "before": 37.0,
+        "after": 37.0,
+        "relative_percent": 0.0,
+        "supported": false,
+        "p": "p=1.000 n=20",
+        "before_ci": "0%",
+        "after_ci": "0%"
+      }
+    }
+  }
+}

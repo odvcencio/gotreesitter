@@ -1,0 +1,18 @@
+{
+  "runtime": {
+    "internal/parsercorephase0/core.go": "4618b77fbf9a7ac45d14b18753aeae32a901cb3e5fae10515591438920461806",
+    "internal/parsercorephase0/materialization_parent_use.go": "99a1ab750045de7b9375a44f4e7f210f09f8325a7ef76563f7807192bb27467c",
+    "internal/parsercorephase0/materialization_parent_use_test.go": "8cc1fb1b29dcf4800b6d6b429cf603f1bdef8fa51e3f258689f89e1ad729e9dd",
+    "internal/parsercorephase0/materialization_postorder_scratch.go": "92addf52a215006f61b128362d42093279ed49d68e25e58eafe562a066280596",
+    "parsercore_phase0_driver.go": "7d9d4a84dceadc58ee66421addd85e7f9792cdac17725fedf8f93f50a567c69d",
+    "parsercore_phase0_materializer.go": "d0a731c13530cf3d580f873471127e93e308da5e524d320fd97a865d110f6243",
+    "parsercore_phase0_tail_publication_internal_test.go": "a2b8bfb19910a94b619202e173a8a34c6122716ceae6ddae5b19c9ebcc33f29c"
+  },
+  "patch_sha256": "3f511bdb8e73e29097b31f22c459e4d65cd700fbbb631d461098022c3c2f31a4",
+  "diagnostics": {
+    "work-census.go.txt": "b93296b50bc04622321c92993886c07b784abbab3a2b2cb623ce3f932c3bc629",
+    "consume-bench.go.txt": "25728efcd258d3ee3eed0d21d93f257bd055e95671f8da5e1c47a407a200dcea",
+    "owned-benchmark.go": "cff6270a44889d4cc4a950871a17d67e9c15132999955fae158f44d80664c43e",
+    "owned-ledger.go": "631f745d63b2e9201967150dfe1157bf27e777710c0ca20fc6a019a9bba3cd79"
+  }
+}

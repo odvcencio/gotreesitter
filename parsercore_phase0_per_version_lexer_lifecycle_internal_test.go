@@ -864,3 +864,33 @@ func TestDiagnosticParserCoreOwnedLexerZeroWidthExtraRequiresProgress(t *testing
 		t.Fatalf("owned zero-width extra mutated state: before=%+v after=%+v dispatches=%d", beforeStats, afterStats, scheduler.dispatches)
 	}
 }
+
+func TestDiagnosticParserCoreOwnedLexerBindingRejectsUnknownCheckpointsAtomically(t *testing.T) {
+	compact, err := core.New(&genericConflictTable{}, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	known, err := compact.InternCheckpoint([]byte{1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := compact.SetPhaseExternalTokenScannerCheckpoints(known, known); err != nil {
+		t.Fatal(err)
+	}
+	scheduler := diagnosticParserCoreGenericScheduler{compact: compact, electionIndex: 7, token: Token{Symbol: 9}, checkpointBeforeID: known, checkpointID: known}
+	request := diagnosticParserCoreVersionLexerRequest{valid: true, electionIndex: 7, token: Token{Symbol: 10}, beforeID: known, afterID: known}
+	prior := scheduler
+	for _, pair := range [][2]core.CheckpointID{{known + 1, known}, {known, known + 1}} {
+		request.beforeID, request.afterID = pair[0], pair[1]
+		if err := scheduler.bindVersionLexerRequest(&request); err != errDiagnosticParserCoreUnknownCheckpointIdentity {
+			t.Fatalf("pair=%v error=%v", pair, err)
+		}
+		if !reflect.DeepEqual(scheduler, prior) {
+			t.Fatal("invalid request changed scheduler")
+		}
+		_, start, end, exact := compact.PhaseScannerCheckpoints()
+		if !exact || start != known || end != known {
+			t.Fatalf("scanner phase changed: %d/%d/%t", start, end, exact)
+		}
+	}
+}

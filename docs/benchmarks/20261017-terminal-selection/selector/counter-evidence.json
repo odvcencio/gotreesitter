@@ -1,0 +1,510 @@
+{
+  "ordinary_rows": 412,
+  "owned_yaml_rows": 2,
+  "changes": [
+    {
+      "language": "bash",
+      "route": "candidate",
+      "phase": "full",
+      "before": 240,
+      "after": 220
+    },
+    {
+      "language": "bash",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 240,
+      "after": 220
+    },
+    {
+      "language": "beancount",
+      "route": "candidate",
+      "phase": "full",
+      "before": 701,
+      "after": 682
+    },
+    {
+      "language": "bitbake",
+      "route": "candidate",
+      "phase": "full",
+      "before": 419,
+      "after": 394
+    },
+    {
+      "language": "bitbake",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 419,
+      "after": 394
+    },
+    {
+      "language": "blade",
+      "route": "candidate",
+      "phase": "full",
+      "before": 2252,
+      "after": 1295
+    },
+    {
+      "language": "blade",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 2252,
+      "after": 1295
+    },
+    {
+      "language": "clojure",
+      "route": "candidate",
+      "phase": "full",
+      "before": 316,
+      "after": 303
+    },
+    {
+      "language": "corn",
+      "route": "candidate",
+      "phase": "full",
+      "before": 18,
+      "after": 16
+    },
+    {
+      "language": "css",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1283,
+      "after": 1282
+    },
+    {
+      "language": "csv",
+      "route": "candidate",
+      "phase": "full",
+      "before": 21,
+      "after": 19
+    },
+    {
+      "language": "cue",
+      "route": "candidate",
+      "phase": "full",
+      "before": 490,
+      "after": 489
+    },
+    {
+      "language": "desktop",
+      "route": "candidate",
+      "phase": "full",
+      "before": 175,
+      "after": 122
+    },
+    {
+      "language": "diff",
+      "route": "candidate",
+      "phase": "full",
+      "before": 403,
+      "after": 299
+    },
+    {
+      "language": "djot",
+      "route": "candidate",
+      "phase": "full",
+      "before": 10408,
+      "after": 10397
+    },
+    {
+      "language": "djot",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 10412,
+      "after": 10401
+    },
+    {
+      "language": "dot",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1084,
+      "after": 974
+    },
+    {
+      "language": "editorconfig",
+      "route": "candidate",
+      "phase": "full",
+      "before": 515,
+      "after": 371
+    },
+    {
+      "language": "eex",
+      "route": "candidate",
+      "phase": "full",
+      "before": 208,
+      "after": 193
+    },
+    {
+      "language": "elm",
+      "route": "candidate",
+      "phase": "full",
+      "before": 874,
+      "after": 863
+    },
+    {
+      "language": "elm",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 874,
+      "after": 863
+    },
+    {
+      "language": "embedded_template",
+      "route": "candidate",
+      "phase": "full",
+      "before": 439,
+      "after": 284
+    },
+    {
+      "language": "firrtl",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1095,
+      "after": 1063
+    },
+    {
+      "language": "firrtl",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 1095,
+      "after": 1063
+    },
+    {
+      "language": "fortran",
+      "route": "candidate",
+      "phase": "full",
+      "before": 722,
+      "after": 698
+    },
+    {
+      "language": "fortran",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 722,
+      "after": 698
+    },
+    {
+      "language": "gdscript",
+      "route": "candidate",
+      "phase": "full",
+      "before": 860,
+      "after": 811
+    },
+    {
+      "language": "gdscript",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 860,
+      "after": 811
+    },
+    {
+      "language": "git_config",
+      "route": "candidate",
+      "phase": "full",
+      "before": 90,
+      "after": 66
+    },
+    {
+      "language": "gitcommit",
+      "route": "candidate",
+      "phase": "full",
+      "before": 407,
+      "after": 357
+    },
+    {
+      "language": "gitcommit",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 407,
+      "after": 357
+    },
+    {
+      "language": "gleam",
+      "route": "candidate",
+      "phase": "full",
+      "before": 968,
+      "after": 966
+    },
+    {
+      "language": "go",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1251,
+      "after": 1237
+    },
+    {
+      "language": "hcl",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1788,
+      "after": 1360
+    },
+    {
+      "language": "hurl",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1080,
+      "after": 940
+    },
+    {
+      "language": "hyprlang",
+      "route": "candidate",
+      "phase": "full",
+      "before": 182,
+      "after": 162
+    },
+    {
+      "language": "ini",
+      "route": "candidate",
+      "phase": "full",
+      "before": 121,
+      "after": 100
+    },
+    {
+      "language": "just",
+      "route": "candidate",
+      "phase": "full",
+      "before": 204,
+      "after": 171
+    },
+    {
+      "language": "just",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 204,
+      "after": 171
+    },
+    {
+      "language": "nickel",
+      "route": "candidate",
+      "phase": "full",
+      "before": 982,
+      "after": 978
+    },
+    {
+      "language": "nickel",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 982,
+      "after": 978
+    },
+    {
+      "language": "ninja",
+      "route": "candidate",
+      "phase": "full",
+      "before": 733,
+      "after": 631
+    },
+    {
+      "language": "odin",
+      "route": "candidate",
+      "phase": "full",
+      "before": 9,
+      "after": 8
+    },
+    {
+      "language": "org",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1291,
+      "after": 1288
+    },
+    {
+      "language": "org",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 1291,
+      "after": 1288
+    },
+    {
+      "language": "pem",
+      "route": "candidate",
+      "phase": "full",
+      "before": 74,
+      "after": 45
+    },
+    {
+      "language": "powershell",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1208,
+      "after": 1181
+    },
+    {
+      "language": "properties",
+      "route": "candidate",
+      "phase": "full",
+      "before": 2361,
+      "after": 1258
+    },
+    {
+      "language": "properties",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 2361,
+      "after": 1258
+    },
+    {
+      "language": "purescript",
+      "route": "candidate",
+      "phase": "full",
+      "before": 449,
+      "after": 438
+    },
+    {
+      "language": "purescript",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 449,
+      "after": 438
+    },
+    {
+      "language": "r",
+      "route": "candidate",
+      "phase": "full",
+      "before": 172,
+      "after": 119
+    },
+    {
+      "language": "r",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 172,
+      "after": 119
+    },
+    {
+      "language": "racket",
+      "route": "candidate",
+      "phase": "full",
+      "before": 755,
+      "after": 619
+    },
+    {
+      "language": "rst",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1183,
+      "after": 1124
+    },
+    {
+      "language": "rst",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 1183,
+      "after": 1124
+    },
+    {
+      "language": "scheme",
+      "route": "candidate",
+      "phase": "full",
+      "before": 636,
+      "after": 517
+    },
+    {
+      "language": "sparql",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1202,
+      "after": 1151
+    },
+    {
+      "language": "ssh_config",
+      "route": "candidate",
+      "phase": "full",
+      "before": 172,
+      "after": 127
+    },
+    {
+      "language": "todotxt",
+      "route": "candidate",
+      "phase": "full",
+      "before": 158,
+      "after": 121
+    },
+    {
+      "language": "toml",
+      "route": "candidate",
+      "phase": "full",
+      "before": 278,
+      "after": 250
+    },
+    {
+      "language": "tsx",
+      "route": "candidate",
+      "phase": "full",
+      "before": 503,
+      "after": 502
+    },
+    {
+      "language": "typescript",
+      "route": "candidate",
+      "phase": "full",
+      "before": 864,
+      "after": 859
+    },
+    {
+      "language": "typst",
+      "route": "candidate",
+      "phase": "full",
+      "before": 1178,
+      "after": 915
+    },
+    {
+      "language": "typst",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 1204,
+      "after": 929
+    },
+    {
+      "language": "vhdl",
+      "route": "candidate",
+      "phase": "full",
+      "before": 434,
+      "after": 433
+    },
+    {
+      "language": "vimdoc",
+      "route": "candidate",
+      "phase": "full",
+      "before": 948,
+      "after": 921
+    },
+    {
+      "language": "xml",
+      "route": "candidate",
+      "phase": "full",
+      "before": 731,
+      "after": 582
+    },
+    {
+      "language": "xml",
+      "route": "candidate",
+      "phase": "edit",
+      "step": 1,
+      "before": 731,
+      "after": 582
+    }
+  ],
+  "all_other_fields_exact": true,
+  "baseline_ordinary_sha256": "f56a46f0c76959e34f1a77e76b346b52f6f22406d953286cc12f24225635f243",
+  "baseline_owned_sha256": "41b45a642e7193e3562b6b5573cd4bba15b179e972aed5ca30776f23778f7287"
+}

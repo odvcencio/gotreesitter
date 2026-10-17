@@ -75,7 +75,7 @@ func priorErrorAncestorFixture(t *testing.T) (*Core, StackSummaryCandidate, Subt
 		t.Fatal(err)
 	}
 	target := appendAncestorRecoveryHead(t, c, seed, 2, prior)
-	c.nodeLineages[target.Node-1].storedErrorCost = 601
+	c.mutateTestLineage(int(target.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 601 })
 	ordinary := appendAncestorRecoveryPayload(t, c, 2, 1, 2, false)
 	head := appendAncestorRecoveryHead(t, c, target, 3, ordinary)
 	candidates, err := c.StackSummaryCandidates(head, 1)

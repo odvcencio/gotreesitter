@@ -154,7 +154,7 @@ func TestReserveRecordArenasOnlyGrows(t *testing.T) {
 	}
 
 	core.nodes = append(core.nodes, nodeRecord{})
-	core.nodeLineages = append(core.nodeLineages, nodeLineageRecord{})
+	core.nodeLineages = append(core.nodeLineages, nodeLineageHot{})
 	linksBefore := cap(core.links)
 	core.ReserveRecordArenas(1<<20, 1<<30)
 	if cap(core.links) != linksBefore {

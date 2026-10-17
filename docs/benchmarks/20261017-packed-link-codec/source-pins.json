@@ -1,0 +1,13 @@
+{
+  "baseline_runtime": "5e52cf2a2644f3d38785513eebc39f8cf8a506b2",
+  "source": {
+    "internal/parsercorephase0/link_record_packed.go": "bd5d8569c1c4fd28a0da4321d0e6502803bc8ef35624562419024c7af8c21a54",
+    "internal/parsercorephase0/link_record_packed_test.go": "02a8bd82ff6623b51d1888ec4dcbe97d24c4b097941d44f431e2ef5e25bc8ef4",
+    "internal/parsercorephase0/link_storage_census_probe.go": "d4fdf64b12331fa596e515061aa1c07f3fe4384d1a8c138d481f7f352e7ca53e",
+    "link_storage_census_probe.go": "d9e5e599cec169b0fac77681facbf24f8e025e086183eed96d9ab508393f738a",
+    "link_storage_census_probe_test.go": "bfa2a96eea49fda8e0f4d01d21cc2011c438c18dc9b1e9d9e9317fce20317b84",
+    "parsercore_phase0_driver.go": "d95b6b58034b91971650beeaf8ce81b0a52b32e55a06d6e790f99017b817f8b0"
+  },
+  "patch_sha256": "320859efae18734d1f7dbb4098255144a4f8cf72b4ddca1d7918f72b107654c9",
+  "component_tests_match_final_source": true
+}

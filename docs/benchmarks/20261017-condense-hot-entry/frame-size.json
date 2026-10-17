@@ -1,0 +1,26 @@
+{
+  "base": {
+    "stack_frame_bytes": 1032,
+    "first_lines": [
+      "TEXT github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).condenseWithOutcomeAtomic(SB) /baseline/internal/parsercorephase0/core.go",
+      "  core.go:3687\t\t\t0x5a70a0\t\t4c8da42470fcffff\tLEAQ 0xfffffc70(SP), R12\t\t\t\t\t\t\t\t\t\t\t\t",
+      "  core.go:3687\t\t\t0x5a70a8\t\t4d3b6610\t\tCMPQ R12, 0x10(R14)\t\t\t\t\t\t\t\t\t\t\t\t\t",
+      "  core.go:3687\t\t\t0x5a70ac\t\t0f8693260000\t\tJBE 0x5a9745\t\t\t\t\t\t\t\t\t\t\t\t\t\t",
+      "  core.go:3687\t\t\t0x5a70b2\t\t55\t\t\tPUSHQ BP\t\t\t\t\t\t\t\t\t\t\t\t\t\t",
+      "  core.go:3687\t\t\t0x5a70b3\t\t4889e5\t\t\tMOVQ SP, BP\t\t\t\t\t\t\t\t\t\t\t\t\t\t",
+      "  core.go:3687\t\t\t0x5a70b6\t\t4881ec08040000\t\tSUBQ $0x408, SP\t\t\t\t\t\t\t\t\t\t\t\t\t\t"
+    ]
+  },
+  "head": {
+    "stack_frame_bytes": 272,
+    "first_lines": [
+      "TEXT github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).condenseWithOutcomeAtomic(SB) /workspace/internal/parsercorephase0/core.go",
+      "  core.go:3687\t\t\t0x5a91c0\t\t4c8da42468ffffff\tLEAQ 0xffffff68(SP), R12\t\t\t\t\t\t\t\t\t\t",
+      "  core.go:3687\t\t\t0x5a91c8\t\t4d3b6610\t\tCMPQ R12, 0x10(R14)\t\t\t\t\t\t\t\t\t\t\t",
+      "  core.go:3687\t\t\t0x5a91cc\t\t0f86d3060000\t\tJBE 0x5a98a5\t\t\t\t\t\t\t\t\t\t\t\t",
+      "  core.go:3687\t\t\t0x5a91d2\t\t55\t\t\tPUSHQ BP\t\t\t\t\t\t\t\t\t\t\t\t",
+      "  core.go:3687\t\t\t0x5a91d3\t\t4889e5\t\t\tMOVQ SP, BP\t\t\t\t\t\t\t\t\t\t\t\t",
+      "  core.go:3687\t\t\t0x5a91d6\t\t4881ec10010000\t\tSUBQ $0x110, SP\t\t\t\t\t\t\t\t\t\t\t\t"
+    ]
+  }
+}

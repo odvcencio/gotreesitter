@@ -1,0 +1,19 @@
+{
+  "baseline_commit": "87997c2fa33d0789e057827f031eabcdaec88ca5",
+  "runtime_commit": "027a10d5a75eb59b45a7a0c3477e9254a7c8553e",
+  "candidate_files": {
+    "internal/parsercorephase0/core.go": "4618b77fbf9a7ac45d14b18753aeae32a901cb3e5fae10515591438920461806",
+    "internal/parsercorephase0/reduction_boundary_aggregate.go": "ee62113a301c16ca1aeadae11be15888c5f7dfa96e251c411e34e2234bbddf80",
+    "internal/parsercorephase0/scanner_election_binding.go": "1eb22cc9ad83f68b2f0faccc10c2cf8a869a14135f8ab0fa65cfa8a205f55133",
+    "internal/parsercorephase0/scanner_election_binding_test.go": "1de90ec0b6357a371834c911dfa8d205da605082cc1d0b2df072354ec82b027b",
+    "internal/parsercorephase0/scheduler_owned.go": "a83986ab5c85d8e49daa1bd4d4a2758f62c52ba8667889563afbe2cd9d0ef1c4",
+    "parsercore_phase0_driver.go": "bf545ac28ff482aa2f91b3e86ae4c12cb18566be1bf2140eee54e50f30ce0c1f",
+    "parsercore_phase0_per_version_lexer_lifecycle_internal_test.go": "576ad0c1abf14791b5d5679be79fa32f30d8431775f3c7814decb4b893b5d610"
+  },
+  "frozen_Go_files": 3503,
+  "runner_sha256": "5f174191209aab606a74568cf8d125741c76dd00c2f6441003435d68015ab242",
+  "Go": "1.25.14",
+  "image": "sha256:187907888b4bdc6f326c87b045718339e5f665baceb27db6b74633ca41e996df",
+  "raw_git_headers": "informational; effective baseline and candidate are authenticated by full-source overlays and pins",
+  "local_evidence_directory": "/home/draco/.local/state/gotreesitter-evidence/20261017-scheduler-binding-aggregation"
+}

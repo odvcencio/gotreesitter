@@ -1,0 +1,51 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                 │ before-yaml.txt │ after-yaml.txt │
+                                 │                                       sec/op                                        │                            sec/op                             vs base               │
+AdmissionR4OwnedExternalLexer                                                                              349.4µ ± 1%                                                    346.2µ ± 1%       ~ (p=0.063 n=20)
+AdmissionYAMLDocumentStreamOwned                                                                           1.351m ± 0%                                                    1.344m ± 0%  -0.51% (p=0.003 n=20)
+AdmissionR4Compact                                                                                         189.5µ ± 0%                                                    188.5µ ± 1%       ~ (p=0.157 n=20)
+geomean                                                                                                    447.2µ                                                         444.3µ       -0.66%
+
+                                 │ before-yaml.txt │ after-yaml.txt │
+                                 │                                         B/s                                         │                             B/s                               vs base               │
+AdmissionR4OwnedExternalLexer                                                                             5.455Mi ± 1%                                                   5.503Mi ± 1%       ~ (p=0.066 n=20)
+AdmissionYAMLDocumentStreamOwned                                                                          5.655Mi ± 0%                                                   5.684Mi ± 0%  +0.51% (p=0.005 n=20)
+AdmissionR4Compact                                                                                        10.05Mi ± 0%                                                   10.11Mi ± 1%       ~ (p=0.147 n=20)
+geomean                                                                                                   6.769Mi                                                        6.813Mi       +0.65%
+
+                                 │ before-yaml.txt │ after-yaml.txt │
+                                 │                                compact-fallbacks/op                                 │                    compact-fallbacks/op                     vs base                 │
+AdmissionR4OwnedExternalLexer                                                                             0.000 ± 0%                                                     0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionYAMLDocumentStreamOwned                                                                          0.000 ± 0%                                                     0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                        1.000 ± 0%                                                     1.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                              ²                                                               +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                 │ before-yaml.txt │ after-yaml.txt │
+                                 │                                  compact-routes/op                                  │                     compact-routes/op                       vs base                 │
+AdmissionR4OwnedExternalLexer                                                                             1.000 ± 0%                                                     1.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionYAMLDocumentStreamOwned                                                                          1.000 ± 0%                                                     1.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                        0.000 ± 0%                                                     0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                              ²                                                               +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                 │ before-yaml.txt │ after-yaml.txt │
+                                 │                                        B/op                                         │                            B/op                             vs base                 │
+AdmissionR4OwnedExternalLexer                                                                             12.57Ki ± 0%                                                 12.57Ki ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionYAMLDocumentStreamOwned                                                                          43.27Ki ± 0%                                                 43.27Ki ± 0%       ~ (p=0.308 n=20)
+AdmissionR4Compact                                                                                        16.37Ki ± 0%                                                 15.24Ki ± 0%  -6.87% (p=0.000 n=20)
+geomean                                                                                                   20.73Ki                                                      20.24Ki       -2.35%
+¹ all samples are equal
+
+                                 │ before-yaml.txt │ after-yaml.txt │
+                                 │                                      allocs/op                                      │                         allocs/op                           vs base                 │
+AdmissionR4OwnedExternalLexer                                                                               109.0 ± 0%                                                   109.0 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionYAMLDocumentStreamOwned                                                                            336.0 ± 0%                                                   336.0 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                                                                                          37.00 ± 0%                                                   37.00 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                     110.7                                                        110.7       +0.00%
+¹ all samples are equal

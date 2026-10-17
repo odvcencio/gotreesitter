@@ -1,0 +1,78 @@
+//go:build gts_parsercorephase0
+
+package gotreesitter_test
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"fmt"
+	gts "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+	"os"
+	"testing"
+)
+
+// Deep C equality is established separately. This process measures the parser
+// without keeping a C tree or creating compatibility views for every node.
+func TestCompactLineageRSS(t *testing.T) {
+	for _, name := range []string{"go", "yaml_ordinary", "yaml_owned"} {
+		t.Run(name, func(t *testing.T) {
+			var source []byte
+			var lang *gts.Language
+			if name == "go" {
+				var err error
+				source, _, err = benchfixtures.GeneratedSource("go", 1024*1024)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(source) != 1048591 || fmt.Sprintf("%x", sha256.Sum256(source)) != "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524" {
+					t.Fatal("Go witness identity changed")
+				}
+				lang = grammars.GoLanguage()
+			} else {
+				sample, err := os.ReadFile("internal/benchfixtures/testdata/real/yaml")
+				if err != nil {
+					t.Fatal(err)
+				}
+				document := append([]byte("---\n"), sample...)
+				document = append(document, '\n')
+				source = bytes.Repeat(document, 524)
+				if len(source) != 1049572 || fmt.Sprintf("%x", sha256.Sum256(source)) != "8d615e96c0efe207dd1bfc4f54f601580d61dd0afc8f051ac3aaa92a2b27e397" {
+					t.Fatal("YAML witness identity changed")
+				}
+				lang = grammars.YamlLanguage()
+			}
+			t.Cleanup(core.SetExternalLexerOwnershipProbeForTest(name == "yaml_owned"))
+			p := gts.NewParser(lang)
+			p.SetAdmissionCandidateRoute(true)
+			br, bf := gts.AdmissionCandidateCounters()
+			tree, err := p.Parse(source)
+			if err != nil || tree == nil {
+				t.Fatalf("parse tree=%v err=%v", tree != nil, err)
+			}
+			defer tree.Release()
+			r, f := gts.AdmissionCandidateCounters()
+			r -= br
+			f -= bf
+			wantCompact := uint64(1)
+			if name == "yaml_ordinary" {
+				wantCompact = 0
+			}
+			if r != wantCompact || f != 1-wantCompact {
+				t.Fatalf("route compact=%d fallback=%d", r, f)
+			}
+			if tree.ParseStopReason() != gts.ParseStopAccepted || tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) {
+				t.Fatalf("completion: %s", tree.ParseRuntime().Summary())
+			}
+			if name == "go" {
+				rt := tree.ParseRuntime()
+				if rt.TokensConsumed != 425742 || rt.NodesAllocated != 903086 {
+					t.Fatalf("Go work changed: %s", rt.Summary())
+				}
+			}
+			t.Logf("bytes=%d sha256=%x compact=%d fallback=%d runtime=%s", len(source), sha256.Sum256(source), r, f, tree.ParseRuntime().Summary())
+		})
+	}
+}

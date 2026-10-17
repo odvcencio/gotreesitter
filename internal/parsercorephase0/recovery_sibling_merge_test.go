@@ -49,7 +49,7 @@ func TestRecoverySiblingMergePreservesIncumbentAndPublishes(t *testing.T) {
 func TestRecoverySiblingMergeRollbackRestoresPublicationAndLineage(t *testing.T) {
 	for _, changed := range []bool{false, true} {
 		compact, sibling, incoming, _ := recoverySiblingMergeFixture(t, changed)
-		beforeLineages := append([]nodeLineageRecord(nil), compact.nodeLineages...)
+		beforeLineages := compact.testLineagesSnapshot()
 		beforeNodes, beforeLinks, beforeWork := len(compact.nodes), len(compact.links), compact.Work()
 		abort := errors.New("abort sibling merge")
 		err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
@@ -59,7 +59,7 @@ func TestRecoverySiblingMergeRollbackRestoresPublicationAndLineage(t *testing.T)
 			return abort
 		})
 		canonical, ok := compact.CanonicalBoundary(3, 1, false, 0)
-		if !errors.Is(err, abort) || !ok || canonical != incoming || len(compact.nodes) != beforeNodes || len(compact.links) != beforeLinks || compact.Work() != beforeWork || !reflect.DeepEqual(compact.nodeLineages, beforeLineages) {
+		if !errors.Is(err, abort) || !ok || canonical != incoming || len(compact.nodes) != beforeNodes || len(compact.links) != beforeLinks || compact.Work() != beforeWork || !reflect.DeepEqual(compact.testLineagesSnapshot(), beforeLineages) {
 			t.Fatalf("rollback changed=%t err=%v canonical=%+v/%t", changed, err, canonical, ok)
 		}
 	}
@@ -81,13 +81,13 @@ func TestRecoverySiblingMergeRejectsUnownedBoundaryAndUnequalCosts(t *testing.T)
 					t.Fatal(err)
 				}
 			case "cost":
-				compact.nodeLineages[incoming.Node-1].storedErrorCost++
+				compact.mutateTestLineage(int(incoming.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost++ })
 			case "checkpoint":
 				checkpoint = 1
 			case "callback":
 				callback = nil
 			}
-			beforeLineages := append([]nodeLineageRecord(nil), compact.nodeLineages...)
+			beforeLineages := compact.testLineagesSnapshot()
 			beforeNodes, beforeLinks, beforeWork := len(compact.nodes), len(compact.links), compact.Work()
 			beforeCanonical, beforeOK := compact.CanonicalBoundary(3, 1, false, 0)
 			err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
@@ -95,7 +95,7 @@ func TestRecoverySiblingMergeRejectsUnownedBoundaryAndUnequalCosts(t *testing.T)
 				return err
 			})
 			canonical, ok := compact.CanonicalBoundary(3, 1, false, 0)
-			if err == nil || ok != beforeOK || canonical != beforeCanonical || len(compact.nodes) != beforeNodes || len(compact.links) != beforeLinks || compact.Work() != beforeWork || !reflect.DeepEqual(compact.nodeLineages, beforeLineages) {
+			if err == nil || ok != beforeOK || canonical != beforeCanonical || len(compact.nodes) != beforeNodes || len(compact.links) != beforeLinks || compact.Work() != beforeWork || !reflect.DeepEqual(compact.testLineagesSnapshot(), beforeLineages) {
 				t.Fatalf("rejection changed state: err=%v canonical=%+v/%t", err, canonical, ok)
 			}
 		})
@@ -142,7 +142,7 @@ func recoverySiblingMergeFixture(t *testing.T, distinctSymbol bool) (*Core, Head
 			t.Fatal(err)
 		}
 		heads[i] = Head{Node: node}
-		compact.nodeLineages[node-1].storedErrorCost = 10
+		compact.mutateTestLineage(int(node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 10 })
 		if err := compact.recordNodeLineage(heads[i], CleanPathRankSelected, uint16(i+1)); err != nil {
 			t.Fatal(err)
 		}

@@ -393,8 +393,8 @@ func TestStage2PhysicalHeadMergeRollsBackCapacityFailure(t *testing.T) {
 
 func TestStage2PhysicalHeadMergeRejectsRecoveryCost(t *testing.T) {
 	compact, left, right, _, _ := newStage2PhysicalHeadPair(t)
-	compact.nodeLineages[left.Node-1].storedErrorCost = 610
-	compact.nodeLineages[right.Node-1].storedErrorCost = 610
+	compact.mutateTestLineage(int(left.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 610 })
+	compact.mutateTestLineage(int(right.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 610 })
 	beforeNodes, beforeLinks := len(compact.nodes), len(compact.links)
 	beforeBoundaries := compact.BoundaryIndexStats()
 	beforeWork := compact.Work()
@@ -422,7 +422,7 @@ func TestRecursiveMergeUsesTargetCostForMixedLinkSplits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	compact.nodeLineages[rightBase-1].storedErrorCost = 5
+	compact.mutateTestLineage(int(rightBase-1), func(r *nodeLineageRecord) { r.storedErrorCost = 5 })
 	payload, err := compact.appendSubtree(subtreeRecord{symbol: 9, endByte: 1, terminal: true}, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -444,8 +444,8 @@ func TestRecursiveMergeUsesTargetCostForMixedLinkSplits(t *testing.T) {
 	// The two top heads have the same cumulative cost. Their lower
 	// predecessors have different cost splits, so recursive insertion must
 	// retain both links and publish the authenticated target cost.
-	compact.nodeLineages[leftNode-1].storedErrorCost = 10
-	compact.nodeLineages[rightNode-1].storedErrorCost = 10
+	compact.mutateTestLineage(int(leftNode-1), func(r *nodeLineageRecord) { r.storedErrorCost = 10 })
+	compact.mutateTestLineage(int(rightNode-1), func(r *nodeLineageRecord) { r.storedErrorCost = 10 })
 	folded := precedenceMaximumWitness{}
 	merged, changed, err := compact.mergePredecessorsBounded(leftNode, rightNode, 0, &folded)
 	if err != nil {

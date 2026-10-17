@@ -1,0 +1,5 @@
+# github.com/odvcencio/gotreesitter/internal/parsercorephase0 [github.com/odvcencio/gotreesitter/internal/parsercorephase0.test]
+/frozen/internal/parsercorephase0/sole_derivation_summary.go:83:18: link.validateShape undefined (type packedLinkRecord has no field or method validateShape)
+/frozen/internal/parsercorephase0/sole_derivation_summary.go:86:67: cannot use link (variable of struct type packedLinkRecord) as linkRecord value in struct literal
+FAIL	github.com/odvcencio/gotreesitter/internal/parsercorephase0 [build failed]
+FAIL
