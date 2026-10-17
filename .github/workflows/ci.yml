@@ -1967,6 +1967,21 @@ jobs:
             --timeout 20m \
             --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestIssue1106BashEmptyAssignmentsCParity|TestCompactPackedGSSVersionOrderIssue984MatchesC)$'
 
+      - name: YAML scanner cursor and document stream parity against locked C
+        run: |
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
+            --label ci-yaml-scanner-cursors \
+            --memory 6g \
+            --cpus 1 \
+            --pids 4096 \
+            --gomemlimit 5GiB \
+            --goflags -p=1 \
+            --test-parallel 1 \
+            --c-ref-build-jobs 1 \
+            --timeout 8m \
+            -- "cd /workspace/cgo_harness && go test . -tags gts_parsercorephase0,treesitter_c_parity -run '^TestCompactYAMLDocumentStreamLockedC$' -count=1 -parallel=1 -timeout=8m -v"
+
       - name: Elm admission contract against locked C
         run: |
           bash cgo_harness/docker/run_parity_in_docker.sh \

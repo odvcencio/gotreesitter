@@ -1,6 +1,6 @@
 # Compact route real-corpus matrix
 
-Current evidence date: 2026-10-16 (UTC).
+Current evidence date: 2026-10-17 (UTC).
 Release update, 2026-10-17 UTC: v0.56.0 was published on October 14. The
 release condition behind the merge hold is fulfilled; current reviews and CI
 still govern landing. Historical hold statements below retain their original
@@ -48,6 +48,80 @@ mismatches that the earlier comparator missed. The [initial per-language receipt
 contains sample hashes, routes, decline reasons, and first differences. No
 language was skipped in this strengthened check. This is one fresh real file
 per language, not a grammar-wide parity certificate.
+
+### YAML scanner lookahead: qualified shipped-route throughput win
+
+Against main `eb1312afdd82d98490e157e51391febd275f0432`, the YAML scanner
+caches its current rune inside one scan. All four advance helpers and scan
+initialization invalidate it. Failed scans, checkpoint restores and later
+requests receive a fresh environment. Scanner state and read frontiers retain
+their original meaning. The existing 184-byte frontier witness records
+**933→409 observations**, with the same exact frontier maxima.
+
+Twenty alternating shuffled pairs use the repository runner, one process per
+seed, `GOMAXPROCS=1`, `-count=1`, `750ms`, `-benchmem`, CPU 6, serialized
+6 GiB Docker and the pinned 1,998-byte R4 sample / 8,012-byte stream:
+
+| Route | Before → after | p | Bucket |
+| --- | --- | --- | --- |
+| Legacy | 151.497→143.325 µs | .004 | **−5.39% time** |
+| Ordinary compact attempt plus fallback | 198.183→191.215 µs | .007 | **−3.52% time** |
+| Diagnostic owned compact | 356.901→352.296 µs | .265 | Inconclusive |
+| Diagnostic owned stream | 1.384588→1.365058 ms | .127 | Inconclusive |
+
+All byte and allocation medians remain exact: **1,440/16**, **16,760/37**,
+**12,872/109**, and **44,313/336**, respectively. Ordinary and owned YAML
+counter exports match their baselines; all **412 ordinary fleet rows** are also
+identical on the actual candidate source. Owned full/edit nodes stay **484/484**;
+default full/edit nodes stay **288/480**. No ledger exception is needed.
+The [raw before](benchmarks/20261017-yaml-lookahead/before.txt),
+[raw after](benchmarks/20261017-yaml-lookahead/after.txt),
+[benchstat](benchmarks/20261017-yaml-lookahead/benchstat.txt),
+[counter receipts](benchmarks/20261017-yaml-lookahead/counters.json) and
+[measurement audit](benchmarks/20261017-yaml-lookahead/measurement.json)
+preserve all twenty samples, source pins and route counters. Raw completion
+footers confirm all seeds completed; no samples are removed.
+
+Before timing, 16 cursor fixtures pass **144 exact C comparisons per revision**
+across legacy/candidate/owned fresh, edited-fresh and incremental parsing.
+All 22 YAML corpus samples pass structural and highlight checks on all three
+routes. Ordinary/owned 72-step invariants, zero-allocation no-edit reparses,
+frontier differentials, checkpoint tests, races and 386 checks pass. Four
+separate **1,049,572-byte** C-exact safety probes cover original/cached scanners
+and ordinary/owned routes. Cached RSS is **121,992/143,644 KiB**, below the
+400-bytes-per-source-byte gate. These are single safety probes, not a
+statistical RSS improvement claim. Set `GTS_YAML_LARGE_PROBE=1` and select
+`TestCompactYAMLDocumentStreamLockedC/large_ordinary_documents` or
+`/large_owned_documents` to reproduce them in separate processes.
+
+Inside the same isolated, locked and CPU-pinned environment, reproduce timing
+with baseline and candidate mounted at `/baseline` and `/workspace`:
+
+```sh
+GTS_ADMISSION_REAL_CORPUS_LANGS=yaml GOMAXPROCS=1 \
+bash scripts/run_randomized_benchmarks.sh \
+  --baseline-root /baseline --baseline-output /tmp/yaml-before.txt \
+  --output /tmp/yaml-after.txt --runs 20 --benchtime 750ms \
+  --bench-regex '^Benchmark(AdmissionR4Legacy|AdmissionR4Compact|AdmissionR4OwnedExternalLexer|AdmissionYAMLDocumentStreamOwned)$' \
+  --require-benchmarks BenchmarkAdmissionR4Legacy,BenchmarkAdmissionR4Compact,BenchmarkAdmissionR4OwnedExternalLexer,BenchmarkAdmissionYAMLDocumentStreamOwned
+```
+
+Ordinary YAML still declines at its ownership proof. No Go throughput,
+ordinary compact acceptance, allowlist change or graduation is claimed.
+The separate used-adjacency-frame screen preserves all 414 ledger rows and
+passes scoped correctness/race/386 checks, but twenty pairs establish no
+supported Go or YAML speed gain (all time p≥.081); its runtime is discarded.
+Local evidence is `gotreesitter-evidence/20261017-yaml-scanner-lookahead` and
+`gotreesitter-evidence/20261017-compact-reduction-workspace`.
+
+The separate Go parent-only receipt screen removes leaf-receipt scanning from
+normal reductions. All 414 ledger rows and four raw leaf/keyword receipt digests
+remain exact; scoped C/invariant/race/386 checks pass. Its twenty-pair comparison
+uses the YAML cache as its predecessor. All four compact Go timings and all three
+YAML timings are inconclusive (p≥.076), so the two-line runtime change and its
+prototype test stay outside the checkout. No full-fleet invariant, strict-census
+or graduation qualification is transferred to that rejected source. Evidence:
+`gotreesitter-evidence/20261017-reduction-leaf-receipts`.
 
 ### Empty external modes: qualified Go win, YAML timing unchanged
 

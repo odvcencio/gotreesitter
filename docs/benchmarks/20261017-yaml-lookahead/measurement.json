@@ -1,0 +1,210 @@
+{
+  "baseline": "eb1312afdd82d98490e157e51391febd275f0432",
+  "pairs": 20,
+  "metrics": {
+    "BenchmarkAdmissionR4Legacy": {
+      "ns/op": {
+        "base": 151496.5,
+        "head": 143324.5,
+        "percent": -5.394184024053361
+      },
+      "B/op": {
+        "base": 1440.0,
+        "head": 1440.0,
+        "percent": 0.0
+      },
+      "allocs/op": {
+        "base": 16.0,
+        "head": 16.0,
+        "percent": 0.0
+      },
+      "compact-routes/op": {
+        "base": 0.0,
+        "head": 0.0,
+        "percent": 0
+      },
+      "compact-fallbacks/op": {
+        "base": 0.0,
+        "head": 0.0,
+        "percent": 0
+      }
+    },
+    "BenchmarkAdmissionR4OwnedExternalLexer": {
+      "ns/op": {
+        "base": 356901.0,
+        "head": 352296.0,
+        "percent": -1.290273773399342
+      },
+      "B/op": {
+        "base": 12872.0,
+        "head": 12872.0,
+        "percent": 0.0
+      },
+      "allocs/op": {
+        "base": 109.0,
+        "head": 109.0,
+        "percent": 0.0
+      },
+      "compact-routes/op": {
+        "base": 1.0,
+        "head": 1.0,
+        "percent": 0.0
+      },
+      "compact-fallbacks/op": {
+        "base": 0.0,
+        "head": 0.0,
+        "percent": 0
+      }
+    },
+    "BenchmarkAdmissionYAMLDocumentStreamOwned": {
+      "ns/op": {
+        "base": 1384587.5,
+        "head": 1365058.0,
+        "percent": -1.4104922946364895
+      },
+      "B/op": {
+        "base": 44313.0,
+        "head": 44313.0,
+        "percent": 0.0
+      },
+      "allocs/op": {
+        "base": 336.0,
+        "head": 336.0,
+        "percent": 0.0
+      },
+      "compact-routes/op": {
+        "base": 1.0,
+        "head": 1.0,
+        "percent": 0.0
+      },
+      "compact-fallbacks/op": {
+        "base": 0.0,
+        "head": 0.0,
+        "percent": 0
+      }
+    },
+    "BenchmarkAdmissionR4Compact": {
+      "ns/op": {
+        "base": 198182.5,
+        "head": 191214.5,
+        "percent": -3.5159512065898846
+      },
+      "B/op": {
+        "base": 16760.0,
+        "head": 16760.0,
+        "percent": 0.0
+      },
+      "allocs/op": {
+        "base": 37.0,
+        "head": 37.0,
+        "percent": 0.0
+      },
+      "compact-routes/op": {
+        "base": 0.0,
+        "head": 0.0,
+        "percent": 0
+      },
+      "compact-fallbacks/op": {
+        "base": 1.0,
+        "head": 1.0,
+        "percent": 0.0
+      }
+    }
+  },
+  "source_sha256": "f59eed1dd78379e843da64dc9f0bb829972f12447fd7502985194f07068e4b67",
+  "p": {
+    "legacy": 0.004,
+    "ordinary_compact_attempt_fallback": 0.007,
+    "owned_r4": 0.265,
+    "owned_stream": 0.127
+  },
+  "baseline_tree": "b1adf55428756a5cdf6a0acb9389a96a96f1d998",
+  "correctness": {
+    "yaml_ordinary_and_owned_ledger_rows_exact": 4,
+    "cursor_sources": 16,
+    "routes": 3,
+    "cursor_C_comparisons_per_revision": 144,
+    "corpus_samples": 22,
+    "corpus_suites": [
+      "structure",
+      "highlights"
+    ],
+    "corpus_routes": [
+      "legacy",
+      "candidate",
+      "owned"
+    ],
+    "failures": 0,
+    "skips": 0,
+    "ordinary_edit_steps": 72,
+    "owned_edit_steps": 72,
+    "no_edit_allocations": 0,
+    "YAML_race_and_386_checks_passed": true,
+    "ordinary_fleet_rows_exact": 412,
+    "actual_source_L0_R6_and_65_CI_selectors_passed": true
+  },
+  "frontier_witness": {
+    "source_bytes": 184,
+    "before_observations": 933,
+    "after_observations": 409,
+    "maxima_differential_passed": true
+  },
+  "large_source": {
+    "bytes": 1049572,
+    "sha256": "8d615e96c0efe207dd1bfc4f54f601580d61dd0afc8f051ac3aaa92a2b27e397",
+    "documents": 524
+  },
+  "RSS_KiB": {
+    "original": {
+      "ordinary": 122824,
+      "owned": 153496
+    },
+    "cached": {
+      "ordinary": 121992,
+      "owned": 143644
+    }
+  },
+  "RSS_claim": "single C+Go process safety probes; no statistical memory improvement claim",
+  "routing_and_graduation": "unchanged; ordinary YAML still falls back",
+  "Go_throughput_claim": false,
+  "protocol": {
+    "runner": "scripts/run_randomized_benchmarks.sh",
+    "order": "paired-alternating-seeds",
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "benchtime": "750ms",
+    "count_per_process": 1,
+    "GOMAXPROCS": 1,
+    "tags": "gts_parsercorephase0",
+    "CPU": 6,
+    "memory_limit": "6g",
+    "Go": "go1.25.14",
+    "docker_image": "sha256:187907888b4bdc6f326c87b045718339e5f665baceb27db6b74633ca41e996df"
+  },
+  "source_guard_scope": "tracked-source snapshot with actual grammar blobs; ignored historical worktrees excluded; allowlists unchanged",
+  "ordinary_full_ledger_sha256": {
+    "before": "f56a46f0c76959e34f1a77e76b346b52f6f22406d953286cc12f24225635f243",
+    "after": "f56a46f0c76959e34f1a77e76b346b52f6f22406d953286cc12f24225635f243"
+  },
+  "runtime_commit": "d74c777c74d5219e7e1d54a547cb154c45b735c6"
+}

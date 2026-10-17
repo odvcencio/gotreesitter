@@ -1,0 +1,57 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                 │ yaml-base.txt │           yaml-head.txt            │
+                                 │    sec/op     │   sec/op     vs base               │
+AdmissionR4Legacy                    151.5µ ± 6%   143.3µ ± 9%  -5.39% (p=0.004 n=20)
+AdmissionR4OwnedExternalLexer        356.9µ ± 7%   352.3µ ± 6%       ~ (p=0.265 n=20)
+AdmissionYAMLDocumentStreamOwned     1.385m ± 3%   1.365m ± 7%       ~ (p=0.127 n=20)
+AdmissionR4Compact                   198.2µ ± 4%   191.2µ ± 8%  -3.52% (p=0.007 n=20)
+geomean                              349.0µ        338.8µ       -2.92%
+
+                                 │ yaml-base.txt │            yaml-head.txt            │
+                                 │      B/s      │     B/s       vs base               │
+AdmissionR4Legacy                   12.57Mi ± 5%   13.29Mi ± 8%  +5.73% (p=0.004 n=20)
+AdmissionR4OwnedExternalLexer       5.341Mi ± 7%   5.407Mi ± 5%       ~ (p=0.291 n=20)
+AdmissionYAMLDocumentStreamOwned    5.517Mi ± 3%   5.598Mi ± 7%       ~ (p=0.129 n=20)
+AdmissionR4Compact                  9.618Mi ± 4%   9.966Mi ± 8%  +3.62% (p=0.007 n=20)
+geomean                             7.726Mi        7.958Mi       +3.00%
+
+                                 │    yaml-base.txt     │                 yaml-head.txt                 │
+                                 │ compact-fallbacks/op │ compact-fallbacks/op  vs base                 │
+AdmissionR4Legacy                          0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4OwnedExternalLexer              0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionYAMLDocumentStreamOwned           0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                         1.000 ± 0%               1.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                               ²                         +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                 │   yaml-base.txt   │               yaml-head.txt                │
+                                 │ compact-routes/op │ compact-routes/op  vs base                 │
+AdmissionR4Legacy                       0.000 ± 0%            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4OwnedExternalLexer           1.000 ± 0%            1.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionYAMLDocumentStreamOwned        1.000 ± 0%            1.000 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                      0.000 ± 0%            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                            ²                      +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                 │ yaml-base.txt │             yaml-head.txt             │
+                                 │     B/op      │     B/op      vs base                 │
+AdmissionR4Legacy                   1.406Ki ± 0%   1.406Ki ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4OwnedExternalLexer       12.57Ki ± 0%   12.57Ki ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionYAMLDocumentStreamOwned    43.27Ki ± 0%   43.27Ki ± 0%       ~ (p=1.000 n=20)
+AdmissionR4Compact                  16.37Ki ± 0%   16.37Ki ± 0%       ~ (p=1.000 n=20) ¹
+geomean                             10.58Ki        10.58Ki       +0.00%
+¹ all samples are equal
+
+                                 │ yaml-base.txt │            yaml-head.txt            │
+                                 │   allocs/op   │ allocs/op   vs base                 │
+AdmissionR4Legacy                     16.00 ± 0%   16.00 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4OwnedExternalLexer         109.0 ± 0%   109.0 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionYAMLDocumentStreamOwned      336.0 ± 0%   336.0 ± 0%       ~ (p=1.000 n=20) ¹
+AdmissionR4Compact                    37.00 ± 0%   37.00 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                               68.24        68.24       +0.00%
+¹ all samples are equal

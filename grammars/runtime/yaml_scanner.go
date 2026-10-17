@@ -451,13 +451,15 @@ type yamlEnv struct {
 	st           *yamlState
 	symMap       []gotreesitter.Symbol
 
-	endRow int16
-	endCol int16
-	curRow int16
-	curCol int16
-	curChr int32
-	schStt int8
-	rltSch int8
+	endRow         int16
+	endCol         int16
+	curRow         int16
+	curCol         int16
+	curChr         int32
+	lookahead      int32
+	lookaheadValid bool
+	schStt         int8
+	rltSch         int8
 }
 
 // yamlPayload is stored as the scanner payload.
@@ -616,28 +618,32 @@ func (s YamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 
 func (e *yamlEnv) adv() {
 	e.curCol++
-	e.curChr = int32(e.lexer.Lookahead())
+	e.curChr = e.lka()
 	e.lexer.Advance(false)
+	e.lookaheadValid = false
 }
 
 func (e *yamlEnv) advNwl() {
 	e.curRow++
 	e.curCol = 0
-	e.curChr = int32(e.lexer.Lookahead())
+	e.curChr = e.lka()
 	e.lexer.Advance(false)
+	e.lookaheadValid = false
 }
 
 func (e *yamlEnv) skp() {
 	e.curCol++
-	e.curChr = int32(e.lexer.Lookahead())
+	e.curChr = e.lka()
 	e.lexer.Advance(true)
+	e.lookaheadValid = false
 }
 
 func (e *yamlEnv) skpNwl() {
 	e.curRow++
 	e.curCol = 0
-	e.curChr = int32(e.lexer.Lookahead())
+	e.curChr = e.lka()
 	e.lexer.Advance(true)
+	e.lookaheadValid = false
 }
 
 func (e *yamlEnv) mrkEnd() {
@@ -650,6 +656,7 @@ func (e *yamlEnv) init() {
 	e.curRow = e.st.row
 	e.curCol = e.st.col
 	e.curChr = 0
+	e.lookaheadValid = false
 	e.schStt = 0
 	e.rltSch = rsStr
 }
@@ -694,7 +701,16 @@ func (e *yamlEnv) prtInd() int16 {
 	return e.st.indLenStk[len(e.st.indLenStk)-2]
 }
 
-func (e *yamlEnv) lka() int32 { return int32(e.lexer.Lookahead()) }
+// Lookahead is stable until one of the four cursor-advance helpers runs.
+// Keep this cache on the scan-local environment: a retry or checkpoint restore
+// constructs another environment and cannot inherit a rune from the old scan.
+func (e *yamlEnv) lka() int32 {
+	if !e.lookaheadValid {
+		e.lookahead = int32(e.lexer.Lookahead())
+		e.lookaheadValid = true
+	}
+	return e.lookahead
+}
 
 // Character classification helpers.
 func yIsWsp(c int32) bool { return c == ' ' || c == '\t' }
