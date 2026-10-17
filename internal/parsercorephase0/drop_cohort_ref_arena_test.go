@@ -117,10 +117,12 @@ func TestDropCohortRefArenaIdentityOverflowIsAtomic(t *testing.T) {
 }
 
 func TestDropCohortRefArenaChargesIdentityStorage(t *testing.T) {
-	if got := unsafe.Sizeof(dropCohortRefRecord{}); got != 40 {
-		t.Fatalf("stored reference size=%d, want 40", got)
+	// The stored identity follows the ABI-padded reference.
+	want := unsafe.Sizeof(DropCohortRef{}) + unsafe.Sizeof(uint64(0))
+	if got := unsafe.Sizeof(dropCohortRefRecord{}); got != want {
+		t.Fatalf("stored reference size=%d, want %d", got, want)
 	}
-	c := newTinyCoreWithLimits(t, Limits{MaxDropCohortRefs: 2, MaxDropCohortRefBytes: 39})
+	c := newTinyCoreWithLimits(t, Limits{MaxDropCohortRefs: 2, MaxDropCohortRefBytes: uint64(want - 1)})
 	var set DropCohortRefSet
 	before := c.FootprintBytes()
 	if c.AddDropCohortRef(&set, g18Ref(1, 1, 1, 0)) || set != (DropCohortRefSet{}) || c.FootprintBytes() != before {

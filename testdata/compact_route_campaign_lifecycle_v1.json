@@ -289,7 +289,7 @@
       "expression": "gts_parsercorephase0_selectedstore_onepass",
       "scope": "test",
       "read_sites": [
-        {"path": "internal/parsercorephase0/selected_store_builder_onepass.go", "symbol": "BuildSelectedStore", "line": 16}
+        {"path": "internal/parsercorephase0/selected_store_builder_onepass.go", "symbol": "BuildSelectedStore", "line": 5}
       ]
     },
     {

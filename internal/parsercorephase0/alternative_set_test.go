@@ -8,7 +8,7 @@ import (
 
 func alternativeSetMembersForTest(t *testing.T, compact *Core, set AlternativeSet) []uint32 {
 	t.Helper()
-	members, ok := compact.alternativeSetMembers(set)
+	members, ok := compact.AlternativeSetMembers(set)
 	if !ok {
 		t.Fatalf("alternativeSetMembers: unresolvable spill reference for %+v", set)
 	}
@@ -134,16 +134,16 @@ func TestAlternativeSetAscendingGrowthExtendsSpillSegmentInPlace(t *testing.T) {
 	if !set.spilled() {
 		t.Fatal("five ascending inserts did not spill")
 	}
-	spillRefAfterFifth := set.spillRef
+	spillRefAfterFifth := set.inline[0]
 	arenaLenAfterFifth := len(compact.alternativeSpillArena)
 	for member := uint32(6); member <= 32; member++ {
 		before := len(compact.alternativeSpillArena)
 		if !compact.alternativeSetInsert(&set, member) {
 			t.Fatalf("insert(%d) reported no change", member)
 		}
-		if set.spillRef != spillRefAfterFifth {
+		if set.inline[0] != spillRefAfterFifth {
 			t.Fatalf("insert(%d) moved to a fresh segment (spillRef %d != %d): the in-place extend path did not fire",
-				member, set.spillRef, spillRefAfterFifth)
+				member, set.inline[0], spillRefAfterFifth)
 		}
 		if got := len(compact.alternativeSpillArena) - before; got != 1 {
 			t.Fatalf("insert(%d) grew the arena by %d elements, want 1 (in-place extend)", member, got)
@@ -283,7 +283,7 @@ func TestAlternativeSetUnionEmptyDestinationAliasesSourceSafely(t *testing.T) {
 	if !compact.alternativeSetUnion(&dst, src) {
 		t.Fatal("union into empty destination reported no change")
 	}
-	if dst.spillRef != src.spillRef || dst.count != src.count {
+	if dst.inline[0] != src.inline[0] || dst.count != src.count {
 		t.Fatalf("empty-destination union did not alias src: dst=%+v src=%+v", dst, src)
 	}
 	// Grow dst: must not disturb src's recorded members.
@@ -437,7 +437,7 @@ func TestAlternativeSetUnionBothOverflowedIsNoop(t *testing.T) {
 // transaction crossing the hard cap and then rolling back restores both the
 // overflow flag and the recorded count exactly, matching the generic
 // nodeLineageJournal mechanism (core.go's rollback loop restores
-// set.count/set.flags/set.spillRef from the pre-mutation snapshot
+// set.count/set.flags/set.inline[0] from the pre-mutation snapshot
 // unconditionally, independent of what triggered the mutation).
 func TestAlternativeSetInsertOverflowFlagRestoredOnJournalRollback(t *testing.T) {
 	defer SetAlternativeSetRecordingEnabledForTest(true)()
@@ -564,9 +564,9 @@ func TestAlternativeSetMembersRejectsUnresolvableSpill(t *testing.T) {
 	// (empty) arena: alternativeSetMembers must fail closed, not panic or
 	// silently truncate.
 	bad.flags |= alternativeSetFlagSpilled
-	bad.spillRef = 1
+	bad.inline[0] = 1
 	bad.count = 1
-	if _, ok := compact.alternativeSetMembers(bad); ok {
+	if _, ok := compact.AlternativeSetMembers(bad); ok {
 		t.Fatal("alternativeSetMembers resolved an out-of-range spill reference")
 	}
 }
@@ -658,7 +658,7 @@ func TestAlternativeSetJournalRestoresExactMembershipAcrossSpill(t *testing.T) {
 		if !mid.set.spilled() {
 			return errors.New("mid-transaction union did not spill")
 		}
-		if got, _ := compact.alternativeSetMembers(mid.set); !slices.Equal(got, []uint32{packAlternativeSetMember(2, 0), packAlternativeSetMember(5, 0)}) {
+		if got, _ := compact.AlternativeSetMembers(mid.set); !slices.Equal(got, []uint32{packAlternativeSetMember(2, 0), packAlternativeSetMember(5, 0)}) {
 			return errors.New("mid-transaction members are not [2 5]")
 		}
 		// A second union within the same transaction, also out of order.

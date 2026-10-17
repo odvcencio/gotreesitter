@@ -137,8 +137,7 @@ type nodeArena struct {
 	legacyIncrementalReuseCertified bool
 	legacyNoPolicyPruning           bool
 	compactReuseDependencyMu        sync.RWMutex
-	compactReuseDependencies        map[*Node]compactReuseDependency
-	compactReuseDependencyEntries   uint64
+	compactReuseDependencies        incr.DenseReceipts
 	compactReuseDependencyIndex     []compactReuseDependencyIndexEntry
 	compactReuseDependencyIndexed   bool
 	nodeFieldMetadataSlabs          []nodeFieldMetadataSlab
@@ -621,8 +620,7 @@ func (a *nodeArena) reset() {
 	a.resetRawShapeHashCache()
 	a.resetFinalChildSidecars()
 	a.resetMissingNodeDependencies()
-	a.compactReuseDependencies = nil
-	a.compactReuseDependencyEntries = 0
+	a.compactReuseDependencies = incr.DenseReceipts{}
 	a.compactReuseDependencyIndex = nil
 	a.compactReuseDependencyIndexed = false
 	a.resetCompactCheckpointLeafSlabs()

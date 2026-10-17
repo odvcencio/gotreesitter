@@ -62,8 +62,8 @@ const (
 	// (spec section 3.5, CHECKPOINT row).
 	corridorOpCheckpoint
 	// corridorOpReduceChain and corridorOpReduceShift are the stage-3 fused
-	// superinstructions (spec section 3.3). Both emit only under explicit
-	// experiment gates while their correctness and timing receipts mature.
+	// superinstructions (spec section 3.3). Both remain experimental;
+	// REDUCE_SHIFT authenticates its landing state before the fused shift.
 	corridorOpReduceChain
 	corridorOpReduceShift
 
@@ -183,7 +183,7 @@ const (
 	corridorShiftExtraWords  = 2
 	corridorReduceWords      = 3
 	corridorReduceChainWords = 3
-	corridorReduceShiftWords = 3
+	corridorReduceShiftWords = 4
 	corridorAcceptWords      = 2
 	corridorForkWords        = 1
 	corridorExitWords        = 1
@@ -208,8 +208,9 @@ func corridorReduceChainEnabled() bool {
 	}
 }
 
-// corridorReduceShiftEnabled gates the first stage-3 superinstruction
-// experiment. Keep it explicit while the incremental receipt is still new.
+// corridorReduceShiftEnabled gates the reduce-then-shift experiment.
+// Keep it opt-in until end-to-end throughput and retained program size justify
+// enabling it; compiler and runtime correctness checks still apply while off.
 func corridorReduceShiftEnabled() bool {
 	switch os.Getenv("GTS_C4_REDUCE_SHIFT") {
 	case "1", "true", "TRUE", "True", "on", "ON", "yes", "YES":
@@ -308,6 +309,7 @@ type corridorBodyKind struct {
 	rowIndex      uint32
 	chainRowIndex uint32
 	shiftRowIndex uint32
+	landingState  uint32
 	reason        parserCoreCorridorExitReason
 }
 
@@ -683,16 +685,21 @@ func (t *corridorTables) reduceChainCandidate(
 }
 
 // reduceShiftCandidate proves a fixed reduce-then-shift landing row. Require
-// one static goto target and one static landing row across every graph edge.
+// a unary reduction, one static goto target and one static landing row
+// across every immediate graph edge. Other arities need a different ancestry
+// proof; the receipt's candidate census alone does not establish it.
 // The proof is stricter than the receipt's candidate census, so the VM can
 // fall back after the generic reduction without changing tree semantics.
 func (t *corridorTables) reduceShiftCandidate(
 	state StateID, sym Symbol, row core.ActionRow, rowIndex uint16,
 ) (corridorBodyKind, bool) {
-	if !t.reduceShiftEnabled || row.Len() != 1 {
+	if !t.reduceShiftEnabled || row.Len() != 1 || row.Descriptor().Kind() != core.ActionRowReduce {
 		return corridorBodyKind{}, false
 	}
 	action := row.At(0)
+	if action.ChildCount != 1 {
+		return corridorBodyKind{}, false
+	}
 	edges := t.predecessorEdges()[int(state)]
 	if len(edges) == 0 {
 		return corridorBodyKind{}, false
@@ -723,7 +730,7 @@ func (t *corridorTables) reduceShiftCandidate(
 	}
 	return corridorBodyKind{
 		op: corridorOpReduceShift, targetState: uint32(shiftTarget),
-		rowIndex: uint32(rowIndex), shiftRowIndex: uint32(shiftRowIndex),
+		rowIndex: uint32(rowIndex), shiftRowIndex: uint32(shiftRowIndex), landingState: uint32(target),
 	}, true
 }
 
@@ -1025,6 +1032,7 @@ func corridorEmitBody(prog []uint32, at uint32, body corridorBodyKind, blockOffs
 		prog[at] = uint32(corridorOpReduceShift) | target<<6
 		prog[at+1] = body.rowIndex
 		prog[at+2] = body.shiftRowIndex
+		prog[at+3] = body.landingState
 	case corridorOpAccept:
 		prog[at] = uint32(corridorOpAccept)
 		prog[at+1] = body.rowIndex
@@ -1218,6 +1226,9 @@ func (p *ParserCoreCorridorProgram) validateBody(at uint32, state int, sym Symbo
 		}
 		if err := p.validateRowIndex(p.prog[at+2], state, sym); err != nil {
 			return err
+		}
+		if landing := p.prog[at+3]; landing == 0 || landing >= uint32(p.states) {
+			return fmt.Errorf("parser-core corridor: state %d symbol %d REDUCE_SHIFT has invalid landing state %d", state, sym, landing)
 		}
 		if err := p.validateBlockTarget(word>>6, state, sym, corridorOpReduceShift); err != nil {
 			return err

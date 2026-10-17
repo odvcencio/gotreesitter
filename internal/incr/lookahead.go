@@ -1,7 +1,11 @@
 // Package incr implements structural incremental-reuse conditions.
 package incr
 
-import "slices"
+import (
+	"math/bits"
+	"slices"
+	"sort"
+)
 
 // Reads records examined byte ends, including failed lexer/scanner attempts.
 // Entries are indexed by scan origin. Seal turns them into prefix maxima so
@@ -9,12 +13,13 @@ import "slices"
 // earlier and boundary probes is conservative: no dependency can disappear in a projection
 // that hides a token or collapses a production.
 type Reads struct {
-	ends             []read
+	ends             []uint32
 	sourceBytes      uint32
 	sealed           bool
 	valid            bool
 	forestAttributes bool
 	committedDropped bool
+	packedBits       uint8
 	allocated        *int64
 	budget, baseline int64
 }
@@ -41,8 +46,10 @@ func (r *Reads) Reset(sourceBytes int) bool {
 	r.committedDropped = false
 	r.allocated = nil
 	r.budget, r.baseline = 0, 0
+	r.packedBits = 0
 	if r.valid {
 		r.sourceBytes = uint32(sourceBytes)
+		r.packedBits = uint8(min(31, 32-bits.Len32(r.sourceBytes)))
 	}
 	return r.valid
 }
@@ -75,10 +82,10 @@ func (r *Reads) CertifiedForestAttributes() bool {
 	return r != nil && r.valid && !r.committedDropped && r.sealed && r.forestAttributes
 }
 
-// TrimCapacity bounds memory retained between parses; it never runs while
-// any tree still owns the arena.
+// TrimCapacity bounds retained storage to the bytes of limit wide records.
+// It never runs while any tree still owns the arena.
 func (r *Reads) TrimCapacity(limit int) {
-	if r != nil && cap(r.ends) > limit {
+	if r != nil && int64(cap(r.ends))*4 > int64(limit)*8 {
 		r.ends = nil
 	}
 }
@@ -111,124 +118,182 @@ func (r *Reads) Bytes() int64 {
 	if r == nil {
 		return 0
 	}
-	return 64 + int64(cap(r.ends))*8
+	return 64 + int64(cap(r.ends))*4
 }
 
-func (r *Reads) Record(start int, end uint32) {
-	if r == nil {
+// Records use one word when the source origin and probe width fit together.
+// Wider probes promote the same history to two words per record. The origin
+// consumes exactly the bits needed by this source; the rest encode its width.
+// Both forms retain the exact prefix bounds, including failed and EOF probes.
+func (r *Reads) wordCount() int {
+	if r.packedBits == 0 {
+		return 2
+	}
+	return 1
+}
+func (r *Reads) count() int {
+	if r.packedBits == 0 {
+		return len(r.ends) / 2
+	}
+	return len(r.ends)
+}
+func (r *Reads) at(i int) read {
+	if r.packedBits == 0 {
+		return read{r.ends[2*i], r.ends[2*i+1]}
+	}
+	word := r.ends[i]
+	start := word >> r.packedBits
+	return read{start, start + (word & ((uint32(1) << r.packedBits) - 1))}
+}
+func (r *Reads) put(i int, start, end uint32) {
+	if r.packedBits == 0 {
+		r.ends[2*i], r.ends[2*i+1] = start, end
 		return
 	}
-	if !r.valid {
+	r.ends[i] = start<<r.packedBits | (end - start)
+}
+
+// wideReadSort orders pairs without another allocation or slice cast.
+type wideReadSort Reads
+
+func (r *wideReadSort) Len() int           { return len(r.ends) / 2 }
+func (r *wideReadSort) Less(i, j int) bool { return r.ends[2*i] < r.ends[2*j] }
+func (r *wideReadSort) Swap(i, j int) {
+	r.ends[2*i], r.ends[2*j] = r.ends[2*j], r.ends[2*i]
+	r.ends[2*i+1], r.ends[2*j+1] = r.ends[2*j+1], r.ends[2*i+1]
+}
+func (r *Reads) charge(cost int64) bool {
+	if r.allocated != nil {
+		used := max(int64(0), *r.allocated-r.baseline)
+		if r.budget > 0 && (used >= r.budget || cost > r.budget-used) {
+			r.valid = false
+			return false
+		}
+		*r.allocated += cost
+	}
+	return true
+}
+func (r *Reads) promoteWide() bool {
+	if !r.charge(int64(cap(r.ends)) * 4) {
+		return false
+	}
+	next := make([]uint32, len(r.ends)*2, cap(r.ends)*2)
+	for i := range r.ends {
+		e := r.at(i)
+		next[2*i], next[2*i+1] = e.start, e.end
+	}
+	r.ends = next
+	r.packedBits = 0
+	return true
+}
+func (r *Reads) Record(start int, end uint32) {
+	if r == nil || !r.valid {
 		return
 	}
 	if r.sealed || start < 0 || uint64(start) > uint64(r.sourceBytes) || uint64(start) > uint64(end) {
 		r.valid = false
 		return
 	}
-	if n := len(r.ends); n != 0 {
-		origin := uint32(start)
-		last := &r.ends[n-1]
-		if last.start == origin {
-			last.end = max(last.end, end)
+	origin := uint32(start)
+	if r.packedBits != 0 && end-origin >= uint32(1)<<r.packedBits {
+		if !r.promoteWide() {
 			return
 		}
-		// A later probe contained in the preceding probe cannot increase any
-		// prefix maximum, including the bound that excludes a leaf's end.
+	}
+	if n := r.count(); n != 0 {
+		last := r.at(n - 1)
+		if last.start == origin {
+			r.put(n-1, origin, max(last.end, end))
+			return
+		}
+		// Contained later probes cannot increase any prefix maximum.
 		if origin > last.start && end <= last.end {
 			return
 		}
 		if origin < last.start {
-			// Lexer restores often revisit a nearby origin. Bound this search;
-			// older repetitions stay separate until Seal merges them.
 			for i := n - 2; i >= max(0, n-8); i-- {
-				if r.ends[i].start == origin {
-					r.ends[i].end = max(r.ends[i].end, end)
+				entry := r.at(i)
+				if entry.start == origin {
+					r.put(i, origin, max(entry.end, end))
 					return
 				}
 			}
 		}
 	}
+	words := r.wordCount()
 	if len(r.ends) == cap(r.ends) {
-		capacity := max(128, cap(r.ends)*2)
-		cost := int64(capacity-cap(r.ends)) * 8
-		if r.allocated != nil {
-			used := max(int64(0), *r.allocated-r.baseline)
-			if r.budget > 0 && (used >= r.budget || cost > r.budget-used) {
-				r.valid = false
-				return
-			}
-			*r.allocated += cost
+		capacity := max(128*words, cap(r.ends)*2)
+		if !r.charge(int64(capacity-cap(r.ends)) * 4) {
+			return
 		}
-		next := make([]read, len(r.ends), capacity)
+		next := make([]uint32, len(r.ends), capacity)
 		copy(next, r.ends)
 		r.ends = next
 	}
-	r.ends = append(r.ends, read{uint32(start), end})
+	index := r.count()
+	r.ends = r.ends[:len(r.ends)+words]
+	r.put(index, origin, end)
 }
-
 func (r *Reads) Seal() {
 	if r == nil || r.sealed {
 		return
 	}
-	slices.SortFunc(r.ends, func(a, b read) int {
-		if a.start < b.start {
-			return -1
-		}
-		if a.start > b.start {
-			return 1
-		}
-		return 0
-	})
+	if r.packedBits == 0 {
+		sort.Sort((*wideReadSort)(r))
+	} else {
+		slices.Sort(r.ends)
+	}
 	var end uint32
 	count := 0
-	for _, entry := range r.ends {
+	for i, n := 0, r.count(); i < n; i++ {
+		entry := r.at(i)
 		end = max(end, entry.end)
-		if count != 0 && r.ends[count-1].start == entry.start {
-			r.ends[count-1].end = end
+		if count != 0 && r.at(count-1).start == entry.start {
+			r.put(count-1, entry.start, end)
 		} else {
-			r.ends[count] = read{entry.start, end}
+			r.put(count, entry.start, end)
 			count++
 		}
 	}
-	r.ends = r.ends[:count]
+	r.ends = r.ends[:count*r.wordCount()]
 	r.sealed = true
 	r.allocated = nil
 }
+func (r *Reads) Lookahead(end uint32) (uint32, bool) { return r.lookahead(end, true) }
 
-func (r *Reads) Lookahead(end uint32) (uint32, bool) {
-	return r.lookahead(end, true)
+// LeafLookahead excludes the next token's boundary probe, while retaining
+// failed probes from earlier origins.
+func (r *Reads) LeafLookahead(end uint32) (uint32, bool) { return r.lookahead(end, false) }
+func (r *Reads) search(end uint32, includeBoundary bool) int {
+	low, high := 0, r.count()
+	for low < high {
+		mid := int(uint(low+high) >> 1)
+		start := r.at(mid).start
+		if start < end || (includeBoundary && start == end) {
+			low = mid + 1
+		} else {
+			high = mid
+		}
+	}
+	return low
 }
-
-// LeafLookahead excludes probes starting at the token's end. Those probes
-// select the next token and may decide a parent reduction, but cannot change
-// the leaf that has already been shifted. Earlier failed probes still count.
-func (r *Reads) LeafLookahead(end uint32) (uint32, bool) {
-	return r.lookahead(end, false)
-}
-
 func (r *Reads) lookahead(end uint32, includeBoundary bool) (uint32, bool) {
 	if r == nil || !r.valid || !r.sealed || end == 0 || end > r.sourceBytes {
 		return 0, false
 	}
-	i, _ := slices.BinarySearchFunc(r.ends, end, func(entry read, end uint32) int {
-		if entry.start < end || (includeBoundary && entry.start == end) {
-			return -1
-		}
-		return 1
-	})
+	i := r.search(end, includeBoundary)
 	if i == 0 {
 		return 0, false
 	}
-	frontier := r.ends[i-1].end
+	frontier := r.at(i - 1).end
 	if frontier < end {
 		return 0, false
 	}
 	return frontier - end, true
 }
 
-// LookaheadCursor scans a sealed history in node-allocation order. Increasing
-// ends advance once through the history; a backwards end uses the same binary
-// search as an individual lookup. The caller must create a new cursor after Reset.
+// LookaheadCursor scans sealed history in node-allocation order. A backwards
+// end uses the same binary search as an individual lookup. Reset needs a new cursor.
 type LookaheadCursor struct {
 	reads           *Reads
 	includeBoundary bool
@@ -239,22 +304,16 @@ type LookaheadCursor struct {
 func (r *Reads) Cursor(includeBoundary bool) LookaheadCursor {
 	return LookaheadCursor{reads: r, includeBoundary: includeBoundary}
 }
-
 func (c *LookaheadCursor) Lookahead(end uint32) (uint32, bool) {
 	r := c.reads
 	if r == nil || !r.valid || !r.sealed || end == 0 || end > r.sourceBytes {
 		return 0, false
 	}
 	if end < c.end {
-		c.index, _ = slices.BinarySearchFunc(r.ends, end, func(entry read, end uint32) int {
-			if entry.start < end || (c.includeBoundary && entry.start == end) {
-				return -1
-			}
-			return 1
-		})
+		c.index = r.search(end, c.includeBoundary)
 	} else {
-		for c.index < len(r.ends) {
-			start := r.ends[c.index].start
+		for c.index < r.count() {
+			start := r.at(c.index).start
 			if start > end || (start == end && !c.includeBoundary) {
 				break
 			}
@@ -262,10 +321,14 @@ func (c *LookaheadCursor) Lookahead(end uint32) (uint32, bool) {
 		}
 	}
 	c.end = end
-	if c.index == 0 || r.ends[c.index-1].end < end {
+	if c.index == 0 {
 		return 0, false
 	}
-	return r.ends[c.index-1].end - end, true
+	frontier := r.at(c.index - 1).end
+	if frontier < end {
+		return 0, false
+	}
+	return frontier - end, true
 }
 
 // Encode distinguishes an authenticated zero lookahead from unknown metadata.

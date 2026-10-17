@@ -7,5 +7,5 @@ package parsercorephase0
 // invoke a per-occurrence callback. It borrows Core-owned scratch and therefore
 // must not run concurrently with any other operation on the same Core.
 func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy, source []byte, poll func() error) (*SelectedStore, error) {
-	return c.buildSelectedStoreStaged(roots, policy, source, poll)
+	return c.buildSelectedStoreOnePass(roots, policy, source, poll)
 }

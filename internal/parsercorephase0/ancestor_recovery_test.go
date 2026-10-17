@@ -130,8 +130,10 @@ func TestStackSummaryCandidatesVisitFanoutInStableDepthOrder(t *testing.T) {
 }
 
 func TestStackSummaryCandidatesEnforceDepthAndRecordSize(t *testing.T) {
-	if got := unsafe.Sizeof(StackSummaryCandidate{}); got != 32 {
-		t.Fatalf("StackSummaryCandidate size=%d, want 32", got)
+	// The owner pointer is 4 bytes on 386 and 8 bytes on amd64.
+	want := uintptr(24) + unsafe.Sizeof((*Core)(nil))
+	if got := unsafe.Sizeof(StackSummaryCandidate{}); got != want {
+		t.Fatalf("StackSummaryCandidate size=%d, want %d", got, want)
 	}
 	compact := newAncestorRecoveryTestCore(t, &fakeTable{}, Limits{})
 	seed, err := compact.Seed(1, 0)

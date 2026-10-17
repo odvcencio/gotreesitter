@@ -212,6 +212,9 @@ func RunDiagnosticParserCoreSeedCapForTest(scanner ExternalScanner, source []byt
 	if err != nil {
 		return DiagnosticParserCoreSeedCapForTest{}, err
 	}
+	// Match the public diagnostic route's grammar-certified split-drop gate.
+	options.allowConvergedSplitDropArtifact = lang.CompactConvergedReductionSplitDropsCertified
+
 	parser := NewParser(lang)
 	tables, err := newParserCoreRootTables(parser)
 	if err != nil {

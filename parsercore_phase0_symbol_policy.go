@@ -70,11 +70,24 @@ func buildParserCoreSelectedStorePolicy(parser *Parser) (core.SelectedStorePolic
 	if err != nil {
 		return core.SelectedStorePolicy{}, err
 	}
+	var supertypeMasks []uint32
+	for index := 0; index < width; index++ {
+		if mask := lang.supertypeBit(Symbol(index)); mask != 0 {
+			if supertypeMasks == nil {
+				supertypeMasks = make([]uint32, width)
+			}
+			supertypeMasks[index] = mask
+		}
+	}
+	if err := policy.SetSupertypeMasks(supertypeMasks); err != nil {
+		return core.SelectedStorePolicy{}, err
+	}
 	retainedAliases := make([]core.SelectedAliasChildPair, 0, len(parser.collapsedChildOccurrencePairs))
 	for _, pair := range parser.collapsedChildOccurrencePairs {
 		retainedAliases = append(retainedAliases, core.SelectedAliasChildPair{Alias: core.Symbol(pair.parent), Child: core.Symbol(pair.child)})
 	}
 	policy.SetRetainedAliasChildren(retainedAliases)
+	policy.ProjectSyntheticSiblingRoot = true
 	syms, _ := goCompatibilitySymbolsForLanguage(lang)
 	containers := make([]bool, width)
 	for _, symbol := range syms.semiContainers[:syms.semiContainerLen] {

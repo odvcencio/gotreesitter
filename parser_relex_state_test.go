@@ -106,7 +106,7 @@ func TestDFARelexSnapshotRestoresExternalLookaheadFrontier(t *testing.T) {
 
 	d.externalLookaheadEndByte = 31
 	changed := d.snapshotRelexState()
-	if !snapshot.equal(changed) {
+	if !snapshot.equal(&changed) {
 		t.Fatal("transient external frontiers changed semantic snapshot equality")
 	}
 	snapshot.restore(d)
@@ -137,7 +137,7 @@ func TestDFARelexSnapshotRestoresExternalLookaheadFrontier(t *testing.T) {
 func TestDFARelexSnapshotEqualIgnoresStaleZeroWidthCache(t *testing.T) {
 	a := dfaRelexSnapshot{lexerPos: 5, extZeroPos: 2, extZeroState: 9, extZeroTried: []bool{true, false}}
 	b := dfaRelexSnapshot{lexerPos: 5, extZeroPos: 3, extZeroState: 1, extZeroTried: []bool{false}}
-	if !a.equal(b) {
+	if !a.equal(&b) {
 		t.Fatal("equal() treated two stale extZero* caches as a real difference")
 	}
 
@@ -145,7 +145,7 @@ func TestDFARelexSnapshotEqualIgnoresStaleZeroWidthCache(t *testing.T) {
 	// difference in it must still be detected.
 	activeA := dfaRelexSnapshot{lexerPos: 5, extZeroPos: 5, extZeroState: 1, extZeroTried: []bool{true}}
 	activeB := dfaRelexSnapshot{lexerPos: 5, extZeroPos: 5, extZeroState: 2, extZeroTried: []bool{true}}
-	if activeA.equal(activeB) {
+	if activeA.equal(&activeB) {
 		t.Fatal("equal() ignored a genuine difference in a live extZero* cache")
 	}
 }

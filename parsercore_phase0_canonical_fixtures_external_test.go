@@ -11,6 +11,7 @@ import (
 )
 
 func init() {
+	gotreesitter.SetYAMLSelectedProjectionLanguageForTest(grammars.YamlLanguage())
 	gotreesitter.SetDiagnosticParserCoreCanonicalFixtureLoaderForTest(func(id string) (gotreesitter.DiagnosticParserCoreCanonicalFixtureForTest, error) {
 		for _, fixture := range benchfixtures.GoFullParseFixtures() {
 			if fixture.ID != id {

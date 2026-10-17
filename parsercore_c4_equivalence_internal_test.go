@@ -240,9 +240,26 @@ func runParserCoreCorridorSuperinstructionIncrementalReceipt(t *testing.T, label
 		candidateRuntime.LastTokenWasEOF != productionRuntime.LastTokenWasEOF {
 		t.Fatalf("incremental runtime receipt diverged: candidate=%s production=%s", candidateRuntime.Summary(), productionRuntime.Summary())
 	}
-	if candidateIncremental.compactMaterialized || productionIncremental.compactMaterialized {
-		t.Fatalf("incremental result leaked compact materialization: candidate=%v production=%v", candidateIncremental.compactMaterialized, productionIncremental.compactMaterialized)
+	// D8 authenticates the result against a fresh parse. Compact materialization
+	// is an implementation choice once the complete fresh result agrees.
+	for _, route := range []bool{true, false} {
+		freshParser := newAdmissionCandidateGoParser(t)
+		freshParser.SetAdmissionCandidateRoute(route)
+		freshTree, err := freshParser.Parse(edited)
+		if err != nil {
+			t.Fatal(err)
+		}
+		freshDigest := requireDiagnosticParserCoreCanonicalTreeDigest(t, freshTree, freshParser.language)
+		freshTree.Release()
+		incrementalDigest := productionDigest
+		if route {
+			incrementalDigest = candidateDigest
+		}
+		if freshDigest != incrementalDigest {
+			t.Fatalf("candidate=%v incremental/fresh digest differs: incremental=%s fresh=%s", route, incrementalDigest, freshDigest)
+		}
 	}
+
 	t.Logf("%s incremental receipt digest=%s runtime=%s", label, candidateDigest, candidateRuntime.Summary())
 
 	if candidateIncremental != candidateTree {
@@ -360,6 +377,111 @@ func BenchmarkDiagnosticParserCoreCorridorSchedulerOnly(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		if _, err := prepared.executeScheduler(prepared.compact, true); err != nil {
 			b.Fatal(err)
+		}
+	}
+}
+
+func TestParserCoreCorridorReduceShiftPreservesDispatchPolls(t *testing.T) {
+	restore := SetParserCoreCorridorEnabledForTest(true)
+	defer restore()
+	t.Setenv("GTS_C4_REDUCE_CHAIN", "0")
+	for _, id := range []string{"rewrite", "query_compile", "language", "grammargen_lr"} {
+		t.Run(id, func(t *testing.T) {
+			measure := func(enabled string) (uint64, core.Work, DiagnosticParserCoreGenericWork) {
+				t.Setenv("GTS_C4_REDUCE_SHIFT", enabled)
+				fixture := loadDiagnosticParserCoreCanonicalFixture(t, id)
+				runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+				if err != nil {
+					t.Fatal(err)
+				}
+				scheduler, source, err := runner.executeSchedulerOpen(fixture.Source, runner.compact, true)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer source.Close()
+				if scheduler.acceptedHead.Node == 0 {
+					t.Fatal("no accepted head")
+				}
+				if enabled == "1" && scheduler.corridor.census.ReduceShift == 0 {
+					t.Fatal("fixture has no compiled reduce-shift instructions")
+				}
+				return uint64(scheduler.footprintPolls), runner.compact.Work(), scheduler.work
+			}
+			off, offCore, offWork := measure("0")
+			on, onCore, onWork := measure("1")
+			if off != on {
+				t.Fatalf("dispatch polls changed: off=%d on=%d", off, on)
+			}
+			if offCore != onCore || offWork != onWork {
+				t.Fatalf("work changed: off=%+v on=%+v core_off=%+v core_on=%+v", offWork, onWork, offCore, onCore)
+			}
+			t.Logf("fused/unfused polls=%d, semantic work identical", on)
+		})
+	}
+}
+
+func TestParserCoreCorridorReduceShiftLandingMismatchFallsBack(t *testing.T) {
+	restore := SetParserCoreCorridorEnabledForTest(true)
+	defer restore()
+	t.Setenv("GTS_C4_REDUCE_CHAIN", "0")
+	fixture := loadDiagnosticParserCoreCanonicalFixture(t, "query_compile")
+	var wantDigest string
+	var wantPolls uint32
+	var wantCore core.Work
+	var wantWork DiagnosticParserCoreGenericWork
+	for _, enabled := range []string{"0", "1"} {
+		t.Setenv("GTS_C4_REDUCE_SHIFT", enabled)
+		runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if enabled == "1" {
+			program := acquireParserCoreCorridorProgram(runner.lang)
+			if program == nil {
+				t.Fatal("no corridor program")
+			}
+			changed := map[uint32]bool{}
+			for state := 0; state < program.states; state++ {
+				for _, sym := range program.KeySet(StateID(state)) {
+					body := corridorDispatch(program.prog, program.stateBlockOffset[state], sym)
+					if body == 0 || changed[body] || parserCoreCorridorOpcode(program.prog[body]&corridorOpcodeMask) != corridorOpReduceShift {
+						continue
+					}
+					landing := uint32(1)
+					if program.prog[body+3] == landing {
+						landing = 2
+					}
+					program.prog[body+3] = landing
+					changed[body] = true
+				}
+			}
+			if len(changed) == 0 {
+				t.Fatal("no reduce-shift instructions to force onto fallback")
+			}
+			if err := program.validate(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		scheduler, source, err := runner.executeSchedulerOpen(fixture.Source, runner.compact, true)
+		if source != nil {
+			defer source.Close()
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		tree, err := runner.materialize(fixture.Source, runner.compact, scheduler.acceptedHead)
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest := requireDiagnosticParserCoreCanonicalTreeDigest(t, tree, runner.lang)
+		tree.Release()
+		if enabled == "0" {
+			wantDigest = digest
+			wantPolls = scheduler.footprintPolls
+			wantCore = runner.compact.Work()
+			wantWork = scheduler.work
+		} else if digest != wantDigest || scheduler.footprintPolls != wantPolls || runner.compact.Work() != wantCore || scheduler.work != wantWork {
+			t.Fatalf("landing mismatch altered tree, polls or work: digest=%s want=%s polls=%d want=%d work=%+v want=%+v", digest, wantDigest, scheduler.footprintPolls, wantPolls, scheduler.work, wantWork)
 		}
 	}
 }

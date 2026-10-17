@@ -2720,8 +2720,8 @@ func TestCompactArenaRecordsRemainPointerFree(t *testing.T) {
 	}
 	// Store optional reference sets separately; every graph node pays this
 	// record width, even when no certificates are recorded.
-	if got := unsafe.Sizeof(nodeLineageRecord{}); got != 32 {
-		t.Fatalf("nodeLineageRecord size = %d, want 32", got)
+	if got := unsafe.Sizeof(nodeLineageRecord{}); got != 28 {
+		t.Fatalf("nodeLineageRecord size = %d, want 28", got)
 	}
 	if got := unsafe.Sizeof(linkRecord{}); got != 32 {
 		t.Fatalf("linkRecord size = %d, want 32", got)
@@ -2733,14 +2733,21 @@ func TestCompactArenaRecordsRemainPointerFree(t *testing.T) {
 	}
 	// G18 adds one value-owned reference set beside the historical set. The
 	// reduction provenance handoff adds one value-owned LinkChainRef.
-	if got := unsafe.Sizeof(ReductionOutput{}); got != 56 {
-		t.Fatalf("ReductionOutput size = %d, want 56", got)
+	// The 44-byte handoff has 4 or 8 bytes of ABI alignment.
+	wantOutput := (uintptr(44) + unsafe.Alignof(uint64(0)) - 1) &^ (unsafe.Alignof(uint64(0)) - 1)
+	if got := unsafe.Sizeof(ReductionOutput{}); got != wantOutput {
+		t.Fatalf("ReductionOutput size = %d, want %d", got, wantOutput)
 	}
 	if got := unsafe.Sizeof(LinkChainRef{}); got != 8 {
 		t.Fatalf("LinkChainRef size = %d, want 8", got)
 	}
-	if got := unsafe.Sizeof(popPath{}); got != 88 {
-		t.Fatalf("popPath size = %d, want 88", got)
+	// Two slice headers and ForkOrder padding follow the target ABI.
+	wantPop := uintptr(88)
+	if unsafe.Sizeof(uintptr(0)) == 4 {
+		wantPop = 60
+	}
+	if got := unsafe.Sizeof(popPath{}); got != wantPop {
+		t.Fatalf("popPath size = %d, want %d", got, wantPop)
 	}
 	if got := unsafe.Sizeof(subtreeRecord{}); got != 44 {
 		t.Fatalf("subtreeRecord size = %d, want 44", got)

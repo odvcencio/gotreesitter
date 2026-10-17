@@ -106,19 +106,22 @@ func (s diagnosticParserCoreVersionLexerScannerContract) equal(other diagnosticP
 }
 
 // diagnosticParserCoreVersionLexerSnapshotEqual compares the complete
-// immutable identity of two owned lexer snapshots. Do not use pointer
-// identity here. A scheduler rollback can publish an equivalent copy.
+// immutable identity of two owned lexer snapshots. Identical immutable objects
+// can short-circuit; distinct rollback copies still compare their complete values.
 func diagnosticParserCoreVersionLexerSnapshotEqual(
 	left, right *diagnosticParserCoreVersionLexerSnapshot,
 ) bool {
+	if left == right {
+		return true
+	}
 	if left == nil || right == nil {
-		return left == right
+		return false
 	}
 	return left.compact == right.compact &&
 		left.coreGeneration == right.coreGeneration &&
 		left.language == right.language &&
-		left.metadata.Value() == right.metadata.Value() &&
-		left.dfa.equal(right.dfa) &&
+		(left.metadata == right.metadata || left.metadata.Value() == right.metadata.Value()) &&
+		left.dfa.equal(&right.dfa) &&
 		left.beforeCheckpoint == right.beforeCheckpoint &&
 		left.afterCheckpoint == right.afterCheckpoint &&
 		bytes.Equal(left.beforeCheckpointBytes, right.beforeCheckpointBytes) &&
@@ -356,6 +359,7 @@ func (s *diagnosticParserCoreVersionLexerSnapshot) validateDestination(compact *
 	if s.language != language {
 		return errors.New("parser-core phase zero: version lexer snapshot belongs to a different Language")
 	}
+	binding := language.ExternalScanner
 	metadata := s.metadata.Value()
 	scanner, err := diagnosticParserCoreVersionLexerScannerContractForLanguage(language)
 	if err != nil {
@@ -365,6 +369,12 @@ func (s *diagnosticParserCoreVersionLexerSnapshot) validateDestination(compact *
 		return errors.New("parser-core phase zero: version lexer snapshot scanner contract changed")
 	}
 	identity, identityRequired, identityValid := diagnosticParserCoreVersionLexerCheckpointIdentity(language)
+	// Capability methods are user callbacks. Reject a changed live descriptor
+	// before publication or restore; keep every existing contract and identity
+	// check authoritative for equal value bindings.
+	if !core.ScannerBindingUnchanged(binding, language.ExternalScanner) {
+		return errors.New("parser-core phase zero: version lexer snapshot scanner binding changed during capability validation")
+	}
 	if metadata.checkpointIdentityRequired != identityRequired {
 		return errors.New("parser-core phase zero: version lexer snapshot checkpoint capability changed")
 	}

@@ -279,7 +279,7 @@ func TestCompactLegacyReadsPreserveBoundaryAndProjectionProofs(t *testing.T) {
 	nodes[3].endPoint.Column++ // A compatibility rewrite also revokes proof.
 	failedID := core.SubtreeID(len(nodes) - 1)
 	s.reuseDependencies.leafWords = make([]uint32, len(nodes))
-	s.reuseDependencies.leafWords[7] = legacyReuseLeafKnown | legacyReuseKeyword
+	incr.SetLeafReceipt(s.reuseDependencies.leafWords, 7, legacyReuseLeafKnown|legacyReuseKeyword)
 	err := s.publishCompactLegacyReads(arena, nodes, func(id core.SubtreeID) (core.SubtreeGeometry, error) {
 		if id == failedID {
 			return core.SubtreeGeometry{}, errors.New("unavailable projection")
@@ -398,6 +398,25 @@ func TestCompactLegacyProjectionMarkersClearOnFailure(t *testing.T) {
 }
 
 func TestCompactLegacyReadScratchReuse(t *testing.T) {
+	t.Run("packed_tail_revocation", func(t *testing.T) {
+		s := &diagnosticParserCoreGenericScheduler{compact: &core.Core{}}
+		s.reuseDependencies.reads = incr.NewReads(1)
+		s.reuseDependencies.leafWords = make([]uint32, 2)
+		for _, id := range []uint32{7, 16} {
+			incr.SetLeafReceipt(s.reuseDependencies.leafWords, id, legacyReuseLeafKnown|legacyReuseKeyword)
+		}
+		var err error
+		s.endCompactLeafReceipt(0, Token{}, &err)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, id := range []uint32{7, 16} {
+			if got := incr.LeafReceipt(s.reuseDependencies.leafWords, id); got != 0 {
+				t.Fatalf("truncated leaf receipt %d retained provenance %x", id, got)
+			}
+		}
+	})
+
 	d := &dfaTokenSource{language: &Language{}, lexer: NewLexer(nil, make([]byte, 512))}
 	s := &diagnosticParserCoreGenericScheduler{tokenSource: d}
 	s.beginCompactLegacyReads()
@@ -539,7 +558,7 @@ func TestCompactLegacyReadScratchBudget(t *testing.T) {
 	d.lexer.reuseReads = nil
 	s.reuseDependencies = s.reuseDependencies.reset()
 	// Leave room for the header and one 128-entry growth, but not 256.
-	s.options.stopControlMemoryBudgetBytes = base + 64 + 128*8 + 1
+	s.options.stopControlMemoryBudgetBytes = base + 64 + 128*4 + 1
 	s.beginCompactLegacyReads()
 	if s.reuseDependencies.reads != reads || reads.Bytes() != 64 || !reads.Recording() {
 		t.Fatal("old capacity prevented capture within the smaller budget")
@@ -547,11 +566,11 @@ func TestCompactLegacyReadScratchBudget(t *testing.T) {
 	for origin := 0; origin < 128; origin++ {
 		reads.Record(origin, uint32(origin+1))
 	}
-	if !reads.Recording() || s.reuseDependencies.readsAllocated != base+64+128*8 {
+	if !reads.Recording() || s.reuseDependencies.readsAllocated != base+64+128*4 {
 		t.Fatal("new budget charged an allowed growth incorrectly")
 	}
 	reads.Record(128, 129)
-	if reads.Recording() || reads.Bytes() != 64+128*8 || s.reuseDependencies.readsAllocated != base+64+128*8 {
+	if reads.Recording() || reads.Bytes() != 64+128*4 || s.reuseDependencies.readsAllocated != base+64+128*4 {
 		t.Fatal("scan history grew beyond the smaller request's budget")
 	}
 }

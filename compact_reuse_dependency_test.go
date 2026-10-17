@@ -3,6 +3,7 @@
 package gotreesitter
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 )
@@ -238,7 +239,7 @@ func TestCompactReuseDependencyRepeatedSuffixDeletionEmptiesIndex(t *testing.T) 
 			}
 		}
 		a.editCompactReuseDependencies(InputEdit{StartByte: 200, OldEndByte: 201, NewEndByte: 201})
-		if len(a.compactReuseDependencies) != 0 || !a.compactReuseDependencyIndexed {
+		if a.denseDependencyCount() != 0 || !a.compactReuseDependencyIndexed {
 			t.Fatal("suffix invalidation did not empty the indexed receipts")
 		}
 		root := a.compactReuseDependencyIndex[len(a.compactReuseDependencyIndex)/2]
@@ -436,7 +437,7 @@ func TestCompactReuseDependencyResetAndBudget(t *testing.T) {
 	allocated := a.allocatedBytes
 	clearCompactReuseDependency(n)
 	if a.allocatedBytes != allocated {
-		t.Fatal("clearing a receipt undercounted retained map storage")
+		t.Fatal("clearing a receipt undercounted retained receipt storage")
 	}
 	if !setCompactReuseDependency(n, 4) {
 		t.Fatal("receipt reinsertion failed")
@@ -447,8 +448,8 @@ func TestCompactReuseDependencyResetAndBudget(t *testing.T) {
 		t.Fatal("arena recomputation lost the receipt storage charge")
 	}
 	a.reset()
-	if a.compactReuseDependencies != nil {
-		t.Fatal("arena reset retained the receipt map")
+	if a.compactReuseDependencyBytesAllocated() != 0 {
+		t.Fatal("arena reset retained the receipt storage")
 	}
 	if _, ok := compactReuseDependencyForNode(n); ok {
 		t.Fatal("arena reset retained a stale node receipt")
@@ -496,5 +497,70 @@ func TestCompactReuseDependencyShortcutDoesNotReviveReceipt(t *testing.T) {
 	}
 	if _, ok := compactReuseDependencyForNode(got); ok {
 		t.Fatal("the token-invariant shortcut revived an invalid receipt")
+	}
+}
+
+func BenchmarkCompactDependencyLifecycle(b *testing.B) {
+	for _, count := range []int{128, 4096} {
+		b.Run(fmt.Sprintf("nodes_%d", count), func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				arena := newNodeArena(arenaClassIncremental)
+				nodes := make([]*Node, count)
+				for i := range nodes {
+					start := uint32(4 * i)
+					nodes[i] = newLeafNodeInArena(arena, 1, true, start, start+1, Point{Column: start}, Point{Column: start + 1})
+					if !setCompactReuseDependency(nodes[i], 2) {
+						b.Fatal("receipt rejected")
+					}
+				}
+				sum := uint64(0)
+				for _, node := range nodes {
+					extent, ok := compactReuseDependencyForNode(node)
+					if !ok {
+						b.Fatal("live receipt absent")
+					}
+					sum += uint64(extent)
+				}
+				mid := nodes[count/2]
+				arena.editCompactReuseDependencies(InputEdit{StartByte: mid.EndByte() + 1, OldEndByte: mid.EndByte() + 2, NewEndByte: mid.EndByte() + 2})
+				if _, ok := compactReuseDependencyForNode(mid); ok {
+					b.Fatal("edited dependency survived")
+				}
+				if sum != uint64(2*count) {
+					b.Fatal("dependency changed")
+				}
+				arena.Release()
+			}
+		})
+	}
+}
+
+func BenchmarkCompactDependencySparseLifecycle(b *testing.B) {
+	for _, receipts := range []int{2, 24} {
+		b.Run(fmt.Sprintf("receipts_%d", receipts), func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				arena := newNodeArena(arenaClassIncremental)
+				nodes := make([]*Node, 607)
+				for i := range nodes {
+					start := uint32(4 * i)
+					nodes[i] = newLeafNodeInArena(arena, 1, true, start, start+1, Point{Column: start}, Point{Column: start + 1})
+				}
+				for i := 0; i < receipts; i++ {
+					node := nodes[i*(len(nodes)-1)/(receipts-1)]
+					if !setCompactReuseDependency(node, 2) {
+						b.Fatal("receipt rejected")
+					}
+				}
+				for i := 0; i < receipts; i++ {
+					if _, ok := compactReuseDependencyForNode(nodes[i*(len(nodes)-1)/(receipts-1)]); !ok {
+						b.Fatal("receipt absent")
+					}
+				}
+				arena.editCompactReuseDependencies(InputEdit{StartByte: 607, OldEndByte: 608, NewEndByte: 608})
+				arena.Release()
+			}
+		})
 	}
 }

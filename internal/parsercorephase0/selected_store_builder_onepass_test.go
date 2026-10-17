@@ -1,5 +1,3 @@
-//go:build gts_parsercorephase0_selectedstore_onepass
-
 package parsercorephase0
 
 import (

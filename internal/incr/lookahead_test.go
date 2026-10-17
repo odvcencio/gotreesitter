@@ -60,7 +60,7 @@ func TestLookaheadContainedProbesDoNotSpendBudget(t *testing.T) {
 	if got, known := reads.LeafLookahead(256); !known || got != 1 {
 		t.Fatalf("covered probes lost the original EOF dependency: %d/%t", got, known)
 	}
-	if reads.Bytes() != 64+128*8 || allocated != reads.Bytes() {
+	if reads.Bytes() != 64+128*4 || allocated != reads.Bytes() {
 		t.Fatal("covered probes grew storage or changed its budget charge")
 	}
 }
@@ -80,7 +80,7 @@ func TestLookaheadNearbyRestoresReuseChargedStorage(t *testing.T) {
 	if got, known := reads.LeafLookahead(120); !known || got != 0 {
 		t.Fatalf("leaf included its boundary probe: %d/%t", got, known)
 	}
-	if reads.Bytes() != 64+128*8 || allocated != reads.Bytes() {
+	if reads.Bytes() != 64+128*4 || allocated != reads.Bytes() {
 		t.Fatal("nearby replay grew storage or changed its budget charge")
 	}
 }
@@ -270,5 +270,114 @@ func TestLookaheadCursorMatchesIndependentBounds(t *testing.T) {
 	c = r.Cursor(true)
 	if _, known := c.Lookahead(8); known {
 		t.Fatal("cursor used an unsealed history")
+	}
+}
+
+func TestReadHistoryPackedBudgetAndWidePromotion(t *testing.T) {
+	t.Run("packed_budget", func(t *testing.T) {
+		r := NewReads(256)
+		allocated := r.Bytes()
+		r.BindBudget(64+128*4, 0, &allocated)
+		for i := 0; i < 128; i++ {
+			r.Record(i, uint32(i+1))
+		}
+		r.Seal()
+		if end, known := r.LeafLookahead(127); !known || end != 0 {
+			t.Fatalf("short probes exceeded their storage budget: %d/%t", end, known)
+		}
+	})
+	t.Run("unfunded_wide", func(t *testing.T) {
+		r := NewReads(1 << 24)
+		r.Record(0, 1)
+		allocated := r.Bytes()
+		r.BindBudget(allocated, 0, &allocated)
+		before := allocated
+		r.Record(0, 128)
+		r.Seal()
+		if allocated != before || r.Bytes() != before {
+			t.Fatal("unfunded wide history allocated")
+		}
+		if _, known := r.Lookahead(1); known {
+			t.Fatal("unrecorded long probe authenticated history")
+		}
+	})
+	t.Run("reset_after_wide", func(t *testing.T) {
+		r := NewReads(1 << 24)
+		r.Record(2, 3)
+		r.Record(0, 128)
+		r.Record(4, 7)
+		r.Seal()
+		if end, known := r.LeafLookahead(2); !known || end != 126 {
+			t.Fatalf("promotion lost failed earlier probe: %d/%t", end, known)
+		}
+		r.Reset(256)
+		r.Record(6, 9)
+		r.Seal()
+		if _, known := r.Lookahead(2); known {
+			t.Fatal("wide history survived reset")
+		}
+		if end, known := r.Lookahead(8); !known || end != 1 {
+			t.Fatal("reset lost new short history")
+		}
+	})
+}
+
+// Compare both query orders against all original probes, without a maximal
+// origin-zero probe that would conceal errors in the rest of the history.
+func TestReadHistoryAllWidthBoundaries(t *testing.T) {
+	random := rand.New(rand.NewSource(409))
+	for _, source := range []uint32{1, 31, 256, 65536, 235626, 1 << 24, 1 << 28, (1 << 31) - 1, ^uint32(0) - 1} {
+		// NewReads takes an int source size; larger sources do not exist on 32-bit Go.
+		if uint64(source) > uint64(^uint(0)>>1) {
+			continue
+		}
+		for _, wide := range []bool{false, true} {
+			r := NewReads(int(source))
+			var probes []read
+			for i := 0; i < 256; i++ {
+				start := uint32(random.Uint64() % uint64(source))
+				maxWidth := uint64(^uint32(0) - start)
+				if !wide {
+					maxWidth = min(maxWidth, 128)
+				}
+				width := uint32(random.Uint64() % (maxWidth + 1))
+				end := start + width
+				probes = append(probes, read{start, end})
+				r.Record(int(start), end)
+			}
+			// A later repeat lengthens a middle origin; EOF tests the inclusive boundary.
+			for _, entry := range []read{{source, source + 1}, {source / 2, source}} {
+				probes = append(probes, entry)
+				r.Record(int(entry.start), entry.end)
+			}
+			r.Seal()
+			for _, include := range []bool{false, true} {
+				c := r.Cursor(include)
+				for _, p := range probes {
+					for _, end := range []uint32{p.start, p.end, source} {
+						var frontier uint32
+						found := false
+						for _, q := range probes {
+							if q.start < end || (include && q.start == end) {
+								frontier = max(frontier, q.end)
+								found = true
+							}
+						}
+						known := end > 0 && end <= source && found && frontier >= end
+						var want uint32
+						if known {
+							want = frontier - end
+						}
+						got, ok := r.lookahead(end, include)
+						if got != want || ok != known {
+							t.Fatalf("source=%d wide=%t end=%d boundary=%t got=%d/%t want=%d/%t", source, wide, end, include, got, ok, want, known)
+						}
+						if got, ok := c.Lookahead(end); got != want || ok != known {
+							t.Fatalf("cursor source=%d wide=%t end=%d got=%d/%t want=%d/%t", source, wide, end, got, ok, want, known)
+						}
+					}
+				}
+			}
+		}
 	}
 }

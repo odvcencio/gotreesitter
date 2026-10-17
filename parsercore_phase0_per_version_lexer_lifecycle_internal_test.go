@@ -465,7 +465,7 @@ func TestDiagnosticParserCoreOwnedLexerRejoinRestoresTokenSourceOnPhaseFailure(t
 	if err == nil || !strings.Contains(err.Error(), "set checkpoint during active transaction") {
 		t.Fatalf("rejoin phase error=%v", err)
 	}
-	if got := tokenSource.snapshotRelexState(); !got.equal(priorDFA) || tokenSource.state != 9 ||
+	if got := tokenSource.snapshotRelexState(); !got.equal(&priorDFA) || tokenSource.state != 9 ||
 		!reflect.DeepEqual(tokenSource.glrStates, priorGLRStates) {
 		t.Fatalf("rejoin failure leaked token source: dfa=%+v state=%d glr=%v", got, tokenSource.state, tokenSource.glrStates)
 	}

@@ -749,8 +749,8 @@ func TestDiagnosticParserCoreCheckpointCompactLayoutsAMD64(t *testing.T) {
 	}
 	// The reference set carries an arena view; embedding its two former
 	// inline references would add 56 bytes to every dispatch snapshot.
-	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 88 {
-		t.Fatalf("scheduler header size=%d, want 88", got)
+	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 80 {
+		t.Fatalf("scheduler header size=%d, want 80", got)
 	}
 	if got := unsafe.Sizeof(diagnosticParserCorePhaseHead{}); got != 24 {
 		t.Fatalf("canonical phase key size=%d, want 24", got)

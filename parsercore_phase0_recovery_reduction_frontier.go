@@ -177,6 +177,10 @@ func (snapshot diagnosticParserCoreS5SchedulerSnapshot) restore(s *diagnosticPar
 	}
 	value := snapshot.value
 	*s = value
+	// S5 snapshots share bounded scratch; speculative request results never survive rollback.
+	if s.negativeRelexMemo != nil {
+		s.negativeRelexMemo.Clear()
+	}
 	if snapshot.receiptPresent {
 		if snapshot.receiptIsBacking {
 			s.receiptBacking = snapshot.receipt

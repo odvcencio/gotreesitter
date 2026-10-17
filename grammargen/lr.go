@@ -653,8 +653,8 @@ func buildLRTablesInternal(bgCtx context.Context, ng *NormalizedGrammar, trackPr
 
 	// StateID is uint32 in the runtime (expanded from uint16 to support large
 	// grammars like COBOL with 67K states). Cap at uint32 max.
-	const maxRuntimeStateID = int(^uint32(0))
-	if len(itemSets) > maxRuntimeStateID {
+	const maxRuntimeStateID = uint64(^uint32(0))
+	if uint64(len(itemSets)) > maxRuntimeStateID {
 		return nil, ctx, fmt.Errorf("parser state count %d exceeds max representable state id %d", len(itemSets), maxRuntimeStateID)
 	}
 

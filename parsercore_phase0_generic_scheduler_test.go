@@ -29,6 +29,11 @@ func parserCoreGenericRewriteSource(t *testing.T) []byte {
 	return nil
 }
 
+// Partial receipts were refreshed against c498e889e on 2026-10-15, including
+// C4 pass counters and the current wrapper-reduction elimination. Keep exact
+// states, work, round ordering, scanner continuity and physical deltas pinned.
+// Source SHA-256: 74c0705f8729670559492fb5460a01b2a1a2a109928e1aeb52736e485e8ff097.
+// Grammar SHA-256: df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d.
 func TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte(t *testing.T) {
 	source := parserCoreGenericRewriteSource(t)
 	target := uint32(919)
@@ -54,17 +59,31 @@ func TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte(t *testing.T)
 			t.Fatalf("run %d generic scheduler boundary drifted: %+v", run, generic)
 		}
 		if completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 277, ActionLookups: 314, Dispatches: 279,
-			Conflicts: 8, ConflictActions: 16, Forks: 8, ConflictHeads: 17,
-			ConflictActionArmsAdmitted: 16, CausalConflictForks: 8,
-			Reductions: 131, OrdinaryShifts: 133, OrdinaryCohorts: 10, ExtraShifts: 7, NoActionDrops: 8,
-			ConvergedReductionSplitDrops: 5,
-			Elections:                    132, Canonicalizations: 269, PeakHeaders: 3,
+			Passes:                       277,
+			SingleHeaderPasses:           229,
+			CorridorPasses:               221,
+			ActionLookups:                314,
+			Dispatches:                   279,
+			Conflicts:                    8,
+			ConflictActions:              16,
+			Forks:                        8,
+			ConflictActionArmsAdmitted:   16,
+			CausalConflictForks:          8,
+			ConflictHeads:                17,
+			ConvergedReductionSplitDrops: 6,
+			Reductions:                   131,
+			OrdinaryShifts:               133,
+			OrdinaryCohorts:              10,
+			ExtraShifts:                  7,
+			NoActionDrops:                8,
+			Elections:                    132,
+			Canonicalizations:            269,
+			PeakHeaders:                  3,
 		}) {
 			t.Fatalf("run %d generic scheduler work=%+v", run, completion.Work)
 		}
 		wantHeaders := []gotreesitter.DiagnosticParserCoreHeaderReceipt{{
-			CreationSeq: 10, State: 345, ByteOffset: 919, Shifted: true, ExactPaths: 1, Checkpoint: generic.Elections[28].ScannerAfter.SHA256,
+			CreationSeq: 10, State: 341, ByteOffset: 919, Shifted: true, ExactPaths: 1, Checkpoint: generic.Elections[28].ScannerAfter.SHA256,
 		}}
 		for index, want := range wantHeaders {
 			if !reflect.DeepEqual(completion.Headers[index].Header, want) {
@@ -72,10 +91,10 @@ func TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte(t *testing.T)
 			}
 		}
 		extraRound := generic.Rounds[268]
-		if len(extraRound.Before) != 1 || extraRound.Before[0].State != 345 || extraRound.Before[0].ByteOffset != 850 || extraRound.Before[0].Shifted ||
-			len(extraRound.Actions) != 1 || extraRound.Actions[0].HeaderIndex != 0 || extraRound.Actions[0].State != 345 || extraRound.Actions[0].ByteOffset != 850 || extraRound.Actions[0].Ordinal != 0 ||
+		if len(extraRound.Before) != 1 || extraRound.Before[0].State != 341 || extraRound.Before[0].ByteOffset != 850 || extraRound.Before[0].Shifted ||
+			len(extraRound.Actions) != 1 || extraRound.Actions[0].HeaderIndex != 0 || extraRound.Actions[0].State != 341 || extraRound.Actions[0].ByteOffset != 850 || extraRound.Actions[0].Ordinal != 0 ||
 			extraRound.Actions[0].Action.Type != gotreesitter.ParseActionShift || extraRound.Actions[0].Action.State != 0 || !extraRound.Actions[0].Action.Extra || extraRound.Actions[0].Action.ExtraChain || extraRound.Actions[0].Action.Repetition ||
-			len(extraRound.After) != 1 || extraRound.After[0].State != 345 || extraRound.After[0].ByteOffset != 919 || !extraRound.After[0].Shifted || extraRound.After[0].Checkpoint != generic.Elections[28].ScannerAfter.SHA256 {
+			len(extraRound.After) != 1 || extraRound.After[0].State != 341 || extraRound.After[0].ByteOffset != 919 || !extraRound.After[0].Shifted || extraRound.After[0].Checkpoint != generic.Elections[28].ScannerAfter.SHA256 {
 			t.Fatalf("run %d extra round drifted: %+v", run, extraRound)
 		}
 		if completion.Stats.Nodes-298 != 1 || completion.Stats.Links-297 != 1 || completion.Stats.Subtrees-276 != 1 || completion.Stats.Children != 277 {
@@ -114,9 +133,9 @@ func TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte(t *testing.T)
 			secondaryState                               gotreesitter.StateID
 			secondarySymbol, primarySymbol               gotreesitter.Symbol
 		}{
-			{105, 199, 20, 760, 4, 5, 7, 8, gotreesitter.ParseActionShift, gotreesitter.ParseActionReduce, 193, 0, 171},
-			{109, 205, 4, 779, 5, 6, 8, 9, gotreesitter.ParseActionShift, gotreesitter.ParseActionReduce, 194, 0, 171},
-			{117, 225, 4, 810, 6, 7, 9, 10, gotreesitter.ParseActionShift, gotreesitter.ParseActionReduce, 194, 0, 171},
+			{105, 199, 20, 760, 4, 5, 7, 8, gotreesitter.ParseActionShift, gotreesitter.ParseActionReduce, 189, 0, 171},
+			{109, 205, 4, 779, 5, 6, 8, 9, gotreesitter.ParseActionShift, gotreesitter.ParseActionReduce, 190, 0, 171},
+			{117, 225, 4, 810, 6, 7, 9, 10, gotreesitter.ParseActionShift, gotreesitter.ParseActionReduce, 190, 0, 171},
 			{125, 245, 9, 842, 7, 8, 10, 11, gotreesitter.ParseActionReduce, gotreesitter.ParseActionReduce, 0, 171, 121},
 		}
 		for index, want := range wantConflicts {
@@ -132,7 +151,7 @@ func TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte(t *testing.T)
 		}
 		wantDrops := []gotreesitter.DiagnosticParserCoreHeaderReceipt{
 			{CreationSeq: 4, State: 101, ByteOffset: 747, ExactPaths: 2, Checkpoint: generic.Elections[103].ScannerAfter.SHA256},
-			{CreationSeq: 1, State: 826, ByteOffset: 748, ExactPaths: 1, Checkpoint: generic.Elections[104].ScannerAfter.SHA256},
+			{CreationSeq: 1, State: 822, ByteOffset: 748, ExactPaths: 1, Checkpoint: generic.Elections[104].ScannerAfter.SHA256},
 		}
 		for index, want := range wantDrops {
 			if !reflect.DeepEqual(generic.NoActionDrops[index+2].Header.Header, want) {
@@ -140,10 +159,10 @@ func TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte(t *testing.T)
 			}
 		}
 		if generic.NoActionDrops[2].ElectionIndex != 103 || generic.NoActionDrops[2].Token.Symbol != 9 ||
-			generic.NoActionDrops[3].ElectionIndex != 104 || generic.NoActionDrops[3].Token.Symbol != 86 || generic.NoActionDrops[3].Token.Text != "rewriteEdit" {
+			generic.NoActionDrops[3].ElectionIndex != 104 || generic.NoActionDrops[3].Token.Symbol != 82 || generic.NoActionDrops[3].Token.Text != "rewriteEdit" {
 			t.Fatalf("run %d no-action drop epochs drifted: %+v", run, generic.NoActionDrops)
 		}
-		if result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 345 || result.Lookahead != (gotreesitter.Token{}) ||
+		if result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 341 || result.Lookahead != (gotreesitter.Token{}) ||
 			result.Tokens != generic.Tokens || result.Dispatches != generic.Dispatches || len(result.Elections) != 132 ||
 			!reflect.DeepEqual(result.Elections[131].Token, completion.LastToken) {
 			t.Fatalf("run %d top-level publication drifted: result=%+v completion=%+v", run, result, completion)
@@ -172,7 +191,7 @@ func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 		{name: "before-first-shift", options: gotreesitter.DiagnosticParserCorePrefixOptions{Limits: core.Limits{MaxNodes: 1}}, detail: "node arena cap", election: 0, symbol: 2, start: 0, dispatches: 0, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.OrdinaryShifts == 0 }},
 		{name: "before-first-conflict", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 116}, detail: "dispatch cap", typedDecline: true, election: 67, symbol: 20, start: 579, dispatches: 116, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.Conflicts == 0 }},
 		{name: "before-first-extra", options: gotreesitter.DiagnosticParserCorePrefixOptions{Limits: core.Limits{MaxSubtrees: 22}}, detail: "subtree arena cap", election: 15, symbol: 92, start: 49, dispatches: 22, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.ExtraShifts == 0 }},
-		{name: "before-accept", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 2681}, detail: "dispatch cap", typedDecline: true, election: 1035, symbol: 0, start: uint32(len(source)), dispatches: 2681, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.Accepts == 0 }},
+		{name: "before-accept", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 2673}, detail: "dispatch cap", typedDecline: true, election: 1035, symbol: 0, start: uint32(len(source)), dispatches: 2673, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.Accepts == 0 }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -228,12 +247,26 @@ func TestDiagnosticParserCoreGenericSchedulerContinuesToNextRequestedClosedByte(
 		len(completion.Headers) != 1 || completion.Headers[0].Header.State != 16 || completion.Headers[0].Header.ByteOffset != 924 || !completion.Headers[0].Header.Shifted ||
 		completion.Stats != (core.Stats{Nodes: 302, Links: 301, Subtrees: 279, Children: 281, CurrentExactPaths: 1}) ||
 		completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 279, ActionLookups: 316, Dispatches: 281,
-			Conflicts: 8, ConflictActions: 16, Forks: 8, ConflictHeads: 17,
-			ConflictActionArmsAdmitted: 16, CausalConflictForks: 8,
-			Reductions: 132, OrdinaryShifts: 134, OrdinaryCohorts: 10, ExtraShifts: 7, NoActionDrops: 8,
-			ConvergedReductionSplitDrops: 5,
-			Elections:                    133, Canonicalizations: 271, PeakHeaders: 3,
+			Passes:                       279,
+			SingleHeaderPasses:           231,
+			CorridorPasses:               223,
+			ActionLookups:                316,
+			Dispatches:                   281,
+			Conflicts:                    8,
+			ConflictActions:              16,
+			Forks:                        8,
+			ConflictActionArmsAdmitted:   16,
+			CausalConflictForks:          8,
+			ConflictHeads:                17,
+			ConvergedReductionSplitDrops: 6,
+			Reductions:                   132,
+			OrdinaryShifts:               134,
+			OrdinaryCohorts:              10,
+			ExtraShifts:                  7,
+			NoActionDrops:                8,
+			Elections:                    133,
+			Canonicalizations:            271,
+			PeakHeaders:                  3,
 		}) {
 		t.Fatalf("continuation drifted: result=%+v generic=%+v", result, generic)
 	}
@@ -285,16 +318,31 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesReductionFreshnessCycle(t *t
 	}
 	completion := result.GenericScheduler.Completion
 	if completion.TargetByte != target || completion.ElectionIndex != 597 || completion.LastToken.Symbol != 75 || completion.LastToken.Text != "&&" || completion.LastToken.StartByte != 3068 || completion.LastToken.EndByte != target ||
-		len(completion.Headers) != 1 || completion.Headers[0].Header.CreationSeq != 109 || completion.Headers[0].Header.State != 182 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.Paused || completion.Headers[0].Header.ExactPaths != 1 ||
-		completion.Stats != (core.Stats{Nodes: 1663, Links: 1662, Subtrees: 1453, Children: 1500, CurrentExactPaths: 1}) ||
+		len(completion.Headers) != 1 || completion.Headers[0].Header.CreationSeq != 109 || completion.Headers[0].Header.State != 178 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.Paused || completion.Headers[0].Header.ExactPaths != 1 ||
+		completion.Stats != (core.Stats{Nodes: 1658, Links: 1657, Subtrees: 1447, Children: 1494, CurrentExactPaths: 1}) ||
 		completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 1441, ActionLookups: 1981, Dispatches: 1494,
-			Conflicts: 84, ConflictActions: 176, Forks: 92, ConflictHeads: 188,
-			ConflictActionArmsAdmitted: 176, CausalConflictForks: 92,
-			Reductions: 681, OrdinaryShifts: 711, OrdinaryCohorts: 122, ExtraShifts: 18,
-			ReductionPauses: 20, NoActionDrops: 92, ConvergedReductionSplitDrops: 89,
-			Elections: 598, Canonicalizations: 1357, PeakHeaders: 4,
-		}) || len(result.GenericScheduler.Rounds) != 1357 || len(result.GenericScheduler.NoActionDrops) != 92 {
+			Passes:                       1436,
+			SingleHeaderPasses:           877,
+			CorridorPasses:               800,
+			ActionLookups:                1976,
+			Dispatches:                   1489,
+			Conflicts:                    84,
+			ConflictActions:              176,
+			Forks:                        92,
+			ConflictActionArmsAdmitted:   176,
+			CausalConflictForks:          92,
+			ConflictHeads:                188,
+			ConvergedReductionSplitDrops: 90,
+			Reductions:                   676,
+			OrdinaryShifts:               711,
+			OrdinaryCohorts:              122,
+			ExtraShifts:                  18,
+			ReductionPauses:              20,
+			NoActionDrops:                92,
+			Elections:                    598,
+			Canonicalizations:            1352,
+			PeakHeaders:                  4,
+		}) || len(result.GenericScheduler.Rounds) != 1352 || len(result.GenericScheduler.NoActionDrops) != 92 {
 		t.Fatalf("byte 3070 closure drifted: %+v", completion)
 	}
 }
@@ -310,7 +358,7 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 		t.Fatalf("byte 3383 closure result=%+v err=%v", braceResult, braceErr)
 	}
 	braceCompletion := braceResult.GenericScheduler.Completion
-	if braceCompletion.Stats != (core.Stats{Nodes: 1884, Links: 1883, Subtrees: 1653, Children: 1725, CurrentExactPaths: 1}) ||
+	if braceCompletion.Stats != (core.Stats{Nodes: 1877, Links: 1876, Subtrees: 1644, Children: 1716, CurrentExactPaths: 1}) ||
 		braceCompletion.Work.ExtraShifts != 19 || braceCompletion.Work.ExtraCohorts != 0 {
 		t.Fatalf("brace baseline drifted: %+v", braceCompletion)
 	}
@@ -325,21 +373,21 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 	commentCompletion := commentResult.GenericScheduler.Completion
 	if commentCompletion.TargetByte != commentTarget || commentCompletion.ElectionIndex != 672 || commentCompletion.LastToken.Symbol != 92 || commentCompletion.LastToken.StartByte != 3386 || commentCompletion.LastToken.EndByte != commentTarget ||
 		len(commentCompletion.Headers) != 2 || commentCompletion.Headers[0].Header.CreationSeq != 140 || commentCompletion.Headers[0].Header.State != 40 || commentCompletion.Headers[0].Header.ByteOffset != commentTarget || !commentCompletion.Headers[0].Header.Shifted ||
-		commentCompletion.Headers[1].Header.CreationSeq != 141 || commentCompletion.Headers[1].Header.State != 193 || commentCompletion.Headers[1].Header.ByteOffset != commentTarget || !commentCompletion.Headers[1].Header.Shifted ||
+		commentCompletion.Headers[1].Header.CreationSeq != 141 || commentCompletion.Headers[1].Header.State != 189 || commentCompletion.Headers[1].Header.ByteOffset != commentTarget || !commentCompletion.Headers[1].Header.Shifted ||
 		commentCompletion.Stats.Nodes-braceCompletion.Stats.Nodes != 2 || commentCompletion.Stats.Links-braceCompletion.Stats.Links != 2 || commentCompletion.Stats.Subtrees-braceCompletion.Stats.Subtrees != 1 || commentCompletion.Stats.Children != braceCompletion.Stats.Children ||
 		commentCompletion.Work.ExtraShifts-braceCompletion.Work.ExtraShifts != 2 || commentCompletion.Work.ExtraCohorts-braceCompletion.Work.ExtraCohorts != 1 || commentCompletion.Work.Dispatches-braceCompletion.Work.Dispatches != 2 {
 		t.Fatalf("comment cohort closure drifted: brace=%+v comment=%+v", braceCompletion, commentCompletion)
 	}
-	if len(commentResult.GenericScheduler.Rounds) != 1546 {
-		t.Fatalf("comment rounds=%d, want 1546", len(commentResult.GenericScheduler.Rounds))
+	if len(commentResult.GenericScheduler.Rounds) != 1539 {
+		t.Fatalf("comment rounds=%d, want 1539", len(commentResult.GenericScheduler.Rounds))
 	}
-	extraRound := commentResult.GenericScheduler.Rounds[1545]
+	extraRound := commentResult.GenericScheduler.Rounds[1538]
 	if len(extraRound.Before) != 2 || extraRound.Before[0].CreationSeq != 140 || extraRound.Before[0].State != 40 || extraRound.Before[0].ByteOffset != 3383 || extraRound.Before[0].Shifted ||
-		extraRound.Before[1].CreationSeq != 141 || extraRound.Before[1].State != 193 || extraRound.Before[1].ByteOffset != 3383 || extraRound.Before[1].Shifted ||
+		extraRound.Before[1].CreationSeq != 141 || extraRound.Before[1].State != 189 || extraRound.Before[1].ByteOffset != 3383 || extraRound.Before[1].Shifted ||
 		len(extraRound.Actions) != 2 || extraRound.Actions[0].HeaderIndex != 0 || extraRound.Actions[0].State != 40 || extraRound.Actions[0].Action.Type != gotreesitter.ParseActionShift || extraRound.Actions[0].Action.State != 0 || !extraRound.Actions[0].Action.Extra ||
-		extraRound.Actions[1].HeaderIndex != 1 || extraRound.Actions[1].State != 193 || extraRound.Actions[1].Action.Type != gotreesitter.ParseActionShift || extraRound.Actions[1].Action.State != 0 || !extraRound.Actions[1].Action.Extra ||
+		extraRound.Actions[1].HeaderIndex != 1 || extraRound.Actions[1].State != 189 || extraRound.Actions[1].Action.Type != gotreesitter.ParseActionShift || extraRound.Actions[1].Action.State != 0 || !extraRound.Actions[1].Action.Extra ||
 		len(extraRound.After) != 2 || extraRound.After[0].CreationSeq != 140 || extraRound.After[0].State != 40 || extraRound.After[0].ByteOffset != commentTarget || !extraRound.After[0].Shifted ||
-		extraRound.After[1].CreationSeq != 141 || extraRound.After[1].State != 193 || extraRound.After[1].ByteOffset != commentTarget || !extraRound.After[1].Shifted {
+		extraRound.After[1].CreationSeq != 141 || extraRound.After[1].State != 189 || extraRound.After[1].ByteOffset != commentTarget || !extraRound.After[1].Shifted {
 		t.Fatalf("comment cohort round drifted: %+v", extraRound)
 	}
 	target := uint32(3432)
@@ -353,15 +401,31 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 	completion := result.GenericScheduler.Completion
 	if completion.TargetByte != target || completion.ElectionIndex != 673 || completion.LastToken.Symbol != 49 || completion.LastToken.Text != "if" || completion.LastToken.StartByte != 3430 || completion.LastToken.EndByte != target ||
 		len(completion.Headers) != 1 || completion.Headers[0].Header.CreationSeq != 140 || completion.Headers[0].Header.State != 73 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.ExactPaths != 1 ||
-		completion.Stats != (core.Stats{Nodes: 1887, Links: 1886, Subtrees: 1655, Children: 1725, CurrentExactPaths: 1}) ||
+		completion.Stats != (core.Stats{Nodes: 1880, Links: 1879, Subtrees: 1646, Children: 1716, CurrentExactPaths: 1}) ||
 		completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 1642, ActionLookups: 2246, Dispatches: 1701,
-			Conflicts: 95, ConflictActions: 198, Forks: 103, ConflictHeads: 211,
-			ConflictActionArmsAdmitted: 198, CausalConflictForks: 103,
-			Reductions: 785, OrdinaryShifts: 800, OrdinaryCohorts: 138, ExtraShifts: 21, ExtraCohorts: 1,
-			ReductionPauses: 22, NoActionDrops: 103, ConvergedReductionSplitDrops: 100,
-			Elections: 674, Canonicalizations: 1547, PeakHeaders: 4,
-		}) || len(result.GenericScheduler.Rounds) != 1547 || len(result.GenericScheduler.NoActionDrops) != 103 || len(result.GenericScheduler.ExternalShifts) != 46 {
+			Passes:                       1635,
+			SingleHeaderPasses:           988,
+			CorridorPasses:               900,
+			ActionLookups:                2239,
+			Dispatches:                   1694,
+			Conflicts:                    95,
+			ConflictActions:              198,
+			Forks:                        103,
+			ConflictActionArmsAdmitted:   198,
+			CausalConflictForks:          103,
+			ConflictHeads:                211,
+			ConvergedReductionSplitDrops: 101,
+			Reductions:                   778,
+			OrdinaryShifts:               800,
+			OrdinaryCohorts:              138,
+			ExtraShifts:                  21,
+			ExtraCohorts:                 1,
+			ReductionPauses:              22,
+			NoActionDrops:                103,
+			Elections:                    674,
+			Canonicalizations:            1540,
+			PeakHeaders:                  4,
+		}) || len(result.GenericScheduler.Rounds) != 1540 || len(result.GenericScheduler.NoActionDrops) != 103 || len(result.GenericScheduler.ExternalShifts) != 46 {
 		t.Fatalf("post-comment boundary drifted: %+v", completion)
 	}
 	for run := 1; run < 3; run++ {

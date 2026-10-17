@@ -3388,7 +3388,13 @@ type dfaRelexSnapshot struct {
 	zeroWidthCount int
 }
 
-func (s dfaRelexSnapshot) equal(other dfaRelexSnapshot) bool {
+func (s *dfaRelexSnapshot) equal(other *dfaRelexSnapshot) bool {
+	if s == other {
+		return true
+	}
+	if s == nil || other == nil {
+		return false
+	}
 	if !(s.lexerPos == other.lexerPos && s.lexerRow == other.lexerRow &&
 		s.lexerCol == other.lexerCol && s.lexerRangeIdx == other.lexerRangeIdx &&
 		s.externalScannerPresent == other.externalScannerPresent &&

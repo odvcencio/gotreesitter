@@ -219,6 +219,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += c.reductionScratch.footprintBytes()
 	total += uint64(cap(c.selectedBuild.resultHasError)) * coreBoolBytes
 	total += selectedStoreRetainedBytes(cap(c.selectedPool.records), cap(c.selectedPool.children))
+	total += c.selectedPolicy.RetainedBytes()
 
 	return total
 }

@@ -15,7 +15,8 @@ func TestDFARelexSnapshotRestoresFailedAttemptEnd(t *testing.T) {
 			t.Fatalf("snapshot lost failure cursor: %+v", snapshot.failTokenEnd)
 		}
 		d.lexer.failTokenEnd = includedLexerCursor{pos: 31}
-		if snapshot.equal(d.snapshotRelexState()) {
+		changed := d.snapshotRelexState()
+		if snapshot.equal(&changed) {
 			t.Fatal("snapshot equality ignored the failure cursor")
 		}
 		snapshot.restore(d)

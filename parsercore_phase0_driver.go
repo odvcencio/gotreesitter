@@ -1360,7 +1360,7 @@ const (
 )
 
 // recoveryRegion returns the optional open strategy-2 region.
-func (h diagnosticParserCoreHeader) recoveryRegion() *diagnosticParserCoreS3Region {
+func (h *diagnosticParserCoreHeader) recoveryRegion() *diagnosticParserCoreS3Region {
 	if h.versionState == nil {
 		return nil
 	}
@@ -1369,35 +1369,35 @@ func (h diagnosticParserCoreHeader) recoveryRegion() *diagnosticParserCoreS3Regi
 
 // versionLexerSnapshot returns the immutable DFA/scanner state owned by this
 // parser version. The nil value is the single-version fast-path state.
-func (h diagnosticParserCoreHeader) versionLexerSnapshot() *diagnosticParserCoreVersionLexerSnapshot {
+func (h *diagnosticParserCoreHeader) versionLexerSnapshot() *diagnosticParserCoreVersionLexerSnapshot {
 	if h.versionState == nil {
 		return nil
 	}
 	return h.versionState.relexSnapshot
 }
 
-func (h diagnosticParserCoreHeader) versionLexerRequestReference() uint32 {
+func (h *diagnosticParserCoreHeader) versionLexerRequestReference() uint32 {
 	if h.versionState == nil {
 		return 0
 	}
 	return h.versionState.lexerRequest
 }
 
-func (h diagnosticParserCoreHeader) recoveryGroupIdentity() uint64 {
+func (h *diagnosticParserCoreHeader) recoveryGroupIdentity() uint64 {
 	if h.versionState == nil {
 		return 0
 	}
 	return h.versionState.recoveryGroup
 }
 
-func (h diagnosticParserCoreHeader) recoveryMissingGroupIdentity() uint64 {
+func (h *diagnosticParserCoreHeader) recoveryMissingGroupIdentity() uint64 {
 	if h.versionState == nil {
 		return 0
 	}
 	return h.versionState.missingGroup
 }
 
-func (h diagnosticParserCoreHeader) recoveryNodeBaseline() (uint32, bool) {
+func (h *diagnosticParserCoreHeader) recoveryNodeBaseline() (uint32, bool) {
 	if h.versionState == nil {
 		return 0, false
 	}
@@ -1461,7 +1461,7 @@ func (h *diagnosticParserCoreHeader) clearAcceptanceGroup() {
 	}
 }
 
-func (h diagnosticParserCoreHeader) isRecoveryCosted() bool {
+func (h *diagnosticParserCoreHeader) isRecoveryCosted() bool {
 	return h.recoveryFlags&diagnosticParserCoreRecoveryCostedFlag != 0
 }
 
@@ -2975,6 +2975,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	// of one per-state relex probe, so the probe allocates no slices.
 	relexPriorScratch dfaRelexSnapshotScratch
 	relexAfterScratch dfaRelexSnapshotScratch
+	negativeRelexMemo *core.NegativeLexProbeMemo
 	// relexZeroWidthPreScanScratch holds tokenSource.externalPreScanPayload's
 	// own bytes for the duration of relexZeroWidthExternalTokenForState's
 	// probe, which borrows that field to inject the scheduler's own
@@ -4673,6 +4674,9 @@ func clearDiagnosticParserCoreGenericSchedulerVersionState(scheduler *diagnostic
 		clear(scheduler.versionLexerRequests[:cap(scheduler.versionLexerRequests)])
 	}
 	scheduler.versionLexerBefore = dfaRelexSnapshot{}
+	if scheduler.negativeRelexMemo != nil {
+		scheduler.negativeRelexMemo.Clear()
+	}
 	scheduler.versionLexerBeforeValid = false
 	scheduler.versionLexerBeforeIdentity = [32]byte{}
 	scheduler.versionLexerBeforeIdentityValid = false
@@ -4743,6 +4747,7 @@ func resetDiagnosticParserCoreGenericScheduler(scheduler *diagnosticParserCoreGe
 		relexPriorScratch:            relexPriorScratch,
 		relexAfterScratch:            relexAfterScratch,
 		versionLexerRequests:         versionLexerRequests,
+		negativeRelexMemo:            scheduler.negativeRelexMemo,
 		versionLexerMetadata:         scheduler.versionLexerMetadata,
 	}
 	return nil
@@ -4771,9 +4776,9 @@ func (s *diagnosticParserCoreGenericScheduler) headerReceipt(header diagnosticPa
 // election — that digest has no reader on this path. Full-receipt mode keeps
 // paying it, since diagnosticParserCoreHeaderReceipt is also what tests and
 // diagnostics observe and must stay byte-identical there.
-func (s *diagnosticParserCoreGenericScheduler) electHeaderState(header diagnosticParserCoreHeader) (StateID, error) {
+func (s *diagnosticParserCoreGenericScheduler) electHeaderState(header *diagnosticParserCoreHeader) (StateID, error) {
 	if s.fullReceipts() {
-		receipt, err := diagnosticParserCoreHeaderReceipt(s.compact, header)
+		receipt, err := diagnosticParserCoreHeaderReceipt(s.compact, *header)
 		if err != nil {
 			return 0, err
 		}
@@ -5502,8 +5507,41 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 			return shared, false
 		}
 	}
-	if int(state) >= len(lang.LexModes) {
+	if uint64(state) >= uint64(len(lang.LexModes)) {
 		return shared, false
+	}
+	// A negative external candidate is independent of the shared after-state.
+	// Reuse only stateless requests under this exact frozen fresh election;
+	// capability and checkpoint authentication above/below remain mandatory.
+	memoEligible := contract.stateless && s.options.freshSchedulerSession && s.compact != nil &&
+		!s.versionLexerOwnershipActive && !d.quiescenceProbing && shared == s.token &&
+		s.versionLexerBeforeElection == s.electionIndex &&
+		s.versionLexerBeforeCheckpoint == s.checkpointBeforeID
+	if memoEligible {
+		if s.negativeRelexMemo != nil {
+			if span, produced, ok := s.negativeRelexMemo.Lookup(core.StateID(state), shared.StartByte); ok &&
+				s.compact.CheckpointMatches(s.checkpointBeforeID, s.versionLexerBefore.externalPayload) {
+				d.tokenInvariantMaxReadSpan = max(d.tokenInvariantMaxReadSpan, span)
+				d.externalTokensProduced = produced
+				d.externalPreScanPayload = d.externalPreScanPayload[:0]
+				return shared, false
+			}
+		}
+		// With both external rows empty, no input can produce an external
+		// candidate: single-state scanning and its ERROR_STATE retry reject all
+		// external symbols. Internal candidates are discarded by this helper, so
+		// their speculative reads are not dependencies of its constant result.
+		if core.ExternalModesRejectAll(lang.ExternalLexStates,
+			lang.LexModes[state].ExternalLexState, lang.LexModes[cErrorState].ExternalLexState) &&
+			s.compact.CheckpointMatches(s.checkpointBeforeID, s.versionLexerBefore.externalPayload) {
+			if s.negativeRelexMemo == nil {
+				s.negativeRelexMemo = new(core.NegativeLexProbeMemo)
+			}
+			s.negativeRelexMemo.Record(core.StateID(state), shared.StartByte, 0, 0)
+			d.externalTokensProduced = 0
+			d.externalPreScanPayload = d.externalPreScanPayload[:0]
+			return shared, false
+		}
 	}
 	// Keep the source exactly as the shared election left it. The snapshot
 	// restore below may call Deserialize, so capture the current state first.
@@ -5530,9 +5568,21 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	s.versionLexerBefore.restore(d)
 	d.SetParserState(state)
 	d.SetGLRStates(nil)
-	candidate := d.Next()
+	var candidate Token
+	var probeSpan uint32
+	if memoEligible {
+		candidate, probeSpan = core.CaptureLexProbeReadSpan(&d.tokenInvariantMaxReadSpan, d.Next)
+	} else {
+		candidate = d.Next()
+	}
 	if candidate.Symbol == 0 || candidate.NoLookahead || candidate.Missing ||
 		!candidate.ExternalScannerToken || candidate.StartByte != shared.StartByte {
+		if memoEligible {
+			if s.negativeRelexMemo == nil {
+				s.negativeRelexMemo = new(core.NegativeLexProbeMemo)
+			}
+			s.negativeRelexMemo.Record(core.StateID(state), shared.StartByte, probeSpan, d.externalTokensProduced)
+		}
 		return shared, false
 	}
 	// Compare the scanner payload after the state-specific scan. Equal token
@@ -5540,7 +5590,7 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	// ownership for the next election.
 	candidateAfter := d.snapshotRelexStateWithScratch(&s.relexAfterScratch)
 	sharedAfter := prior
-	if tokensSameLex(candidate, shared) && candidateAfter.equal(sharedAfter) {
+	if tokensSameLex(candidate, shared) && candidateAfter.equal(&sharedAfter) {
 		return shared, false
 	}
 	return candidate, true
@@ -5846,7 +5896,7 @@ func (s *diagnosticParserCoreGenericScheduler) equivalentVersionLexerSnapshot(
 				checkpointIdentityRequired: identityRequired, checkpointIdentityValid: identityValid,
 			}) &&
 			snapshot.beforeCheckpoint == beforeID &&
-			snapshot.afterCheckpoint == afterID && snapshot.dfa.equal(dfa) &&
+			snapshot.afterCheckpoint == afterID && snapshot.dfa.equal(&dfa) &&
 			(!identityRequired || identityValid) &&
 			snapshot.validate() == nil
 	}
@@ -6128,6 +6178,9 @@ func (s *diagnosticParserCoreGenericScheduler) captureSharedElectionSnapshotFrom
 }
 
 func (s *diagnosticParserCoreGenericScheduler) finishSharedElectionSnapshotCapture() error {
+	if s.negativeRelexMemo != nil {
+		s.negativeRelexMemo.Clear()
+	}
 	s.versionLexerBeforeValid = true
 	s.versionLexerBeforeIdentity = [32]byte{}
 	s.versionLexerBeforeIdentityValid = false
@@ -14066,7 +14119,8 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 	if cap(states) < len(s.headers) {
 		states = make([]StateID, 0, max(len(s.headers), 2*cap(states)))
 	}
-	for _, header := range s.headers {
+	for index := range s.headers {
+		header := &s.headers[index]
 		state, err := s.electHeaderState(header)
 		if err != nil {
 			return err

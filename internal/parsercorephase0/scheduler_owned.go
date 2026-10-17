@@ -145,7 +145,7 @@ func (c *Core) recordNodeLineage(head Head, rank CleanPathRankSelection, lineage
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
 			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
-			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
+			setCount: node.set.count, setFlags: node.set.flags, setWord: node.set.inline[0],
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
 			storedErrorCost: node.storedErrorCost,
 		})
@@ -185,7 +185,7 @@ func (c *Core) recordHeadOwner(head Head, lineage uint32) error {
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
 			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
-			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
+			setCount: node.set.count, setFlags: node.set.flags, setWord: node.set.inline[0],
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
 			storedErrorCost: node.storedErrorCost,
 		})
@@ -222,7 +222,7 @@ func (c *Core) recordNodeStoredErrorCost(head Head, cost uint32) error {
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
 			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
-			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
+			setCount: node.set.count, setFlags: node.set.flags, setWord: node.set.inline[0],
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
 			storedErrorCost: node.storedErrorCost,
 		})
@@ -270,7 +270,7 @@ func (c *Core) recordNodeLineageSet(head Head, set AlternativeSet, setBlended bo
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
 			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
-			setCount: before.count, setFlags: before.flags, setSpillRef: before.spillRef,
+			setCount: before.count, setFlags: before.flags, setWord: before.inline[0],
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: beforeBlended,
 			storedErrorCost: node.storedErrorCost,
 		})
@@ -315,7 +315,7 @@ func (c *Core) recordNodeLineageRefs(head Head, refs DropCohortRefSet) error {
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
 			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
-			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
+			setCount: node.set.count, setFlags: node.set.flags, setWord: node.set.inline[0],
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
 			storedErrorCost: node.storedErrorCost,
 		})
@@ -349,7 +349,7 @@ func (c *Core) recordNodeLineageMember(head Head, event, branch uint16) error {
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
 			node: head.Node, owner: node.owner, dropCohortRefIndex: node.dropCohortRefIndex,
-			setCount: before.count, setFlags: before.flags, setSpillRef: before.spillRef,
+			setCount: before.count, setFlags: before.flags, setWord: before.inline[0],
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
 			storedErrorCost: node.storedErrorCost,
 		})
@@ -941,7 +941,7 @@ func (c *Core) mergeNodeLineageMetadata(leftID, rightID, targetID NodeID) error 
 	if targetID == leftID && len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
 			node: targetID, owner: before.owner, dropCohortRefIndex: before.dropCohortRefIndex,
-			setCount: before.set.count, setFlags: before.set.flags, setSpillRef: before.set.spillRef,
+			setCount: before.set.count, setFlags: before.set.flags, setWord: before.set.inline[0],
 			lineage: before.lineage, rank: before.rank, converged: before.converged, blended: before.blended,
 			storedErrorCost: before.storedErrorCost,
 		})

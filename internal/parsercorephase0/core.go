@@ -519,7 +519,7 @@ type nodeLineageMutation struct {
 	node               NodeID
 	owner              uint32
 	dropCohortRefIndex uint32
-	setSpillRef        uint32
+	setWord            uint32
 	setCount           uint8
 	setFlags           uint8
 	lineage            uint16
@@ -580,10 +580,11 @@ var errAlternativeSetBranchOrdinalCap = errors.New("parser-core phase zero: redu
 // is the empty set. Ascending uint32 order sorts event-major, branch-minor,
 // so every branch of one event sits adjacent.
 type AlternativeSet struct {
-	inline   [alternativeSetInlineCapacity]uint32
-	count    uint8
-	flags    uint8
-	spillRef uint32 // 1-based start index into Core.alternativeSpillArena
+	// inline[0] stores the exact member when inline and the exact 1-based
+	// spill offset when flags marks a spilled set. The two meanings are exclusive.
+	inline [alternativeSetInlineCapacity]uint32
+	count  uint8
+	flags  uint8
 }
 
 // packAlternativeSetMember packs one (event, branch) pair into the single
@@ -735,7 +736,7 @@ func (l linkRecord) isRecoveryDiscontinuity() bool {
 	return l.flags&linkFlagRecoveryDiscontinuity != 0
 }
 
-func (l linkRecord) validateShape() error {
+func (l linkRecord) validateUncommonShape() error {
 	if l.flags&^linkKnownFlags != 0 {
 		return errors.New("parser-core phase zero: link has unknown flags")
 	}
@@ -1789,7 +1790,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 		c.nodeLineages[nodeIndex].dropCohortRefIndex = mutation.dropCohortRefIndex
 		c.nodeLineages[nodeIndex].set.count = mutation.setCount
 		c.nodeLineages[nodeIndex].set.flags = mutation.setFlags
-		c.nodeLineages[nodeIndex].set.spillRef = mutation.setSpillRef
+		c.nodeLineages[nodeIndex].set.inline[0] = mutation.setWord
 		c.nodeLineages[nodeIndex].lineage = mutation.lineage
 		c.nodeLineages[nodeIndex].rank = mutation.rank
 		c.nodeLineages[nodeIndex].converged = mutation.converged
@@ -3200,7 +3201,19 @@ func (c *Core) reductionParentForPath(
 		}
 		materializationPlan = &adjusted
 	}
-	fields, aliases, err := c.remapReductionPlan(path.children, materializationPlan, scratch)
+	var fields []FieldMapEntry
+	var aliases []Symbol
+	var err error
+	if !path.recoveryDiscontinuity && len(path.children) == int(materializationPlan.childCount) &&
+		(len(materializationPlan.aliases) == 0 || len(materializationPlan.aliases) == len(path.children)) {
+		// popPaths authenticates each child and emits exactly ChildCount
+		// non-extra children. Equality of those counts proves there are no
+		// interstitial extras, so the production's positions are unchanged.
+		// The immutable plan was validated for this exact production/count.
+		fields, aliases = materializationPlan.fields, materializationPlan.aliases
+	} else {
+		fields, aliases, err = c.remapReductionPlan(path.children, materializationPlan, scratch)
+	}
 	if err != nil {
 		return 0, 0, ForkOrder{}, err
 	}
@@ -5356,7 +5369,16 @@ func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, oldID N
 	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
 		return Head{}, errors.New("parser-core phase zero: node arena cap")
 	}
-	rebuilt := slices.Clone(oldLinks)
+	// A single incoming replacement is consumed synchronously below. Keep
+	// its private copy on this frame; historical graph links remain immutable.
+	var singleReplacement [1]linkRecord
+	var rebuilt []linkRecord
+	if len(oldLinks) == 1 {
+		singleReplacement[0] = oldLinks[0]
+		rebuilt = singleReplacement[:]
+	} else {
+		rebuilt = slices.Clone(oldLinks)
+	}
 	rebuilt[candidate].prev = in.prev
 	rebuilt[candidate].payload = in.payload
 	rebuilt[candidate].scoreDelta = in.scoreDelta
@@ -6943,33 +6965,23 @@ func (c *Core) NodeLineageAlternativeSet(id NodeID) (AlternativeSet, error) {
 	return record.set, nil
 }
 
-// alternativeSetMembers resolves set's sorted member slice, reading through
+// AlternativeSetMembers resolves set's sorted member slice, reading through
 // the shared spill arena when set has spilled. The returned slice aliases
 // Core-owned storage and is invalidated by the next mutation to any set; it
 // never allocates and never writes.
-func (c *Core) alternativeSetMembers(set AlternativeSet) ([]uint32, bool) {
+func (c *Core) AlternativeSetMembers(set AlternativeSet) ([]uint32, bool) {
 	if !set.spilled() {
 		return set.inline[:set.count], true
 	}
-	if set.spillRef == 0 {
+	if set.inline[0] == 0 {
 		return nil, set.count == 0
 	}
-	start := int(set.spillRef) - 1
+	start := int(set.inline[0]) - 1
 	end := start + int(set.count)
 	if start < 0 || end > len(c.alternativeSpillArena) {
 		return nil, false
 	}
 	return c.alternativeSpillArena[start:end], true
-}
-
-// AlternativeSetMembers is the exported form of alternativeSetMembers for
-// cross-package readers (the shadow predicate and census in
-// parsercore_phase0_driver.go). ok is false only when set's spill reference
-// is out of range for the current arena; every recording path in this
-// package keeps that from happening, so callers treat !ok as a fail-closed
-// signal, not a recoverable case.
-func (c *Core) AlternativeSetMembers(set AlternativeSet) ([]uint32, bool) {
-	return c.alternativeSetMembers(set)
 }
 
 // searchAlternativeSetMembers returns the sorted insertion position for
@@ -7034,7 +7046,7 @@ func (c *Core) alternativeSetInsert(set *AlternativeSet, member uint32) bool {
 	if set.flags&alternativeSetFlagOverflowed != 0 {
 		return false
 	}
-	current, ok := c.alternativeSetMembers(*set)
+	current, ok := c.AlternativeSetMembers(*set)
 	if !ok {
 		return false
 	}
@@ -7052,17 +7064,21 @@ func (c *Core) alternativeSetInsert(set *AlternativeSet, member uint32) bool {
 			set.inline[len(current)] = member
 			set.count++
 			return true
-		case set.spilled() && int(set.spillRef)-1+len(current) == len(c.alternativeSpillArena):
+		case set.spilled() && int(set.inline[0])-1+len(current) == len(c.alternativeSpillArena):
 			c.alternativeSpillArena = append(c.alternativeSpillArena, member)
 			set.count++
 			return true
 		}
 	}
 	start := len(c.alternativeSpillArena)
+	reference, representable := alternativeSetPrepareSpill(set, start)
+	if !representable {
+		return true
+	}
 	c.alternativeSpillArena = append(c.alternativeSpillArena, current[:position]...)
 	c.alternativeSpillArena = append(c.alternativeSpillArena, member)
 	c.alternativeSpillArena = append(c.alternativeSpillArena, current[position:]...)
-	set.spillRef = uint32(start) + 1
+	set.inline[0] = reference
 	set.count = uint8(len(current) + 1)
 	set.flags |= alternativeSetFlagSpilled
 	return true
@@ -7115,11 +7131,11 @@ func (c *Core) alternativeSetUnion(dst *AlternativeSet, src AlternativeSet) bool
 		*dst = src
 		return true
 	}
-	srcMembers, ok := c.alternativeSetMembers(src)
+	srcMembers, ok := c.AlternativeSetMembers(src)
 	if !ok {
 		return false
 	}
-	if dstMembers, dstOK := c.alternativeSetMembers(*dst); dstOK &&
+	if dstMembers, dstOK := c.AlternativeSetMembers(*dst); dstOK &&
 		alternativeSetSortedContainsAll(srcMembers, dstMembers) {
 		return false
 	}
@@ -7186,8 +7202,8 @@ func (c *Core) UnionAlternativeSet(dst *AlternativeSet, src AlternativeSet) bool
 // predicate's own fail-closed containment check (not this helper) is what
 // guards soundness against an unresolvable set.
 func (c *Core) AlternativeSetIncomparable(a, b AlternativeSet) bool {
-	aMembers, _ := c.alternativeSetMembers(a)
-	bMembers, _ := c.alternativeSetMembers(b)
+	aMembers, _ := c.AlternativeSetMembers(a)
+	bMembers, _ := c.AlternativeSetMembers(b)
 	if alternativeSetSortedContainsAll(aMembers, bMembers) {
 		return false
 	}

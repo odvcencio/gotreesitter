@@ -215,20 +215,25 @@ func TestG18RefSetReductionOutputAndNodePersistence(t *testing.T) {
 }
 
 func TestG18RefSetRecordSizes(t *testing.T) {
-	if got := unsafe.Sizeof(DropCohortRef{}); got != 32 {
-		t.Fatalf("DropCohortRef size=%d, want 32", got)
+	// Three uint64 fields and one uint16 occupy 26 bytes before the ABI's
+	// trailing padding: 32 on 8-byte alignment, 28 on 4-byte alignment.
+	wantRef := (uintptr(26) + unsafe.Alignof(DropCohortRef{}) - 1) &^ (unsafe.Alignof(DropCohortRef{}) - 1)
+	if got := unsafe.Sizeof(DropCohortRef{}); got != wantRef {
+		t.Fatalf("DropCohortRef size=%d, want %d", got, wantRef)
 	}
 	if got := unsafe.Sizeof(DropCohortRefSet{}); got != 16 {
 		t.Fatalf("DropCohortRefSet size=%d, want 16", got)
 	}
-	if got := unsafe.Sizeof(nodeLineageRecord{}); got != 32 {
-		t.Fatalf("nodeLineageRecord size=%d, want 32", got)
+	if got := unsafe.Sizeof(nodeLineageRecord{}); got != 28 {
+		t.Fatalf("nodeLineageRecord size=%d, want 28", got)
 	}
 	if got := unsafe.Sizeof(nodeLineageMutation{}); got != 28 {
 		t.Fatalf("nodeLineageMutation size=%d, want 28", got)
 	}
-	if got := unsafe.Sizeof(ReductionOutput{}); got != 56 {
-		t.Fatalf("ReductionOutput size=%d, want 56", got)
+	// The 44-byte handoff has 4 or 8 bytes of ABI alignment.
+	wantOutput := (uintptr(44) + unsafe.Alignof(uint64(0)) - 1) &^ (unsafe.Alignof(uint64(0)) - 1)
+	if got := unsafe.Sizeof(ReductionOutput{}); got != wantOutput {
+		t.Fatalf("ReductionOutput size=%d, want %d", got, wantOutput)
 	}
 	if got := unsafe.Sizeof(LinkChainRef{}); got != 8 {
 		t.Fatalf("LinkChainRef size=%d, want 8", got)

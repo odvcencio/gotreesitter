@@ -461,11 +461,16 @@ jobs:
           TestDiagnosticParserCoreSummaryConflictFailureRollsBack
           TestDiagnosticParserCoreSummaryFailurePublishesNothing
           TestDiagnosticParserCoreUpdatedReductionAdoptsActiveSibling
+          TestDiagnosticParserCoreVersionLexerCloneEqualityPreservesDistinctOwners
           TestDiagnosticParserCoreVersionLexerElectionCaptureReusesScratch
           TestDiagnosticParserCoreVersionLexerElectionReusesCheckpointSerialization
           TestDiagnosticParserCoreVersionLexerElectionScratchFootprintAndReset
           TestDiagnosticParserCoreVersionLexerElectionScratchPreservesZeroPayload
           TestDiagnosticParserCoreVersionLexerProductionActivation
+          TestVersionLexerPairedValidationKeepsEverySecondSnapshotGuard
+          TestVersionLexerPairedValidationRechecksDestinationAtEveryCall
+          TestVersionLexerValidationRejectsBindingSwapDuringCapabilityCallback
+          TestVersionLexerStandaloneRejectsBindingSwapDuringCapabilityCallback
           TestDiagnosticParserCoreVersionLexerRequestsOwnRaggedSpans
           TestDiagnosticParserCoreVersionLexerSidecarFootprintAndReset
           TestDiagnosticParserCoreVersionLexerSnapshotAcceptsEmptyCheckpointIDs
@@ -565,6 +570,10 @@ jobs:
           TestParserCoreCorridorPassMixReceipt
           TestParserCoreCorridorReduceChainIncrementalReceipt
           TestParserCoreCorridorReduceShiftIncrementalReceipt
+          TestParserCoreCorridorReduceShiftLandingMismatchFallsBack
+          TestParserCoreCorridorReduceShiftPreservesDispatchPolls
+          TestParserCoreCorridorReduceShiftRejectsInvalidLanding
+          TestParserCoreCorridorReduceShiftRequiresUnaryProof
           TestParserCoreCorridorRuntimeEquivalence
           TestParserCoreCorridorStreamValidation
           TestParserCoreCorridorTableShapeReceipt
@@ -832,7 +841,7 @@ jobs:
             package_filter: '/parser_result_test$'
             test_filter: ''
           - name: support
-            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|scannerstate|grammarpatch|sched|incr|reducechoice|declarationfacts|syntaxfacts)$|/corpuscheck$|/roottest/bench$'
+            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|scannerstate|grammarpatch|sched|incr|reducechoice|declarationfacts|syntaxfacts|lexrun)$|/corpuscheck$|/roottest/bench$'
             test_filter: ''
           - name: grammar-support
             package_filter: '/grammars/(grammar_blobs|internal/[^/]+|lean|python|swift)$'

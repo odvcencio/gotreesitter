@@ -17,7 +17,7 @@
 + func selectedStoreQueryReader.SetCaptureRangeOverride(capture *queryValueCapture[core.SelectedNodeID], startByte, endByte uint32, startPoint, endPoint Point)
 + func selectedStoreQueryReader.SetCaptureTextOverride(capture *queryValueCapture[core.SelectedNodeID], text string)
 + func selectedStoreQueryReader.StartByte(id core.SelectedNodeID) uint32
-+ func selectedStoreQueryReader.SupertypeMask(core.SelectedNodeID) uint32
++ func selectedStoreQueryReader.SupertypeMask(id core.SelectedNodeID) uint32
 + func selectedStoreQueryReader.Symbol(id core.SelectedNodeID) Symbol
 + func selectedStoreQueryReader.Text(id core.SelectedNodeID, source []byte) string
 + func selectedStoreQueryReader.Type(id core.SelectedNodeID, lang *Language) string

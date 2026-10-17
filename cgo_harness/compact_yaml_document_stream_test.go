@@ -32,18 +32,26 @@ func TestCompactYAMLDocumentStreamLockedC(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, test := range []struct {
-		name      string
-		documents int
-		owned     bool
+		name         string
+		documents    int
+		owned        bool
+		prefix       string
+		sampleSource bool
 	}{
-		{"one owned document", 1, true},
-		{"four ordinary documents", 4, false},
-		{"four owned documents", 4, true},
-		{"sixteen owned documents", 16, true},
+		{"one owned document", 1, true, "", false},
+		{"four ordinary documents", 4, false, "", false},
+		{"four owned documents", 4, true, "", false},
+		{"sixteen owned documents", 16, true, "", false},
+		{"owned sample with leading padding", 1, true, "  ", true},
+		{"owned sample with leading newline", 1, true, "\n  ", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Cleanup(core.SetExternalLexerOwnershipProbeForTest(test.owned))
 			source := bytes.Repeat(document, test.documents)
+			if test.sampleSource {
+				source = sample
+			}
+			source = append([]byte(test.prefix), source...)
 			cTree := compactT3ParseC(t, cLang, source)
 			defer cTree.Close()
 			if cTree.RootNode().HasError() {

@@ -39,12 +39,16 @@ type SelectedStorePolicy struct {
 	Symbols               []SelectedSymbolPolicy
 	Unary                 []SelectedUnaryRule
 	RetainedAliasChildren []SelectedAliasChildPair
+	SupertypeMasks        []uint32
 	ExpectedRoot          Symbol
-	Semicolon             Symbol
-	SemicolonNUL          Symbol
-	SemicolonContainers   []bool
-	Cases                 []bool
-	StatementLists        []bool
+	// ProjectSyntheticSiblingRoot matches result publication when accepted extras
+	// surround an unfielded grammar root. Fielded roots retain their provenance.
+	ProjectSyntheticSiblingRoot bool
+	Semicolon                   Symbol
+	SemicolonNUL                Symbol
+	SemicolonContainers         []bool
+	Cases                       []bool
+	StatementLists              []bool
 }
 
 // SetRetainedAliasChildren installs parser-compiled symbol facts. The compact
@@ -132,6 +136,14 @@ func (p SelectedStorePolicy) validate() error {
 			return errors.New("parser-core phase zero: selected-store retained-alias policy is invalid")
 		}
 	}
+	if len(p.SupertypeMasks) != 0 && len(p.SupertypeMasks) != width {
+		return errors.New("parser-core phase zero: selected-store supertype policy width drifted")
+	}
+	for _, mask := range p.SupertypeMasks {
+		if mask&(mask-1) != 0 {
+			return errors.New("parser-core phase zero: selected-store supertype policy is not a single bit")
+		}
+	}
 	compatWidth := len(p.SemicolonContainers)
 	if compatWidth == 0 {
 		if len(p.Cases) != 0 || len(p.StatementLists) != 0 {
@@ -168,10 +180,11 @@ type SelectedNodeRecord struct {
 	FirstChild        uint32
 	StartByte         uint32
 	EndByte           uint32
+	DynamicPrecedence int32
+	SupertypeMask     uint32
 	Symbol            Symbol
 	Field             FieldID
 	ProductionID      uint16
-	DynamicPrecedence int32
 	ChildCount        uint16
 	ChildIndex        uint16
 	flags             uint8
@@ -569,6 +582,9 @@ func (c *Core) buildSelectedStoreStaged(roots []SubtreeID, policy SelectedStoreP
 			child := &store.records[childID-1]
 			rule := policy.unary(record.symbol, child.Symbol)
 			if !child.Extra() && (rule == SelectedUnaryPass || rule == SelectedUnaryRenameLeaf && child.ChildCount == 0) {
+				if rule == SelectedUnaryPass && record.symbol != child.Symbol {
+					child.SupertypeMask |= policy.supertypeMask(record.symbol)
+				}
 				if hasError {
 					child.flags |= selectedNodeFlagHasError
 				}
@@ -602,6 +618,11 @@ func (c *Core) buildSelectedStoreStaged(roots []SubtreeID, policy SelectedStoreP
 		}
 
 		if !meta.Visible && !record.extra {
+			if mask := policy.supertypeMask(record.symbol); mask != 0 {
+				for _, id := range logical {
+					store.records[id-1].SupertypeMask |= mask
+				}
+			}
 			resultHasError[index] = hasError
 			continue
 		}
@@ -669,10 +690,13 @@ func (c *Core) buildSelectedStoreStaged(roots []SubtreeID, policy SelectedStoreP
 			}
 		}
 	}
-	if err := store.finishRoots(rootIDs, policy, c.limits.MaxSelectedBytes, poll); err != nil {
+	if err := store.finishRoots(rootIDs, policy, precedenceDeltas, c.limits.MaxSelectedBytes, poll); err != nil {
 		return nil, err
 	}
 	if err := store.normalizeGoCompatibility(policy, source, poll); err != nil {
+		return nil, err
+	}
+	if err := store.normalizeResultRootSourceStart(policy, source); err != nil {
 		return nil, err
 	}
 	if err := store.recomputePrecedence(precedenceDeltas); err != nil {
@@ -1088,7 +1112,7 @@ func moveSelectedStoreChildren(children []SelectedNodeID, destination, source, c
 	return nil
 }
 
-func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStorePolicy, retainedCap uint64, poll func() error) error {
+func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStorePolicy, deltas []int32, retainedCap uint64, poll func() error) error {
 	if len(roots) == 0 {
 		return errors.New("parser-core phase zero: selected store sealed no logical roots")
 	}
@@ -1122,6 +1146,15 @@ func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStore
 	oldStart := real.FirstChild
 	oldEnd := oldStart + uint32(real.ChildCount)
 	extraCount := len(roots) - 1
+	synthetic := policy.ProjectSyntheticSiblingRoot && real.ChildCount != 0
+	if synthetic {
+		for _, child := range s.children[oldStart:oldEnd] {
+			if s.records[child-1].Field != 0 {
+				synthetic = false
+				break
+			}
+		}
+	}
 	mergedCount, finalChildren, err := selectedRootMergeCounts(len(s.children), len(roots), real.ChildCount)
 	if err != nil {
 		return err
@@ -1162,9 +1195,32 @@ func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStore
 		}
 	}
 	real.ChildCount = uint16(mergedCount)
-	real.StartByte = 0
+	if synthetic {
+		real.ProductionID = 0
+		if len(deltas) != len(s.records) {
+			return errors.New("parser-core phase zero: synthetic root precedence sidecar drifted")
+		}
+		deltas[realID-1] = 0
+		real.flags = selectedNodeFlagNamed
+		real.SupertypeMask = 0
+		real.EndByte = 0
+	}
 	merged := s.children[oldStart : oldStart+uint32(mergedCount)]
+	if !policy.ProjectSyntheticSiblingRoot {
+		real.StartByte = 0
+	} else if synthetic {
+		real.StartByte = s.records[merged[0]-1].StartByte
+	}
 	for childIndex, child := range merged {
+		if policy.ProjectSyntheticSiblingRoot && s.records[child-1].StartByte < real.StartByte {
+			real.StartByte = s.records[child-1].StartByte
+		}
+		if policy.ProjectSyntheticSiblingRoot && s.records[child-1].EndByte > real.EndByte {
+			real.EndByte = s.records[child-1].EndByte
+		}
+		if synthetic && s.records[child-1].HasError() {
+			real.flags |= selectedNodeFlagHasError
+		}
 		s.records[child-1].Parent = realID
 		s.records[child-1].ChildIndex = uint16(childIndex)
 	}

@@ -615,3 +615,57 @@ func (p *ParserCoreCorridorProgram) forEachForkBodyForTest() []uint32 {
 	}
 	return found
 }
+
+// A one-edge predecessor proof covers exactly one consumed child. In this
+// table, all immediate predecessors agree on a shift landing; zero-child and
+// two-child reductions still cannot use that landing without another proof.
+func TestParserCoreCorridorReduceShiftRequiresUnaryProof(t *testing.T) {
+	lang := &Language{
+		TokenCount: 2, StateCount: 5, LargeStateCount: 5, InitialState: 1,
+		ParseTable:   [][]uint16{{0, 0, 0}, {0, 0, 3}, {0, 0, 0}, {0, 1, 0}, {0, 0, 0}},
+		ParseActions: []ParseActionEntry{{}, {Actions: []ParseAction{{Type: ParseActionShift, State: 4}}}},
+	}
+	tables := &corridorTables{lang: lang, denseLimit: 5, tokenCount: 2, stateCount: 5,
+		reduceShiftEnabled: true, predecessors: [][]StateID{nil, nil, {1}, nil, nil}}
+	for _, count := range []uint8{0, 1, 2, 3} {
+		row := core.NewActionRow([]core.Action{{Type: core.ActionReduce, Symbol: 2, ChildCount: count}}, false)
+		candidate, ok := tables.reduceShiftCandidate(2, 1, row, 2)
+		if ok != (count == 1) {
+			t.Errorf("child count %d: fused=%v want %v", count, ok, count == 1)
+		}
+		if ok && (candidate.op != corridorOpReduceShift || candidate.targetState != 4 || candidate.shiftRowIndex != 1 || candidate.landingState != 3) {
+			t.Errorf("unary candidate=%+v", candidate)
+		}
+	}
+}
+
+func TestParserCoreCorridorReduceShiftRejectsInvalidLanding(t *testing.T) {
+	t.Setenv("GTS_C4_REDUCE_SHIFT", "1")
+	for _, invalid := range []uint32{0, ^uint32(0)} {
+		program, err := CompileParserCoreCorridorProgram(loadCertifiedGoLanguageForTest(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for state := 0; state < program.states; state++ {
+			for _, sym := range program.KeySet(StateID(state)) {
+				body := corridorDispatch(program.prog, program.stateBlockOffset[state], sym)
+				if body == 0 || parserCoreCorridorOpcode(program.prog[body]&corridorOpcodeMask) != corridorOpReduceShift {
+					continue
+				}
+				program.prog[body+3] = invalid
+				found = true
+				break
+			}
+			if found {
+				break
+			}
+		}
+		if !found {
+			t.Fatal("no reduce-shift instruction")
+		}
+		if err := program.validate(); err == nil {
+			t.Fatalf("accepted invalid landing %d", invalid)
+		}
+	}
+}

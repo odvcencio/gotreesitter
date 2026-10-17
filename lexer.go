@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/incr"
+	"github.com/odvcencio/gotreesitter/internal/lexrun"
 )
 
 var utf8BOM = []byte{0xef, 0xbb, 0xbf}
@@ -542,6 +543,16 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 			scanCol = 0
 		} else {
 			scanCol += uint32(size)
+		}
+
+		// Staying in the same state preserves acceptance, priority and token start.
+		// Evaluate its last acceptance after the run; earlier identical-priority
+		// acceptances can only lose to that later byte position. Keep SKIP, newline,
+		// Unicode, default and changed-state transitions on the scalar path.
+		if b < 128 && r != '\n' && nextState == curState && !skipTransition && l.asciiTable != nil && int(curState) < len(l.asciiTable) {
+			end := lexrun.ASCII(l.source, scanPos, &l.asciiTable[curState], curState)
+			scanCol += uint32(end - scanPos)
+			scanPos = end
 		}
 
 		if skipTransition {

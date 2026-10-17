@@ -360,6 +360,37 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchCorridor() (progressed bo
 			if int(reduceTarget) >= len(program.stateBlockOffset) {
 				return progressed, nil
 			}
+			// Authenticate the actual graph landing before consuming the static
+			// shift row. Recovery history or an unmodeled predecessor must
+			// resume ordinary dispatch without spending another counter.
+			if uint32(reduceTarget) != prog[body+3] || !s.corridorDirectApplyEligible(false) {
+				pc = program.stateBlockOffset[reduceTarget]
+				continue
+			}
+			// This is the second dispatch boundary of the unfused path.
+			// Budget/cancellation and contextual-token deferral must see the
+			// post-reduction state before the shift can allocate anything.
+			if err := s.pollStopControl(); err != nil {
+				return progressed, err
+			}
+			if !s.corridorTokenGateOpen(corridorOpShift) {
+				return progressed, nil
+			}
+			if s.tokenSource != nil && s.tokenSource.lexer != nil &&
+				tokenMaybeContextualCloseAngle(s.tokenSource.language, &s.token) {
+				probe := s.tokenSource.relexProbeLexer
+				if probe == nil {
+					probe = &Lexer{}
+					s.tokenSource.relexProbeLexer = probe
+				}
+				if deferContextualCloseAngleAction(
+					s.tokenSource.language, s.tokenSource.lexer.source,
+					reduceTarget, &s.token, nil, probe,
+					&s.tokenSource.tokenInvariantMaxReadSpan,
+				) {
+					return progressed, nil
+				}
+			}
 			shifted, err := s.corridorDirectShift(prog[body+2], false)
 			if err != nil {
 				return progressed, err

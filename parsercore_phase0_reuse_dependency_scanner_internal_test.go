@@ -56,8 +56,12 @@ func TestCompactLegacyReadScratchPooledLargeThenSmall(t *testing.T) {
 	largeTree, largeDemand, runner := parse(large)
 	largeTree.Release()
 	checkIdle(runner)
-	if cap(runner.scheduler.reuseDependencies.leafWords) != compactReuseDependencyRetainedEntries {
-		t.Fatalf("large fixture did not fill the shared allowance: active=%+v retained leaves=%d", largeDemand, cap(runner.scheduler.reuseDependencies.leafWords))
+	wantCapacity := largeDemand.leafCapacity
+	if wantCapacity > compactReuseDependencyRetainedEntries {
+		wantCapacity = 0
+	}
+	if cap(runner.scheduler.reuseDependencies.leafWords) != wantCapacity {
+		t.Fatalf("reset violated the shared allowance: active=%+v retained leaves=%d, want %d", largeDemand, cap(runner.scheduler.reuseDependencies.leafWords), wantCapacity)
 	}
 	first, firstDemand, sameRunner := parse(small)
 	defer first.Release()

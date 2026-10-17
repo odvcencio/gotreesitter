@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/odvcencio/gotreesitter/internal/lexrun"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
@@ -1093,8 +1094,8 @@ type lexModeStart struct {
 	afterWhitespaceLexState uint32
 }
 
-const lexAsciiNoMatch = int32(0x7FFF_FFFF)
-const lexAsciiSkipBit = int32(-1 << 31) // bit 31
+const lexAsciiNoMatch = lexrun.NoMatch
+const lexAsciiSkipBit = lexrun.SkipBit // bit 31
 
 // LexAsciiTable returns the pre-built ASCII fast-path transition table for the
 // main lexer DFA. The table is built once per Language. Entry format:

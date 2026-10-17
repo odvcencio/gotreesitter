@@ -685,7 +685,7 @@ func TestSelectedStoreRootGrowthCopyPollsCancellation(t *testing.T) {
 	roots = append(roots, realID)
 	stop := errors.New("stop during selected root growth")
 	polls := 0
-	err = store.finishRoots(roots, selectedStoreTestPolicy(t, 2, 3), math.MaxUint64, func() error {
+	err = store.finishRoots(roots, selectedStoreTestPolicy(t, 2, 3), nil, math.MaxUint64, func() error {
 		polls++
 		if polls == 2 {
 			return stop

@@ -192,6 +192,38 @@ func TestDiagnosticParserCoreVersionLexerSnapshotCloneDoesNotAlias(t *testing.T)
 }
 
 func TestDiagnosticParserCoreVersionLexerCloneEqualityPreservesDistinctOwners(t *testing.T) {
+	t.Run("borrowed equality preserves values", func(t *testing.T) {
+		_, snapshot := newDiagnosticParserCoreVersionLexerTestSnapshot(t)
+		if !diagnosticParserCoreVersionLexerSnapshotEqual(snapshot, snapshot) {
+			t.Fatal("immutable snapshot is not reflexive")
+		}
+		clone := snapshot.clone()
+		if clone == snapshot || !diagnosticParserCoreVersionLexerSnapshotEqual(snapshot, clone) {
+			t.Fatal("equivalent distinct snapshot rejected")
+		}
+		clone.dfa.lexerCol++
+		if diagnosticParserCoreVersionLexerSnapshotEqual(snapshot, clone) {
+			t.Fatal("distinct cursor accepted")
+		}
+		clone = snapshot.clone()
+		clone.coreGeneration++
+		if diagnosticParserCoreVersionLexerSnapshotEqual(snapshot, clone) {
+			t.Fatal("distinct core generation accepted")
+		}
+		clone = snapshot.clone()
+		clone.beforeCheckpoint++
+		if diagnosticParserCoreVersionLexerSnapshotEqual(snapshot, clone) {
+			t.Fatal("distinct checkpoint accepted")
+		}
+		if diagnosticParserCoreVersionLexerSnapshotEqual(snapshot, nil) || !diagnosticParserCoreVersionLexerSnapshotEqual(nil, nil) {
+			t.Fatal("nil snapshot comparison changed")
+		}
+		var absent *dfaRelexSnapshot
+		if !absent.equal(nil) || absent.equal(&snapshot.dfa) || snapshot.dfa.equal(nil) {
+			t.Fatal("nil DFA comparison changed")
+		}
+		t.Logf("DFA_EQUALITY borrowed_bytes_per_argument=%d prior_value_bytes_per_argument=%d", unsafe.Sizeof(absent), unsafe.Sizeof(snapshot.dfa))
+	})
 	compact, snapshot := newDiagnosticParserCoreVersionLexerTestSnapshot(t)
 	clone := snapshot.clone()
 	if !diagnosticParserCoreVersionLexerSnapshotEqual(snapshot, clone) {
@@ -828,7 +860,7 @@ func TestDiagnosticParserCoreVersionLexerSnapshotBindsCheckpointIdentity(t *test
 	if err := snapshot.restore(compact, target); err == nil {
 		t.Fatal("restore accepted a changed checkpoint identity")
 	}
-	if got := target.snapshotRelexState(); !got.equal(beforeTarget) {
+	if got := target.snapshotRelexState(); !got.equal(&beforeTarget) {
 		t.Fatalf("identity-mismatch restore mutated target state: got=%+v want=%+v", got, beforeTarget)
 	}
 	var header diagnosticParserCoreHeader
@@ -1025,5 +1057,254 @@ func TestDiagnosticParserCoreVersionLexerMetadataReusePreservesOldBindings(t *te
 	}
 	if err := changed.validate(); err != nil {
 		t.Fatalf("replacement snapshot invalid: %v", err)
+	}
+}
+
+func sharedCheckpointRequestFixture(t *testing.T) (*diagnosticParserCoreGenericScheduler, *diagnosticParserCoreVersionLexerRequest) {
+	t.Helper()
+	c, before := newDiagnosticParserCoreVersionLexerTestSnapshot(t)
+	dfa := before.dfa
+	dfa.lexerPos++
+	var after *diagnosticParserCoreVersionLexerSnapshot
+	if err := c.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+		var err error
+		after, err = newDiagnosticParserCoreVersionLexerSnapshotWithMetadata(c, before.language, owner, dfa, before.afterCheckpoint, before.afterCheckpoint, before.metadata)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	beforeBytes, afterBytes := after.beforeCheckpointBytes, after.afterCheckpointBytes
+	if after.metadata != before.metadata || after.beforeCheckpoint != after.afterCheckpoint || len(beforeBytes) != len(afterBytes) || len(beforeBytes) > 0 && &beforeBytes[0] != &afterBytes[0] {
+		t.Fatal("fixture lacks a shared binding and private checkpoint copy")
+	}
+	return &diagnosticParserCoreGenericScheduler{compact: c, tokenSource: &dfaTokenSource{language: before.language}}, &diagnosticParserCoreVersionLexerRequest{
+		before: before, after: after, beforeID: before.afterCheckpoint, afterID: after.afterCheckpoint,
+		beforeCheckpoint: before.afterCheckpointInfo, afterCheckpoint: after.afterCheckpointInfo,
+	}
+}
+
+func TestVersionLexerPairedValidationKeepsEverySecondSnapshotGuard(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*diagnosticParserCoreVersionLexerRequest)
+	}{
+		{"generation", func(r *diagnosticParserCoreVersionLexerRequest) { r.after.coreGeneration++ }},
+		{"scanner_presence", func(r *diagnosticParserCoreVersionLexerRequest) { r.after.dfa.externalScannerPresent = false }},
+		{"scanner_payload", func(r *diagnosticParserCoreVersionLexerRequest) { r.after.dfa.externalPayload = nil }},
+		{"before_bytes", func(r *diagnosticParserCoreVersionLexerRequest) {
+			r.after.beforeCheckpointBytes = append([]byte(nil), r.after.beforeCheckpointBytes...)
+			r.after.beforeCheckpointBytes[0] ^= 1
+		}},
+		{"after_bytes", func(r *diagnosticParserCoreVersionLexerRequest) {
+			r.after.afterCheckpointBytes = append([]byte(nil), r.after.afterCheckpointBytes...)
+			r.after.afterCheckpointBytes[0] ^= 1
+		}},
+		{"forged_shared_bytes", func(r *diagnosticParserCoreVersionLexerRequest) {
+			r.after.afterCheckpointBytes[0] ^= 1
+			r.after.beforeCheckpointInfo = parserCoreCheckpoint(r.after.beforeCheckpointBytes)
+			r.after.afterCheckpointInfo = parserCoreCheckpoint(r.after.afterCheckpointBytes)
+		}},
+		{"before_id", func(r *diagnosticParserCoreVersionLexerRequest) { r.after.beforeCheckpoint = ^core.CheckpointID(0) }},
+		{"after_id", func(r *diagnosticParserCoreVersionLexerRequest) { r.after.afterCheckpoint = ^core.CheckpointID(0) }},
+		{"before_length", func(r *diagnosticParserCoreVersionLexerRequest) { r.after.beforeCheckpointInfo.Length++ }},
+		{"after_length", func(r *diagnosticParserCoreVersionLexerRequest) { r.after.afterCheckpointInfo.Length++ }},
+		{"before_digest", func(r *diagnosticParserCoreVersionLexerRequest) { r.after.beforeCheckpointInfo.SHA256[0] ^= 1 }},
+		{"after_digest", func(r *diagnosticParserCoreVersionLexerRequest) { r.after.afterCheckpointInfo.SHA256[0] ^= 1 }},
+		{"request_id", func(r *diagnosticParserCoreVersionLexerRequest) { r.afterID++ }},
+		{"request_receipt", func(r *diagnosticParserCoreVersionLexerRequest) { r.afterCheckpoint.Length++ }},
+		{"different_language", func(r *diagnosticParserCoreVersionLexerRequest) { copy := *r.after.language; r.after.language = &copy }},
+		{"different_metadata", func(r *diagnosticParserCoreVersionLexerRequest) {
+			value := r.after.metadata.Value()
+			value.scanner.fingerprint[0] ^= 1
+			r.after.metadata = core.ReuseFrozenValue(nil, value)
+		}},
+		{"missing_metadata", func(r *diagnosticParserCoreVersionLexerRequest) { r.after.metadata = nil }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, r := sharedCheckpointRequestFixture(t)
+			if !s.versionLexerRequestSnapshotsValid(r) {
+				t.Fatal("valid request rejected")
+			}
+			tt.mutate(r)
+			if s.versionLexerRequestSnapshotsValid(r) {
+				t.Fatal("invalid second snapshot accepted")
+			}
+			if err := r.before.validate(); err != nil {
+				t.Fatalf("validation changed first snapshot: %v", err)
+			}
+		})
+	}
+}
+
+func TestVersionLexerPairedValidationRechecksDestinationAtEveryCall(t *testing.T) {
+	s, r := sharedCheckpointRequestFixture(t)
+	if !s.versionLexerRequestSnapshotsValid(r) {
+		t.Fatal("valid request rejected")
+	}
+	original := s.tokenSource.language.ExternalScanner
+	s.tokenSource.language.ExternalScanner = nil
+	if s.versionLexerRequestSnapshotsValid(r) {
+		t.Fatal("replacement scanner retained authentication")
+	}
+	s.tokenSource.language.ExternalScanner = original
+	if !s.versionLexerRequestSnapshotsValid(r) {
+		t.Fatal("restored binding rejected")
+	}
+	if err := s.compact.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if s.versionLexerRequestSnapshotsValid(r) {
+		t.Fatal("reset retained request authentication")
+	}
+}
+
+type validationBindingSwapScanner struct {
+	byteStateExternalScanner
+	language *Language
+	armed    bool
+}
+
+func (s *validationBindingSwapScanner) ExternalScannerIsStateless() bool {
+	if s.armed {
+		s.armed = false
+		s.language.ExternalScanner = byteStateExternalScanner{}
+	}
+	return false
+}
+
+func TestVersionLexerValidationRejectsBindingSwapDuringCapabilityCallback(t *testing.T) {
+	c, beforeID, afterID := newDiagnosticParserCoreVersionLexerTestCore(t)
+	scanner := &validationBindingSwapScanner{}
+	lang := &Language{Name: "callback-binding-test", ExternalScanner: scanner}
+	scanner.language = lang
+	dfa := diagnosticParserCoreVersionLexerTestDFA()
+	dfa.externalScannerPresent = true
+	var before, after *diagnosticParserCoreVersionLexerSnapshot
+	if err := c.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+		var err error
+		before, err = newDiagnosticParserCoreVersionLexerSnapshotWithMetadata(c, lang, owner, dfa, beforeID, afterID, nil)
+		if err != nil {
+			return err
+		}
+		dfa.lexerPos++
+		after, err = newDiagnosticParserCoreVersionLexerSnapshotWithMetadata(c, lang, owner, dfa, afterID, afterID, before.metadata)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	s := &diagnosticParserCoreGenericScheduler{compact: c, tokenSource: &dfaTokenSource{language: lang}}
+	request := &diagnosticParserCoreVersionLexerRequest{before: before, after: after, beforeID: before.afterCheckpoint, afterID: after.afterCheckpoint, beforeCheckpoint: before.afterCheckpointInfo, afterCheckpoint: after.afterCheckpointInfo}
+	if !s.versionLexerRequestSnapshotsValid(request) {
+		t.Fatal("initial binding was not valid")
+	}
+	scanner.armed = true
+	if s.versionLexerRequestSnapshotsValid(request) {
+		t.Fatal("changed scanner binding accepted after capability callback")
+	}
+	if scanner.armed {
+		t.Fatal("capability callback did not run")
+	}
+}
+
+type validationIdentityBindingSwapScanner struct {
+	byteStateExternalScanner
+	language *Language
+	armed    bool
+}
+
+func (*validationIdentityBindingSwapScanner) UsesExternalScannerCheckpoints() bool { return true }
+func (s *validationIdentityBindingSwapScanner) CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) {
+	if s.armed {
+		s.armed = false
+		s.language.ExternalScanner = byteStateExternalScanner{}
+	}
+	return ExternalScannerCheckpointIdentity{Scanner: []byte("callback-scanner"), Grammar: []byte("callback-grammar")}, true
+}
+
+type validationValueBindingSwapScanner struct {
+	byteStateExternalScanner
+	language   *Language
+	armed      *bool
+	generation uint8
+	tags       []byte
+}
+
+func (s validationValueBindingSwapScanner) ExternalScannerIsStateless() bool {
+	if *s.armed {
+		*s.armed = false
+		s.generation++
+		s.language.ExternalScanner = s
+	}
+	return false
+}
+
+func TestVersionLexerStandaloneRejectsBindingSwapDuringCapabilityCallback(t *testing.T) {
+	for _, capability := range []string{"stateless", "identity", "value"} {
+		for _, stage := range []string{"destination", "validate", "publication", "restore"} {
+			t.Run(capability+"/"+stage, func(t *testing.T) {
+				c, beforeID, afterID := newDiagnosticParserCoreVersionLexerTestCore(t)
+				lang := &Language{Name: "callback-binding-test"}
+				var arm func()
+				var armed func() bool
+				if capability == "stateless" {
+					scanner := &validationBindingSwapScanner{language: lang}
+					lang.ExternalScanner = scanner
+					arm = func() { scanner.armed = true }
+					armed = func() bool { return scanner.armed }
+				} else if capability == "identity" {
+					scanner := &validationIdentityBindingSwapScanner{language: lang}
+					lang.ExternalScanner = scanner
+					arm = func() { scanner.armed = true }
+					armed = func() bool { return scanner.armed }
+				} else {
+					active := false
+					scanner := validationValueBindingSwapScanner{language: lang, armed: &active, generation: 1, tags: []byte{7}}
+					lang.ExternalScanner = scanner
+					arm = func() { active = true }
+					armed = func() bool { return active }
+				}
+				dfa := diagnosticParserCoreVersionLexerTestDFA()
+				dfa.externalScannerPresent = true
+				var snapshot *diagnosticParserCoreVersionLexerSnapshot
+				if err := c.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+					var err error
+					snapshot, err = newDiagnosticParserCoreVersionLexerSnapshotWithMetadata(c, lang, owner, dfa, beforeID, afterID, nil)
+					return err
+				}); err != nil {
+					t.Fatal(err)
+				}
+				if err := snapshot.validate(); err != nil {
+					t.Fatalf("initial binding: %v", err)
+				}
+				target := &dfaTokenSource{lexer: &Lexer{source: []byte("abc"), pos: 4, row: 5, col: 6}, language: lang, hasExternalScanner: true, externalPayload: lang.ExternalScanner.Create()}
+				beforeTarget := target.snapshotRelexState()
+				var header diagnosticParserCoreHeader
+				arm()
+				var err error
+				switch stage {
+				case "destination":
+					err = snapshot.validateDestination(c, lang)
+				case "validate":
+					err = snapshot.validate()
+				case "publication":
+					err = header.publishOwnedVersionLexerSnapshot(c, lang, snapshot)
+				case "restore":
+					err = snapshot.restore(c, target)
+				}
+				if err == nil {
+					t.Fatal("changed scanner binding accepted after standalone capability callback")
+				}
+				if armed() {
+					t.Fatal("capability callback did not run")
+				}
+				if header.versionState != nil {
+					t.Fatal("failed validation published version state")
+				}
+				if got := target.snapshotRelexState(); !got.equal(&beforeTarget) {
+					t.Fatal("failed validation changed destination lexer")
+				}
+			})
+		}
 	}
 }

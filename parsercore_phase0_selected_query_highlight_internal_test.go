@@ -364,3 +364,39 @@ func highlightRangesFromPublicMatches(matches []QueryMatch) []HighlightRange {
 	}
 	return resolveOverlaps(ranges)
 }
+
+func TestDiagnosticParserCoreSelectedStoreSupertypeQueryParity(t *testing.T) {
+	source := []byte("package main\nfunc f() { _ = a + b }\n")
+	runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := runner.parseSelectedStore(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Release()
+	tree, err := runner.parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	for _, qsource := range []string{`(_expression) @e`, `(binary_expression left: (_expression) @l)`} {
+		q, err := NewQuery(qsource, runner.lang)
+		if err != nil {
+			t.Fatal(err)
+		}
+		matches, err := executeSelectedStoreQuery(q, store, runner.lang, source, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := normalizePublicQueryMatches(q.Execute(tree), source)
+		got := normalizeSelectedQueryMatches(matches, store, source)
+		if len(want) == 0 {
+			t.Fatalf("native supertype witness empty: %s", qsource)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("supertype query %s differs: selected=%+v native=%+v", qsource, got, want)
+		}
+	}
+}

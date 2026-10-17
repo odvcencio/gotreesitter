@@ -454,8 +454,8 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactLegacyReads(arena *
 			if encoded := incr.Encode(count); encoded != 0 && encoded <= legacyReuseCountMask {
 				if word := legacyReuseWord(node, true); word != nil {
 					*word = encoded
-					if id < len(s.reuseDependencies.leafWords) && node.ChildCount() == 0 {
-						*word |= s.reuseDependencies.leafWords[id]
+					if node.ChildCount() == 0 {
+						*word |= incr.LeafReceipt(s.reuseDependencies.leafWords, uint32(id))
 					}
 				}
 			}
@@ -489,6 +489,8 @@ func (s *diagnosticParserCoreGenericScheduler) endCompactLeafReceipt(before uint
 		d.reads.Abstain()
 		return
 	}
+	// Sixteen two-bit leaf receipts share each word.
+	want = (want + 15) / 16
 	if want > uint64(cap(d.leafWords)) {
 		capacity := max(want, uint64(cap(d.leafWords))*2, 128)
 		if capacity > uint64(math.MaxInt) {
@@ -504,6 +506,8 @@ func (s *diagnosticParserCoreGenericScheduler) endCompactLeafReceipt(before uint
 	} else {
 		d.leafWords = d.leafWords[:int(want)]
 	}
+	// Preserve the original exact-ID bound after rollback truncates a word.
+	incr.TrimLeafReceiptTail(d.leafWords, last)
 	for id := uint64(before) + 1; id <= uint64(last); id++ {
 		view, err := s.compact.SubtreeGeometry(core.SubtreeID(id))
 		if err != nil {
@@ -511,10 +515,11 @@ func (s *diagnosticParserCoreGenericScheduler) endCompactLeafReceipt(before uint
 			return
 		}
 		if view.Terminal && !view.Missing && Symbol(view.Symbol) == tok.Symbol && view.StartByte == tok.StartByte && view.EndByte == tok.EndByte {
-			d.leafWords[id] = legacyReuseLeafKnown
+			flags := legacyReuseLeafKnown
 			if tok.isKeyword() {
-				d.leafWords[id] |= legacyReuseKeyword
+				flags |= legacyReuseKeyword
 			}
+			incr.SetLeafReceipt(d.leafWords, uint32(id), flags)
 		}
 	}
 }

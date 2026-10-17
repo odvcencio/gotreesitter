@@ -328,6 +328,9 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	}
 	addBytes(s.options.compactIncrementalReuse.footprintBytes())
 	addBytes(s.recoveryCostMemo.FootprintBytes())
+	if s.negativeRelexMemo != nil {
+		addBytes(uint64(unsafe.Sizeof(*s.negativeRelexMemo)))
+	}
 	if s.versionLexerMetadata != nil {
 		addBytes(uint64(unsafe.Sizeof(*s.versionLexerMetadata)))
 	}
