@@ -4127,7 +4127,9 @@ func cStackLinkPayloadsEquivalentAtOffsets(scratch *glrMergeScratch, a, b stackE
 		aEnd-aStart == bEnd-bStart &&
 		aHeader.childCount == bHeader.childCount &&
 		stackEntryNodeIsExtra(a) == stackEntryNodeIsExtra(b) &&
-		cStackEntryExternalScannerStatesEqual(scratch, a, aHeader.childCount, b, bHeader.childCount)
+		cStackEntryExternalScannerStatesEqual(scratch, a, aHeader.childCount, b, bHeader.childCount) &&
+		(!scratch.language.ExactStackNodeEquivalenceCertified ||
+			stackEntryPayloadsEquivalentIgnoringDynamicWithScratch(scratch, a, b))
 }
 
 type cStackLinkHeader struct {
