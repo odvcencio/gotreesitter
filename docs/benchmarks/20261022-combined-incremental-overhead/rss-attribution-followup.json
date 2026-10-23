@@ -1,0 +1,964 @@
+{
+  "archive": "rss-attribution-followup.tar.gz",
+  "archive_bytes": 1356477,
+  "archive_sha256": "f17eb673b5be223881d532f49fdbf059198d96f06a7ae6eca300180eb332a408",
+  "members": {
+    "go-rss-attribution-v1/benchmark.go.txt": {
+      "bytes": 9368,
+      "sha256": "f6bb8c7b61f6246bbc2ee382ac782c9c9f0d0e3e0acf444ee2a90ffc62017bdd"
+    },
+    "go-rss-attribution-v1/command.json": {
+      "bytes": 1595,
+      "sha256": "df6ae096d6aae0341b7f0980e6afe41a16f33c1b240ac45013d1a83a6f741e26"
+    },
+    "go-rss-attribution-v1/out/audit.json": {
+      "bytes": 326,
+      "sha256": "19fac11008c011134c55982622b110774b8955aadd0087c343b5d9fc306f30f8"
+    },
+    "go-rss-attribution-v1/out/baseline/n1-i0-live.heap.pprof": {
+      "bytes": 10587,
+      "sha256": "06714143a05f0f058b774ae387067376620fe36b598d619b8a13f7158a48142b"
+    },
+    "go-rss-attribution-v1/out/baseline/n1-i0-live.json": {
+      "bytes": 22072,
+      "sha256": "71da77884633962215ea54a427838c0836afc4697a58b737be0f8c04a7337eb2"
+    },
+    "go-rss-attribution-v1/out/baseline/n1-i0-released.heap.pprof": {
+      "bytes": 10637,
+      "sha256": "220658fba387b17f6e751b26b6274be17cf7e17dcaa433ab43af99451d94f22a"
+    },
+    "go-rss-attribution-v1/out/baseline/n1-i0-released.json": {
+      "bytes": 322,
+      "sha256": "a0353fc0e4921055aa995b7db5b8e6fb28f8fe9b373e5b664fdf5e4814751404"
+    },
+    "go-rss-attribution-v1/out/baseline/n1-warm-live.heap.pprof": {
+      "bytes": 9213,
+      "sha256": "45d9e8a47a4b1a194047db76077b69cad1e0766690ebb02177aee5e34bb2b38e"
+    },
+    "go-rss-attribution-v1/out/baseline/n1-warm-live.json": {
+      "bytes": 22065,
+      "sha256": "8bd1c46d3f1054cde3a8caac8b9a3aa636d518c970f3be271c2a8e913cabe15d"
+    },
+    "go-rss-attribution-v1/out/baseline/n1-warm-released.heap.pprof": {
+      "bytes": 9858,
+      "sha256": "44ea394a0d26d27bdf035b4951fb94f9c8b12e68a31a1d861404bb4e3b07f168"
+    },
+    "go-rss-attribution-v1/out/baseline/n1-warm-released.json": {
+      "bytes": 322,
+      "sha256": "2597cc53f72e3890626609150fc3c360821c0ae68251ebb1fa0091e9702afa42"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-i0-live.heap.pprof": {
+      "bytes": 11742,
+      "sha256": "6c8c04071edc23a6d0e0c8777f95b7bf3b266fce87114a0fced15bd405e7f83f"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-i0-live.json": {
+      "bytes": 22074,
+      "sha256": "014bd8a7fa0e1924dc865660d01f49a656c4e45322cc0bca9b4e45e03fb5d5fa"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-i0-released.heap.pprof": {
+      "bytes": 11760,
+      "sha256": "7a3421a880c78ecdf4271f622fb485adeccdf44e83877190286b59b2b83a1d4c"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-i0-released.json": {
+      "bytes": 324,
+      "sha256": "884b9dcb69d8707ad50310d55764efb3665aea800f8194c1590e85a9efdc7778"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-i1-live.heap.pprof": {
+      "bytes": 12007,
+      "sha256": "420733e0a3c53eef5a65fe69420a428d69dc8990b1b94a44c494f4793f912308"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-i1-live.json": {
+      "bytes": 22075,
+      "sha256": "f70424ee71741afa3bde94e63a5a580c4db4426e4f6ad39b5fe43567145bea2a"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-i1-released.heap.pprof": {
+      "bytes": 12069,
+      "sha256": "e2f23bb615550794d8484bce22c44c4187a1228bb2569141090ed7b3fdf000a3"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-i1-released.json": {
+      "bytes": 325,
+      "sha256": "c33c2cf41f5230e8de9bd38fe52fed3c32f49dafff8cbf6844be73aafca6cb80"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-warm-live.heap.pprof": {
+      "bytes": 11393,
+      "sha256": "97d1d65fe7687d11d2df5b1b3f22b40367760bbd4dc9d4936dae3d4d5dd3f3cc"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-warm-live.json": {
+      "bytes": 22076,
+      "sha256": "24d16d03b2ee630c6e9d3b31d2aca4827061fa8787ce13a1a30f91accd8f21fc"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-warm-released.heap.pprof": {
+      "bytes": 11469,
+      "sha256": "903be1c1dc9c13482e1a1115c282f46ec1c248a10464f81ecf0cbdb753e3ccec"
+    },
+    "go-rss-attribution-v1/out/baseline/n2-warm-released.json": {
+      "bytes": 326,
+      "sha256": "f8a47d05b0e46e6accb0f35aabe4860c0e745d274707bfd1526a91a75d5dacef"
+    },
+    "go-rss-attribution-v1/out/baseline-alloc.txt": {
+      "bytes": 2180,
+      "sha256": "a23d635775367f9af671df26966a01058a981231f01d1f28dfdccde9d8223ac0"
+    },
+    "go-rss-attribution-v1/out/baseline-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "go-rss-attribution-v1/out/baseline-cpu.txt": {
+      "bytes": 2258,
+      "sha256": "4ea7d22c290ac110c934d3b1d226b5a67d66163ec042df243bbd020f3047c007"
+    },
+    "go-rss-attribution-v1/out/baseline-inuse.txt": {
+      "bytes": 2107,
+      "sha256": "110458049b9619c0999695d42c0ac1c11aaa8eb6827e3dcbbb2e7b7e7feec473"
+    },
+    "go-rss-attribution-v1/out/baseline.cpu.pprof": {
+      "bytes": 23691,
+      "sha256": "1065852b219adb8588473a7be3a669be0800850d7ad79455505a2376754c21d2"
+    },
+    "go-rss-attribution-v1/out/baseline.log": {
+      "bytes": 345,
+      "sha256": "369f430523c59415323b76f229c6863da290e398e3208c1169d20d9b950655c5"
+    },
+    "go-rss-attribution-v1/out/candidate/n1-i0-live.heap.pprof": {
+      "bytes": 10202,
+      "sha256": "0f55e9029c561dad8ec113b7c8f97d3a71ffa0b7bb02ff03730dc66bd400080f"
+    },
+    "go-rss-attribution-v1/out/candidate/n1-i0-live.json": {
+      "bytes": 22072,
+      "sha256": "37b8d04c571c6439c77eb6d6c46b47df5a3e61378303374506f2f223968358bc"
+    },
+    "go-rss-attribution-v1/out/candidate/n1-i0-released.heap.pprof": {
+      "bytes": 10349,
+      "sha256": "19037dbe5ee9b77de391dd554a30fe3180949e88e21ed4d32764b400977217f6"
+    },
+    "go-rss-attribution-v1/out/candidate/n1-i0-released.json": {
+      "bytes": 322,
+      "sha256": "21aa2f1e2ae8b2b51a4896702f6e0f01afec5f3e21bd465f932f568c99960fca"
+    },
+    "go-rss-attribution-v1/out/candidate/n1-warm-live.heap.pprof": {
+      "bytes": 8878,
+      "sha256": "2037b0e049f1e56e8866825f25c39480134e58b242d814b56e33f5d135a1bdad"
+    },
+    "go-rss-attribution-v1/out/candidate/n1-warm-live.json": {
+      "bytes": 22065,
+      "sha256": "0af3566efd25ebb6c500e45c337bcc9602213846a3c10dd33bc992dbda7b23ca"
+    },
+    "go-rss-attribution-v1/out/candidate/n1-warm-released.heap.pprof": {
+      "bytes": 9469,
+      "sha256": "126ab4d9f2439fab984177e896c0144069a921e70f33a11c9542a87fa83b56ef"
+    },
+    "go-rss-attribution-v1/out/candidate/n1-warm-released.json": {
+      "bytes": 322,
+      "sha256": "0dad541548a6db1e07d90f8b93d2c59a4bf2b6098ba6c550bfd026b6cf823d97"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-i0-live.heap.pprof": {
+      "bytes": 11234,
+      "sha256": "259fd073eba7e879ac93ca2f1dc253b09db8240ec6d9543da9b4cf06b2aff771"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-i0-live.json": {
+      "bytes": 22074,
+      "sha256": "fb0ca2f46e8afa8f1e7e8f7463144790eb5e82c395a0b0ed261822419be31664"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-i0-released.heap.pprof": {
+      "bytes": 11311,
+      "sha256": "886f5c5d39ed897a163ef613eb990a6b2ba04ad7f872f49da2976b958a0519f2"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-i0-released.json": {
+      "bytes": 324,
+      "sha256": "f9e3577fb082ad9ba413eef7b01c7dbedf3c9b8e54bbf29f000155b1113ef307"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-i1-live.heap.pprof": {
+      "bytes": 11773,
+      "sha256": "ee98f8d2f538a7715abefa3dae248be929d59e3a0e4d5b7d9453da954a06ed3a"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-i1-live.json": {
+      "bytes": 22074,
+      "sha256": "9b32498f4c8cba54e8a2926c9b6a4ecd675814dbdb7784f7715fde453966e524"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-i1-released.heap.pprof": {
+      "bytes": 11851,
+      "sha256": "a18a824d7dab2426e681fc2604e949740fc24521b5329d7561a179398ec5c1ce"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-i1-released.json": {
+      "bytes": 324,
+      "sha256": "5f5bdcabf9432d506eb414845be5bee5387336e974ce2c749356a8a00dd2d3bd"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-warm-live.heap.pprof": {
+      "bytes": 10960,
+      "sha256": "728bc8c03e9e94c18d427aa3f0df36758b6673248575fa78c5c1832064b29e09"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-warm-live.json": {
+      "bytes": 22076,
+      "sha256": "07c1ed52efd465d2ebbca086aba56239f0a4983471fe5d69702eb2a3181ac9c4"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-warm-released.heap.pprof": {
+      "bytes": 11007,
+      "sha256": "512684006241d4087fff86182430354c3f9edcf0557dfab606ae53d95ecd360a"
+    },
+    "go-rss-attribution-v1/out/candidate/n2-warm-released.json": {
+      "bytes": 326,
+      "sha256": "1eaa5a69069ba39db399ddc28489801b14bb6a96da873c544595909399fa54a3"
+    },
+    "go-rss-attribution-v1/out/candidate-alloc.txt": {
+      "bytes": 2159,
+      "sha256": "c1e8c0c20493aef373d512cc1164f88b7649a2a2f94abfe07fb2590077559f28"
+    },
+    "go-rss-attribution-v1/out/candidate-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "go-rss-attribution-v1/out/candidate-cpu.txt": {
+      "bytes": 2226,
+      "sha256": "0efe21c2451151f818382b7b8ba97352388da1ffbb5ac81e5e9b2f32873f9cd9"
+    },
+    "go-rss-attribution-v1/out/candidate-inuse.txt": {
+      "bytes": 2094,
+      "sha256": "ed15540b0c1a8489d8fee29ea23b0b6bb3b641f6b3abb35f2150d58c16d540ff"
+    },
+    "go-rss-attribution-v1/out/candidate.cpu.pprof": {
+      "bytes": 22475,
+      "sha256": "44ce6ab8ea57d38d2d54b23c4c15243ed8a3e50f778c04a981dcb3e0dd39935a"
+    },
+    "go-rss-attribution-v1/out/candidate.log": {
+      "bytes": 345,
+      "sha256": "04b2165ea245b94eca7d8bd291a9e26a673efc24968f9aa88363957a51acfc08"
+    },
+    "go-rss-attribution-v1/out/container.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "go-rss-attribution-v1/out/go-version.txt": {
+      "bytes": 32,
+      "sha256": "058fc41f36af1ff69115b2bd237ebf769e90628e64a58c9dc171751384ffef72"
+    },
+    "go-rss-attribution-v1/out/inspect.json": {
+      "bytes": 9545,
+      "sha256": "ab3800c97b780f678ebddfcb77e6b526be1e89f0a317593eb843b0a4538755d1"
+    },
+    "go-rss-attribution-v1/overlay.json": {
+      "bytes": 192,
+      "sha256": "44f0547a0e4b75d1ca3c008f54c8c38d19c3a4e38a58d1c381e848de3833f92f"
+    },
+    "go-rss-attribution-v1/purpose.json": {
+      "bytes": 359,
+      "sha256": "8b2fbfcb616a1b7d55ae292033a5eb63ff8bdef3b6753c28a74236c28cb4a2f3"
+    },
+    "go-rss-attribution-v1/run.sh": {
+      "bytes": 1109,
+      "sha256": "069543c613a2ccfec50c48432fba7b59e4d73222f31f1e866359bc457a800ebc"
+    },
+    "go-rss-attribution-v1/source-authentication.json": {
+      "bytes": 776583,
+      "sha256": "3f6e8c36dc74184454e32d07078df0b65c8dd5f4d4600acd35bfce42f9af1fa4"
+    },
+    "go-rss-attribution-v1/worker.py": {
+      "bytes": 729,
+      "sha256": "25d7e4b5b8488bffb66ccb8fe402abb151511369b0275afa47d14779f94c6680"
+    },
+    "warm-arena-hint-v1/command.json": {
+      "bytes": 1527,
+      "sha256": "037e2060e11817983c7c40e657ea26ec070ef7e57564c40d7a2323f4dbf56308"
+    },
+    "warm-arena-hint-v1/limits.go.txt": {
+      "bytes": 26457,
+      "sha256": "57b9ecb656a352e76bfd9ac80749c5a4e5d4e1745db3b195a6a25683175c7ad0"
+    },
+    "warm-arena-hint-v1/out/arena-unit.log": {
+      "bytes": 4833,
+      "sha256": "1de9e01a2f9d03179d683f0b948cda3dc888a15a320aa0e097350338783b2ca9"
+    },
+    "warm-arena-hint-v1/out/audit.json": {
+      "bytes": 326,
+      "sha256": "b3566e10a14ac23db633a98a573dffd30bf54782809d76bae3d8629d9e538a77"
+    },
+    "warm-arena-hint-v1/out/baseline-cgo-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-v1/out/baseline-go-ledger.json": {
+      "bytes": 2400,
+      "sha256": "9e201ed84b5261e35709ed7e9c24ba8e4eae121828fa0c4eeafabae6b5230b29"
+    },
+    "warm-arena-hint-v1/out/baseline-go-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-v1/out/baseline-large-c.log": {
+      "bytes": 3471,
+      "sha256": "eaca1a913741573b49b8a0b63bb998066bdbd6ea3e919a88291da7a8f1ab1326"
+    },
+    "warm-arena-hint-v1/out/baseline-ledger-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-v1/out/baseline-yaml-ledger.json": {
+      "bytes": 1616,
+      "sha256": "9e36a13dac55665e933670d70e89157c915b9e5b9edc27887e5ab6756c42dc5b"
+    },
+    "warm-arena-hint-v1/out/baseline-yaml-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-v1/out/candidate-cgo-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-v1/out/candidate-go-ledger.json": {
+      "bytes": 2400,
+      "sha256": "9e201ed84b5261e35709ed7e9c24ba8e4eae121828fa0c4eeafabae6b5230b29"
+    },
+    "warm-arena-hint-v1/out/candidate-go-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-v1/out/candidate-large-c.log": {
+      "bytes": 3469,
+      "sha256": "718ae7aa6b8d99ae17320da7e024f88fad6e98c77c75e3e51aeb9f0247f860fa"
+    },
+    "warm-arena-hint-v1/out/candidate-ledger-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-v1/out/candidate-yaml-ledger.json": {
+      "bytes": 1616,
+      "sha256": "9e36a13dac55665e933670d70e89157c915b9e5b9edc27887e5ab6756c42dc5b"
+    },
+    "warm-arena-hint-v1/out/candidate-yaml-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-v1/out/complete.txt": {
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    "warm-arena-hint-v1/out/container.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-v1/out/go-invariant-0.log": {
+      "bytes": 218,
+      "sha256": "a349089e8da185540526ba6f72118ebf890a68f0aad23be0b5b519e1d5839503"
+    },
+    "warm-arena-hint-v1/out/go-invariant-1.log": {
+      "bytes": 218,
+      "sha256": "70608ace05f7317b3b16470c8e9ce0d793792b98e4ee600461dd287f031d50c7"
+    },
+    "warm-arena-hint-v1/out/go-version.txt": {
+      "bytes": 32,
+      "sha256": "058fc41f36af1ff69115b2bd237ebf769e90628e64a58c9dc171751384ffef72"
+    },
+    "warm-arena-hint-v1/out/inspect.json": {
+      "bytes": 9412,
+      "sha256": "8c238b49816932526a1d1d140e1474a3c47518827fc8da36c66e1f111d9806ee"
+    },
+    "warm-arena-hint-v1/out/memory.log": {
+      "bytes": 3533,
+      "sha256": "e1f04c014f778a99be7d155f2837a5e7730c7a13aadcb46b5c8e4f60fb68e4d8"
+    },
+    "warm-arena-hint-v1/out/qualification.json": {
+      "bytes": 224,
+      "sha256": "333dee6d0940cc28c4739a8d4f8941c5f90526590b0b101d98e458eb137c89ae"
+    },
+    "warm-arena-hint-v1/out/root-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-v1/out/yaml-invariant-0.log": {
+      "bytes": 220,
+      "sha256": "c84ecdbf440d33aa50ca388ead31208260ad133ce99763bfb773c2d44f31041b"
+    },
+    "warm-arena-hint-v1/out/yaml-invariant-1.log": {
+      "bytes": 220,
+      "sha256": "af4f732abc116c31b39cc2cdcba24ba4701f122d6e7113eaddbaeaa91dd3bbe9"
+    },
+    "warm-arena-hint-v1/overlay.json": {
+      "bytes": 238,
+      "sha256": "af48cd1fa7bf6b1f07490b9f32eb56c59a5c1215b3c0605193c868eba0fa627d"
+    },
+    "warm-arena-hint-v1/purpose.json": {
+      "bytes": 263,
+      "sha256": "4998b516809102e08e89c7f471bda91fdeab439c83343730b0fb59301911d6f0"
+    },
+    "warm-arena-hint-v1/run.sh": {
+      "bytes": 2295,
+      "sha256": "559fb9dd46aa2ae70eea84fa71831fe5bc1a569cf2918843e6a643d7480e7c6a"
+    },
+    "warm-arena-hint-v1/warm_go_test.go.txt": {
+      "bytes": 1735,
+      "sha256": "0605c9649abdd6e634a0ac2fc4fe89248f2f6d3114eb3846aee7b532f6310dc9"
+    },
+    "warm-arena-hint-v1/worker.py": {
+      "bytes": 729,
+      "sha256": "25d7e4b5b8488bffb66ccb8fe402abb151511369b0275afa47d14779f94c6680"
+    },
+    "warm-arena-hint-mac-v1/launch-result.json": {
+      "bytes": 41,
+      "sha256": "b050d7b5e08a4844b7f7103c239282c0dc5ef757039bf12bd8acc672f3b0fc4e"
+    },
+    "warm-arena-hint-mac-v1/launch.py": {
+      "bytes": 1967,
+      "sha256": "538c94d26c59311c9b3674789a9ac94dcce2b032a3acf64cae7463911f44d9ff"
+    },
+    "warm-arena-hint-mac-v1/native.sh": {
+      "bytes": 2858,
+      "sha256": "dba37d126840c6121f0be1876901878c0c7efeb2d0a4f9371f9876e221b37466"
+    },
+    "warm-arena-hint-mac-v1/qualification.json": {
+      "bytes": 1637,
+      "sha256": "10d54aeb5f4627662502c865f844b86045002f041c6635a7a5da21c948e1c80f"
+    },
+    "warm-arena-hint-mac-v1/recovered/arena-unit.log": {
+      "bytes": 4833,
+      "sha256": "c52f38abdb5fb5934a2502cd9578722f87552e124280547155e51370c8a47fed"
+    },
+    "warm-arena-hint-mac-v1/recovered/audit.json": {
+      "bytes": 354,
+      "sha256": "8ea1ccd4edd729ce8cfa369ce17c2b832b8418be76183dbf5cf7af4925ac678b"
+    },
+    "warm-arena-hint-mac-v1/recovered/baseline-go-ledger.json": {
+      "bytes": 2400,
+      "sha256": "9e201ed84b5261e35709ed7e9c24ba8e4eae121828fa0c4eeafabae6b5230b29"
+    },
+    "warm-arena-hint-mac-v1/recovered/baseline-go-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/baseline-ledger-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/baseline-memory-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/baseline-yaml-ledger.json": {
+      "bytes": 1616,
+      "sha256": "9e36a13dac55665e933670d70e89157c915b9e5b9edc27887e5ab6756c42dc5b"
+    },
+    "warm-arena-hint-mac-v1/recovered/baseline-yaml-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/candidate-go-ledger.json": {
+      "bytes": 2400,
+      "sha256": "9e201ed84b5261e35709ed7e9c24ba8e4eae121828fa0c4eeafabae6b5230b29"
+    },
+    "warm-arena-hint-mac-v1/recovered/candidate-go-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/candidate-ledger-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/candidate-memory-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/candidate-yaml-ledger.json": {
+      "bytes": 1616,
+      "sha256": "9e36a13dac55665e933670d70e89157c915b9e5b9edc27887e5ab6756c42dc5b"
+    },
+    "warm-arena-hint-mac-v1/recovered/candidate-yaml-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/command.json": {
+      "bytes": 1470,
+      "sha256": "136349f7789b6ff63f8f6b9732a82967685c193efecd361c71ef103f8db3ce57"
+    },
+    "warm-arena-hint-mac-v1/recovered/complete.txt": {
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    "warm-arena-hint-mac-v1/recovered/container.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/go-invariant-0.log": {
+      "bytes": 218,
+      "sha256": "8cf05cd8f2a389099d95d566869e4efdeb3d1b7de2bd7b6eafedfc7e9ecc8d2a"
+    },
+    "warm-arena-hint-mac-v1/recovered/go-invariant-1.log": {
+      "bytes": 218,
+      "sha256": "c91ecc616810f81101df4720019d3dda76ae461b39d65110079c28c7865cb75b"
+    },
+    "warm-arena-hint-mac-v1/recovered/go-version.txt": {
+      "bytes": 33,
+      "sha256": "73918becf5bc914da78d512e39235857f1239fcc43d0b6fb2ada7670bfb33555"
+    },
+    "warm-arena-hint-mac-v1/recovered/inspect.json": {
+      "bytes": 8586,
+      "sha256": "3cadb7464c503418a328a207d31c8ba7f9683913407aca78ff71ae8c5ee98c5f"
+    },
+    "warm-arena-hint-mac-v1/recovered/memory.log": {
+      "bytes": 3533,
+      "sha256": "ded84856f7b243fcd996aa2e10e6250331f4ed459f4f0f03d88d7e99b31327e3"
+    },
+    "warm-arena-hint-mac-v1/recovered/platform.txt": {
+      "bytes": 12,
+      "sha256": "dd4b8b3d6b67a069fd7873b1fa24f168a70ee812e822ce869b74aaca7094a48e"
+    },
+    "warm-arena-hint-mac-v1/recovered/root-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155001.json": {
+      "bytes": 511,
+      "sha256": "623e5a8df148ac8198c340e6b34bdaf79494d18b8bdd62a94b46e3896f64035a"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155001.log": {
+      "bytes": 315,
+      "sha256": "7023aa745775753c092e4d272e1702f77df2369b4be84a6b792d738d72860450"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155002.json": {
+      "bytes": 511,
+      "sha256": "ec2be60b41b0884b69a9acf67e7137eece22acd7cc6d0ae7819abd9fb1236ec8"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155002.log": {
+      "bytes": 315,
+      "sha256": "b38585b417327288ce9ddd61c1259499ff779a2059484ac925a46f874322a0b6"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155003.json": {
+      "bytes": 511,
+      "sha256": "9e34b1881e71e783ae9aacb0cdf0a735a6059d2e30e388c7bc19205fc266d728"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155003.log": {
+      "bytes": 315,
+      "sha256": "22cb9f48fe0d30b51d33e8faf1dc8261ec91f09dd6be0ed24aae1036367ff4f9"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155004.json": {
+      "bytes": 511,
+      "sha256": "3576cc8a0bddcaf2cee287e9a7278c7ab6b2899d8f0eeca0cb8b73983a0bda91"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155004.log": {
+      "bytes": 315,
+      "sha256": "6c3e47d2e6c2cf0edf7ced1e6ea7b897a9fac3d835d4319b1788575c339444da"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155005.json": {
+      "bytes": 511,
+      "sha256": "6cc87c55f6ac7721836df5a2fc29f7c792555494918d2e3dcbe1fd6d8803bdfa"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155005.log": {
+      "bytes": 315,
+      "sha256": "1c282fdad1b3a111e2dadf9851af27f16ef26ca9e4f70293c5368b5531a06ac9"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155006.json": {
+      "bytes": 511,
+      "sha256": "d60a63fd76ab39628233a357d3e027c0ce5a80f09100f49e03bdf61309589c4c"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155006.log": {
+      "bytes": 315,
+      "sha256": "959673efc75493a3e752a1e87fb8d4394c2b21b43340cfda85dd7ef9be29bc31"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155007.json": {
+      "bytes": 511,
+      "sha256": "aaf19ddd8495ed23963e8db6973e751c419a9bcdc2f7d863b2667db75e72429d"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155007.log": {
+      "bytes": 315,
+      "sha256": "43bc2cc922fbfbe16c5157588cddfa9ddddc878208e52b418d572f4176292648"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155008.json": {
+      "bytes": 511,
+      "sha256": "6550792034f0eb5718dc441713fda9e4cd4b006527803f845317822b8725fc4c"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155008.log": {
+      "bytes": 315,
+      "sha256": "324d0db0da6462c69d9a5b21ec0193eb051f74fa1db2371f62f6e364f65f8dcc"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155009.json": {
+      "bytes": 511,
+      "sha256": "d70717dd8a3717b484cc01edc14d4deb1a2612f841cab8c3335283accf54fc9b"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155009.log": {
+      "bytes": 315,
+      "sha256": "492628ee9312f558e8e9fb8f7d84fda445c383cb90e974568ec422e655b93a56"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155010.json": {
+      "bytes": 511,
+      "sha256": "fa56b3e53cd5124e16553b50ea8902252a0d6e014d8d213ef2a757d8856abd1d"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155010.log": {
+      "bytes": 315,
+      "sha256": "a28c67d47a892984e8895d02ea2bce3ecd5b5470b8de0feb5929e417ac61670e"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155011.json": {
+      "bytes": 511,
+      "sha256": "6db34b7a2cca1eb9b6e7556ab6d6120aed3c950f645dabe4bf2fd442c08fbb73"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155011.log": {
+      "bytes": 315,
+      "sha256": "cc0fca2484215da8d712274ddb5267375e9ddb7f4ed8feb85cb27b343045abe4"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155012.json": {
+      "bytes": 511,
+      "sha256": "c670214cda035e608c1dab4e21d03c3d58a9876503e46d4fb02e26e642efdbf8"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155012.log": {
+      "bytes": 315,
+      "sha256": "86e7e81c17e9c06a070cf53e378e6cdd3c832185266292bdad868017b9849b94"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155013.json": {
+      "bytes": 511,
+      "sha256": "bb8049631cbb713ef18514c8440f2726f7c565222a9bd8eb5f74c55fbbc3f0cc"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155013.log": {
+      "bytes": 315,
+      "sha256": "ac2723a06999a56e4600cd65613fd1ac7e13a119e8f27c450c04264c2bab6271"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155014.json": {
+      "bytes": 511,
+      "sha256": "5002940e811b78fec2e51c6a052de9831282ea156a86ff6caaa7bd26c09c3881"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155014.log": {
+      "bytes": 315,
+      "sha256": "9c135df64b89e6a0b2f4d1826a11307d6649b3ad0a5ce4129e8d4ebee024ad47"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155015.json": {
+      "bytes": 511,
+      "sha256": "58efd773484e421d787b9fab70713a8401a1ea31c8f1cea21d29cde5e710d94b"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155015.log": {
+      "bytes": 315,
+      "sha256": "c8503b6ae3d378b818726c36c5c404bc302f6700691aeb3bf3884a8f3cda4b2d"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155016.json": {
+      "bytes": 511,
+      "sha256": "266a0af4716c27f3f9212b3c95d49fa15ee08913351b305cd595a06781dd4143"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155016.log": {
+      "bytes": 315,
+      "sha256": "d4f0db94aac04c9db8d6657cf41e7db4c4f73907ab3c97f19b8934d8b30cfd1f"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155017.json": {
+      "bytes": 511,
+      "sha256": "f6b2ea899611965e239543c5a6689138dc5c83e4f00e2cc26fcd47a1e2a01168"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155017.log": {
+      "bytes": 315,
+      "sha256": "743638d22f45ad7cd11c1a1dffcc4f40d5388e7bb8763c331ac98597cc9654c1"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155018.json": {
+      "bytes": 511,
+      "sha256": "cbfa98b6ceddbf6ab380c2c88b4940ca9604b370a70d9e89c3bf93e48a8ff2d5"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155018.log": {
+      "bytes": 315,
+      "sha256": "2b8b90af97a129efb5922b3e8fb5bee73a2fd372fe2992cb0b0eac2407a17a8f"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155019.json": {
+      "bytes": 511,
+      "sha256": "f028eafc2a66c2eafeb23686b8065ab8f87a93fbe82743ffcf14bdbd20ccb835"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155019.log": {
+      "bytes": 315,
+      "sha256": "417640cab231cf2671ae332cd4deb19a2215649733b5f024756ad52896a5df71"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155020.json": {
+      "bytes": 511,
+      "sha256": "d24c3724120fb7db7e6b2c9fd8ad8cc475e260d2f56fb13c444cdecc8df9ca7f"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/baseline-155020.log": {
+      "bytes": 315,
+      "sha256": "e6f6fd0fdd7620553e07dd872f0584a63b12860f2b8f892b1453be1707b232d8"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155001.json": {
+      "bytes": 512,
+      "sha256": "120c202155635e80377e92bb1972567973572c6982b18cfbdf03e2d830207cfd"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155001.log": {
+      "bytes": 315,
+      "sha256": "248f49dbe88386935a9e438172562d1b52085c6cea02788e3b70f9f860440046"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155002.json": {
+      "bytes": 511,
+      "sha256": "68d11328b60272664eaad258a57a9dc15ab415cc87daa0027ab4a4614b75e77d"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155002.log": {
+      "bytes": 315,
+      "sha256": "312eac6a07a60c3fe26eda3fe5d5c63929f697980b76f1044264ae37a9bf13b9"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155003.json": {
+      "bytes": 512,
+      "sha256": "60cb4d0669cf8c211e9bd793f610cad4f56f181ddc1a445731926763b173ac6e"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155003.log": {
+      "bytes": 315,
+      "sha256": "4f12fde05ba79a0eb2ebacf2fe03f2f74999467887269b3da2323e912c1b2be4"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155004.json": {
+      "bytes": 512,
+      "sha256": "0497af07a0b205ea375f6e8281ae119803d0f0c6a1383e049351bdd2d720fb05"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155004.log": {
+      "bytes": 315,
+      "sha256": "26d1c3e85598b34822da5c9f588a90ccade4ca8c128675ec79b7e93983cac4ed"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155005.json": {
+      "bytes": 512,
+      "sha256": "748e651f01a1a835561cb195a258617a245196590dc5ff6b65db76a787f54fe9"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155005.log": {
+      "bytes": 315,
+      "sha256": "9f97893decca7a06bef195d65740332736b83eacf668764fd1e2a4a4b818c548"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155006.json": {
+      "bytes": 512,
+      "sha256": "c85e793a3dd43e731cea8129e13917f7ab1afb7889064df34f2483227218eb75"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155006.log": {
+      "bytes": 315,
+      "sha256": "d0285c96f56664189f5ad376ad320b8424218efb8b3f562401bddb1a60659aa9"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155007.json": {
+      "bytes": 512,
+      "sha256": "f3d656db935a2ea2cac820147d3613f0e0c801a4e0ef2c3dc1a9d404a6638b0e"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155007.log": {
+      "bytes": 315,
+      "sha256": "7e92ddef377ecbd107fb6acb4bdda995f78ba6fbfb0171d649fcae072099a9b7"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155008.json": {
+      "bytes": 512,
+      "sha256": "c210ddf319b544fd6129808d8db7043af9341a44ddc497341970fd45a4954697"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155008.log": {
+      "bytes": 315,
+      "sha256": "c60664fb182bfdbc3a9c9c7be94e1f2e2aaadcae8d9c7810646f72bc331d7bb6"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155009.json": {
+      "bytes": 512,
+      "sha256": "9d84304ec3fbd72027d4124bf0b54e213dfb2edf1c40b88340b3522bacc1e1e7"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155009.log": {
+      "bytes": 315,
+      "sha256": "a84cf53758fb5dbb807c493f85015a34ff889d1f8d4228c47ff332c4859fb41d"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155010.json": {
+      "bytes": 512,
+      "sha256": "4038cb985089b7cb986a7343c3da228e5cc2335b34b5445ace9b8367108203c9"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155010.log": {
+      "bytes": 315,
+      "sha256": "896ede0db54ce3dfd61ff82752f6b6d06ee4ad0f6cd38e0b930d31dd4b3a5760"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155011.json": {
+      "bytes": 512,
+      "sha256": "11a844680aa0bd17754812fcc0935ea6f71616d4f77885fe43f8580167568a93"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155011.log": {
+      "bytes": 315,
+      "sha256": "d649c72f1e0729a2bb5c6fb9063d81fb02689f58aeb760bf6038e5c9c7a3c77c"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155012.json": {
+      "bytes": 512,
+      "sha256": "b6b99801c13bed74f52d811d3166de28290955968144bf59da0addc4718638bc"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155012.log": {
+      "bytes": 315,
+      "sha256": "fc1e93489f74555ce48710538982d885ca6ce946490e3cbb7ee4bcc4ce0dfe83"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155013.json": {
+      "bytes": 512,
+      "sha256": "39d68c1519ca9e973cb70be5ee449852b9216fc52a3fb1551213be473641e8b0"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155013.log": {
+      "bytes": 315,
+      "sha256": "2f657307d5b7ff8dfb4b41069c15cf6a8b1cc5e360eddc922f16510dab3e1b88"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155014.json": {
+      "bytes": 512,
+      "sha256": "f147db32dc75f4d14016f136f8dd5264b57bcd6a8607886e558471a9de612746"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155014.log": {
+      "bytes": 315,
+      "sha256": "b985d9a25355b94e7aec4eb9b1801d3e220b56cacf283a0e2e60b5924afa0164"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155015.json": {
+      "bytes": 512,
+      "sha256": "ccc999ec37d1d48d9bae7901849f0b6ecca9962a5d73360082e8e87cc4dea44a"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155015.log": {
+      "bytes": 315,
+      "sha256": "7c3242a9e12252c773adf985002e3a88b91988feaba3ea676817a84848eac4b1"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155016.json": {
+      "bytes": 512,
+      "sha256": "a4686617fb97f5dc439c0e50923cf2bebac463dd66850ad115e6932e70a0ef38"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155016.log": {
+      "bytes": 315,
+      "sha256": "dfe8043ab2370c8eb2eb2d16e7b9902b69b9c2e8dcc03059aca3fdb6e7ef380d"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155017.json": {
+      "bytes": 512,
+      "sha256": "3fb0f3075267c04373e3aff3654b83314f91e36ac97ee31c0847e42d39031aad"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155017.log": {
+      "bytes": 315,
+      "sha256": "1fed1f27457508e5c6a132723a2a851052cf72713578002f0df3da5779953628"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155018.json": {
+      "bytes": 512,
+      "sha256": "eebfc5fb656857fe72f68d522e27ef4491c50eaea804e0bab623ff3f8b4abd36"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155018.log": {
+      "bytes": 315,
+      "sha256": "25c3784c7463f6db0dd0f79297803f3237d14647a8e23aa2032d64d6283a131c"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155019.json": {
+      "bytes": 512,
+      "sha256": "7dadc7bf4c3d0b2e5f079f2525b4fa0793605b42d38c2c112a9a2d302c1de88a"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155019.log": {
+      "bytes": 315,
+      "sha256": "b8da7d6bcc7158af2f87c9efbbec63e6f3a238b9b005feefa5b9190e5913f3de"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155020.json": {
+      "bytes": 512,
+      "sha256": "a3f63e2a1d7e9be1c23576471e98201b1b97199820e1d05bc194ffb0c0323eea"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss/candidate-155020.log": {
+      "bytes": 315,
+      "sha256": "7b38fe34ccd0cafd87fa7647d5075564ddc6459a05f7db1e2124eb1c6672faab"
+    },
+    "warm-arena-hint-mac-v1/recovered/rss-wrapper-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "warm-arena-hint-mac-v1/recovered/source-after.json": {
+      "bytes": 776604,
+      "sha256": "1c5e74ca98bf857d1690b7f9b684de6422f318be3a9ae181eb42a1f5b8a46c2f"
+    },
+    "warm-arena-hint-mac-v1/recovered/source-before.json": {
+      "bytes": 776604,
+      "sha256": "1c5e74ca98bf857d1690b7f9b684de6422f318be3a9ae181eb42a1f5b8a46c2f"
+    },
+    "warm-arena-hint-mac-v1/recovered/work-gate.txt": {
+      "bytes": 10,
+      "sha256": "1cc103f316d7707bb7ead8d7a203934bbf0f1251b615eb6056deb22c90d6144f"
+    },
+    "warm-arena-hint-mac-v1/recovered/yaml-invariant-0.log": {
+      "bytes": 220,
+      "sha256": "0c7e38c8df91520fa807e9c194e9be96b9048c26798dc1cad4a4d26666197c3f"
+    },
+    "warm-arena-hint-mac-v1/recovered/yaml-invariant-1.log": {
+      "bytes": 220,
+      "sha256": "a7f365cd5a9f24d14a160483809b8a799ac627411f50a017e12cb8c7bbc01173"
+    },
+    "warm-arena-hint-mac-v1/recovery.json": {
+      "bytes": 102,
+      "sha256": "352357fb835751fe4239baec61778cb409f3c69734ebebb833d2510f1da2ae0c"
+    },
+    "warm-arena-hint-mac-v1/remote.json": {
+      "bytes": 205,
+      "sha256": "63dd6bf63563099992db653afaed5a7feaad30430c3dad95ed73295d6f7b1cc1"
+    },
+    "warm-arena-hint-mac-v1/rss-wrapper.go.txt": {
+      "bytes": 1095,
+      "sha256": "f5bfbb7f4bb23201cde15e32b77daf86de71953e8aa5c95ccb11af341222c8cf"
+    },
+    "warm-arena-hint-mac-v1/transfer.json": {
+      "bytes": 1855,
+      "sha256": "6debdb4307988899a64b9397da7a08d82605b671396ff25c7c7d64028e6fbb3e"
+    },
+    "warm-arena-hint-mac-v1/worker.py": {
+      "bytes": 2491,
+      "sha256": "517f3f63b6909cb53c77facbcd1a232ba393895159be2979392ecdde07601ad2"
+    }
+  },
+  "unpromoted_runtime_sha256": "57b9ecb656a352e76bfd9ac80749c5a4e5d4e1745db3b195a6a25683175c7ad0",
+  "runtime_changed": false,
+  "Go_YAML_work_ledgers_equal": true,
+  "RSS": {
+    "baseline": {
+      "samples": 20,
+      "RSS_bytes": [
+        389025792,
+        460939264,
+        462716928,
+        406093824,
+        456646656,
+        460820480,
+        387575808,
+        372502528,
+        398274560,
+        461017088,
+        456253440,
+        456445952,
+        395501568,
+        389709824,
+        461119488,
+        460918784,
+        456052736,
+        389775360,
+        395730944,
+        386469888
+      ],
+      "median_bytes": 431073280.0,
+      "max_bytes": 462716928,
+      "above_ceiling": 10
+    },
+    "candidate": {
+      "samples": 20,
+      "RSS_bytes": [
+        398622720,
+        457347072,
+        400195584,
+        449650688,
+        384974848,
+        383594496,
+        454234112,
+        383393792,
+        393560064,
+        380710912,
+        454070272,
+        382951424,
+        383709184,
+        454094848,
+        382730240,
+        449437696,
+        462479360,
+        449748992,
+        454258688,
+        382894080
+      ],
+      "median_bytes": 399409152.0,
+      "max_bytes": 462479360,
+      "above_ceiling": 9
+    },
+    "ceiling_bytes": 419436400,
+    "source_bytes": 1048591,
+    "source_sha256": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+    "measured_iterations": 2,
+    "matched_seeds": [
+      155001,
+      155002,
+      155003,
+      155004,
+      155005,
+      155006,
+      155007,
+      155008,
+      155009,
+      155010,
+      155011,
+      155012,
+      155013,
+      155014,
+      155015,
+      155016,
+      155017,
+      155018,
+      155019,
+      155020
+    ],
+    "median_ratio": 0.9265458346200441,
+    "absolute_gate_passed": false,
+    "timing_qualification": false,
+    "runtime_promoted": false,
+    "mac_source_unchanged": true,
+    "Go_version": "go version go1.25.14 linux/arm64"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "workloads_passed": 5,
+  "source_post_audits_pass": true,
+  "original_worker_postcheck_failed": true,
+  "postcheck_assumption": "owned YAML has a tied acceptance election",
+  "observed": "zero tied acceptance elections on all five current fixtures",
+  "tests_rerun": false,
+  "performance_comparison": false
+}

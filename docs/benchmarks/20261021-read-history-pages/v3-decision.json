@@ -1,0 +1,13 @@
+{
+  "status": "not promoted",
+  "completed_Go_pairs": 20,
+  "all_Go_time_differences_inconclusive": true,
+  "grammargen_lr_allocated_bytes_delta_percent": -53.33,
+  "large_generated_Go_allocated_bytes_delta_percent": -19.04,
+  "one_MiB_allocation_count_before_median": 230,
+  "one_MiB_allocation_count_after_median": 270,
+  "one_MiB_allocation_count_ratio": 1.173913043478261,
+  "reason": "above the 10 percent allocation-count ratchet",
+  "next": "coallocate suffix pages in pairs; retain the original flat prefix and unchanged memory and retention limits",
+  "YAML_pairs_and_source_post_audit": "still running at this decision"
+}

@@ -1,0 +1,284 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# working directory: /candidate
+# repository root: unavailable
+# revision: unavailable
+# dirty: unknown
+# source metadata: informational; no source snapshot authentication
+# started: 2026-10-21T21:23:01Z
+# package: .
+# bench regex: ^BenchmarkSmallSourceReceiptProductionGo$
+# required benchmarks: BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa
+# build tags: gts_parsercorephase0
+# seeds: 134001..134020
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# suite seed environment: GTS_BENCHMARK_SEED
+# paired workload order: must match
+# seed: 134001; position: 2
+-test.shuffle 134001
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    7783	    129614 ns/op	 148.86 MB/s	     394 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa                     	     154	   5340045 ns/op	   3.61 MB/s	    1166 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa                  	220826695	         4.036 ns/op	4780505.39 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.863s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa
+# completed seed: 134001; at: 2026-10-21T21:23:32Z
+# seed: 134002; position: 1
+-test.shuffle 134002
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/full_dfa         	     154	   5603913 ns/op	   3.44 MB/s	    1167 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa      	216197383	         4.201 ns/op	4593242.94 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    6730	    149018 ns/op	 129.47 MB/s	     395 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.818s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa
+# completed seed: 134002; at: 2026-10-21T21:23:53Z
+# seed: 134003; position: 2
+-test.shuffle 134003
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/full_dfa         	     162	   5270425 ns/op	   3.66 MB/s	    1165 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    8169	    122658 ns/op	 157.30 MB/s	     394 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa                  	228242439	         4.221 ns/op	4570659.76 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.873s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa
+# completed seed: 134003; at: 2026-10-21T21:24:10Z
+# seed: 134004; position: 1
+-test.shuffle 134004
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa         	233634390	         3.997 ns/op	4827323.38 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    7659	    136506 ns/op	 141.34 MB/s	     394 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa                     	     147	   6342157 ns/op	   3.04 MB/s	    1167 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.028s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa
+# completed seed: 134004; at: 2026-10-21T21:24:31Z
+# seed: 134005; position: 2
+-test.shuffle 134005
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/full_dfa         	      97	   7859380 ns/op	   2.45 MB/s	    1180 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    5691	    143262 ns/op	 134.68 MB/s	     395 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa                  	204926325	         4.238 ns/op	4552503.03 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.340s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa
+# completed seed: 134005; at: 2026-10-21T21:24:54Z
+# seed: 134006; position: 1
+-test.shuffle 134006
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa         	186272082	         4.549 ns/op	4240989.25 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    7468	    139984 ns/op	 137.83 MB/s	     394 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa                     	     121	   8687745 ns/op	   2.22 MB/s	    1172 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.320s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa
+# completed seed: 134006; at: 2026-10-21T21:25:16Z
+# seed: 134007; position: 2
+-test.shuffle 134007
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/full_dfa         	     106	   8168587 ns/op	   2.36 MB/s	    1177 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa      	170087841	         5.575 ns/op	3460672.12 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    6825	    156451 ns/op	 123.32 MB/s	     395 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.062s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa
+# completed seed: 134007; at: 2026-10-21T21:25:42Z
+# seed: 134008; position: 1
+-test.shuffle 134008
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    6316	    158711 ns/op	 121.57 MB/s	     395 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa                  	180390668	         5.387 ns/op	3581873.79 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa                     	     100	   7823210 ns/op	   2.47 MB/s	    1179 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.050s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa
+# completed seed: 134008; at: 2026-10-21T21:26:06Z
+# seed: 134009; position: 2
+-test.shuffle 134009
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa         	196218746	         4.584 ns/op	4209221.45 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa            	     145	   6553125 ns/op	   2.94 MB/s	    1168 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    6891	    152081 ns/op	 126.87 MB/s	     395 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.107s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa
+# completed seed: 134009; at: 2026-10-21T21:26:26Z
+# seed: 134010; position: 1
+-test.shuffle 134010
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    7396	    138203 ns/op	 139.61 MB/s	     394 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa                  	205742809	         4.729 ns/op	4079915.88 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa                     	     142	   5994984 ns/op	   3.22 MB/s	    1168 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.067s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa
+# completed seed: 134010; at: 2026-10-21T21:26:50Z
+# seed: 134011; position: 2
+-test.shuffle 134011
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa         	160049551	         5.388 ns/op	3580819.71 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa            	     120	   7726777 ns/op	   2.50 MB/s	    1173 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    6042	    154459 ns/op	 124.91 MB/s	     395 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.202s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa
+# completed seed: 134011; at: 2026-10-21T21:27:10Z
+# seed: 134012; position: 1
+-test.shuffle 134012
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    5950	    154741 ns/op	 124.69 MB/s	     395 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa                     	     127	   7750025 ns/op	   2.49 MB/s	    1171 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa                  	176215563	         5.325 ns/op	3623197.59 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.106s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa
+# completed seed: 134012; at: 2026-10-21T21:27:34Z
+# seed: 134013; position: 2
+-test.shuffle 134013
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/full_dfa         	     154	   6492128 ns/op	   2.97 MB/s	    1167 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa      	202530824	         4.440 ns/op	4345819.38 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    7326	    134646 ns/op	 143.29 MB/s	     394 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.755s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa
+# completed seed: 134013; at: 2026-10-21T21:27:57Z
+# seed: 134014; position: 1
+-test.shuffle 134014
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    6951	    143989 ns/op	 134.00 MB/s	     395 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa                     	     146	   5978978 ns/op	   3.23 MB/s	    1168 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa                  	230526450	         3.884 ns/op	4968021.15 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.923s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa
+# completed seed: 134014; at: 2026-10-21T21:28:14Z
+# seed: 134015; position: 2
+-test.shuffle 134015
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    6345	    141864 ns/op	 136.00 MB/s	     395 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa                  	186875490	         5.447 ns/op	3542013.95 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa                     	     100	   7933304 ns/op	   2.43 MB/s	    1179 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.115s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa
+# completed seed: 134015; at: 2026-10-21T21:28:35Z
+# seed: 134016; position: 1
+-test.shuffle 134016
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa         	145204792	         6.135 ns/op	3145046.61 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa            	     100	   7663924 ns/op	   2.52 MB/s	    1179 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    6054	    160160 ns/op	 120.47 MB/s	     395 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.426s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa
+# completed seed: 134016; at: 2026-10-21T21:28:56Z
+# seed: 134017; position: 2
+-test.shuffle 134017
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa         	173835147	         5.292 ns/op	3645770.43 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    5642	    155592 ns/op	 124.00 MB/s	     395 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa                     	     100	   8029826 ns/op	   2.40 MB/s	    1179 B/op	       6 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.290s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa
+# completed seed: 134017; at: 2026-10-21T21:29:19Z
+# seed: 134018; position: 1
+-test.shuffle 134018
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/full_dfa         	     117	   7446574 ns/op	   2.59 MB/s	    1173 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa      	175767109	         5.028 ns/op	3837135.56 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    6116	    149995 ns/op	 128.63 MB/s	     395 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.583s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa
+# completed seed: 134018; at: 2026-10-21T21:29:44Z
+# seed: 134019; position: 2
+-test.shuffle 134019
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    6330	    132725 ns/op	 145.37 MB/s	     395 B/op	       5 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/full_dfa                     	     147	   5990583 ns/op	   3.22 MB/s	    1168 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa                  	215397742	         4.543 ns/op	4246576.87 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.893s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa
+# completed seed: 134019; at: 2026-10-21T21:30:02Z
+# seed: 134020; position: 1
+-test.shuffle 134020
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkSmallSourceReceiptProductionGo/full_dfa         	     162	   5712417 ns/op	   3.38 MB/s	    1165 B/op	       6 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa      	201829218	         4.714 ns/op	4092609.38 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa         	    5919	    139008 ns/op	 138.80 MB/s	     395 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.777s
+# workload order: BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa
+# completed seed: 134020; at: 2026-10-21T21:30:21Z
+# repository root at end: unavailable
+# revision at end: unavailable
+# dirty at end: unknown
+# completed runs: 20
+# status: complete

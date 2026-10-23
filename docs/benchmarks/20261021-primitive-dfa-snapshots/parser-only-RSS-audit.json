@@ -1,0 +1,63 @@
+{
+  "diagnostic_collection_passed": true,
+  "RSS_hard_gate_passed": false,
+  "runtime_promotion_held": true,
+  "measurement": "direct immutable benchmark binary; no compiler; fixed N=2 attribution only, not randomized timing comparison",
+  "rows": [
+    {
+      "variant": "baseline",
+      "mode": "plain",
+      "RSS_bytes": 458366976,
+      "source_bytes": 1048591.0,
+      "RSS_per_source_byte": 437.1265593544099,
+      "N": 2,
+      "compiler_excluded": true
+    },
+    {
+      "variant": "baseline",
+      "mode": "heap",
+      "RSS_bytes": 458833920,
+      "source_bytes": 1048591.0,
+      "RSS_per_source_byte": 437.5718654842546,
+      "N": 2,
+      "compiler_excluded": true
+    },
+    {
+      "variant": "candidate",
+      "mode": "plain",
+      "RSS_bytes": 458457088,
+      "source_bytes": 1048591.0,
+      "RSS_per_source_byte": 437.21249562508166,
+      "N": 2,
+      "compiler_excluded": true
+    },
+    {
+      "variant": "candidate",
+      "mode": "heap",
+      "RSS_bytes": 462110720,
+      "source_bytes": 1048591.0,
+      "RSS_per_source_byte": 440.6968207814105,
+      "N": 2,
+      "compiler_excluded": true
+    }
+  ],
+  "heap_after_GC_MB": {
+    "baseline": 53.73,
+    "candidate": 55.63
+  },
+  "largest_retained_category": "transientParentScratch.allocParent: sampled 30.04 MiB in each post-GC profile; not an attribution of the instantaneous RSS peak",
+  "next_work": "profile transient-parent construction/materialization and scratch lifetime; preserve counters and GC/pool/budget settings",
+  "container_state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-10-21T22:16:05.815342805Z",
+    "FinishedAt": "2026-10-21T22:16:21.569508945Z"
+  }
+}

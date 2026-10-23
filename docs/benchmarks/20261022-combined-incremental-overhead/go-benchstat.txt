@@ -1,0 +1,79 @@
+goos: linux
+goarch: arm64
+pkg: github.com/odvcencio/gotreesitter
+                                       │ go-before.txt │             go-after.txt             │
+                                       │    sec/op     │    sec/op     vs base                │
+OrderedReceiptsGo/full_dfa_3500          113.08m ± 20%   97.15m ± 24%  -14.09% (p=0.001 n=20)
+OrderedReceiptsGo/no_edit_dfa             6.218n ± 26%   6.183n ± 31%        ~ (p=0.857 n=20)
+OrderedReceiptsGo/query_compile           16.55m ± 19%   14.32m ± 23%        ~ (p=0.659 n=20)
+OrderedReceiptsGo/grammargen_lr           144.9m ± 20%   149.7m ± 33%        ~ (p=0.114 n=20)
+OrderedReceiptsGo/full_dfa                13.52m ± 18%   13.54m ± 16%        ~ (p=0.583 n=20)
+OrderedReceiptsGo/fresh_one_mib            1.051 ± 18%    1.017 ± 25%        ~ (p=0.925 n=20)
+OrderedReceiptsGo/single_byte_edit_dfa    176.1µ ± 21%   117.1µ ± 28%  -33.52% (p=0.000 n=20)
+geomean                                   3.295m         2.977m         -9.64%
+
+                                       │ go-before.txt │              go-after.txt              │
+                                       │      B/s      │      B/s        vs base                │
+OrderedReceiptsGo/full_dfa_3500          1.192Mi ± 17%    1.388Mi ± 20%  +16.40% (p=0.001 n=20)
+OrderedReceiptsGo/no_edit_dfa            2.822Ti ± 21%    2.838Ti ± 24%        ~ (p=0.862 n=20)
+OrderedReceiptsGo/query_compile          1.163Mi ± 23%    1.345Mi ± 19%        ~ (p=0.693 n=20)
+OrderedReceiptsGo/grammargen_lr          1.550Mi ± 16%    1.502Mi ± 24%        ~ (p=0.119 n=20)
+OrderedReceiptsGo/full_dfa               1.359Mi ± 15%    1.359Mi ± 14%        ~ (p=0.596 n=20)
+OrderedReceiptsGo/fresh_one_mib          976.6Ki ± 15%   1010.7Ki ± 21%        ~ (p=0.878 n=20)
+OrderedReceiptsGo/single_byte_edit_dfa   104.5Mi ± 17%    157.2Mi ± 22%  +50.42% (p=0.000 n=20)
+geomean                                  18.90Mi          20.93Mi        +10.74%
+
+                                       │  go-before.txt  │              go-after.txt              │
+                                       │      B/op       │     B/op      vs base                  │
+OrderedReceiptsGo/full_dfa_3500           3.281Mi ± 0%     2.657Mi ± 0%  -19.04% (p=0.000 n=20)
+OrderedReceiptsGo/no_edit_dfa               0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=20) ¹
+OrderedReceiptsGo/query_compile           4.391Ki ± 0%     4.391Ki ± 0%        ~ (p=0.190 n=20)
+OrderedReceiptsGo/grammargen_lr          1079.5Ki ± 0%     567.8Ki ± 0%  -47.40% (p=0.000 n=20)
+OrderedReceiptsGo/full_dfa                419.3Ki ± 0%     419.3Ki ± 0%        ~ (p=0.783 n=20)
+OrderedReceiptsGo/fresh_one_mib           344.7Mi ± 7%     339.3Mi ± 7%        ~ (p=0.056 n=20)
+OrderedReceiptsGo/single_byte_edit_dfa      406.0 ± 1%       401.0 ± 1%   -1.23% (p=0.000 n=20)
+geomean                                                ²                 -11.83%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                       │ go-before.txt  │             go-after.txt              │
+                                       │   allocs/op    │  allocs/op    vs base                 │
+OrderedReceiptsGo/full_dfa_3500           74.00 ±  0%      76.00 ±  0%  +2.70% (p=0.000 n=20)
+OrderedReceiptsGo/no_edit_dfa             0.000 ±  0%      0.000 ±  0%       ~ (p=1.000 n=20) ¹
+OrderedReceiptsGo/query_compile           121.0 ±  0%      121.0 ±  0%       ~ (p=1.000 n=20) ¹
+OrderedReceiptsGo/grammargen_lr          1.706k ±  0%     1.709k ±  0%  +0.18% (p=0.000 n=20)
+OrderedReceiptsGo/full_dfa                37.00 ±  0%      37.00 ±  0%       ~ (p=1.000 n=20) ¹
+OrderedReceiptsGo/fresh_one_mib           264.5 ± 13%      286.5 ± 12%       ~ (p=0.116 n=20)
+OrderedReceiptsGo/single_byte_edit_dfa    5.000 ±  0%      5.000 ±  0%       ~ (p=1.000 n=20) ¹
+geomean                                               ²                 +1.56%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                │    go-before.txt     │                 go-after.txt                  │
+                                │ compact-fallbacks/op │ compact-fallbacks/op  vs base                 │
+OrderedReceiptsGo/query_compile           0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+OrderedReceiptsGo/grammargen_lr           0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                              ²                         +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                │   go-before.txt   │                go-after.txt                │
+                                │ compact-routes/op │ compact-routes/op  vs base                 │
+OrderedReceiptsGo/query_compile          1.000 ± 0%          1.000 ± 0%       ~ (p=1.000 n=20) ¹
+OrderedReceiptsGo/grammargen_lr          1.000 ± 0%          1.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                  1.000               1.000       +0.00%
+¹ all samples are equal
+
+                                │  go-before.txt  │               go-after.txt               │
+                                │ public-nodes/op │ public-nodes/op  vs base                 │
+OrderedReceiptsGo/query_compile       11.33k ± 0%       11.33k ± 0%       ~ (p=1.000 n=20) ¹
+OrderedReceiptsGo/grammargen_lr       108.0k ± 0%       108.0k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                               34.97k            34.97k       +0.00%
+¹ all samples are equal
+
+                                │ go-before.txt │             go-after.txt             │
+                                │   tokens/op   │  tokens/op   vs base                 │
+OrderedReceiptsGo/query_compile     5.126k ± 0%   5.126k ± 0%       ~ (p=1.000 n=20) ¹
+OrderedReceiptsGo/grammargen_lr     49.91k ± 0%   49.91k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                             16.00k        16.00k       +0.00%
+¹ all samples are equal

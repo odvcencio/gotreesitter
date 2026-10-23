@@ -1,0 +1,9 @@
+=== RUN   TestLargeFileEditInvariant
+=== RUN   TestLargeFileEditInvariant/go
+    large_file_edit_test.go:171: LARGE_EDIT language=go bytes=1048591 source=cffbfaf6b53a359cc93723aa72dda136d21ea6a92cf559593534926a2ebff526 step=0 digest=1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c tokens=12927 nodes=25881 reused_subtrees=12911 reused_bytes=1022729 edit_ns=17581921 reuse_ns=5925291 reparse_ns=53594642 arena_bytes=10127664 arena_baseline=2817952 fallback=
+    large_file_edit_test.go:171: LARGE_EDIT language=go bytes=1048591 source=76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524 step=1 digest=1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c tokens=12927 nodes=25881 reused_subtrees=12911 reused_bytes=1022729 edit_ns=350245 reuse_ns=5798750 reparse_ns=52318143 arena_bytes=10208320 arena_baseline=4915008 fallback=
+    large_file_edit_test.go:171: LARGE_EDIT language=go bytes=1048591 source=cffbfaf6b53a359cc93723aa72dda136d21ea6a92cf559593534926a2ebff526 step=2 digest=1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c tokens=12927 nodes=25881 reused_subtrees=12911 reused_bytes=1022729 edit_ns=339642 reuse_ns=6224940 reparse_ns=52685943 arena_bytes=10127664 arena_baseline=10047008 fallback=
+    large_file_edit_test.go:171: LARGE_EDIT language=go bytes=1048591 source=76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524 step=3 digest=1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c tokens=12927 nodes=25881 reused_subtrees=12911 reused_bytes=1022729 edit_ns=414425 reuse_ns=6433337 reparse_ns=55121824 arena_bytes=10208320 arena_baseline=10208320 fallback=
+--- PASS: TestLargeFileEditInvariant (7.78s)
+    --- PASS: TestLargeFileEditInvariant/go (7.78s)
+PASS

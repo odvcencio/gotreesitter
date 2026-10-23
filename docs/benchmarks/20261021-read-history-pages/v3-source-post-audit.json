@@ -1,0 +1,36 @@
+{
+  "exit_code": 0,
+  "baseline_original_unchanged": true,
+  "candidate_original_unchanged": true,
+  "baseline_bench_source_unchanged": true,
+  "candidate_bench_source_unchanged": true,
+  "checkout_unchanged": true,
+  "cgo_state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-10-22T04:43:11.905889761Z",
+    "FinishedAt": "2026-10-22T04:46:06.799555134Z"
+  },
+  "perf_state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-10-22T04:46:11.896484803Z",
+    "FinishedAt": "2026-10-22T05:03:13.920335304Z"
+  },
+  "platform": "native linux/arm64 perf; emulated linux/amd64 C correctness",
+  "large_file_RSS_qualified": false
+}

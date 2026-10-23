@@ -1,0 +1,14 @@
+{
+  "collection_passed": true,
+  "archive_members_verified": 973,
+  "rows_per_variant": 260,
+  "matched_pairs_per_language": 20,
+  "ledger_rows_equal": 412,
+  "unavailable_full_rows_unchanged": 92,
+  "all_median_time_byte_and_allocation_ratchets_pass": true,
+  "source_post_audit_passed": true,
+  "component_qualification": true,
+  "combined_qualification": "running separately against pinned main",
+  "RSS_qualified": false,
+  "runtime_applied_to_PR": false
+}

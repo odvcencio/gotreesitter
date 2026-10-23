@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH=/evidence/bin:/usr/local/go/bin:$PATH GOMAXPROCS=1 GOWORK=off GOFLAGS='-p=1 -mod=readonly -buildvcs=false -overlay=/evidence/overlay.json'
+go version > /evidence/go-version.txt
+cd /candidate
+GTS_ADMISSION_CANDIDATE=0 bash scripts/run_randomized_benchmarks.sh --output /evidence/go-after.txt --baseline-root /baseline --baseline-output /evidence/go-before.txt --lock-path /evidence/benchmark.lock --bench-regex '^BenchmarkSmallSourceReceiptProductionGo$' --require-benchmarks BenchmarkSmallSourceReceiptProductionGo/full_dfa,BenchmarkSmallSourceReceiptProductionGo/single_byte_edit_dfa,BenchmarkSmallSourceReceiptProductionGo/no_edit_dfa --runs 20 --seed-start 134001 --benchtime 750ms > /evidence/go-runner.log 2>&1
+printf 'complete\n' > /evidence/complete.txt

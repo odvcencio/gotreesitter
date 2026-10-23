@@ -1,0 +1,174 @@
+{
+  "pairing_passed": true,
+  "language": "yaml",
+  "seeds": [
+    148001,
+    148002,
+    148003,
+    148004,
+    148005,
+    148006,
+    148007,
+    148008,
+    148009,
+    148010,
+    148011,
+    148012,
+    148013,
+    148014,
+    148015,
+    148016,
+    148017,
+    148018,
+    148019,
+    148020
+  ],
+  "rows_per_variant": 120,
+  "identical_child_order_per_pair": true,
+  "alternating_revision_order": true,
+  "randomized_across_seeds": true,
+  "all_reported_work_metrics_equal": true,
+  "no_edit_zero_bytes_and_allocations": false,
+  "ratchets": [
+    {
+      "name": "BenchmarkCompactThroughputYAML/eof8k_legacy",
+      "metrics": {
+        "ns/op": {
+          "before_median": 712177.5,
+          "after_median": 717366.0,
+          "ratio": 1.0072854028665608,
+          "inside_10pct_ratchet": true
+        },
+        "B/op": {
+          "before_median": 1264.0,
+          "after_median": 1264.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        },
+        "allocs/op": {
+          "before_median": 13.0,
+          "after_median": 13.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCompactThroughputYAML/eof8k_ordinary",
+      "metrics": {
+        "ns/op": {
+          "before_median": 818918.5,
+          "after_median": 826789.0,
+          "ratio": 1.009610846500598,
+          "inside_10pct_ratchet": true
+        },
+        "B/op": {
+          "before_median": 45737.0,
+          "after_median": 45737.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        },
+        "allocs/op": {
+          "before_median": 34.0,
+          "after_median": 34.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCompactThroughputYAML/eof8k_owned",
+      "metrics": {
+        "ns/op": {
+          "before_median": 2093599.0,
+          "after_median": 2004001.5,
+          "ratio": 0.9572040777627425,
+          "inside_10pct_ratchet": true
+        },
+        "B/op": {
+          "before_median": 41049.0,
+          "after_median": 41048.0,
+          "ratio": 0.999975638870618,
+          "inside_10pct_ratchet": true
+        },
+        "allocs/op": {
+          "before_median": 191.0,
+          "after_median": 191.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCompactThroughputYAML/r4_legacy",
+      "metrics": {
+        "ns/op": {
+          "before_median": 210694.5,
+          "after_median": 196219.5,
+          "ratio": 0.9312986338039199,
+          "inside_10pct_ratchet": true
+        },
+        "B/op": {
+          "before_median": 1440.0,
+          "after_median": 1440.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        },
+        "allocs/op": {
+          "before_median": 16.0,
+          "after_median": 16.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCompactThroughputYAML/r4_ordinary",
+      "metrics": {
+        "ns/op": {
+          "before_median": 261752.5,
+          "after_median": 266829.5,
+          "ratio": 1.019396185327743,
+          "inside_10pct_ratchet": true
+        },
+        "B/op": {
+          "before_median": 14040.0,
+          "after_median": 14040.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        },
+        "allocs/op": {
+          "before_median": 37.0,
+          "after_median": 37.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCompactThroughputYAML/r4_owned",
+      "metrics": {
+        "ns/op": {
+          "before_median": 565046.0,
+          "after_median": 531142.0,
+          "ratio": 0.9399978054884027,
+          "inside_10pct_ratchet": true
+        },
+        "B/op": {
+          "before_median": 11848.0,
+          "after_median": 11848.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        },
+        "allocs/op": {
+          "before_median": 72.0,
+          "after_median": 72.0,
+          "ratio": 1.0,
+          "inside_10pct_ratchet": true
+        }
+      }
+    }
+  ],
+  "all_median_ratchets_pass": true,
+  "final_source_post_audit_required": true
+}

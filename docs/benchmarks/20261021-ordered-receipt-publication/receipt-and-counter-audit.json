@@ -1,0 +1,85 @@
+{
+  "passed": true,
+  "archive_sha256": "eacda175362f2d1999239277707fb2352c02a581a88272a7c26c66bbfc54bdaf",
+  "source_unchanged": true,
+  "checkout_unchanged": true,
+  "cases": 6,
+  "parses_per_variant": 18,
+  "selected_ledger_rows_identical": 412,
+  "D8_sessions_per_variant": 4,
+  "counts": {
+    "baseline_units": 26,
+    "candidate_units": 26
+  },
+  "geometry": {
+    "cogno_137k": {
+      "source_bytes": 140368,
+      "receipt_count": 0,
+      "retained_bytes": 0,
+      "old_shift_bytes_median": 0,
+      "new_shift_bytes": [
+        0
+      ],
+      "receipt_sha256_equal": true,
+      "runtime_equal": true
+    },
+    "generated_1mib": {
+      "source_bytes": 1048591,
+      "receipt_count": 0,
+      "retained_bytes": 0,
+      "old_shift_bytes_median": 0,
+      "new_shift_bytes": [
+        0
+      ],
+      "receipt_sha256_equal": true,
+      "runtime_equal": true
+    },
+    "grammargen_lr": {
+      "source_bytes": 235626,
+      "receipt_count": 0,
+      "retained_bytes": 0,
+      "old_shift_bytes_median": 0,
+      "new_shift_bytes": [
+        0
+      ],
+      "receipt_sha256_equal": true,
+      "runtime_equal": true
+    },
+    "primary_3500": {
+      "source_bytes": 141294,
+      "receipt_count": 10501,
+      "retained_bytes": 524288,
+      "old_shift_bytes_median": 880501504,
+      "new_shift_bytes": [
+        336000
+      ],
+      "receipt_sha256_equal": true,
+      "runtime_equal": true
+    },
+    "primary_500": {
+      "source_bytes": 19294,
+      "receipt_count": 1501,
+      "retained_bytes": 65536,
+      "old_shift_bytes_median": 17956800,
+      "new_shift_bytes": [
+        48000
+      ],
+      "receipt_sha256_equal": true,
+      "runtime_equal": true
+    },
+    "query_compile": {
+      "source_bytes": 20168,
+      "receipt_count": 0,
+      "retained_bytes": 0,
+      "old_shift_bytes_median": 0,
+      "new_shift_bytes": [
+        0
+      ],
+      "receipt_sha256_equal": true,
+      "runtime_equal": true
+    }
+  },
+  "timing_claim": false,
+  "locked_C_pending": true,
+  "promotion": false
+}

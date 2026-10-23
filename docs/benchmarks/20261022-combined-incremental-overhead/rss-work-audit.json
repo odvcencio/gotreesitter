@@ -1,0 +1,275 @@
+{
+  "fixed_iterations": 2,
+  "pairs": 20,
+  "source_bytes": 1048591,
+  "source_sha256": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+  "reported_work_metrics_equal": true,
+  "reported_work_metrics": {
+    "baseline": {
+      "154001": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154002": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154003": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154004": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154005": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154006": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154007": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154008": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154009": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154010": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154011": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154012": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154013": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154014": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154015": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154016": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154017": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154018": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154019": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154020": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      }
+    },
+    "candidate": {
+      "154001": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154002": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154003": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154004": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154005": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154006": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154007": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154008": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154009": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154010": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154011": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154012": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154013": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154014": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154015": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154016": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154017": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154018": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154019": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      },
+      "154020": {
+        "nodes/op": 993391.0,
+        "tokens/op": 425742.0,
+        "stacks/op": 2.0
+      }
+    }
+  },
+  "measurement": {
+    "baseline": {
+      "values": [
+        385400832,
+        374173696,
+        373207040,
+        385982464,
+        387579904,
+        389206016,
+        465846272,
+        387883008,
+        467419136,
+        385613824,
+        467951616,
+        389156864,
+        389914624,
+        468246528,
+        468299776,
+        467517440,
+        467886080,
+        392835072,
+        391110656,
+        391344128
+      ],
+      "median_bytes": 390512640.0,
+      "maximum_bytes": 468299776,
+      "above_400_gate": 7
+    },
+    "candidate": {
+      "values": [
+        461205504,
+        460689408,
+        389562368,
+        392073216,
+        389996544,
+        460984320,
+        390340608,
+        388726784,
+        387702784,
+        456556544,
+        371859456,
+        391847936,
+        393191424,
+        380956672,
+        393715712,
+        456372224,
+        461033472,
+        372731904,
+        461053952,
+        455376896
+      ],
+      "median_bytes": 392632320.0,
+      "maximum_bytes": 461205504,
+      "above_400_gate": 8
+    }
+  },
+  "median_RSS_ratio": 1.005427942101951,
+  "inside_10pct_ratchet": true,
+  "absolute_400_gate_passed": false,
+  "no_manual_GC": true,
+  "compiler_outside_measured_process": true,
+  "throughput_claim": false
+}

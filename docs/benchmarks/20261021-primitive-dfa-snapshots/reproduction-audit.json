@@ -1,0 +1,19 @@
+{
+  "base": "7c940633eb977fb8122caff422166aa1257f6257",
+  "private_indices_only": true,
+  "variants": {
+    "baseline": {
+      "curated_files_reproduced": 4331,
+      "all_file_sizes_and_SHA256_equal": true,
+      "test_harness_patch": "../20261021-trusted-small-source-results/baseline-benchmark-harness.patch.gz",
+      "source_manifest_sha256": "ab6e03da43c532fb5fe6b437ffe5b3d7115adc515fcadd25dbc42e9db8c97d2d"
+    },
+    "candidate": {
+      "curated_files_reproduced": 4332,
+      "all_file_sizes_and_SHA256_equal": true,
+      "test_harness_patch": "../20261021-trusted-small-source-results/baseline-benchmark-harness.patch.gz",
+      "source_manifest_sha256": "06812ab4b2c66fab8e8df5b65be4ad8bf4310535b90807daef3931734eedec39"
+    }
+  },
+  "runtime_promoted": false
+}

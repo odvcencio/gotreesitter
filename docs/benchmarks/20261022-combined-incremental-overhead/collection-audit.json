@@ -1,0 +1,16 @@
+{
+  "archive_sha256": "1fdbcdbd38cb1fd5b6b2fe0b566f0438013366624787d1b9f7003f0b30a448bd",
+  "archive_bytes": 2624177,
+  "all_member_hashes_verified": 1064,
+  "main_sha": "afd16867b666dfec05f3eb28e9eee86036474532",
+  "main_source_files_authenticated": 3541,
+  "ledger_rows_equal": 412,
+  "all_source_post_audits_pass": true,
+  "all_median_perf_ratchets_pass": true,
+  "known_delete_C_gap_retained": true,
+  "reported_RSS_work_metrics_equal": true,
+  "RSS_median_ratio": 1.005427942101951,
+  "large_file_RSS_qualified": false,
+  "draft_and_RSS_hold_remain": true,
+  "exact_head_CI_still_required": true
+}

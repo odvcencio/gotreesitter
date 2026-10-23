@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "source_unchanged": true,
+  "checkout_unchanged": true,
+  "unit_cases_each_variant": 27,
+  "receipt_digests_equal": 18,
+  "runtime_records_equal": 18,
+  "selected_ledger_rows_identical": 412,
+  "D8_sessions_each_variant": 4,
+  "no_edit_allocations": 0,
+  "archive_sha256": "abd7e75913026f819c15f43d2e1b8c339ea145c58d53f3b8c2372afce5ac0394",
+  "timing_claim": false,
+  "full_gate_pending": true
+}

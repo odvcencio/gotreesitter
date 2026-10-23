@@ -1,0 +1,82 @@
+{
+  "README.md": {
+    "bytes": 9483,
+    "sha256": "ee0940c732aed78ad27f82400cbb198b7184d3e7745a53f7a6a5d35b803855c1"
+  },
+  "audit-pairs.py": {
+    "bytes": 4215,
+    "sha256": "dca172890a862801ef82bec07781c718cf0e642c17c60df7bbff1059bf49d005"
+  },
+  "cognociente-latest-check.json": {
+    "bytes": 1118,
+    "sha256": "a7a5c21ece2b42d22fd4e216ab347f076a17908a492ee33d52bc7e9c65bbdc01"
+  },
+  "collection-audit.json": {
+    "bytes": 603,
+    "sha256": "d7bbb40d4015a1582a4034b576241f018dc01136cf70b8eafca6b2c55ac83670"
+  },
+  "combined-go.patch.gz": {
+    "bytes": 9618,
+    "sha256": "a49c1779bc5c315c266d788c62564ad70fff9619f4c317320a52ae0e9741833e"
+  },
+  "counter-equality.json": {
+    "bytes": 513,
+    "sha256": "cb5c227298b6bb55f72938b30b5902f2261638a1241910774851a7d9d7d900e1"
+  },
+  "go-after.txt.gz": {
+    "bytes": 3879,
+    "sha256": "b2e19a2993ec506a4037d6a00095c2fee2e513a329bab0398be298457436a34a"
+  },
+  "go-before.txt.gz": {
+    "bytes": 3876,
+    "sha256": "576c8d53e322bac5b22f42a46b47bb655261e9a2765cac15b12e03e79180b6d5"
+  },
+  "go-benchstat.txt": {
+    "bytes": 6213,
+    "sha256": "9d8c00bd3c1490a0a65b8efbba401283651872755656e882af82b193b66334bc"
+  },
+  "go-pair-audit.json": {
+    "bytes": 5030,
+    "sha256": "82801a4428aa40f5592ac4c9a0eaba8311543a133d32dee11ea4d7ad97770a78"
+  },
+  "integration-audit.json": {
+    "bytes": 400,
+    "sha256": "8ac09e2fcd0c4b073a2040a294cfe7818cef75a6841a2f096ddb4da20e56ecb5"
+  },
+  "main-source-audit.json": {
+    "bytes": 145,
+    "sha256": "d910532de07879cad8cdf85e36c3c970c3f3ae2be6bd1041365052b230aef2de"
+  },
+  "receipt-archive.json": {
+    "bytes": 233,
+    "sha256": "b07e4a50fc274821984bdc6adc31ae0063f952cc8e48c36a04d9781226804fd9"
+  },
+  "receipts.tar.gz": {
+    "bytes": 2624177,
+    "sha256": "1fdbcdbd38cb1fd5b6b2fe0b566f0438013366624787d1b9f7003f0b30a448bd"
+  },
+  "rss-work-audit.json": {
+    "bytes": 6082,
+    "sha256": "31117c5561e160ac98b3e2936dbe696420fd7f4f7e1e9a8b70783ef4590e0e3b"
+  },
+  "verify-receipts.py": {
+    "bytes": 4660,
+    "sha256": "a3a4924312790fd869c6aaf7df40de3806f34a8e564ae32b47100c9a4874452a"
+  },
+  "yaml-after.txt.gz": {
+    "bytes": 3253,
+    "sha256": "dea0ee21b46c4212bbc361575be138885a8fd860e20e44089504e340b6f73fec"
+  },
+  "yaml-before.txt.gz": {
+    "bytes": 3203,
+    "sha256": "8324d74e5c2e36be5577d3a90f68ad870a81b4aa1020098bfc192ed99fcc2afa"
+  },
+  "yaml-benchstat.txt": {
+    "bytes": 7446,
+    "sha256": "2c812a01f8977d5f537d0f7062e4a2ac7d44b45d3344696b312c5a06eb0ab42b"
+  },
+  "yaml-pair-audit.json": {
+    "bytes": 4264,
+    "sha256": "53a61a9b19a74c29d0cf65248cdfee771b2d2d3b4dccd98e41a282a0e49da0b2"
+  }
+}

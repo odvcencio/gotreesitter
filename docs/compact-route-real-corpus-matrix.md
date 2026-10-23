@@ -1,6 +1,6 @@
 # Compact route real-corpus matrix
 
-Current evidence date: 2026-10-20 (UTC).
+Current evidence date: 2026-10-22 (UTC).
 Parent PR #1486 merged to main as `88dc1d9c3ff15cc2b8b5c53864455fc3a24a9d34`
 after all 78 checks passed. Branch integration `b876c5b5` preserves all 414
 ledger rows and passes focused TypeScript/TSX C checks. The final whole-PR matched-order audit passes all 414 rows and 480 timings;
@@ -23,6 +23,24 @@ Scope: the 204 committed real `sample` files in the R4 manifest. CSV and Enforce
 have only synthetic samples and are outside this real-file census.
 
 ## Current compact-graduation matrix
+
+### Storage census: shared reductions and hidden-node volume
+
+The [current-candidate census](benchmarks/20261022-compact-storage-census/README.md) finds one clean pop without extras on **95.00%** of 1 MiB Go reductions and **85.78%** of owned 8 KiB YAML reductions. Go publishes 1,032,094 graph links; most carry zero score/order/flags. Public materialization visits 309,627 hidden subtrees on Go and 803 on the YAML witness. All five current fixtures have zero tied acceptance comparisons, so the earlier duplicate-trial target does not apply. Whole temporary-parent copy removal has only a 5.4 MB upper bound; an existing pending mode preserves the Go digest but increases node slots. A smaller lossless link representation remains private and unqualified. No timing or RSS win, routing change or graduation follows this diagnostic receipt.
+
+### Combined incremental overhead: Go wins, absolute RSS still held
+
+The [main-to-final receipt](benchmarks/20261022-combined-incremental-overhead/README.md) qualifies the composition of primitive DFA snapshots, adaptive receipt publication and grouped read-history pages. Twenty matched native ARM64 pairs cut generated Go full parse **113.08→97.15 ms (-14.09%, p=.001)** and standard edits **176.1→117.1 us (-33.52%, p<.001)**. Allocated bytes fall **47.40%** on `grammargen_lr` and **19.04%** on large generated Go, with allocation counts **1,706→1,709**, **74→76** and **264.5→286.5** on the 1 MiB workload. All median ratchets pass; real-file Go timing remains inconclusive. Ordinary and legacy R4 YAML are **2.03% / 2.33% slower**; no YAML throughput win is claimed.
+
+All 412 ledger rows remain equal; 1,236 standard C checks, 29,664 edit steps, twenty memory contracts and sixty root race cases pass. Exact report probes retain D8 and the known malformed-delete C gap. All 3,544 integrated Go files match the qualified candidate. Twenty parser-only RSS pairs preserve work counters and the relative ratchet, but **eight candidate samples exceed 400 RSS bytes/source byte** (maximum 461,205,504 bytes). PR #1509 remains draft under its RSS hold. The [earlier component receipt](benchmarks/20261021-read-history-pages/README.md) retains the rejected +17.39% allocation-count variant. Routing, ledger baselines and graduation remain unchanged.
+
+### Ordered receipt publication: qualified adaptive Go win
+
+The [adaptive publication receipt](benchmarks/20261021-ordered-receipt-publication/README.md) preserves the direct path for at most 64 candidates and avoids random sparse-array insertion for larger publications. Twenty native ARM64 pairs reduce generated Go full parse **110.30→96.19 ms (-12.79%, p<.001)** at 3,500 functions and **13.58→13.28 ms (-2.19%, p=.049)** at 500 functions. Edit, human-authored Go and all six YAML timing differences are inconclusive. All 412 ledger rows and eighteen receipt digests match; 1,236 locked-C checks, 29,664 invariant edits, twenty memory contracts and 27 race cases pass. The runtime is integrated into the draft incremental PR; the existing RSS blocker remains. No graduation, route or ledger change follows this receipt.
+
+### Primitive-edit DFA snapshots (qualification held)
+
+The isolated proof-state copy change lowers the standard Go edit benchmark by 6.85% on Linux amd64 and 36.40% on M1 Max Docker Linux arm64 (20 pairs each). All 412 ledger rows are unchanged. The [receipt](benchmarks/20261021-primitive-dfa-snapshots/README.md) retains full correctness gates and the confirmed warm-parser RSS ceiling failure in both baseline and candidate. Runtime promotion stays held; this does not graduate Go or ordinary YAML.
 
 ### Trusted small-source verification: measured Go edits, held counters
 

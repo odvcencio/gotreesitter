@@ -1,0 +1,34 @@
+goos: linux
+goarch: arm64
+pkg: github.com/odvcencio/gotreesitter
+│ baseline-go.txt │ candidate-go.txt │
+│ sec/op │ sec/op vs base │
+GoParseFullDFA 5.814m ± 1% 5.742m ± 0% -1.24% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA 82.60µ ± 0% 82.51µ ± 1% ~ (p=0.698 n=20)
+GoParseIncrementalNoEditDFA 6.063n ± 0% 6.067n ± 0% ~ (p=0.909 n=20)
+geomean 14.28µ 14.22µ -0.43%
+
+│ baseline-go.txt │ candidate-go.txt │
+│ B/s │ B/s vs base │
+GoParseFullDFA 3.161Mi ± 1% 3.204Mi ± 1% +1.36% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA 222.8Mi ± 0% 223.0Mi ± 1% ~ (p=0.693 n=20)
+GoParseIncrementalNoEditDFA 2.894Ti ± 0% 2.892Ti ± 0% ~ (p=0.904 n=20)
+geomean 1.258Gi 1.264Gi +0.46%
+
+│ baseline-go.txt │ candidate-go.txt │
+│ B/op │ B/op vs base │
+GoParseFullDFA 1.140Ki ± 0% 1.139Ki ± 0% ~ (p=0.568 n=20)
+GoParseIncrementalSingleByteEditDFA 394.0 ± 0% 394.0 ± 0% ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA 0.000 ± 0% 0.000 ± 0% ~ (p=1.000 n=20) ¹
+geomean ² -0.03% ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+│ baseline-go.txt │ candidate-go.txt │
+│ allocs/op │ allocs/op vs base │
+GoParseFullDFA 6.000 ± 0% 6.000 ± 0% ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA 5.000 ± 0% 5.000 ± 0% ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA 0.000 ± 0% 0.000 ± 0% ~ (p=1.000 n=20) ¹
+geomean ² +0.00% ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

@@ -1,0 +1,21 @@
+{
+  "exit_code": 1,
+  "original_unchanged": true,
+  "diagnostic_unchanged": true,
+  "checkout_unchanged": true,
+  "state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 1,
+    "Error": "",
+    "StartedAt": "2026-10-22T07:39:49.790203625Z",
+    "FinishedAt": "2026-10-22T07:39:51.649150167Z"
+  },
+  "performance_comparison": false,
+  "manual_GC": false
+}

@@ -1,0 +1,34 @@
+goos: linux
+goarch: arm64
+pkg: github.com/odvcencio/gotreesitter
+                                                    │ go-before.txt │            go-after.txt             │
+                                                    │    sec/op     │   sec/op     vs base                │
+SmallSourceReceiptProductionGo/full_dfa                 5.950m ± 2%   5.920m ± 1%        ~ (p=0.602 n=20)
+SmallSourceReceiptProductionGo/no_edit_dfa              6.207n ± 0%   6.211n ± 1%        ~ (p=0.292 n=20)
+SmallSourceReceiptProductionGo/single_byte_edit_dfa     209.6µ ± 1%   133.3µ ± 0%  -36.40% (p=0.000 n=20)
+geomean                                                 19.78µ        16.99µ       -14.13%
+
+                                                    │ go-before.txt │             go-after.txt              │
+                                                    │      B/s      │      B/s       vs base                │
+SmallSourceReceiptProductionGo/full_dfa                3.095Mi ± 2%    3.104Mi ± 1%        ~ (p=0.634 n=20)
+SmallSourceReceiptProductionGo/no_edit_dfa             2.827Ti ± 0%    2.825Ti ± 1%        ~ (p=0.277 n=20)
+SmallSourceReceiptProductionGo/single_byte_edit_dfa    87.79Mi ± 1%   138.04Mi ± 0%  +57.24% (p=0.000 n=20)
+geomean                                                930.4Mi         1.057Gi       +16.38%
+
+                                                    │ go-before.txt  │             go-after.txt              │
+                                                    │      B/op      │     B/op      vs base                 │
+SmallSourceReceiptProductionGo/full_dfa               1.140Ki ± 0%     1.140Ki ± 0%       ~ (p=0.573 n=20)
+SmallSourceReceiptProductionGo/no_edit_dfa              0.000 ± 0%       0.000 ± 0%       ~ (p=1.000 n=20) ¹
+SmallSourceReceiptProductionGo/single_byte_edit_dfa     397.0 ± 0%       395.0 ± 0%  -0.50% (p=0.000 n=20)
+geomean                                                            ²                 -0.17%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                    │ go-before.txt │            go-after.txt             │
+                                                    │   allocs/op   │ allocs/op   vs base                 │
+SmallSourceReceiptProductionGo/full_dfa                6.000 ± 0%     6.000 ± 0%       ~ (p=1.000 n=20) ¹
+SmallSourceReceiptProductionGo/no_edit_dfa             0.000 ± 0%     0.000 ± 0%       ~ (p=1.000 n=20) ¹
+SmallSourceReceiptProductionGo/single_byte_edit_dfa    5.000 ± 0%     5.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                           ²               +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

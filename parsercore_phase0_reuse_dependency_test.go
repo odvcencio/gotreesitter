@@ -617,3 +617,37 @@ func TestCompactLegacyReadHistoryPublicationDemand(t *testing.T) {
 		})
 	}
 }
+
+func TestCompactReuseDependencyPublicationOverflowSlab(t *testing.T) {
+	p, _, node, _, _, points := compactBorrowedMaterializationFixture(t)
+	arena := node.ownerArena
+	original := arena.nodes
+	usedPrimary := min(arena.used, len(arena.nodes))
+	arena.nodes = arena.nodes[:usedPrimary:usedPrimary]
+	defer func() { arena.nodes = original }()
+	const count = 65
+	nodes := make([]*Node, count)
+	nodes[0] = node
+	for i := 1; i < count; i++ {
+		nodes[i] = cloneNodeInArena(arena, node)
+	}
+	root := newParentNodeInArena(arena, 4, true, nodes, nil, 0)
+	if arena.used <= len(arena.nodes) || len(arena.nodeSlabs) == 0 {
+		t.Fatal("fixture did not allocate overflow nodes")
+	}
+	s := &diagnosticParserCoreGenericScheduler{}
+	s.reuseDependencies.ends = make([]uint32, count+1)
+	byID := make([]*Node, count+1)
+	for i, n := range nodes {
+		byID[i+1] = n
+		s.reuseDependencies.ends[i+1] = uint32(i + 4)
+	}
+	if err := s.publishCompactReuseDependencies(p, root, arena, byID, compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	for i, n := range nodes {
+		if extent, ok := compactReuseDependencyForNode(n); !ok || extent != uint32(i+3) {
+			t.Fatalf("receipt %d=%d/%t", i, extent, ok)
+		}
+	}
+}

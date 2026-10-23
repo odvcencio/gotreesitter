@@ -1,0 +1,33 @@
+{
+  "checked_at_UTC": "2026-10-22T06:59:07.990927+00:00",
+  "latest_report": {
+    "id": 6311551850,
+    "html_url": "https://github.com/odvcencio/gotreesitter/issues/454#issuecomment-6311551850",
+    "created_at": "2026-10-21T08:27:43Z",
+    "updated_at": "2026-10-21T08:29:43Z"
+  },
+  "author": "cognociente",
+  "issues_with_author_comments": [
+    {
+      "number": 454,
+      "updated_at": "2026-10-21T08:29:43Z",
+      "url": "https://github.com/odvcencio/gotreesitter/issues/454"
+    },
+    {
+      "number": 432,
+      "updated_at": "2026-07-23T06:31:49Z",
+      "url": "https://github.com/odvcencio/gotreesitter/issues/432"
+    },
+    {
+      "number": 380,
+      "updated_at": "2026-07-22T05:35:23Z",
+      "url": "https://github.com/odvcencio/gotreesitter/issues/380"
+    }
+  ],
+  "exact_Go_fixture_bytes": 140368,
+  "exact_Go_fixture_sha256": "5434575bb249338937331c3756e10dcec34237d107f523ea315996fb6de0ef8f",
+  "Win_ARM64_not_reproduced": true,
+  "broader_EOF_directive_battery_not_requalified": true,
+  "known_malformed_delete_C_gap_open": true,
+  "small_source_ledger_approval_still_pending_PR": 1511
+}

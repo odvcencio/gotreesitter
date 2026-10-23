@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+seed=""
+for arg in "$@"; do
+ case "$arg" in -shuffle=*) seed="${arg#-shuffle=}" ;; esac
+done
+if [[ "${1:-}" == test && "$seed" =~ ^[0-9]+$ ]]; then
+ case "$PWD" in /baseline) variant=baseline ;; /candidate) variant=candidate ;; *) exit 31 ;; esac
+ export GTS_BENCHMARK_SEED="$seed"
+ exec /usr/bin/time -v -o "/evidence/rss-${variant}-${seed}.txt" /usr/local/go/bin/go "$@"
+fi
+exec /usr/local/go/bin/go "$@"

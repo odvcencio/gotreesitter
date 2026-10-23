@@ -1,0 +1,31 @@
+{
+  "archive_sha256": "e37c4ef4390569a22ab63f22d3c90c818eaed07e914366adcd55eef078397e20",
+  "archive_members": 439,
+  "all_members_verified": true,
+  "independent_invariant_sessions": 412,
+  "total_edit_steps": 29664,
+  "no_edit_allocations": 0,
+  "primary_go_pairs": 20,
+  "primary_go_rows_per_variant": 60,
+  "identical_child_order": true,
+  "alternating_variant_order": true,
+  "source_go_production_files_verified_before_upload": 2008,
+  "source_unchanged_by_worker_and_independent_remote_check": true,
+  "user_checkout_unchanged": true,
+  "container_state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-10-21T21:45:48.786691542Z",
+    "FinishedAt": "2026-10-21T21:58:28.397577671Z"
+  },
+  "host": "M1 Max Docker linux/arm64 Go1.25.14",
+  "native_Windows_verified": false,
+  "runtime_promoted": false
+}

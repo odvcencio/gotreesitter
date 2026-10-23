@@ -1,0 +1,79 @@
+goos: linux
+goarch: arm64
+pkg: github.com/odvcencio/gotreesitter
+                                   │ go-before.txt │            go-after.txt            │
+                                   │    sec/op     │   sec/op     vs base               │
+ReadHistoryGo/full_dfa                 13.90m ± 4%   13.80m ± 2%       ~ (p=0.968 n=20)
+ReadHistoryGo/grammargen_lr            146.5m ± 4%   148.0m ± 2%       ~ (p=0.620 n=20)
+ReadHistoryGo/single_byte_edit_dfa     117.9µ ± 2%   116.1µ ± 1%       ~ (p=0.108 n=20)
+ReadHistoryGo/no_edit_dfa              6.258n ± 3%   6.156n ± 1%       ~ (p=0.199 n=20)
+ReadHistoryGo/fresh_one_mib             1.010 ± 3%    1.030 ± 2%       ~ (p=0.265 n=20)
+ReadHistoryGo/query_compile            14.18m ± 7%   14.46m ± 2%       ~ (p=0.512 n=20)
+ReadHistoryGo/full_dfa_3500            114.3m ± 3%   113.0m ± 4%       ~ (p=0.602 n=20)
+geomean                                3.051m        3.050m       -0.01%
+
+                                   │ go-before.txt │            go-after.txt             │
+                                   │      B/s      │     B/s       vs base               │
+ReadHistoryGo/full_dfa                1.326Mi ± 4%   1.335Mi ± 2%       ~ (p=0.931 n=20)
+ReadHistoryGo/grammargen_lr           1.535Mi ± 4%   1.516Mi ± 3%       ~ (p=0.633 n=20)
+ReadHistoryGo/single_byte_edit_dfa    156.1Mi ± 2%   158.4Mi ± 1%       ~ (p=0.107 n=20)
+ReadHistoryGo/no_edit_dfa             2.804Ti ± 3%   2.851Ti ± 1%       ~ (p=0.192 n=20)
+ReadHistoryGo/fresh_one_mib          1015.6Ki ± 3%   991.2Ki ± 2%       ~ (p=0.266 n=20)
+ReadHistoryGo/query_compile           1.354Mi ± 6%   1.330Mi ± 3%       ~ (p=0.542 n=20)
+ReadHistoryGo/full_dfa_3500           1.178Mi ± 3%   1.192Mi ± 4%       ~ (p=0.624 n=20)
+geomean                               20.41Mi        20.40Mi       -0.06%
+
+                                   │  go-before.txt  │              go-after.txt              │
+                                   │      B/op       │     B/op      vs base                  │
+ReadHistoryGo/full_dfa                419.3Ki ± 0%     419.3Ki ± 0%        ~ (p=0.559 n=20)
+ReadHistoryGo/grammargen_lr          1079.5Ki ± 0%     503.8Ki ± 0%  -53.33% (p=0.000 n=20)
+ReadHistoryGo/single_byte_edit_dfa      401.0 ± 0%       401.0 ± 0%        ~ (p=0.126 n=20)
+ReadHistoryGo/no_edit_dfa               0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=20) ¹
+ReadHistoryGo/fresh_one_mib           329.6Mi ± 5%     324.2Mi ± 5%   -1.65% (p=0.008 n=20)
+ReadHistoryGo/query_compile           4.391Ki ± 0%     4.391Ki ± 0%        ~ (p=0.826 n=20)
+ReadHistoryGo/full_dfa_3500           3.281Mi ± 0%     2.657Mi ± 0%  -19.04% (p=0.000 n=20)
+geomean                                            ²                 -13.19%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                   │ go-before.txt │             go-after.txt              │
+                                   │   allocs/op   │  allocs/op   vs base                  │
+ReadHistoryGo/full_dfa                37.00 ± 0%      37.00 ± 0%        ~ (p=1.000 n=20) ¹
+ReadHistoryGo/grammargen_lr          1.706k ± 0%     1.712k ± 0%   +0.35% (p=0.000 n=20)
+ReadHistoryGo/single_byte_edit_dfa    5.000 ± 0%      5.000 ± 0%        ~ (p=1.000 n=20) ¹
+ReadHistoryGo/no_edit_dfa             0.000 ± 0%      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+ReadHistoryGo/fresh_one_mib           230.0 ± 4%      270.0 ± 4%  +17.39% (p=0.000 n=20)
+ReadHistoryGo/query_compile           121.0 ± 0%      121.0 ± 0%        ~ (p=1.000 n=20) ¹
+ReadHistoryGo/full_dfa_3500           74.00 ± 0%      79.00 ± 0%   +6.76% (p=0.000 n=20)
+geomean                                          ²                 +3.33%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                            │    go-before.txt     │                 go-after.txt                  │
+                            │ compact-fallbacks/op │ compact-fallbacks/op  vs base                 │
+ReadHistoryGo/grammargen_lr           0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ReadHistoryGo/query_compile           0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                          ²                         +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                            │   go-before.txt   │                go-after.txt                │
+                            │ compact-routes/op │ compact-routes/op  vs base                 │
+ReadHistoryGo/grammargen_lr          1.000 ± 0%          1.000 ± 0%       ~ (p=1.000 n=20) ¹
+ReadHistoryGo/query_compile          1.000 ± 0%          1.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                              1.000               1.000       +0.00%
+¹ all samples are equal
+
+                            │  go-before.txt  │               go-after.txt               │
+                            │ public-nodes/op │ public-nodes/op  vs base                 │
+ReadHistoryGo/grammargen_lr       108.0k ± 0%       108.0k ± 0%       ~ (p=1.000 n=20) ¹
+ReadHistoryGo/query_compile       11.33k ± 0%       11.33k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                           34.97k            34.97k       +0.00%
+¹ all samples are equal
+
+                            │ go-before.txt │             go-after.txt             │
+                            │   tokens/op   │  tokens/op   vs base                 │
+ReadHistoryGo/grammargen_lr     49.91k ± 0%   49.91k ± 0%       ~ (p=1.000 n=20) ¹
+ReadHistoryGo/query_compile     5.126k ± 0%   5.126k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                         16.00k        16.00k       +0.00%
+¹ all samples are equal

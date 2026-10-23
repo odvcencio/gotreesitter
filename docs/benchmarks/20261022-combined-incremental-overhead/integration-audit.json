@@ -1,0 +1,12 @@
+{
+  "prior_head": "12896c849e4c730a79be299db79ce1127ad05d09",
+  "changed_Go_files": [
+    "internal/incr/lookahead.go",
+    "internal/incr/read_words.go",
+    "internal/incr/read_words_test.go"
+  ],
+  "all_3544_Go_files_match_qualified_combined_candidate": true,
+  "root_Go_files": 756,
+  "production_sources_tested_without_further_edits": true,
+  "reproduction_patch_applies_to_pinned_main": true
+}
