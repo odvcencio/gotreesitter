@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "sha256": "0e71c6d56887084cbf652c50e4aad34e0fd505fbfad5034d85c0897c64d86632",
+  "members": 287,
+  "bytes": 986822,
+  "all_members_verified": true,
+  "executables_included": false,
+  "sources_included": "manifests and protocol scripts only; runtime Go patch already public in existing receipt"
+}

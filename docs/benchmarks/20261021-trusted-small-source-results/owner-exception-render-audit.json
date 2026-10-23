@@ -1,0 +1,44 @@
+{
+  "selected_fields": 238,
+  "complete_event_fields": 1457,
+  "selected_adverse": 178,
+  "complete_increases": 158,
+  "selected_rows": 54,
+  "complete_rows": 119,
+  "markdown_bytes": 41077,
+  "metric_aliases": {
+    "selected": {
+      "block_splices": "S1",
+      "max_live_versions": "S2",
+      "multi_version_token_share_ppm": "S3",
+      "new_nodes": "S4",
+      "reused_bytes": "S5",
+      "tokens": "S6"
+    },
+    "complete": {
+      "accept_actions": "W1",
+      "action_entries_examined_proxy": "W2",
+      "emitted_pop_paths": "W3",
+      "emitted_pop_payloads": "W4",
+      "graph_link_additions_proxy": "W5",
+      "leaf_constructions_proxy": "W6",
+      "lexer_front_door_calls_proxy": "W7",
+      "merge_attempts_proxy": "W8",
+      "merge_successes_proxy": "W9",
+      "parent_constructions_proxy": "W10",
+      "parse_attempts": "W11",
+      "reduction_pop_requests": "W12",
+      "reductions": "W13",
+      "shifts": "W14",
+      "stack_version_creations_proxy": "W15",
+      "table_lookups_proxy": "W16"
+    }
+  },
+  "owner_approval": false,
+  "runtime_promoted": false,
+  "roundtrip_exact": true,
+  "selected_values_verified": 238,
+  "complete_values_verified": 1457,
+  "native_windows_pairs": 20,
+  "native_windows_archive_sha256": "0e71c6d56887084cbf652c50e4aad34e0fd505fbfad5034d85c0897c64d86632"
+}

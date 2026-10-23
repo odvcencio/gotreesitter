@@ -1,0 +1,263 @@
+{
+  "passed": true,
+  "comparison": "D64 versus held V4, exact October21 Cogno fixture; not release-vs-release",
+  "host": "Intel Core Ultra9 285, native windows/amd64",
+  "go": "go1.27.0",
+  "source_bytes": 140368,
+  "source_sha256": "5434575bb249338937331c3756e10dcec34237d107f523ea315996fb6de0ef8f",
+  "edit_byte": 57,
+  "edit_point": {
+    "row": 5,
+    "column": 1
+  },
+  "pairs": 20,
+  "seeds": [
+    140001,
+    140002,
+    140003,
+    140004,
+    140005,
+    140006,
+    140007,
+    140008,
+    140009,
+    140010,
+    140011,
+    140012,
+    140013,
+    140014,
+    140015,
+    140022,
+    140023,
+    140024,
+    140025,
+    140026
+  ],
+  "runtime_promoted": false,
+  "owner_approval": false,
+  "medians": {
+    "DeletePlain": {
+      "ns/op": {
+        "baseline": 363471017.0,
+        "candidate": 371027600.0
+      },
+      "MB/s": {
+        "baseline": 0.39,
+        "candidate": 0.38
+      },
+      "tree-edit-ns/op": {
+        "baseline": 3350050.0,
+        "candidate": 4891566.5
+      },
+      "B/op": {
+        "baseline": 7721152.0,
+        "candidate": 7262400.0
+      },
+      "allocs/op": {
+        "baseline": 134.0,
+        "candidate": 131.0
+      }
+    },
+    "NoEditPlain": {
+      "ns/op": {
+        "baseline": 28.53,
+        "candidate": 27.58
+      },
+      "MB/s": {
+        "baseline": 4920598.859999999,
+        "candidate": 5089961.42
+      },
+      "tree-edit-ns/op": {
+        "baseline": 0.0,
+        "candidate": 0.0
+      },
+      "B/op": {
+        "baseline": 0.0,
+        "candidate": 0.0
+      },
+      "allocs/op": {
+        "baseline": 0.0,
+        "candidate": 0.0
+      }
+    },
+    "DeleteProfiled": {
+      "ns/op": {
+        "baseline": 364995383.5,
+        "candidate": 365732800.0
+      },
+      "MB/s": {
+        "baseline": 0.38,
+        "candidate": 0.385
+      },
+      "tree-edit-ns/op": {
+        "baseline": 3557341.5,
+        "candidate": 5177133.5
+      },
+      "B/op": {
+        "baseline": 7722944.0,
+        "candidate": 7264192.0
+      },
+      "allocs/op": {
+        "baseline": 136.0,
+        "candidate": 133.0
+      }
+    },
+    "ReplacePlain": {
+      "ns/op": {
+        "baseline": 119092971.5,
+        "candidate": 10648504.5
+      },
+      "MB/s": {
+        "baseline": 1.18,
+        "candidate": 13.184999999999999
+      },
+      "tree-edit-ns/op": {
+        "baseline": 1228414.5,
+        "candidate": 2732385.0
+      },
+      "B/op": {
+        "baseline": 112128.0,
+        "candidate": 1928.0
+      },
+      "allocs/op": {
+        "baseline": 50.0,
+        "candidate": 13.0
+      }
+    },
+    "InsertPlain": {
+      "ns/op": {
+        "baseline": 117427636.0,
+        "candidate": 10543068.0
+      },
+      "MB/s": {
+        "baseline": 1.1949999999999998,
+        "candidate": 13.315000000000001
+      },
+      "tree-edit-ns/op": {
+        "baseline": 3483443.0,
+        "candidate": 4865561.0
+      },
+      "B/op": {
+        "baseline": 570880.0,
+        "candidate": 1928.0
+      },
+      "allocs/op": {
+        "baseline": 53.0,
+        "candidate": 13.0
+      }
+    },
+    "InsertProfiled": {
+      "ns/op": {
+        "baseline": 115549842.5,
+        "candidate": 10832848.0
+      },
+      "MB/s": {
+        "baseline": 1.2149999999999999,
+        "candidate": 12.955
+      },
+      "tree-edit-ns/op": {
+        "baseline": 3344236.0,
+        "candidate": 4823461.5
+      },
+      "B/op": {
+        "baseline": 571776.0,
+        "candidate": 2824.0
+      },
+      "allocs/op": {
+        "baseline": 54.0,
+        "candidate": 14.0
+      }
+    },
+    "NoEditProfiled": {
+      "ns/op": {
+        "baseline": 56.125,
+        "candidate": 55.114999999999995
+      },
+      "MB/s": {
+        "baseline": 2501004.5149999997,
+        "candidate": 2546833.5999999996
+      },
+      "tree-edit-ns/op": {
+        "baseline": 0.0,
+        "candidate": 0.0
+      },
+      "B/op": {
+        "baseline": 0.0,
+        "candidate": 0.0
+      },
+      "allocs/op": {
+        "baseline": 0.0,
+        "candidate": 0.0
+      }
+    },
+    "Full": {
+      "ns/op": {
+        "baseline": 104382219.0,
+        "candidate": 103931750.0
+      },
+      "MB/s": {
+        "baseline": 1.34,
+        "candidate": 1.35
+      },
+      "B/op": {
+        "baseline": 2424.0,
+        "candidate": 2424.0
+      },
+      "allocs/op": {
+        "baseline": 16.0,
+        "candidate": 16.0
+      }
+    },
+    "ReplaceProfiled": {
+      "ns/op": {
+        "baseline": 117054228.5,
+        "candidate": 10566776.5
+      },
+      "MB/s": {
+        "baseline": 1.2,
+        "candidate": 13.285
+      },
+      "tree-edit-ns/op": {
+        "baseline": 1087271.0,
+        "candidate": 2647665.0
+      },
+      "B/op": {
+        "baseline": 113024.0,
+        "candidate": 2824.0
+      },
+      "allocs/op": {
+        "baseline": 51.0,
+        "candidate": 14.0
+      }
+    }
+  },
+  "api_plus_edit_descriptive": {
+    "description": "Median of each native process average API ns/op plus its separately measured Tree.Edit ns/op; old-tree setup excluded; descriptive, no new significance claim",
+    "milliseconds": {
+      "baseline": {
+        "DeletePlain": 366.976434,
+        "DeleteProfiled": 368.4796,
+        "ReplacePlain": 120.2800005,
+        "InsertPlain": 120.8315355,
+        "InsertProfiled": 119.1502135,
+        "ReplaceProfiled": 118.1468355
+      },
+      "candidate": {
+        "DeletePlain": 375.7062,
+        "DeleteProfiled": 371.1310665,
+        "ReplacePlain": 13.2803145,
+        "InsertPlain": 15.6015805,
+        "InsertProfiled": 15.892556,
+        "ReplaceProfiled": 13.5249185
+      }
+    }
+  },
+  "limits": [
+    "native Windows ARM64 not tested",
+    "delete API timing inconclusive and existing reduced Go delete C mismatch remains",
+    "Tree.Edit directional regressions retained separately",
+    "R3 exceptions unapproved",
+    "no new large-file RSS or graduation qualification"
+  ],
+  "collection": "15 initial pairs plus five new correctly ordered pairs; original transport failure and five misordered resume pairs retained and excluded solely on metadata before statistical use"
+}

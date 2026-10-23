@@ -4,9 +4,11 @@ The private V4 candidate removes the redundant fresh verification parse for clea
 
 The candidate remains held. The selected ledger has **178 adverse guarded changes**, including **142 above 2%**; the complete-operation view has **158 event increases**. [Every changed selected field and adverse operation event](counter-changes.md) is listed. [R3](../../v1-design.md#r3-counter-ledger-changes) says: “Agents do not approve ledger exceptions.” No exception is approved here.
 
+The [owner exception proposal](owner-exception-proposal.md) lists all 238 selected-field changes and all 1,457 complete-operation changes with exact old/new values and reasons. It remains proposed; this link records no approval.
+
 ## Measured scope
 
-The source is 140,368 bytes, 1,760 functions, SHA-256 `5434575bb249338937331c3756e10dcec34237d107f523ea315996fb6de0ef8f`. Edits target byte 57, row 5, column 1, using the [October 21 downstream report](https://github.com/odvcencio/gotreesitter/issues/454#issuecomment-6311551850). The comparison is current D64 runtime against private V4, **not** v0.55.1 against v0.56.0. There is no independent native Windows timing in this receipt.
+The source is 140,368 bytes, 1,760 functions, SHA-256 `5434575bb249338937331c3756e10dcec34237d107f523ea315996fb6de0ef8f`. Edits target byte 57, row 5, column 1, using the [October 21 downstream report](https://github.com/odvcencio/gotreesitter/issues/454#issuecomment-6311551850). The comparison is current D64 runtime against private V4, **not** v0.55.1 against v0.56.0. A separate native Windows amd64 comparison appears below; Windows ARM64 and a release-to-release comparison remain unverified.
 
 Every edited benchmark creates a native old tree outside its timed region, applies Tree.Edit under a separate timer, then times the public incremental API and both owned-handle releases. Copy is not substituted for the native producer. No-edit benchmarks retain one native old tree for the entire benchmark and release each returned handle. Both plain and profiled APIs run. All processes use one explicit seed, count=1, GOMAXPROCS=1, 750ms and benchmem; 20 matched pairs alternate revision order and preserve identical child order. No pool or parser budget override is applied.
 
@@ -31,6 +33,41 @@ Tree.Edit regresses: plain replace **416.1 µs→1.712 ms** (+311.50%), insert *
 For context, adding each process's separately measured Tree.Edit and API averages gives descriptive medians **110.263→9.133 ms** for plain insert and **96.404→7.396 ms** for replace. These sums exclude old-tree setup and do not carry a new significance claim. They do not hide the Tree.Edit regression or replace its separate attribution.
 
 The standard production Go trio has no significant time change. All six YAML workload/mode time differences are inconclusive. Ordinary YAML still falls back; only the explicit diagnostic-owned cases complete on compact. This is not YAML ownership activation or compact graduation.
+
+## Native Windows comparison
+
+A separate native Windows run now validates the exact Cogno workload on **Intel Core Ultra 9 285, Windows amd64, Go 1.27.0**. This compares D64 with held V4; it does not compare releases or validate Windows ARM64. All 4,331 baseline and 4,332 candidate files match the qualified input manifests byte-for-byte after execution, and both benchmark binaries retain their original hashes.
+
+Twenty matched pairs use explicit seeds `140001..140015` and `140022..140026`, GOMAXPROCS=1, count=1, 750ms, benchmem and one pinned logical CPU. The analyzed 40 processes retain identical workload order within each pair and alternate revision order globally. The unchanged repository runner drives the comparison. A WSL launch failure stopped the first collection after 15 pairs; Windows process inspection confirmed that the next benchmark had not started. Five incorrectly role-inverted resume pairs were then rejected solely on ordering metadata before statistical use, and five new seeds replaced that whole batch. Every failed launch, excluded sample, command, native receipt and script remains in the [287-member verified archive](windows-receipts.tar.gz). No successful native sample was rerun, and no GC/pool/parser-budget override is applied.
+
+| Public API workload | D64 median | V4 median | Result |
+|---|---:|---:|---|
+| Plain insert | 117.43 ms | 10.54 ms | −91.02%, p<.001 |
+| Plain replace | 119.09 ms | 10.65 ms | −91.06%, p<.001 |
+| Profiled insert | 115.55 ms | 10.83 ms | −90.62%, p<.001 |
+| Profiled replace | 117.05 ms | 10.57 ms | −90.97%, p<.001 |
+| Plain delete | 363.5 ms | 371.0 ms | inconclusive, p=.989 |
+| Profiled delete | 365.0 ms | 365.7 ms | inconclusive, p=.779 |
+| Fresh full parse | 104.4 ms | 103.9 ms | inconclusive, p=.904 |
+| Plain no edit | 28.53 ns | 27.58 ns | inconclusive, p=.068 |
+| Profiled no edit | 56.13 ns | 55.11 ns | inconclusive, p=.387 |
+
+Tree.Edit remains a significant regression on Windows too:
+
+| Tree.Edit workload | D64 median | V4 median | Change |
+|---|---:|---:|---:|
+| Plain insert | 3.483 ms | 4.866 ms | +39.68% |
+| Plain replace | 1.228 ms | 2.732 ms | +122.43% |
+| Plain delete | 3.350 ms | 4.892 ms | +46.01% |
+| Profiled insert | 3.344 ms | 4.823 ms | +44.23% |
+| Profiled replace | 1.087 ms | 2.648 ms | +143.51% |
+| Profiled delete | 3.557 ms | 5.177 ms | +45.53% |
+
+All six Tree.Edit differences have p<.001. Descriptive per-process API-plus-Edit medians improve **120.832→15.602 ms** for plain insert and **120.280→13.280 ms** for replace; these sums exclude old-tree setup and have no new significance claim. Plain API allocations fall **53→13** for insert and **50→13** for replace; both no-edit APIs retain zero bytes and allocations. The full [benchstat table](windows-benchstat.txt) retains every metric and directional result. Its whitespace/labels are shortened for reading; the original tool output is in the archive.
+
+The [collection audit](windows-collection-audit.json) verifies every selected process, seed, flag, source and binary hash. The [summary](windows-summary.json) retains exact numeric medians and descriptive sums. The archive pins all member hashes, includes the native PowerShell driver, strict Go-test flag bridge, compile commands and source verifier, and excludes executables and private Buckley logs. Start from the same curated source manifests and runtime/harness patches already listed below; only the execution platform changes. Native benchmark preflights compare each edited result with fresh parsing. The existing Linux C/invariant qualification remains separate; this is not a native Windows C-oracle sweep or a new large-file RSS pass.
+
+This evidence changes none of the proposed counter values. R3 approval, the known Go-delete C mismatch, ordinary YAML ownership and compact graduation remain unresolved.
 
 ## Correctness and counters
 

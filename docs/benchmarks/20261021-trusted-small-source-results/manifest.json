@@ -1,7 +1,7 @@
 {
   "README.md": {
-    "bytes": 8938,
-    "sha256": "4595987802f621fabfbfdd72d6289022b348d6872af15eff52b0e1bf9528c68c"
+    "bytes": 13085,
+    "sha256": "f9bc1101a510002a703b2faac07cf826cc66ae5e8ec423848aa0df86d2dd2df6"
   },
   "baseline-benchmark-harness.patch.gz": {
     "bytes": 7755,
@@ -83,6 +83,14 @@
     "bytes": 2809600,
     "sha256": "bc848addd6e15424b47e22a5e3754272256148557a59d139ee0daa7d93c1bcaa"
   },
+  "owner-exception-proposal.md": {
+    "bytes": 41077,
+    "sha256": "47e6c1c500c365eb955858b0581fd490cf0c4862ad0d97650fadb61e5dfa1977"
+  },
+  "owner-exception-render-audit.json": {
+    "bytes": 1323,
+    "sha256": "f3395496d55faaea9c166ccf1f7e71bb9ba6f5613c50f575c2153c26f345bbb0"
+  },
   "primary-wrapper.patch.gz": {
     "bytes": 458,
     "sha256": "ce04b9edbb823ef4ab91eeede5498a99f56cc5e37ccf0af6037ea5d5b5726002"
@@ -134,6 +142,34 @@
   "source-go-sha256.json.gz": {
     "bytes": 167143,
     "sha256": "f526c4f0c2c0a2ec2434517d0f056551ecd61443ca5b075962abc603b0226572"
+  },
+  "windows-after.txt.gz": {
+    "bytes": 3820,
+    "sha256": "05f2c71435a65142d0b74f146e143770e601350a626babac385b7b6982c5e883"
+  },
+  "windows-archive-audit.json": {
+    "bytes": 317,
+    "sha256": "f5ab050757d446fe1f2352f75837d16122b1d8dcbfe51c60aa29680a45a58f62"
+  },
+  "windows-before.txt.gz": {
+    "bytes": 3736,
+    "sha256": "f12e1c1bfcccd77a75160ca7c764569d16bcd276aa55d31535f4eed38b757eb4"
+  },
+  "windows-benchstat.txt": {
+    "bytes": 4812,
+    "sha256": "326be2fb12bac9035f06f349ee28d73e677453b7484eccd7ab5e55cc146c64d2"
+  },
+  "windows-collection-audit.json": {
+    "bytes": 49228,
+    "sha256": "f8bfead6aca41ddfb7e2dbf246b170d9947a579514587c4af0a31eff8083e658"
+  },
+  "windows-receipts.tar.gz": {
+    "bytes": 986822,
+    "sha256": "0e71c6d56887084cbf652c50e4aad34e0fd505fbfad5034d85c0897c64d86632"
+  },
+  "windows-summary.json": {
+    "bytes": 6060,
+    "sha256": "c3ad0a50e729d94b5581c3d39703d91f170ed59d884d9ad04c7f504a45731ab2"
   },
   "yaml-after.txt": {
     "bytes": 33832,

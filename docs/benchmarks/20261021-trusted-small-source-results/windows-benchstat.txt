@@ -1,0 +1,77 @@
+goos: windows
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+  │ D64 │ V4 │
+  │  sec/op  │  sec/op  vs base  │
+CognocienteGo137KiBSuite/DeletePlain  363.5m ± 4%  371.0m ±  5%  ~ (p=0.989 n=20)
+CognocienteGo137KiBSuite/NoEditPlain  28.53n ± 2%  27.58n ±  4%  ~ (p=0.068 n=20)
+CognocienteGo137KiBSuite/DeleteProfiled  365.0m ± 6%  365.7m ±  5%  ~ (p=0.779 n=20)
+CognocienteGo137KiBSuite/ReplacePlain  119.09m ± 3%  10.65m ±  7%  -91.06% (p=0.000 n=20)
+CognocienteGo137KiBSuite/InsertPlain  117.43m ± 3%  10.54m ±  7%  -91.02% (p=0.000 n=20)
+CognocienteGo137KiBSuite/InsertProfiled  115.55m ± 4%  10.83m ± 16%  -90.62% (p=0.000 n=20)
+CognocienteGo137KiBSuite/NoEditProfiled  56.13n ± 8%  55.11n ±  6%  ~ (p=0.387 n=20)
+CognocienteGo137KiBSuite/Full  104.4m ± 1%  103.9m ±  5%  ~ (p=0.904 n=20)
+CognocienteGo137KiBSuite/ReplaceProfiled  117.05m ± 3%  10.57m ±  7%  -90.97% (p=0.000 n=20)
+geomean  5.443m  1.867m  -65.70%
+
+  │ D64 │ V4 │
+  │  B/s  │  B/s  vs base  │
+CognocienteGo137KiBSuite/DeletePlain  380.9Ki ± 5%  371.1Ki ±  5%  ~ (p=0.962 n=20)
+CognocienteGo137KiBSuite/NoEditPlain  4.475Ti ± 2%  4.629Ti ±  4%  ~ (p=0.072 n=20)
+CognocienteGo137KiBSuite/DeleteProfiled  371.1Ki ± 8%  376.0Ki ±  6%  ~ (p=0.974 n=20)
+CognocienteGo137KiBSuite/ReplacePlain  1.125Mi ± 3%  12.574Mi ±  7%  +1017.37% (p=0.000 n=20)
+CognocienteGo137KiBSuite/InsertPlain  1.140Mi ± 3%  12.698Mi ±  8%  +1014.23% (p=0.000 n=20)
+CognocienteGo137KiBSuite/InsertProfiled  1.159Mi ± 4%  12.355Mi ± 19%  +966.26% (p=0.000 n=20)
+CognocienteGo137KiBSuite/NoEditProfiled  2.275Ti ± 8%  2.316Ti ±  6%  ~ (p=0.398 n=20)
+CognocienteGo137KiBSuite/Full  1.278Mi ± 1%  1.287Mi ±  6%  ~ (p=0.835 n=20)
+CognocienteGo137KiBSuite/ReplaceProfiled  1.144Mi ± 2%  12.670Mi ±  7%  +1007.08% (p=0.000 n=20)
+geomean  24.58Mi  71.76Mi  +191.92%
+
+  │ D64 │ V4 │
+  │  tree-edit-sec/op  │  tree-edit-sec/op  vs base  │
+CognocienteGo137KiBSuite/DeletePlain  3.350m ± 16%  4.892m ± 6%  +46.01% (p=0.000 n=20)
+CognocienteGo137KiBSuite/DeleteProfiled  3.557m ± 20%  5.177m ± 9%  +45.53% (p=0.000 n=20)
+CognocienteGo137KiBSuite/ReplacePlain  1.228m ± 25%  2.732m ± 8%  +122.43% (p=0.000 n=20)
+CognocienteGo137KiBSuite/InsertPlain  3.483m ±  6%  4.866m ± 8%  +39.68% (p=0.000 n=20)
+CognocienteGo137KiBSuite/InsertProfiled  3.344m ±  8%  4.823m ± 1%  +44.23% (p=0.000 n=20)
+CognocienteGo137KiBSuite/ReplaceProfiled  1.087m ± 20%  2.648m ± 7%  +143.51% (p=0.000 n=20)
+geomean  2.388m  4.032m  +68.87%
+
+  │ D64 │ V4 │
+  │  B/op  │  B/op  vs base  │
+CognocienteGo137KiBSuite/DeletePlain  7.363Mi ± 0%  6.926Mi ± 0%  -5.94% (p=0.000 n=20)
+CognocienteGo137KiBSuite/NoEditPlain  0.000 ± 0%  0.000 ± 0%  ~ (p=1.000 n=20) ¹
+CognocienteGo137KiBSuite/DeleteProfiled  7.365Mi ± 0%  6.928Mi ± 0%  -5.94% (p=0.000 n=20)
+CognocienteGo137KiBSuite/ReplacePlain  109.500Ki ± 0%  1.883Ki ± 0%  -98.28% (p=0.000 n=20)
+CognocienteGo137KiBSuite/InsertPlain  557.500Ki ± 0%  1.883Ki ± 0%  -99.66% (p=0.000 n=20)
+CognocienteGo137KiBSuite/InsertProfiled  558.375Ki ± 0%  2.758Ki ± 0%  -99.51% (p=0.000 n=20)
+CognocienteGo137KiBSuite/NoEditProfiled  0.000 ± 0%  0.000 ± 0%  ~ (p=1.000 n=20) ¹
+CognocienteGo137KiBSuite/Full  2.367Ki ± 0%  2.367Ki ± 0%  ~ (p=0.119 n=20)
+CognocienteGo137KiBSuite/ReplaceProfiled  110.375Ki ± 0%  2.758Ki ± 0%  -97.50% (p=0.000 n=20)
+geomean  ²  -87.72%  ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+  │ D64 │ V4 │
+  │  allocs/op  │  allocs/op  vs base  │
+CognocienteGo137KiBSuite/DeletePlain  134.0 ± 0%  131.0 ± 0%  -2.24% (p=0.000 n=20)
+CognocienteGo137KiBSuite/NoEditPlain  0.000 ± 0%  0.000 ± 0%  ~ (p=1.000 n=20) ¹
+CognocienteGo137KiBSuite/DeleteProfiled  136.0 ± 0%  133.0 ± 0%  -2.21% (p=0.000 n=20)
+CognocienteGo137KiBSuite/ReplacePlain  50.00 ± 0%  13.00 ± 0%  -74.00% (p=0.000 n=20)
+CognocienteGo137KiBSuite/InsertPlain  53.00 ± 0%  13.00 ± 0%  -75.47% (p=0.000 n=20)
+CognocienteGo137KiBSuite/InsertProfiled  54.00 ± 0%  14.00 ± 0%  -74.07% (p=0.000 n=20)
+CognocienteGo137KiBSuite/NoEditProfiled  0.000 ± 0%  0.000 ± 0%  ~ (p=1.000 n=20) ¹
+CognocienteGo137KiBSuite/Full  16.00 ± 0%  16.00 ± 0%  ~ (p=0.310 n=20)
+CognocienteGo137KiBSuite/ReplaceProfiled  51.00 ± 0%  14.00 ± 0%  -72.55% (p=0.000 n=20)
+geomean  ²  -45.36%  ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+  │ D64 │ V4 │
+  │  tree-edit-ns/op  │  tree-edit-ns/op  vs base  │
+CognocienteGo137KiBSuite/NoEditPlain  0.000 ± 0%  0.000 ± 0%  ~ (p=1.000 n=20) ¹
+CognocienteGo137KiBSuite/NoEditProfiled  0.000 ± 0%  0.000 ± 0%  ~ (p=1.000 n=20) ¹
+geomean  ²  +0.00%  ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
