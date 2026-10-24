@@ -73,8 +73,18 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
+	leftRoot, rightRoot := a.RootNode(), b.RootNode()
+	if leftRoot == rightRoot {
+		return true
+	}
+	if views := nodeViews(rightRoot); views != nil {
+		return views.equalTree(leftRoot, rightRoot, lang)
+	}
+	if views := nodeViews(leftRoot); views != nil {
+		return views.equalTree(rightRoot, leftRoot, lang)
+	}
 	type pair struct{ a, b *Node }
-	stack := []pair{{a.RootNode(), b.RootNode()}}
+	stack := []pair{{leftRoot, rightRoot}}
 	for len(stack) != 0 {
 		last := len(stack) - 1
 		current := stack[last]

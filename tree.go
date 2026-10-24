@@ -46,6 +46,9 @@ type Node struct {
 // supertypeMask returns the bit set of hidden supertype ancestors recorded
 // for the node, one bit per supertype symbol (Language.supertypeBit).
 func (n *Node) supertypeMask() uint32 {
+	if views := nodeViews(n); views != nil {
+		return views.supertype(n)
+	}
 	if n == nil || n.ownerArena == nil {
 		return 0
 	}
@@ -829,6 +832,9 @@ func setNodeParentLink(child, parent *Node, index int) {
 }
 
 func nodeParentLink(n *Node) (*Node, int, bool) {
+	if views := nodeViews(n); views != nil {
+		return views.parent(n)
+	}
 	if n == nil {
 		return nil, -1, false
 	}
@@ -981,6 +987,14 @@ func nodeChildCountNoMaterialize(n *Node) int {
 	if n.childIndex > finalChildSidecarIndexBase || n.ownerArena == nil {
 		return len(n.children)
 	}
+	return nodeChildCountWithBacking(n)
+}
+
+// Keep indexed backing dispatch out of the ordinary, inlined child count.
+func nodeChildCountWithBacking(n *Node) int {
+	if views := nodeViews(n); views != nil {
+		return views.childCount(n)
+	}
 	id := int(-n.childIndex - 2)
 	if id < 0 || id >= len(n.ownerArena.finalChildSidecars) {
 		return len(n.children)
@@ -1001,6 +1015,13 @@ func nodeHasFinalChildRefs(n *Node) bool {
 }
 
 func nodeChildEntryAtNoMaterialize(n *Node, i int) (stackEntry, bool) {
+	if views := nodeViews(n); views != nil {
+		child := views.child(n, i)
+		if child == nil {
+			return stackEntry{}, false
+		}
+		return newStackEntryNode(child.parseState, child), true
+	}
 	if n == nil || i < 0 {
 		return stackEntry{}, false
 	}
@@ -1028,6 +1049,10 @@ func nodeChildEntryAtNoMaterialize(n *Node, i int) (stackEntry, bool) {
 }
 
 func nodeMaterializeFinalChildRefs(n *Node, reason materializeReason) {
+	if views := nodeViews(n); views != nil {
+		views.children(n)
+		return
+	}
 	if n == nil || n.ownerArena == nil {
 		return
 	}
@@ -1061,6 +1086,9 @@ func nodeMaterializeFinalChildRefs(n *Node, reason materializeReason) {
 }
 
 func nodeMaterializeFinalChildRefAt(n *Node, i int, reason materializeReason) *Node {
+	if views := nodeViews(n); views != nil {
+		return views.child(n, i)
+	}
 	if n == nil {
 		return nil
 	}
@@ -1111,6 +1139,16 @@ func nodeChildCount(n *Node) int {
 }
 
 func nodeChildAtForReason(n *Node, i int, reason materializeReason) *Node {
+	if n != nil && n.childIndex > finalChildSidecarIndexBase {
+		if uint(i) < uint(len(n.children)) {
+			return n.children[i]
+		}
+		return nil
+	}
+	return nodeChildAtWithBacking(n, i, reason)
+}
+
+func nodeChildAtWithBacking(n *Node, i int, reason materializeReason) *Node {
 	if n == nil || i < 0 || i >= nodeChildCountNoMaterialize(n) {
 		return nil
 	}
@@ -1118,6 +1156,9 @@ func nodeChildAtForReason(n *Node, i int, reason materializeReason) *Node {
 }
 
 func nodeChildrenForReason(n *Node, reason materializeReason) []*Node {
+	if views := nodeViews(n); views != nil {
+		return views.children(n)
+	}
 	if n == nil {
 		return nil
 	}
@@ -2368,6 +2409,9 @@ func (n *Node) PrevSibling() *Node {
 
 // NamedChildCount returns the number of named children.
 func (n *Node) NamedChildCount() int {
+	if views := nodeViews(n); views != nil {
+		return views.namedChildCount(n)
+	}
 	count := 0
 	childCount := nodeChildCountNoMaterialize(n)
 	for i := 0; i < childCount; i++ {
@@ -2382,6 +2426,9 @@ func (n *Node) NamedChildCount() int {
 // NamedChild returns the i-th named child (skipping anonymous children),
 // or nil if i is out of range.
 func (n *Node) NamedChild(i int) *Node {
+	if views := nodeViews(n); views != nil {
+		return views.namedChild(n, i)
+	}
 	if i < 0 {
 		return nil
 	}
@@ -3217,6 +3264,10 @@ func (t *Tree) ensureParentLinks() {
 	if t == nil || t.root == nil {
 		return
 	}
+	// Incremental publication can rewrite shared parent links even when callers
+	// omit Tree.Edit for a same-width change. Restore the mutation representation
+	// here too; ordinary Node.Parent reads continue using immutable view links.
+	materializeNodeViews(t.root)
 	t.root.ensureParentLinks()
 }
 
@@ -4116,6 +4167,11 @@ func (t *Tree) RootNodeWithOffset(offsetBytes uint32, offsetExtent Point) *Node 
 	if offsetBytes == 0 && offsetExtent == (Point{}) {
 		return t.root
 	}
+	if views := nodeViews(t.root); views != nil {
+		copy := views.copyTree(t)
+		defer copy.Release()
+		return cloneTreeNodesWithOffset(copy.root, offsetBytes, offsetExtent)
+	}
 	return cloneTreeNodesWithOffset(t.root, offsetBytes, offsetExtent)
 }
 
@@ -4351,6 +4407,9 @@ func (t *Tree) DOT(lang *Language) string {
 func (t *Tree) Copy() *Tree {
 	if t == nil {
 		return nil
+	}
+	if views := nodeViews(t.root); views != nil {
+		return views.copyTree(t)
 	}
 	t.ensureResultCompatibility()
 	// Fold before the clone. The clone copies a node's column-dependency
@@ -5185,6 +5244,7 @@ func (n *Node) Edit(edit InputEdit) {
 		}
 		return
 	}
+	materializeNodeViews(n)
 	if root := nodeEditRoot(n); root != nil {
 		editNode(root, edit)
 	}
@@ -5258,6 +5318,7 @@ func (t *Tree) Edit(edit InputEdit) {
 	if t == nil {
 		return
 	}
+	materializeNodeViews(t.root)
 	t.setIncrementalFreshVerified(false)
 	t.ensureResultCompatibility()
 	t.ensureDependsOnColumnPropagated()

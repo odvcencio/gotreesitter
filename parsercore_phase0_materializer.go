@@ -862,6 +862,8 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 
 // Streaming native publication keeps hidden wrappers out of the public arena.
 type nativeProjectionWorkspace struct {
+	compactViews  bool
+	output        core.NativeSelectedScratch
 	sink          nativeStreamSink
 	sinkAdapter   core.NativeProjectionSinkAdapter[nativeStreamSink]
 	proofScratch  []*Node
@@ -883,7 +885,7 @@ func (s *nativeProjectionWorkspace) retainedBytes() uint64 {
 	if s == nil {
 		return 0
 	}
-	return uint64(unsafe.Sizeof(*s)) + uint64(cap(s.proofScratch))*uint64(unsafe.Sizeof((*Node)(nil))) + uint64(cap(s.lines))*4 + uint64(cap(s.frames))*uint64(unsafe.Sizeof(nativeProjectionFrame{})) + s.records.FootprintBytes() + uint64(cap(s.rootNodes))*uint64(unsafe.Sizeof((*Node)(nil))) + s.postorder.RetainedBytes() + s.checkpoints.RetainedBytes()
+	return uint64(unsafe.Sizeof(*s)) + uint64(cap(s.proofScratch))*uint64(unsafe.Sizeof((*Node)(nil))) + uint64(cap(s.lines))*4 + uint64(cap(s.frames))*uint64(unsafe.Sizeof(nativeProjectionFrame{})) + s.records.FootprintBytes() + uint64(cap(s.rootNodes))*uint64(unsafe.Sizeof((*Node)(nil))) + s.postorder.RetainedBytes() + s.checkpoints.RetainedBytes() + s.output.RetainedBytes()
 }
 
 func checkedNativeSelectedProjection(store *core.SelectedStore, source []byte, scratch *nativeProjectionWorkspace, scheduler *diagnosticParserCoreGenericScheduler, runner *parserCoreFreshFullRunner) (result *Node, ownedArena *nodeArena, published *Tree, resultErr error) {
@@ -1211,7 +1213,7 @@ func (s *nativeProjectionWorkspace) reset() {
 		return
 	}
 	if s.retainedBytes() > parserCoreMaxRetainedComparisonBytes {
-		*s = nativeProjectionWorkspace{}
+		*s = nativeProjectionWorkspace{compactViews: s.compactViews}
 		return
 	}
 	s.proofScratch = clearNodeScratch(s.proofScratch)

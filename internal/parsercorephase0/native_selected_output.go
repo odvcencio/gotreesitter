@@ -11,14 +11,21 @@ import (
 // tree or second projection is built, and no replay state is inferred from a
 // renamed/aliased public symbol.
 type NativeSelectedScratch struct {
-	replay []nativeSelectedReplay
-	store  *SelectedStore
-	core   *Core
-	poll   func() error
+	replay                  []nativeSelectedReplay
+	store                   *SelectedStore
+	core                    *Core
+	poll                    func() error
+	reservePublicOutput     bool
+	reserveObservedRawCount int
 }
 type nativeSelectedReplay struct {
 	pre, state StateID
 	flags      uint16
+	symbol     Symbol
+}
+
+func nativeSelectedReplayBytes(capacity int) uint64 {
+	return uint64(capacity) * uint64(unsafe.Sizeof(nativeSelectedReplay{}))
 }
 
 func (s *NativeSelectedScratch) RetainedBytes() uint64 {
@@ -53,6 +60,12 @@ func (c *Core) BuildNativeSelectedOutput(roots []SubtreeID, source []byte, repla
 			store.Release()
 		}
 	}()
+	if scratch.reservePublicOutput && c.subtrees.Len() >= 1<<16 && c.subtrees.Len() > scratch.reserveObservedRawCount {
+		if err = scratch.reservePublicCapacity(c, poll); err != nil {
+			return nil, err
+		}
+		scratch.reserveObservedRawCount = c.subtrees.Len()
+	}
 	ids, err := c.StreamNativeProjection(roots, source, scratch, replay, poll)
 	if err != nil {
 		return nil, err
@@ -63,8 +76,13 @@ func (c *Core) BuildNativeSelectedOutput(roots []SubtreeID, source []byte, repla
 	// Root framing uses the same field-aware synthetic-root rule as the
 	// selected reader. Native projection already computed total precedence;
 	// only a newly framed synthetic root needs a new sum.
-	deltas := resizeSelectedScratch(c.selectedBuild.precedence, len(store.records))
-	c.selectedBuild.precedence = deltas
+	var deltas []int32
+	if len(ids) > 1 {
+		// Only sibling-root framing can rewrite a precedence delta. A normal
+		// root already carries the authenticated total from native projection.
+		deltas = resizeSelectedScratch(c.selectedBuild.precedence, len(store.records))
+		c.selectedBuild.precedence = deltas
+	}
 	extra := uint64(cap(scratch.replay)) * uint64(unsafe.Sizeof(nativeSelectedReplay{}))
 	if extra > c.limits.MaxSelectedBytes {
 		return nil, errors.New("parser-core phase zero: native selected replay cap")
@@ -168,6 +186,6 @@ func (s *NativeSelectedScratch) Rewrite(id SelectedNodeID, r NativeProjectionRec
 		node.flags |= selectedNodeFlagFragile
 	}
 	s.store.payloadSources[id-1] = r.Source
-	s.replay[id-1] = nativeSelectedReplay{pre: r.ReplayPre, state: r.ReplayState, flags: r.Flags}
+	s.replay[id-1] = nativeSelectedReplay{pre: r.ReplayPre, state: r.ReplayState, flags: r.Flags, symbol: r.Symbol}
 	return nil
 }

@@ -111,7 +111,8 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 	}
 	if core.ExternalLexerOwnsAllTerminals(p.language.TokenCount, p.language.ExternalSymbols) ||
 		!p.language.CompactLexerSkippedPrefixTilingCertified && classifyExternalScannerQuiescence(p.language) == scannerQuiescenceProven {
-		runner.scratch.nativeProjection = &nativeProjectionWorkspace{}
+		identity, valid := tables.TableIdentity()
+		runner.scratch.nativeProjection = &nativeProjectionWorkspace{compactViews: valid && compactNodeViewsForContract(identity)}
 	}
 	return runner, nil
 }

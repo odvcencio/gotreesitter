@@ -12,6 +12,7 @@ import (
 type selectedStorePool struct {
 	mu       sync.Mutex
 	backing  selectedStoreBacking
+	replay   []nativeSelectedReplay
 	maxBytes uint64
 }
 
@@ -36,7 +37,7 @@ func (p *selectedStorePool) retainedBytes() uint64 {
 		return 0
 	}
 	p.mu.Lock()
-	bytes := p.backing.retainedBytes() + uint64(unsafe.Sizeof(*p))
+	bytes := p.backing.retainedBytes() + nativeSelectedReplayBytes(cap(p.replay)) + uint64(unsafe.Sizeof(*p))
 	p.mu.Unlock()
 	return bytes
 }
@@ -61,6 +62,28 @@ func (p *selectedStorePool) recycle(records []SelectedNodeRecord, children []Sel
 	p.mu.Lock()
 	if bytes >= p.backing.retainedBytes() {
 		p.backing = incoming
+		if bytes+nativeSelectedReplayBytes(cap(p.replay)) > p.maxBytes {
+			p.replay = nil
+		}
+	}
+	p.mu.Unlock()
+}
+
+func (p *selectedStorePool) takeReplay() []nativeSelectedReplay {
+	p.mu.Lock()
+	replay := p.replay
+	p.replay = nil
+	p.mu.Unlock()
+	return replay[:0]
+}
+
+func (p *selectedStorePool) recycleReplay(replay []nativeSelectedReplay) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	if cap(replay) >= cap(p.replay) && nativeSelectedReplayBytes(cap(replay))+p.backing.retainedBytes() <= p.maxBytes {
+		p.replay = replay[:0]
 	}
 	p.mu.Unlock()
 }

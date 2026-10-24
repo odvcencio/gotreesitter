@@ -432,6 +432,9 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 		if _, err := compact.Stats(scheduler.acceptedHead); err != nil {
 			return nil, err
 		}
+		if r.scratch.nativeProjection.compactViews {
+			return checkedNativeNodeViews(source, r.scratch.nativeProjection, scheduler, r)
+		}
 		_, _, tree, err := checkedNativeSelectedProjection(nil, source, r.scratch.nativeProjection, scheduler, r)
 		return tree, err
 	}

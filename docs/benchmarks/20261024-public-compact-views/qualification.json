@@ -1,0 +1,26 @@
+{
+  "baseline_commit": "42baf92651eb70dc1a173e07e019cf9209599ad7",
+  "feature": "public compact node views",
+  "build_tags": [
+    "gts_parsercorephase0",
+    "gts_compact_node_views"
+  ],
+  "admitted_tables": [
+    "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d",
+    "9ac37a326be7a4f4297efa6e43ba00317c5959e7b4909c9262043d408f284b30"
+  ],
+  "limits": [
+    "branch-relative comparison, not main",
+    "fresh-verification policy unchanged",
+    "malformed-delete C difference remains",
+    "no native Windows or ARM64 qualification",
+    "hold all merges to main"
+  ],
+  "rejected_screen": "../compact-node-views-v3/measurements/rejected.json",
+  "latest_downstream_report": "https://github.com/odvcencio/gotreesitter/issues/454#issuecomment-6311551850",
+  "candidate_route_default_publisher": "authenticated Go table; no experimental output tag required",
+  "experimental_publisher": "authenticated YAML table; gts_compact_node_views",
+  "fleet_inherited_from": "v10 full fleet; v14 repeats Go/YAML for public mutation, capacity census and receipt storage",
+  "reserve_policy": "One initial large-output capacity hint from existing raw visible symbols and nonzero aliases, cached across repeated parses; ordinary checked growth remains the fallback. Last public node slab bounded by occurrence count.",
+  "global_admission_default_changed": false
+}
