@@ -1,0 +1,28 @@
+{
+  "go": {
+    "profile_seconds": 12.69,
+    "parse_seconds": 12.54,
+    "excluded_setup_and_other_seconds": 0.15,
+    "disjoint_parse_percent": {
+      "election outside token production": 6.78,
+      "native output projection and reads": 19.06,
+      "other parse work": 21.29,
+      "reduction construction and publication": 26.08,
+      "shift construction and publication": 15.71,
+      "token production inside election": 11.08
+    }
+  },
+  "yaml": {
+    "profile_seconds": 6.22,
+    "parse_seconds": 6.19,
+    "excluded_setup_and_other_seconds": 0.03,
+    "disjoint_parse_percent": {
+      "election outside token production": 12.92,
+      "native output projection and reads": 14.54,
+      "other parse work": 22.46,
+      "reduction construction and publication": 23.91,
+      "shift construction and publication": 8.56,
+      "token production inside election": 17.61
+    }
+  }
+}

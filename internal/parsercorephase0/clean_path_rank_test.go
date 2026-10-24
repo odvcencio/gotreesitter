@@ -328,7 +328,7 @@ func TestCleanPathRankPanicRollsBackAndRetries(t *testing.T) {
 	beforeBoundaries := cloneBoundaryMap(compact.boundaries)
 	beforeWork := compact.Work()
 	beforeArenas := [...]int{
-		compact.nodes.Len(), len(compact.links), compact.subtrees.Len(),
+		compact.nodes.Len(), compact.links.Len(), compact.subtrees.Len(),
 		len(compact.children), len(compact.fields), len(compact.aliases),
 	}
 	func() {
@@ -344,7 +344,7 @@ func TestCleanPathRankPanicRollsBackAndRetries(t *testing.T) {
 		t.Fatal(err)
 	}
 	afterArenas := [...]int{
-		compact.nodes.Len(), len(compact.links), compact.subtrees.Len(),
+		compact.nodes.Len(), compact.links.Len(), compact.subtrees.Len(),
 		len(compact.children), len(compact.fields), len(compact.aliases),
 	}
 	if after != before || afterArenas != beforeArenas ||

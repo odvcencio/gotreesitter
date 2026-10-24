@@ -194,7 +194,7 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpenWithObserverAndErrorRuns
 	}()
 	scheduler, err := executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 		&r.scheduler, compact, tokenSource, &r.scannerScratch, r.lang.InitialState,
-		r.options, observer,
+		r.options, observer, r.scratch.nativeProjection,
 	)
 	if err != nil {
 		tokenSource.Close()
@@ -411,6 +411,33 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 		}
 	}
 	r.scratch.acceptanceMaterialization.Discard()
+	// Recovery capability alone does not mean this accepted derivation used
+	// recovery. Keep recovered regions, missing insertions, isolation and every
+	// permanently marked recovery header on the existing publisher.
+	nativeClean := !allowErrorRoot
+	if r.scratch.nativeProjection != nil && !nativeClean && !scheduler.s3RegionOpened &&
+		!scheduler.recoveryTurns.active && scheduler.s5MissingInsertions == 0 && !scheduler.recoveryIsolation {
+		nativeClean = true
+		for _, header := range scheduler.headers {
+			if header.isRecoveryLineage() {
+				nativeClean = false
+				break
+			}
+		}
+	}
+	if r.scratch.nativeProjection != nil && nativeClean && compact.NativeProjectionDirectFieldsSupported() && rootFinalization == diagnosticParserCoreFinalizeDefault && r.options.compactIncrementalReuse == nil && r.scratch.incrementalReuse == nil && r.options.eagerMaterializer == nil && r.scratch.materializationPurpose == core.MaterializationForPublication {
+		if compact != r.compact || scheduler != &r.scheduler || scheduler.compact != compact {
+			return nil, errors.New("stream publication selection binding mismatch")
+		}
+		if _, err := compact.Stats(scheduler.acceptedHead); err != nil {
+			return nil, err
+		}
+		if r.scratch.nativeProjection.compactViews {
+			return checkedNativeNodeViews(source, r.scratch.nativeProjection, scheduler, r)
+		}
+		_, _, tree, err := checkedNativeSelectedProjection(nil, source, r.scratch.nativeProjection, scheduler, r)
+		return tree, err
+	}
 	tree, err := materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(
 		compact,
 		scheduler.acceptedHead,

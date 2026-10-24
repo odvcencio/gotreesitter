@@ -30,6 +30,7 @@ type diagnosticParserCoreVersionLexerSnapshot struct {
 	language       *Language
 	metadata       *core.FrozenValue[diagnosticParserCoreVersionLexerMetadata]
 	dfa            dfaRelexSnapshot
+	triedMask      core.ScannerTrialMask
 
 	beforeCheckpoint      core.CheckpointID
 	afterCheckpoint       core.CheckpointID
@@ -123,6 +124,7 @@ func diagnosticParserCoreVersionLexerSnapshotEqual(
 		left.language == right.language &&
 		(left.metadata == right.metadata || left.metadata.Value() == right.metadata.Value()) &&
 		left.dfa.equal(&right.dfa) &&
+		(left.dfa.extZeroPos != left.dfa.lexerPos || left.triedMask == right.triedMask) &&
 		left.beforeCheckpoint == right.beforeCheckpoint &&
 		left.afterCheckpoint == right.afterCheckpoint &&
 		bytes.Equal(left.beforeCheckpointBytes, right.beforeCheckpointBytes) &&
@@ -240,9 +242,14 @@ func (s *diagnosticParserCoreVersionLexerSnapshot) clone() *diagnosticParserCore
 	if s == nil {
 		return nil
 	}
-	out, payload, start, end, tried := core.NewScannerSnapshotRecord[diagnosticParserCoreVersionLexerSnapshot](
-		s.dfa.externalPayload, s.dfa.externalTokenStart, s.dfa.externalTokenEnd, s.dfa.extZeroTried,
-	)
+	var out *diagnosticParserCoreVersionLexerSnapshot
+	var payload, start, end []byte
+	var tried []bool
+	if s.triedMask.Len() != 0 {
+		out, payload, start, end = core.NewPackedScannerSnapshotRecord[diagnosticParserCoreVersionLexerSnapshot](s.dfa.externalPayload, s.dfa.externalTokenStart, s.dfa.externalTokenEnd)
+	} else {
+		out, payload, start, end, tried = core.NewScannerSnapshotRecord[diagnosticParserCoreVersionLexerSnapshot](s.dfa.externalPayload, s.dfa.externalTokenStart, s.dfa.externalTokenEnd, s.dfa.extZeroTried)
+	}
 	*out = *s
 	out.storage = nil
 	out.dfa.externalPayload, out.dfa.externalTokenStart, out.dfa.externalTokenEnd = payload, start, end
@@ -327,9 +334,16 @@ func newDiagnosticParserCoreVersionLexerSnapshotWithMetadataAndPages(
 	if _, _, ok := compact.CheckpointReceiptOwned(owner, afterCheckpoint); !ok {
 		return nil, errDiagnosticParserCoreUnknownCheckpointIdentity
 	}
-	out, payload, start, end, tried, storage := pages.New(
-		dfa.externalPayload, dfa.externalTokenStart, dfa.externalTokenEnd, dfa.extZeroTried,
-	)
+	mask, packed := core.PackScannerTrialMask(dfa.extZeroTried)
+	var out *diagnosticParserCoreVersionLexerSnapshot
+	var payload, start, end []byte
+	var tried []bool
+	var storage *core.ScannerSnapshotStorage
+	if packed {
+		out, payload, start, end, storage = pages.NewPacked(dfa.externalPayload, dfa.externalTokenStart, dfa.externalTokenEnd)
+	} else {
+		out, payload, start, end, tried, storage = pages.New(dfa.externalPayload, dfa.externalTokenStart, dfa.externalTokenEnd, dfa.extZeroTried)
+	}
 	dfa.externalPayload, dfa.externalTokenStart, dfa.externalTokenEnd = payload, start, end
 	dfa.extZeroTried = tried
 	afterBytes, afterInfo, err := copyDiagnosticParserCoreVersionCheckpointWithPrivateCopy(compact, owner, afterCheckpoint, dfa.externalPayload)
@@ -358,6 +372,7 @@ func newDiagnosticParserCoreVersionLexerSnapshotWithMetadataAndPages(
 			checkpointIdentityRequired: checkpointIdentityRequired, checkpointIdentityValid: checkpointIdentityValid,
 		}),
 		dfa:                   dfa,
+		triedMask:             mask,
 		beforeCheckpoint:      beforeCheckpoint,
 		afterCheckpoint:       afterCheckpoint,
 		beforeCheckpointBytes: beforeBytes,
@@ -574,6 +589,9 @@ func (s *diagnosticParserCoreVersionLexerSnapshot) restore(compact *core.Core, d
 		return err
 	}
 	s.dfa.restore(d)
+	if s.triedMask.Len() != 0 {
+		d.extZeroTried = s.triedMask.Restore(d.extZeroTried)
+	}
 	return nil
 }
 

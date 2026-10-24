@@ -178,6 +178,7 @@ type DiagnosticParserCorePrefixOptions struct {
 	// disables it, mirroring the production contract's own 0=off escape
 	// hatch.
 	stopControlHardCeilingBytes int64
+	nativeSelectedOutput        *nativeSelectedOutputRunner
 	// materializationParser, materializationSource,
 	// materializationForceReplayParseStates, and materializationContextSet
 	// back the compact acceptance-election materiality gate
@@ -2455,7 +2456,7 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeWithMutation(
 		}
 		if canonical, ok := compact.CanonicalBoundary(state, byteOffset, header.shifted, header.checkpoint); ok &&
 			!header.isRecoveryLineage() && header.recoveryRegion() == nil && !header.isRecoveryCosted() {
-			if core.CanonicalVersionRemap(header.head, canonical, core.ExternalLexerOwnershipProbeEnabled() && header.versionLexerSnapshot() != nil, headers,
+			if core.CanonicalVersionRemap(header.head, canonical, (core.ExternalLexerOwnershipProbeEnabled() || compact.VersionLexerOwnershipActive()) && header.versionLexerSnapshot() != nil, headers,
 				func(other diagnosticParserCoreHeader, target core.Head) bool {
 					return other.head == target && (other.versionState == header.versionState ||
 						s.versionStateOwner != nil && s.versionStateOwner.versionLexerStateEqual(other.versionState, header.versionState))
@@ -2495,7 +2496,7 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeWithMutation(
 		}
 		if canonical, ok := compact.CanonicalBoundary(state, byteOffset, header.shifted, header.checkpoint); ok &&
 			!header.isRecoveryLineage() && header.recoveryRegion() == nil && !header.isRecoveryCosted() {
-			if core.CanonicalVersionRemap(header.head, canonical, core.ExternalLexerOwnershipProbeEnabled() && header.versionLexerSnapshot() != nil, headers,
+			if core.CanonicalVersionRemap(header.head, canonical, (core.ExternalLexerOwnershipProbeEnabled() || compact.VersionLexerOwnershipActive()) && header.versionLexerSnapshot() != nil, headers,
 				func(other diagnosticParserCoreHeader, target core.Head) bool {
 					return other.head == target && (other.versionState == header.versionState ||
 						s.versionStateOwner != nil && s.versionStateOwner.versionLexerStateEqual(other.versionState, header.versionState))
@@ -2907,6 +2908,8 @@ type diagnosticParserCoreVersionLexerRequest struct {
 }
 
 type diagnosticParserCoreGenericScheduler struct {
+	singleVersion                   singleVersionAdapter
+	nativeProjectionScratch         *nativeProjectionWorkspace
 	compact                         *core.Core
 	tokenSource                     *dfaTokenSource
 	scannerScratch                  *[]byte
@@ -2919,6 +2922,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	versionLexerBefore              dfaRelexSnapshot
 	versionLexerBeforeScratch       dfaRelexSnapshotScratch
 	versionLexerBeforeValid         bool
+	versionLexerBeforeBinding       ExternalScanner
 	versionLexerBeforeIdentity      [32]byte
 	versionLexerBeforeIdentityValid bool
 	versionLexerBeforeElection      int
@@ -3065,6 +3069,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	conflictPostExecutionFault func() error
 	extraPostExecutionFault    func() error
 	freshSessionOwner          *core.SchedulerTransactionToken
+	singleLexerPrefix          core.SingleVersionLexerPrefix
 	verifierHeads              [32]core.Head
 	verifierRefs               [32]core.DropCohortRef
 	verifierBound              int
@@ -4694,11 +4699,13 @@ func clearDiagnosticParserCoreGenericSchedulerVersionState(scheduler *diagnostic
 		scheduler.negativeRelexMemo.Clear()
 	}
 	scheduler.versionLexerBeforeValid = false
+	scheduler.versionLexerBeforeBinding = nil
 	scheduler.versionLexerBeforeIdentity = [32]byte{}
 	scheduler.versionLexerBeforeIdentityValid = false
 	scheduler.versionLexerBeforeElection = 0
 	scheduler.versionLexerBeforeCheckpoint = 0
 	scheduler.versionLexerOwnershipActive = false
+	scheduler.singleLexerPrefix.Clear()
 	scheduler.versionLexerNoActionProof = false
 }
 
@@ -6185,6 +6192,11 @@ func (s *diagnosticParserCoreGenericScheduler) captureSharedElectionSnapshot() e
 	if s == nil || s.tokenSource == nil {
 		return errors.New("parser-core phase zero: shared lexer snapshot source is unavailable")
 	}
+	s.versionLexerBeforeBinding = nil
+	if s.tokenSource.language != nil {
+		s.versionLexerBeforeBinding = s.tokenSource.language.ExternalScanner
+	}
+
 	s.versionLexerBefore = s.tokenSource.snapshotRelexStateWithScratch(&s.versionLexerBeforeScratch)
 	return s.finishSharedElectionSnapshotCapture()
 }
@@ -6192,9 +6204,19 @@ func (s *diagnosticParserCoreGenericScheduler) captureSharedElectionSnapshot() e
 // captureSharedElectionSnapshotFromExternalPayload uses checkpoint bytes that
 // the election already serialized. This keeps one Serialize call per election.
 func (s *diagnosticParserCoreGenericScheduler) captureSharedElectionSnapshotFromExternalPayload(externalPayload []byte) error {
+	var binding ExternalScanner
+	if s != nil && s.tokenSource != nil && s.tokenSource.language != nil {
+		binding = s.tokenSource.language.ExternalScanner
+	}
+	return s.captureSharedElectionSnapshotFromExternalPayloadWithBinding(externalPayload, binding)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) captureSharedElectionSnapshotFromExternalPayloadWithBinding(externalPayload []byte, binding ExternalScanner) error {
 	if s == nil || s.tokenSource == nil {
 		return errors.New("parser-core phase zero: shared lexer snapshot source is unavailable")
 	}
+	s.versionLexerBeforeBinding = binding
+
 	s.tokenSource.snapshotRelexStateWithScratchFromExternalPayload(
 		&s.versionLexerBefore,
 		&s.versionLexerBeforeScratch,
@@ -6624,7 +6646,13 @@ func (s *diagnosticParserCoreGenericScheduler) rejoinSharedLexerFromOwnedHeader(
 	header.checkpoint = snapshot.afterCheckpoint
 	header.clearVersionLexerSnapshot()
 	s.clearVersionLexerRequests()
+	if s.freshSessionOwner != nil && s.compact.VersionLexerOwnershipActive() {
+		if err := s.compact.SetVersionLexerOwnershipActiveOwned(*s.freshSessionOwner, false); err != nil {
+			return err
+		}
+	}
 	s.versionLexerOwnershipActive = false
+	s.singleLexerPrefix.SharedRejoin(s.compact)
 	return nil
 }
 
@@ -6748,6 +6776,7 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 	initialState StateID,
 	options DiagnosticParserCorePrefixOptions,
 	observer diagnosticParserCoreSeedObserver,
+	nativeScratch ...*nativeProjectionWorkspace,
 ) (*diagnosticParserCoreGenericScheduler, error) {
 	if compact == nil || tokenSource == nil || scannerScratch == nil {
 		return nil, errors.New("parser-core phase zero: seed scheduler requires compact core and production token source")
@@ -6789,6 +6818,12 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 	}
 	if err != nil {
 		return nil, err
+	}
+	if len(nativeScratch) > 1 {
+		return nil, errors.New("parser-core phase zero: multiple native workspaces")
+	}
+	if len(nativeScratch) == 1 {
+		scheduler.nativeProjectionScratch = nativeScratch[0]
 	}
 	scheduler.stagedReserve = stagedReserve
 	previousReads := tokenSource.lexer.reuseReads
@@ -6931,6 +6966,7 @@ type parserCoreRunnerScratch struct {
 	recoveryTerminalAliasCertified bool
 	materializationPurpose         core.MaterializationPurpose
 	acceptanceMaterialization      core.AcceptanceMaterialization[*Tree]
+	nativeProjection               *nativeProjectionWorkspace
 	// The alternative construction workspace owns no published nodes. It is
 	// reused only by this exclusively leased runner, then cleared and bounded.
 	acceptanceComparison *parserCoreRunnerScratch
@@ -7224,6 +7260,7 @@ func (s *parserCoreRunnerScratch) resetTreeBuffers() {
 			s.acceptanceComparison = nil
 		}
 	}
+	s.nativeProjection.reset()
 	s.postorder.Reset()
 	s.acceptedLeaves.reset()
 	s.materialization.checkpoints.Reset()
@@ -8425,6 +8462,9 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 		s.publishTotals()
 		return nil
 	}
+	if s.freshSessionOwner != nil && !s.fullReceipts() && len(s.headers) == 1 {
+		s.singleLexerPrefix.Begin(s.compact, s.headers[0].head)
+	}
 	for {
 		if err := s.pollStopControl(); err != nil {
 			return err
@@ -8437,7 +8477,12 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 				}
 				reserve.growAt, reserve.project = 0, false
 			} else {
-				s.compact.GrowRecordArenas(reserve.sourceBytes, reserve.maxBytes)
+				if s.versionLexerOwnershipActive || s.tokenSource != nil && s.tokenSource.language != nil &&
+					core.ExternalLexerOwnsAllTerminals(s.tokenSource.language.TokenCount, s.tokenSource.language.ExternalSymbols) {
+					s.compact.GrowRecordArenasFromObservedDensity(reserve.sourceBytes, s.token.StartByte, reserve.maxBytes)
+				} else {
+					s.compact.GrowRecordArenas(reserve.sourceBytes, reserve.maxBytes)
+				}
 				reserve.growAt = 0
 				if reserve.maxBytes > 0 && s.compact.ReserveRecordArenaBytes(reserve.sourceBytes, 0) > reserve.maxBytes {
 					reserve.growAt, reserve.project = core.RecordArenaProjectionStart(reserve.sourceBytes), true
@@ -12958,7 +13003,7 @@ func (s *diagnosticParserCoreGenericScheduler) collectCondenseCandidates(source 
 	// Independent graph expansion belongs to the same diagnostic route as
 	// early scanner ownership. Ordinary routes keep their existing condensation
 	// and fail closed at the ownership guard instead of extending doomed work.
-	independentOwners := core.ExternalLexerOwnershipProbeEnabled() && source >= 0 && source < len(s.headers)
+	independentOwners := (core.ExternalLexerOwnershipProbeEnabled() || s.compact.VersionLexerOwnershipActive()) && source >= 0 && source < len(s.headers)
 	if source >= 0 && source < len(s.headers) {
 		sourceHeader := &s.headers[source]
 		if sourceHeader.accepted || sourceHeader.paused ||
@@ -13247,6 +13292,9 @@ func (s *diagnosticParserCoreGenericScheduler) reconcileGenericConflictOutputsOw
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	if activated, activationErr := s.trySinglePrefixLexerOwnership(cell); activated || activationErr != nil {
+		return activationErr
+	}
 	leafBefore, leafToken := s.beginCompactLeafReceipt(cell.dispatchToken(s.token))
 	defer s.endCompactLeafReceipt(leafBefore, leafToken, &err)
 	s.reuseDependencies.invalidate()
@@ -14070,6 +14118,9 @@ func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwned(owner core.Sche
 }
 
 func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwnedWithMutation(owner core.SchedulerTransactionToken, expected core.DropCohortProducerMutation) error {
+	if !s.versionLexerOwnershipActive {
+		s.singleLexerPrefix.ObserveUnownedWidth(s.compact, len(s.headers))
+	}
 	previousVersionStateOwner := s.canonicalScratch.versionStateOwner
 	s.canonicalScratch.versionStateOwner = s
 	defer func() {
@@ -14195,12 +14246,16 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 		s.electGLRStates = glr
 		s.tokenSource.SetGLRStates(glr)
 	}
+	var scannerBefore ExternalScanner
+	if s.tokenSource.language != nil {
+		scannerBefore = s.tokenSource.language.ExternalScanner
+	}
 	beforeBytes := s.tokenSource.captureExternalScannerStateInto(s.scannerScratch)
 	// Retain the exact DFA and scanner state at this election's token start.
 	// A ragged per-header relex may activate ownership before any shared cell
 	// executes. Reuse the checkpoint serialization instead of serializing the
 	// scanner twice at the same cursor.
-	if err := s.captureSharedElectionSnapshotFromExternalPayload(beforeBytes); err != nil {
+	if err := s.captureSharedElectionSnapshotFromExternalPayloadWithBinding(beforeBytes, scannerBefore); err != nil {
 		return err
 	}
 	beforeID, before, err := diagnosticParserCoreInternCheckpoint(s.compact, beforeBytes)
@@ -14544,4 +14599,114 @@ func rootParserCoreAction(action core.Action) ParseAction {
 		ProductionID: action.ProductionID, Extra: action.Extra,
 		ExtraChain: action.ExtraChain, Repetition: action.Repetition,
 	}
+}
+
+func (s *diagnosticParserCoreGenericScheduler) trySinglePrefixLexerOwnership(cell diagnosticParserCoreGenericCell) (bool, error) {
+	if s == nil || core.ExternalLexerOwnershipProbeEnabled() || !s.versionLexerBefore.externalScannerPresent || s.versionLexerOwnershipActive || s.freshSessionOwner == nil || s.fullReceipts() || s.recoveryIsolation || !s.singleLexerPrefix.AllowsFork(s.compact, len(s.headers)) {
+		return false, nil
+	}
+	if cell.headerIndex != 0 || cell.boundary.Head() != s.headers[0].head || cell.descriptor().Kind() != core.ActionRowConflict {
+		return false, nil
+	}
+	header := &s.headers[0]
+	if header.shifted || header.paused || header.accepted || header.recoveryRegion() != nil || header.isRecoveryLineage() || header.isRecoveryCosted() {
+		return false, nil
+	}
+	token := cell.dispatchToken(s.token)
+	if token != s.token || s.currentElection.Token != s.token {
+		return false, nil
+	}
+	if token.Missing || token.NoLookahead || token.Symbol == 0 || !s.versionLexerBeforeValid || s.versionLexerBeforeElection != s.electionIndex || s.versionLexerBeforeCheckpoint != s.checkpointBeforeID {
+		return false, nil
+	}
+	if s.tokenSource == nil || s.tokenSource.language == nil || !s.compact.CheckpointMatches(s.checkpointBeforeID, s.versionLexerBefore.externalPayload) {
+		return false, nil
+	}
+	if !core.ScannerBindingUnchanged(s.versionLexerBeforeBinding, s.tokenSource.language.ExternalScanner) {
+		return false, nil
+	}
+
+	language := s.tokenSource.language
+	if !core.ExternalLexerOwnsAllTerminals(language.TokenCount, language.ExternalSymbols) || len(s.currentElection.States) != 1 {
+		return false, nil
+	}
+	scanner := language.ExternalScanner
+	contract, err := diagnosticParserCoreVersionLexerScannerContractForLanguage(language)
+	if err != nil || !core.ScannerBindingUnchanged(scanner, language.ExternalScanner) || contract.stateless || len(s.versionLexerBefore.externalPayload) == 0 || !contract.equal(s.versionLexerContract) {
+		return false, nil
+	}
+	identity, required, valid := diagnosticParserCoreVersionLexerCheckpointIdentity(language)
+	// Within-parse ownership uses the existing private snapshot contract. A
+	// cross-tree checkpoint identity stays mandatory only when advertised.
+	if !core.ScannerBindingUnchanged(scanner, language.ExternalScanner) || (required && (!valid || !s.versionLexerBeforeIdentityValid || identity != s.versionLexerBeforeIdentity)) {
+		return false, nil
+	}
+	return s.transferSinglePrefixLexerRequest()
+}
+
+// A proved single-version prefix owns the already executed shared election.
+// Preserve that request's original lexer state even if reductions changed the
+// graph state while lookahead remained pending. No scanner request is replayed.
+func (s *diagnosticParserCoreGenericScheduler) transferSinglePrefixLexerRequest() (activated bool, err error) {
+	if len(s.headers) != 1 || len(s.currentElection.States) != 1 || s.freshSessionOwner == nil {
+		return false, nil
+	}
+	if err = s.headerRollbackScratch.begin(s.headers); err != nil {
+		return false, err
+	}
+	requestsBefore, workBefore := len(s.versionLexerRequests), s.work
+	committed := false
+	defer func() {
+		s.headerRollbackScratch.finish(&s.headers, !committed)
+		if !committed {
+			clear(s.versionLexerRequests[requestsBefore:])
+			s.versionLexerRequests = s.versionLexerRequests[:requestsBefore]
+			s.work = workBefore
+			s.versionLexerOwnershipActive = false
+		}
+	}()
+	// This view is consumed only by the copying snapshot constructor below.
+	// Reuse the existing after scratch; publication still owns independent bytes.
+	afterDFA := s.tokenSource.snapshotRelexStateWithScratch(&s.relexAfterScratch)
+	if afterDFA.lexerPos != int(s.token.EndByte) || !s.compact.CheckpointMatches(s.checkpointID, afterDFA.externalPayload) {
+		return false, nil
+	}
+	owner := *s.freshSessionOwner
+	before, err := s.newVersionLexerSnapshot(owner, s.versionLexerBefore, s.checkpointBeforeID, s.checkpointBeforeID)
+	if err != nil {
+		return false, err
+	}
+	after, err := s.newVersionLexerSnapshot(owner, afterDFA, s.checkpointID, s.checkpointID)
+	if err != nil {
+		return false, err
+	}
+	if err = before.validateDestination(s.compact, s.tokenSource.language); err != nil {
+		return false, err
+	}
+	if err = after.validateDestination(s.compact, s.tokenSource.language); err != nil {
+		return false, err
+	}
+	request := diagnosticParserCoreVersionLexerRequest{
+		electionIndex: s.electionIndex, headerCreationSeq: s.headers[0].creationSeq,
+		state: s.currentElection.States[0], token: s.token, before: before, after: after,
+		beforeCheckpoint: before.afterCheckpointInfo, afterCheckpoint: after.afterCheckpointInfo,
+		beforeID: s.checkpointBeforeID, afterID: s.checkpointID, valid: true,
+	}
+	s.versionLexerRequests = append(s.versionLexerRequests, request)
+	reference := uint32(len(s.versionLexerRequests))
+	if err = s.publishVersionLexerRequestOwned(owner, 0, before, reference); err != nil {
+		return false, err
+	}
+	s.headers[0].checkpoint = s.checkpointID
+	if err = s.compact.SetVersionLexerOwnershipActiveOwned(owner, true); err != nil {
+		return false, err
+	}
+	s.work.add(&s.work.PerVersionLexPublications, 1)
+	s.work.add(&s.work.PerVersionLexRequests, 1)
+	if s.work.PeakLiveVersions < 1 {
+		s.work.PeakLiveVersions = 1
+	}
+	s.versionLexerOwnershipActive = true
+	committed = true
+	return true, nil
 }

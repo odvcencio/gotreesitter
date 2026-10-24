@@ -1,0 +1,510 @@
+{
+  "Cogno": {
+    "D8_checks": 12,
+    "clean_C_checks": 8,
+    "report_comment_id": 6311551850,
+    "unchanged_malformed_delete_C_failures": 4
+  },
+  "archive": {
+    "bytes": 1774476,
+    "members": 2428,
+    "sha256": "d6ac823a3bcfb7b18f50a123f418e86739ae0e3510d9bc483ebea1c5a27b59e4"
+  },
+  "cold_RSS": {
+    "all_initial_probes_retained": true,
+    "binary_sha256": {
+      "baseline": "16b15e90fda7ace123c8ff47ddb37b65d3fb4bfbedd001d97955d757ce0afd42",
+      "candidate": "31e0f424af13e17b5474e25c7c15f987f4a6872802de3e2b4280739872dfb6a2"
+    },
+    "candidate_baseline_median_ratios": {
+      "go": 0.9960036518353917,
+      "yaml_ordinary": 1.0065344749887337,
+      "yaml_owned": 0.9960607765897579
+    },
+    "candidate_ceiling_failures": [],
+    "candidate_safety_pass": true,
+    "environment": {
+      "GODEBUG": null,
+      "GOGC": null,
+      "GOMAXPROCS": "1",
+      "GOMEMLIMIT": "3GiB",
+      "GOT_GLR_MAX_STACKS": null,
+      "GOT_PARSE_NODE_LIMIT_SCALE": null
+    },
+    "protocol": "20 matched alternating pairs per case; case order shuffled per explicit seed; one grammar/process; safety probes only, no timing claim",
+    "seeds": "214001..214020",
+    "summary": {
+      "go": {
+        "baseline": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 232.89119971466474,
+          "median": 226.76628733223916
+        },
+        "candidate": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 229.26625156996388,
+          "median": 225.86005029606395
+        }
+      },
+      "yaml_ordinary": {
+        "baseline": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 74.66345519888107,
+          "median": 69.2779456769045
+        },
+        "candidate": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 74.47613312855145,
+          "median": 69.73064068020108
+        }
+      },
+      "yaml_owned": {
+        "baseline": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 84.34176216591143,
+          "median": 83.21782974393372
+        },
+        "candidate": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 84.37298251096638,
+          "median": 82.89001612085687
+        }
+      }
+    }
+  },
+  "decision": {
+    "limitations": [
+      "Linux amd64 only; no ARM64 qualification of this reduction patch",
+      "Compared independently against native-record-receipts-v2, not main or the installed fused-publication runtime",
+      "No runtime source changes installed from this experiment",
+      "Existing four Cognociente malformed-delete C shape failures remain",
+      "All existing main-based, warmed-RSS, and graduation holds remain"
+    ],
+    "reason": "The unary shortcut and removal of repeated subtree reads preserve correctness and counters, but 20 paired samples per suite do not establish a useful end-to-end gain.",
+    "status": "Not adopted: no statistically significant throughput or allocation improvement"
+  },
+  "fleet": {
+    "C": 412,
+    "edit_steps": 29664,
+    "invariant": 412,
+    "ledger": 206,
+    "memory_checks": 20,
+    "no_edit_allocations": 0,
+    "standard_C_checks": 1236
+  },
+  "limitations": [
+    "Linux amd64 only; no ARM64 qualification of this reduction patch",
+    "Compared independently against native-record-receipts-v2, not main or the installed fused-publication runtime",
+    "No runtime source changes installed from this experiment",
+    "Existing four Cognociente malformed-delete C shape failures remain",
+    "All existing main-based, warmed-RSS, and graduation holds remain"
+  ],
+  "performance": {
+    "all_qualification_stages_complete": true,
+    "all_timed_work_and_route_metrics_exact": true,
+    "ratchet_failures": [],
+    "scope": "Reduction pop construction versus frozen native-record-receipts-v2; not a main-based qualification.",
+    "suites": {
+      "compact-go": {
+        "alternating_roles": true,
+        "matched_orders": true,
+        "results": [
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/query_compile",
+            "medians": {
+              "baseline": {
+                "B/op": 4681.0,
+                "allocs/op": 120.0,
+                "ns/op": 11663512.5
+              },
+              "candidate": {
+                "B/op": 4680.5,
+                "allocs/op": 120.0,
+                "ns/op": 12086883.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 0.999893185216834,
+              "allocs/op": 1.0,
+              "ns/op": 1.0362987564852355
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/grammargen_lr",
+            "medians": {
+              "baseline": {
+                "B/op": 2675360.0,
+                "allocs/op": 1807.0,
+                "ns/op": 132162316.0
+              },
+              "candidate": {
+                "B/op": 2675360.0,
+                "allocs/op": 1807.0,
+                "ns/op": 125950980.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.9530022196342262
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/full_dfa",
+            "medians": {
+              "baseline": {
+                "B/op": 429562.0,
+                "allocs/op": 36.0,
+                "ns/op": 11035472.5
+              },
+              "candidate": {
+                "B/op": 429562.0,
+                "allocs/op": 36.0,
+                "ns/op": 11086763.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 1.0046477846780009
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/fresh_one_mib",
+            "medians": {
+              "baseline": {
+                "B/op": 263873624.0,
+                "allocs/op": 875.0,
+                "ns/op": 961134574.5
+              },
+              "candidate": {
+                "B/op": 263873624.0,
+                "allocs/op": 875.0,
+                "ns/op": 921366168.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.9586234773411535
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/single_byte_edit_dfa",
+            "medians": {
+              "baseline": {
+                "B/op": 400.0,
+                "allocs/op": 5.0,
+                "ns/op": 98269.0
+              },
+              "candidate": {
+                "B/op": 400.0,
+                "allocs/op": 5.0,
+                "ns/op": 98892.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 1.0063448289898136
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/no_edit_dfa",
+            "medians": {
+              "baseline": {
+                "B/op": 0.0,
+                "allocs/op": 0.0,
+                "ns/op": 3.4945
+              },
+              "candidate": {
+                "B/op": 0.0,
+                "allocs/op": 0.0,
+                "ns/op": 3.4545
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1,
+              "allocs/op": 1,
+              "ns/op": 0.9885534411217628
+            }
+          }
+        ],
+        "rows_per_role": 120,
+        "seed_range": [
+          213001,
+          213020
+        ],
+        "source_files_sha256": {
+          "baseline": "960967da3b76ce696f7cdd757bcd23a8d04cf1a30051ecddcfdffc3c93b414fa",
+          "candidate": "79fa6eed6723372d3a3deffcd49377a91a7208bf24bcf48cad710cfdc2810313"
+        }
+      },
+      "go": {
+        "alternating_roles": true,
+        "matched_orders": true,
+        "results": [
+          {
+            "benchmark": "BenchmarkGTSSeededPrimary/BenchmarkGoParseFullDFA",
+            "medians": {
+              "baseline": {
+                "B/op": 1160.0,
+                "allocs/op": 6.0,
+                "ns/op": 4115827.0
+              },
+              "candidate": {
+                "B/op": 1160.0,
+                "allocs/op": 6.0,
+                "ns/op": 4102253.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.9967021208617369
+            }
+          },
+          {
+            "benchmark": "BenchmarkGTSSeededPrimary/BenchmarkGoParseIncrementalSingleByteEditDFA",
+            "medians": {
+              "baseline": {
+                "B/op": 394.0,
+                "allocs/op": 5.0,
+                "ns/op": 89875.0
+              },
+              "candidate": {
+                "B/op": 394.0,
+                "allocs/op": 5.0,
+                "ns/op": 88338.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.982904033379694
+            }
+          },
+          {
+            "benchmark": "BenchmarkGTSSeededPrimary/BenchmarkGoParseIncrementalNoEditDFA",
+            "medians": {
+              "baseline": {
+                "B/op": 0.0,
+                "allocs/op": 0.0,
+                "ns/op": 3.2110000000000003
+              },
+              "candidate": {
+                "B/op": 0.0,
+                "allocs/op": 0.0,
+                "ns/op": 3.2439999999999998
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1,
+              "allocs/op": 1,
+              "ns/op": 1.010277172220492
+            }
+          }
+        ],
+        "rows_per_role": 60,
+        "seed_range": [
+          212001,
+          212020
+        ],
+        "source_files_sha256": {
+          "baseline": "b5e5a2b499ad4c70ee428ff1979d52afbbc33faa2dd6faa4ba158c994eb0bc0b",
+          "candidate": "e7143e10c9b0a5e22c78385e6ff528a5e37be33ffb8a444c4da4c8154e50d4ba"
+        }
+      },
+      "yaml": {
+        "alternating_roles": true,
+        "matched_orders": true,
+        "results": [
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/eof8k_ordinary",
+            "medians": {
+              "baseline": {
+                "B/op": 18352.0,
+                "allocs/op": 70.0,
+                "ns/op": 871797.0
+              },
+              "candidate": {
+                "B/op": 18352.0,
+                "allocs/op": 70.0,
+                "ns/op": 866533.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.9939624706210276
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/r4_owned",
+            "medians": {
+              "baseline": {
+                "B/op": 13056.0,
+                "allocs/op": 73.0,
+                "ns/op": 367672.0
+              },
+              "candidate": {
+                "B/op": 13056.0,
+                "allocs/op": 73.0,
+                "ns/op": 363224.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.9879022607106334
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/eof8k_owned",
+            "medians": {
+              "baseline": {
+                "B/op": 43280.0,
+                "allocs/op": 196.0,
+                "ns/op": 1392544.0
+              },
+              "candidate": {
+                "B/op": 43281.0,
+                "allocs/op": 196.0,
+                "ns/op": 1402662.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0000231053604436,
+              "allocs/op": 1.0,
+              "ns/op": 1.0072661976928556
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/r4_legacy",
+            "medians": {
+              "baseline": {
+                "B/op": 1440.0,
+                "allocs/op": 16.0,
+                "ns/op": 143405.5
+              },
+              "candidate": {
+                "B/op": 1440.0,
+                "allocs/op": 16.0,
+                "ns/op": 144201.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 1.005547207045755
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/r4_ordinary",
+            "medians": {
+              "baseline": {
+                "B/op": 5504.0,
+                "allocs/op": 39.0,
+                "ns/op": 228086.0
+              },
+              "candidate": {
+                "B/op": 5504.0,
+                "allocs/op": 39.0,
+                "ns/op": 225683.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.9894645002323685
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/eof8k_legacy",
+            "medians": {
+              "baseline": {
+                "B/op": 1264.0,
+                "allocs/op": 13.0,
+                "ns/op": 522681.5
+              },
+              "candidate": {
+                "B/op": 1264.0,
+                "allocs/op": 13.0,
+                "ns/op": 522148.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.9989802585322036
+            }
+          }
+        ],
+        "rows_per_role": 120,
+        "seed_range": [
+          211001,
+          211020
+        ],
+        "source_files_sha256": {
+          "baseline": "e0d0967cb685aec1e83d994770c04b9feadf6796f3215d9a33dae4bf1d4961cc",
+          "candidate": "a02c3a66199323a7ac2dafdca40067e182af508f361a28670652a6a7aa2275fc"
+        }
+      }
+    },
+    "valid_rows_per_role": 300,
+    "workload_exit_code": 0
+  },
+  "source": {
+    "baseline": "frozen native-record-receipts-v2",
+    "candidate": "three-file candidate-only reduction overlay; independent of fused publication",
+    "patch_bytes": 5941,
+    "patch_sha256": "f634bed6260165bc44f3c20647f82269b4c9065acb04e73a12f862539aa24423",
+    "source_changes": [
+      {
+        "after": "500ff4dfb4aa7c823b1c6f04e770052668b36c399c585bc6d0f88a4957d48082",
+        "before": "b9e969896a60b15bc0a3d3f1ec9b87f8140301e91c588fef85946c5e972ff101",
+        "new": false,
+        "path": "internal/parsercorephase0/core.go",
+        "test": false
+      },
+      {
+        "after": "d547e673a169f0b7ce7f9e276acc3dda9b4db1e49ab08e0c68fea40d6ca54231",
+        "before": null,
+        "new": true,
+        "path": "internal/parsercorephase0/pop_unary.go",
+        "test": false
+      },
+      {
+        "after": "084c682fe1913f32e7732ec329cd8e8483b6b6b265293bfe9f8a8e19963b5c39",
+        "before": null,
+        "new": true,
+        "path": "internal/parsercorephase0/pop_unary_test.go",
+        "test": true
+      }
+    ]
+  },
+  "source_overlay_backings_complete": true,
+  "status": "Not adopted: no statistically significant throughput or allocation improvement",
+  "strict_counter_changes": []
+}

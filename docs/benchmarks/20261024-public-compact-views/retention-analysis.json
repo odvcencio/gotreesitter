@@ -1,0 +1,146 @@
+{
+  "scope": "public trees with the per-language idle runner pool retained; heap delta is incremental above warm pool state, not total tree storage; use LiveHeap and ArenaBytes alongside it. Peak RSS includes full-output preflight and validation",
+  "results": {
+    "go-root": {
+      "pairs": 20,
+      "medians": {
+        "baseline": {
+          "retained_delta": 84076128.0,
+          "released_delta": -16.0,
+          "max_rss_kib": 228624.0,
+          "ArenaBytes": 83338520.0,
+          "SourceBytes": 1048591.0,
+          "Nodes": 593457.0,
+          "BeforeHeap": 111374116.0,
+          "LiveHeap": 195450244.0,
+          "ReleasedHeap": 111374100.0
+        },
+        "candidate": {
+          "retained_delta": 2816704.0,
+          "released_delta": -16.0,
+          "max_rss_kib": 248344.0,
+          "ArenaBytes": 37482596.0,
+          "SourceBytes": 1048591.0,
+          "Nodes": 593457.0,
+          "BeforeHeap": 145731284.0,
+          "LiveHeap": 148547988.0,
+          "ReleasedHeap": 145731268.0
+        }
+      },
+      "ratios": {
+        "retained_delta": 0.033501828247847,
+        "max_rss_kib": 1.0862551613128981,
+        "LiveHeap": 0.7600296881696398,
+        "ArenaBytes": 0.449763158741
+      },
+      "source_sha256": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+      "digest": 3089405050992832901
+    },
+    "go-walk": {
+      "pairs": 20,
+      "medians": {
+        "baseline": {
+          "retained_delta": 84076128.0,
+          "released_delta": -16.0,
+          "max_rss_kib": 226986.0,
+          "ArenaBytes": 83338520.0,
+          "SourceBytes": 1048591.0,
+          "Nodes": 593457.0,
+          "BeforeHeap": 111373952.0,
+          "LiveHeap": 195450080.0,
+          "ReleasedHeap": 111373936.0
+        },
+        "candidate": {
+          "retained_delta": 78323136.0,
+          "released_delta": -16.0,
+          "max_rss_kib": 248032.0,
+          "ArenaBytes": 112349644.0,
+          "SourceBytes": 1048591.0,
+          "Nodes": 593457.0,
+          "BeforeHeap": 145732260.0,
+          "LiveHeap": 224055412.0,
+          "ReleasedHeap": 145732260.0
+        }
+      },
+      "ratios": {
+        "retained_delta": 0.9315740134940562,
+        "max_rss_kib": 1.0927193747632014,
+        "LiveHeap": 1.146356205124091,
+        "ArenaBytes": 1.3481118215202286
+      },
+      "source_sha256": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+      "digest": 3089405050992832901
+    },
+    "yaml-root": {
+      "pairs": 20,
+      "medians": {
+        "baseline": {
+          "retained_delta": 19000576.0,
+          "released_delta": 110768.0,
+          "max_rss_kib": 73676.0,
+          "ArenaBytes": 18868352.0,
+          "SourceBytes": 1049572.0,
+          "Nodes": 121045.0,
+          "BeforeHeap": 28216620.0,
+          "LiveHeap": 47207964.0,
+          "ReleasedHeap": 28318156.0
+        },
+        "candidate": {
+          "retained_delta": 248704.0,
+          "released_delta": 110768.0,
+          "max_rss_kib": 76548.0,
+          "ArenaBytes": 7026296.0,
+          "SourceBytes": 1049572.0,
+          "Nodes": 121045.0,
+          "BeforeHeap": 35331332.0,
+          "LiveHeap": 35588792.0,
+          "ReleasedHeap": 35450856.0
+        }
+      },
+      "ratios": {
+        "retained_delta": 0.013089287398445185,
+        "max_rss_kib": 1.0389814865084968,
+        "LiveHeap": 0.7538726304739599,
+        "ArenaBytes": 0.3723852512397479
+      },
+      "source_sha256": "8d615e96c0efe207dd1bfc4f54f601580d61dd0afc8f051ac3aaa92a2b27e397",
+      "digest": 3921435934720155749
+    },
+    "yaml-walk": {
+      "pairs": 20,
+      "medians": {
+        "baseline": {
+          "retained_delta": 19000576.0,
+          "released_delta": 110768.0,
+          "max_rss_kib": 74540.0,
+          "ArenaBytes": 18868352.0,
+          "SourceBytes": 1049572.0,
+          "Nodes": 121045.0,
+          "BeforeHeap": 28245292.0,
+          "LiveHeap": 47253556.0,
+          "ReleasedHeap": 28363748.0
+        },
+        "candidate": {
+          "retained_delta": 14986176.0,
+          "released_delta": 110768.0,
+          "max_rss_kib": 77364.0,
+          "ArenaBytes": 21619328.0,
+          "SourceBytes": 1049572.0,
+          "Nodes": 121045.0,
+          "BeforeHeap": 35328212.0,
+          "LiveHeap": 50304848.0,
+          "ReleasedHeap": 35429440.0
+        }
+      },
+      "ratios": {
+        "retained_delta": 0.7887221945271554,
+        "max_rss_kib": 1.037885698953582,
+        "LiveHeap": 1.0645727487683678,
+        "ArenaBytes": 1.145798424790888
+      },
+      "source_sha256": "8d615e96c0efe207dd1bfc4f54f601580d61dd0afc8f051ac3aaa92a2b27e397",
+      "digest": 3921435934720155749
+    }
+  },
+  "ratchet_failures": []
+}

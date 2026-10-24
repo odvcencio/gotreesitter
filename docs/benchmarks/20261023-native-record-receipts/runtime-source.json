@@ -1,0 +1,15 @@
+{
+  "preceding_commit": "57954e11a06588ce92833d489b48aced5f08d43d",
+  "frozen_source": "/home/draco/.local/state/gotreesitter-evidence/20261021-runtime-rss-architecture/compact-link-storage-v1/native-record-receipts-v2/source",
+  "all_go_sources_identical": true,
+  "go_file_count": 3559,
+  "sorted_go_source_manifest_sha256": "357a335168d4148016a6c74e7e473aa6b011ae86ea05fe4a072941bb81909bed",
+  "module_file_sha256": {
+    "go.mod": "680914eb764915fc501a8dc6bbab1aad15dc627ab5a2a6d3facbeb0aecfd1adb",
+    "go.sum": "d2f748bcf41fbd5e91794955fac18df413f2cb104da683ef7ad444f30c17b19a",
+    "cgo_harness/go.mod": "8df1aa712623c51361d30d9ca03dbc70ac6e5e31fad2ac6dea790efc077b92a6",
+    "cgo_harness/go.sum": "4939d7f5c5c71bf9ecf07e69b3806f3b300372c895f8c106f9152d23dbf7731c"
+  },
+  "page_reservation_included": false,
+  "promotion": "held"
+}

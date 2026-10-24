@@ -1334,17 +1334,19 @@ func TestDiagnosticParserCoreVersionLexerCoallocatedStorageBudgetAndGeneration(t
 			if err != nil || snapshot == nil {
 				t.Fatalf("construct snapshot: %v", err)
 			}
-			if !reflect.DeepEqual(snapshot.dfa, wantDFA) {
+			logicalDFA := snapshot.dfa
+			logicalDFA.extZeroTried = snapshot.triedMask.Restore(nil)
+			if !reflect.DeepEqual(logicalDFA, wantDFA) {
 				t.Fatal("coallocation changed captured DFA values")
 			}
 			reserved := 32
 			if payloadSize > 32 {
 				reserved = 64
 			}
-			if cap(snapshot.dfa.externalPayload)+cap(snapshot.dfa.externalTokenStart)+cap(snapshot.dfa.externalTokenEnd) != reserved || cap(snapshot.dfa.extZeroTried) != 128 {
+			if cap(snapshot.dfa.externalPayload)+cap(snapshot.dfa.externalTokenStart)+cap(snapshot.dfa.externalTokenEnd) != reserved || snapshot.triedMask.Len() != 113 || snapshot.dfa.extZeroTried != nil {
 				t.Fatal("snapshot did not retain all reserved storage in its field capacities")
 			}
-			wantFootprint := uint64(unsafe.Sizeof(*snapshot)) + uint64(unsafe.Sizeof(*snapshot.metadata)) + uint64(reserved+128+cap(snapshot.beforeCheckpointBytes)+cap(snapshot.afterCheckpointBytes))
+			wantFootprint := uint64(unsafe.Sizeof(*snapshot)) + uint64(unsafe.Sizeof(*snapshot.metadata)) + uint64(reserved+cap(snapshot.beforeCheckpointBytes)+cap(snapshot.afterCheckpointBytes))
 			if got := diagnosticParserCoreVersionLexerSnapshotFootprintBytes(snapshot); got != wantFootprint {
 				t.Fatalf("snapshot footprint %d, want reserved storage %d", got, wantFootprint)
 			}
@@ -1353,8 +1355,12 @@ func TestDiagnosticParserCoreVersionLexerCoallocatedStorageBudgetAndGeneration(t
 				t.Fatal("independent clone changed snapshot identity")
 			}
 			dfa.externalPayload[0], dfa.extZeroTried[0] = 0, false
-			clone.dfa.externalTokenEnd[0], clone.dfa.extZeroTried[112] = 0, false
-			if snapshot.dfa.externalPayload[0] != 0x11 || snapshot.dfa.externalTokenEnd[0] != 0x41 || !snapshot.dfa.extZeroTried[0] || !snapshot.dfa.extZeroTried[112] {
+			clone.dfa.externalTokenEnd[0] = 0
+			clonedMask := clone.triedMask.Restore(nil)
+			clonedMask[112] = false
+			clone.triedMask, _ = core.PackScannerTrialMask(clonedMask)
+			originalMask := snapshot.triedMask.Restore(nil)
+			if snapshot.dfa.externalPayload[0] != 0x11 || snapshot.dfa.externalTokenEnd[0] != 0x41 || !originalMask[0] || !originalMask[112] {
 				t.Fatal("coallocated source or clone storage aliases the original snapshot")
 			}
 			if err := compact.Reset(); err != nil {
@@ -1512,5 +1518,22 @@ func TestSnapshotPairFootprintMultiplePagesInPointerOrder(t *testing.T) {
 	}
 	if delta := diagnosticParserCoreSchedulerFootprintBytes(live) - diagnosticParserCoreSchedulerFootprintBytes(empty); delta != expected {
 		t.Fatalf("page accounting=%d want=%d", delta, expected)
+	}
+}
+
+func TestPackedSnapshotTrialIdentityUsesOnlyActiveCache(t *testing.T) {
+	trials := make([]bool, 113)
+	trials[0] = true
+	mask, _ := core.PackScannerTrialMask(trials)
+	left := &diagnosticParserCoreVersionLexerSnapshot{dfa: dfaRelexSnapshot{lexerPos: 5, extZeroPos: 5, extZeroState: 2}, triedMask: mask}
+	right := *left
+	trials[0], trials[112] = false, true
+	right.triedMask, _ = core.PackScannerTrialMask(trials)
+	if diagnosticParserCoreVersionLexerSnapshotEqual(left, &right) {
+		t.Fatal("active distinct trials compared equal")
+	}
+	left.dfa.extZeroPos, right.dfa.extZeroPos = 4, 4
+	if !diagnosticParserCoreVersionLexerSnapshotEqual(left, &right) {
+		t.Fatal("inactive trials changed logical snapshot equality")
 	}
 }

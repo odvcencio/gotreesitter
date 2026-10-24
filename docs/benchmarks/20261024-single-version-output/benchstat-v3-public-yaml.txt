@@ -1,0 +1,37 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                  │ baseline-yaml.txt │          public-yaml.txt           │
+                                  │      sec/op       │   sec/op     vs base               │
+SingleVersionOutput/eof8k_parse           771.0µ ± 0%   725.4µ ± 1%  -5.91% (p=0.000 n=20)
+SingleVersionOutput/r4_parse              197.2µ ± 0%   186.6µ ± 1%  -5.40% (p=0.000 n=20)
+SingleVersionOutput/r4_consume            198.7µ ± 1%   188.3µ ± 0%  -5.22% (p=0.000 n=20)
+SingleVersionOutput/eof8k_consume         778.0µ ± 0%   730.9µ ± 1%  -6.05% (p=0.000 n=20)
+geomean                                   391.5µ        369.4µ       -5.65%
+
+                                  │ baseline-yaml.txt │           public-yaml.txt            │
+                                  │        B/s        │      B/s       vs base               │
+SingleVersionOutput/eof8k_parse          9.909Mi ± 0%   10.533Mi ± 1%  +6.30% (p=0.000 n=20)
+SingleVersionOutput/r4_parse             9.661Mi ± 0%   10.214Mi ± 1%  +5.73% (p=0.000 n=20)
+SingleVersionOutput/r4_consume           9.594Mi ± 0%   10.118Mi ± 0%  +5.47% (p=0.000 n=20)
+SingleVersionOutput/eof8k_consume        9.818Mi ± 0%   10.452Mi ± 1%  +6.46% (p=0.000 n=20)
+geomean                                  9.745Mi         10.33Mi       +5.99%
+
+                                  │ baseline-yaml.txt │            public-yaml.txt            │
+                                  │       B/op        │     B/op      vs base                 │
+SingleVersionOutput/eof8k_parse          17.88Ki ± 0%   17.88Ki ± 0%       ~ (p=1.000 n=20)
+SingleVersionOutput/r4_parse             5.328Ki ± 0%   5.328Ki ± 0%       ~ (p=1.000 n=20) ¹
+SingleVersionOutput/r4_consume           5.328Ki ± 0%   5.328Ki ± 0%       ~ (p=1.000 n=20) ¹
+SingleVersionOutput/eof8k_consume        17.88Ki ± 0%   17.88Ki ± 0%       ~ (p=1.000 n=20)
+geomean                                  9.759Ki        9.759Ki       +0.00%
+¹ all samples are equal
+
+                                  │ baseline-yaml.txt │           public-yaml.txt           │
+                                  │     allocs/op     │ allocs/op   vs base                 │
+SingleVersionOutput/eof8k_parse            70.00 ± 0%   70.00 ± 0%       ~ (p=1.000 n=20) ¹
+SingleVersionOutput/r4_parse               39.00 ± 0%   39.00 ± 0%       ~ (p=1.000 n=20) ¹
+SingleVersionOutput/r4_consume             39.00 ± 0%   39.00 ± 0%       ~ (p=1.000 n=20) ¹
+SingleVersionOutput/eof8k_consume          70.00 ± 0%   70.00 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                    52.25        52.25       +0.00%
+¹ all samples are equal

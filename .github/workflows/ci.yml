@@ -1256,6 +1256,65 @@ jobs:
           GOWORK=off go test ./cmd/perfcounterledger -count=1
           GOMAXPROCS=1 GOWORK=off go run ./cmd/perfcounterledger
 
+  v1_edit_sessions:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'workflow_dispatch'
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      - name: Run every v1 edit session in Docker
+        env:
+          SESSION_IMAGE: golang@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437
+          SESSION_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          evidence="${RUNNER_TEMP}/v1-edit-sessions"
+          mkdir -p "$evidence" "${RUNNER_TEMP}/v1-go-build" "${RUNNER_TEMP}/v1-go-mod"
+          docker pull "$SESSION_IMAGE"
+          docker image inspect "$SESSION_IMAGE" > "${RUNNER_TEMP}/v1-session-image.json"
+          container="gts-v1-sessions-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cleanup() {
+            cp "${RUNNER_TEMP}/v1-session-image.json" "$evidence/image.json"
+            docker stop --time 10 "$container" >/dev/null 2>&1 || true
+            docker inspect "$container" > "$evidence/container.json" 2>/dev/null || true
+            docker rm "$container" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          set +e
+          docker run --name "$container" --memory 4g --memory-swap 4g --cpus 2 --pids-limit 512 \
+            -e GOMAXPROCS=1 -e GOMEMLIMIT=3GiB -e GTS_V1_SOURCE_SHA="$SESSION_SOURCE_SHA" \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" -v "$evidence:/evidence" \
+            -v "${RUNNER_TEMP}/v1-go-build:/go-build" -v "${RUNNER_TEMP}/v1-go-mod:/go-mod" \
+            -e GOCACHE=/go-build -e GOMODCACHE=/go-mod \
+            "$SESSION_IMAGE" bash /workspace/scripts/run_v1_invariant_sessions.sh /evidence
+          status=$?
+          set -e
+          docker inspect "$container" > "${RUNNER_TEMP}/v1-session-container.json"
+          cp "${RUNNER_TEMP}/v1-session-container.json" "$evidence/container.json"
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          python3 - "$evidence/container.json" <<'PYCODE'
+          import json, sys
+          state = json.load(open(sys.argv[1]))[0]['State']
+          assert state['Status'] == 'exited' and state['ExitCode'] == 0 and not state['OOMKilled'], state
+          PYCODE
+
+      - name: Preserve complete and partial edit-session evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: v1-edit-sessions
+          path: |
+            ${{ runner.temp }}/v1-edit-sessions
+            !${{ runner.temp }}/v1-edit-sessions/root.test
+            !${{ runner.temp }}/v1-edit-sessions/ledger
+          if-no-files-found: warn
+
   exhaustive_parity_scope:
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 5
@@ -1357,6 +1416,7 @@ jobs:
       - glr_gss_demotion_scaling_gate
       - apidiff
       - counter_ledger
+      - v1_edit_sessions
       - editor_latency
       - exhaustive_parity_scope
       - compact-t3-oracle-cgo
@@ -1393,6 +1453,7 @@ jobs:
           GLR_GSS_DEMOTION_SCALING_GATE_RESULT: ${{ needs.glr_gss_demotion_scaling_gate.result }}
           APIDIFF_RESULT: ${{ needs.apidiff.result }}
           COUNTER_LEDGER_RESULT: ${{ needs.counter_ledger.result }}
+          V1_EDIT_SESSIONS_RESULT: ${{ needs.v1_edit_sessions.result }}
           EDITOR_LATENCY_RESULT: ${{ needs.editor_latency.result }}
           IS_MANUAL_RUN: ${{ github.event_name == 'workflow_dispatch' }}
           EXHAUSTIVE_PARITY_SCOPE_RESULT: ${{ needs.exhaustive_parity_scope.result }}
@@ -1448,6 +1509,9 @@ jobs:
           require_success "glr_gss_demotion_scaling_gate" "$GLR_GSS_DEMOTION_SCALING_GATE_RESULT"
           require_success "apidiff" "$APIDIFF_RESULT"
           require_success "counter_ledger" "$COUNTER_LEDGER_RESULT"
+          if [ "$IS_MANUAL_RUN" = "true" ]; then
+            require_success "v1_edit_sessions" "$V1_EDIT_SESSIONS_RESULT"
+          fi
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
           require_success "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"

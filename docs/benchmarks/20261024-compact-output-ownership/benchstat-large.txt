@@ -1,0 +1,27 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                    │ baseline-large.txt │        candidate-large.txt         │
+                                    │       sec/op       │   sec/op     vs base               │
+SingleVersionOutput/one_mib_consume          555.6m ± 4%   551.4m ± 7%       ~ (p=0.461 n=20)
+SingleVersionOutput/one_mib_parse            544.7m ± 4%   543.6m ± 4%       ~ (p=0.445 n=20)
+geomean                                      550.1m        547.5m       -0.48%
+
+                                    │ baseline-large.txt │         candidate-large.txt         │
+                                    │        B/s         │     B/s       vs base               │
+SingleVersionOutput/one_mib_consume         1.802Mi ± 4%   1.817Mi ± 7%       ~ (p=0.464 n=20)
+SingleVersionOutput/one_mib_parse           1.841Mi ± 4%   1.836Mi ± 4%       ~ (p=0.456 n=20)
+geomean                                     1.821Mi        1.826Mi       +0.27%
+
+                                    │ baseline-large.txt │         candidate-large.txt         │
+                                    │        B/op        │     B/op      vs base               │
+SingleVersionOutput/one_mib_consume         8.499Mi ± 0%   8.499Mi ± 0%       ~ (p=0.480 n=20)
+SingleVersionOutput/one_mib_parse           8.499Mi ± 0%   8.499Mi ± 0%       ~ (p=0.983 n=20)
+geomean                                     8.499Mi        8.499Mi       +0.00%
+
+                                    │ baseline-large.txt │        candidate-large.txt        │
+                                    │     allocs/op      │ allocs/op   vs base               │
+SingleVersionOutput/one_mib_consume           30.00 ± 0%   30.00 ± 0%       ~ (p=1.000 n=20)
+SingleVersionOutput/one_mib_parse             30.00 ± 0%   30.00 ± 0%       ~ (p=1.000 n=20)
+geomean                                       30.00        30.00       +0.00%

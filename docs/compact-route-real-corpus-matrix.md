@@ -1,6 +1,6 @@
 # Compact route real-corpus matrix
 
-Current evidence date: 2026-10-20 (UTC).
+Current evidence date: 2026-10-24 (UTC).
 Parent PR #1486 merged to main as `88dc1d9c3ff15cc2b8b5c53864455fc3a24a9d34`
 after all 78 checks passed. Branch integration `b876c5b5` preserves all 414
 ledger rows and passes focused TypeScript/TSX C checks. The final whole-PR matched-order audit passes all 414 rows and 480 timings;
@@ -23,6 +23,28 @@ Scope: the 204 committed real `sample` files in the R4 manifest. CSV and Enforce
 have only synthetic samples and are outside this real-file census.
 
 ## Current compact-graduation matrix
+
+Current owner instruction: **hold all merges to main**. The earlier release condition was fulfilled, but the renewed hold remains active independently of that release. PR #1512 stays draft; branch-relative experiments do not graduate a language.
+
+### Public compact trees: Go publisher enabled within the candidate route
+
+The [public-output receipt](benchmarks/20261024-public-compact-views/README.md) connects owned compact snapshots to the public tree, query, copy, and edit APIs. A parse creates one stable root header; child reads create views on demand, and edits restore the complete mutable representation with replay/checkpoint/reuse receipts. The full fresh verifier remains enabled. Go uses this publisher inside its existing candidate route; YAML requires the experimental output tag. Admission allowlists and the global route default are unchanged.
+
+Twenty paired runs measure Go full-DFA time **−12.25%**, bytes **−39.11%**, and allocations **36→22**. Public 235 KiB Go parse time falls **8.31%**, with **59.09% fewer allocated bytes**. Legacy Go/YAML traversal improves **21.14% / 25.25%**. All **1,040** before/after rows pass the relative ratchets. YAML parse speed is inconclusive; its traversal and edit slowdowns keep it experimental. Go query/edit allocation increases, legacy query slowdowns, and no-edit timing increases remain explicit in the receipt.
+
+All **160** large-file memory processes are retained, including initial screening pairs. Root-only total live heap falls about **24%** for both languages. Fully traversed trees retain both representations and increase live heap **14.64% / 6.46%**; peak RSS rises **8.63–9.27% / 3.79–3.90%**, within the unchanged relative and absolute gates. Correctness covers **412 invariant sessions**, **29,664 edits**, **1,236 standard C checks**, race/386/emergency checks, and 20 memory contracts. The 824 work rows and 206 selected ledgers have no adverse changes. The latest Cognociente replay preserves twelve independent fresh agreements and eight clean C passes, with the same four malformed-delete C mismatches. The 640-row locked native-C diagnostic measures **2.63–2.82× C for Go** and **1.90–2.02× C for YAML**; it is not the standalone-static graduation protocol. Main-based net, platform, C-correctness, graduation, and merge holds remain.
+
+### Compact result ownership: retained graph removed
+
+The [ownership receipt](benchmarks/20261024-compact-output-ownership/README.md) separates result recycling from the producing core. Across twenty matched pairs per language, keeping a compact result after discarding its parser retains **152.21→46.14 MB for 1 MiB Go (−69.69%)** and **27.67→5.77 MB for 1 MiB YAML (−79.16%)**, with identical output and work. This earlier checkpoint uses the internal read-only route; public integration is qualified separately above. Peak RSS changes only −1.91% / −0.05%; all thirteen timing comparisons are inconclusive, so this is a lifetime/memory bucket with no throughput-win claim.
+
+All **824 complete-operation rows**, **206 selected ledgers**, **412 invariant sessions**, **1,236 standard C checks**, and **20 memory-contract tests** pass. All 520 timing rows pass the configured ratchets, and no-edit remains allocation-free. The exact Cognociente replay retains twelve independent fresh agreements, eight clean C passes, and the same four malformed-delete C failures. Main-based net, public-output, platform, correctness, graduation, and merge holds remain.
+
+### Single-version loop and direct compact output
+
+The [new qualification bucket](benchmarks/20261024-single-version-output/README.md) builds the owned deterministic loop and an internal read-only compact output route. Twenty paired runs measure public compact Go full DFA time **8.51% lower**, fresh-parser 1 MiB time **3.06% lower**, and real Go files **1.08–1.52% lower**. The direct read-only route cuts real Go/YAML parse time **11.61–13.48%**; generated 1 MiB Go takes **16.42% less parse time**, allocates **65.61% fewer bytes**, and falls **673→30 allocations**. Traversing every output node retains the gain. These read-only numbers are not public `*Node` API improvements.
+
+All **824 complete-operation work rows**, **206 selected ledgers**, **412 invariant sessions**, and **1,236 standard C checks** pass unchanged. The known Cognociente malformed-delete C mismatch remains, as do the fresh verifier, public-output integration, memory/net-PR qualification, and graduation holds. The receipt separates actual public routing, read-only consumption, controls, and directional regressions.
 
 ### Trusted small-source verification: measured Go edits, held counters
 

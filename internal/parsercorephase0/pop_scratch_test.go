@@ -146,7 +146,7 @@ func TestPopSingleLinkPathPreservesAdjacencyPreflightFailures(t *testing.T) {
 		}
 	})
 	t.Run("corrupt recorded count beyond arena", func(t *testing.T) {
-		node.linkCount = uint32(len(compact.links) + 1)
+		node.linkCount = uint32(compact.links.Len() + 1)
 		compact.limits.MaxLinks = node.linkCount
 		compact.limits.MaxLinksPerBoundary = node.linkCount
 		defer func() {
@@ -224,7 +224,7 @@ func TestPopScratchAdjacencyFramesRejectCorruptionAndRetryCleanly(t *testing.T) 
 		t.Fatal(err)
 	}
 	originalNode := *node
-	originalLinks := append([]linkRecord(nil), compact.links...)
+	originalLinks := compact.links.Values()
 
 	tests := []struct {
 		name    string
@@ -242,14 +242,18 @@ func TestPopScratchAdjacencyFramesRejectCorruptionAndRetryCleanly(t *testing.T) 
 			name: "out-of-range",
 			corrupt: func() {
 				node.linkCount = 1
-				node.firstLink = uint32(len(compact.links) + 1)
+				node.firstLink = uint32(compact.links.Len() + 1)
 			},
 			want: "link adjacency out of range",
 		},
 		{
 			name: "overlong-cycle",
 			corrupt: func() {
-				compact.links[originalNode.firstLink-1].next = LinkID(originalNode.firstLink)
+				{
+					linkStorageMutation := compact.links.At(int(originalNode.firstLink - 1))
+					linkStorageMutation.next = LinkID(originalNode.firstLink)
+					compact.links.Set(int(originalNode.firstLink-1), linkStorageMutation)
+				}
 			},
 			want: "exceeds recorded link count or cycles",
 		},
@@ -258,7 +262,9 @@ func TestPopScratchAdjacencyFramesRejectCorruptionAndRetryCleanly(t *testing.T) 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			*node = originalNode
-			copy(compact.links, originalLinks)
+			for index, record := range originalLinks {
+				compact.links.Set(index, record)
+			}
 			test.corrupt()
 			if _, err := compact.popPaths(head.Node, 2); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("corruption error=%v, want %q", err, test.want)
@@ -273,7 +279,9 @@ func TestPopScratchAdjacencyFramesRejectCorruptionAndRetryCleanly(t *testing.T) 
 			}
 
 			*node = originalNode
-			copy(compact.links, originalLinks)
+			for index, record := range originalLinks {
+				compact.links.Set(index, record)
+			}
 			paths, err := compact.popPaths(head.Node, 2)
 			if err != nil || len(paths) != 2 || paths[0].score != 2 || paths[1].score != 5 {
 				t.Fatalf("clean retry paths=%+v err=%v", paths, err)
@@ -294,7 +302,7 @@ func TestNodeLinksIntoRejectsRecordedCountOutsideBounds(t *testing.T) {
 		t.Fatalf("configured-limit error=%v", err)
 	}
 	overArena := *node
-	overArena.linkCount = uint32(len(compact.links) + 1)
+	overArena.linkCount = uint32(compact.links.Len() + 1)
 	compact.limits.MaxLinksPerBoundary = overArena.linkCount
 	if _, err := compact.nodeLinksInto(make([]linkRecord, 0, 4), overArena); err == nil || !strings.Contains(err.Error(), "exceeds link arena") {
 		t.Fatalf("arena-limit error=%v", err)
@@ -389,7 +397,7 @@ func TestReductionScratchPanicRollsBackAndRetriesCleanly(t *testing.T) {
 	beforeBoundaries := cloneBoundaryMap(compact.boundaries)
 	beforeWork := compact.Work()
 	beforeArenas := [...]int{
-		compact.nodes.Len(), len(compact.links), compact.subtrees.Len(),
+		compact.nodes.Len(), compact.links.Len(), compact.subtrees.Len(),
 		len(compact.children), len(compact.fields), len(compact.aliases),
 	}
 	func() {
@@ -409,7 +417,7 @@ func TestReductionScratchPanicRollsBackAndRetriesCleanly(t *testing.T) {
 		t.Fatal(err)
 	}
 	afterArenas := [...]int{
-		compact.nodes.Len(), len(compact.links), compact.subtrees.Len(),
+		compact.nodes.Len(), compact.links.Len(), compact.subtrees.Len(),
 		len(compact.children), len(compact.fields), len(compact.aliases),
 	}
 	if after != before || afterArenas != beforeArenas || !reflect.DeepEqual(compact.boundaries.logicalMap(), beforeBoundaries) || compact.Work() != beforeWork {

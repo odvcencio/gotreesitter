@@ -99,7 +99,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		return nil, err
 	}
 	configureParserCoreScannerProvenance(compact, p.language)
-	return &parserCoreFreshFullRunner{
+	runner := &parserCoreFreshFullRunner{
 		lang: p.language, parser: p, tables: tables, compact: compact, options: options,
 		// Incremental reuse is admitted only when materialization can attach the
 		// table-replayed state proof. Diagnostic runners retain their explicit
@@ -108,7 +108,13 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		replayParseStates:                 true,
 		allowConvergedReductionSplitDrops: allowConvergedSplitDrop,
 		recoveryPlainFirst:                p.language.CompactRecoveryPlainFirstCertified || allowOwnedEOFRecovery,
-	}, nil
+	}
+	if core.ExternalLexerOwnsAllTerminals(p.language.TokenCount, p.language.ExternalSymbols) ||
+		!p.language.CompactLexerSkippedPrefixTilingCertified && classifyExternalScannerQuiescence(p.language) == scannerQuiescenceProven {
+		identity, valid := tables.TableIdentity()
+		runner.scratch.nativeProjection = &nativeProjectionWorkspace{compactViews: valid && compactNodeViewsForContract(identity)}
+	}
+	return runner, nil
 }
 
 // acquireAdmissionCandidateRunner pins a private runner for diagnostics that

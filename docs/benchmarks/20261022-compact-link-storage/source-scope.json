@@ -1,0 +1,224 @@
+{
+  "base_commit": "afd16867b666dfec05f3eb28e9eee86036474532",
+  "baseline_Go_files": 3541,
+  "branch": "codex/compact-link-storage-20261022",
+  "candidate_Go_files": 3543,
+  "changed_Go_files": {
+    "internal/parsercorephase0/ancestor_recovery.go": {
+      "after": "f6e60ae824f3580c70b931dd1835a083bdbd977784b9fcc3967d333703c23885",
+      "before": "58c79a7b957ba7560e2cb501817d21f77a9117d9170c8971436c8737b8c36368"
+    },
+    "internal/parsercorephase0/ancestor_recovery_open_region_test.go": {
+      "after": "b147eb9034ee1dd8153f3f544fd87ebec83b9628ac34c371326e123ee7831319",
+      "before": "c21eea2313d24e94ff9de1fee7b52a219e942d67840cda488b0234f0e121e40b"
+    },
+    "internal/parsercorephase0/ancestor_recovery_test.go": {
+      "after": "467d77dfc518f515d6d7339be02156440f66c5670c60dfbc9d8b1c467e2436a7",
+      "before": "e68118a51b3496cd03044f27dd317aa69b56c5c42c6af4d6e9f3f5db19847495"
+    },
+    "internal/parsercorephase0/arena_projection.go": {
+      "after": "7162fc6aebe1b1aaab6f6364daee97f01784348fc5837f7d8a4a899f6cd34e41",
+      "before": "7bf15e58e961d02c13d09e633ffc30ed75f910fde0e837a5dfd8f853c03e5ff0"
+    },
+    "internal/parsercorephase0/arena_projection_test.go": {
+      "after": "077725a5b4cd4b7028bbc0cdfa4315cf85d54fc0fc18367a001429c6355f756f",
+      "before": "b98f1f3ffc594c2b3c0afaea74f22c9181f1ad63a01b92df40ed076bc5e08a2c"
+    },
+    "internal/parsercorephase0/arena_reserve.go": {
+      "after": "3c31ab92c1178f3aaf088869dc3bdd671538337194944a9ee6d360b9031aa790",
+      "before": "5e335f4b1ea1ac8b27554604d3e892b9179468d3a6b5ad37c3e916933b6d9215"
+    },
+    "internal/parsercorephase0/arena_reserve_test.go": {
+      "after": "0e10f08e80d7c4fd7e0f7401deeac385a6e94e48701201aee0f3047db8c33031",
+      "before": "ec2b37b5ddb570d81fe8575aa6d158b1b60b5b4cdf7517ea49439b3505a17204"
+    },
+    "internal/parsercorephase0/clean_path_rank_test.go": {
+      "after": "98dbff6dd4d34482316e85236aca2f1103b4fc3a00e950ec319b5f995c79688e",
+      "before": "0dc1c2b053ddda3fd39fff2cb2b70dc11bf8fe67f3fa44556bb1f04e0331195e"
+    },
+    "internal/parsercorephase0/core.go": {
+      "after": "2752382a0c3615e5147ff389db781b027df92f51641869e722f12fd97501b3da",
+      "before": "b60ab0a9cb1c69760be0ba388e3885428016278e3cd28db0c9bee0aa1db16f70"
+    },
+    "internal/parsercorephase0/core_test.go": {
+      "after": "0326ee24a373dd42299be536124c8beaf3d436911cba57e4d26cc0e870135b12",
+      "before": "fd70de3ed5775f9fda070a62f9fb4977be9a90e20143c1dc2cd2fb4674acfad5"
+    },
+    "internal/parsercorephase0/dag_invariant_test.go": {
+      "after": "8ea87bf09c88c0c941be8a5f66306d9b29f60f293dbac69e3fa5beb7eb7745bd",
+      "before": "ee5532a371fe2a65a8c610e14c93f1e293c8cf31ed0f8f47b701aeefb6736cd8"
+    },
+    "internal/parsercorephase0/derivation_scratch.go": {
+      "after": "fec4dc121fca4b1f81bc13dbac8ac76f6c2813da2a1fea4fe5f050d7efb8d3a7",
+      "before": "ac7acb3edcffd5496510de2d62c8dc64d74d47e082a40e46d051e15fefafd522"
+    },
+    "internal/parsercorephase0/drop_cohort_arena.go": {
+      "after": "5468b0fa83a0ba5f3dfad32117f2ecf2fc90db70447775054d2cc7981774e6ef",
+      "before": "8aca2ae51fef2d4c2d07c9f1ad32b3121f7d85391864b2197ee36daa145673c6"
+    },
+    "internal/parsercorephase0/drop_cohort_arena_test.go": {
+      "after": "f43df36ee36ec114b91e0abfe581b60642ccf0257b8f6e4fac7fb539b820e6a8",
+      "before": "eb41e6fc99e61d39124d8c0a44eb010b7a45358b8be0cd838c72b390c02f0eba"
+    },
+    "internal/parsercorephase0/eager_materialization.go": {
+      "after": "1db8d4d6406fa5cb3ccea2203b6defd3c9c0eafbea09ff40dc88b963df0d2551",
+      "before": "f78f2162d48c42e1e00bfe10b8c6d4e06e5a6c5847db5f3c1d3366d01258b5a6"
+    },
+    "internal/parsercorephase0/eof_admission_view.go": {
+      "after": "324071c357c5d56a3c9625afaa9cdd047f37122ce8e81b1b715a66367e5635c6",
+      "before": "91822252fca1da727547921d84c155834d660b76e7378463c7533d2d78b13367"
+    },
+    "internal/parsercorephase0/eof_recovery_live_test.go": {
+      "after": "68ee2b41ac08172e4d9292e0dddab42e0d71553acdfe6247f6e52a30c9334b58",
+      "before": "a70aa5928217454116c183e20f00019d5d3b4af905b03babd648c90af73f0608"
+    },
+    "internal/parsercorephase0/eof_recovery_shadow.go": {
+      "after": "e0aad57ac14f304693704a184d6c1fd1624cb249165c739d8ec9f78bd155338e",
+      "before": "13e1255716d49f451c3797561bff701202b6efb5d42a3b25ae814756dd9a5292"
+    },
+    "internal/parsercorephase0/eof_recovery_shadow_test.go": {
+      "after": "0458448703565e219b1643d8ed6306a73df0b0bb702d4190e541536d7b6c4878",
+      "before": "507ebabb426eac2401f03127b40953a7770ffec89a0a60b66aa3209e1cb74ab8"
+    },
+    "internal/parsercorephase0/link_provenance.go": {
+      "after": "53c670044dd96b26d7b6a6e152144a7e208437ed0beb90546ef2144fdb03b763",
+      "before": "3f668eb5937f6e1492101cb4f0c50f3d06178f04aa2de84bb39db32e967c6a21"
+    },
+    "internal/parsercorephase0/link_provenance_test.go": {
+      "after": "aa7428e4acad9eefd0cd0ea0c7fee99246976c15a1e691ab67a9743663b895f0",
+      "before": "2d6701cb5ccddb97be3316df5c7b8886e821f1d72731326a4a8b18f372a28357"
+    },
+    "internal/parsercorephase0/link_record_storage.go": {
+      "after": "3638f4bc7f53f06c3fab78ad4a96258de55a207ad6d30378658c2e1e2b28ce9b",
+      "before": null
+    },
+    "internal/parsercorephase0/link_record_storage_test.go": {
+      "after": "d75adc13d7cb66d276a70a6ebf14051f6cbc1185bb784ae9666d23fe518d5544",
+      "before": null
+    },
+    "internal/parsercorephase0/missing_leaf.go": {
+      "after": "882536f723714cdf75851d2a8bd749d60e626b4fdf67b6de0f06f9b69b4bbb59",
+      "before": "44b8875cdce806e9206c8af93f8750beafa0eaac85884fe8f307154cb9de76d2"
+    },
+    "internal/parsercorephase0/phase0a_factor_provenance.go": {
+      "after": "dfbcd6b9e0a46acd70be5703b93ca7db31689b68cf31d63b7d193959f6e7eea9",
+      "before": "beecef97cc366fa08beb35683ed5fd3ca3717950f224f5d431c4ef9fdbe09c53"
+    },
+    "internal/parsercorephase0/phase0a_routes.go": {
+      "after": "a564e71402f7d48bf103260fd721a5d460e1da65b3c41beeb204fbf6484e60d5",
+      "before": "b3f806030cebbc1ce7d3eb0d169c862d5d477ae8f91043c4a0f2ed1d3aefe0dd"
+    },
+    "internal/parsercorephase0/phase0a_routes_test.go": {
+      "after": "b7c8274704a9544411ac9755d6ac0fe060e2d404412ff1cd4971d663f94be223",
+      "before": "261aef4218c8f8843fa298a2e85d18aa1c6c84714d7655db967e391e89ca11fa"
+    },
+    "internal/parsercorephase0/phase0a_selected_capability_test.go": {
+      "after": "fcff88198db92471ff676c4ee6e5d7906614f0a719e81ff91983f27a5028fe6a",
+      "before": "d8ac132bc5aedd563f6234ce5c8e8d3546f9f4edbc6c5af8bab918bc9753fb7d"
+    },
+    "internal/parsercorephase0/phase0a_selected_occurrences_test.go": {
+      "after": "b822a93ba1bac6ba57e739e3f8af7cf99ed1ab82cb4f17bacbaababb783c9920",
+      "before": "1edf01b8e66c795072b31505fb285c3420f1c243e17448d42327d68a394893a1"
+    },
+    "internal/parsercorephase0/phase0a_trailing_extra_test.go": {
+      "after": "9649590b81f6a9a43fbb36ada9033bb9e2a35f75a7e296281317f7800a5e6743",
+      "before": "6312338e9540c34e66d914d2d61feb7f6b46ff835892edc65fe23b956683b25f"
+    },
+    "internal/parsercorephase0/physical_head_merge_stage2_test.go": {
+      "after": "e5c173511af59590560f5a6007a5bf3827e0ef3fea325825cb5ba059e3241592",
+      "before": "5fd67b8004e163b50d8d73d0efb1836f40175a532e92d711a11167e2f36250cf"
+    },
+    "internal/parsercorephase0/pop_scratch_test.go": {
+      "after": "2d89313e6c8c508b9eac5118e1dbeb3466f6ff7aaf0a9c740f4eaabaed7abc24",
+      "before": "665caf44141b785abd7713ab737e7e9fc656a28bc2dc1c153acbe44e13742ebd"
+    },
+    "internal/parsercorephase0/precedence_maximum_test.go": {
+      "after": "8b913a78082895941b8ab8c4f2557f36e474c4f34077447595e3714f043ae464",
+      "before": "bc3dcff353f9f778b7155a8f85ca5b990cb35021e014d2f0fff610719afc5e84"
+    },
+    "internal/parsercorephase0/recovery_discontinuity.go": {
+      "after": "c3a165321547984310a83dc84d39e49440e2accf6b2ae2d9e7ef2becef2bdd44",
+      "before": "e18cabb6d1bf39c1e564773aca64ece4b36c48d2b890dadf93d426e8b1862fc7"
+    },
+    "internal/parsercorephase0/recovery_discontinuity_test.go": {
+      "after": "51a41df2e5a81c7feb487268983d80540f4502f9fdb6f04350de05c18f5bdb5a",
+      "before": "ccb13ea73593d5fd4b672ad0beed28f1b2ba9e420903c9da3bdf6213dacdeebe"
+    },
+    "internal/parsercorephase0/recovery_sibling_merge_test.go": {
+      "after": "7b6249364a73118afdee1181791491aa36676bd2299e29d991c81bbdd19297e2",
+      "before": "ad31c517f576d2d001a747999c9322bf48fd7bfafcad2e8116a99f098cf48b6e"
+    },
+    "internal/parsercorephase0/recovery_visible_count.go": {
+      "after": "096c00a8a96c824c5933d92a7179ebb0b0efd93dec2e6a172d6ab5f386b0c39a",
+      "before": "29cf0861cbb51c2493ea336e634026ca9ba51a1267576361d7bf51009bdf3280"
+    },
+    "internal/parsercorephase0/recursive_insert_test.go": {
+      "after": "14cb018ff93a7fdf4339d729ce8183dc26e5f4f610ecc88a9fde63024239fd19",
+      "before": "ea9ecc44bd4a74d9cc81fac68bbfec5483863f54d3cb12a4d8b77132e0ca1b7c"
+    },
+    "internal/parsercorephase0/reset_test.go": {
+      "after": "821cbd7b37e8f7d6ef7e5c34e5ef823f2730fc6a48d328a39b2e6b331b3978c4",
+      "before": "32e1fcd530be9dec73d1f5718adc832b7d33fc3eeb8057d1bacf5d5c5320f1fe"
+    },
+    "internal/parsercorephase0/reuse_dependency.go": {
+      "after": "222dd75286aeb2ac39c06ad7e5cd754fe80606b6e1dcb780e9033b1b51af2160",
+      "before": "3ec97e6dfacbcb9a244603e5206938731d5c46cac434d702d1670c1d065f3923"
+    },
+    "internal/parsercorephase0/reuse_dependency_test.go": {
+      "after": "3c9384bf4c9ae3fa2650f53592d11063154fa126125f829f29aa8aa1cc7da437",
+      "before": "0adfd660a99498b690fb19c9ff69e6f275fc3bd6440946367cee164fe165d23a"
+    },
+    "internal/parsercorephase0/reused_subtree.go": {
+      "after": "eb8d9c4387af47c75f734796591ad4a29a2fd90fdbb304018a3b4fccaca4f8b4",
+      "before": "f78b93ae6ca827fcde5bacb68ad7b69841fe5410ab6f37366dde10604b7c4bf4"
+    },
+    "internal/parsercorephase0/s5_physical_head_falsifier_test.go": {
+      "after": "ba22e8048a258c21eaf5324c47e1365f37f31d39e5cc28437be0b1c90515a06c",
+      "before": "3061e17adb7484721ef04bafa45e2bc7002a9f18163e69a9b7dcf342d0072536"
+    },
+    "internal/parsercorephase0/scheduler_transaction_test.go": {
+      "after": "d1cea380a38f4ce6f943058e189bfd1628b584c130ea86439fba3203032f8c83",
+      "before": "2ab00925beb7548b9a94b17d1d72c3a941f148d1f0f2a3230949df2a2f2942f1"
+    },
+    "internal/parsercorephase0/shift_owner_test.go": {
+      "after": "b0cf570ea814a713607282d57e92f5bd80622d3afb8fe76619ef990ea0a4779b",
+      "before": "1f072be6f471a99a15dc925781baf5192a5ca6e3810f7d6465e388c26bcbd6ca"
+    },
+    "internal/parsercorephase0/sole_derivation_summary.go": {
+      "after": "001470f3932fdf4a46b00a5aa06198071a34ebbc7e85b3573b9bed13c41b6521",
+      "before": "f1b0ee660a8e918627c68da7d7125227429aa5b08f12d5b91fa47f7381e8dc06"
+    },
+    "internal/parsercorephase0/sole_derivation_summary_test.go": {
+      "after": "efb9e366071b9b389b7e7ef535c61bb57594f8eafdaf4fbde2ec2b1c6046ab06",
+      "before": "0c331b59f0151fb3c677f9ba9c459c4254ca95c3b3cffb6dfd10fba663941fea"
+    },
+    "internal/parsercorephase0/sole_derivation_test.go": {
+      "after": "742b073e5bd4955dbcf209da8de79e4abc471d9d0fe5f82736b3e5060043b981",
+      "before": "422cf4d3da956dd3c724db4101ab76d3bb3c6d01941664b5ba98727f71286cb3"
+    },
+    "internal/parsercorephase0/storage_bytes.go": {
+      "after": "b813c838718861fa47cc1a844dd6190a852abbcd0a46049baf863255f3aabdcc",
+      "before": "979004afd6625aefe88a67927a209ca5616afdecf14b8cb6c448ea6a70186875"
+    }
+  },
+  "held_PR1509_runtime_dependency": false,
+  "manifest_sha256": {
+    "baseline": "09d07655551f21acf0bfca809e7024f7f43b669a69d84958af42f5a7edfb51d6",
+    "candidate": "f1c1f28bfea75cacc3a71497bbb9d39ed037216550ebbe57479c99ffdc654cc6"
+  },
+  "production_files_changed": 20,
+  "qualification_snapshot_candidate_go_manifest_sha256": "661533f7c12ee42f5befab49ae4c1e24d4a7758ff5f10951b65c68d2d5189edc",
+  "qualification_snapshot_commit": "ec89776f7b26fb9c3931d1151d0aea64d2921d30",
+  "root_Go_files": 756,
+  "test_files_changed": 29,
+  "test_only_followup": {
+    "after_sha256": "d75adc13d7cb66d276a70a6ebf14051f6cbc1185bb784ae9666d23fe518d5544",
+    "before_sha256": "cee416a89744aec44f922e2a2bbad1790738c2068f1fae8d93977abb2f022bef",
+    "frozen_main_candidate_unchanged": true,
+    "path": "internal/parsercorephase0/link_record_storage_test.go",
+    "production_unchanged": true,
+    "qualification_snapshot_commit": "ec89776f7b26fb9c3931d1151d0aea64d2921d30",
+    "reason": "go vet copylocks: test copied Core containing sync.Mutex",
+    "validation": "pending exact-head CI"
+  }
+}

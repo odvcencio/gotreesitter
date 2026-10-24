@@ -1,0 +1,58 @@
+{
+  "recorded_at_utc": "2026-10-22T17:49:13.172051+00:00",
+  "status": "draft; throughput and peak-RSS qualification incomplete",
+  "production_snapshot_commit": "ec89776f7b26fb9c3931d1151d0aea64d2921d30",
+  "test_only_fix_commit": "7602080d6d4e53dcf1f301b8a0cc21364cda896a",
+  "CI_verified_head": "b37393e9cadde9a6272d216908389dd7d0ea9087",
+  "CI_run_id": 39822516577,
+  "CI_artifact_id": 12445458065,
+  "CI_archive_sha256": "4dbdd1da82f177528c1d10c74c23b88862097a534a9beeb9de443c4c7093da67",
+  "invariant_sweep_complete": true,
+  "invariant_sessions": 412,
+  "edit_steps": 29664,
+  "no_edit_allocations": 0,
+  "retained_sessions": 235,
+  "resumed_sessions": 177,
+  "selected_counter_rows_equal": 412,
+  "counter_sha256": "f56a46f0c76959e34f1a77e76b346b52f6f22406d953286cc12f24225635f243",
+  "standard_locked_C_checks": 1236,
+  "known_report_delete_C_failures_per_variant": 4,
+  "exact_report_all_C_comparisons_pass": false,
+  "large_Go_C_digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+  "large_YAML_pass_lines": {
+    "baseline-yaml_passes": 74,
+    "candidate-yaml_passes": 74
+  },
+  "owned_YAML_and_canonical": {
+    "passed": true,
+    "base_commit": "afd16867b666dfec05f3eb28e9eee86036474532",
+    "held_PR1509_dependency": false,
+    "source_unchanged": {
+      "baseline": true,
+      "candidate": true
+    },
+    "owned_YAML_selected_rows_equal": 2,
+    "owned_YAML_sessions": 2,
+    "canonical_core_scheduler_vectors_equal": 4,
+    "binary_sha256": {
+      "baseline": "c17415d7a860e94ff7525654c857dd82795ec3d2d7e110342a8bfd5abfac8d94",
+      "candidate": "8913ddba30a63585729eaa24c2b6b4b705fe94f77bdd3689fae89d7bfadd046f"
+    },
+    "no_OOM": true,
+    "timing_qualified": false
+  },
+  "source_unchanged": {
+    "baseline": true,
+    "candidate": true
+  },
+  "timing_qualified": false,
+  "peak_RSS_qualified": false,
+  "Windows_ARM64_reproduction": false,
+  "merge_eligible": false,
+  "archive": {
+    "path": "followup-validation.tar.gz",
+    "sha256": "b3190761b1c4e1d92214f5e4143bc9ae1f8847994099ab55c6dd5ddc6bd05118",
+    "bytes": 76843,
+    "members": 657
+  }
+}

@@ -1635,7 +1635,7 @@ func (c *Core) dropCohortSortedLinks(id NodeID) (result dropCohortSortedLinksRes
 	}()
 	linkID := LinkID(node.firstLink)
 	for linkID != 0 {
-		if uint64(linkID) > uint64(len(c.links)) {
+		if uint64(linkID) > uint64(c.links.Len()) {
 			return result, errors.New("parser-core phase zero: drop-cohort derivation adjacency out of range")
 		}
 		for _, prior := range seen {
@@ -1651,11 +1651,11 @@ func (c *Core) dropCohortSortedLinks(id NodeID) (result dropCohortSortedLinksRes
 			return result, err
 		}
 		seen[len(seen)-1] = linkID
-		link := c.links[linkID-1]
+		link := c.links.At(int(linkID - 1))
 		if err := link.validateShape(); err != nil {
 			return result, err
 		}
-		if link.prev == 0 || link.prev >= id || uint64(link.next) > uint64(len(c.links)) {
+		if link.prev == 0 || link.prev >= id || uint64(link.next) > uint64(c.links.Len()) {
 			return result, errors.New("parser-core phase zero: drop-cohort derivation graph is invalid")
 		}
 		links, err = c.dropCohortGrowLinkScratch(links, len(links)+1)

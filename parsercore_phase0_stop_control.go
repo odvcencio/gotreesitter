@@ -286,7 +286,7 @@ func (s *parserCoreRunnerScratch) materializationRetainedBytes() uint64 {
 		total += uint64(buffer.capacity) * uint64(buffer.size)
 	}
 	for _, bytes := range [...]uint64{
-		s.postorder.RetainedBytes(), s.acceptedLeaves.footprintBytes(), s.materialization.checkpoints.RetainedBytes(), s.derivations.RetainedBytes(),
+		s.nativeProjection.retainedBytes(), s.postorder.RetainedBytes(), s.acceptedLeaves.footprintBytes(), s.materialization.checkpoints.RetainedBytes(), s.derivations.RetainedBytes(),
 	} {
 		if bytes > math.MaxUint64-total {
 			return math.MaxUint64
@@ -330,6 +330,8 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 		addBytes(countBytes * sizeBytes)
 	}
 	addBytes(s.options.compactIncrementalReuse.footprintBytes())
+	addBytes(s.nativeProjectionScratch.retainedBytes())
+	addBytes(s.options.nativeSelectedOutput.retainedBytes())
 	addBytes(s.recoveryCostMemo.FootprintBytes())
 	if s.negativeRelexMemo != nil {
 		addBytes(uint64(unsafe.Sizeof(*s.negativeRelexMemo)))
