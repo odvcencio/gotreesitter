@@ -1,6 +1,6 @@
 harness_out/docker/compact-node-views-v14/extra/profile.test: go1.26.6
 	path	github.com/odvcencio/gotreesitter.test
-	mod	github.com/odvcencio/gotreesitter	(devel)	
+	mod	github.com/odvcencio/gotreesitter	(devel)
 	build	-buildmode=exe
 	build	-compiler=gc
 	build	-tags=gts_parsercorephase0,gts_compact_node_views
