@@ -1,0 +1,421 @@
+{
+  "baseline": "377beec2d9035ad3d9b91c58162273dffedb9ddd",
+  "scope": "detached compact output owner versus parent; internal read-only route except public primary control",
+  "suites": {
+    "go": {
+      "matched_orders": true,
+      "alternating_roles": true,
+      "seed_range": [
+        254001,
+        254020
+      ],
+      "rows_per_role": 80,
+      "results": [
+        {
+          "benchmark": "BenchmarkSingleVersionOutput/query_compile_parse",
+          "medians": {
+            "baseline": {
+              "ns/op": 8862882.5,
+              "B/op": 4308.0,
+              "allocs/op": 120.0
+            },
+            "candidate": {
+              "ns/op": 8981991.0,
+              "B/op": 4308.0,
+              "allocs/op": 120.0
+            }
+          },
+          "ratios": {
+            "ns/op": 1.0134390250575926,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        },
+        {
+          "benchmark": "BenchmarkSingleVersionOutput/grammargen_lr_parse",
+          "medians": {
+            "baseline": {
+              "ns/op": 94082630.0,
+              "B/op": 1099509.0,
+              "allocs/op": 1590.0
+            },
+            "candidate": {
+              "ns/op": 94767854.5,
+              "B/op": 1099509.0,
+              "allocs/op": 1590.0
+            }
+          },
+          "ratios": {
+            "ns/op": 1.007283220080051,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        },
+        {
+          "benchmark": "BenchmarkSingleVersionOutput/query_compile_consume",
+          "medians": {
+            "baseline": {
+              "ns/op": 8918343.5,
+              "B/op": 4308.0,
+              "allocs/op": 120.0
+            },
+            "candidate": {
+              "ns/op": 8945366.0,
+              "B/op": 4308.0,
+              "allocs/op": 120.0
+            }
+          },
+          "ratios": {
+            "ns/op": 1.0030299909394609,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        },
+        {
+          "benchmark": "BenchmarkSingleVersionOutput/grammargen_lr_consume",
+          "medians": {
+            "baseline": {
+              "ns/op": 94540705.5,
+              "B/op": 1099509.0,
+              "allocs/op": 1590.0
+            },
+            "candidate": {
+              "ns/op": 94722674.5,
+              "B/op": 1099509.0,
+              "allocs/op": 1590.0
+            }
+          },
+          "ratios": {
+            "ns/op": 1.0019247687970765,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        }
+      ]
+    },
+    "yaml": {
+      "matched_orders": true,
+      "alternating_roles": true,
+      "seed_range": [
+        254001,
+        254020
+      ],
+      "rows_per_role": 80,
+      "results": [
+        {
+          "benchmark": "BenchmarkSingleVersionOutput/r4_parse",
+          "medians": {
+            "baseline": {
+              "ns/op": 180418.5,
+              "B/op": 4992.0,
+              "allocs/op": 32.0
+            },
+            "candidate": {
+              "ns/op": 178620.5,
+              "B/op": 4992.0,
+              "allocs/op": 32.0
+            }
+          },
+          "ratios": {
+            "ns/op": 0.9900342814068402,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        },
+        {
+          "benchmark": "BenchmarkSingleVersionOutput/eof8k_parse",
+          "medians": {
+            "baseline": {
+              "ns/op": 710906.5,
+              "B/op": 18024.0,
+              "allocs/op": 71.0
+            },
+            "candidate": {
+              "ns/op": 714021.5,
+              "B/op": 18024.0,
+              "allocs/op": 71.0
+            }
+          },
+          "ratios": {
+            "ns/op": 1.0043817295242061,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        },
+        {
+          "benchmark": "BenchmarkSingleVersionOutput/r4_consume",
+          "medians": {
+            "baseline": {
+              "ns/op": 181643.0,
+              "B/op": 4992.0,
+              "allocs/op": 32.0
+            },
+            "candidate": {
+              "ns/op": 183824.5,
+              "B/op": 4992.0,
+              "allocs/op": 32.0
+            }
+          },
+          "ratios": {
+            "ns/op": 1.0120098214629796,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        },
+        {
+          "benchmark": "BenchmarkSingleVersionOutput/eof8k_consume",
+          "medians": {
+            "baseline": {
+              "ns/op": 721456.5,
+              "B/op": 18024.0,
+              "allocs/op": 71.0
+            },
+            "candidate": {
+              "ns/op": 719016.5,
+              "B/op": 18024.0,
+              "allocs/op": 71.0
+            }
+          },
+          "ratios": {
+            "ns/op": 0.9966179527109396,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        }
+      ]
+    },
+    "large": {
+      "matched_orders": true,
+      "alternating_roles": true,
+      "seed_range": [
+        255001,
+        255020
+      ],
+      "rows_per_role": 40,
+      "results": [
+        {
+          "benchmark": "BenchmarkSingleVersionOutput/one_mib_consume",
+          "medians": {
+            "baseline": {
+              "ns/op": 555614684.0,
+              "B/op": 8912088.0,
+              "allocs/op": 30.0
+            },
+            "candidate": {
+              "ns/op": 551393723.5,
+              "B/op": 8912088.0,
+              "allocs/op": 30.0
+            }
+          },
+          "ratios": {
+            "ns/op": 0.9924030796493493,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        },
+        {
+          "benchmark": "BenchmarkSingleVersionOutput/one_mib_parse",
+          "medians": {
+            "baseline": {
+              "ns/op": 544697138.0,
+              "B/op": 8912088.0,
+              "allocs/op": 30.0
+            },
+            "candidate": {
+              "ns/op": 543623416.5,
+              "B/op": 8912088.0,
+              "allocs/op": 30.0
+            }
+          },
+          "ratios": {
+            "ns/op": 0.9980287733768118,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        }
+      ]
+    },
+    "primary": {
+      "matched_orders": true,
+      "alternating_roles": true,
+      "seed_range": [
+        256001,
+        256020
+      ],
+      "rows_per_role": 60,
+      "results": [
+        {
+          "benchmark": "BenchmarkGTSSeededPrimary/BenchmarkGoParseIncrementalSingleByteEditDFA",
+          "medians": {
+            "baseline": {
+              "ns/op": 88036.0,
+              "B/op": 394.0,
+              "allocs/op": 5.0
+            },
+            "candidate": {
+              "ns/op": 88421.0,
+              "B/op": 394.0,
+              "allocs/op": 5.0
+            }
+          },
+          "ratios": {
+            "ns/op": 1.004373210959153,
+            "B/op": 1.0,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        },
+        {
+          "benchmark": "BenchmarkGTSSeededPrimary/BenchmarkGoParseFullDFA",
+          "medians": {
+            "baseline": {
+              "ns/op": 4025321.5,
+              "B/op": 1159.5,
+              "allocs/op": 6.0
+            },
+            "candidate": {
+              "ns/op": 4040447.0,
+              "B/op": 1160.0,
+              "allocs/op": 6.0
+            }
+          },
+          "ratios": {
+            "ns/op": 1.0037575880584941,
+            "B/op": 1.0004312203536008,
+            "allocs/op": 1.0
+          },
+          "ratchet_failures": []
+        },
+        {
+          "benchmark": "BenchmarkGTSSeededPrimary/BenchmarkGoParseIncrementalNoEditDFA",
+          "medians": {
+            "baseline": {
+              "ns/op": 3.0825,
+              "B/op": 0.0,
+              "allocs/op": 0.0
+            },
+            "candidate": {
+              "ns/op": 3.0815,
+              "B/op": 0.0,
+              "allocs/op": 0.0
+            }
+          },
+          "ratios": {
+            "ns/op": 0.9996755879967559,
+            "B/op": 1,
+            "allocs/op": 1
+          },
+          "ratchet_failures": []
+        }
+      ]
+    }
+  },
+  "ratchet_failures": [],
+  "rows_per_role": 260,
+  "retention": {
+    "go": {
+      "pairs": 20,
+      "medians": {
+        "baseline": {
+          "retained_delta": 152211712.0,
+          "released_delta": -16.0,
+          "max_rss_kib": 341712.0,
+          "Backing": 46137344.0,
+          "Nodes": 593457.0,
+          "SourceBytes": 1048591.0
+        },
+        "candidate": {
+          "retained_delta": 46137520.0,
+          "released_delta": -16.0,
+          "max_rss_kib": 335198.0,
+          "Backing": 46137344.0,
+          "Nodes": 593457.0,
+          "SourceBytes": 1048591.0
+        }
+      },
+      "ratios": {
+        "retained_delta": 0.3031141256725369,
+        "max_rss_kib": 0.9809371634592874
+      },
+      "source_sha256": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524",
+      "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+      "work": {
+        "Shifts": 490246,
+        "Reductions": 516046,
+        "ReductionPopRequests": 516046,
+        "EmittedPopPaths": 541848,
+        "EmittedPopPayloads": 1019192,
+        "PhysicalHeadMergeAttempts": 0,
+        "PhysicalHeadMergeSuccesses": 0,
+        "PhysicalHeadMergeInputLinks": 0,
+        "PredecessorLinkUnionAttempts": 25802,
+        "PredecessorLinkUnionDuplicateNoop": 0,
+        "PredecessorLinkUnionPrecedenceReplaced": 0,
+        "PredecessorLinkUnionRecursiveChanged": 0,
+        "PredecessorLinkUnionAlternateAppended": 25802,
+        "PredecessorLinkUnionRejected": 0,
+        "GraphLinkAdditionsProxy": 1032094,
+        "LeafConstructionsProxy": 438642,
+        "ParentConstructionsProxy": 516046,
+        "Overflow": false
+      }
+    },
+    "yaml": {
+      "pairs": 20,
+      "medians": {
+        "baseline": {
+          "retained_delta": 27673720.0,
+          "released_delta": 16.0,
+          "max_rss_kib": 96964.0,
+          "Backing": 5767168.0,
+          "Nodes": 121045.0,
+          "SourceBytes": 1049572.0
+        },
+        "candidate": {
+          "retained_delta": 5767392.0,
+          "released_delta": 16.0,
+          "max_rss_kib": 96916.0,
+          "Backing": 5767168.0,
+          "Nodes": 121045.0,
+          "SourceBytes": 1049572.0
+        }
+      },
+      "ratios": {
+        "retained_delta": 0.2084068206225979,
+        "max_rss_kib": 0.9995049709170414
+      },
+      "source_sha256": "8d615e96c0efe207dd1bfc4f54f601580d61dd0afc8f051ac3aaa92a2b27e397",
+      "digest": "e40759cba2bbdaee1e787a901d74f67e67653f3e8e7f780b51f2199c3325d021",
+      "work": {
+        "Shifts": 57117,
+        "Reductions": 98511,
+        "ReductionPopRequests": 98511,
+        "EmittedPopPaths": 98511,
+        "EmittedPopPayloads": 157723,
+        "PhysicalHeadMergeAttempts": 0,
+        "PhysicalHeadMergeSuccesses": 0,
+        "PhysicalHeadMergeInputLinks": 0,
+        "PredecessorLinkUnionAttempts": 0,
+        "PredecessorLinkUnionDuplicateNoop": 0,
+        "PredecessorLinkUnionPrecedenceReplaced": 0,
+        "PredecessorLinkUnionRecursiveChanged": 0,
+        "PredecessorLinkUnionAlternateAppended": 0,
+        "PredecessorLinkUnionRejected": 0,
+        "GraphLinkAdditionsProxy": 159820,
+        "LeafConstructionsProxy": 57117,
+        "ParentConstructionsProxy": 98511,
+        "Overflow": false
+      }
+    }
+  }
+}

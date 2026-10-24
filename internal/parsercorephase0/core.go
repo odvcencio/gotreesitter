@@ -1427,8 +1427,7 @@ type Core struct {
 	factorLinkScratch        []linkRecord
 	derivationSummaryScratch derivationSummaryScratch
 	selectedBuild            selectedStoreBuildScratch
-	selectedPoolMu           sync.Mutex
-	selectedPool             selectedStoreBacking
+	selectedPool             *selectedStorePool
 	schedulerFrame           schedulerTransactionFrame
 	// metadataConstructionAuthenticated remains true only while every compact
 	// subtree was published through the authenticated shift/reduction seams.
@@ -2540,6 +2539,9 @@ func (c *Core) ResetReleasingRetention() error {
 	}
 	c.condenseCandidates = nil
 	c.releaseRecordArenaReserve()
+	// Retired results own their pool generation, not this core. A later
+	// release must not restore buffers discarded by a declining parse.
+	c.selectedPool = nil
 	c.releaseOversizedRetention()
 	return nil
 }

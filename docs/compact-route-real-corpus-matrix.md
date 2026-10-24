@@ -26,6 +26,12 @@ have only synthetic samples and are outside this real-file census.
 
 Current owner instruction: **hold all merges to main**. The earlier release condition was fulfilled, but the renewed hold remains active independently of that release. PR #1512 stays draft; branch-relative experiments do not graduate a language.
 
+### Compact result ownership: retained graph removed
+
+The [ownership receipt](benchmarks/20261024-compact-output-ownership/README.md) separates result recycling from the producing core. Across twenty matched pairs per language, keeping a compact result after discarding its parser retains **152.21→46.14 MB for 1 MiB Go (−69.69%)** and **27.67→5.77 MB for 1 MiB YAML (−79.16%)**, with identical output and work. The internal read-only route still needs public node-view and incremental integration. Peak RSS changes only −1.91% / −0.05%; all thirteen timing comparisons are inconclusive, so this is a lifetime/memory bucket with no throughput-win claim.
+
+All **824 complete-operation rows**, **206 selected ledgers**, **412 invariant sessions**, **1,236 standard C checks**, and **20 memory-contract tests** pass. All 520 timing rows pass the configured ratchets, and no-edit remains allocation-free. The exact Cognociente replay retains twelve independent fresh agreements, eight clean C passes, and the same four malformed-delete C failures. Main-based net, public-output, platform, correctness, graduation, and merge holds remain.
+
 ### Single-version loop and direct compact output
 
 The [new qualification bucket](benchmarks/20261024-single-version-output/README.md) builds the owned deterministic loop and an internal read-only compact output route. Twenty paired runs measure public compact Go full DFA time **8.51% lower**, fresh-parser 1 MiB time **3.06% lower**, and real Go files **1.08–1.52% lower**. The direct read-only route cuts real Go/YAML parse time **11.61–13.48%**; generated 1 MiB Go takes **16.42% less parse time**, allocates **65.61% fewer bytes**, and falls **673→30 allocations**. Traversing every output node retains the gain. These read-only numbers are not public `*Node` API improvements.

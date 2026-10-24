@@ -213,7 +213,7 @@ type SelectedStore struct {
 	records        []SelectedNodeRecord
 	children       []SelectedNodeID
 	payloadSources []SubtreeID
-	owner          *Core
+	owner          *selectedStorePool
 	released       bool
 }
 
@@ -443,7 +443,7 @@ func (s *SelectedStore) Release() {
 	s.root, s.owner, s.records, s.children = 0, nil, nil, nil
 	s.payloadSources = nil
 	if owner != nil {
-		owner.recycleSelectedStore(records, children, sources)
+		owner.recycle(records, children, sources)
 	}
 }
 
@@ -452,12 +452,9 @@ func (c *Core) acquireSelectedStore(recordCapacity, childCapacity int) *Selected
 }
 
 func (c *Core) acquireSelectedStoreWithSources(recordCapacity, childCapacity int, trackSources bool) *SelectedStore {
-	c.selectedPoolMu.Lock()
-	records := c.selectedPool.records
-	children := c.selectedPool.children
-	sources := c.selectedPool.payloadSources
-	c.selectedPool = selectedStoreBacking{}
-	c.selectedPoolMu.Unlock()
+	owner := c.selectedStoreOwner()
+	backing := owner.take()
+	records, children, sources := backing.records, backing.children, backing.payloadSources
 	prospectiveRecords := max(cap(records), recordCapacity)
 	prospectiveChildren := max(cap(children), childCapacity)
 	prospectiveSources := 0
@@ -471,13 +468,11 @@ func (c *Core) acquireSelectedStoreWithSources(recordCapacity, childCapacity int
 	if cap(records) < recordCapacity {
 		records = make([]SelectedNodeRecord, 0, recordCapacity)
 	} else {
-		clear(records)
 		records = records[:0]
 	}
 	if cap(children) < childCapacity {
 		children = make([]SelectedNodeID, 0, childCapacity)
 	} else {
-		clear(children)
 		children = children[:0]
 	}
 	if !trackSources {
@@ -489,27 +484,7 @@ func (c *Core) acquireSelectedStoreWithSources(recordCapacity, childCapacity int
 	} else {
 		sources = sources[:0]
 	}
-	return &SelectedStore{records: records, children: children, payloadSources: sources, owner: c}
-}
-
-func (c *Core) recycleSelectedStore(records []SelectedNodeRecord, children []SelectedNodeID, sources []SubtreeID) {
-	if c == nil {
-		return
-	}
-	clear(records)
-	clear(children)
-	clear(sources)
-	incoming := selectedStoreBacking{records: records[:0], children: children[:0], payloadSources: sources[:0]}
-	incomingBytes := selectedStoreRetainedBytesWithSources(cap(records), cap(children), cap(sources))
-	if incomingBytes > c.limits.MaxSelectedBytes {
-		return
-	}
-	c.selectedPoolMu.Lock()
-	defer c.selectedPoolMu.Unlock()
-	pooledBytes := selectedStoreRetainedBytesWithSources(cap(c.selectedPool.records), cap(c.selectedPool.children), cap(c.selectedPool.payloadSources))
-	if incomingBytes >= pooledBytes {
-		c.selectedPool = incoming
-	}
+	return &SelectedStore{records: records, children: children, payloadSources: sources, owner: owner}
 }
 
 // SelectedCursor is a direct indexed cursor over a sealed store. It contains

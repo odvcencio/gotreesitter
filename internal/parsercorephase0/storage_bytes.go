@@ -225,7 +225,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += c.popScratch.footprintBytes()
 	total += c.reductionScratch.footprintBytes()
 	total += uint64(cap(c.selectedBuild.resultHasError)) * coreBoolBytes
-	total += selectedStoreRetainedBytes(cap(c.selectedPool.records), cap(c.selectedPool.children))
+	total += c.selectedPool.retainedBytes()
 	total += c.selectedPolicy.RetainedBytes()
 
 	return total
@@ -469,7 +469,9 @@ func (c *Core) releaseOversizedRetention() {
 	c.popScratch.dropOversized()
 	c.reductionScratch.dropOversized()
 	c.selectedBuild.resultHasError = nil
-	c.selectedPool = selectedStoreBacking{}
+	// Detach this pool generation. Results already handed to callers may
+	// release later; they must not repopulate the trimmed core's new pool.
+	c.selectedPool = nil
 }
 
 func (s *derivationSummaryScratch) footprintBytes() uint64 {

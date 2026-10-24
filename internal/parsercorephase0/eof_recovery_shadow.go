@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"sync"
 	"unsafe"
 )
 
@@ -529,8 +528,7 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.cohortHeadScratch = nil
 	shadow.factorLinkScratch = nil
 	shadow.selectedBuild = selectedStoreBuildScratch{}
-	shadow.selectedPoolMu = sync.Mutex{}
-	shadow.selectedPool = selectedStoreBacking{}
+	shadow.selectedPool = nil
 	shadow.schedulerFrame = schedulerTransactionFrame{}
 	return shadow
 }
