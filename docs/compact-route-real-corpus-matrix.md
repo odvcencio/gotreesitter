@@ -1,6 +1,6 @@
 # Compact route real-corpus matrix
 
-Current evidence date: 2026-10-20 (UTC).
+Current evidence date: 2026-10-24 (UTC).
 Parent PR #1486 merged to main as `88dc1d9c3ff15cc2b8b5c53864455fc3a24a9d34`
 after all 78 checks passed. Branch integration `b876c5b5` preserves all 414
 ledger rows and passes focused TypeScript/TSX C checks. The final whole-PR matched-order audit passes all 414 rows and 480 timings;
@@ -23,6 +23,14 @@ Scope: the 204 committed real `sample` files in the R4 manifest. CSV and Enforce
 have only synthetic samples and are outside this real-file census.
 
 ## Current compact-graduation matrix
+
+Current owner instruction: **hold all merges to main**. The earlier release condition was fulfilled, but the renewed hold remains active independently of that release. PR #1512 stays draft; branch-relative experiments do not graduate a language.
+
+### Single-version loop and direct compact output
+
+The [new qualification bucket](benchmarks/20261024-single-version-output/README.md) builds the owned deterministic loop and an internal read-only compact output route. Twenty paired runs measure public compact Go full DFA time **8.51% lower**, fresh-parser 1 MiB time **3.06% lower**, and real Go files **1.08–1.52% lower**. The direct read-only route cuts real Go/YAML parse time **11.61–13.48%**; generated 1 MiB Go takes **16.42% less parse time**, allocates **65.61% fewer bytes**, and falls **673→30 allocations**. Traversing every output node retains the gain. These read-only numbers are not public `*Node` API improvements.
+
+All **824 complete-operation work rows**, **206 selected ledgers**, **412 invariant sessions**, and **1,236 standard C checks** pass unchanged. The known Cognociente malformed-delete C mismatch remains, as do the fresh verifier, public-output integration, memory/net-PR qualification, and graduation holds. The receipt separates actual public routing, read-only consumption, controls, and directional regressions.
 
 ### Trusted small-source verification: measured Go edits, held counters
 

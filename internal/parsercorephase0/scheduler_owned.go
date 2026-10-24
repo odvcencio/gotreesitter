@@ -1824,7 +1824,10 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 		if err != nil {
 			return nil, err
 		}
-		gotoState, err := c.tables.Goto(prev.state, act.Symbol)
+		gotoState := boundary.preparedGotoState
+		if boundary.preparedGotoPrev != path.prev {
+			gotoState, err = c.tables.Goto(prev.state, act.Symbol)
+		}
 		if err != nil {
 			return nil, err
 		}

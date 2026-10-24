@@ -178,6 +178,7 @@ type DiagnosticParserCorePrefixOptions struct {
 	// disables it, mirroring the production contract's own 0=off escape
 	// hatch.
 	stopControlHardCeilingBytes int64
+	nativeSelectedOutput        *nativeSelectedOutputRunner
 	// materializationParser, materializationSource,
 	// materializationForceReplayParseStates, and materializationContextSet
 	// back the compact acceptance-election materiality gate
@@ -2907,6 +2908,7 @@ type diagnosticParserCoreVersionLexerRequest struct {
 }
 
 type diagnosticParserCoreGenericScheduler struct {
+	singleVersion                   singleVersionAdapter
 	nativeProjectionScratch         *nativeProjectionWorkspace
 	compact                         *core.Core
 	tokenSource                     *dfaTokenSource

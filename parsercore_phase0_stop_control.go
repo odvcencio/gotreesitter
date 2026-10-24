@@ -331,6 +331,7 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	}
 	addBytes(s.options.compactIncrementalReuse.footprintBytes())
 	addBytes(s.nativeProjectionScratch.retainedBytes())
+	addBytes(s.options.nativeSelectedOutput.retainedBytes())
 	addBytes(s.recoveryCostMemo.FootprintBytes())
 	if s.negativeRelexMemo != nil {
 		addBytes(uint64(unsafe.Sizeof(*s.negativeRelexMemo)))

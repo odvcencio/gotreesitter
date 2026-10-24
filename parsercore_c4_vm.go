@@ -162,6 +162,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchCorridor() (progressed bo
 	}
 	pc := program.stateBlockOffset[state]
 
+	skipSingleVersion := false
 	for {
 		// One corridor iteration equals one generic run-loop iteration, so it
 		// polls stop control exactly once, at the same point.
@@ -224,6 +225,51 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchCorridor() (progressed bo
 				return progressed, nil
 			}
 		}
+		if !skipSingleVersion && (op == corridorOpShift || op == corridorOpReduce || op == corridorOpReduceChain || op == corridorOpReduceShift) && s.singleVersionEligible() {
+			rowIndex := prog[body+1]
+			if op == corridorOpReduce {
+				rowIndex = prog[body+2]
+			}
+			batch, batchErr := s.runSingleVersion(rowIndex)
+			if batchErr != nil {
+				return progressed, batchErr
+			}
+			if batch.ReductionFallback {
+				s.corridorRecordClassification(1)
+				cell := diagnosticParserCoreGenericCell{headerIndex: 0, boundary: batch.Boundary, corridorTrustedReduction: true}
+				if err := s.applyGenericReduction(nil, cell); err != nil {
+					return progressed, err
+				}
+			}
+			if batch.Steps != 0 || batch.ReductionFallback {
+				progressed = true
+				if batch.Shifted {
+					if err := s.pollStopControl(); err != nil {
+						return progressed, err
+					}
+					if err := s.elect(false); err != nil {
+						return progressed, err
+					}
+					if s.stoppedAfterElection {
+						return progressed, nil
+					}
+				}
+				if !s.corridorEligible() {
+					return progressed, nil
+				}
+				next, err := s.corridorHeaderState()
+				if err != nil {
+					return progressed, err
+				}
+				if int(next) >= len(program.stateBlockOffset) {
+					return progressed, nil
+				}
+				pc = program.stateBlockOffset[next]
+				skipSingleVersion = !batch.Shifted && !batch.ReductionFallback
+				continue
+			}
+		}
+		skipSingleVersion = false
 		switch op {
 		case corridorOpShift:
 			handled, err := s.corridorShift(prog[body+1])
