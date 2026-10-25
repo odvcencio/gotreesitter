@@ -1,0 +1,63 @@
+{
+  "schema": "gts-oracle0271-fleet-smoke-fixtures/v1",
+  "status": "206 standard smoke-fixture processes passed; no oracle adoption",
+  "source_head": "9580313574e273cd0e920cd120c6afe5dc357c8e",
+  "source_manifest_sha256": "b87615c217373848f7537cb3f9fedd03f727c0201ac1f92153ec02bb42e75635",
+  "source_files_authenticated": 4064,
+  "binary_sha256": "f0ea72de8403b28b10de117ddc1359874e35dd765cc34f0a611bff119fdb930d",
+  "same_binary_as_prior_private_Go_qualification": true,
+  "runtime_version": "0.27.1",
+  "runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
+  "binding": "existing v0.25.0 private adaptation retained unchanged; see original preflight and Go qualification controls",
+  "grammar_processes": 206,
+  "distinct_languages": 206,
+  "leaf_C_checks": 618,
+  "checks_by_kind": {
+    "FreshParse": 206,
+    "IncrementalParse": 206,
+    "HasNoErrors": 206
+  },
+  "top_level_pass_records": 618,
+  "all_pass_records_including_leaf_subtests": 1236,
+  "failed_processes": 0,
+  "failed_checks": 0,
+  "skipped_checks": 0,
+  "empty_selections": 0,
+  "source_authentication_before_after_passed": true,
+  "binary_identity_passed": true,
+  "requested_candidate_route": true,
+  "compact_completion_on_all_grammars_claimed": false,
+  "process": "one grammar per process; fresh,incremental,no-error standard fixture selectors; no failures dropped",
+  "isolation": {
+    "network": "none",
+    "cpus": 1,
+    "pinned_cpu": 6,
+    "memory": "4g",
+    "GOMAXPROCS": 1,
+    "GOMEMLIMIT": "3GiB",
+    "shared_measurement_lock": true,
+    "image": "golang@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36"
+  },
+  "previous_files_unchanged": {
+    "go-qualification-verification.json": "ab0a17a4758c9fcfcaccfc7c8bfd91b9f7bd6d04028b822586cd85dc6b3f72c6",
+    "verification.json": "5ecbf22fd78a3e541eef7f27b2b334e8939b9716c0ef9009fe074c608c2a7e80",
+    "source-identities.json": "49a621d2ff9c6cfd16fed4e1895f27774cafd49adf334e916bb80b4a35dafa74",
+    "go-qualification-source-identities.json": "1419dbfccd08daf26cf02dd7fccbf3c143978a33dc22a7f1560b6305d94ae202",
+    "go-qualification.sha256": "3a04d8d27058b2e8b5657ba21c7dcea1c65d357199118dffe7cd1583ef692ffa",
+    "evidence.tar.gz": "ea3d84e1094cde6244f3e0f02cb6b89421b685a10964f7ef78997d28ab20fc05",
+    "evidence.sha256": "3a5cac8db86eca3b8e9a13c48cc9c6955a7020f7d70fe2ebfef5a983e1e7441a",
+    "go-qualification.tar.gz": "f5f41472f768f292ba4cb57ed003f382a1847e470c926da1db4fe57623a56b4f"
+  },
+  "not_claimed": [
+    "real-corpus qualification",
+    "full72-step edit sessions",
+    "general binding compatibility",
+    "oracle adoption",
+    "performance",
+    "other platforms",
+    "language graduation",
+    "default-route promotion",
+    "merge authorization"
+  ],
+  "binaries_caches_credentials_private_CSV_Enforce_payloads_included": false
+}

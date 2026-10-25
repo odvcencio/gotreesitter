@@ -42,3 +42,27 @@ python3 reproduce-go-qualification.py --repo /path/to/gotreesitter --module-cach
 ```
 
 The replay prints its bounded Docker command; add `--execute` only when ready to acquire the shared measurement lock. Its source, dependency, cache and pinned-Go-artifact prerequisites are the same as the original preflight.
+
+## Supplemental fleet smoke fixtures
+
+The same qualified private C 0.27.1 binary now passes **206 separate grammar processes and exactly 618 leaf C fixture checks**: 206 fresh parses, 206 incremental parses and 206 no-error checks. There are zero failed processes, failed checks, skips or empty selections. All 206 raw grammar logs and process statuses are retained. Parent and leaf PASS lines total 1,236 records; that is not 1,236 independent fixture checks.
+
+The executed binary SHA-256 is `f0ea72de8403b28b10de117ddc1359874e35dd765cc34f0a611bff119fdb930d`, identical to the preceding private V4 Go qualification. Its runtime remains C **0.27.1**, commit `10eb5ac119eec9cb4267a8e035066473983f5f3a`, with the same private binding adapter and test metadata. Canonical source authentication passes before and after against the existing source-95803135 manifest. No new binary or runtime variant is introduced by this fleet run.
+
+This is **standard smoke-fixture coverage only**. It does not qualify the real corpus, full 72-step edit sessions, general binding compatibility, performance, another platform, language graduation or oracle adoption. Tests request the existing candidate route; the receipt does not claim that every grammar completes natively on compact rather than using its supported fallback. The repository's ordinary oracle and dependencies remain unchanged, and merges remain held.
+
+The [fleet verification](fleet-fixtures-verification.json), [source identities](fleet-fixtures-source-identities.json), [supplemental archive](fleet-fixtures.tar.gz) and [checksum](fleet-fixtures.sha256) retain the original command/worker, frozen language list, all 206 raw logs, terminal status and validation, source checks and binary identity. Executables, module/C caches, credentials and private CSV/Enforce payloads are excluded. The original preflight and Go-qualification archives/checksums/verification files remain unchanged; the new archive has no overlapping members with either earlier archive.
+
+For replay, extract `evidence.tar.gz`, `go-qualification.tar.gz` and then `fleet-fixtures.tar.gz` into the same new directory. The standalone replay verifies all three payload manifests, canonical source hashes and the supplied binary hash, then prints the recorded bounded command with remapped paths. It runs one grammar per process, keeps every failure, and checks all 618 expected leaf passes with no skips or empty selections before reporting success. Add `--execute` to run under the shared measurement lock.
+
+```sh
+sha256sum -c fleet-fixtures.sha256
+tar -xzf fleet-fixtures.tar.gz -C /path/to/extracted-preflight
+cd /path/to/extracted-preflight
+sha256sum -c payload.sha256
+sha256sum -c go-qualification-payload.sha256
+sha256sum -c fleet-fixtures-payload.sha256
+python3 reproduce-fleet-fixtures.py --repo /path/to/gotreesitter --binary /path/to/qualified/qualification.test --module-cache /path/to/go-mod --c-cache /path/to/c-cache --runtime /home/draco/work/.runtime --output /path/to/new-fleet-results --cpu 6
+```
+
+The binary is a required input rather than an archived executable. Its exact source, C runtime, adapter, V4 test overlays and build command are retained in the preceding archives. Rebuilding a different binary requires separate authentication and qualification; the replay refuses a replacement whose hash differs. The offline authenticated grammar/ref cache remains a prerequisite.
