@@ -1,0 +1,629 @@
+{
+  "schema": "gts-dense-lr-v4-rejected-screen/v1",
+  "status": "REJECTED; allocation artifact repaired,throughput still fails",
+  "source_head": "9580313574e273cd0e920cd120c6afe5dc357c8e",
+  "saved_source_files_authenticated": 3813,
+  "saved_source_manifest_sha256": "2779b534360299a4213f4cf873a85e39ba32ad637431147f84ca3ce581c4ae87",
+  "earlier_files_unchanged": {
+    "evidence.tar.gz": "ff53643816d9fb1d662b8053a26e2107756309c9fd3f4f824f3b243685adaf8e",
+    "evidence.sha256": "63655bf866256a1dfab39899edf421390512ea161e1ad8feb15619a37a6e1ee3",
+    "verification.json": "c251082a0e075b158e59b2053e21a0d13bc0ffa27a14fa65455651e9f1690e79",
+    "source-identities.json": "cf22c132143b0898473d7bf15a7cfd8a81161fd640c56ee39294329706f8a759",
+    "v3-evidence.tar.gz": "98535aebc81a95bd5c898d90bb6f47aa0881ae47dff6dd8a8bcab8aad9ed8744",
+    "v3-evidence.sha256": "550d20674597c19acd68ec7caaa9148730344e535daefa5a6e6614933a07b299",
+    "v3-verification.json": "5d506106cba46d36edb7e9d1e0f6c6ff1b7ca17f48cdb9b2ba8ad6b919b89b80",
+    "v3-source-identities.json": "525c177a02a60c7855ae59dee27da77dbb0fb09f892f3bc2a0b52fb0e947cf17",
+    "v3-paired-r4-ratios.json": "84940e0cd106ec1807752cbcba5b74bb000e3c51fd1876a1d1e79d32c5083e76"
+  },
+  "one_hook_diff_guard": {
+    "status": "PASS",
+    "changed_code_files": [
+      "parsercore_dense_lr_private.go.txt"
+    ],
+    "changed_hook_sections": 1,
+    "reverse_exact_hook_equals_frozen_v3": true,
+    "v3_controls_sha256": "49d8713e174e851fb99ca13266209d595dd71506739d8dd72fbe50a0f078bf26",
+    "v3_changed_file_sha256": "0af805571500eaf6ec0319b2d81df6896cefb7c0cecd093a712756b85f4b770d",
+    "v4_changed_file_sha256": "ed4dbcd85ae8b0c8fff11b43c928b4e8650a237fab310b2544812c34d95b5f25",
+    "v3_failures_and_timing": "preserved; no edit"
+  },
+  "code_change": "only diagnostic refusal-reason concatenation gated on installed observer; reverse exact hook restores frozen V3 bytes",
+  "run_results": {
+    "dense-root-qualification-v4": {
+      "exit_code": 0,
+      "tests": {
+        "core.log": {
+          "pass": {
+            "top_level": 9,
+            "including_subtests": 13,
+            "names": [
+              "TestDenseLRAnchorPreservesStickyPerWriteLineage",
+              "TestDenseLRAnchorRefusesActualMultiplePaths",
+              "TestDenseLRAnchorLeavesCrossingReductionUntouched",
+              "TestDenseLRAnchorScratchClearsAndRebindsOwner",
+              "TestDenseLRPrototypePayloadsAndPromotionMatchPersistentGraph",
+              "TestDenseLRPrototypeRestoresPoppedCurrentElectionBoundaries",
+              "TestDenseLRPrototypePreservesScannerAndLexerPayloadReceipts",
+              "TestDenseLRPrototypePreservesScannerAndLexerPayloadReceipts/dfa-prefix",
+              "TestDenseLRPrototypePreservesScannerAndLexerPayloadReceipts/external-pair",
+              "TestDenseLRPrototypeBudgetFailurePoisonsFreshSession",
+              "TestDenseLRPrototypeMetadataCallbackCannotReenter",
+              "TestDenseLRPrototypeMetadataCallbackCannotReenter/plan",
+              "TestDenseLRPrototypeMetadataCallbackCannotReenter/goto"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "entry-off.log": {
+          "pass": {
+            "top_level": 1,
+            "including_subtests": 11,
+            "names": [
+              "TestGoEntryWorkProbe",
+              "TestGoEntryWorkProbe/primary-generated",
+              "TestGoEntryWorkProbe/primary-generated/ordinary-Parse/candidate=false",
+              "TestGoEntryWorkProbe/primary-generated/ordinary-Parse/candidate=true",
+              "TestGoEntryWorkProbe/primary-generated/registered-factory-entry/candidate=false",
+              "TestGoEntryWorkProbe/primary-generated/registered-factory-entry/candidate=true",
+              "TestGoEntryWorkProbe/real-r4",
+              "TestGoEntryWorkProbe/real-r4/ordinary-Parse/candidate=false",
+              "TestGoEntryWorkProbe/real-r4/ordinary-Parse/candidate=true",
+              "TestGoEntryWorkProbe/real-r4/registered-factory-entry/candidate=false",
+              "TestGoEntryWorkProbe/real-r4/registered-factory-entry/candidate=true"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "entry-on.log": {
+          "pass": {
+            "top_level": 1,
+            "including_subtests": 11,
+            "names": [
+              "TestGoEntryWorkProbe",
+              "TestGoEntryWorkProbe/primary-generated",
+              "TestGoEntryWorkProbe/primary-generated/ordinary-Parse/candidate=false",
+              "TestGoEntryWorkProbe/primary-generated/ordinary-Parse/candidate=true",
+              "TestGoEntryWorkProbe/primary-generated/registered-factory-entry/candidate=false",
+              "TestGoEntryWorkProbe/primary-generated/registered-factory-entry/candidate=true",
+              "TestGoEntryWorkProbe/real-r4",
+              "TestGoEntryWorkProbe/real-r4/ordinary-Parse/candidate=false",
+              "TestGoEntryWorkProbe/real-r4/ordinary-Parse/candidate=true",
+              "TestGoEntryWorkProbe/real-r4/registered-factory-entry/candidate=false",
+              "TestGoEntryWorkProbe/real-r4/registered-factory-entry/candidate=true"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "go-cgo.log": {
+          "pass": {
+            "top_level": 10,
+            "including_subtests": 47,
+            "names": [
+              "TestDensePrivateGoSourcesLockedC",
+              "TestDensePrivateGoSourcesLockedC/primary",
+              "TestDensePrivateGoSourcesLockedC/primary/candidate=false",
+              "TestDensePrivateGoSourcesLockedC/primary/candidate=true",
+              "TestDensePrivateGoSourcesLockedC/real-r4",
+              "TestDensePrivateGoSourcesLockedC/real-r4/candidate=false",
+              "TestDensePrivateGoSourcesLockedC/real-r4/candidate=true",
+              "TestGoCompactIncrementalExecutionParity",
+              "TestGoCompactIncrementalExecutionParity/growth",
+              "TestGoCompactIncrementalExecutionParity/comment",
+              "TestGoCompactIncrementalExecutionParity/same_width_kind_change",
+              "TestGoCompactNestedReuseLockedC",
+              "TestGoCompactNestedReuseBoundaryLockedC",
+              "TestGoCompactNestedReuseBoundaryLockedC/right_boundary",
+              "TestGoCompactNestedReuseBoundaryLockedC/leading_identifier_width",
+              "TestGoCompactNestedReuseBoundaryLockedC/inside_parameters",
+              "TestGoCompactNestedReuseBoundaryLockedC/parameter_separator",
+              "TestGoCompactNestedReuseChangedLookaheadLockedC",
+              "TestGoGroupedBindingSeparatorsLockedC",
+              "TestGoGroupedBindingSeparatorsLockedC/original",
+              "TestGoGroupedBindingSeparatorsLockedC/original/candidate=false",
+              "TestGoGroupedBindingSeparatorsLockedC/original/candidate=true",
+              "TestGoGroupedBindingSeparatorsLockedC/explicit_separators",
+              "TestGoGroupedBindingSeparatorsLockedC/explicit_separators/candidate=false",
+              "TestGoGroupedBindingSeparatorsLockedC/explicit_separators/candidate=true",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/production",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/production/plain",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/production/profiled",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/candidate",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/candidate/plain",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/candidate/profiled",
+              "TestGoHiddenMissingSemicolonEditsMatchLockedC",
+              "TestGoHiddenMissingSemicolonEditsMatchLockedC/production",
+              "TestGoHiddenMissingSemicolonEditsMatchLockedC/candidate",
+              "TestGoIssue490FragmentBoundaryLockedC",
+              "TestGoIssue490FragmentBoundaryLockedC/original_joined",
+              "TestGoIssue490FragmentBoundaryLockedC/original_joined/production",
+              "TestGoIssue490FragmentBoundaryLockedC/original_joined/candidate",
+              "TestGoIssue490FragmentBoundaryLockedC/newline_separated",
+              "TestGoIssue490FragmentBoundaryLockedC/newline_separated/production",
+              "TestGoIssue490FragmentBoundaryLockedC/newline_separated/candidate",
+              "TestStage6GoCompactCertification",
+              "TestStage6GoCompactCertification/smoke",
+              "TestStage6GoCompactCertification/method_and_composite",
+              "TestStage6GoCompactCertification/type_switch",
+              "TestStage6GoCompactCertification/recovery"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "invariants-go-0.log": {
+          "pass": {
+            "top_level": 1,
+            "including_subtests": 1,
+            "names": [
+              "TestV1InvariantGateR4EditSession"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "invariants-go-1.log": {
+          "pass": {
+            "top_level": 1,
+            "including_subtests": 1,
+            "names": [
+              "TestV1InvariantGateR4EditSession"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "lifetime.log": {
+          "pass": {
+            "top_level": 2,
+            "including_subtests": 2,
+            "names": [
+              "TestDenseLRPrivateWarmScratchLifetime",
+              "TestDenseLRPrivateCancellationReleasesScratch"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "memory.log": {
+          "pass": {
+            "top_level": 15,
+            "including_subtests": 18,
+            "names": [
+              "TestParseMemoryBudgetScalesWithSourceSize",
+              "TestParseMemoryBudgetEnvironmentValuesStayFixed",
+              "TestRuntimeMemoryBudgetSoftBudgetNeverStopsParse",
+              "TestRuntimeMemoryHardCeilingStillStopsParse",
+              "TestRuntimeMemoryPollMaskKeepsTightBudgetsResponsive",
+              "TestRuntimeMemoryPollMaskKeepsTightBudgetsResponsive/tight",
+              "TestRuntimeMemoryPollMaskKeepsTightBudgetsResponsive/tight-boundary",
+              "TestRuntimeMemoryPollMaskKeepsTightBudgetsResponsive/default-sized",
+              "TestRuntimeMemoryBudgetIgnoresSysGrowth",
+              "TestRuntimeMemoryBudgetDisabledForSmallSource",
+              "TestRuntimeMemoryBudgetEnabledForLargeSource",
+              "TestRuntimeMemoryVolumeTriggerBypassesPollMask",
+              "TestParseMemoryHardCeilingStopsIndependentlyOfSoftBudget",
+              "TestParseMemoryHardCeilingDefaultClearsPopplerMargin",
+              "TestParseMemoryHardCeilingEnvOverride",
+              "TestCompactAcceptanceReferenceAndRetainedArenasStayInMemoryBudget",
+              "TestCompactAcceptanceComparisonWorkspaceMemoryBudget",
+              "TestCompactAcceptanceComparisonWorkspaceRetentionBound"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        }
+      }
+    },
+    "dense-perf-v4": {
+      "exit_code": 0,
+      "tests": {}
+    }
+  },
+  "differential": {
+    "pairs": 8,
+    "public_digests_and_work_equal": true,
+    "scheduler_other_core_payload_scanner_dependency_receipts_equal": true,
+    "source_identity_matches_external_rows": true,
+    "link_changes": [
+      {
+        "fixture": "primary-generated",
+        "entry": "ordinary-Parse",
+        "before": 15505,
+        "after": 2
+      },
+      {
+        "fixture": "primary-generated",
+        "entry": "registered-factory-entry",
+        "before": 15505,
+        "after": 2
+      },
+      {
+        "fixture": "real-r4",
+        "entry": "ordinary-Parse",
+        "before": 1381,
+        "after": 752
+      },
+      {
+        "fixture": "real-r4",
+        "entry": "registered-factory-entry",
+        "before": 1381,
+        "after": 752
+      }
+    ]
+  },
+  "timing": {
+    "paired_seeds": 20,
+    "processes": 40,
+    "matched_child_order": true,
+    "benchtime": "750ms",
+    "count": 1,
+    "benchmem": true,
+    "build_tags_both_variants": "gts_parsercorephase0",
+    "observer_installed": false,
+    "r4_compact": {
+      "before_us": 844.1,
+      "after_us": 913.6,
+      "time_change_pct": 8.24,
+      "p": 0.009,
+      "bytes_before": 1112,
+      "bytes_after": 1112,
+      "allocs_before": 14,
+      "allocs_after": 14
+    },
+    "legacy_time_status": "inconclusive p=0.779",
+    "paired_compact_legacy_ratios": {
+      "before": {
+        "pairs": 20,
+        "median_paired_compact_legacy_ratio": 1.175328472718057,
+        "ratio_of_medians": 1.1822617560215818,
+        "per_seed": [
+          {
+            "seed": 1,
+            "compact_ns": 937737.0,
+            "legacy_ns": 747423.0,
+            "ratio": 1.2546268980216022
+          },
+          {
+            "seed": 2,
+            "compact_ns": 1000064.0,
+            "legacy_ns": 864185.0,
+            "ratio": 1.1572336941742798
+          },
+          {
+            "seed": 3,
+            "compact_ns": 972340.0,
+            "legacy_ns": 809975.0,
+            "ratio": 1.2004568042223525
+          },
+          {
+            "seed": 4,
+            "compact_ns": 805145.0,
+            "legacy_ns": 679554.0,
+            "ratio": 1.184813863210282
+          },
+          {
+            "seed": 5,
+            "compact_ns": 860414.0,
+            "legacy_ns": 777711.0,
+            "ratio": 1.1063415587538301
+          },
+          {
+            "seed": 6,
+            "compact_ns": 806157.0,
+            "legacy_ns": 674800.0,
+            "ratio": 1.1946606401896858
+          },
+          {
+            "seed": 7,
+            "compact_ns": 795034.0,
+            "legacy_ns": 679411.0,
+            "ratio": 1.1701812305070127
+          },
+          {
+            "seed": 8,
+            "compact_ns": 789844.0,
+            "legacy_ns": 665609.0,
+            "ratio": 1.1866486180325087
+          },
+          {
+            "seed": 9,
+            "compact_ns": 797716.0,
+            "legacy_ns": 653943.0,
+            "ratio": 1.219855553159832
+          },
+          {
+            "seed": 10,
+            "compact_ns": 790884.0,
+            "legacy_ns": 689472.0,
+            "ratio": 1.1470864661654134
+          },
+          {
+            "seed": 11,
+            "compact_ns": 784691.0,
+            "legacy_ns": 671150.0,
+            "ratio": 1.169173806153617
+          },
+          {
+            "seed": 12,
+            "compact_ns": 804829.0,
+            "legacy_ns": 706282.0,
+            "ratio": 1.13952925318782
+          },
+          {
+            "seed": 13,
+            "compact_ns": 803161.0,
+            "legacy_ns": 661721.0,
+            "ratio": 1.213745672269733
+          },
+          {
+            "seed": 14,
+            "compact_ns": 844000.0,
+            "legacy_ns": 714966.0,
+            "ratio": 1.1804757149291014
+          },
+          {
+            "seed": 15,
+            "compact_ns": 844109.0,
+            "legacy_ns": 712898.0,
+            "ratio": 1.184052978125903
+          },
+          {
+            "seed": 16,
+            "compact_ns": 926909.0,
+            "legacy_ns": 807121.0,
+            "ratio": 1.148413930501127
+          },
+          {
+            "seed": 17,
+            "compact_ns": 886167.0,
+            "legacy_ns": 794237.0,
+            "ratio": 1.1157463074623821
+          },
+          {
+            "seed": 18,
+            "compact_ns": 975114.0,
+            "legacy_ns": 833563.0,
+            "ratio": 1.169814399151594
+          },
+          {
+            "seed": 19,
+            "compact_ns": 953818.0,
+            "legacy_ns": 859993.0,
+            "ratio": 1.1090997252303216
+          },
+          {
+            "seed": 20,
+            "compact_ns": 1030415.0,
+            "legacy_ns": 837927.0,
+            "ratio": 1.229719295356278
+          }
+        ]
+      },
+      "after": {
+        "pairs": 20,
+        "median_paired_compact_legacy_ratio": 1.2984818166301495,
+        "ratio_of_medians": 1.3050856173923229,
+        "per_seed": [
+          {
+            "seed": 1,
+            "compact_ns": 1206767.0,
+            "legacy_ns": 897163.0,
+            "ratio": 1.3450922519096307
+          },
+          {
+            "seed": 2,
+            "compact_ns": 1256652.0,
+            "legacy_ns": 918602.0,
+            "ratio": 1.368004859558329
+          },
+          {
+            "seed": 3,
+            "compact_ns": 1029837.0,
+            "legacy_ns": 699470.0,
+            "ratio": 1.4723104636367534
+          },
+          {
+            "seed": 4,
+            "compact_ns": 842836.0,
+            "legacy_ns": 680394.0,
+            "ratio": 1.2387469613194708
+          },
+          {
+            "seed": 5,
+            "compact_ns": 965382.0,
+            "legacy_ns": 715669.0,
+            "ratio": 1.3489224767315617
+          },
+          {
+            "seed": 6,
+            "compact_ns": 863976.0,
+            "legacy_ns": 700596.0,
+            "ratio": 1.2332014456262954
+          },
+          {
+            "seed": 7,
+            "compact_ns": 850059.0,
+            "legacy_ns": 662177.0,
+            "ratio": 1.2837338053118728
+          },
+          {
+            "seed": 8,
+            "compact_ns": 855611.0,
+            "legacy_ns": 659415.0,
+            "ratio": 1.2975303867822237
+          },
+          {
+            "seed": 9,
+            "compact_ns": 865723.0,
+            "legacy_ns": 665296.0,
+            "ratio": 1.3012598903345278
+          },
+          {
+            "seed": 10,
+            "compact_ns": 848782.0,
+            "legacy_ns": 653194.0,
+            "ratio": 1.2994332464780753
+          },
+          {
+            "seed": 11,
+            "compact_ns": 856272.0,
+            "legacy_ns": 648049.0,
+            "ratio": 1.3213074937234683
+          },
+          {
+            "seed": 12,
+            "compact_ns": 874402.0,
+            "legacy_ns": 669236.0,
+            "ratio": 1.3065674888977878
+          },
+          {
+            "seed": 13,
+            "compact_ns": 872957.0,
+            "legacy_ns": 684046.0,
+            "ratio": 1.2761670998734003
+          },
+          {
+            "seed": 14,
+            "compact_ns": 915061.0,
+            "legacy_ns": 690072.0,
+            "ratio": 1.326036993241285
+          },
+          {
+            "seed": 15,
+            "compact_ns": 912145.0,
+            "legacy_ns": 711156.0,
+            "ratio": 1.2826229406768699
+          },
+          {
+            "seed": 16,
+            "compact_ns": 932380.0,
+            "legacy_ns": 795437.0,
+            "ratio": 1.1721607116591257
+          },
+          {
+            "seed": 17,
+            "compact_ns": 1044197.0,
+            "legacy_ns": 841199.0,
+            "ratio": 1.2413198303849624
+          },
+          {
+            "seed": 18,
+            "compact_ns": 1040349.0,
+            "legacy_ns": 841841.0,
+            "ratio": 1.235802247692854
+          },
+          {
+            "seed": 19,
+            "compact_ns": 1069286.0,
+            "legacy_ns": 799614.0,
+            "ratio": 1.337252724439542
+          },
+          {
+            "seed": 20,
+            "compact_ns": 1094882.0,
+            "legacy_ns": 860134.0,
+            "ratio": 1.2729202659120555
+          }
+        ]
+      }
+    },
+    "EA_qualification": false,
+    "primary_timing_rerun": false,
+    "YAML_timing_rerun": false
+  },
+  "memory_scope": "same15direct memory+2lifetime selections; not full canonical memorypins,fleet,large-fileRSS",
+  "conclusion": "The V3 diagnostic-allocation artifact is absent in this corrected paired run, but Go R4 throughput still regresses and the runtime experiment remains rejected.",
+  "toolchain": "go1.26.6 linux/amd64",
+  "isolation": {
+    "network": "none",
+    "cpus": 1,
+    "pinned_cpu": 6,
+    "memory": "4g",
+    "GOMAXPROCS": 1,
+    "GOMEMLIMIT": "3GiB",
+    "shared_lock": true,
+    "image": "golang@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36"
+  },
+  "not_claimed": [
+    "production promotion",
+    "default change",
+    "graduation",
+    "merges",
+    "primary timing improvement",
+    "YAML timing improvement",
+    "M1/E-A/E-G qualification",
+    "full canonical memorypins",
+    "fleet",
+    "RSS",
+    "platform qualification"
+  ],
+  "binaries_caches_credentials_private_CSV_Enforce_payloads_included": false
+}

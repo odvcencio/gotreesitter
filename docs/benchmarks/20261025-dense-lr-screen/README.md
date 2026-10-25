@@ -40,3 +40,74 @@ python3 reproduce.py --group dense-perf-v2 --repo /path/to/gotreesitter --module
 ```
 
 The replay accepts each of the eight original run names as `--group`; the archive contains their exact scripts/selectors. `dense-memory-reuse-v1`, `dense-memory-reuse-v2` and `dense-perf-v1` are expected to reproduce failures. It does not disable vet or weaken a threshold. The source commit plus sparse overlay hashes identify this experiment; the receipt does not authorize a merge.
+
+## Rejected V3 reentry supplement
+
+**REJECTED.** V3 adds authenticated reentry at single-path graph anchors and bounded detached scratch retention. It reduces more graph work but regresses the measured R4 workload. No V3 runtime source, default route or graduation change is promoted. The original V2 archive, checksum, verification and source identities remain unchanged.
+
+V3 uses the same authenticated source snapshot and fixture bytes as V2, with its own frozen sparse overlay. All eight entry/route pairs retain equal public deep digests and equal scheduler work, other Core work, payload/scanner hashes and dependency hashes. Graph-link additions fall from `15505→2` on generated input and `1381→752` on R4. The R4 ordinary candidate records 45 entries, including 44 reentries. Corrected observer source fields match the external 19,294-byte / 2,047-byte input identities in all eight observations. Ownership is detached after parsing, while bounded idle scratch remains retained: 3,608 bytes generated and 4,408 bytes R4; a released owner does not imply zero retained storage.
+
+Focused gates pass with no skips or failures: nine core top-level tests (13 records including subtests), two lifetime tests, 15 directly selected memory tests (18 records), ten Go C top-level tests (47 records), and both unchanged 72-step Go invariant sessions with zero no-edit allocations. The warm-allocation unit covers generated input only and reports `22=22`; it does not qualify R4 allocations. These selections do not rerun the full canonical memory-pin suite or establish fleet, large-file RSS, YAML, platform or complete reuse/graduation qualification. V2's separate one-site clean replacement receipt is not new V3 coverage.
+
+The randomized protocol again completes 20 primary and 20 R4 pairs, 80 processes, with matched child order and the same diagnostic build flags on both sides. Each V3 result below compares against its own paired baseline; the separate V2 and V3 timing sessions are not a direct comparison.
+
+| Measurement | V3 paired baseline | V3 candidate | Result |
+| --- | ---: | ---: | --- |
+| Generated full parse | 9.293 ms | 9.025 ms | Inconclusive, p=0.659; 22 allocations/op both |
+| Generated edit | 89.52 µs | 87.01 µs | Inconclusive, p=0.157; 5 allocations/op both |
+| Generated no edit | 4.058 ns | 3.854 ns | −5.05%, p=0.021; zero allocations/bytes |
+| R4 compact full parse | 1.020 ms | 1.126 ms | **+10.40%, p<0.001** |
+| R4 compact allocations | 14/op | 37/op | **+164.29%; B/op +132.37%** |
+| R4 median of within-seed compact/legacy ratios | 1.1821749043 | 1.2932265545 | Current-legacy diagnostic; not E-A qualification |
+| R4 ratio of median compact time to median legacy time | 1.1720775490 | 1.3036322735 | A distinct statistic from the paired median above |
+
+The nanosecond no-edit difference makes no claim about a faster core execution mechanism: no-edit parsing bypasses that work. R4 compact routing remains one route per operation with zero fallbacks.
+
+The terminal allocation profile proves a specific cause of the R4 allocation increase. `tryDenseLRPrivate`, line 357 of the frozen overlay, concatenates `"core refused action: " + LastRefusal()` before calling the promotion helper even when no observer is installed. Raw pprof locations 156 and 448 attribute **51,451 objects and 3,292,864 bytes** directly to that line. These equal `2237×23` objects and `2237×1472` bytes, matching the entire extra **23 allocations and 1,472 bytes per parse** in the randomized R4 results. The profile reports 2,133 timed benchmark iterations; its allocation totals also include calibration/warm calls, so 2,237 is not the timed-iteration count. The archive includes a Python protobuf reader that independently verifies the exact function/line totals and frozen source expression. This identifies diagnostic formatting as the allocation cause; the measured V3 regression and rejection remain intact. No unexecuted corrected variant is included or claimed.
+
+The profile includes initialization and table compilation, so its overall percentages and profiler-perturbed benchmark time are attribution data rather than comparison evidence. The [V3 verification](v3-verification.json), [V3 source identities](v3-source-identities.json), [paired ratios](v3-paired-r4-ratios.json), [supplemental archive](v3-evidence.tar.gz) and [checksum](v3-evidence.sha256) retain all V3 controls, combined test overlays, exact commands/workers, raw qualification and 40 timing pairs, benchstat, input/binary authentication and the raw allocation profile. Executable binaries, caches, credentials and private CSV/Enforce payloads remain excluded.
+
+Extract `evidence.tar.gz` first, then `v3-evidence.tar.gz` into the same new directory. Their members do not overlap. Verify both payload manifests. The separate replay supports `dense-root-qualification-v3`, `dense-perf-v3` and `dense-alloc-v3`; it prints by default and acquires the shared lock only with `--execute`. The perf replay uses the frozen V3 qualification receipt under `controls/out`, as the original command did.
+
+```sh
+sha256sum -c v3-evidence.sha256
+tar -xzf v3-evidence.tar.gz -C /path/to/new-dense-v2-receipt
+cd /path/to/new-dense-v2-receipt
+sha256sum -c payload.sha256
+sha256sum -c v3-payload.sha256
+python3 analyze-v3-allocation.py
+python3 reproduce-v3.py --group dense-perf-v3 --repo /path/to/gotreesitter --module-cache /path/to/go-mod --c-cache /path/to/c-cache --runtime /home/draco/work/.runtime --output /path/to/new-v3-results --cpu 6
+```
+
+## Rejected V4 diagnostic correction
+
+**REJECTED: the allocation artifact is repaired, but throughput still regresses.** V4 changes one V3 hook: it constructs the concatenated refusal reason only when a private observer is installed. Observed diagnostic text remains identical. The exact reverse-diff guard restores the frozen V3 code; every other implementation and private test source is byte-identical. V2 and V3 archives and verification files remain unchanged.
+
+Focused qualification again passes without skips or failures: nine core top-level tests (13 records), two lifetime tests, 15 directly selected memory tests (18 records), ten Go C top-level tests (47 records), and both unchanged 72-step Go invariant sessions with zero no-edit allocations. All eight matched entry/route pairs retain equal public digests, work records, scheduler work, other Core work, and payload/scanner/dependency receipts. The graph reductions remain `15505→2` generated and `1381→752` R4. This retains the same bounded correctness scope as V3, without a full canonical memory-pin, fleet or large-file RSS qualification.
+
+The **Go R4-only** timing run completes 20 matched seed pairs / 40 processes using the same randomized protocol and diagnostic build flags. Compact routing remains one per operation with zero fallbacks. Primary and YAML timing were not rerun and receive no V4 performance claim.
+
+| Go R4 measurement | V4 paired baseline | V4 candidate | Result |
+| --- | ---: | ---: | --- |
+| Compact time | 844.1 µs | 913.6 µs | **+8.24%, p=0.009** |
+| Compact bytes | 1,112/op | 1,112/op | Equal |
+| Compact allocations | 14/op | 14/op | Equal |
+| Legacy time | 713.9 µs | 700.0 µs | Inconclusive, p=0.779 |
+| Median of within-seed compact/legacy ratios | 1.1753284727 | 1.2984818166 | Current-legacy diagnostic |
+| Ratio of median compact time to median legacy time | 1.1822617560 | 1.3050856174 | Separate statistic |
+
+Removing unconditional diagnostic formatting eliminates the V3 allocation increase in this corrected paired run. It does not establish a throughput win: the V4 candidate still runs slower than its own paired baseline. The separately collected V3/V4 timings are not a matched comparison against each other. No production source, default route, graduation decision or merge is promoted.
+
+The [V4 verification](v4-verification.json), [source identities](v4-source-identities.json), [paired ratios](v4-paired-r4-ratios.json), [archive](v4-evidence.tar.gz) and [checksum](v4-evidence.sha256) retain the exact one-hook diff guard, controls/test overlays, commands/workers, all raw qualification and timing output, and source/control/binary authentication. No executable binaries, caches, credentials or private CSV/Enforce payloads are included. The archive has no overlapping members with either earlier archive; it uses ordinary sparse-overlay files and adds no materialization protocol.
+
+Extract all three archives, in order, into the same new directory; verify all three payload manifests. The V4 replay prints by default and executes only with `--execute`, under the shared lock. It accepts `dense-root-qualification-v4` and `dense-perf-v4`; the perf command uses the frozen V4 qualification receipt as its prerequisite.
+
+```sh
+sha256sum -c v4-evidence.sha256
+tar -xzf v4-evidence.tar.gz -C /path/to/new-dense-v2-receipt
+cd /path/to/new-dense-v2-receipt
+sha256sum -c payload.sha256
+sha256sum -c v3-payload.sha256
+sha256sum -c v4-payload.sha256
+python3 reproduce-v4.py --group dense-perf-v4 --repo /path/to/gotreesitter --module-cache /path/to/go-mod --c-cache /path/to/c-cache --runtime /home/draco/work/.runtime --output /path/to/new-v4-results --cpu 6
+```

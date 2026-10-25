@@ -1,0 +1,256 @@
+{
+  "before": {
+    "pairs": 20,
+    "median_paired_compact_legacy_ratio": 1.175328472718057,
+    "ratio_of_medians": 1.1822617560215818,
+    "per_seed": [
+      {
+        "seed": 1,
+        "compact_ns": 937737.0,
+        "legacy_ns": 747423.0,
+        "ratio": 1.2546268980216022
+      },
+      {
+        "seed": 2,
+        "compact_ns": 1000064.0,
+        "legacy_ns": 864185.0,
+        "ratio": 1.1572336941742798
+      },
+      {
+        "seed": 3,
+        "compact_ns": 972340.0,
+        "legacy_ns": 809975.0,
+        "ratio": 1.2004568042223525
+      },
+      {
+        "seed": 4,
+        "compact_ns": 805145.0,
+        "legacy_ns": 679554.0,
+        "ratio": 1.184813863210282
+      },
+      {
+        "seed": 5,
+        "compact_ns": 860414.0,
+        "legacy_ns": 777711.0,
+        "ratio": 1.1063415587538301
+      },
+      {
+        "seed": 6,
+        "compact_ns": 806157.0,
+        "legacy_ns": 674800.0,
+        "ratio": 1.1946606401896858
+      },
+      {
+        "seed": 7,
+        "compact_ns": 795034.0,
+        "legacy_ns": 679411.0,
+        "ratio": 1.1701812305070127
+      },
+      {
+        "seed": 8,
+        "compact_ns": 789844.0,
+        "legacy_ns": 665609.0,
+        "ratio": 1.1866486180325087
+      },
+      {
+        "seed": 9,
+        "compact_ns": 797716.0,
+        "legacy_ns": 653943.0,
+        "ratio": 1.219855553159832
+      },
+      {
+        "seed": 10,
+        "compact_ns": 790884.0,
+        "legacy_ns": 689472.0,
+        "ratio": 1.1470864661654134
+      },
+      {
+        "seed": 11,
+        "compact_ns": 784691.0,
+        "legacy_ns": 671150.0,
+        "ratio": 1.169173806153617
+      },
+      {
+        "seed": 12,
+        "compact_ns": 804829.0,
+        "legacy_ns": 706282.0,
+        "ratio": 1.13952925318782
+      },
+      {
+        "seed": 13,
+        "compact_ns": 803161.0,
+        "legacy_ns": 661721.0,
+        "ratio": 1.213745672269733
+      },
+      {
+        "seed": 14,
+        "compact_ns": 844000.0,
+        "legacy_ns": 714966.0,
+        "ratio": 1.1804757149291014
+      },
+      {
+        "seed": 15,
+        "compact_ns": 844109.0,
+        "legacy_ns": 712898.0,
+        "ratio": 1.184052978125903
+      },
+      {
+        "seed": 16,
+        "compact_ns": 926909.0,
+        "legacy_ns": 807121.0,
+        "ratio": 1.148413930501127
+      },
+      {
+        "seed": 17,
+        "compact_ns": 886167.0,
+        "legacy_ns": 794237.0,
+        "ratio": 1.1157463074623821
+      },
+      {
+        "seed": 18,
+        "compact_ns": 975114.0,
+        "legacy_ns": 833563.0,
+        "ratio": 1.169814399151594
+      },
+      {
+        "seed": 19,
+        "compact_ns": 953818.0,
+        "legacy_ns": 859993.0,
+        "ratio": 1.1090997252303216
+      },
+      {
+        "seed": 20,
+        "compact_ns": 1030415.0,
+        "legacy_ns": 837927.0,
+        "ratio": 1.229719295356278
+      }
+    ]
+  },
+  "after": {
+    "pairs": 20,
+    "median_paired_compact_legacy_ratio": 1.2984818166301495,
+    "ratio_of_medians": 1.3050856173923229,
+    "per_seed": [
+      {
+        "seed": 1,
+        "compact_ns": 1206767.0,
+        "legacy_ns": 897163.0,
+        "ratio": 1.3450922519096307
+      },
+      {
+        "seed": 2,
+        "compact_ns": 1256652.0,
+        "legacy_ns": 918602.0,
+        "ratio": 1.368004859558329
+      },
+      {
+        "seed": 3,
+        "compact_ns": 1029837.0,
+        "legacy_ns": 699470.0,
+        "ratio": 1.4723104636367534
+      },
+      {
+        "seed": 4,
+        "compact_ns": 842836.0,
+        "legacy_ns": 680394.0,
+        "ratio": 1.2387469613194708
+      },
+      {
+        "seed": 5,
+        "compact_ns": 965382.0,
+        "legacy_ns": 715669.0,
+        "ratio": 1.3489224767315617
+      },
+      {
+        "seed": 6,
+        "compact_ns": 863976.0,
+        "legacy_ns": 700596.0,
+        "ratio": 1.2332014456262954
+      },
+      {
+        "seed": 7,
+        "compact_ns": 850059.0,
+        "legacy_ns": 662177.0,
+        "ratio": 1.2837338053118728
+      },
+      {
+        "seed": 8,
+        "compact_ns": 855611.0,
+        "legacy_ns": 659415.0,
+        "ratio": 1.2975303867822237
+      },
+      {
+        "seed": 9,
+        "compact_ns": 865723.0,
+        "legacy_ns": 665296.0,
+        "ratio": 1.3012598903345278
+      },
+      {
+        "seed": 10,
+        "compact_ns": 848782.0,
+        "legacy_ns": 653194.0,
+        "ratio": 1.2994332464780753
+      },
+      {
+        "seed": 11,
+        "compact_ns": 856272.0,
+        "legacy_ns": 648049.0,
+        "ratio": 1.3213074937234683
+      },
+      {
+        "seed": 12,
+        "compact_ns": 874402.0,
+        "legacy_ns": 669236.0,
+        "ratio": 1.3065674888977878
+      },
+      {
+        "seed": 13,
+        "compact_ns": 872957.0,
+        "legacy_ns": 684046.0,
+        "ratio": 1.2761670998734003
+      },
+      {
+        "seed": 14,
+        "compact_ns": 915061.0,
+        "legacy_ns": 690072.0,
+        "ratio": 1.326036993241285
+      },
+      {
+        "seed": 15,
+        "compact_ns": 912145.0,
+        "legacy_ns": 711156.0,
+        "ratio": 1.2826229406768699
+      },
+      {
+        "seed": 16,
+        "compact_ns": 932380.0,
+        "legacy_ns": 795437.0,
+        "ratio": 1.1721607116591257
+      },
+      {
+        "seed": 17,
+        "compact_ns": 1044197.0,
+        "legacy_ns": 841199.0,
+        "ratio": 1.2413198303849624
+      },
+      {
+        "seed": 18,
+        "compact_ns": 1040349.0,
+        "legacy_ns": 841841.0,
+        "ratio": 1.235802247692854
+      },
+      {
+        "seed": 19,
+        "compact_ns": 1069286.0,
+        "legacy_ns": 799614.0,
+        "ratio": 1.337252724439542
+      },
+      {
+        "seed": 20,
+        "compact_ns": 1094882.0,
+        "legacy_ns": 860134.0,
+        "ratio": 1.2729202659120555
+      }
+    ]
+  }
+}
