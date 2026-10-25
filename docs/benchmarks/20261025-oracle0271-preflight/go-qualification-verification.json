@@ -1,0 +1,95 @@
+{
+  "schema": "gts-oracle0271-go-qualification-supplement/v1",
+  "source_head": "9580313574e273cd0e920cd120c6afe5dc357c8e",
+  "status": "bounded Go selections passed with private V4 test metadata",
+  "runtime_version": "0.27.1",
+  "runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
+  "base_preflight_archive_sha256": "ea3d84e1094cde6244f3e0f02cb6b89421b685a10964f7ef78997d28ab20fc05",
+  "base_preflight_files_unchanged": {
+    "evidence.tar.gz": "ea3d84e1094cde6244f3e0f02cb6b89421b685a10964f7ef78997d28ab20fc05",
+    "evidence.sha256": "3a5cac8db86eca3b8e9a13c48cc9c6955a7020f7d70fe2ebfef5a983e1e7441a",
+    "verification.json": "5ecbf22fd78a3e541eef7f27b2b334e8939b9716c0ef9009fe074c608c2a7e80",
+    "source-identities.json": "49a621d2ff9c6cfd16fed4e1895f27774cafd49adf334e916bb80b4a35dafa74"
+  },
+  "test_results": {
+    "go-regressions.log": {
+      "top_level_passes": 14,
+      "passes_including_subtests": 83,
+      "failed": 0,
+      "skipped": 0,
+      "top_level_tests": [
+        "TestGoCompactIncrementalExecutionParity",
+        "TestGoCompactNestedReuseLockedC",
+        "TestGoCompactNestedReuseBoundaryLockedC",
+        "TestGoCompactNestedReuseChangedLookaheadLockedC",
+        "TestGoGroupedBindingSeparatorsLockedC",
+        "TestGoGroupedConstSeparatorEditsMatchLockedC",
+        "TestGoHiddenMissingSemicolonEditsMatchLockedC",
+        "TestGoIssue490FragmentBoundaryLockedC",
+        "TestGoMalformedDeclarationPrefixLockedC",
+        "TestGoNextLiveArmProbe",
+        "TestGoTokenInvariantLookaheadNumericRepairLockedC",
+        "TestGoTokenInvariantLookaheadNumericReuseLockedC",
+        "TestGoUnterminatedStringCommaMatchesLockedC",
+        "TestStage6GoCompactCertification"
+      ],
+      "sha256": "1a414be892cc17fc4f48b6e3d561c710452e8a826d3716e73f1adbbc3dcec730"
+    },
+    "go-parity-query.log": {
+      "top_level_passes": 6,
+      "passes_including_subtests": 38,
+      "failed": 0,
+      "skipped": 0,
+      "top_level_tests": [
+        "TestParityFreshParse",
+        "TestParityIncrementalParse",
+        "TestParityHasNoErrors",
+        "TestParityHighlight",
+        "TestParityQuerySemantics",
+        "TestParityQueryExactTop50Generated"
+      ],
+      "sha256": "f4ecabf7edda36ea2f6dccf2d220bb6abe530f81eed42c01f8ac2f870cf8f3dd"
+    }
+  },
+  "top_level_passes": 20,
+  "passes_including_subtests": 121,
+  "failed": 0,
+  "skipped": 0,
+  "process_status": {
+    "go_regression_exit": 0,
+    "go_parity_query_exit": 0
+  },
+  "binary_sha256": "f0ea72de8403b28b10de117ddc1359874e35dd765cc34f0a611bff119fdb930d",
+  "binding_and_runtime_control": "unchanged oracle0271-module-bind-v3; new binary differs only in two test source overlays",
+  "changed_test_metadata": {
+    "runtime_identity_constants": 2,
+    "removed_known_divergence_entries": 1,
+    "query": "(_simple_type/type_identifier) @t",
+    "query_comparator_body_unchanged": true,
+    "grammar_artifact_source_digest_pass_assertions_unchanged": true
+  },
+  "source_and_controls_checks_before_after_passed": true,
+  "prior_expanded_red_records_preserved_in_base_archive": 3,
+  "toolchain": "go1.26.6 linux/amd64",
+  "isolation": {
+    "network": "none",
+    "cpus": 1,
+    "pinned_cpu": 6,
+    "memory": "4g",
+    "GOMAXPROCS": 1,
+    "GOMEMLIMIT": "3GiB",
+    "shared_measurement_lock": true
+  },
+  "version_causality_for_query_expectation": "unattributed; no matched old-C A/B",
+  "not_claimed": [
+    "oracle adoption",
+    "full binding API compatibility",
+    "206-grammar qualification",
+    "other platforms",
+    "performance",
+    "full graduation",
+    "dependency/runtime promotion",
+    "merge authorization"
+  ],
+  "binaries_caches_credentials_private_corpus_payloads_included": false
+}
