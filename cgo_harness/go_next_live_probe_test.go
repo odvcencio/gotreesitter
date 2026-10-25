@@ -70,7 +70,7 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 	if got := goNextHashFile(t, "../grammars/languages.lock"); got != lockSHA256 {
 		t.Fatalf("grammar lock SHA-256=%s", got)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(grammars.BlobByName("go"))); got != "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(grammars.BlobByName("go"))); got != "214322327c9ee7dda29febf32e415f7ed9e00a90b7690d3c32522e393211b8da" {
 		t.Fatalf("Go grammar blob SHA-256=%s", got)
 	}
 	cLanguage, err := COracleLanguage("go")
@@ -84,7 +84,7 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 	if identity.Contract != goNextCContract || identity.RuntimeVersion != goNextCRuntimeVersion || identity.RuntimeCommit != goNextCRuntimeCommit || identity.GrammarRepo != goNextCGrammarRepo || identity.GrammarCommit != goNextCGrammarCommit || identity.GrammarArtifactSHA256 != goNextCArtifactSHA256 {
 		t.Fatalf("locked-C identity=%s runtime=%s@%s grammar=%s@%s artifact=%s, want %s runtime=%s@%s grammar=%s@%s artifact=%s", identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256, goNextCContract, goNextCRuntimeVersion, goNextCRuntimeCommit, goNextCGrammarRepo, goNextCGrammarCommit, goNextCArtifactSHA256)
 	}
-	t.Logf("grammar=go grammar_lock_sha256=%s blob_sha256=df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_grammar_artifact_sha256=%s", lockSHA256, identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
+	t.Logf("grammar=go grammar_lock_sha256=%s blob_sha256=214322327c9ee7dda29febf32e415f7ed9e00a90b7690d3c32522e393211b8da c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_grammar_artifact_sha256=%s", lockSHA256, identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
 
 	witnesses := []goNextWitness{
 		{

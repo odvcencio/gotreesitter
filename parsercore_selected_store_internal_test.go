@@ -376,6 +376,12 @@ func TestQuiescentNativeGoPublicationMatchesReference(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// This comparison exercises the eager native publisher, including its
+			// wide child counts and reuse receipts. Lazy public views have their
+			// own parity tests and must not bypass this publisher's assertions.
+			if r.scratch.nativeProjection != nil {
+				r.scratch.nativeProjection.compactViews = false
+			}
 			if !native {
 				r.scratch.nativeProjection = nil
 			}

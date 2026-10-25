@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -16,12 +17,12 @@ import (
 // recognized even when parsing inside a production like image_name where
 // "AS" isn't directly valid but becomes valid after reducing.
 
-func buildLexModeFollowTokensFunc(tables *LRTables, tokenCount int, ng *NormalizedGrammar, keywordSymbols map[int]bool) func(int) []int {
+func buildLexModeFollowTokensFunc(tables *LRTables, tokenCount int, ng *NormalizedGrammar, keywordSymbols map[int]bool, additional ...string) func(int) []int {
 	follow := buildFollowTokensFunc(tables, tokenCount)
 	if follow == nil {
 		return nil
 	}
-	allowed := lexModeFollowTokenSet(ng, tokenCount, keywordSymbols)
+	allowed := lexModeFollowTokenSet(ng, tokenCount, keywordSymbols, additional...)
 	if len(allowed) == 0 {
 		return nil
 	}
@@ -46,7 +47,7 @@ func buildLexModeFollowTokensFunc(tables *LRTables, tokenCount int, ng *Normaliz
 	}
 }
 
-func lexModeFollowTokenSet(ng *NormalizedGrammar, tokenCount int, keywordSymbols map[int]bool) map[int]bool {
+func lexModeFollowTokenSet(ng *NormalizedGrammar, tokenCount int, keywordSymbols map[int]bool, additional ...string) map[int]bool {
 	allowed := make(map[int]bool, len(keywordSymbols)+8)
 	for sym := range keywordSymbols {
 		if sym > 0 && sym < tokenCount {
@@ -61,7 +62,7 @@ func lexModeFollowTokenSet(ng *NormalizedGrammar, tokenCount int, keywordSymbols
 		limit = len(ng.Symbols)
 	}
 	for sym := 1; sym < limit; sym++ {
-		if lexModeFollowTokenName(ng.Symbols[sym].Name) {
+		if lexModeFollowTokenName(ng.Symbols[sym].Name) || slices.Contains(additional, ng.Symbols[sym].Name) {
 			allowed[sym] = true
 		}
 	}
@@ -81,7 +82,8 @@ func lexModeFollowTokenName(name string) bool {
 // buildMissingRecoveryTokensFuncWithContext's raw (unrestricted) recovery
 // lookaheads with the same narrow "safe to widen with" allowlist already
 // used for reduce-follow widening (see buildLexModeFollowTokensFunc):
-// closing/terminator punctuation and keywords. Missing-token recovery's own
+// closing/terminator punctuation and keywords, plus grammar-selected terminals.
+// Missing-token recovery's own
 // BFS over reachable reduce-chains is, by construction, close to unique per
 // LR state (every state's reachable-reduce graph differs), so admitting its
 // FULL raw result into every state's lex mode multiplies the number of
@@ -98,7 +100,7 @@ func lexModeFollowTokenName(name string) bool {
 // benefit.
 //
 // KNOWN GAP: because the allowlist admits only closing/terminator
-// punctuation and keywords, missing-token recovery can no longer see
+// punctuation and keywords by default, missing-token recovery can no longer see
 // expression-start lookaheads (identifiers, literals, prefix operators) that
 // the raw BFS would otherwise have surfaced. An incomplete-expression tail
 // with NO trailing closing punctuation at all is therefore not flagged as an
@@ -118,12 +120,12 @@ func lexModeFollowTokenName(name string) bool {
 // Evaluate this as a dedicated experiment in the blob-consolidation round —
 // both swift and go consume this function, so any change here re-triggers a
 // full regen+reverify of both blobs.
-func buildLexModeMissingRecoveryTokensFunc(ctx context.Context, tables *LRTables, tokenCount int, terminalPatterns []TerminalPattern, skipExtras map[int]bool, ng *NormalizedGrammar, keywordSymbols map[int]bool) func(int) []int {
+func buildLexModeMissingRecoveryTokensFunc(ctx context.Context, tables *LRTables, tokenCount int, terminalPatterns []TerminalPattern, skipExtras map[int]bool, ng *NormalizedGrammar, keywordSymbols map[int]bool, additional ...string) func(int) []int {
 	raw := buildMissingRecoveryTokensFuncWithContext(ctx, tables, tokenCount, terminalPatterns, skipExtras)
 	if raw == nil {
 		return nil
 	}
-	allowed := lexModeFollowTokenSet(ng, tokenCount, keywordSymbols)
+	allowed := lexModeFollowTokenSet(ng, tokenCount, keywordSymbols, additional...)
 	if len(allowed) == 0 {
 		return raw
 	}
@@ -1345,8 +1347,8 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 			ng.WordSymbolID,
 			keywordSet,
 			termPatSyms,
-			buildLexModeFollowTokensFunc(tables, tokenCount, ng, keywordSet),
-			buildLexModeMissingRecoveryTokensFunc(bgCtx, tables, tokenCount, ng.Terminals, skipExtras, ng, keywordSet),
+			buildLexModeFollowTokensFunc(tables, tokenCount, ng, keywordSet, g.RecoveryLookaheadTokens...),
+			buildLexModeMissingRecoveryTokensFunc(bgCtx, tables, tokenCount, ng.Terminals, skipExtras, ng, keywordSet, g.RecoveryLookaheadTokens...),
 			suppressAfterWhitespaceSymbols(g, ng),
 			patternSyms,
 			zeroWidthSyms,
@@ -1355,6 +1357,14 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 			endPhase(map[string]any{"error": true})
 			return nil, fmt.Errorf("compute lex modes: %w", err)
 		}
+	}
+	// Recovery has no valid parser context. Keep its fixed terminals separate
+	// from ordinary modes: making '=' available in a block-start mode, for
+	// example, changes which missing-token recovery the parser can attempt.
+	errorModeIndex := -1
+	if g.SeparateErrorLexMode {
+		errorModeIndex = len(lexModes)
+		lexModes = append(lexModes, errorRecoveryLexMode(lexModes[stateToMode[0]], ng.Terminals))
 	}
 	endPhase(map[string]any{
 		"lex_modes":       len(lexModes),
@@ -1387,7 +1397,7 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 	endPhase(map[string]any{"keyword_lex_states": len(keywordLexStates)})
 
 	endPhase = trace.start("assemble", map[string]any{"states": tables.StateCount, "lex_states": len(lexStates)})
-	lang, err := assemble(ng, tables, lexStates, stateToMode, lexModeOffsets, afterWSModes)
+	lang, err := assemble(ng, tables, lexStates, stateToMode, lexModeOffsets, afterWSModes, errorModeIndex)
 	if err != nil {
 		endPhase(map[string]any{"error": true})
 		return nil, fmt.Errorf("assemble: %w", err)

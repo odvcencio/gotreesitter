@@ -1,0 +1,371 @@
+{
+  "correctness": [
+    {
+      "candidate": false,
+      "kind": "delete",
+      "phase": "fresh",
+      "changes": {
+        "shifts": [
+          211218,
+          211251
+        ],
+        "reductions": [
+          221769,
+          221802
+        ],
+        "reduction_pop_requests": [
+          221769,
+          221802
+        ],
+        "emitted_pop_paths": [
+          221769,
+          221802
+        ],
+        "emitted_pop_payloads": [
+          417147,
+          417183
+        ],
+        "table_lookups_proxy": [
+          998694,
+          998841
+        ],
+        "lexer_front_door_calls_proxy": [
+          174264,
+          174267
+        ],
+        "stack_version_creations_proxy": [
+          10569,
+          10635
+        ],
+        "graph_link_additions_proxy": [
+          353838,
+          353901
+        ],
+        "leaf_constructions_proxy": [
+          211224,
+          211260
+        ],
+        "parent_constructions_proxy": [
+          132018,
+          132027
+        ]
+      }
+    },
+    {
+      "candidate": false,
+      "kind": "delete",
+      "phase": "edit",
+      "changes": {
+        "shifts": [
+          214800,
+          214855
+        ],
+        "reductions": [
+          225369,
+          225424
+        ],
+        "reduction_pop_requests": [
+          225369,
+          225424
+        ],
+        "emitted_pop_paths": [
+          225369,
+          225424
+        ],
+        "emitted_pop_payloads": [
+          427861,
+          427921
+        ],
+        "table_lookups_proxy": [
+          1024399,
+          1024644
+        ],
+        "lexer_front_door_calls_proxy": [
+          177836,
+          177841
+        ],
+        "stack_version_creations_proxy": [
+          10579,
+          10689
+        ],
+        "graph_link_additions_proxy": [
+          354030,
+          354135
+        ],
+        "leaf_constructions_proxy": [
+          214810,
+          214870
+        ],
+        "parent_constructions_proxy": [
+          135612,
+          135643
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "delete",
+      "phase": "fresh",
+      "changes": {
+        "shifts": [
+          211218,
+          211251
+        ],
+        "reductions": [
+          221769,
+          221802
+        ],
+        "reduction_pop_requests": [
+          221769,
+          221802
+        ],
+        "emitted_pop_paths": [
+          221769,
+          221802
+        ],
+        "emitted_pop_payloads": [
+          417147,
+          417183
+        ],
+        "table_lookups_proxy": [
+          998885,
+          999307
+        ],
+        "lexer_front_door_calls_proxy": [
+          174264,
+          174267
+        ],
+        "stack_version_creations_proxy": [
+          10569,
+          10635
+        ],
+        "graph_link_additions_proxy": [
+          353838,
+          353901
+        ],
+        "leaf_constructions_proxy": [
+          211224,
+          211260
+        ],
+        "parent_constructions_proxy": [
+          132018,
+          132027
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "delete",
+      "phase": "edit",
+      "changes": {
+        "shifts": [
+          214784,
+          214839
+        ],
+        "reductions": [
+          225356,
+          225411
+        ],
+        "reduction_pop_requests": [
+          225356,
+          225411
+        ],
+        "emitted_pop_paths": [
+          225356,
+          225411
+        ],
+        "emitted_pop_payloads": [
+          427835,
+          427895
+        ],
+        "table_lookups_proxy": [
+          1024581,
+          1025101
+        ],
+        "lexer_front_door_calls_proxy": [
+          177827,
+          177832
+        ],
+        "stack_version_creations_proxy": [
+          10577,
+          10687
+        ],
+        "graph_link_additions_proxy": [
+          354004,
+          354109
+        ],
+        "leaf_constructions_proxy": [
+          214794,
+          214854
+        ],
+        "parent_constructions_proxy": [
+          135599,
+          135630
+        ]
+      }
+    }
+  ],
+  "held_reuse": [
+    {
+      "candidate": false,
+      "kind": "insert",
+      "phase": "edit",
+      "changes": {
+        "shifts": [
+          72200,
+          1792
+        ],
+        "reductions": [
+          75729,
+          1803
+        ],
+        "accept_actions": [
+          2,
+          1
+        ],
+        "reduction_pop_requests": [
+          75729,
+          1803
+        ],
+        "emitted_pop_paths": [
+          75729,
+          1803
+        ],
+        "emitted_pop_payloads": [
+          144414,
+          5361
+        ],
+        "table_lookups_proxy": [
+          345393,
+          16069
+        ],
+        "action_entries_examined_proxy": [
+          73965,
+          1795
+        ],
+        "lexer_front_door_calls_proxy": [
+          59875,
+          1786
+        ],
+        "stack_version_creations_proxy": [
+          3524,
+          3
+        ],
+        "merge_attempts_proxy": [
+          5283,
+          3
+        ],
+        "graph_link_additions_proxy": [
+          118015,
+          94
+        ],
+        "leaf_constructions_proxy": [
+          72200,
+          1792
+        ],
+        "parent_constructions_proxy": [
+          45804,
+          1798
+        ],
+        "attempt_count": [
+          2,
+          1
+        ]
+      }
+    },
+    {
+      "candidate": false,
+      "kind": "replace",
+      "phase": "edit",
+      "changes": {
+        "shifts": [
+          72200,
+          1792
+        ],
+        "reductions": [
+          75729,
+          1803
+        ],
+        "accept_actions": [
+          2,
+          1
+        ],
+        "reduction_pop_requests": [
+          75729,
+          1803
+        ],
+        "emitted_pop_paths": [
+          75729,
+          1803
+        ],
+        "emitted_pop_payloads": [
+          144414,
+          5361
+        ],
+        "table_lookups_proxy": [
+          345393,
+          16069
+        ],
+        "action_entries_examined_proxy": [
+          73965,
+          1795
+        ],
+        "lexer_front_door_calls_proxy": [
+          59875,
+          1786
+        ],
+        "stack_version_creations_proxy": [
+          3524,
+          3
+        ],
+        "merge_attempts_proxy": [
+          5283,
+          3
+        ],
+        "graph_link_additions_proxy": [
+          118015,
+          94
+        ],
+        "leaf_constructions_proxy": [
+          72200,
+          1792
+        ],
+        "parent_constructions_proxy": [
+          45804,
+          1798
+        ],
+        "attempt_count": [
+          2,
+          1
+        ]
+      }
+    },
+    {
+      "candidate": false,
+      "kind": "delete",
+      "phase": "edit",
+      "changes": {
+        "shifts": [
+          214855,
+          214859
+        ],
+        "table_lookups_proxy": [
+          1024644,
+          1028175
+        ],
+        "action_entries_examined_proxy": [
+          220087,
+          220091
+        ],
+        "lexer_front_door_calls_proxy": [
+          177841,
+          177845
+        ],
+        "leaf_constructions_proxy": [
+          214870,
+          214874
+        ]
+      }
+    }
+  ]
+}

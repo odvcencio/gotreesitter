@@ -2691,5 +2691,11 @@ func GoGrammar() *Grammar {
 
 	g.SetSupertypes("_expression", "_type", "_simple_type", "_statement", "_simple_statement")
 
+	g.SeparateErrorLexMode = true
+
+	g.RecoveryLookaheadTokens = []string{
+		":",
+	}
+
 	return g
 }

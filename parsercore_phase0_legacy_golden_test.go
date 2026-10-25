@@ -195,7 +195,7 @@ func legacyGoldenWorkFrom(work gotreesitter.DiagnosticParserCoreGenericWork) [18
 func legacyGoldenFromSeedProbe(source []byte, probe gotreesitter.DiagnosticParserCoreSeedGoldenProbeForTest) legacyGolden {
 	golden := legacyGolden{
 		Version: 1, SourceSHA256: legacyGoldenHash(sha256Sum(source)),
-		GrammarSHA256: "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d",
+		GrammarSHA256: "214322327c9ee7dda29febf32e415f7ed9e00a90b7690d3c32522e393211b8da",
 		Grammar:       "go", DefaultCheckpoint: legacyGoldenCheckpointFrom(gotreesitter.DiagnosticParserCoreScannerCheckpoint{SHA256: sha256.Sum256(nil)}),
 		EditsElection: legacyGoldenElectionFrom(probe.Election),
 		EditsFrontier: legacyGoldenPathsFrom(probe.Headers), EditsStats: legacyGoldenStatsFrom(probe.Stats),
@@ -238,6 +238,17 @@ func TestDiagnosticParserCoreSeedMatchesImmutableLegacyGolden(t *testing.T) {
 		t.Fatalf("seed golden probe: probe=%+v err=%v", probe, err)
 	}
 	got := legacyGoldenFromSeedProbe(source, probe)
+	// Keep the historical trace immutable. This regeneration changes only the
+	// grammar identity in that trace: all token elections, states and work
+	// below must still match. Authenticate both artifacts before comparing
+	// their execution fields under the current identity.
+	const historicalBlob = "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"
+	const currentBlob = "214322327c9ee7dda29febf32e415f7ed9e00a90b7690d3c32522e393211b8da"
+	if want.GrammarSHA256 != historicalBlob || got.GrammarSHA256 != currentBlob ||
+		legacyGoldenHash(sha256.Sum256(grammars.BlobByName("go"))) != currentBlob {
+		t.Fatal("legacy/current grammar identity changed")
+	}
+	want.GrammarSHA256 = currentBlob
 	if len(want.NoActions) != len(got.NoActions) {
 		t.Fatalf("golden no-action decisions=%d live=%d", len(want.NoActions), len(got.NoActions))
 	}

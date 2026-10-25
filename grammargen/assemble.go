@@ -108,6 +108,7 @@ func assemble(
 	lexModeMapping []int,
 	lexModeOffsets []int,
 	afterWSModes []afterWSModeEntry,
+	errorModeIndex int,
 ) (*gotreesitter.Language, error) {
 	tokenCount := ng.TokenCount()
 	symbolCount := len(ng.Symbols)
@@ -194,6 +195,10 @@ func assemble(
 	err := buildParseTables(lang, tables, ng, tokenCount)
 	if err != nil {
 		return nil, fmt.Errorf("build parse tables: %w", err)
+	}
+	if errorModeIndex >= 0 && errorModeIndex < len(lexModeOffsets) {
+		lang.LexModes[0].SetLexStateIndex(uint32(lexModeOffsets[errorModeIndex]))
+		lang.LexModes[0].SetAfterWhitespaceLexStateIndex(0)
 	}
 	lang.ConflictPolicies = buildConflictPolicies(tables, ng)
 
