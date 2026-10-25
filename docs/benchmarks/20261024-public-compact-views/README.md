@@ -104,7 +104,7 @@ The final candidate profiles isolate the remaining cost; cumulative entries over
 | Native projection | 9.32% | 10.12% |
 | Public receipt capture | 3.83% | 5.03% |
 
-The owned loop currently batches reductions through one elected token and returns to the scheduler after a shift. Extending ownership across token elections is the next architectural target, with scanner snapshots, frontier boundaries, and recovery exits preserved. These profiles are attribution, not evidence of a further speedup.
+The owned core loop currently batches reductions through one elected token and returns to the corridor VM after a shift. The VM already loops across elections without re-entering the general scheduler. Extending core ownership across elections can remove per-token VM/core entry and value adaptation while preserving the existing election, scanner snapshots, frontier boundaries and recovery exits. The election profile includes lexer work; it is not the removable cost of those entries. No further speedup is established.
 
 ## Reproducing and auditing
 
