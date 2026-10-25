@@ -353,8 +353,8 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	// buffer keeps repeated polls allocation-free while growing exactly for a
 	// wider frontier.
 	refs := s.footprintRefs[:0]
-	currentStorage, _ := s.versionLexerSnapshotPages.CurrentStorage()
-	currentStorageSeen := false
+	currentStorage, currentPackedStorage := s.versionLexerSnapshotPages.CurrentStorage()
+	currentStorageSeen, currentPackedStorageSeen := false, false
 	var lastStorage *core.ScannerSnapshotStorage
 
 	defer func() {
@@ -399,12 +399,16 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 					lastStorage = storage
 				}
 				currentStorageSeen = currentStorageSeen || storage == currentStorage
+				currentPackedStorageSeen = currentPackedStorageSeen || storage == currentPackedStorage
 			}
 		}
 		index = next
 	}
 	if !currentStorageSeen {
 		addBytes(currentStorage.FootprintBytes())
+	}
+	if !currentPackedStorageSeen {
+		addBytes(currentPackedStorage.FootprintBytes())
 	}
 	add(cap(refs), unsafe.Sizeof(diagnosticParserCoreFootprintRef{}))
 	add(cap(s.headers), unsafe.Sizeof(diagnosticParserCoreHeader{}))

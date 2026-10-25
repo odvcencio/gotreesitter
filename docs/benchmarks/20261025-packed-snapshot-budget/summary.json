@@ -1,0 +1,29 @@
+{
+  "schema": "gts-packed-snapshot-budget-qualification/v1",
+  "source_manifest_sha256": "4983938077fbc47ec2340fc2c6b1a0cbb1c7d3ba883dafa800192b83b9f5f9e9",
+  "sessions": 412,
+  "edit_steps": 29664,
+  "fixture_types": {
+    "r4": 408,
+    "grammar-smoke": 4
+  },
+  "no_edit_allocations": 0,
+  "C_fixture_checks": 618,
+  "failed": 0,
+  "skipped": 0,
+  "actual_ledger_rows_compared": 412,
+  "actual_work_reuse_rows_changed": 0,
+  "focused_top_level_tests": 56,
+  "memory_fix": "current packed snapshot page charged at full capacity exactly once, including unpublished slots",
+  "performance_claim": false,
+  "allowlist_changed": false,
+  "merges_held": true,
+  "baseline_regression_exit": 1,
+  "corrected_regression_exit": 0,
+  "race_top_level_tests": 9,
+  "race_pass_records": 12,
+  "race_exit": 0,
+  "baseline_actual_rows_origin": "out/ci-followup-final/ledger",
+  "candidate_actual_rows_origin": "out/packed-snapshot-budget-final/ledger",
+  "new_runtime_execution_by_packager": false
+}
