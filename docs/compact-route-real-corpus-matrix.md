@@ -26,6 +26,14 @@ have only synthetic samples and are outside this real-file census.
 
 Current owner instruction: **hold all merges to main**. The earlier release condition was fulfilled, but the renewed hold remains active independently of that release. PR #1512 stays draft; branch-relative experiments do not graduate a language.
 
+### Go graduation work: dense stack screen held; oracle compatibility advances
+
+The [dense LR V2 screen](benchmarks/20261025-dense-lr-screen/README.md) cuts generated graph links **15,505→2** and improves generated full parsing **11.19%** across 20 matched seeds. It stays private: full allocations rise **22→28**, while the 20-pair real Go sample has no significant timing improvement, allocations **14→21**, and allocated bytes **+296.40%**. Public trees, scheduler work and scanner/dependency receipts agree. All 29 corrected memory/lifetime tests pass. The original 72-step R4 session proves D8/no-edit zero allocations but contains no clean edited states; a separate one-site numeric replacement control proves positive reuse at least equal to legacy for 72 clean steps. No complete graduation or YAML qualification follows.
+
+The [C 0.27.1 receipt](benchmarks/20261025-oracle0271-preflight/README.md) passes its 48-record private preflight, then **20 top-level / 121 total Go checks** after exact private runtime identity pins and removal of one obsolete query-divergence note. Original failures remain retained. The repository still uses C 0.25.1; general binding compatibility, fleet/platform qualification and oracle adoption remain open.
+
+The owner approved the four C/EDS correctness exceptions; [the full hosted ledger gate](https://github.com/odvcencio/gotreesitter/actions/runs/40214468808/job/121232961633) now passes **206 grammars / 412 rows** with the unchanged 2% guard. The earlier Go assignment exception remains pending. The [owner's M1 clarification](https://github.com/odvcencio/gotreesitter/issues/1294#issuecomment-5900233090) permits measuring default and compact from one immutable candidate SHA, then tagging that exact SHA after it passes. These screens do not qualify an M1 candidate. All main merges and graduation remain held.
+
 ### Projection follow-up: saved-source correctness and counter gates pass
 
 The [CI follow-up receipt](benchmarks/20261025-projection-ci-followup/README.md) preserves selected MISSING history for Go grouped declarations, repairs COBOL's source-backed EXEC/AND/CICS header handling, and fixes the EXEC error's pre-existing `Extra` mismatch. The permanent COBOL gate now checks all flags and independent C digests. Both Go incremental APIs pass the separator delete/restore cycles on both routes with zero no-edit allocations. Cooklang retains all 19 previously C-exact results; only HasError bits change in its existing complex-witness diagnostic, whose C gap remains explicit.

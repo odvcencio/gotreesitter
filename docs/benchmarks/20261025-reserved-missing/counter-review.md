@@ -1,6 +1,6 @@
 # Owner review: C and EDS missing-token correctness
 
-Status: **approved by the owner on 2026-10-25**: “Approve these four correctness exceptions.” The [approval record](owner-approval.json) pins the decision and four ledger values. Only those four guarded values are updated; the 2% threshold is unchanged. [Scoped validation](ledger-validation.json) reproduces all four values; all eight existing ledger guard-test records pass. The full ledger gate remains a CI check. All merges to main remain held.
+Status: **approved by the owner on 2026-10-25**: “Approve these four correctness exceptions.” The [approval record](owner-approval.json) pins the decision and four ledger values. Only those four guarded values are updated; the 2% threshold is unchanged. [Scoped validation](ledger-validation.json) reproduces all four values; all eight existing ledger guard-test records pass. The [full hosted ledger gate](https://github.com/odvcencio/gotreesitter/actions/runs/40214468808/job/121232961633) subsequently passes all 206 grammars / 412 rows at commit 66cd77478. All merges to main remain held.
 
 The [v1 design R3](../../v1-design.md#r3-counter-ledger-changes) says: “Agents do not approve ledger exceptions.” The owner approved these four guarded changes on the default route's first pinned-session edit:
 

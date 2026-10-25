@@ -107,5 +107,14 @@
   },
   "threshold_changed": false,
   "collector_changed": false,
-  "full_gate": "Await hosted CI; previous unchanged-source 412-row comparison retained separately."
+  "full_gate": {
+    "result": "passed",
+    "scope": "206 grammars / 412 route rows",
+    "commit": "66cd77478b8e79323cb843a2523489830cc9af19",
+    "run": 40214468808,
+    "job": 121232961633,
+    "url": "https://github.com/odvcencio/gotreesitter/actions/runs/40214468808/job/121232961633",
+    "step": "Check deterministic parser counters for 206 grammars",
+    "step_conclusion": "success"
+  }
 }
