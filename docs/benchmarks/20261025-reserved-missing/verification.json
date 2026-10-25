@@ -83,12 +83,13 @@
     "Native non-EOF recovery still declines on joined31",
     "Included-range strict C mismatches remain; compact range routing remains closed",
     "M1 baseline and complete all206 E-A exit gate remain unauthenticated/incomplete",
-    "Four new guarded ledger changes and earlier Go exception remain unapproved"
+    "The owner approved the four C/EDS guarded ledger changes on 2026-10-25; the earlier Go exception remains unapproved"
   ],
   "saved_source_c4": {
     "focused": true,
     "initial_fleet_skipped": true,
     "explicit_fleet_pass": true,
     "fleet_grammars": 206
-  }
+  },
+  "owner_approval": "owner-approval.json"
 }
