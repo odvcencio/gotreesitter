@@ -2809,6 +2809,11 @@ jobs:
             } >> "${GITHUB_STEP_SUMMARY}"
           fi
 
+          # Keep edit attribution separate from the unchanged timing inputs.
+          # Capture the runner CPU because hosted ubuntu-latest spans hardware.
+          bash scripts/run_go_edit_attribution.sh "${BASE_TREE}" \
+            "${OUT_DIR}/edit-attribution" "${BASE_RSS_BIN}" "${HEAD_RSS_BIN}"
+
       - name: Perf Definitive Outcome Summary
         if: always()
         run: |
