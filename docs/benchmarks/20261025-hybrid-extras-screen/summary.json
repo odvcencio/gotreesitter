@@ -1,0 +1,458 @@
+{
+  "schema": "gts-hybrid-extras-screen/v1",
+  "decision": "HOLD; significant YAML throughput regression, no measured speed win",
+  "qualification": {
+    "pairs": 8,
+    "public_deep_digests_equal": true,
+    "differences": [
+      {
+        "fixture": "primary-generated",
+        "entry": "ordinary-Parse",
+        "candidate": true,
+        "area": "CoreWork",
+        "name": "GraphLinkAdditionsProxy",
+        "before": 15505,
+        "after": 2
+      },
+      {
+        "fixture": "primary-generated",
+        "entry": "registered-factory-entry",
+        "candidate": true,
+        "area": "CoreWork",
+        "name": "GraphLinkAdditionsProxy",
+        "before": 15505,
+        "after": 2
+      },
+      {
+        "fixture": "real-r4",
+        "entry": "ordinary-Parse",
+        "candidate": true,
+        "area": "CoreWork",
+        "name": "GraphLinkAdditionsProxy",
+        "before": 1381,
+        "after": 577
+      },
+      {
+        "fixture": "real-r4",
+        "entry": "registered-factory-entry",
+        "candidate": true,
+        "area": "CoreWork",
+        "name": "GraphLinkAdditionsProxy",
+        "before": 1381,
+        "after": 577
+      }
+    ],
+    "receipt_differences": [],
+    "memory_differences": [
+      {
+        "fixture": "primary-generated",
+        "entry": "ordinary-Parse",
+        "candidate": true,
+        "name": "last_idle_core_footprint_bytes",
+        "before": 1711240,
+        "after": 1578520
+      },
+      {
+        "fixture": "primary-generated",
+        "entry": "ordinary-Parse",
+        "candidate": true,
+        "name": "last_idle_core_nodes",
+        "before": 15506,
+        "after": 3
+      },
+      {
+        "fixture": "primary-generated",
+        "entry": "registered-factory-entry",
+        "candidate": true,
+        "name": "last_idle_core_footprint_bytes",
+        "before": 1711240,
+        "after": 1578520
+      },
+      {
+        "fixture": "primary-generated",
+        "entry": "registered-factory-entry",
+        "candidate": true,
+        "name": "last_idle_core_nodes",
+        "before": 15506,
+        "after": 3
+      },
+      {
+        "fixture": "real-r4",
+        "entry": "ordinary-Parse",
+        "candidate": true,
+        "name": "last_idle_core_footprint_bytes",
+        "before": 1765437,
+        "after": 1632713
+      },
+      {
+        "fixture": "real-r4",
+        "entry": "ordinary-Parse",
+        "candidate": true,
+        "name": "last_idle_core_nodes",
+        "before": 1382,
+        "after": 578
+      },
+      {
+        "fixture": "real-r4",
+        "entry": "registered-factory-entry",
+        "candidate": true,
+        "name": "last_idle_core_footprint_bytes",
+        "before": 1765437,
+        "after": 1632713
+      },
+      {
+        "fixture": "real-r4",
+        "entry": "registered-factory-entry",
+        "candidate": true,
+        "name": "last_idle_core_nodes",
+        "before": 1382,
+        "after": 578
+      }
+    ],
+    "budget_diagnostic_regions": 48,
+    "budget_diagnostic_checks": 481,
+    "budget_diagnostic_fallbacks": 0,
+    "top_level_tests": {
+      "core.log": 24,
+      "region-boundaries.log": 10,
+      "lifetime.log": 4,
+      "memory.log": 15,
+      "go-cgo.log": 10,
+      "yaml-cgo.log": 8
+    },
+    "Go_and_YAML_C_D8_passed": true,
+    "extras_ordinary": {
+      "go": {
+        "graph_links_before": 1381,
+        "graph_links_after": 577,
+        "dense": {
+          "BatchCalls": 24,
+          "BatchActions": 910,
+          "BatchElections": 468,
+          "GraphAnchorLinks": 105,
+          "HybridRefusals": [
+            0,
+            23,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "Entries": 23,
+          "Reentries": 22,
+          "AnchorProofAttempts": 34,
+          "AnchorProofRejected": 12,
+          "FirstReentryElection": 42,
+          "FirstReentryByte": 311,
+          "LastAnchorPaths": 1,
+          "SourceBytes": 2047,
+          "SourceSHA256": "b37389f6dbac4e417f19db04909783b0264dfec4e3c93774f0557c3e91b8f6c5",
+          "Started": true,
+          "Shifts": 468,
+          "Reductions": 442,
+          "Extras": 7,
+          "Promotions": 23,
+          "PromotionReason": "core refused action: batch row boundary",
+          "PromotionElection": 588,
+          "PromotionToken": 0,
+          "PromotionTokenStart": 2047,
+          "PromotionTokenEnd": 2047,
+          "PromotionStackByte": 2047,
+          "PromotionState": 2,
+          "PeakDenseBytes": 5944
+        },
+        "other_receipts_work_equal": true,
+        "no_edit_allocations": 0
+      },
+      "yaml": {
+        "graph_links_before": 304,
+        "graph_links_after": 117,
+        "dense": {
+          "BatchCalls": 11,
+          "BatchActions": 246,
+          "BatchElections": 76,
+          "GraphAnchorLinks": 60,
+          "HybridRefusals": [
+            0,
+            10,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1
+          ],
+          "Entries": 11,
+          "Reentries": 10,
+          "AnchorProofAttempts": 10,
+          "AnchorProofRejected": 0,
+          "FirstReentryElection": 4,
+          "FirstReentryByte": 254,
+          "LastAnchorPaths": 1,
+          "SourceBytes": 1998,
+          "SourceSHA256": "5aa2c70bccfe73254f13eca40476c3f88f522c6a47aea499f9d672dbc5aae8c4",
+          "Started": true,
+          "Shifts": 76,
+          "Reductions": 170,
+          "Extras": 0,
+          "Promotions": 11,
+          "PromotionReason": "core refused action: elected token eligibility boundary",
+          "PromotionElection": 105,
+          "PromotionToken": 0,
+          "PromotionTokenStart": 1998,
+          "PromotionTokenEnd": 1998,
+          "PromotionStackByte": 1998,
+          "PromotionState": 390,
+          "PeakDenseBytes": 5160
+        },
+        "other_receipts_work_equal": true,
+        "no_edit_allocations": 0
+      }
+    },
+    "invariant_sessions": 4,
+    "edit_steps": 288,
+    "no_edit_allocations": 0,
+    "ordinary_route_actual_ledger_rows_unchanged": 4,
+    "performance_claim": false,
+    "private_prototype_promoted": false
+  },
+  "core_layout": {
+    "hot_frame_bytes": 96,
+    "dense_header_bytes": 1928,
+    "path_payload_bytes": 32,
+    "trailing_window_bytes": 1024,
+    "empty_retained_bytes": 1928,
+    "source": "actual TestDenseHybridExtrasRetainedHeaderAccounting log"
+  },
+  "prior_hybrid_graph_links": {
+    "go_r4": 609,
+    "yaml_r4": 168,
+    "receipt": "../20261025-hybrid-publication-screen/"
+  },
+  "failure_preserved": {
+    "variant": "extras-v1",
+    "worker": 84310,
+    "exit_code": 1,
+    "failed_test": "TestDenseHybridGraphExtraDeclinesBeforeGoto",
+    "correction": "V2 keeps original negative assertion; generic zero paths prove extras-only underflow; strict supported-neighbor generic equality added"
+  },
+  "limits": [
+    "private experiment only; no runtime/default promotion",
+    "no language graduation or E-A qualification",
+    "no full-fleet/RSS/ARM/platform qualification",
+    "main merges remain held",
+    "separate incremental fresh-verifier report not resolved"
+  ],
+  "comparison": "combined dense hybrid + promotion budget region + extras versus corrected current production; independent prior cohorts do not isolate extras contribution",
+  "latest_perf": {
+    "schema": "gts-dense-hybrid-extras-perf/v1",
+    "pairs": 60,
+    "processes": 120,
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "benchtime": "750ms",
+    "GOMAXPROCS": 1,
+    "count_per_process": 1,
+    "route_fallbacks": 0,
+    "no_edit_allocations": 0,
+    "all_source_and_control_guards_passed": true,
+    "results": {
+      "go-r4": {
+        "BenchmarkCompactGraduationR4/legacy": {
+          "ns/op": {
+            "before": 901841.0,
+            "after": 879472.5,
+            "change_percent": -2.4803152662165484
+          },
+          "B/op": {
+            "before": 2712.0,
+            "after": 2712.0,
+            "change_percent": 0.0
+          },
+          "allocs/op": {
+            "before": 11.0,
+            "after": 11.0,
+            "change_percent": 0.0
+          }
+        },
+        "BenchmarkCompactGraduationR4/compact": {
+          "ns/op": {
+            "before": 1055056.0,
+            "after": 1057010.0,
+            "change_percent": 0.1852034394382862
+          },
+          "B/op": {
+            "before": 1112.0,
+            "after": 1112.0,
+            "change_percent": 0.0
+          },
+          "allocs/op": {
+            "before": 14.0,
+            "after": 14.0,
+            "change_percent": 0.0
+          }
+        }
+      },
+      "yaml-r4": {
+        "BenchmarkCompactGraduationR4/legacy": {
+          "ns/op": {
+            "before": 173107.5,
+            "after": 174944.0,
+            "change_percent": 1.0609014629637592
+          },
+          "B/op": {
+            "before": 1440.0,
+            "after": 1440.0,
+            "change_percent": 0.0
+          },
+          "allocs/op": {
+            "before": 16.0,
+            "after": 16.0,
+            "change_percent": 0.0
+          }
+        },
+        "BenchmarkCompactGraduationR4/compact": {
+          "ns/op": {
+            "before": 239638.5,
+            "after": 266443.5,
+            "change_percent": 11.185598307450606
+          },
+          "B/op": {
+            "before": 5456.0,
+            "after": 5456.0,
+            "change_percent": 0.0
+          },
+          "allocs/op": {
+            "before": 39.0,
+            "after": 39.0,
+            "change_percent": 0.0
+          }
+        }
+      },
+      "go-primary": {
+        "BenchmarkGraduationGoSuite/Full": {
+          "ns/op": {
+            "before": 9509484.5,
+            "after": 9017507.5,
+            "change_percent": -5.173540164033074
+          },
+          "B/op": {
+            "before": 261546.5,
+            "after": 261546.0,
+            "change_percent": -0.00019117059489870414
+          },
+          "allocs/op": {
+            "before": 22.0,
+            "after": 22.0,
+            "change_percent": 0.0
+          }
+        },
+        "BenchmarkGraduationGoSuite/Edit": {
+          "ns/op": {
+            "before": 85392.0,
+            "after": 93527.0,
+            "change_percent": 9.526653550683895
+          },
+          "B/op": {
+            "before": 412.0,
+            "after": 413.0,
+            "change_percent": 0.24271844660195274
+          },
+          "allocs/op": {
+            "before": 5.0,
+            "after": 5.0,
+            "change_percent": 0.0
+          }
+        },
+        "BenchmarkGraduationGoSuite/NoEdit": {
+          "ns/op": {
+            "before": 4.033,
+            "after": 3.854,
+            "change_percent": -4.438383337465912
+          },
+          "B/op": {
+            "before": 0.0,
+            "after": 0.0,
+            "change_percent": null
+          },
+          "allocs/op": {
+            "before": 0.0,
+            "after": 0.0,
+            "change_percent": null
+          }
+        }
+      }
+    },
+    "private_prototype_promoted": false,
+    "graduation_claim": false,
+    "merges_held": true
+  },
+  "timing_pvalues": {
+    "go-primary": {
+      "Edit": 0.495,
+      "NoEdit": 0.904,
+      "Full": 0.211
+    },
+    "go-r4": {
+      "compact": 0.904,
+      "legacy": 0.738
+    },
+    "yaml-r4": {
+      "compact": 0.001,
+      "legacy": 0.779
+    }
+  },
+  "route_ratios": {
+    "go": {
+      "before": {
+        "median_of_paired_ratios": 1.189034225111965,
+        "ratio_of_medians": 1.1698913666599766
+      },
+      "after": {
+        "median_of_paired_ratios": 1.193981202642087,
+        "ratio_of_medians": 1.2018681652922634
+      }
+    },
+    "yaml": {
+      "before": {
+        "median_of_paired_ratios": 1.3776689022317383,
+        "ratio_of_medians": 1.3843334344265847
+      },
+      "after": {
+        "median_of_paired_ratios": 1.5484337135152888,
+        "ratio_of_medians": 1.5230216526431315
+      }
+    }
+  },
+  "private_prototype_promoted": false,
+  "graduation_claim": false,
+  "merges_held": true
+}
