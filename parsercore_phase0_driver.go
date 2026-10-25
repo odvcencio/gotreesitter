@@ -880,7 +880,11 @@ func (a *parserCoreRootTables) SelectedStorePolicy() (core.SelectedStorePolicy, 
 	if a == nil || a.parser == nil || !a.parser.hasRootSymbol {
 		return core.SelectedStorePolicy{}, nil
 	}
-	return buildParserCoreSelectedStorePolicy(a.parser)
+	policy, err := buildParserCoreSelectedStorePolicy(a.parser)
+	if identity, valid := a.TableIdentity(); err == nil && valid && core.NativeSelectedSnapshotDefaultContract(identity) {
+		policy.TypeArguments = parserCoreTypeArgumentPolicy(a.parser.language)
+	}
+	return policy, err
 }
 
 func (a *parserCoreRootTables) Actions(state core.StateID, symbol core.Symbol) (core.ActionRow, error) {

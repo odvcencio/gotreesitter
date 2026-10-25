@@ -43,9 +43,18 @@ func (t *NativeProjectionTiling) validateExtent(source []byte, start, end uint32
 	return nil
 }
 
+// NativeProjectionCoverageError preserves a failed byte-coverage proof across
+// the publication boundary. Callers may retry with recovery lexing, but may
+// never publish the incomplete clean derivation.
+type NativeProjectionCoverageError struct{ Start, End uint32 }
+
+func (e *NativeProjectionCoverageError) Error() string {
+	return fmt.Sprintf("stream accepted-leaf-tiling-gap %d..%d", e.Start, e.End)
+}
+
 func (t *NativeProjectionTiling) validateGap(source []byte, start, end uint32) error {
 	if start < end && (t.GapIsTolerated == nil || !t.GapIsTolerated(source[start:end])) {
-		return fmt.Errorf("stream accepted-leaf-tiling-gap %d..%d", start, end)
+		return &NativeProjectionCoverageError{Start: start, End: end}
 	}
 	return nil
 }

@@ -1,0 +1,19 @@
+{
+  "archive": "receipts.tar.gz",
+  "archive_sha256": "79c7fb2e2a167103f4ffe1b3b1fdd9c3b4fca8c229427836b4541896836ae580",
+  "archive_bytes": 1293003,
+  "file_count": 3208,
+  "groups": {
+    "root controls and logs": 144,
+    "baseline": 28,
+    "candidate": 21,
+    "cgo": 412,
+    "counter-deltas": 412,
+    "invariants": 412,
+    "ledger": 824,
+    "retention": 322,
+    "v2": 220,
+    "work": 413
+  },
+  "verification": "Every archived file was read back and compared with its original SHA-256 before publication."
+}

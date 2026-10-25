@@ -109,8 +109,8 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		allowConvergedReductionSplitDrops: allowConvergedSplitDrop,
 		recoveryPlainFirst:                p.language.CompactRecoveryPlainFirstCertified || allowOwnedEOFRecovery,
 	}
-	if core.ExternalLexerOwnsAllTerminals(p.language.TokenCount, p.language.ExternalSymbols) ||
-		!p.language.CompactLexerSkippedPrefixTilingCertified && classifyExternalScannerQuiescence(p.language) == scannerQuiescenceProven {
+	if p.hasRootSymbol && (core.ExternalLexerOwnsAllTerminals(p.language.TokenCount, p.language.ExternalSymbols) ||
+		!p.language.CompactLexerSkippedPrefixTilingCertified && classifyExternalScannerQuiescence(p.language) == scannerQuiescenceProven) {
 		identity, valid := tables.TableIdentity()
 		runner.scratch.nativeProjection = &nativeProjectionWorkspace{compactViews: valid && compactNodeViewsForContract(identity)}
 	}

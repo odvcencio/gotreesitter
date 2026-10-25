@@ -1,0 +1,50 @@
+[
+  {
+    "from": "node_views.go",
+    "to": "tree.go",
+    "body_sha256": "b85fb99119eb30337590a7035f7aa731289f26c6aa95a4370f7441446b640c5a",
+    "exact_contiguous_body_preserved": true
+  },
+  {
+    "from": "node_views_test.go",
+    "to": "arena_test.go",
+    "body_sha256": "0b3acd00cb9426ae988e15fb6bd51bfd48e63fa5cbeff100524d189b4b6db8bf",
+    "exact_contiguous_body_preserved": true
+  },
+  {
+    "from": "parsercore_node_views.go",
+    "to": "parsercore_phase0_materializer.go",
+    "body_sha256": "eeaa4ebb3a2ef745772df8d44521412e92206d56596a4091808aa033f241ff65",
+    "exact_contiguous_body_preserved": true
+  },
+  {
+    "from": "parsercore_native_selected_output.go",
+    "to": "parsercore_phase0_fresh_full_runner.go",
+    "body_sha256": "30f4e600a692d892a15b6cb8480638ae839aa27d8e991ad0a68352f5671fc2fa",
+    "exact_contiguous_body_preserved": true
+  },
+  {
+    "from": "parsercore_single_version.go",
+    "to": "parsercore_c4_vm.go",
+    "body_sha256": "02d4dd969256ad245b0a4eedae74e377cbb74be25867ca4c2008b84e287327c3",
+    "exact_contiguous_body_preserved": true
+  },
+  {
+    "from": "parsercore_node_views_internal_test.go",
+    "to": "parsercore_selected_store_internal_test.go",
+    "body_sha256": "4e54f9e6e46fa2164a841335f864e3d924274ab52da2143ac37a0c17366c3b6d",
+    "exact_contiguous_body_preserved": true
+  },
+  {
+    "from": "parsercore_native_receipts_internal_test.go",
+    "to": "parsercore_selected_store_internal_test.go",
+    "body_sha256": "9b39d081164571342652ab8c95bf6e9da859afbb4ca3e2cac87c494cf3b893a8",
+    "exact_contiguous_body_preserved": true
+  },
+  {
+    "from": "parsercore_single_version_output_internal_test.go",
+    "to": "parsercore_selected_store_internal_test.go",
+    "body_sha256": "05e9827613fce08ee2d81c2c2c45ac40f6940dff37f236932b0d64b296f83033",
+    "exact_contiguous_body_preserved": true
+  }
+]

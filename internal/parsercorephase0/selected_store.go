@@ -37,6 +37,7 @@ type SelectedAliasChildPair struct {
 // is a dense parent-major matrix with stride len(Symbols).
 type SelectedStorePolicy struct {
 	Symbols               []SelectedSymbolPolicy
+	TypeArguments         SelectedTypeArgumentPolicy
 	Unary                 []SelectedUnaryRule
 	RetainedAliasChildren []SelectedAliasChildPair
 	SupertypeMasks        []uint32
@@ -910,6 +911,11 @@ func (s *SelectedStore) normalizeGoCompatibility(policy SelectedStorePolicy, sou
 			}
 		}
 		record := &s.records[index]
+		if policy.TypeArguments.Call != 0 && record.Symbol == policy.TypeArguments.Call {
+			if err := s.normalizeTypeArgument(SelectedNodeID(index+1), policy.TypeArguments, policy.Symbols, source, poll); err != nil {
+				return err
+			}
+		}
 		old := s.children[record.FirstChild : record.FirstChild+uint32(record.ChildCount)]
 		record.FirstChild = uint32(len(children))
 		for _, childID := range old {

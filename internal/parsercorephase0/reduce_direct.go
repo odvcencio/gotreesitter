@@ -2,6 +2,15 @@ package parsercorephase0
 
 import "errors"
 
+// The exceptional direct-to-general handoff owns one GOTO memo per core.
+// Keeping it outside every classified cell preserves the 64-byte scheduler
+// cell bound. The full capability and predecessor authenticate consumption.
+type preparedReductionGoto struct {
+	boundary ClassifiedBoundary
+	previous NodeID
+	state    StateID
+}
+
 // TryReduceDirectOwned completes a deterministic reduction and its scheduler
 // publication in one owned operation. It declines before changing the graph
 // when a pop encounters extras, alternatives, recovery, certificate references,
@@ -21,6 +30,7 @@ func (c *Core) TryReduceDirectOwned(owner SchedulerTransactionToken, boundary *C
 
 // reduceDirectActive is entered only under the single-version owner.
 func (c *Core) reduceDirectActive(owner SchedulerTransactionToken, boundary *ClassifiedBoundary, publication ShiftHeadLineage) (out Head, handled bool, err error) {
+	c.preparedReductionGoto = preparedReductionGoto{}
 	if !c.schedulerFrame.fresh || phase0AEnabled || c.condenseScopeActive || c.popScratch.busy || c.reduceConflictContext || c.reduceNoLookaheadContext {
 		return out, false, nil
 	}
@@ -106,7 +116,7 @@ func (c *Core) reduceDirectActive(owner SchedulerTransactionToken, boundary *Cla
 	if err := c.validateSchedulerTransaction(owner); err != nil {
 		return out, false, err
 	}
-	boundary.preparedGotoPrev, boundary.preparedGotoState = path.prev, target
+	c.preparedReductionGoto = preparedReductionGoto{boundary: *boundary, previous: path.prev, state: target}
 	// A callback may have changed recovery metadata without growing arenas.
 	if target == 0 || c.nodeLineageRecoveryAt(boundary.head.Node).storedErrorCost != 0 ||
 		c.nodeLineageRecoveryAt(path.prev).storedErrorCost != 0 || c.nodeLineageRecoveryAt(path.prev).dropCohortRefIndex != 0 {

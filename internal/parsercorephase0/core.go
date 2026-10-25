@@ -134,11 +134,6 @@ type ClassifiedBoundary struct {
 	state       StateID
 	byteOffset  uint32
 	lookahead   Symbol
-	// A direct reduction may discover an existing destination boundary and
-	// hand back to the general reducer. Retain its immutable GOTO result so
-	// that handoff does not perform the same table lookup twice.
-	preparedGotoPrev  NodeID
-	preparedGotoState StateID
 }
 
 // Head returns the compact head authenticated by this classification.
@@ -1436,7 +1431,8 @@ type Core struct {
 	nativeProjectionFieldProfileUnsupported bool
 	// lastShiftFresh records whether the most recent single-boundary shift
 	// published a new node. See LastShiftFresh.
-	lastShiftFresh bool
+	lastShiftFresh        bool
+	preparedReductionGoto preparedReductionGoto
 	// reduceConflictContext is a transient, non-sticky fragility signal: the
 	// conflict executor (executeDiagnosticParserCoreGenericConflictDetailed,
 	// parsercore_phase0_driver.go) sets it for the duration of applying every

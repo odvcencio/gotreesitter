@@ -2692,8 +2692,8 @@ func TestReductionReturnsEveryDistinctGotoBoundary(t *testing.T) {
 }
 
 func TestCompactArenaRecordsRemainPointerFree(t *testing.T) {
-	if got := unsafe.Sizeof(ClassifiedBoundary{}); got > 56 {
-		t.Fatalf("ClassifiedBoundary size = %d, want <= 56", got)
+	if got := unsafe.Sizeof(ClassifiedBoundary{}); got > 48 {
+		t.Fatalf("ClassifiedBoundary size = %d, want <= 48", got)
 	}
 	for name, typ := range map[string]reflect.Type{
 		"node":                   reflect.TypeFor[nodeRecord](),

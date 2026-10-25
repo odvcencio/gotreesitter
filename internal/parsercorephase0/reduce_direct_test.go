@@ -251,3 +251,38 @@ func TestDirectReductionDeclinesWithoutPublication(t *testing.T) {
 		})
 	}
 }
+
+func TestDirectReductionGotoMemoDoesNotCrossFrontier(t *testing.T) {
+	if phase0AEnabled {
+		t.Skip("diagnostic build uses the general reducer")
+	}
+	c, boundary := directReductionFixture(t, 1, false)
+	if _, err := c.ReduceOutputs(boundary.head, 10, 0, ForkOrder{}); err != nil {
+		t.Fatal(err)
+	}
+	boundary, err := c.ClassifyBoundary(boundary.head, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	table := &directReductionCountingTable{fakeTable: c.tables.(*fakeTable)}
+	c.tables = table
+	if err := c.RunFreshSchedulerSession(func(owner SchedulerTransactionToken) error {
+		if _, handled, err := c.TryReduceDirectOwned(owner, &boundary, ShiftHeadLineage{Owner: 3}); handled || err != nil {
+			t.Fatalf("historical boundary: handled=%t err=%v", handled, err)
+		}
+		if err := c.BeginFrontier(); err != nil {
+			return err
+		}
+		next, err := c.ClassifyBoundary(boundary.head, 10)
+		if err != nil {
+			return err
+		}
+		_, err = c.ReduceOutputsCorridorClassifiedIntoWithLiveCondenseCandidatesOwned(owner, nil, nil, next, ForkOrder{})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if table.calls != 2 {
+		t.Fatalf("new frontier reused stale GOTO: calls=%d, want two", table.calls)
+	}
+}
