@@ -26,6 +26,12 @@ have only synthetic samples and are outside this real-file census.
 
 Current owner instruction: **hold all merges to main**. The earlier release condition was fulfilled, but the renewed hold remains active independently of that release. PR #1512 stays draft; branch-relative experiments do not graduate a language.
 
+### Go graduation: recovery repair held for counters; current fleet timing running
+
+The [Go graduation receipt](benchmarks/20261025-go-graduation-recovery/README.md) repairs the remaining `= a + b` recovery election with Go's exact-artifact missing-version scheduling grant. All 96 assignment-target edits (16 sites per class, both routes) match independent fresh/incremental Go and C; both 72-step invariant sessions, focused memory/race/publication checks and the repaired canonical controls pass. Broader final-source Go C qualification is queued. The standard Go ledger and original declaration-witness work stay identical, but the new malformed-assignment fixture raises tokens, nodes, stacks and merge work. Its [R3 exception](benchmarks/20261025-go-graduation-recovery/counter-review.md) remains unapproved. The full version-order alternative is rejected for adverse work.
+
+Forty before/after pairs across both Go routes find no significant timing change from the correctness fix; allocations stay default 6/5/0 and candidate 22/5/0. A separate frozen **all-206** current-runtime census is running, including declines and locally authenticated CSV/Enforce samples. Its completed Go/YAML 20-pair snapshots have median paired compact/legacy ratios **1.1720 / 1.4317**, both executing compact with zero fallbacks. These exceed E-A's worst-file 1.15 limit; the fleet is still incomplete and the frozen M1 baseline is not authenticated. Upstream C 0.27.1 is resolved by commit and has an unpromoted compatibility preflight queued. Go remains ungraduated, V4 stays deferred, and all merges stay held.
+
 ### Public compact trees: Go publisher enabled within the candidate route
 
 The [public-output receipt](benchmarks/20261024-public-compact-views/README.md) connects owned compact snapshots to the public tree, query, copy, and edit APIs. A parse creates one stable root header; child reads create views on demand, and edits restore the complete mutable representation with replay/checkpoint/reuse receipts. The full fresh verifier remains enabled. Go uses this publisher inside its existing candidate route; YAML requires the experimental output tag. Admission allowlists and the global route default are unchanged.

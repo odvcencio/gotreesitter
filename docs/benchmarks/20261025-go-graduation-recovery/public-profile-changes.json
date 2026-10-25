@@ -1,0 +1,229 @@
+{
+  "0": [],
+  "1": [
+    {
+      "candidate": false,
+      "kind": "delete",
+      "phase": "edit",
+      "changes": {
+        "ArenaBytesAllocated": [
+          2483136,
+          2540696
+        ],
+        "BlockSpliceSteps": [
+          3538,
+          3526
+        ],
+        "EntryScratchPeak": [
+          4100,
+          4101
+        ],
+        "GSSBytesAllocated": [
+          4255816,
+          4255848
+        ],
+        "MaxStacksSeen": [
+          2,
+          4
+        ],
+        "MultiStackGSSNodes": [
+          44,
+          1458
+        ],
+        "MultiStackIterations": [
+          18,
+          302
+        ],
+        "MultiStackTokens": [
+          16,
+          290
+        ],
+        "NewNodesAllocated": [
+          7210,
+          8652
+        ],
+        "ReuseObservedPreGotoStateMismatch": [
+          1759,
+          1755
+        ],
+        "ReuseRejectRootNonLeafChanged": [
+          3536,
+          3522
+        ],
+        "ReusedBytes": [
+          135028,
+          134736
+        ],
+        "ReusedSubtrees": [
+          1769,
+          1763
+        ],
+        "ScratchBaselineBytes": [
+          35974696,
+          35974984
+        ],
+        "ScratchBytesAllocated": [
+          35974696,
+          35974984
+        ],
+        "SingleStackGSSNodes": [
+          168,
+          152
+        ],
+        "SingleStackIterations": [
+          7090,
+          7064
+        ],
+        "SingleStackTokens": [
+          3556,
+          3542
+        ],
+        "TokensConsumed": [
+          3572,
+          3832
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "insert",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          1156832,
+          1179360
+        ],
+        "ArenaBytesAllocated": [
+          1189600,
+          1212128
+        ],
+        "GSSBytesAllocated": [
+          2127908,
+          2127924
+        ],
+        "ScratchBaselineBytes": [
+          17987348,
+          17987492
+        ],
+        "ScratchBytesAllocated": [
+          17987404,
+          17987548
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "replace",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          1156832,
+          1179360
+        ],
+        "ArenaBytesAllocated": [
+          1189600,
+          1212128
+        ],
+        "GSSBytesAllocated": [
+          2127908,
+          2127924
+        ],
+        "ScratchBaselineBytes": [
+          17987404,
+          17987548
+        ],
+        "ScratchBytesAllocated": [
+          17987404,
+          17987548
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "delete",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          2313664,
+          2784704
+        ],
+        "ArenaBytesAllocated": [
+          2379200,
+          2931992
+        ],
+        "BlockSpliceSteps": [
+          3536,
+          3522
+        ],
+        "EntryScratchPeak": [
+          4100,
+          4101
+        ],
+        "GSSBytesAllocated": [
+          4255816,
+          4255848
+        ],
+        "MaxStacksSeen": [
+          2,
+          4
+        ],
+        "MultiStackGSSNodes": [
+          23,
+          1458
+        ],
+        "MultiStackIterations": [
+          10,
+          302
+        ],
+        "MultiStackTokens": [
+          9,
+          290
+        ],
+        "NewNodesAllocated": [
+          7175,
+          8641
+        ],
+        "ReuseObservedPreGotoStateMismatch": [
+          1759,
+          1755
+        ],
+        "ReuseRejectRootNonLeafChanged": [
+          3536,
+          3520
+        ],
+        "ReusedBytes": [
+          135028,
+          134736
+        ],
+        "ReusedSubtrees": [
+          1769,
+          1763
+        ],
+        "ScratchBaselineBytes": [
+          35974808,
+          35975096
+        ],
+        "ScratchBytesAllocated": [
+          35974808,
+          35975096
+        ],
+        "SingleStackGSSNodes": [
+          161,
+          150
+        ],
+        "SingleStackIterations": [
+          7089,
+          7061
+        ],
+        "SingleStackTokens": [
+          3556,
+          3540
+        ],
+        "TokensConsumed": [
+          3585,
+          3850
+        ]
+      }
+    }
+  ]
+}

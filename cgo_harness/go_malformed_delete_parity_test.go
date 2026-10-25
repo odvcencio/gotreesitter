@@ -218,7 +218,7 @@ func cognocienteGo137KiBSource() []byte {
 func TestGoMalformedDeclarationPrefixLockedC(t *testing.T) {
 	language := grammars.GoLanguage()
 	cLanguage := loadCanonicalGoCLanguage(t)
-	for _, body := range []string{":= a + b", ":= a + b\nfmt.Println(\"f0\", x)\nreturn x", ":= 1", ": a + b"} {
+	for _, body := range []string{":= a + b", ":= a + b\nfmt.Println(\"f0\", x)\nreturn x", ":= 1", ": a + b", "= a + b"} {
 		for _, candidate := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%q/candidate=%t", body, candidate), func(t *testing.T) {
 				source := []byte("package main\nfunc f(a int,b int) int {\n" + body + "\n}\n")
@@ -241,6 +241,106 @@ func TestGoMalformedDeclarationPrefixLockedC(t *testing.T) {
 				defer gt.Release()
 				assertLockedCTreeExactWithErrors(t, "malformed declaration prefix", gt, language, ct)
 			})
+		}
+	}
+}
+
+// Sample the complete document, rather than repeating the first edit site.
+// Deleting the assignment target makes the missing-token and skipped-token
+// versions compete; C keeps the cheaper skipped-token recovery.
+func TestGoAssignmentTargetEdits16SitesLockedC(t *testing.T) {
+	source := bytes.ReplaceAll(cognocienteGo137KiBSource(), []byte("x := a + b"), []byte("x = a + b"))
+	if len(source) != 138608 || fmt.Sprintf("%x", sha256.Sum256(source)) != "8dc8aad35490cffcb042bf3a79dc75d3fdd63be87fc92c638ea36351c57fce4d" {
+		t.Fatal("assignment-target witness changed")
+	}
+	var sites []int
+	for offset := 0; offset < len(source); {
+		index := bytes.Index(source[offset:], []byte("x = a + b"))
+		if index < 0 {
+			break
+		}
+		sites = append(sites, offset+index)
+		offset += index + len("x = a + b")
+	}
+	if len(sites) < 16 {
+		t.Fatal("assignment witness has fewer than 16 distinct sites")
+	}
+	language := grammars.GoLanguage()
+	cLanguage := loadCanonicalGoCLanguage(t)
+	for _, candidate := range []bool{false, true} {
+		for _, kind := range []string{"insert", "replace", "delete"} {
+			for site := 0; site < 16; site++ {
+				t.Run(fmt.Sprintf("candidate=%t/%s/site=%02d", candidate, kind, site), func(t *testing.T) {
+					start := sites[site*(len(sites)-1)/15]
+					end := start + 1
+					replacement := []byte("y")
+					switch kind {
+					case "insert":
+						end = start
+					case "delete":
+						replacement = nil
+					}
+					edited := append([]byte(nil), source[:start]...)
+					edited = append(edited, replacement...)
+					edited = append(edited, source[end:]...)
+					edit := gts.InputEdit{
+						StartByte: uint32(start), OldEndByte: uint32(end), NewEndByte: uint32(start + len(replacement)),
+						StartPoint: pointAtOffset(source, start), OldEndPoint: pointAtOffset(source, end), NewEndPoint: pointAtOffset(edited, start+len(replacement)),
+					}
+					gp := gts.NewParser(language)
+					gp.SetAdmissionCandidateRoute(candidate)
+					old, err := gp.Parse(source)
+					if err != nil || old == nil {
+						t.Fatalf("old Go parse: %v", err)
+					}
+					old.Edit(edit)
+					next, err := gp.ParseIncremental(edited, old)
+					old.Release()
+					if err != nil || next == nil {
+						t.Fatalf("incremental Go parse: %v", err)
+					}
+					defer next.Release()
+					freshParser := gts.NewParser(language)
+					freshParser.SetAdmissionCandidateRoute(candidate)
+					routedBefore, fallbackBefore := gts.AdmissionCandidateCounters()
+					fresh, err := freshParser.Parse(edited)
+					routedAfter, fallbackAfter := gts.AdmissionCandidateCounters()
+					decline := ""
+					if fallbackAfter > fallbackBefore {
+						decline = gts.AdmissionCandidateLastFallbackReason()
+					}
+					if err != nil || fresh == nil {
+						t.Fatalf("fresh Go parse: %v", err)
+					}
+					defer fresh.Release()
+					cp := sitter.NewParser()
+					defer cp.Close()
+					if err := cp.SetLanguage(cLanguage); err != nil {
+						t.Fatal(err)
+					}
+					cOld := cp.Parse(source, nil)
+					if cOld == nil {
+						t.Fatal("nil old C tree")
+					}
+					cEdit := realCorpusCInputEdit(edit)
+					cOld.Edit(&cEdit)
+					cNext := cp.Parse(edited, cOld)
+					cOld.Close()
+					if cNext == nil {
+						t.Fatal("nil incremental C tree")
+					}
+					defer cNext.Close()
+					cFresh := cp.Parse(edited, nil)
+					if cFresh == nil {
+						t.Fatal("nil fresh C tree")
+					}
+					defer cFresh.Close()
+					assertLockedCTreeExactWithErrors(t, "fresh Go/fresh C", fresh, language, cFresh)
+					assertLockedCTreeExactWithErrors(t, "incremental Go/fresh C", next, language, cFresh)
+					assertLockedCTreeExactWithErrors(t, "incremental Go/incremental C", next, language, cNext)
+					t.Logf("assignment_target bytes=%d site=%d edit_byte=%d source_sha256=%x edited_sha256=%x fresh_routed=%d fresh_fallback=%d decline=%q", len(source), site, start, sha256.Sum256(source), sha256.Sum256(edited), routedAfter-routedBefore, fallbackAfter-fallbackBefore, decline)
+				})
+			}
 		}
 	}
 }

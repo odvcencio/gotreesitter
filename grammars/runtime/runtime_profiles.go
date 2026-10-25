@@ -130,9 +130,12 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		// certifications were re-validated against this blob via the
 		// cgo_harness Go compact/recovery receipts (TestGoCompactIncrementalExecution*,
 		// TestGoCompactRecoveryVersionTurnsLockedC, TestStage6GoCompactCertification).
-		blobSHA256:                 mustRuntimeProfileSHA256("214322327c9ee7dda29febf32e415f7ed9e00a90b7690d3c32522e393211b8da"),
-		compactConvergedSplitDrops: true,
-		compactOwnedEOFRecovery:    true,
+		blobSHA256:                  mustRuntimeProfileSHA256("214322327c9ee7dda29febf32e415f7ed9e00a90b7690d3c32522e393211b8da"),
+		compactConvergedSplitDrops:  true,
+		compactOwnedEOFRecovery:     true,
+		// Let the absorbing version compete before the eagerly shifted
+		// missing-target version, matching C's assignment-error election.
+		recoveryMissingVersionTurns: true,
 		// Locked C exposes these aliased DFA leaves even when error recovery
 		// pops them before the enclosing string production can reduce.
 		visibleTerminalAliases: []visibleTerminalAliasProfile{

@@ -1,0 +1,16 @@
+{
+  "scope": "unapplied, unbuilt default-API C0.27.1 compatibility preflight; not a harness upgrade",
+  "runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
+  "runtime_version": "0.27.1",
+  "upstream": "https://github.com/tree-sitter/tree-sitter",
+  "cargo_git_blob": "fe40983f88679d21828f26dc4a1cfc80eb287f20",
+  "api_header_git_blob": "334b25f3b5e5e7f50e01744127020a4688394f73",
+  "language_abi": 15,
+  "minimum_language_abi": 13,
+  "source_tar_sha256": "71bbc0a7a98013b519b104e281e6ad98524a438c8c822a095e6f27de05d15562",
+  "static_source_authentication": "passed",
+  "removed_deprecated_apis": "six timeout/cancellation controls explicitly fail closed; deprecated ABI alias adapted; cancellable ParseCtx rejected",
+  "full_binding_api_compatibility": false,
+  "current_harness_runtime": "0.25.1",
+  "queued_container": "gts-go-graduation-oracle0271"
+}
