@@ -314,6 +314,8 @@ func TestCobolCGOErrorOracleParity(t *testing.T) {
 			if len(errs) > 0 {
 				t.Fatalf("go-vs-C divergences:\n%s\n\ngo:\n%s\n\ngo spans:\n%s\n\nc:\n%s", joinTopErrors(errs), goRoot.SExpr(goLang), dumpGoTree(goRoot, goLang, 0), dumpCTree(cRoot, 0))
 			}
+			assertLockedCTreeExactWithErrors(t, "COBOL full-axis "+tc.name, goTree, goLang, cTree)
+			t.Logf("COBOL full-axis fixture=%s input_bytes=%d HasError=%t runtime=%+v", tc.name, len(src), goRoot.HasError(), goTree.ParseRuntime())
 		})
 	}
 }

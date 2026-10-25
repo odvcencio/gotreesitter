@@ -26,6 +26,12 @@ have only synthetic samples and are outside this real-file census.
 
 Current owner instruction: **hold all merges to main**. The earlier release condition was fulfilled, but the renewed hold remains active independently of that release. PR #1512 stays draft; branch-relative experiments do not graduate a language.
 
+### Projection follow-up: saved-source correctness and counter gates pass
+
+The [CI follow-up receipt](benchmarks/20261025-projection-ci-followup/README.md) preserves selected MISSING history for Go grouped declarations, repairs COBOL's source-backed EXEC/AND/CICS header handling, and fixes the EXEC error's pre-existing `Extra` mismatch. The permanent COBOL gate now checks all flags and independent C digests. Both Go incremental APIs pass the separator delete/restore cycles on both routes with zero no-edit allocations. Cooklang retains all 19 previously C-exact results; only HasError bits change in its existing complex-witness diagnostic, whose C gap remains explicit.
+
+Saved files pass **412 sessions / 29,664 edits**, **618 C fixture checks**, the root/API guard at **756/756 files**, and all **412 ledger / 24 complete Go work comparisons unchanged**. The sessions include 408 real R4 and four CSV/Enforce grammar-smoke cases. The earlier owner exceptions remain unapproved; no timing, RSS, native-recovery admission or graduation improvement is claimed by this follow-up. All merges remain held.
+
 ### Go graduation: reserved words and retained missing-token errors qualified
 
 The [reserved-word and missing-token receipt](benchmarks/20261025-reserved-missing/README.md) repairs the original frozen Go `}func` boundary and its 31-byte reduction on both routes, including two delete/restore cycles, without suppressing C's errors. Shared missing-token retention also repairs a C first edit and EDS section error flags. All **412 × 72-step invariant sessions**, **618 C fixture checks**, focused memory/race/publication gates and saved-source checks pass. All **24 complete Go operation records** remain identical. Of 412 fleet ledger rows, 410 remain identical; the C/EDS first-edit changes require [four new owner exceptions](benchmarks/20261025-reserved-missing/counter-review.md), still unapproved. The earlier Go assignment exception remains separate and unapproved.

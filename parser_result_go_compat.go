@@ -350,6 +350,9 @@ func normalizeGoSemicolonContainer(n *Node, source []byte, syms goCompatibilityS
 		}
 		kept = append(kept, child)
 	}
+	if droppedMissing {
+		goRetainProjectedMissingSemicolonShape(view)
+	}
 	replaceNodeChildrenUnfielded(n, cloneNodeSliceIfArena(n.ownerArena, kept))
 	// Projection hides an automatic separator, not its genuine MISSING error.
 	if droppedMissing {
@@ -367,12 +370,58 @@ func normalizeGoSemicolonFinalRefs(view resultMutableChildView, source []byte, s
 	droppedMissing := false
 	filtered := view.FilterFinalRefs(func(_ int, entry stackEntry) bool {
 		drop := goIsDroppableSemicolonEntry(entry, source, syms)
-		droppedMissing = droppedMissing || (drop && stackEntryNodeIsMissing(entry))
+		missing := drop && stackEntryNodeIsMissing(entry)
+		if missing && !droppedMissing {
+			goRetainProjectedMissingSemicolonShape(view)
+		}
+		droppedMissing = droppedMissing || missing
 		return !drop
 	})
 	if filtered && droppedMissing {
 		view.parent.setHasError(true)
 	}
+}
+
+// goRetainProjectedMissingSemicolonShape preserves the selected pre-filter
+// children only when a real MISSING separator is about to disappear and the
+// single-stack parse elided its raw shape. Reconciliation can then prove the
+// retained error using its existing raw-MISSING walk. Existing history is never
+// replaced, and ordinary/stale/repaired visible leaves cannot create proof.
+func goRetainProjectedMissingSemicolonShape(view resultMutableChildView) {
+	n := view.parent
+	if n == nil || n.ownerArena == nil || n.rawShape != 0 {
+		return
+	}
+	count := 0
+	for i := 0; i < view.Len(); i++ {
+		if entry, ok := view.Entry(i); ok && stackEntryHasNode(entry) {
+			count++
+		}
+	}
+	if count == 0 || count > rawShapeMaxExactChildCount {
+		return
+	}
+	arena := n.ownerArena
+	ref, shape := arena.allocRawShape()
+	if shape == nil {
+		return
+	}
+	shape.symbol = n.symbol
+	shape.productionID = n.productionID
+	shape.childRange = arena.allocRawShapeChildren(count)
+	children := arena.rawShapeChildren(shape)
+	out := 0
+	for i := 0; i < view.Len(); i++ {
+		entry, ok := view.Entry(i)
+		if !ok || !stackEntryHasNode(entry) {
+			continue
+		}
+		children[out] = newRawShapeChild(entry)
+		out++
+	}
+	// Hashes are optional cache entries; rawShapeHash computes this one lazily
+	// if a later consumer asks for it. Avoid arming a hash cache for proof only.
+	n.rawShape = ref
 }
 
 func goHasDroppableSemicolonFinalRef(view resultMutableChildView, source []byte, syms goCompatibilitySymbols) bool {
