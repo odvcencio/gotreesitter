@@ -1,6 +1,6 @@
 # Compact route real-corpus matrix
 
-Current evidence date: 2026-10-24 (UTC).
+Current evidence date: 2026-10-25 (UTC).
 Parent PR #1486 merged to main as `88dc1d9c3ff15cc2b8b5c53864455fc3a24a9d34`
 after all 78 checks passed. Branch integration `b876c5b5` preserves all 414
 ledger rows and passes focused TypeScript/TSX C checks. The final whole-PR matched-order audit passes all 414 rows and 480 timings;
@@ -26,11 +26,17 @@ have only synthetic samples and are outside this real-file census.
 
 Current owner instruction: **hold all merges to main**. The earlier release condition was fulfilled, but the renewed hold remains active independently of that release. PR #1512 stays draft; branch-relative experiments do not graduate a language.
 
-### Go graduation: recovery repair held for counters; current fleet timing running
+### Go graduation: reserved words and retained missing-token errors qualified
 
-The [Go graduation receipt](benchmarks/20261025-go-graduation-recovery/README.md) repairs the remaining `= a + b` recovery election with Go's exact-artifact missing-version scheduling grant. All 96 assignment-target edits (16 sites per class, both routes) match independent fresh/incremental Go and C; both 72-step invariant sessions, focused memory/race/publication checks and the repaired canonical controls pass. Broader final-source Go C qualification is queued. The standard Go ledger and original declaration-witness work stay identical, but the new malformed-assignment fixture raises tokens, nodes, stacks and merge work. Its [R3 exception](benchmarks/20261025-go-graduation-recovery/counter-review.md) remains unapproved. The full version-order alternative is rejected for adverse work.
+The [reserved-word and missing-token receipt](benchmarks/20261025-reserved-missing/README.md) repairs the original frozen Go `}func` boundary and its 31-byte reduction on both routes, including two delete/restore cycles, without suppressing C's errors. Shared missing-token retention also repairs a C first edit and EDS section error flags. All **412 × 72-step invariant sessions**, **618 C fixture checks**, focused memory/race/publication gates and saved-source checks pass. All **24 complete Go operation records** remain identical. Of 412 fleet ledger rows, 410 remain identical; the C/EDS first-edit changes require [four new owner exceptions](benchmarks/20261025-reserved-missing/counter-review.md), still unapproved. The earlier Go assignment exception remains separate and unapproved.
 
-Forty before/after pairs across both Go routes find no significant timing change from the correctness fix; allocations stay default 6/5/0 and candidate 22/5/0. A separate frozen **all-206** current-runtime census is running, including declines and locally authenticated CSV/Enforce samples. Its completed Go/YAML 20-pair snapshots have median paired compact/legacy ratios **1.1720 / 1.4317**, both executing compact with zero fallbacks. These exceed E-A's worst-file 1.15 limit; the fleet is still incomplete and the frozen M1 baseline is not authenticated. Upstream C 0.27.1 is resolved by commit and has an unpromoted compatibility preflight queued. Go remains ungraduated, V4 stays deferred, and all merges stay held.
+Eighty matched before/after pairs show default Go full parsing **4.017→3.897 ms (−2.98%, p<.001)**, but no significant compact Go/YAML throughput improvement. Current R4 paired compact/legacy median ratios are **1.1678 / 1.4083**. Both still exceed the E-A worst-file limit; these diagnostics do not authenticate frozen M1. Native non-EOF recovery and complete included-range C equality remain open. No language graduates, no reuse or default switch changes, and all merges remain held.
+
+### Earlier Go recovery repair: counters and graduation remain held
+
+The [Go graduation receipt](benchmarks/20261025-go-graduation-recovery/README.md) repairs the remaining `= a + b` recovery election with Go's exact-artifact missing-version scheduling grant. All 96 assignment-target edits (16 sites per class, both routes) match independent fresh/incremental Go and C; both 72-step invariant sessions, focused memory/race/publication checks and the repaired canonical controls pass. The newer receipt above completes broader final-source Go C qualification. The standard Go ledger and original declaration-witness work stay identical, but the new malformed-assignment fixture raises tokens, nodes, stacks and merge work. Its [R3 exception](benchmarks/20261025-go-graduation-recovery/counter-review.md) remains unapproved. The full version-order alternative is rejected for adverse work.
+
+Forty before/after pairs across both Go routes find no significant timing change from the correctness fix; allocations stay default 6/5/0 and candidate 22/5/0. A separate frozen **all-206** current-runtime census was deferred after 139 complete languages and a partial Org block, including declines and locally authenticated CSV/Enforce samples; it is incomplete. Its completed Go/YAML 20-pair snapshots have median paired compact/legacy ratios **1.1720 / 1.4317**, both executing compact with zero fallbacks. These exceed E-A's worst-file 1.15 limit, and the frozen M1 baseline is not authenticated. Upstream C 0.27.1 is resolved by commit, but its compatibility preflight is deferred and unqualified. Go remains ungraduated, V4 stays deferred, and all merges stay held.
 
 ### Public compact trees: Go publisher enabled within the candidate route
 

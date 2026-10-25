@@ -2689,6 +2689,39 @@ func GoGrammar() *Grammar {
 
 	g.SetWord("identifier")
 
+	g.ReservedWordSets = []ReservedWordSet{
+		{
+			Name: "global",
+			Rules: []*Rule{
+				Str("break"),
+				Str("default"),
+				Str("func"),
+				Str("interface"),
+				Str("select"),
+				Str("case"),
+				Str("defer"),
+				Str("go"),
+				Str("map"),
+				Str("struct"),
+				Str("chan"),
+				Str("else"),
+				Str("goto"),
+				Str("package"),
+				Str("switch"),
+				Str("const"),
+				Str("fallthrough"),
+				Str("if"),
+				Str("range"),
+				Str("type"),
+				Str("continue"),
+				Str("for"),
+				Str("import"),
+				Str("return"),
+				Str("var"),
+			},
+		},
+	}
+
 	g.SetSupertypes("_expression", "_type", "_simple_type", "_statement", "_simple_statement")
 
 	g.SeparateErrorLexMode = true

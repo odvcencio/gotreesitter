@@ -37,6 +37,12 @@ func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
 }
 
 func reconcileStaleHasErrorFlagsWithMissing(n *Node, depth int, retainMissing bool) bool {
+	return reconcileStaleHasErrorFlagsWithMissingEvidence(n, depth, retainMissing, nil)
+}
+
+// The optional output records only a successful selected raw-MISSING proof.
+// It reuses the existing walk and does not broaden visible-token repair.
+func reconcileStaleHasErrorFlagsWithMissingEvidence(n *Node, depth int, retainMissing bool, rawOnlyMissing *bool) bool {
 	if n == nil {
 		return false
 	}
@@ -53,7 +59,7 @@ func reconcileStaleHasErrorFlagsWithMissing(n *Node, depth int, retainMissing bo
 	// exactly the subtrees this repair exists for.
 	for i, count := 0, nodeChildCount(n); i < count; i++ {
 		// No early exit: every stale sibling flag gets repaired.
-		if reconcileStaleHasErrorFlagsWithMissing(resultChildAt(n, i), depth+1, retainMissing) {
+		if reconcileStaleHasErrorFlagsWithMissingEvidence(resultChildAt(n, i), depth+1, retainMissing, rawOnlyMissing) {
 			has = true
 		}
 	}
@@ -72,6 +78,9 @@ func reconcileStaleHasErrorFlagsWithMissing(n *Node, depth int, retainMissing bo
 			func(item rawStackWalkEntry, i int) (rawStackWalkEntry, bool) {
 				return rawStackWalkChildAt(arena, item, i)
 			})
+		if has && rawOnlyMissing != nil {
+			*rawOnlyMissing = true
+		}
 	}
 	n.setHasError(has)
 	return has

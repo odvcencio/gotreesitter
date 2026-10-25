@@ -342,13 +342,19 @@ func normalizeGoSemicolonContainer(n *Node, source []byte, syms goCompatibilityS
 	origEnd := n.endByte
 	children := resultChildSliceForMutation(n)
 	kept := make([]*Node, 0, len(children))
+	droppedMissing := false
 	for _, child := range children {
 		if goIsDroppableSemicolonNode(child, source, syms) {
+			droppedMissing = droppedMissing || child.isMissing()
 			continue
 		}
 		kept = append(kept, child)
 	}
 	replaceNodeChildrenUnfielded(n, cloneNodeSliceIfArena(n.ownerArena, kept))
+	// Projection hides an automatic separator, not its genuine MISSING error.
+	if droppedMissing {
+		n.setHasError(true)
+	}
 	if n.endByte < origEnd {
 		extendNodeEndTo(n, origEnd, source)
 	}
@@ -358,9 +364,15 @@ func normalizeGoSemicolonFinalRefs(view resultMutableChildView, source []byte, s
 	if !goHasDroppableSemicolonFinalRef(view, source, syms) {
 		return
 	}
-	view.FilterFinalRefs(func(_ int, entry stackEntry) bool {
-		return !goIsDroppableSemicolonEntry(entry, source, syms)
+	droppedMissing := false
+	filtered := view.FilterFinalRefs(func(_ int, entry stackEntry) bool {
+		drop := goIsDroppableSemicolonEntry(entry, source, syms)
+		droppedMissing = droppedMissing || (drop && stackEntryNodeIsMissing(entry))
+		return !drop
 	})
+	if filtered && droppedMissing {
+		view.parent.setHasError(true)
+	}
 }
 
 func goHasDroppableSemicolonFinalRef(view resultMutableChildView, source []byte, syms goCompatibilitySymbols) bool {

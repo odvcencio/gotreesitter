@@ -66,6 +66,36 @@ func buildKeywordStates(lang *Language) []bool {
 
 	hasKeyword := make([]bool, stateCount)
 	anyState := false
+	// ABI 15 keeps a reserved keyword even when its parser state has no
+	// action for it. Include those states in this prefilter, or promotion
+	// would return before checking languageKeywordReservedInState.
+	if stride := uint64(lang.MaxReservedWordSetSize); stride != 0 {
+		for state, mode := range lang.LexModes {
+			if state >= stateCount {
+				break
+			}
+			if mode.ReservedWordSetID == 0 {
+				continue
+			}
+			start := uint64(mode.ReservedWordSetID) * stride
+			end := start + stride
+			// Reserved sets are complete fixed-stride rows. Caller-built
+			// malformed dimensions cannot manufacture keyword support.
+			if end > uint64(len(lang.ReservedWords)) {
+				continue
+			}
+			for _, sym := range lang.ReservedWords[int(start):int(end)] {
+				if sym == 0 {
+					break
+				}
+				if int(sym) < len(keywordSymbols) && keywordSymbols[sym] {
+					hasKeyword[state] = true
+					anyState = true
+					break
+				}
+			}
+		}
+	}
 	for state := 0; state < len(lang.ParseTable) && state < stateCount; state++ {
 		row := lang.ParseTable[state]
 		for sym, idx := range row {

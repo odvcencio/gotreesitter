@@ -597,7 +597,8 @@ type parserDerivedTables struct {
 //	AliasSequences, ExternalLexStates, ExternalSymbols, FieldMapEntries,
 //	FieldMapSlices,
 //	GeneratedByGrammargen, LargeStateCount, LexModes, Name, ParseActions,
-//	KeywordCaptureToken, KeywordLexStates, ParseTable, ReduceChainHints,
+//	KeywordCaptureToken, KeywordLexStates, MaxReservedWordSetSize, ParseTable,
+//	ReduceChainHints, ReservedWords,
 //	SmallParseTable, SmallParseTableMap, StateCount, SymbolCount,
 //	SymbolMetadata, SymbolNames, TokenCount
 //
