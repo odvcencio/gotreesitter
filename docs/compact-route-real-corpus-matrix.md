@@ -1,6 +1,6 @@
 # Compact route real-corpus matrix
 
-Current evidence date: 2026-10-25 (UTC).
+Current evidence date: 2026-10-26 (UTC).
 Parent PR #1486 merged to main as `88dc1d9c3ff15cc2b8b5c53864455fc3a24a9d34`
 after all 78 checks passed. Branch integration `b876c5b5` preserves all 414
 ledger rows and passes focused TypeScript/TSX C checks. The final whole-PR matched-order audit passes all 414 rows and 480 timings;
@@ -25,6 +25,12 @@ have only synthetic samples and are outside this real-file census.
 ## Current compact-graduation matrix
 
 Current owner instruction: **hold all merges to main**. The earlier release condition was fulfilled, but the renewed hold remains active independently of that release. PR #1512 stays draft; branch-relative experiments do not graduate a language.
+
+### YAML raw ownership: correctness and construction work pass; throughput remains held
+
+The [YAML raw-lease receipt](benchmarks/20261026-yaml-raw-lease-screen/README.md) proves ordinary immutable output on the 1,998-byte sample and the original 8,012-byte and 32,048-byte streams, with exact final-source C 0.25.1/0.27.1 trees. All 231 sample records have exact Native output and independently authenticated known GSS states. Copies, materialization, reset/release, races, memory/callback guards, 144 edit steps and zero-allocation no-edit checks pass. Fresh-only publication grants no subtree reuse or public-checkpoint completeness.
+
+Removing repeated child projection cuts construction edge visits about 23% and hidden traversal steps 50% across all three inputs; other formation, storage and read-work fields match. The selected YAML ledger improves only candidate full/first-edit public nodes **232→1**; no exception is used. Three complete 20-pair screens remain held: final compact time **+39.30%**, bytes **+30.21%**, allocations **39→53**, and default legacy time **+16.40%** despite unchanged bytes/allocations. The source bundle preserves earlier regressions and ownership-contract failures. No runtime promotion, allowlist change, graduation, or main merge occurs.
 
 ### Go edit authentication: supported shadow proof passes; verifier stays active
 
