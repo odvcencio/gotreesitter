@@ -1,0 +1,645 @@
+{
+  "controls": {
+    "checksum_entries_verified": 176,
+    "frozen_measured_runtime_sha256": "aef67f5f76465be98c9587a27d44ff242db8e59a555fb622aa413e381fb14ca8",
+    "runtime_targets": 10,
+    "activation_instrumentation_in_measured_runtime": false
+  },
+  "historical_failed_families_preserved": [
+    "TestSealedReductionExecutionCollisionConsumesExactGotoMemo",
+    "TestSealedReductionExecutionGotoMutationPoisonsFreshOwner"
+  ],
+  "adjudication": {
+    "adjudication.log": {
+      "top_level_passes": 1,
+      "all_pass_records": 3,
+      "selected_families": [
+        "TestSealedReductionIdenticalWitnessAdjudication"
+      ]
+    }
+  },
+  "repaired_initial": {
+    "core-release.log": {
+      "top_level_passes": 23,
+      "all_pass_records": 64,
+      "selected_families": [
+        "TestDirectReductionFallbackReusesGoto",
+        "TestDirectReductionFailurePoisonsFreshOwner",
+        "TestDirectReductionObservesCallbackRecoveryCost",
+        "TestDirectReductionMatchesGeneralPublication",
+        "TestDirectReductionDeclinesWithoutPublication",
+        "TestDirectReductionGotoMemoDoesNotCrossFrontier",
+        "TestSealedReductionIdenticalWitnessAdjudication",
+        "TestSealedReductionExecutionMatchesUnboundDirect",
+        "TestSealedReductionExecutionCollisionConsumesExactGotoMemo",
+        "TestSealedReductionExecutionGotoRecoveryCostDeclinesBeforePublication",
+        "TestSealedReductionExecutionGotoMutationPoisonsFreshOwner",
+        "TestSealedReductionExecutionBeforeObserverUsesActualProvider",
+        "TestSealedReductionExecutionAfterObserverCancellationResets",
+        "TestSealedReductionExactPairAndImmutableRow",
+        "TestSealedReductionHotAuthorityHasNoProviderCallbacks",
+        "TestSealedReductionBindingRejectsForeignWrappedAndValues",
+        "TestSealedReductionProviderReplacementKeepsCallbackPath",
+        "TestSealedReductionForeignSetPhaseResetAndRollback",
+        "TestSealedReductionColdIdentityCallbackCannotMutateBinding",
+        "TestSealedReductionUniqueStorageAndCellLayout",
+        "TestSingleVersionMatchesSeparateOperations",
+        "TestSingleVersionExternalShiftKeepsCheckpoint",
+        "TestSingleVersionCancelPoisonsSession"
+      ]
+    },
+    "core-workcount.log": {
+      "top_level_passes": 23,
+      "all_pass_records": 64,
+      "selected_families": [
+        "TestDirectReductionFallbackReusesGoto",
+        "TestDirectReductionFailurePoisonsFreshOwner",
+        "TestDirectReductionObservesCallbackRecoveryCost",
+        "TestDirectReductionMatchesGeneralPublication",
+        "TestDirectReductionDeclinesWithoutPublication",
+        "TestDirectReductionGotoMemoDoesNotCrossFrontier",
+        "TestSealedReductionIdenticalWitnessAdjudication",
+        "TestSealedReductionExecutionMatchesUnboundDirect",
+        "TestSealedReductionExecutionCollisionConsumesExactGotoMemo",
+        "TestSealedReductionExecutionGotoRecoveryCostDeclinesBeforePublication",
+        "TestSealedReductionExecutionGotoMutationPoisonsFreshOwner",
+        "TestSealedReductionExecutionBeforeObserverUsesActualProvider",
+        "TestSealedReductionExecutionAfterObserverCancellationResets",
+        "TestSealedReductionExactPairAndImmutableRow",
+        "TestSealedReductionHotAuthorityHasNoProviderCallbacks",
+        "TestSealedReductionBindingRejectsForeignWrappedAndValues",
+        "TestSealedReductionProviderReplacementKeepsCallbackPath",
+        "TestSealedReductionForeignSetPhaseResetAndRollback",
+        "TestSealedReductionColdIdentityCallbackCannotMutateBinding",
+        "TestSealedReductionUniqueStorageAndCellLayout",
+        "TestSingleVersionMatchesSeparateOperations",
+        "TestSingleVersionExternalShiftKeepsCheckpoint",
+        "TestSingleVersionCancelPoisonsSession"
+      ]
+    },
+    "core-clone.log": {
+      "top_level_passes": 1,
+      "all_pass_records": 1,
+      "selected_families": [
+        "TestSealedReductionDiagnosticCloneDropsProviderBinding"
+      ]
+    },
+    "ordinary-go.log": {
+      "top_level_passes": 1,
+      "all_pass_records": 1,
+      "selected_families": [
+        "TestPrivateSealedReductionOrdinaryEntry"
+      ]
+    },
+    "ordinary-yaml.log": {
+      "top_level_passes": 1,
+      "all_pass_records": 1,
+      "selected_families": [
+        "TestPrivateSealedReductionOrdinaryEntry"
+      ]
+    }
+  },
+  "activation": {
+    "go": {
+      "avoided": 493,
+      "before_plans": 707,
+      "after_plans": 214,
+      "equal_gotos": 723,
+      "equal_core_reductions": 686
+    },
+    "yaml": {
+      "avoided": 182,
+      "before_plans": 196,
+      "after_plans": 14,
+      "equal_gotos": 187,
+      "equal_core_reductions": 187
+    }
+  },
+  "semantic": {
+    "core-reference.log": {
+      "top_level_passes": 55,
+      "all_pass_records": 109,
+      "selected_families": [
+        "TestNativeProjectionDirectFieldProfile",
+        "TestNativeProjectionFieldAdmissionResetAndRollback",
+        "TestNativeProjectionReceiptKeepsAliasBoundary",
+        "TestNativeProjectionFusedCoverageMatchesReference",
+        "TestNativeProjectionFusedStackGrowthAndCancellation",
+        "TestNativeSelectedSnapshotContracts",
+        "TestNativeSelectedOutputReaderLifetime",
+        "TestNativeSelectedOutputFailureReleasesOwner",
+        "TestNativeSelectedOutputRejectsSharedOccurrence",
+        "TestNativeSelectedPublicReserveHonorsBudgetAndCancellation",
+        "TestNativeSelectedPublicReserveDoesNotCountEmptyAliasSlots",
+        "TestNativeSelectedPublicReserveCountsAliasOccurrences",
+        "TestNativeSelectedSnapshotOwnsReplay",
+        "TestNativeSelectedSnapshotCopiedHandleCannotRecycleLiveReplay",
+        "TestSelectedStoreOnePassFinalLogicalSizeGovernsRetainedCap",
+        "TestSelectedStoreOnePassCancellationAfterGrowthReusesCleanBacking",
+        "TestSelectedStoreOnePassRightSizeCopyPollsCancellation",
+        "TestSelectedStoreDoesNotRetainProducingCore",
+        "TestSelectedStorePoolCountsProvenanceAndDetachedGeneration",
+        "TestSelectedStorePoolConcurrentReleaseAndFootprint",
+        "TestSelectedStorePooledPlanesOverwritePriorTree",
+        "TestSelectedStorePreservesRepeatedOccurrenceIdentity",
+        "TestSelectedStoreElidesHiddenParentsBeforeSeal",
+        "TestSelectedStorePropagatesHiddenMissingErrors",
+        "TestSelectedBuildScratchCountsAndReleasesErrorFlags",
+        "TestSelectedStoreRetainsCompiledAliasChildOccurrence",
+        "TestSelectedStoreDoesNotCollapseExtraUnaryChild",
+        "TestSelectedStoreRejectsMalformedPolicy",
+        "TestSelectedStoreEnforcesOccurrenceAndRetainedByteCaps",
+        "TestSelectedStorePrecedenceOverflowFailsClosed",
+        "TestSelectedStoreDeepTraversalIsIterativeAndCancellable",
+        "TestSelectedStoreDeclinesUnsupportedFieldProfile",
+        "TestSelectedStoreAuthenticatedPolicyCapability",
+        "TestSelectedStoreAuthenticatedPolicyCancellationPrecedesLazyBuild",
+        "TestSelectedStoreRootMergePreflightsCapAndLaterBuildRemainsBounded",
+        "TestSelectedStoreRootMergeRelocatesLaterChildWindows",
+        "TestSelectedStoreRejectsNonExtraSiblingRootAndRecoversLifecycle",
+        "TestSelectedStorePoolKeepsAtomicCappedBackingPair",
+        "TestSelectedStoreSiblingReleasesAreSynchronized",
+        "TestSelectedStoreRealSnapshotsSurviveResetAndReleaseOrders",
+        "TestSelectedStoreRootGrowthCopyPollsCancellation",
+        "TestSelectedRootMergeCountsPreflightArithmetic",
+        "TestSelectedCursorWalksSealedStore",
+        "TestSelectedStoreSupertypeRecordUsesExistingPadding",
+        "TestSelectedStoreSupertypePolicyOwnershipAndFootprint",
+        "TestSelectedStoreSupertypeMasksSurviveHiddenElisionAndUnaryCollapse",
+        "TestSelectedStoreSupertypeVisibleAncestorIsBarrier",
+        "TestSelectedStoreSupertypeRepeatedPayloadKeepsOccurrenceContext",
+        "TestSelectedStoreSupertypePromotedAliasFormsVisibleBarrier",
+        "TestSelectedStoreSupertypeRetainedLeafAliasKeepsOccurrenceBoundary",
+        "TestSelectedSyntheticSiblingRootMatchesResultFraming",
+        "TestSelectedSingleRootPreservesReduceProvenance",
+        "TestSelectedSyntheticRootClearsOnlyRootSupertypeProvenance",
+        "TestSelectedResultRootRetainedChildOwnsLeadingPadding",
+        "TestSelectedResultRootDeclinesUnrepresentedPrefixOwnership"
+      ]
+    },
+    "core-race.log": {
+      "top_level_passes": 23,
+      "all_pass_records": 64,
+      "selected_families": [
+        "TestDirectReductionFallbackReusesGoto",
+        "TestDirectReductionFailurePoisonsFreshOwner",
+        "TestDirectReductionObservesCallbackRecoveryCost",
+        "TestDirectReductionMatchesGeneralPublication",
+        "TestDirectReductionDeclinesWithoutPublication",
+        "TestDirectReductionGotoMemoDoesNotCrossFrontier",
+        "TestSealedReductionIdenticalWitnessAdjudication",
+        "TestSealedReductionExecutionMatchesUnboundDirect",
+        "TestSealedReductionExecutionCollisionConsumesExactGotoMemo",
+        "TestSealedReductionExecutionGotoRecoveryCostDeclinesBeforePublication",
+        "TestSealedReductionExecutionGotoMutationPoisonsFreshOwner",
+        "TestSealedReductionExecutionBeforeObserverUsesActualProvider",
+        "TestSealedReductionExecutionAfterObserverCancellationResets",
+        "TestSealedReductionExactPairAndImmutableRow",
+        "TestSealedReductionHotAuthorityHasNoProviderCallbacks",
+        "TestSealedReductionBindingRejectsForeignWrappedAndValues",
+        "TestSealedReductionProviderReplacementKeepsCallbackPath",
+        "TestSealedReductionForeignSetPhaseResetAndRollback",
+        "TestSealedReductionColdIdentityCallbackCannotMutateBinding",
+        "TestSealedReductionUniqueStorageAndCellLayout",
+        "TestSingleVersionMatchesSeparateOperations",
+        "TestSingleVersionExternalShiftKeepsCheckpoint",
+        "TestSingleVersionCancelPoisonsSession"
+      ]
+    },
+    "focused.log": {
+      "top_level_passes": 36,
+      "all_pass_records": 68,
+      "selected_families": [
+        "TestParseMemoryBudgetScalesWithSourceSize",
+        "TestParseMemoryBudgetEnvironmentValuesStayFixed",
+        "TestRuntimeMemoryBudgetSoftBudgetNeverStopsParse",
+        "TestRuntimeMemoryHardCeilingStillStopsParse",
+        "TestRuntimeMemoryPollMaskKeepsTightBudgetsResponsive",
+        "TestRuntimeMemoryBudgetIgnoresSysGrowth",
+        "TestRuntimeMemoryBudgetDisabledForSmallSource",
+        "TestRuntimeMemoryBudgetEnabledForLargeSource",
+        "TestRuntimeMemoryVolumeTriggerBypassesPollMask",
+        "TestParseMemoryHardCeilingStopsIndependentlyOfSoftBudget",
+        "TestParseMemoryHardCeilingDefaultClearsPopplerMargin",
+        "TestParseMemoryHardCeilingEnvOverride",
+        "TestCompactAcceptanceElectionMaterialityDeclineDetail",
+        "TestCompactAcceptanceRetainedPublicationPreservesReplay",
+        "TestCompactAcceptanceReferenceAndRetainedArenasStayInMemoryBudget",
+        "TestCompactAcceptanceComparisonWorkspaceMemoryBudget",
+        "TestCompactAcceptanceComparisonWorkspaceRetentionBound",
+        "TestCompactAcceptanceChangedSourceKeepsRebuildBudget",
+        "TestCompactAcceptanceCachedPublicationStopControl",
+        "TestCompactAcceptanceRetainsEquivalentAliasesAndRejectsDifferentAliases",
+        "TestNativeProjectionUnusedSourceMapIsReleased",
+        "TestQuiescentNativeGoPublicationMatchesReference",
+        "TestQuiescentNativeGoRecoveryKeepsReferencePublisher",
+        "TestQuiescentNativeHiddenDirectFieldPunctuation",
+        "TestQuiescentNativeHiddenExtras",
+        "TestQuiescentNativeUnsupportedFieldsKeepReferencePublisher",
+        "TestNativeProjectionAliasReceiptRejectsChangedPublication",
+        "TestNativeNodeViewsConcurrentReads",
+        "TestNativeNodeViewsSameWidthReparseWithoutEdit",
+        "TestNativeNodeViewsFreshVerificationReadsRecords",
+        "TestNativeNodeViewsSparseQueryKeepsOutputCompact",
+        "TestNativeNodeViewsLeadingTrivia",
+        "TestNativeNodeViewsRecycledMetadataDetachesResult",
+        "TestNativeProjectionReceiptPassMatchesReference",
+        "TestNativeNodeViewsTypeArgumentsPreserveEditAndCopy",
+        "TestCompactAcceptanceDerivationTreesEqual"
+      ]
+    },
+    "go-public-api.log": {
+      "top_level_passes": 3,
+      "all_pass_records": 9,
+      "selected_families": [
+        "TestNativeNodeViewsPublicAPI",
+        "TestNativeNodeViewsPublicParseEdit",
+        "TestNativeNodeViewsExtraRootFraming"
+      ]
+    },
+    "go-cgo.log": {
+      "top_level_passes": 10,
+      "all_pass_records": 41,
+      "selected_families": [
+        "TestGoNestedGenericSelectionLockedC",
+        "TestGoCompactIncrementalExecutionParity",
+        "TestGoCompactNestedReuseLockedC",
+        "TestGoCompactNestedReuseBoundaryLockedC",
+        "TestGoCompactNestedReuseChangedLookaheadLockedC",
+        "TestGoGroupedBindingSeparatorsLockedC",
+        "TestGoGroupedConstSeparatorEditsMatchLockedC",
+        "TestGoHiddenMissingSemicolonEditsMatchLockedC",
+        "TestGoIssue490FragmentBoundaryLockedC",
+        "TestStage6GoCompactCertification"
+      ]
+    },
+    "go-report-cgo.log": {
+      "top_level_passes": 3,
+      "all_pass_records": 127,
+      "selected_families": [
+        "TestGoCognociente137KiBTopEditLockedC",
+        "TestGoMalformedDeclarationPrefixLockedC",
+        "TestGoAssignmentTargetEdits16SitesLockedC"
+      ]
+    },
+    "yaml-cgo.log": {
+      "top_level_passes": 8,
+      "all_pass_records": 184,
+      "selected_families": [
+        "TestCompactYAMLVersionOwnershipCOracle",
+        "TestCompactYAMLDocumentStreamLockedC",
+        "TestYAMLEOFRecoverWrapCompactRoute",
+        "TestYAMLEOFRecoverWrapUnfinishedMappingDeclinesCompact",
+        "TestYAMLOneBytePrintableEOFAdmissionMatchesLockedC",
+        "TestYAMLOwnedGrammarLockedCParity",
+        "TestYAMLRecoveredMappingQuotesLockedC",
+        "TestYAMLResultCompatibilityErrorsLockedC"
+      ]
+    },
+    "invariants-go-0.log": {
+      "top_level_passes": 1,
+      "all_pass_records": 1,
+      "selected_families": [
+        "TestV1InvariantGateR4EditSession"
+      ]
+    },
+    "invariants-go-1.log": {
+      "top_level_passes": 1,
+      "all_pass_records": 1,
+      "selected_families": [
+        "TestV1InvariantGateR4EditSession"
+      ]
+    },
+    "invariants-yaml-0.log": {
+      "top_level_passes": 1,
+      "all_pass_records": 1,
+      "selected_families": [
+        "TestV1InvariantGateR4EditSession"
+      ]
+    },
+    "invariants-yaml-1.log": {
+      "top_level_passes": 1,
+      "all_pass_records": 1,
+      "selected_families": [
+        "TestV1InvariantGateR4EditSession"
+      ]
+    }
+  },
+  "counter_rows": {
+    "default-go.json": {
+      "exact_equal": true,
+      "baseline_sha256": "f9519efd1b949c453525d5c5d9ec560e8c1cb20c2d0c7e37d66e7cf9cb3682bc",
+      "actual_sha256": "f9519efd1b949c453525d5c5d9ec560e8c1cb20c2d0c7e37d66e7cf9cb3682bc"
+    },
+    "candidate-go.json": {
+      "exact_equal": true,
+      "baseline_sha256": "3a6f90cd6ffea28a4fa580206dada4abad632f72ff7e30c862485138b68036e2",
+      "actual_sha256": "3a6f90cd6ffea28a4fa580206dada4abad632f72ff7e30c862485138b68036e2"
+    },
+    "default-yaml.json": {
+      "exact_equal": true,
+      "baseline_sha256": "64d59bbded64e948e4478d9a30c7625a1fd4241b048790442a6da46f217aa39a",
+      "actual_sha256": "64d59bbded64e948e4478d9a30c7625a1fd4241b048790442a6da46f217aa39a"
+    },
+    "candidate-yaml.json": {
+      "exact_equal": true,
+      "baseline_sha256": "d1f258c150b0e81408e2f95fcb6c355bae98dfd7d7002d20c70bc6dd7b4bb96c",
+      "actual_sha256": "d1f258c150b0e81408e2f95fcb6c355bae98dfd7d7002d20c70bc6dd7b4bb96c"
+    }
+  },
+  "D8_sessions": 4,
+  "D8_steps": 288,
+  "no_edit_allocations": 0,
+  "memory_and_public_race": {
+    "cold-go.log": {
+      "top_level_passes": 1,
+      "all_pass_records": 1,
+      "selected_families": [
+        "TestPrivateSealedReductionColdTableFootprint"
+      ]
+    },
+    "cold-yaml.log": {
+      "top_level_passes": 1,
+      "all_pass_records": 1,
+      "selected_families": [
+        "TestPrivateSealedReductionColdTableFootprint"
+      ]
+    },
+    "existing-cold.log": {
+      "top_level_passes": 2,
+      "all_pass_records": 2,
+      "selected_families": [
+        "TestParserCoreLanguageTablesFootprint",
+        "TestParserCoreLanguageTablesCacheSharesAcrossParsers"
+      ]
+    },
+    "public-race.log": {
+      "top_level_passes": 3,
+      "all_pass_records": 9,
+      "selected_families": [
+        "TestNativeNodeViewsConcurrentReads",
+        "TestNativeNodeViewsRecycledMetadataDetachesResult",
+        "TestNativeNodeViewsTypeArgumentsPreserveEditAndCopy"
+      ]
+    }
+  },
+  "cold_tables": {
+    "go": {
+      "grammar": "go",
+      "identity": "9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4",
+      "total_rows": 1139,
+      "populated_rows": 1138,
+      "sealed_rows": 316,
+      "existing_plans": "154",
+      "set_slot_bytes": 8,
+      "set_record_bytes": 32,
+      "row_slot_bytes": 9104,
+      "authority_bytes_each": 64,
+      "authorities_bytes": 20224,
+      "unique_increment_bytes": 29368,
+      "shared_existing_plan_buffers_charged_again": 0,
+      "complete_heap_delta_bytes": 133904,
+      "heap_guard_bytes": 4194304
+    },
+    "yaml": {
+      "grammar": "yaml",
+      "identity": "9ac37a326be7a4f4297efa6e43ba00317c5959e7b4909c9262043d408f284b30",
+      "total_rows": 2544,
+      "populated_rows": 2543,
+      "sealed_rows": 434,
+      "existing_plans": "108",
+      "set_slot_bytes": 8,
+      "set_record_bytes": 32,
+      "row_slot_bytes": 20344,
+      "authority_bytes_each": 64,
+      "authorities_bytes": 27776,
+      "unique_increment_bytes": 48160,
+      "shared_existing_plan_buffers_charged_again": 0,
+      "complete_heap_delta_bytes": 243800,
+      "heap_guard_bytes": 4194304
+    }
+  },
+  "performance": {
+    "pairs": 60,
+    "processes": 120,
+    "failed_or_incomplete_processes": 0,
+    "no_edit_allocations": 0,
+    "compact_fallbacks": 0,
+    "results": {
+      "go-primary": {
+        "paired_samples": 20,
+        "raw_sha256": {
+          "before": "d4e12c375d011b17331c8d7874b6402f26106a5b0768843ca51594d6313b32fe",
+          "after": "e3d106cfc2250fe4847ccefc12fbaffa071704fa9dfee602cc1110cd39616698"
+        },
+        "results": {
+          "BenchmarkGraduationGoSuite/Full": {
+            "ns/op": {
+              "before_median": 7115859.5,
+              "after_median": 6951337.5,
+              "change_percent": -2.3120467738296457,
+              "median_paired_after_before_ratio": 0.977441101004026,
+              "ratio_of_medians": 0.9768795322617035
+            },
+            "B/op": {
+              "before_median": 261543.0,
+              "after_median": 261543.5,
+              "change_percent": 0.00019117315317451755,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0000019117315317
+            },
+            "allocs/op": {
+              "before_median": 22.0,
+              "after_median": 22.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          },
+          "BenchmarkGraduationGoSuite/Edit": {
+            "ns/op": {
+              "before_median": 67626.0,
+              "after_median": 67606.5,
+              "change_percent": -0.028835063437138153,
+              "median_paired_after_before_ratio": 0.9997563271757701,
+              "ratio_of_medians": 0.9997116493656286
+            },
+            "B/op": {
+              "before_median": 407.0,
+              "after_median": 407.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            },
+            "allocs/op": {
+              "before_median": 5.0,
+              "after_median": 5.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          },
+          "BenchmarkGraduationGoSuite/NoEdit": {
+            "ns/op": {
+              "before_median": 3.1045,
+              "after_median": 3.1180000000000003,
+              "change_percent": 0.43485263327429635,
+              "median_paired_after_before_ratio": 1.0040263363933994,
+              "ratio_of_medians": 1.004348526332743
+            },
+            "B/op": {
+              "before_median": 0.0,
+              "after_median": 0.0,
+              "change_percent": null,
+              "median_paired_after_before_ratio": null,
+              "ratio_of_medians": null
+            },
+            "allocs/op": {
+              "before_median": 0.0,
+              "after_median": 0.0,
+              "change_percent": null,
+              "median_paired_after_before_ratio": null,
+              "ratio_of_medians": null
+            }
+          }
+        },
+        "route_ratios": {}
+      },
+      "go-r4": {
+        "paired_samples": 20,
+        "raw_sha256": {
+          "before": "3e2d830ebe4982f4859fda61d394934c66dfdbff11d292a92b275f7d346e47d1",
+          "after": "f8dda4409aae66d181b80f45718a96384f4180a2917fa8f12fa4f57d18594d9c"
+        },
+        "results": {
+          "BenchmarkCompactGraduationR4/legacy": {
+            "ns/op": {
+              "before_median": 640182.0,
+              "after_median": 637881.5,
+              "change_percent": -0.3593509345779844,
+              "median_paired_after_before_ratio": 0.9968083576998235,
+              "ratio_of_medians": 0.9964064906542202
+            },
+            "B/op": {
+              "before_median": 2712.0,
+              "after_median": 2712.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            },
+            "allocs/op": {
+              "before_median": 11.0,
+              "after_median": 11.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          },
+          "BenchmarkCompactGraduationR4/compact": {
+            "ns/op": {
+              "before_median": 764050.0,
+              "after_median": 755952.5,
+              "change_percent": -1.0598128394738615,
+              "median_paired_after_before_ratio": 0.9894883631033151,
+              "ratio_of_medians": 0.9894018716052614
+            },
+            "B/op": {
+              "before_median": 1112.0,
+              "after_median": 1112.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            },
+            "allocs/op": {
+              "before_median": 14.0,
+              "after_median": 14.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          }
+        },
+        "route_ratios": {
+          "before": {
+            "median_paired_compact_legacy_ratio": 1.195058524944511,
+            "ratio_of_medians": 1.1934887266433607
+          },
+          "after": {
+            "median_paired_compact_legacy_ratio": 1.1861538384419306,
+            "ratio_of_medians": 1.1850986429297605
+          }
+        }
+      },
+      "yaml-r4": {
+        "paired_samples": 20,
+        "raw_sha256": {
+          "before": "9e928033dafe1ff9a533bb31cb7b422c5554b038bc02802ca545bb03d0e26d1c",
+          "after": "286f86685536a857a8f2f9080574954aae78d382be797f9645e4666742f666b6"
+        },
+        "results": {
+          "BenchmarkCompactGraduationR4/legacy": {
+            "ns/op": {
+              "before_median": 136475.0,
+              "after_median": 135661.5,
+              "change_percent": -0.5960798681077129,
+              "median_paired_after_before_ratio": 0.993992297290839,
+              "ratio_of_medians": 0.9940392013189229
+            },
+            "B/op": {
+              "before_median": 1440.0,
+              "after_median": 1440.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            },
+            "allocs/op": {
+              "before_median": 16.0,
+              "after_median": 16.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          },
+          "BenchmarkCompactGraduationR4/compact": {
+            "ns/op": {
+              "before_median": 192267.0,
+              "after_median": 191174.5,
+              "change_percent": -0.5682202354018062,
+              "median_paired_after_before_ratio": 0.9866328655612504,
+              "ratio_of_medians": 0.9943177976459819
+            },
+            "B/op": {
+              "before_median": 5456.0,
+              "after_median": 5456.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            },
+            "allocs/op": {
+              "before_median": 39.0,
+              "after_median": 39.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          }
+        },
+        "route_ratios": {
+          "before": {
+            "median_paired_compact_legacy_ratio": 1.412814231320113,
+            "ratio_of_medians": 1.408807473896318
+          },
+          "after": {
+            "median_paired_compact_legacy_ratio": 1.4097460633608594,
+            "ratio_of_medians": 1.4092023160587197
+          }
+        }
+      }
+    },
+    "significance_validation": "benchstat reports retained; p-values are not recomputed by this standard-library validator"
+  },
+  "fleet_qualified": false,
+  "E_A_qualified": false,
+  "runtime_promoted": false,
+  "merges_held": true
+}
