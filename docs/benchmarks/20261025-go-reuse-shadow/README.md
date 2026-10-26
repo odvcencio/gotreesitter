@@ -136,8 +136,11 @@ These new adverse events and reuse directions are also **unapproved**; the
 assignment correctness exception does not cover them. The counter gate stays
 failed, with no timing, ledger update, verifier removal or promotion.
 
-All 410 non-Go rows, broader edit negatives, C027 in this receipt, native
-Windows/ARM and E-A/M1 qualification remain open. The
+The separate [C 0.27.1 supplement](../20261025-go-reuse-shadow-c027/README.md)
+now passes the same 127 Go records and the header/link probe with this exact
+runtime. It preserves this receipt's source archive and failed counter gate.
+All 410 non-Go rows, broader edit negatives, native Windows/ARM and E-A/M1
+qualification remain open. The
 [older V4 Mac timing](../20261021-trusted-small-source-results/README.md) motivates
 this work but does not measure this source snapshot. No verifier removal,
 performance win, compact-producer certification or graduation is claimed here.

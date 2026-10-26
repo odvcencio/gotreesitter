@@ -1,0 +1,24 @@
+{
+  "schema": "gts-trusted-go-shadow-C027/v1",
+  "runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
+  "runtime_version": "0.27.1",
+  "probe_families": 1,
+  "C_families": 3,
+  "C_records": 127,
+  "binding_scope": "default parse/close plus tree edit and public node reads; prior private0.25adapter",
+  "all_guards_passed": true,
+  "fresh_verifier_active": true,
+  "dependency_changed": false,
+  "runtime_promoted": false,
+  "main_merges_held": true,
+  "runtime_map_sha256": "b8516549c515222d8aeb5d4b4a2609b50d8abbcbd4b691e091d73aff7f40f49d",
+  "supplement_sha256": "f61dc62afb614f508e58b62746a0cb04cc8d5380b838450a3adc88b19b228bec",
+  "inherited_archives": {
+    "../20261025-go-reuse-shadow/evidence.tar.gz": "eb9270b94284a2d218d8870ed889f4fee55f9f6f9076210b098195b11296d7b4",
+    "../20261025-compact-raw-screen/evidence.tar.gz": "73fe52b4ef05a02a6741265da9b447ed3e2610338880592a6d1ff57c5f8c90fa"
+  },
+  "performance_qualified": false,
+  "counter_gate_passed": false,
+  "graduation_claim": false,
+  "review_head": "ec6e9a6f31004bd150b4d41b0bafa6f7536f0bd3"
+}

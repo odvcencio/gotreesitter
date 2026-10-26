@@ -1,0 +1,102 @@
+{
+  "controls/trusted-go-shadow-c027-v1/commands.json": {
+    "bytes": 2765,
+    "sha256": "d1db300c56d0d3ddcd1ce42ccdaaee9f81d376dee5e4805497be375be781eaee"
+  },
+  "controls/trusted-go-shadow-c027-v1/controls.sha256": {
+    "bytes": 1860,
+    "sha256": "a177296f430d6714c11cc5b861875d2c5743f6d9dcc3f689957800ab3bc75587"
+  },
+  "controls/trusted-go-shadow-c027-v1/overlay.c027.json": {
+    "bytes": 2985,
+    "sha256": "d7942441418cfc97e4792fd4baa67252b7dfebf3885b0aa3657e4b6aee9b00f7"
+  },
+  "controls/trusted-go-shadow-c027-v1/run.sh": {
+    "bytes": 2100,
+    "sha256": "840f789fba6a93182dcdca9c9baf730a5a937804c3c17148698b673c362c8bdc"
+  },
+  "controls/trusted-go-shadow-c027-v1/worker.py": {
+    "bytes": 1419,
+    "sha256": "34ad12f02e6ad9259bc6892a2e5051b2b0c391271b8e6398994851a90b2b9635"
+  },
+  "out/trusted-go-shadow-c027-v1/binary.sha256": {
+    "bytes": 142,
+    "sha256": "b11424d2afde4db3d19ff87ea69fe74bfe1feb6ecc4ec70b201936a033539839"
+  },
+  "out/trusted-go-shadow-c027-v1/binding-after.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "out/trusted-go-shadow-c027-v1/binding-before.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "out/trusted-go-shadow-c027-v1/cgo-build.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "out/trusted-go-shadow-c027-v1/container.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "out/trusted-go-shadow-c027-v1/controls-after.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "out/trusted-go-shadow-c027-v1/controls-before.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "out/trusted-go-shadow-c027-v1/existing-strong-C-Go.log": {
+    "bytes": 125589,
+    "sha256": "4d7b463e3335b0536500faf1c2835eab0960b5482050bbc3b66f9832f4f22ee8"
+  },
+  "out/trusted-go-shadow-c027-v1/finished.json": {
+    "bytes": 59,
+    "sha256": "f15e36e9428ae9b9455674d6dc30fccbbbf02c656939e0455e9b469cd0a8f5b0"
+  },
+  "out/trusted-go-shadow-c027-v1/oracle-after.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "out/trusted-go-shadow-c027-v1/oracle-before.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "out/trusted-go-shadow-c027-v1/runtime-probe.log": {
+    "bytes": 1234,
+    "sha256": "507c64416e715545864256dfee16f83ef60c25b5e4ec27d1003052c87dc7426b"
+  },
+  "out/trusted-go-shadow-c027-v1/source-after.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "out/trusted-go-shadow-c027-v1/source-before.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "out/trusted-go-shadow-c027-v1/staged-after.json": {
+    "bytes": 355,
+    "sha256": "87fb419ac1631af1e7577ca371981d15656e163089c202e0cb4766ec2e357703"
+  },
+  "out/trusted-go-shadow-c027-v1/staged-before.json": {
+    "bytes": 355,
+    "sha256": "87fb419ac1631af1e7577ca371981d15656e163089c202e0cb4766ec2e357703"
+  },
+  "out/trusted-go-shadow-c027-v1/started.json": {
+    "bytes": 83,
+    "sha256": "4834f1b4560760582067459e0ea80b91b12c150b6d3c75233f5493245ab4b739"
+  },
+  "out/trusted-go-shadow-c027-v1/validated-summary.json": {
+    "bytes": 460,
+    "sha256": "30bfd94c57feabab5c0a1bdf385d54d94fa88fec196b2e19138bb6ca8a30e021"
+  },
+  "controls/sealed-reduction-perf-v1/source.sha256": {
+    "bytes": 398832,
+    "sha256": "3745cdfcd6bd747219c6b823167f7382a149a6b29930602d780257c0beb770f2"
+  },
+  "controls/trusted-go-shadow-v1/overlay.runtime.json": {
+    "bytes": 1226,
+    "sha256": "b8516549c515222d8aeb5d4b4a2609b50d8abbcbd4b691e091d73aff7f40f49d"
+  }
+}
