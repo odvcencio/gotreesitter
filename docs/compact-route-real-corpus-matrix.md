@@ -26,6 +26,12 @@ have only synthetic samples and are outside this real-file census.
 
 Current owner instruction: **hold all merges to main**. The earlier release condition was fulfilled, but the renewed hold remains active independently of that release. PR #1512 stays draft; branch-relative experiments do not graduate a language.
 
+### Construction screen: repeated work removed; full throughput still held
+
+The [construction receipt](benchmarks/20261025-compact-construction-screen/README.md) removes repeated leaf/unary formation, duplicate normalized child projection and pool censuses. Ordinary Go formation edges fall **2,506→1,936**, local root references **1,025→528**, and hidden steps **148→75**; exact trees, retained tree bytes and warm-read work match. Core, C 0.25.1/private C 0.27.1, D8, race and memory gates pass. All four actual counter rows are safe; only candidate Go full public nodes change **892→1**, with no exception used.
+
+The complete 60-pair / 120-process screen still regresses generated Go full parsing **7.66%** and ordinary Go **8.86%** versus the current runtime (both p<.001). Generated allocations fall **22→16**, while ordinary Go bytes rise **60.43%**. YAML uses the existing path and has no significant compact timing change. The raw-output runtime stays private; all-206, RSS, consumer/platform and E-A/M1 qualification remain open. Fresh verification and the main-merge hold remain intact.
+
 ### Go graduation work: dense stack screen held; oracle compatibility advances
 
 The [dense LR V2 screen](benchmarks/20261025-dense-lr-screen/README.md) cuts generated graph links **15,505→2** and improves generated full parsing **11.19%** across 20 matched seeds. It stays private: full allocations rise **22→28**, while the 20-pair real Go sample has no significant timing improvement, allocations **14→21**, and allocated bytes **+296.40%**. Public trees, scheduler work and scanner/dependency receipts agree. All 29 corrected memory/lifetime tests pass. The original 72-step R4 session proves D8/no-edit zero allocations but contains no clean edited states; a separate one-site numeric replacement control proves positive reuse at least equal to legacy for 72 clean steps. No complete graduation or YAML qualification follows.
