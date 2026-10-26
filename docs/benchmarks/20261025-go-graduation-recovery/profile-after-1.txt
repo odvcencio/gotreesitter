@@ -1,0 +1,284 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# working directory: /candidate
+# repository root: /candidate
+# revision: de946b40926553d07efcfdff449a8e5bb2c4d6b7
+# dirty: true
+# source metadata: informational; no source snapshot authentication
+# started: 2026-10-25T07:55:53Z
+# package: .
+# bench regex: ^BenchmarkGraduationGoSuite$
+# required benchmarks: BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/NoEdit
+# build tags: gts_parsercorephase0
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# suite seed environment: GTS_BENCHMARK_SEED
+# paired workload order: must match
+# seed: 1; position: 2
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Edit         	   12834	     69799 ns/op	 276.42 MB/s	     407 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	273713116	         3.263 ns/op	5913139.51 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Full         	     121	   7366431 ns/op	   2.62 MB/s	  261543 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.593s
+# workload order: BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Full
+# completed seed: 1; at: 2026-10-25T07:56:03Z
+# seed: 2; position: 1
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Full         	     121	   7593478 ns/op	   2.54 MB/s	  261545 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	274582036	         3.291 ns/op	5862908.21 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Edit         	   12888	     69566 ns/op	 277.35 MB/s	     407 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.162s
+# workload order: BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Edit
+# completed seed: 2; at: 2026-10-25T07:56:13Z
+# seed: 3; position: 2
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Edit         	   12306	     71626 ns/op	 269.37 MB/s	     408 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/Full         	     100	   7549838 ns/op	   2.56 MB/s	  261544 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	266909437	         3.233 ns/op	5967977.26 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.719s
+# workload order: BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/NoEdit
+# completed seed: 3; at: 2026-10-25T07:56:24Z
+# seed: 4; position: 1
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Full         	     126	   7815143 ns/op	   2.47 MB/s	  261546 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	288965124	         3.237 ns/op	5960430.04 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Edit         	   12678	     70704 ns/op	 272.88 MB/s	     407 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.317s
+# workload order: BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Edit
+# completed seed: 4; at: 2026-10-25T07:56:33Z
+# seed: 5; position: 2
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Edit         	   12712	     69239 ns/op	 278.66 MB/s	     407 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/Full         	     100	   7830550 ns/op	   2.46 MB/s	  261544 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	253483504	         3.310 ns/op	5828544.22 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.735s
+# workload order: BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/NoEdit
+# completed seed: 5; at: 2026-10-25T07:56:42Z
+# seed: 6; position: 1
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Edit         	   10000	     85963 ns/op	 224.44 MB/s	     412 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	270948255	         3.487 ns/op	5532565.76 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Full         	     100	   9194354 ns/op	   2.10 MB/s	  261546 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.211s
+# workload order: BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Full
+# completed seed: 6; at: 2026-10-25T07:56:51Z
+# seed: 7; position: 2
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Full         	     118	   7456211 ns/op	   2.59 MB/s	  261546 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/Edit         	   12760	     69025 ns/op	 279.52 MB/s	     407 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	284420376	         3.256 ns/op	5925155.25 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.198s
+# workload order: BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/NoEdit
+# completed seed: 7; at: 2026-10-25T07:57:01Z
+# seed: 8; position: 1
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Edit         	   12574	     70535 ns/op	 273.54 MB/s	     407 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	261372867	         3.351 ns/op	5757952.02 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Full         	     120	   7759605 ns/op	   2.49 MB/s	  261544 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.659s
+# workload order: BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Full
+# completed seed: 8; at: 2026-10-25T07:57:11Z
+# seed: 9; position: 2
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Full         	     123	   7378238 ns/op	   2.61 MB/s	  261546 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	271672088	         3.265 ns/op	5910007.12 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Edit         	   12616	     70822 ns/op	 272.43 MB/s	     407 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.228s
+# workload order: BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Edit
+# completed seed: 9; at: 2026-10-25T07:57:21Z
+# seed: 10; position: 1
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/NoEdit         	270749250	         3.291 ns/op	5862151.94 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Edit           	   12205	     69970 ns/op	 275.75 MB/s	     408 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/Full           	     100	   7605612 ns/op	   2.54 MB/s	  261547 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.722s
+# workload order: BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/Full
+# completed seed: 10; at: 2026-10-25T07:57:30Z
+# seed: 11; position: 2
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/NoEdit         	283591852	         3.225 ns/op	5982705.03 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Full           	     120	   7324838 ns/op	   2.63 MB/s	  261543 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/Edit           	   12783	     70320 ns/op	 274.38 MB/s	     407 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.600s
+# workload order: BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/Edit
+# completed seed: 11; at: 2026-10-25T07:57:41Z
+# seed: 12; position: 1
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/NoEdit         	272817097	         3.297 ns/op	5851704.77 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Edit           	   12696	     69776 ns/op	 276.51 MB/s	     407 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/Full           	     121	   7518471 ns/op	   2.57 MB/s	  261543 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.618s
+# workload order: BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/Full
+# completed seed: 12; at: 2026-10-25T07:57:50Z
+# seed: 13; position: 2
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/NoEdit         	269114974	         3.314 ns/op	5821447.25 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Full           	     100	   7668054 ns/op	   2.52 MB/s	  261546 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/Edit           	   12628	     69551 ns/op	 277.41 MB/s	     407 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.731s
+# workload order: BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/Edit
+# completed seed: 13; at: 2026-10-25T07:58:00Z
+# seed: 14; position: 1
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Edit         	   12495	     71100 ns/op	 271.36 MB/s	     408 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/Full         	     100	   7587976 ns/op	   2.54 MB/s	  261546 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	267846414	         3.299 ns/op	5848466.47 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.740s
+# workload order: BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/NoEdit
+# completed seed: 14; at: 2026-10-25T07:58:09Z
+# seed: 15; position: 2
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/NoEdit         	281985424	         3.225 ns/op	5983235.46 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Edit           	   12951	     70496 ns/op	 273.69 MB/s	     407 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/Full           	     118	   7539464 ns/op	   2.56 MB/s	  261544 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.531s
+# workload order: BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/Full
+# completed seed: 15; at: 2026-10-25T07:58:20Z
+# seed: 16; position: 1
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Edit         	   12781	     69502 ns/op	 277.60 MB/s	     407 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/Full         	     120	   7237838 ns/op	   2.67 MB/s	  261543 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	282269146	         3.279 ns/op	5883372.95 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.606s
+# workload order: BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/NoEdit
+# completed seed: 16; at: 2026-10-25T07:58:30Z
+# seed: 17; position: 2
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/NoEdit         	282181760	         3.206 ns/op	6018422.91 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Edit           	   12705	     69883 ns/op	 276.09 MB/s	     407 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/Full           	     120	   7689216 ns/op	   2.51 MB/s	  261543 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.542s
+# workload order: BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/Full
+# completed seed: 17; at: 2026-10-25T07:58:40Z
+# seed: 18; position: 1
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/NoEdit         	275032242	         3.265 ns/op	5910145.46 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Full           	     100	   8334727 ns/op	   2.31 MB/s	  261546 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/Edit           	   12704	     74021 ns/op	 260.66 MB/s	     407 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.872s
+# workload order: BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/Edit
+# completed seed: 18; at: 2026-10-25T07:58:51Z
+# seed: 19; position: 2
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Edit         	   12450	     70915 ns/op	 272.07 MB/s	     408 B/op	       5 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	275130883	         3.235 ns/op	5963988.63 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Full         	     120	   7405556 ns/op	   2.61 MB/s	  261546 B/op	      22 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.606s
+# workload order: BenchmarkGraduationGoSuite/Edit,BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Full
+# completed seed: 19; at: 2026-10-25T07:59:01Z
+# seed: 20; position: 1
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGraduationGoSuite/Full         	     121	   7523654 ns/op	   2.56 MB/s	  261547 B/op	      22 allocs/op
+BenchmarkGraduationGoSuite/NoEdit       	282637118	         3.299 ns/op	5848194.80 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGraduationGoSuite/Edit         	   10492	     81860 ns/op	 235.70 MB/s	     411 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.214s
+# workload order: BenchmarkGraduationGoSuite/Full,BenchmarkGraduationGoSuite/NoEdit,BenchmarkGraduationGoSuite/Edit
+# completed seed: 20; at: 2026-10-25T07:59:10Z
+# repository root at end: /candidate
+# revision at end: de946b40926553d07efcfdff449a8e5bb2c4d6b7
+# dirty at end: true
+# completed runs: 20
+# status: complete

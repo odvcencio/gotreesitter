@@ -1,0 +1,216 @@
+{
+  "schema": "gts-independent-fused-capture-screen/v1",
+  "decision": "HOLD; no demonstrated timing win",
+  "independent_of_dense_hybrid": true,
+  "tested_variant": "native-fused-capture-v1/v3; stateless-scanner capability gate correction",
+  "qualification": {
+    "schema": "gts-native-fused-capture-qualification/v1",
+    "source_variant": "native-fused-capture-v1/v3",
+    "failed": 0,
+    "skipped": 0,
+    "top_level_passes": {
+      "core.log": 59,
+      "focused.log": 39,
+      "go-public-api.log": 3,
+      "yaml-fallback.log": 1,
+      "go-cgo.log": 10,
+      "yaml-cgo.log": 8,
+      "direct-output-Go.log": 1,
+      "direct-output-YAML.log": 1,
+      "quiescent-foam.log": 1,
+      "quiescent-hyprlang.log": 1,
+      "quiescent-pkl.log": 1,
+      "quiescent-smithy.log": 1
+    },
+    "fused_receipt_differential_cases": 6,
+    "Go_and_YAML_C_D8_passed": true,
+    "invariant_sessions": 4,
+    "edit_steps": 288,
+    "no_edit_allocations": 0,
+    "ordinary_actual_counter_rows_unchanged": 4,
+    "prototype_promoted": false,
+    "performance_claim": false,
+    "merges_held": true
+  },
+  "performance": {
+    "schema": "gts-native-fused-capture-perf/v1",
+    "pairs": 60,
+    "processes": 120,
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "benchtime": "750ms",
+    "GOMAXPROCS": 1,
+    "count_per_process": 1,
+    "route_fallbacks": 0,
+    "no_edit_allocations": 0,
+    "all_source_and_control_guards_passed": true,
+    "results": {
+      "go-r4": {
+        "BenchmarkCompactGraduationR4/legacy": {
+          "ns/op": {
+            "before": 703079.0,
+            "after": 681649.5,
+            "change_percent": -3.0479505148070185
+          },
+          "B/op": {
+            "before": 2712.0,
+            "after": 2712.0,
+            "change_percent": 0.0
+          },
+          "allocs/op": {
+            "before": 11.0,
+            "after": 11.0,
+            "change_percent": 0.0
+          }
+        },
+        "BenchmarkCompactGraduationR4/compact": {
+          "ns/op": {
+            "before": 836835.5,
+            "after": 826148.5,
+            "change_percent": -1.27707297312315
+          },
+          "B/op": {
+            "before": 1112.0,
+            "after": 1128.0,
+            "change_percent": 1.4388489208633004
+          },
+          "allocs/op": {
+            "before": 14.0,
+            "after": 14.0,
+            "change_percent": 0.0
+          }
+        }
+      },
+      "yaml-r4": {
+        "BenchmarkCompactGraduationR4/legacy": {
+          "ns/op": {
+            "before": 162110.5,
+            "after": 156470.5,
+            "change_percent": -3.4791083859466276
+          },
+          "B/op": {
+            "before": 1440.0,
+            "after": 1440.0,
+            "change_percent": 0.0
+          },
+          "allocs/op": {
+            "before": 16.0,
+            "after": 16.0,
+            "change_percent": 0.0
+          }
+        },
+        "BenchmarkCompactGraduationR4/compact": {
+          "ns/op": {
+            "before": 229859.0,
+            "after": 219346.5,
+            "change_percent": -4.573455901226408
+          },
+          "B/op": {
+            "before": 5456.0,
+            "after": 5456.0,
+            "change_percent": 0.0
+          },
+          "allocs/op": {
+            "before": 39.0,
+            "after": 39.0,
+            "change_percent": 0.0
+          }
+        }
+      },
+      "go-primary": {
+        "BenchmarkGraduationGoSuite/Full": {
+          "ns/op": {
+            "before": 7616099.5,
+            "after": 7751265.0,
+            "change_percent": 1.7747339041460863
+          },
+          "B/op": {
+            "before": 261545.5,
+            "after": 261562.0,
+            "change_percent": 0.006308653752395976
+          },
+          "allocs/op": {
+            "before": 22.0,
+            "after": 22.0,
+            "change_percent": 0.0
+          }
+        },
+        "BenchmarkGraduationGoSuite/Edit": {
+          "ns/op": {
+            "before": 71268.0,
+            "after": 72333.5,
+            "change_percent": 1.4950608968962165
+          },
+          "B/op": {
+            "before": 407.0,
+            "after": 408.0,
+            "change_percent": 0.24570024570025328
+          },
+          "allocs/op": {
+            "before": 5.0,
+            "after": 5.0,
+            "change_percent": 0.0
+          }
+        },
+        "BenchmarkGraduationGoSuite/NoEdit": {
+          "ns/op": {
+            "before": 3.263,
+            "after": 3.329,
+            "change_percent": 2.0226785167024364
+          },
+          "B/op": {
+            "before": 0.0,
+            "after": 0.0,
+            "change_percent": null
+          },
+          "allocs/op": {
+            "before": 0.0,
+            "after": 0.0,
+            "change_percent": null
+          }
+        }
+      }
+    },
+    "private_prototype_promoted": false,
+    "graduation_claim": false,
+    "merges_held": true
+  },
+  "timing_p_values": {
+    "go-primary/GraduationGoSuite/Edit": 0.341,
+    "go-primary/GraduationGoSuite/NoEdit": 0.268,
+    "go-primary/GraduationGoSuite/Full": 0.114,
+    "go-r4/CompactGraduationR4/compact": 0.547,
+    "go-r4/CompactGraduationR4/legacy": 0.06,
+    "yaml-r4/CompactGraduationR4/compact": 0.461,
+    "yaml-r4/CompactGraduationR4/legacy": 0.718
+  },
+  "all_timings_inconclusive": true,
+  "allocation_changes": "all allocation counts unchanged; GoR4 bytes+16, generated full bytes+16.5, edit bytes+1; YAML bytes unchanged",
+  "retained_failed_variant": "V2 activation failure, exit1; original assertions retained",
+  "no_promotion": true,
+  "no_graduation": true,
+  "no_platform_qualification": true,
+  "no_main_merge": true,
+  "new_runtime_execution_by_packager": false,
+  "static_archive_sha256": "f27ac352928da2ee0f33a1b9a9c25daebc36eab5329e606a64b67262a47dc53e"
+}

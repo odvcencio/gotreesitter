@@ -244,3 +244,11 @@ func (p *Parser) replayCompactMaterializationTransition(pre StateID, view *core.
 	}
 	return StateID(view.ReusedState), true, nil
 }
+
+// ReplayNativeTransition adapts the same table replay used by full views. The
+// native stream has already excluded reused subtrees, so no borrowed identity
+// or child view needs reconstruction at this boundary.
+func (t *parserCoreRootTables) ReplayNativeTransition(pre core.StateID, symbol core.Symbol, terminal bool) (core.StateID, bool) {
+	state, known := t.parser.replayTransition(StateID(pre), Symbol(symbol), terminal)
+	return core.StateID(state), known
+}

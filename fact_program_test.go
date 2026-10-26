@@ -417,8 +417,8 @@ func TestFactDeclarationsGoExample(t *testing.T) {
 
 func TestFactDeclarationsGoGroupedBindings(t *testing.T) {
 	const source = `package p
-var ( a = 1; b, c int; _, d = 2, 3 )
-const ( A = iota; B; left, right = 1, 2; _, C = 3, 4 )
+var ( a = 1; b, c int; _, d = 2, 3; )
+const ( A = iota; B; left, right = 1, 2; _, C = 3, 4; )
 var x = 1; var y, z int
 const solo = 9; const other = 10
 `

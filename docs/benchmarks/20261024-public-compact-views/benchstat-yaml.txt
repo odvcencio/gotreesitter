@@ -1,0 +1,51 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                     │ baseline-yaml.txt │         candidate-yaml.txt         │
+                                     │      sec/op       │   sec/op     vs base               │
+CompactPublicOutput/r4_parse                 189.1µ ± 1%   189.8µ ± 1%       ~ (p=0.174 n=20)
+CompactPublicOutput/eof8k_parse              723.5µ ± 1%   726.3µ ± 1%       ~ (p=0.355 n=20)
+CompactPublicOutput/r4_query                 195.8µ ± 1%   194.9µ ± 1%       ~ (p=0.547 n=20)
+CompactPublicOutput/r4_parse_edit            380.6µ ± 1%   398.3µ ± 1%  +4.65% (p=0.000 n=20)
+CompactPublicOutput/r4_walk                  190.9µ ± 1%   207.9µ ± 2%  +8.86% (p=0.000 n=20)
+CompactPublicOutput/eof8k_query              749.7µ ± 1%   742.2µ ± 1%       ~ (p=0.076 n=20)
+CompactPublicOutput/eof8k_parse_edit         1.461m ± 1%   1.527m ± 1%  +4.55% (p=0.000 n=20)
+CompactPublicOutput/eof8k_walk               736.2µ ± 1%   788.7µ ± 1%  +7.13% (p=0.000 n=20)
+geomean                                      446.2µ        459.5µ       +2.99%
+
+                                     │ baseline-yaml.txt │         candidate-yaml.txt          │
+                                     │        B/s        │     B/s       vs base               │
+CompactPublicOutput/r4_parse                10.07Mi ± 1%   10.04Mi ± 1%       ~ (p=0.194 n=20)
+CompactPublicOutput/eof8k_parse             10.56Mi ± 1%   10.52Mi ± 1%       ~ (p=0.344 n=20)
+CompactPublicOutput/r4_query                9.727Mi ± 1%   9.780Mi ± 1%       ~ (p=0.578 n=20)
+CompactPublicOutput/r4_parse_edit           5.007Mi ± 1%   4.783Mi ± 1%  -4.48% (p=0.000 n=20)
+CompactPublicOutput/r4_walk                 9.980Mi ± 1%   9.170Mi ± 2%  -8.12% (p=0.000 n=20)
+CompactPublicOutput/eof8k_query             10.19Mi ± 1%   10.29Mi ± 1%       ~ (p=0.073 n=20)
+CompactPublicOutput/eof8k_parse_edit        5.231Mi ± 1%   5.002Mi ± 1%  -4.38% (p=0.000 n=20)
+CompactPublicOutput/eof8k_walk             10.376Mi ± 1%   9.689Mi ± 1%  -6.62% (p=0.000 n=20)
+geomean                                     8.552Mi        8.304Mi       -2.90%
+
+                                     │ baseline-yaml.txt │         candidate-yaml.txt          │
+                                     │       B/op        │     B/op      vs base               │
+CompactPublicOutput/r4_parse                5.328Ki ± 0%   5.109Ki ± 0%  -4.11% (p=0.000 n=20)
+CompactPublicOutput/eof8k_parse             17.88Ki ± 0%   17.80Ki ± 0%  -0.44% (p=0.000 n=20)
+CompactPublicOutput/r4_query                6.656Ki ± 0%   6.211Ki ± 0%  -6.69% (p=0.000 n=20)
+CompactPublicOutput/r4_parse_edit           10.70Ki ± 0%   10.27Ki ± 0%  -4.09% (p=0.000 n=20)
+CompactPublicOutput/r4_walk                 5.328Ki ± 0%   5.109Ki ± 0%  -4.11% (p=0.000 n=20)
+CompactPublicOutput/eof8k_query             19.20Ki ± 0%   18.90Ki ± 0%  -1.59% (p=0.000 n=20)
+CompactPublicOutput/eof8k_parse_edit        35.80Ki ± 0%   35.64Ki ± 0%  -0.43% (p=0.000 n=20)
+CompactPublicOutput/eof8k_walk              17.88Ki ± 0%   17.80Ki ± 0%  -0.44% (p=0.000 n=20)
+geomean                                     12.05Ki        11.72Ki       -2.76%
+
+                                     │ baseline-yaml.txt │         candidate-yaml.txt         │
+                                     │     allocs/op     │ allocs/op   vs base                │
+CompactPublicOutput/r4_parse                  39.00 ± 0%   34.00 ± 0%  -12.82% (p=0.000 n=20)
+CompactPublicOutput/eof8k_parse               70.00 ± 0%   71.00 ± 0%   +1.43% (p=0.000 n=20)
+CompactPublicOutput/r4_query                  52.00 ± 0%   48.00 ± 0%   -7.69% (p=0.000 n=20)
+CompactPublicOutput/r4_parse_edit             79.00 ± 0%   69.00 ± 0%  -12.66% (p=0.000 n=20)
+CompactPublicOutput/r4_walk                   39.00 ± 0%   34.00 ± 0%  -12.82% (p=0.000 n=20)
+CompactPublicOutput/eof8k_query               83.00 ± 0%   85.00 ± 0%   +2.41% (p=0.000 n=20)
+CompactPublicOutput/eof8k_parse_edit          141.0 ± 0%   143.0 ± 0%   +1.42% (p=0.000 n=20)
+CompactPublicOutput/eof8k_walk                70.00 ± 0%   71.00 ± 0%   +1.43% (p=0.000 n=20)
+geomean                                       65.96        62.56        -5.16%

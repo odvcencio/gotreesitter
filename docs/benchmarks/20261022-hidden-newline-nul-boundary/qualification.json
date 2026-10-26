@@ -1,0 +1,29 @@
+{
+  "base_commit": "afd16867b666dfec05f3eb28e9eee86036474532",
+  "scope": "compat",
+  "runtime_sha256": "453af975d20e9d86f5de06caa322c123c161d9e457d007b997bf8b1f54eb513b",
+  "new_test_go_c_comparisons": 10,
+  "generated_no_edit_cases": 6,
+  "measured_no_edit_calls_per_case": 10,
+  "generated_no_edit_allocs": 0,
+  "native_edit_sessions": 4,
+  "native_edit_steps": 288,
+  "native_no_edit_allocs": 0,
+  "memory_budget_tests": 20,
+  "shipped_grammar_inventory": 206,
+  "shipped_grammars_entering_changed_branch": 0,
+  "linux_toolchain": "go1.26.6 linux/amd64",
+  "native_arm64_toolchain": "go1.25.14 linux/arm64",
+  "locked_c_source": "Go 2346a3ab1bb3857b48b29d779a1ef9799a248cd7",
+  "timing_scope": "20 matched randomized primary-Go safety pairs on native ARM64; timing, allocated bytes and allocations all statistically unchanged",
+  "arm64_edit_sessions": 4,
+  "arm64_edit_steps": 288,
+  "arm64_no_edit_allocs": 0,
+  "arm64_work_ledgers": "Go and YAML identical between baseline and candidate",
+  "arm64_source_unchanged": true,
+  "root_and_cgo_red_status": {
+    "root_unit": 1,
+    "locked_c_regression": 1
+  },
+  "native_oom_killed": false
+}

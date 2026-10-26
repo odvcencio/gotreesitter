@@ -1,0 +1,34 @@
+{
+  "baseline": "6e9460228d50a113233fe081cfe05ffe50379f1e",
+  "invariant_sessions": 412,
+  "edit_steps": 29664,
+  "no_edit_allocations": 0,
+  "standard_C_checks": 1236,
+  "work_rows_per_role": 824,
+  "counter_changes": 0,
+  "selected_ledgers": 206,
+  "root_files": 756,
+  "API_tag_sets": 12,
+  "memory_contract_tests": 20,
+  "SQL_history_runs_per_role": 2,
+  "known_unresolved": "Broader CI SQL memory ceiling failure is not reproduced by the one-language checks; Cognociente malformed-delete C mismatch remains open.",
+  "final_go_followup": {
+    "source": "v2/selected_type_arguments.go.txt",
+    "changes": "compare source bytes directly instead of allocating token-name strings",
+    "invariant_sessions": 2,
+    "edit_steps": 144,
+    "standard_C_checks": 6,
+    "work_rows_per_role": 4,
+    "counter_changes": 0,
+    "also_passed": [
+      "full internal core suite",
+      "public compact views",
+      "Go ambiguity family",
+      "Go builtin C oracle on both routes",
+      "edit/copy race",
+      "root/API layout"
+    ]
+  },
+  "inheritance": "The final change is confined to the Go-authenticated type-argument normalizer. The all-206 base gate remains applicable; Go is rerun on the final source. Other 205 language paths do not invoke this normalizer.",
+  "sql_probe": "The test-only 52 MiB transient-parent history is trimmed before the small SQL parse. Both revisions pass with identical counters; this rejects that specific explanation for the broader CI failure."
+}

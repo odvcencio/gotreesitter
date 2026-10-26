@@ -1,0 +1,236 @@
+{
+  "correctness": [
+    {
+      "candidate": false,
+      "kind": "delete",
+      "phase": "edit",
+      "changes": {
+        "ArenaBytesAllocated": [
+          2482816,
+          2484176
+        ],
+        "EntryScratchPeak": [
+          4101,
+          4100
+        ],
+        "NewNodesAllocated": [
+          7198,
+          7248
+        ],
+        "SingleStackGSSNodes": [
+          154,
+          196
+        ],
+        "SingleStackIterations": [
+          7092,
+          7094
+        ],
+        "SingleStackTokens": [
+          3558,
+          3560
+        ],
+        "TokensConsumed": [
+          3572,
+          3574
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "insert",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          1156672,
+          1157352
+        ],
+        "ArenaBytesAllocated": [
+          1189440,
+          1190120
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "replace",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          1156672,
+          1157352
+        ],
+        "ArenaBytesAllocated": [
+          1189440,
+          1190120
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "delete",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          2313344,
+          2314704
+        ],
+        "ArenaBytesAllocated": [
+          2394752,
+          2380240
+        ],
+        "EntryScratchPeak": [
+          4101,
+          4100
+        ],
+        "NewNodesAllocated": [
+          7163,
+          7213
+        ],
+        "SingleStackGSSNodes": [
+          149,
+          191
+        ],
+        "SingleStackIterations": [
+          7090,
+          7092
+        ],
+        "SingleStackTokens": [
+          3556,
+          3558
+        ],
+        "TokensConsumed": [
+          3583,
+          3585
+        ]
+      }
+    }
+  ],
+  "held_reuse": [
+    {
+      "candidate": false,
+      "kind": "insert",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          545024,
+          2817952
+        ],
+        "ArenaBytesAllocated": [
+          1293376,
+          7835264
+        ]
+      }
+    },
+    {
+      "candidate": false,
+      "kind": "replace",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          23825056,
+          7835264
+        ],
+        "ArenaBytesAllocated": [
+          23825056,
+          7835264
+        ]
+      }
+    },
+    {
+      "candidate": false,
+      "kind": "delete",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          1701696,
+          23383032
+        ],
+        "ArenaBytesAllocated": [
+          2484176,
+          24147936
+        ],
+        "BlockSpliceSteps": [
+          3538,
+          3534
+        ],
+        "NewNodesAllocated": [
+          7248,
+          7252
+        ],
+        "ReuseRejectFragileNonLeaf": [
+          0,
+          3
+        ],
+        "ReuseRejectRootNonLeafChanged": [
+          3540,
+          3533
+        ],
+        "ReusedBytes": [
+          136787,
+          136776
+        ],
+        "ReusedSubtrees": [
+          1769,
+          1765
+        ],
+        "SingleStackIterations": [
+          7094,
+          7095
+        ],
+        "SingleStackTokens": [
+          3560,
+          3564
+        ],
+        "TokensConsumed": [
+          3574,
+          3578
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "insert",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          1157352,
+          1173224
+        ],
+        "ArenaBytesAllocated": [
+          1190120,
+          1205992
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "replace",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          1157352,
+          1173224
+        ],
+        "ArenaBytesAllocated": [
+          1190120,
+          1205992
+        ]
+      }
+    },
+    {
+      "candidate": true,
+      "kind": "delete",
+      "phase": "edit",
+      "changes": {
+        "ArenaBaselineBytes": [
+          2314704,
+          1718248
+        ],
+        "ArenaBytesAllocated": [
+          2380240,
+          2515920
+        ]
+      }
+    }
+  ]
+}

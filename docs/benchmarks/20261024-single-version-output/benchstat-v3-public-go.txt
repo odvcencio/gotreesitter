@@ -1,0 +1,36 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                          │ baseline-go.txt │           public-go.txt            │
+                                          │     sec/op      │   sec/op     vs base               │
+SingleVersionOutput/grammargen_lr_parse         100.9m ± 0%   100.3m ± 1%  -0.53% (p=0.023 n=20)
+SingleVersionOutput/query_compile_parse         9.543m ± 0%   9.381m ± 0%  -1.70% (p=0.000 n=20)
+SingleVersionOutput/query_compile_consume       9.597m ± 0%   9.450m ± 0%  -1.53% (p=0.000 n=20)
+SingleVersionOutput/grammargen_lr_consume       101.6m ± 0%   100.7m ± 1%  -0.93% (p=0.001 n=20)
+geomean                                         31.13m        30.76m       -1.17%
+
+                                          │ baseline-go.txt │            public-go.txt            │
+                                          │       B/s       │     B/s       vs base               │
+SingleVersionOutput/grammargen_lr_parse        2.232Mi ± 0%   2.241Mi ± 1%       ~ (p=0.051 n=20)
+SingleVersionOutput/query_compile_parse        2.012Mi ± 0%   2.050Mi ± 0%  +1.90% (p=0.000 n=20)
+SingleVersionOutput/query_compile_consume      2.003Mi ± 0%   2.031Mi ± 0%  +1.43% (p=0.000 n=20)
+SingleVersionOutput/grammargen_lr_consume      2.213Mi ± 0%   2.232Mi ± 0%  +0.86% (p=0.002 n=20)
+geomean                                        2.112Mi        2.136Mi       +1.15%
+
+                                          │ baseline-go.txt │            public-go.txt            │
+                                          │      B/op       │     B/op      vs base               │
+SingleVersionOutput/grammargen_lr_parse        2.564Mi ± 0%   2.564Mi ± 0%       ~ (p=0.713 n=20)
+SingleVersionOutput/query_compile_parse        4.523Ki ± 0%   4.523Ki ± 0%       ~ (p=1.000 n=20)
+SingleVersionOutput/query_compile_consume      4.523Ki ± 0%   4.523Ki ± 0%       ~ (p=1.000 n=20)
+SingleVersionOutput/grammargen_lr_consume      2.564Mi ± 0%   2.564Mi ± 0%       ~ (p=1.000 n=20)
+geomean                                        109.0Ki        109.0Ki       +0.00%
+
+                                          │ baseline-go.txt │            public-go.txt             │
+                                          │    allocs/op    │  allocs/op   vs base                 │
+SingleVersionOutput/grammargen_lr_parse         1.807k ± 0%   1.807k ± 0%       ~ (p=1.000 n=20) ¹
+SingleVersionOutput/query_compile_parse          120.0 ± 0%    120.0 ± 0%       ~ (p=1.000 n=20) ¹
+SingleVersionOutput/query_compile_consume        120.0 ± 0%    120.0 ± 0%       ~ (p=1.000 n=20) ¹
+SingleVersionOutput/grammargen_lr_consume       1.807k ± 0%   1.807k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                          465.7         465.7       +0.00%
+¹ all samples are equal

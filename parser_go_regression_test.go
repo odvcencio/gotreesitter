@@ -23,6 +23,9 @@ func TestIssue490GoGrammarRegression(t *testing.T) {
 	}
 	source := append([]byte("package p\n"), fragment...)
 	for i := 1; i < repeats; i++ {
+		// A newline separates declarations: the frozen fragment ends at }
+		// and the next starts at func. The unseparated }func is malformed.
+		source = append(source, '\n')
 		source = append(source, fragment...)
 	}
 

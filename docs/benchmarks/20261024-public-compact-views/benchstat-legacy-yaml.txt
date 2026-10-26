@@ -1,0 +1,31 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                │ baseline-legacy-yaml.txt │      candidate-legacy-yaml.txt      │
+                                │          sec/op          │   sec/op     vs base                │
+CompactLegacyReadControls/query                198.1µ ± 0%   202.0µ ± 1%   +1.98% (p=0.000 n=20)
+CompactLegacyReadControls/walk                 5.961µ ± 1%   4.456µ ± 1%  -25.25% (p=0.000 n=20)
+geomean                                        34.36µ        30.00µ       -12.69%
+
+                                │ baseline-legacy-yaml.txt │      candidate-legacy-yaml.txt       │
+                                │           B/s            │     B/s       vs base                │
+CompactLegacyReadControls/query               38.57Mi ± 0%   37.83Mi ± 1%   -1.93% (p=0.000 n=20)
+CompactLegacyReadControls/walk                1.252Gi ± 1%   1.675Gi ± 1%  +33.78% (p=0.000 n=20)
+geomean                                       222.3Mi        254.7Mi       +14.54%
+
+                                │ baseline-legacy-yaml.txt │       candidate-legacy-yaml.txt       │
+                                │           B/op           │     B/op      vs base                 │
+CompactLegacyReadControls/query             350.0Ki ± 0%     350.0Ki ± 0%       ~ (p=1.000 n=20) ¹
+CompactLegacyReadControls/walk                0.000 ± 0%       0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                  ²                 +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                │ baseline-legacy-yaml.txt │      candidate-legacy-yaml.txt       │
+                                │        allocs/op         │  allocs/op   vs base                 │
+CompactLegacyReadControls/query              5.219k ± 0%     5.219k ± 0%       ~ (p=1.000 n=20) ¹
+CompactLegacyReadControls/walk                0.000 ± 0%      0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                  ²                +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

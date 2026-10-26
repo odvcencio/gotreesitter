@@ -1,0 +1,52 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                             │ baseline-perf-go.txt │        candidate-perf-go.txt        │
+                                             │        sec/op        │    sec/op     vs base               │
+CompactPublicOutput/grammargen_lr_walk                 107.7m ± 17%   110.4m ±  9%       ~ (p=0.841 n=20)
+CompactPublicOutput/query_compile_parse_edit           50.16m ± 15%   52.81m ± 16%       ~ (p=0.620 n=20)
+CompactPublicOutput/grammargen_lr_parse                103.4m ± 11%   101.1m ± 11%       ~ (p=0.583 n=20)
+CompactPublicOutput/query_compile_walk                 10.59m ± 17%   10.58m ± 12%       ~ (p=0.758 n=20)
+CompactPublicOutput/grammargen_lr_parse_edit           444.8m ± 25%   447.6m ± 14%       ~ (p=0.799 n=20)
+CompactPublicOutput/query_compile_parse                10.07m ± 19%   10.14m ±  9%       ~ (p=0.718 n=20)
+CompactPublicOutput/grammargen_lr_query                149.1m ± 16%   149.1m ± 10%       ~ (p=0.799 n=20)
+CompactPublicOutput/query_compile_query                15.33m ±  9%   15.03m ± 12%       ~ (p=0.904 n=20)
+geomean                                                52.81m         53.13m        +0.60%
+
+                                             │ baseline-perf-go.txt │        candidate-perf-go.txt         │
+                                             │         B/s          │      B/s       vs base               │
+CompactPublicOutput/grammargen_lr_walk                2.084Mi ± 14%   2.036Mi ± 10%       ~ (p=0.784 n=20)
+CompactPublicOutput/query_compile_parse_edit          390.6Ki ± 12%   371.1Ki ± 13%       ~ (p=0.586 n=20)
+CompactPublicOutput/grammargen_lr_parse               2.170Mi ± 10%   2.222Mi ± 10%       ~ (p=0.560 n=20)
+CompactPublicOutput/query_compile_walk                1.817Mi ± 14%   1.817Mi ± 11%       ~ (p=0.733 n=20)
+CompactPublicOutput/grammargen_lr_parse_edit          517.6Ki ± 19%   512.7Ki ± 12%       ~ (p=0.867 n=20)
+CompactPublicOutput/query_compile_parse               1.907Mi ± 16%   1.898Mi ±  9%       ~ (p=0.703 n=20)
+CompactPublicOutput/grammargen_lr_query               1.507Mi ± 14%   1.507Mi ±  9%       ~ (p=0.794 n=20)
+CompactPublicOutput/query_compile_query               1.254Mi ±  8%   1.278Mi ± 10%       ~ (p=0.899 n=20)
+geomean                                               1.243Mi         1.236Mi        -0.58%
+
+                                             │ baseline-perf-go.txt │        candidate-perf-go.txt        │
+                                             │         B/op         │     B/op      vs base               │
+CompactPublicOutput/grammargen_lr_walk                 1.049Mi ± 0%   1.049Mi ± 0%       ~ (p=0.756 n=20)
+CompactPublicOutput/query_compile_parse_edit           17.87Mi ± 0%   17.87Mi ± 0%       ~ (p=0.920 n=20)
+CompactPublicOutput/grammargen_lr_parse                1.049Mi ± 0%   1.049Mi ± 0%       ~ (p=0.609 n=20)
+CompactPublicOutput/query_compile_walk                 4.398Ki ± 0%   4.398Ki ± 0%       ~ (p=0.731 n=20)
+CompactPublicOutput/grammargen_lr_parse_edit           169.6Mi ± 0%   169.6Mi ± 0%       ~ (p=0.537 n=20)
+CompactPublicOutput/query_compile_parse                4.398Ki ± 0%   4.398Ki ± 0%       ~ (p=0.343 n=20)
+CompactPublicOutput/grammargen_lr_query                43.09Mi ± 0%   43.09Mi ± 0%       ~ (p=0.531 n=20)
+CompactPublicOutput/query_compile_query                4.338Mi ± 0%   4.338Mi ± 0%       ~ (p=0.952 n=20)
+geomean                                                1.357Mi        1.357Mi       +0.00%
+
+                                             │ baseline-perf-go.txt │        candidate-perf-go.txt         │
+                                             │      allocs/op       │  allocs/op   vs base                 │
+CompactPublicOutput/grammargen_lr_walk                  1.590k ± 0%   1.590k ± 0%       ~ (p=1.000 n=20) ¹
+CompactPublicOutput/query_compile_parse_edit             440.0 ± 0%    440.0 ± 0%       ~ (p=0.782 n=20)
+CompactPublicOutput/grammargen_lr_parse                 1.590k ± 0%   1.590k ± 0%       ~ (p=1.000 n=20) ¹
+CompactPublicOutput/query_compile_walk                   120.0 ± 0%    120.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactPublicOutput/grammargen_lr_parse_edit            4.539k ± 0%   4.539k ± 0%       ~ (p=1.000 n=20)
+CompactPublicOutput/query_compile_parse                  120.0 ± 0%    120.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactPublicOutput/grammargen_lr_query                 643.8k ± 0%   643.8k ± 0%       ~ (p=0.876 n=20)
+CompactPublicOutput/query_compile_query                 68.12k ± 0%   68.12k ± 0%       ~ (p=1.000 n=20)
+geomean                                                 2.741k        2.741k       +0.00%
+¹ all samples are equal

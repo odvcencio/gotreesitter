@@ -15,49 +15,58 @@ func compactReusePublicationFixtureView(core.SubtreeID) (core.MaterializationSub
 }
 
 func TestCompactReuseDependencyPublicationAndReset(t *testing.T) {
-	p, session, node, _, _, points := compactBorrowedMaterializationFixture(t)
-	root := newParentNodeInArena(node.ownerArena, 4, true, []*Node{session.oldTree.root}, nil, 0)
-	s := &diagnosticParserCoreGenericScheduler{}
-	base := diagnosticParserCoreSchedulerFootprintBytes(s)
-	s.reuseDependencies.ends = []uint32{0, 4, 6, 0}
-	publish := func(nodes []*Node) {
-		t.Helper()
-		if err := s.publishCompactReuseDependencies(p, root, node.ownerArena, nodes, compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
-			t.Fatal(err)
+	for _, native := range []bool{false, true} {
+		name := "raw IDs"
+		if native {
+			name = "reversed native records"
 		}
-	}
-	publish([]*Node{nil, node, node})
-	if bytes, ok := compactReuseDependencyForNode(node); !ok || bytes != 5 {
-		t.Fatalf("outer receipt=%d/%t", bytes, ok)
-	}
-	publish([]*Node{nil, node, node, node})
-	if _, ok := compactReuseDependencyForNode(node); ok {
-		t.Fatal("unknown outer projection retained inner proof")
-	}
-	publish([]*Node{nil, node})
-	publish([]*Node{nil, cloneNodeInArena(node.ownerArena, node)})
-	if _, ok := compactReuseDependencyForNode(node); ok {
-		t.Fatal("unmatched projection retained a receipt")
-	}
-	publish([]*Node{nil, node})
-	s.reuseDependencies.disabled = true
-	publish([]*Node{nil, node})
-	if _, ok := compactReuseDependencyForNode(node); ok {
-		t.Fatal("disabled producer retained a copied receipt")
-	}
-	if got := diagnosticParserCoreSchedulerFootprintBytes(s) - base; got != 16 {
-		t.Fatalf("dependency footprint=%d, want16", got)
-	}
-	if err := resetDiagnosticParserCoreGenericScheduler(s); err != nil {
-		t.Fatal(err)
-	}
-	if len(s.reuseDependencies.ends) != 0 || s.reuseDependencies.frontier != 0 || s.reuseDependencies.disabled {
-		t.Fatal("reset retained a receipt")
-	}
-	for _, end := range s.reuseDependencies.ends[:cap(s.reuseDependencies.ends)] {
-		if end != 0 {
-			t.Fatal("reset retained an authenticated payload in scratch storage")
-		}
+		t.Run(name, func(t *testing.T) {
+			p, session, node, _, _, points := compactBorrowedMaterializationFixture(t)
+			root := newParentNodeInArena(node.ownerArena, 4, true, []*Node{session.oldTree.root}, nil, 0)
+			s := &diagnosticParserCoreGenericScheduler{}
+			base := diagnosticParserCoreSchedulerFootprintBytes(s)
+			s.reuseDependencies.ends = []uint32{0, 4, 6, 0}
+			publish := func(nodes []*Node) {
+				t.Helper()
+				if err := s.publishCompactReuseDependenciesFrom(p, root, node.ownerArena, compactReceiptSourceForTest(nodes, native), compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			publish([]*Node{nil, node, node})
+			if bytes, ok := compactReuseDependencyForNode(node); !ok || bytes != 5 {
+				t.Fatalf("outer receipt=%d/%t", bytes, ok)
+			}
+			publish([]*Node{nil, node, node, node})
+			if _, ok := compactReuseDependencyForNode(node); ok {
+				t.Fatal("unknown outer projection retained inner proof")
+			}
+			publish([]*Node{nil, node})
+			publish([]*Node{nil, cloneNodeInArena(node.ownerArena, node)})
+			if _, ok := compactReuseDependencyForNode(node); ok {
+				t.Fatal("unmatched projection retained a receipt")
+			}
+			publish([]*Node{nil, node})
+			s.reuseDependencies.disabled = true
+			publish([]*Node{nil, node})
+			if _, ok := compactReuseDependencyForNode(node); ok {
+				t.Fatal("disabled producer retained a copied receipt")
+			}
+			if got := diagnosticParserCoreSchedulerFootprintBytes(s) - base; got != 16 {
+				t.Fatalf("dependency footprint=%d, want16", got)
+			}
+			if err := resetDiagnosticParserCoreGenericScheduler(s); err != nil {
+				t.Fatal(err)
+			}
+			if len(s.reuseDependencies.ends) != 0 || s.reuseDependencies.frontier != 0 || s.reuseDependencies.disabled {
+				t.Fatal("reset retained a receipt")
+			}
+			for _, end := range s.reuseDependencies.ends[:cap(s.reuseDependencies.ends)] {
+				if end != 0 {
+					t.Fatal("reset retained an authenticated payload in scratch storage")
+				}
+			}
+
+		})
 	}
 }
 
@@ -248,79 +257,88 @@ func TestCompactReuseDependencyBudgetAndPanic(t *testing.T) {
 }
 
 func TestCompactLegacyReadsPreserveBoundaryAndProjectionProofs(t *testing.T) {
-	arena := acquireNodeArena(arenaClassFull)
-	defer arena.Release()
-	reads := incr.NewReads(32)
-	for _, probe := range [][2]uint32{{0, 4}, {4, 8}, {8, 16}, {16, 24}, {24, 33}} {
-		reads.Record(int(probe[0]), probe[1])
-	}
-	s := &diagnosticParserCoreGenericScheduler{}
-	s.reuseDependencies.reads = reads
-	points := diagnosticParserCorePointIndex{lineStarts: []uint32{0}}
-	nodes := []*Node{nil}
-	geometry := []core.SubtreeGeometry{{}}
-	// Both cursors move forward and backward, and both visit the same byte
-	// boundary. A parent includes a probe starting there; a leaf excludes it.
-	for _, end := range []uint32{4, 16, 8, 24, 4, 32} {
-		leaf := newLeafNodeInArena(arena, 1, true, 0, end, Point{}, Point{Column: end})
-		parent := newParentNodeInArena(arena, 2, true, []*Node{leaf}, nil, 0)
-		for _, node := range []*Node{leaf, parent} {
-			node.setCompactMaterialized(true)
-			node.setCompactPreGotoStateProof(true)
-			node.setCompactParseStateProof(true)
-			nodes = append(nodes, node)
-			geometry = append(geometry, core.SubtreeGeometry{EndByte: end})
+	for _, native := range []bool{false, true} {
+		name := "raw IDs"
+		if native {
+			name = "reversed native records"
 		}
-	}
-	// A collapsed outer projection with a different extent invalidates the
-	// shared public node even though its inner projection matched.
-	nodes = append(nodes, nodes[1], nodes[3], nodes[5])
-	geometry = append(geometry, core.SubtreeGeometry{EndByte: 5}, geometry[3], geometry[5])
-	nodes[3].endPoint.Column++ // A compatibility rewrite also revokes proof.
-	failedID := core.SubtreeID(len(nodes) - 1)
-	s.reuseDependencies.leafWords = make([]uint32, len(nodes))
-	incr.SetLeafReceipt(s.reuseDependencies.leafWords, 7, legacyReuseLeafKnown|legacyReuseKeyword)
-	err := s.publishCompactLegacyReads(arena, nodes, func(id core.SubtreeID) (core.SubtreeGeometry, error) {
-		if id == failedID {
-			return core.SubtreeGeometry{}, errors.New("unavailable projection")
-		}
-		return geometry[id], nil
-	}, &points, func() error { return nil })
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, node := range nodes {
-		if node != nil && node.flags&nodeFlags(incr.TransientProjectionRejected) != 0 {
-			t.Fatal("publication leaked a transient projection marker")
-		}
-	}
-	for id, node := range nodes[1:13] {
-		got, ok := legacyReuseLookahead(node)
-		if node == nodes[1] || node == nodes[3] || node == nodes[5] {
-			if ok {
-				t.Fatalf("projection %d retained an unauthenticated receipt", id+1)
+		t.Run(name, func(t *testing.T) {
+			arena := acquireNodeArena(arenaClassFull)
+			defer arena.Release()
+			reads := incr.NewReads(32)
+			for _, probe := range [][2]uint32{{0, 4}, {4, 8}, {8, 16}, {16, 24}, {24, 33}} {
+				reads.Record(int(probe[0]), probe[1])
 			}
-			continue
-		}
-		want, known := reads.Lookahead(node.EndByte())
-		if node.ChildCount() == 0 {
-			want, known = reads.LeafLookahead(node.EndByte())
-		}
-		if got != want || ok != known {
-			t.Fatalf("projection %d lookahead=%d/%t, want %d/%t", id+1, got, ok, want, known)
-		}
-	}
-	if word := legacyReuseWord(nodes[7], false); word == nil || *word&(legacyReuseLeafKnown|legacyReuseKeyword) != legacyReuseLeafKnown|legacyReuseKeyword {
-		t.Fatal("publication lost elected keyword provenance")
-	}
-	// Published words belong to the tree, not to the runner's scan history.
-	wantWord := *legacyReuseWord(nodes[7], false)
-	s.reuseDependencies = s.reuseDependencies.reset()
-	reads.Reset(1)
-	reads.Record(0, 2)
-	reads.Seal()
-	if got := *legacyReuseWord(nodes[7], false); got != wantWord {
-		t.Fatalf("reusing scan scratch changed a published receipt: %d -> %d", wantWord, got)
+			s := &diagnosticParserCoreGenericScheduler{}
+			s.reuseDependencies.reads = reads
+			points := diagnosticParserCorePointIndex{lineStarts: []uint32{0}}
+			nodes := []*Node{nil}
+			geometry := []core.SubtreeGeometry{{}}
+			// Both cursors move forward and backward, and both visit the same byte
+			// boundary. A parent includes a probe starting there; a leaf excludes it.
+			for _, end := range []uint32{4, 16, 8, 24, 4, 32} {
+				leaf := newLeafNodeInArena(arena, 1, true, 0, end, Point{}, Point{Column: end})
+				parent := newParentNodeInArena(arena, 2, true, []*Node{leaf}, nil, 0)
+				for _, node := range []*Node{leaf, parent} {
+					node.setCompactMaterialized(true)
+					node.setCompactPreGotoStateProof(true)
+					node.setCompactParseStateProof(true)
+					nodes = append(nodes, node)
+					geometry = append(geometry, core.SubtreeGeometry{EndByte: end})
+				}
+			}
+			// A collapsed outer projection with a different extent invalidates the
+			// shared public node even though its inner projection matched.
+			nodes = append(nodes, nodes[1], nodes[3], nodes[5])
+			geometry = append(geometry, core.SubtreeGeometry{EndByte: 5}, geometry[3], geometry[5])
+			nodes[3].endPoint.Column++ // A compatibility rewrite also revokes proof.
+			failedID := core.SubtreeID(len(nodes) - 1)
+			s.reuseDependencies.leafWords = make([]uint32, len(nodes))
+			incr.SetLeafReceipt(s.reuseDependencies.leafWords, 7, legacyReuseLeafKnown|legacyReuseKeyword)
+			err := s.publishCompactLegacyReadsFrom(arena, compactReceiptSourceForTest(nodes, native), func(id core.SubtreeID) (core.SubtreeGeometry, error) {
+				if id == failedID {
+					return core.SubtreeGeometry{}, errors.New("unavailable projection")
+				}
+				return geometry[id], nil
+			}, &points, func() error { return nil })
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, node := range nodes {
+				if node != nil && node.flags&nodeFlags(incr.TransientProjectionRejected) != 0 {
+					t.Fatal("publication leaked a transient projection marker")
+				}
+			}
+			for id, node := range nodes[1:13] {
+				got, ok := legacyReuseLookahead(node)
+				if node == nodes[1] || node == nodes[3] || node == nodes[5] {
+					if ok {
+						t.Fatalf("projection %d retained an unauthenticated receipt", id+1)
+					}
+					continue
+				}
+				want, known := reads.Lookahead(node.EndByte())
+				if node.ChildCount() == 0 {
+					want, known = reads.LeafLookahead(node.EndByte())
+				}
+				if got != want || ok != known {
+					t.Fatalf("projection %d lookahead=%d/%t, want %d/%t", id+1, got, ok, want, known)
+				}
+			}
+			if word := legacyReuseWord(nodes[7], false); word == nil || *word&(legacyReuseLeafKnown|legacyReuseKeyword) != legacyReuseLeafKnown|legacyReuseKeyword {
+				t.Fatal("publication lost elected keyword provenance")
+			}
+			// Published words belong to the tree, not to the runner's scan history.
+			wantWord := *legacyReuseWord(nodes[7], false)
+			s.reuseDependencies = s.reuseDependencies.reset()
+			reads.Reset(1)
+			reads.Record(0, 2)
+			reads.Seal()
+			if got := *legacyReuseWord(nodes[7], false); got != wantWord {
+				t.Fatalf("reusing scan scratch changed a published receipt: %d -> %d", wantWord, got)
+			}
+
+		})
 	}
 }
 
@@ -331,68 +349,77 @@ func TestCompactLegacyProjectionMarkerFitsNodeFlags(t *testing.T) {
 }
 
 func TestCompactLegacyProjectionMarkersClearOnFailure(t *testing.T) {
-	for _, mode := range []string{"geometry panic", "first poll", "second poll"} {
-		t.Run(mode, func(t *testing.T) {
-			arena := acquireNodeArena(arenaClassFull)
-			defer arena.Release()
-			foreignArena := acquireNodeArena(arenaClassFull)
-			defer foreignArena.Release()
-			bad := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
-			good := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
-			foreign := newLeafNodeInArena(foreignArena, 1, true, 0, 1, Point{}, Point{Column: 1})
-			for _, node := range []*Node{bad, good, foreign} {
-				node.setCompactMaterialized(true)
-				node.setCompactPreGotoStateProof(true)
-				node.setCompactParseStateProof(true)
-			}
-			// Another arena's private publication can have its own active marker.
-			// This publisher must leave every foreign flag untouched.
-			foreign.flags |= nodeFlags(incr.TransientProjectionRejected)
-			badFlags, goodFlags, foreignFlags := bad.flags, good.flags, foreign.flags
-			nodes := make([]*Node, 257)
-			nodes[1], nodes[2], nodes[256] = bad, foreign, good
-			reads := incr.NewReads(4)
-			reads.Record(0, 2)
-			s := &diagnosticParserCoreGenericScheduler{}
-			s.reuseDependencies.reads = reads
-			points := diagnosticParserCorePointIndex{lineStarts: []uint32{0}}
-			sentinel := errors.New("projection publication stopped")
-			polls := 0
-			func() {
-				defer func() {
-					if got := recover(); got != nil {
-						if mode != "geometry panic" || got != sentinel {
-							t.Fatalf("unexpected panic: %v", got)
+	for _, native := range []bool{false, true} {
+		name := "raw IDs"
+		if native {
+			name = "reversed native records"
+		}
+		t.Run(name, func(t *testing.T) {
+			for _, mode := range []string{"geometry panic", "first poll", "second poll"} {
+				t.Run(mode, func(t *testing.T) {
+					arena := acquireNodeArena(arenaClassFull)
+					defer arena.Release()
+					foreignArena := acquireNodeArena(arenaClassFull)
+					defer foreignArena.Release()
+					bad := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+					good := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+					foreign := newLeafNodeInArena(foreignArena, 1, true, 0, 1, Point{}, Point{Column: 1})
+					for _, node := range []*Node{bad, good, foreign} {
+						node.setCompactMaterialized(true)
+						node.setCompactPreGotoStateProof(true)
+						node.setCompactParseStateProof(true)
+					}
+					// Another arena's private publication can have its own active marker.
+					// This publisher must leave every foreign flag untouched.
+					foreign.flags |= nodeFlags(incr.TransientProjectionRejected)
+					badFlags, goodFlags, foreignFlags := bad.flags, good.flags, foreign.flags
+					nodes := make([]*Node, 257)
+					nodes[1], nodes[2], nodes[256] = bad, foreign, good
+					reads := incr.NewReads(4)
+					reads.Record(0, 2)
+					s := &diagnosticParserCoreGenericScheduler{}
+					s.reuseDependencies.reads = reads
+					points := diagnosticParserCorePointIndex{lineStarts: []uint32{0}}
+					sentinel := errors.New("projection publication stopped")
+					polls := 0
+					func() {
+						defer func() {
+							if got := recover(); got != nil {
+								if mode != "geometry panic" || got != sentinel {
+									t.Fatalf("unexpected panic: %v", got)
+								}
+							} else if mode == "geometry panic" {
+								t.Fatal("expected geometry panic")
+							}
+						}()
+						err := s.publishCompactLegacyReadsFrom(arena, compactReceiptSourceForTest(nodes, native), func(id core.SubtreeID) (core.SubtreeGeometry, error) {
+							if id == 1 {
+								return core.SubtreeGeometry{EndByte: 2}, nil
+							}
+							if mode == "geometry panic" {
+								panic(sentinel)
+							}
+							return core.SubtreeGeometry{EndByte: 1}, nil
+						}, &points, func() error {
+							polls++
+							if mode == "first poll" && polls == 1 || mode == "second poll" && polls == 2 {
+								return sentinel
+							}
+							return nil
+						})
+						if !errors.Is(err, sentinel) {
+							t.Fatalf("publication error=%v, want sentinel", err)
 						}
-					} else if mode == "geometry panic" {
-						t.Fatal("expected geometry panic")
+					}()
+					if bad.flags != badFlags || good.flags != goodFlags || foreign.flags != foreignFlags {
+						t.Fatal("failed publication changed node flags or leaked a marker")
 					}
-				}()
-				err := s.publishCompactLegacyReads(arena, nodes, func(id core.SubtreeID) (core.SubtreeGeometry, error) {
-					if id == 1 {
-						return core.SubtreeGeometry{EndByte: 2}, nil
+					if _, ok := legacyReuseLookahead(bad); ok {
+						t.Fatal("failed publication authenticated a mismatched projection")
 					}
-					if mode == "geometry panic" {
-						panic(sentinel)
-					}
-					return core.SubtreeGeometry{EndByte: 1}, nil
-				}, &points, func() error {
-					polls++
-					if mode == "first poll" && polls == 1 || mode == "second poll" && polls == 2 {
-						return sentinel
-					}
-					return nil
 				})
-				if !errors.Is(err, sentinel) {
-					t.Fatalf("publication error=%v, want sentinel", err)
-				}
-			}()
-			if bad.flags != badFlags || good.flags != goodFlags || foreign.flags != foreignFlags {
-				t.Fatal("failed publication changed node flags or leaked a marker")
 			}
-			if _, ok := legacyReuseLookahead(bad); ok {
-				t.Fatal("failed publication authenticated a mismatched projection")
-			}
+
 		})
 	}
 }
@@ -619,35 +646,53 @@ func TestCompactLegacyReadHistoryPublicationDemand(t *testing.T) {
 }
 
 func TestCompactReuseDependencyPublicationOverflowSlab(t *testing.T) {
-	p, _, node, _, _, points := compactBorrowedMaterializationFixture(t)
-	arena := node.ownerArena
-	original := arena.nodes
-	usedPrimary := min(arena.used, len(arena.nodes))
-	arena.nodes = arena.nodes[:usedPrimary:usedPrimary]
-	defer func() { arena.nodes = original }()
-	const count = 65
-	nodes := make([]*Node, count)
-	nodes[0] = node
-	for i := 1; i < count; i++ {
-		nodes[i] = cloneNodeInArena(arena, node)
+	for _, native := range []bool{false, true} {
+		t.Run(map[bool]string{false: "raw IDs", true: "reversed native records"}[native], func(t *testing.T) {
+			p, _, node, _, _, points := compactBorrowedMaterializationFixture(t)
+			arena := node.ownerArena
+			original := arena.nodes
+			usedPrimary := min(arena.used, len(arena.nodes))
+			arena.nodes = arena.nodes[:usedPrimary:usedPrimary]
+			defer func() { arena.nodes = original }()
+			const count = 65
+			nodes := make([]*Node, count)
+			nodes[0] = node
+			for i := 1; i < count; i++ {
+				nodes[i] = cloneNodeInArena(arena, node)
+			}
+			root := newParentNodeInArena(arena, 4, true, nodes, nil, 0)
+			if arena.used <= len(arena.nodes) || len(arena.nodeSlabs) == 0 {
+				t.Fatal("fixture did not allocate overflow nodes")
+			}
+			s := &diagnosticParserCoreGenericScheduler{}
+			s.reuseDependencies.ends = make([]uint32, count+1)
+			byID := make([]*Node, count+1)
+			for i, n := range nodes {
+				byID[i+1] = n
+				s.reuseDependencies.ends[i+1] = uint32(i + 4)
+			}
+			if err := s.publishCompactReuseDependenciesFrom(p, root, arena, compactReceiptSourceForTest(byID, native), compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
+				t.Fatal(err)
+			}
+			for i, n := range nodes {
+				if extent, ok := compactReuseDependencyForNode(n); !ok || extent != uint32(i+3) {
+					t.Fatalf("receipt %d=%d/%t", i, extent, ok)
+				}
+			}
+		})
 	}
-	root := newParentNodeInArena(arena, 4, true, nodes, nil, 0)
-	if arena.used <= len(arena.nodes) || len(arena.nodeSlabs) == 0 {
-		t.Fatal("fixture did not allocate overflow nodes")
+}
+
+// Reverse publication order so the dense record position cannot masquerade as
+// its raw subtree ID. Include nil records and repeated pointers to exercise
+// unknown outer proofs, foreign owners, and cancellation cleanup.
+func compactReceiptSourceForTest(nodes []*Node, native bool) compactProjectionNodeSource {
+	if !native {
+		return compactProjectionNodeSource{nodes: nodes}
 	}
-	s := &diagnosticParserCoreGenericScheduler{}
-	s.reuseDependencies.ends = make([]uint32, count+1)
-	byID := make([]*Node, count+1)
-	for i, n := range nodes {
-		byID[i+1] = n
-		s.reuseDependencies.ends[i+1] = uint32(i + 4)
+	records := &core.ProjectionPages[nativeStreamRecord]{}
+	for id := len(nodes) - 1; id >= 0; id-- {
+		records.Append(nativeStreamRecord{node: nodes[id], metadata: nativeStreamMetadata{source: core.SubtreeID(id)}})
 	}
-	if err := s.publishCompactReuseDependencies(p, root, arena, byID, compactReusePublicationFixtureView, &points, 0, func() error { return nil }); err != nil {
-		t.Fatal(err)
-	}
-	for i, n := range nodes {
-		if extent, ok := compactReuseDependencyForNode(n); !ok || extent != uint32(i+3) {
-			t.Fatalf("receipt %d=%d/%t", i, extent, ok)
-		}
-	}
+	return compactProjectionNodeSource{records: records}
 }

@@ -1,0 +1,77 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                         │ baseline-compact-primary.txt │   candidate-compact-primary.txt    │
+                                         │            sec/op            │   sec/op     vs base               │
+CompactThroughputGo/query_compile                           9.615m ± 0%   9.470m ± 1%  -1.52% (p=0.000 n=20)
+CompactThroughputGo/no_edit_dfa                             3.010n ± 0%   2.951n ± 0%  -1.98% (p=0.000 n=20)
+CompactThroughputGo/single_byte_edit_dfa                    84.15µ ± 0%   84.43µ ± 0%  +0.34% (p=0.001 n=20)
+CompactThroughputGo/fresh_one_mib                           621.8m ± 0%   602.7m ± 0%  -3.06% (p=0.000 n=20)
+CompactThroughputGo/full_dfa                                8.705m ± 0%   7.964m ± 0%  -8.51% (p=0.000 n=20)
+CompactThroughputGo/grammargen_lr                          100.61m ± 0%   99.52m ± 1%  -1.08% (p=0.000 n=20)
+geomean                                                     1.048m        1.020m       -2.68%
+
+                                         │ baseline-compact-primary.txt │    candidate-compact-primary.txt    │
+                                         │             B/s              │     B/s       vs base               │
+CompactThroughputGo/query_compile                          2.003Mi ± 0%   2.031Mi ± 0%  +1.43% (p=0.000 n=20)
+CompactThroughputGo/no_edit_dfa                            5.829Ti ± 0%   5.946Ti ± 0%  +2.02% (p=0.000 n=20)
+CompactThroughputGo/single_byte_edit_dfa                   218.7Mi ± 0%   217.9Mi ± 0%  -0.34% (p=0.001 n=20)
+CompactThroughputGo/fresh_one_mib                          1.612Mi ± 1%   1.659Mi ± 0%  +2.96% (p=0.000 n=20)
+CompactThroughputGo/full_dfa                               2.117Mi ± 0%   2.308Mi ± 0%  +9.01% (p=0.000 n=20)
+CompactThroughputGo/grammargen_lr                          2.236Mi ± 1%   2.260Mi ± 0%  +1.07% (p=0.000 n=20)
+geomean                                                    52.28Mi        53.67Mi       +2.65%
+
+                                  │ baseline-compact-primary.txt │         candidate-compact-primary.txt         │
+                                  │     compact-fallbacks/op     │ compact-fallbacks/op  vs base                 │
+CompactThroughputGo/query_compile                   0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputGo/grammargen_lr                   0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                        ²                         +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                  │ baseline-compact-primary.txt │       candidate-compact-primary.txt        │
+                                  │      compact-routes/op       │ compact-routes/op  vs base                 │
+CompactThroughputGo/query_compile                     1.000 ± 0%          1.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputGo/grammargen_lr                     1.000 ± 0%          1.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                               1.000               1.000       +0.00%
+¹ all samples are equal
+
+                                  │ baseline-compact-primary.txt │      candidate-compact-primary.txt       │
+                                  │       public-nodes/op        │ public-nodes/op  vs base                 │
+CompactThroughputGo/query_compile                    7.524k ± 0%       7.524k ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputGo/fresh_one_mib                    593.5k ± 0%       593.5k ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputGo/grammargen_lr                    71.77k ± 0%       71.77k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                              68.43k            68.43k       +0.00%
+¹ all samples are equal
+
+                                  │ baseline-compact-primary.txt │    candidate-compact-primary.txt     │
+                                  │          tokens/op           │  tokens/op   vs base                 │
+CompactThroughputGo/query_compile                    5.126k ± 0%   5.126k ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputGo/grammargen_lr                    49.91k ± 0%   49.91k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                              16.00k        16.00k       +0.00%
+¹ all samples are equal
+
+                                         │ baseline-compact-primary.txt │     candidate-compact-primary.txt     │
+                                         │             B/op             │     B/op      vs base                 │
+CompactThroughputGo/query_compile                        4.524Ki ± 0%     4.523Ki ± 0%       ~ (p=0.251 n=20)
+CompactThroughputGo/no_edit_dfa                            0.000 ± 0%       0.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputGo/single_byte_edit_dfa                   399.0 ± 0%       399.0 ± 0%       ~ (p=0.342 n=20)
+CompactThroughputGo/fresh_one_mib                        24.63Mi ± 0%     24.63Mi ± 0%       ~ (p=0.487 n=20)
+CompactThroughputGo/full_dfa                             419.4Ki ± 0%     419.4Ki ± 0%       ~ (p=0.984 n=20)
+CompactThroughputGo/grammargen_lr                        2.564Mi ± 0%     2.564Mi ± 0%       ~ (p=0.846 n=20)
+geomean                                                               ²                 -0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                         │ baseline-compact-primary.txt │    candidate-compact-primary.txt     │
+                                         │          allocs/op           │  allocs/op   vs base                 │
+CompactThroughputGo/query_compile                          120.0 ± 0%      120.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputGo/no_edit_dfa                            0.000 ± 0%      0.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputGo/single_byte_edit_dfa                   5.000 ± 0%      5.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputGo/fresh_one_mib                          679.0 ± 0%      679.0 ± 0%       ~ (p=0.487 n=20)
+CompactThroughputGo/full_dfa                               36.00 ± 0%      36.00 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputGo/grammargen_lr                         1.807k ± 0%     1.807k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                               ²                +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

@@ -1,0 +1,128 @@
+{
+  "performance": [
+    {
+      "benchmark": "BenchmarkGoParseFullDFA",
+      "metrics": {
+        "ns/op": {
+          "before": 5341407.0,
+          "after": 5055396.5,
+          "percent": -5.354591028169164
+        },
+        "B/op": {
+          "before": 1164.0,
+          "after": 1162.5,
+          "percent": -0.12886597938144284
+        },
+        "allocs/op": {
+          "before": 6.0,
+          "after": 6.0,
+          "percent": 0.0
+        }
+      }
+    },
+    {
+      "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+      "metrics": {
+        "ns/op": {
+          "before": 3.6145,
+          "after": 3.771,
+          "percent": 4.329782819200445
+        },
+        "B/op": {
+          "before": 0.0,
+          "after": 0.0,
+          "percent": 0
+        },
+        "allocs/op": {
+          "before": 0.0,
+          "after": 0.0,
+          "percent": 0
+        }
+      }
+    },
+    {
+      "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+      "metrics": {
+        "ns/op": {
+          "before": 137179.5,
+          "after": 92916.0,
+          "percent": -32.2668474516965
+        },
+        "B/op": {
+          "before": 395.0,
+          "after": 394.0,
+          "percent": -0.25316455696202667
+        },
+        "allocs/op": {
+          "before": 5.0,
+          "after": 5.0,
+          "percent": 0.0
+        }
+      }
+    }
+  ],
+  "baseline_attribution": {
+    "edit_ns": {
+      "median": 462.0614605332396,
+      "min": 387.2132303559436,
+      "max": 1011.7438219002983
+    },
+    "reuse_ns": {
+      "median": 107313.19455520222,
+      "min": 96400.91925862804,
+      "max": 156421.65306893297
+    },
+    "parse_ns": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "reused_subtrees": {
+      "median": 1.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "reused_bytes": {
+      "median": 19294.0,
+      "min": 19294.0,
+      "max": 19294.0
+    },
+    "new_nodes": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    }
+  },
+  "candidate_attribution": {
+    "edit_ns": {
+      "median": 410.96111660626224,
+      "min": 328.95298443244934,
+      "max": 721.8777261351448
+    },
+    "reuse_ns": {
+      "median": 70840.44789081346,
+      "min": 64744.76810512169,
+      "max": 95638.44631152425
+    },
+    "parse_ns": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "reused_subtrees": {
+      "median": 1.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "reused_bytes": {
+      "median": 19294.0,
+      "min": 19294.0,
+      "max": 19294.0
+    },
+    "new_nodes": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    }
+  }
+}

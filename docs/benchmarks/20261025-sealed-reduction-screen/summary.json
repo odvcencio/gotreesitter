@@ -1,0 +1,348 @@
+{
+  "schema": "gts-sealed-deterministic-reduction-screen/v1",
+  "root_decision": {
+    "decision": "HOLD",
+    "rationale": "The qualified private kernel gives modest Go gains: generated full parse improves 2.3120% and ordinary Go R4 improves 1.0598%. This is not a large architectural step. YAML compact improves 0.5682%, while its legacy control improves 0.5961%, so this cohort establishes no incremental YAML route-relative win. Warm allocations stay unchanged, but the cold language-table increments are 29368 bytes for Go and 48160 bytes for YAML. Keep the broad runtime private rather than promote it for these marginal ordinary gains and added cold storage. Prioritize the separately scoped linear-stack architecture next.",
+    "reported_timing": {
+      "generated_full": {
+        "before_ns_median": 7115859.5,
+        "after_ns_median": 6951337.5,
+        "change_percent": -2.312,
+        "p": "<0.001"
+      },
+      "generated_edit": {
+        "change_percent": -0.0288,
+        "p": "0.774"
+      },
+      "generated_noedit": {
+        "change_percent": 0.43485,
+        "p": "0.016",
+        "allocs_per_op": 0
+      },
+      "ordinary_go_compact": {
+        "before_ns_median": 764050,
+        "after_ns_median": 755952.5,
+        "change_percent": -1.0598,
+        "p": "<0.001"
+      },
+      "ordinary_go_legacy": {
+        "change_percent": -0.359,
+        "p": "0.091"
+      },
+      "ordinary_yaml_compact": {
+        "before_ns_median": 192267,
+        "after_ns_median": 191174.5,
+        "change_percent": -0.5682,
+        "p": "0.026"
+      },
+      "ordinary_yaml_legacy": {
+        "change_percent": -0.5961,
+        "p": "<0.001"
+      },
+      "allocations": "unchanged"
+    },
+    "unqualified": [
+      "full206 fleet",
+      "API-consumer timing",
+      "large-file RSS",
+      "ARM or other platforms",
+      "E-A/M1 graduation"
+    ],
+    "runtime_promotion": false,
+    "merges_to_main_held": true,
+    "decision_source": "root after terminal validated60pair screen"
+  },
+  "performance": {
+    "pairs": 60,
+    "processes": 120,
+    "failed_or_incomplete_processes": 0,
+    "no_edit_allocations": 0,
+    "compact_fallbacks": 0,
+    "results": {
+      "go-primary": {
+        "paired_samples": 20,
+        "raw_sha256": {
+          "before": "d4e12c375d011b17331c8d7874b6402f26106a5b0768843ca51594d6313b32fe",
+          "after": "e3d106cfc2250fe4847ccefc12fbaffa071704fa9dfee602cc1110cd39616698"
+        },
+        "results": {
+          "BenchmarkGraduationGoSuite/Full": {
+            "ns/op": {
+              "before_median": 7115859.5,
+              "after_median": 6951337.5,
+              "change_percent": -2.3120467738296457,
+              "median_paired_after_before_ratio": 0.977441101004026,
+              "ratio_of_medians": 0.9768795322617035
+            },
+            "B/op": {
+              "before_median": 261543.0,
+              "after_median": 261543.5,
+              "change_percent": 0.00019117315317451755,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0000019117315317
+            },
+            "allocs/op": {
+              "before_median": 22.0,
+              "after_median": 22.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          },
+          "BenchmarkGraduationGoSuite/Edit": {
+            "ns/op": {
+              "before_median": 67626.0,
+              "after_median": 67606.5,
+              "change_percent": -0.028835063437138153,
+              "median_paired_after_before_ratio": 0.9997563271757701,
+              "ratio_of_medians": 0.9997116493656286
+            },
+            "B/op": {
+              "before_median": 407.0,
+              "after_median": 407.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            },
+            "allocs/op": {
+              "before_median": 5.0,
+              "after_median": 5.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          },
+          "BenchmarkGraduationGoSuite/NoEdit": {
+            "ns/op": {
+              "before_median": 3.1045,
+              "after_median": 3.1180000000000003,
+              "change_percent": 0.43485263327429635,
+              "median_paired_after_before_ratio": 1.0040263363933994,
+              "ratio_of_medians": 1.004348526332743
+            },
+            "B/op": {
+              "before_median": 0.0,
+              "after_median": 0.0,
+              "change_percent": null,
+              "median_paired_after_before_ratio": null,
+              "ratio_of_medians": null
+            },
+            "allocs/op": {
+              "before_median": 0.0,
+              "after_median": 0.0,
+              "change_percent": null,
+              "median_paired_after_before_ratio": null,
+              "ratio_of_medians": null
+            }
+          }
+        },
+        "route_ratios": {}
+      },
+      "go-r4": {
+        "paired_samples": 20,
+        "raw_sha256": {
+          "before": "3e2d830ebe4982f4859fda61d394934c66dfdbff11d292a92b275f7d346e47d1",
+          "after": "f8dda4409aae66d181b80f45718a96384f4180a2917fa8f12fa4f57d18594d9c"
+        },
+        "results": {
+          "BenchmarkCompactGraduationR4/legacy": {
+            "ns/op": {
+              "before_median": 640182.0,
+              "after_median": 637881.5,
+              "change_percent": -0.3593509345779844,
+              "median_paired_after_before_ratio": 0.9968083576998235,
+              "ratio_of_medians": 0.9964064906542202
+            },
+            "B/op": {
+              "before_median": 2712.0,
+              "after_median": 2712.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            },
+            "allocs/op": {
+              "before_median": 11.0,
+              "after_median": 11.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          },
+          "BenchmarkCompactGraduationR4/compact": {
+            "ns/op": {
+              "before_median": 764050.0,
+              "after_median": 755952.5,
+              "change_percent": -1.0598128394738615,
+              "median_paired_after_before_ratio": 0.9894883631033151,
+              "ratio_of_medians": 0.9894018716052614
+            },
+            "B/op": {
+              "before_median": 1112.0,
+              "after_median": 1112.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            },
+            "allocs/op": {
+              "before_median": 14.0,
+              "after_median": 14.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          }
+        },
+        "route_ratios": {
+          "before": {
+            "median_paired_compact_legacy_ratio": 1.195058524944511,
+            "ratio_of_medians": 1.1934887266433607
+          },
+          "after": {
+            "median_paired_compact_legacy_ratio": 1.1861538384419306,
+            "ratio_of_medians": 1.1850986429297605
+          }
+        }
+      },
+      "yaml-r4": {
+        "paired_samples": 20,
+        "raw_sha256": {
+          "before": "9e928033dafe1ff9a533bb31cb7b422c5554b038bc02802ca545bb03d0e26d1c",
+          "after": "286f86685536a857a8f2f9080574954aae78d382be797f9645e4666742f666b6"
+        },
+        "results": {
+          "BenchmarkCompactGraduationR4/legacy": {
+            "ns/op": {
+              "before_median": 136475.0,
+              "after_median": 135661.5,
+              "change_percent": -0.5960798681077129,
+              "median_paired_after_before_ratio": 0.993992297290839,
+              "ratio_of_medians": 0.9940392013189229
+            },
+            "B/op": {
+              "before_median": 1440.0,
+              "after_median": 1440.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            },
+            "allocs/op": {
+              "before_median": 16.0,
+              "after_median": 16.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          },
+          "BenchmarkCompactGraduationR4/compact": {
+            "ns/op": {
+              "before_median": 192267.0,
+              "after_median": 191174.5,
+              "change_percent": -0.5682202354018062,
+              "median_paired_after_before_ratio": 0.9866328655612504,
+              "ratio_of_medians": 0.9943177976459819
+            },
+            "B/op": {
+              "before_median": 5456.0,
+              "after_median": 5456.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            },
+            "allocs/op": {
+              "before_median": 39.0,
+              "after_median": 39.0,
+              "change_percent": 0.0,
+              "median_paired_after_before_ratio": 1.0,
+              "ratio_of_medians": 1.0
+            }
+          }
+        },
+        "route_ratios": {
+          "before": {
+            "median_paired_compact_legacy_ratio": 1.412814231320113,
+            "ratio_of_medians": 1.408807473896318
+          },
+          "after": {
+            "median_paired_compact_legacy_ratio": 1.4097460633608594,
+            "ratio_of_medians": 1.4092023160587197
+          }
+        }
+      }
+    },
+    "significance_validation": "benchstat reports retained; p-values are not recomputed by this standard-library validator"
+  },
+  "ordinary_activation": {
+    "go": {
+      "avoided": 493,
+      "before_plans": 707,
+      "after_plans": 214,
+      "equal_gotos": 723,
+      "equal_core_reductions": 686
+    },
+    "yaml": {
+      "avoided": 182,
+      "before_plans": 196,
+      "after_plans": 14,
+      "equal_gotos": 187,
+      "equal_core_reductions": 187
+    }
+  },
+  "cold_tables": {
+    "go": {
+      "grammar": "go",
+      "identity": "9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4",
+      "total_rows": 1139,
+      "populated_rows": 1138,
+      "sealed_rows": 316,
+      "existing_plans": "154",
+      "set_slot_bytes": 8,
+      "set_record_bytes": 32,
+      "row_slot_bytes": 9104,
+      "authority_bytes_each": 64,
+      "authorities_bytes": 20224,
+      "unique_increment_bytes": 29368,
+      "shared_existing_plan_buffers_charged_again": 0,
+      "complete_heap_delta_bytes": 133904,
+      "heap_guard_bytes": 4194304
+    },
+    "yaml": {
+      "grammar": "yaml",
+      "identity": "9ac37a326be7a4f4297efa6e43ba00317c5959e7b4909c9262043d408f284b30",
+      "total_rows": 2544,
+      "populated_rows": 2543,
+      "sealed_rows": 434,
+      "existing_plans": "108",
+      "set_slot_bytes": 8,
+      "set_record_bytes": 32,
+      "row_slot_bytes": 20344,
+      "authority_bytes_each": 64,
+      "authorities_bytes": 27776,
+      "unique_increment_bytes": 48160,
+      "shared_existing_plan_buffers_charged_again": 0,
+      "complete_heap_delta_bytes": 243800,
+      "heap_guard_bytes": 4194304
+    }
+  },
+  "actual_counter_rows_exact_equal": 4,
+  "D8_sessions": 4,
+  "D8_steps": 288,
+  "no_edit_allocations": 0,
+  "historical_failures_preserved": [
+    "TestSealedReductionExecutionCollisionConsumesExactGotoMemo",
+    "TestSealedReductionExecutionGotoMutationPoisonsFreshOwner"
+  ],
+  "historical_failure_explanation": [
+    "The initial collision fixture contained only the shifted canonical boundary; both old and sealed entries correctly published a distinct unshifted reduction. The repaired fixture primes a genuine unshifted collision and keeps exact one-use GOTO handoff assertions.",
+    "The initial mutation assertion compared pre-callback state with post-callback state, including BeginFrontier's deliberate boundary-map clear. Exact-witness adjudication proves both old and sealed entries reject stale classification without publishing beyond the captured callback state. The repaired test retains poisoning/reset checks."
+  ],
+  "source_base_head": "7f7b7633515540e6d75f527539dbaacf6c682e09",
+  "runtime_promoted": false,
+  "default_route_changed": false,
+  "fleet_qualified": false,
+  "E_A_qualified": false,
+  "M1_qualified": false,
+  "language_graduated": false,
+  "ARM_or_other_platform_qualified": false,
+  "RSS_or_large_file_performance_qualified": false,
+  "merges_to_main_held": true
+}

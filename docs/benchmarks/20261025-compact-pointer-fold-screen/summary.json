@@ -1,0 +1,302 @@
+{
+  "schema": "gts-raw-summary-compact-perf/v1",
+  "pairs": 60,
+  "processes": 120,
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "benchtime": "750ms",
+  "GOMAXPROCS": 1,
+  "count_per_process": 1,
+  "route_fallbacks": 0,
+  "no_edit_allocations": 0,
+  "all_source_and_control_guards_passed": true,
+  "failed_or_incomplete_processes": 0,
+  "results": {
+    "go-primary": {
+      "paired_samples": 20,
+      "raw_sha256": {
+        "before": "717917189101cf0ca1ba32454ff0ae031dea5345df5121e39049535940967f16",
+        "after": "21129b9b0f96a02d04ddfded3687596cc2b638028748717f9006283462187804"
+      },
+      "results": {
+        "BenchmarkGraduationGoSuite/Full": {
+          "ns/op": {
+            "before_median": 7144671.0,
+            "after_median": 7181208.5,
+            "change_percent": 0.5113951363190816,
+            "median_paired_after_before_ratio": 1.0035652248936024,
+            "ratio_of_medians": 1.0051139513631908
+          },
+          "B/op": {
+            "before_median": 261543.0,
+            "after_median": 139396.0,
+            "change_percent": -46.70245428094042,
+            "median_paired_after_before_ratio": 0.5329715076626726,
+            "ratio_of_medians": 0.5329754571905958
+          },
+          "allocs/op": {
+            "before_median": 22.0,
+            "after_median": 16.0,
+            "change_percent": -27.27272727272727,
+            "median_paired_after_before_ratio": 0.7272727272727273,
+            "ratio_of_medians": 0.7272727272727273
+          }
+        },
+        "BenchmarkGraduationGoSuite/Edit": {
+          "ns/op": {
+            "before_median": 67484.0,
+            "after_median": 64662.0,
+            "change_percent": -4.18173196609567,
+            "median_paired_after_before_ratio": 0.9568036312786827,
+            "ratio_of_medians": 0.9581826803390433
+          },
+          "B/op": {
+            "before_median": 407.0,
+            "after_median": 406.0,
+            "change_percent": -0.24570024570024218,
+            "median_paired_after_before_ratio": 0.9975429975429976,
+            "ratio_of_medians": 0.9975429975429976
+          },
+          "allocs/op": {
+            "before_median": 5.0,
+            "after_median": 5.0,
+            "change_percent": 0.0,
+            "median_paired_after_before_ratio": 1.0,
+            "ratio_of_medians": 1.0
+          }
+        },
+        "BenchmarkGraduationGoSuite/NoEdit": {
+          "ns/op": {
+            "before_median": 3.1135,
+            "after_median": 2.9875,
+            "change_percent": -4.046892564637883,
+            "median_paired_after_before_ratio": 0.9596422935558357,
+            "ratio_of_medians": 0.9595310743536212
+          },
+          "B/op": {
+            "before_median": 0.0,
+            "after_median": 0.0,
+            "change_percent": null,
+            "median_paired_after_before_ratio": null,
+            "ratio_of_medians": null
+          },
+          "allocs/op": {
+            "before_median": 0.0,
+            "after_median": 0.0,
+            "change_percent": null,
+            "median_paired_after_before_ratio": null,
+            "ratio_of_medians": null
+          }
+        }
+      },
+      "route_ratios": {}
+    },
+    "go-r4": {
+      "paired_samples": 20,
+      "raw_sha256": {
+        "before": "10b0f98de525485e69dcecfbcbab9d742756ab1c6fa23ae3df072b0e8d6ff580",
+        "after": "883f4033ca1f25e5d8bbcfe142c7042044093aef11c642d8c5481d800904f5b7"
+      },
+      "results": {
+        "BenchmarkCompactGraduationR4/legacy": {
+          "ns/op": {
+            "before_median": 753309.0,
+            "after_median": 747250.5,
+            "change_percent": -0.8042516417565704,
+            "median_paired_after_before_ratio": 0.9944770766349404,
+            "ratio_of_medians": 0.9919574835824343
+          },
+          "B/op": {
+            "before_median": 2712.0,
+            "after_median": 2712.0,
+            "change_percent": 0.0,
+            "median_paired_after_before_ratio": 1.0,
+            "ratio_of_medians": 1.0
+          },
+          "allocs/op": {
+            "before_median": 11.0,
+            "after_median": 11.0,
+            "change_percent": 0.0,
+            "median_paired_after_before_ratio": 1.0,
+            "ratio_of_medians": 1.0
+          }
+        },
+        "BenchmarkCompactGraduationR4/compact": {
+          "ns/op": {
+            "before_median": 892467.0,
+            "after_median": 929514.5,
+            "change_percent": 4.151133879459978,
+            "median_paired_after_before_ratio": 1.050887828495692,
+            "ratio_of_medians": 1.0415113387945998
+          },
+          "B/op": {
+            "before_median": 1112.0,
+            "after_median": 1784.0,
+            "change_percent": 60.431654676258994,
+            "median_paired_after_before_ratio": 1.60431654676259,
+            "ratio_of_medians": 1.60431654676259
+          },
+          "allocs/op": {
+            "before_median": 14.0,
+            "after_median": 10.0,
+            "change_percent": -28.57142857142857,
+            "median_paired_after_before_ratio": 0.7142857142857143,
+            "ratio_of_medians": 0.7142857142857143
+          }
+        }
+      },
+      "route_ratios": {
+        "before": {
+          "median_paired_compact_legacy_ratio": 1.180921905068554,
+          "ratio_of_medians": 1.1847289757589514
+        },
+        "after": {
+          "median_paired_compact_legacy_ratio": 1.2457156163844796,
+          "ratio_of_medians": 1.2439128511790891
+        }
+      }
+    },
+    "yaml-r4": {
+      "paired_samples": 20,
+      "raw_sha256": {
+        "before": "8e75965534fc37d611e0c84b56e0870ee5f831b3b055839c055fa2f2e361a6cf",
+        "after": "6bfbbf582dde4c41d7587564b64d9652df9ec7a58e6ec4a3a5cd93b4a05aac54"
+      },
+      "results": {
+        "BenchmarkCompactGraduationR4/legacy": {
+          "ns/op": {
+            "before_median": 157110.5,
+            "after_median": 155877.0,
+            "change_percent": -0.7851162080191987,
+            "median_paired_after_before_ratio": 0.98959815157881,
+            "ratio_of_medians": 0.992148837919808
+          },
+          "B/op": {
+            "before_median": 1440.0,
+            "after_median": 1440.0,
+            "change_percent": 0.0,
+            "median_paired_after_before_ratio": 1.0,
+            "ratio_of_medians": 1.0
+          },
+          "allocs/op": {
+            "before_median": 16.0,
+            "after_median": 16.0,
+            "change_percent": 0.0,
+            "median_paired_after_before_ratio": 1.0,
+            "ratio_of_medians": 1.0
+          }
+        },
+        "BenchmarkCompactGraduationR4/compact": {
+          "ns/op": {
+            "before_median": 224930.0,
+            "after_median": 221395.5,
+            "change_percent": -1.571377761970394,
+            "median_paired_after_before_ratio": 0.9835447952302023,
+            "ratio_of_medians": 0.9842862223802961
+          },
+          "B/op": {
+            "before_median": 5456.0,
+            "after_median": 5456.0,
+            "change_percent": 0.0,
+            "median_paired_after_before_ratio": 1.0,
+            "ratio_of_medians": 1.0
+          },
+          "allocs/op": {
+            "before_median": 39.0,
+            "after_median": 39.0,
+            "change_percent": 0.0,
+            "median_paired_after_before_ratio": 1.0,
+            "ratio_of_medians": 1.0
+          }
+        }
+      },
+      "route_ratios": {
+        "before": {
+          "median_paired_compact_legacy_ratio": 1.4396560030955279,
+          "ratio_of_medians": 1.4316675206303844
+        },
+        "after": {
+          "median_paired_compact_legacy_ratio": 1.425782258125472,
+          "ratio_of_medians": 1.4203217921822975
+        }
+      }
+    }
+  },
+  "private_prototype_promoted": false,
+  "fleet_qualified": false,
+  "E_A_qualification": false,
+  "graduation_claim": false,
+  "merges_held": true,
+  "runtime_map_sha256": "6f2d518d0051e520644a32cf2991ada86231cc7d40cc952109956428172070fe",
+  "archive_members": 359,
+  "base_evidence_archive_sha256": "73fe52b4ef05a02a6741265da9b447ed3e2610338880592a6d1ff57c5f8c90fa",
+  "construction_archive_sha256": "f21fcaa7c7a558f32dc351a2d58a5ef04696faf344b158abf7713a6d9d1d518b",
+  "decision": "hold: ordinary Go compact throughput regresses; no runtime promotion",
+  "V1_timing_executed": false,
+  "V1_refusal_formation_edges": {
+    "reference": 0,
+    "candidate": 1
+  },
+  "V2_refusal_formation_edges": {
+    "reference": 0,
+    "candidate": 0
+  },
+  "counter_exceptions_used": false,
+  "actual_counter_rows": [
+    {
+      "route": "default",
+      "language": "go",
+      "exact_equal": true,
+      "approved_work_exception_used": false,
+      "changes": []
+    },
+    {
+      "route": "default",
+      "language": "yaml",
+      "exact_equal": true,
+      "approved_work_exception_used": false,
+      "changes": []
+    },
+    {
+      "route": "candidate",
+      "language": "go",
+      "exact_equal": false,
+      "approved_work_exception_used": false,
+      "changes": [
+        {
+          "path": "0/full/new_nodes",
+          "before": 892,
+          "after": 1,
+          "direction": "less_work"
+        }
+      ]
+    },
+    {
+      "route": "candidate",
+      "language": "yaml",
+      "exact_equal": true,
+      "approved_work_exception_used": false,
+      "changes": []
+    }
+  ]
+}

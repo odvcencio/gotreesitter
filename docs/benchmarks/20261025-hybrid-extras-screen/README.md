@@ -1,0 +1,27 @@
+# Held hybrid extras screen
+
+**HOLD.** The combined dense hybrid, promotion-budget-region and extras candidate significantly regresses YAML R4 throughput. Every other timing result, including generated Go full parsing and both legacy controls, is inconclusive. This experiment produces no measured speed win, runtime/default promotion, graduation, ARM qualification or main merge. Independent prior cohorts do not isolate the effect of extras alone.
+
+The comparison used corrected production as baseline on Linux amd64 / Intel Core Ultra 9 285 / Go 1.26.6: **60 shuffled pairs / 120 processes**, 20 seeds per series, `GOMAXPROCS=1`, count 1, 750 ms and benchmem. Matching child order and alternating process order passed. All R4 compact samples reported one compact route and zero fallbacks; all source/control guards passed.
+
+| Workload | Before → combined candidate | Change | p | allocs/op |
+|---|---:|---:|---:|---:|
+| Generated Go full | 9.5094845 → 9.0175075 ms | −5.17%, inconclusive | .211 | 22 → 22 |
+| Go edit | 85.392 → 93.527 µs | +9.53%, inconclusive | .495 | 5 → 5 |
+| Go no-edit | 4.033 → 3.854 ns | −4.44%, inconclusive | .904 | 0 → 0 |
+| Real Go R4 compact | 1,055.056 → 1,057.010 µs | +0.19%, inconclusive | .904 | 14 → 14 |
+| YAML R4 compact | 239.6385 → 266.4435 µs | **+11.19%, regression** | .001 | 39 → 39 |
+
+R4 Go/YAML bytes remain 1,112/5,456 B per operation. Generated full bytes are 261,546.5→261,546 B (half-byte median noise); edit bytes are 412→413 B and no-edit remains zero. [summary.json](summary.json) retains exact medians, directional changes and legacy controls. [route-ratios.json](route-ratios.json) gives all 20 matched compact/legacy ratios, their median and the ratio of medians; these are current-runtime diagnostics, not E-A or a frozen M1 release qualification.
+
+Correctness and work gates preceded timing. V2 passes 24 core top-level tests, including the original unsupported-extra assertion and five focused extras families (also rerun separately), 10 budget/snapshot families, four lifetime/ordinary-entry controls, 15 memory controls, 10 Go C families, eight YAML C families and four 72-step Go/YAML invariant sessions. No qualification gate skips or fails. The sessions cover 288 edit steps with zero no-edit allocations. The budget diagnostic compares **481 checks across 48 regions**, with zero fallback or cached/full disagreement.
+
+Eight ordinary-entry pairs retain full public digests and scanner/dependency/scheduler/semantic-work receipts. The graph-link proxy falls **15,505→2** on generated Go and **1,381→577** on real Go R4. Separate ordinary YAML proof retains the same receipts while links fall **304→117**. Relative to the [prior held hybrid](../20261025-hybrid-publication-screen/README.md), Go/YAML R4 proxies fall 609→577 and 168→117. These deterministic counts establish reduced graph construction; the timing regression remains held. The ordinary diagnostics record actual execution with no extra-payload refusals, while row/election boundaries remain.
+
+Hot frames remain **96 bytes**. The new inline trailing window uses **1,024 bytes**, included in the measured **1,928-byte** dense header and its retained-byte accounting. Interstitial extras use the existing field/alias remapper; trailing parent/intermediate writes stay private, and only the final output becomes canonical and receives scheduler lineage. Existing ownership, checkpoint, recovery, ambiguity, NoLookahead, external-extra shift and capacity gates remain. All four actual Go/YAML default/candidate full-plus-first-edit ledger rows match corrected production exactly. C tests use the existing locked **C 0.25.1** oracle; this package does not adopt another oracle.
+
+The V1 failure is preserved. `TestDenseHybridGraphExtraDeclinesBeforeGoto` contains only an extra while requesting one structural child. V2 keeps the entire negative assertion unchanged, adds an independent generic zero-pop-path proof, restores the unsupported-extra classification when the exact graph exhausts first, and adds a supported neighboring case requiring generic equality of fields, scores, order, checkpoints, private/canonical boundaries and lineage. Unsupported caps, actual multiple paths and recovery/callback cases retain their gates.
+
+[evidence.tar.gz](evidence.tar.gz) retains exact overlays, source/control manifests, commands/workers/validators, terminal raw logs, all timing samples and benchstat output, original failures and binary identities. [source-identities.json](source-identities.json) records the effective inputs. The compressed member index authenticates every file; native binaries, caches, credentials, private CSV/Enforce and unrelated corpus payloads are excluded. Frozen originals remain unchanged. No fused-capture or newer owned-syntax-producer prototype is layered here.
+
+Run `sha256sum -c SHA256SUMS` and `python3 validate-evidence.py` here for offline verification. To replay, extract the archive in a checkout at the recorded revision, authenticate the source/control manifests, and run the retained serialized Docker command arrays with the recorded dependency mounts; original output destinations must be replaced before replay to preserve the frozen logs. This partial screen does not establish E-A, full-fleet/RSS or ARM behavior, and does not resolve the separate incremental fresh-verifier report. No runtime tests or benchmarks were run while packaging.

@@ -1,0 +1,19 @@
+{
+  "base_commit": "afd16867b666dfec05f3eb28e9eee86036474532",
+  "base_archive": {
+    "bytes": 23766059,
+    "sha256": "a3a101fbc81e3052627febed4edff454607bf459c4104469656a894d8d207060"
+  },
+  "candidate_overlay": {
+    "bytes": 63639,
+    "sha256": "434aaa906894f2b983fbe99cd4e65976b133c23716c12a077e6864c34ebcab7d"
+  },
+  "candidate_source_changes": {
+    "parser_dfa_token_source.go": "453af975d20e9d86f5de06caa322c123c161d9e457d007b997bf8b1f54eb513b",
+    "parser_dfa_token_source_test.go": "fa4c0e5b1efbb99d9d4916ad779de78e62c7b7afdab63b52ad4fcc182ec74a83",
+    "cgo_harness/go_generated_newline_ownership_test.go": "c6da14c3067cd21b7a31fb5f3758eb64cd468b339bdf2be473998b5151bb1ba7"
+  },
+  "before_go_source_manifest_sha256": "3c7150f1a9303fa5df3a4d23ef5e422f95fc9dd25faa5fdfdb15c3b682a93046",
+  "after_go_source_manifest_sha256": "3c7150f1a9303fa5df3a4d23ef5e422f95fc9dd25faa5fdfdb15c3b682a93046",
+  "source_unchanged": true
+}

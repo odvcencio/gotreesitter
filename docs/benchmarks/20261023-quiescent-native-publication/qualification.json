@@ -1,0 +1,850 @@
+{
+  "Cogno": {
+    "clean_C": 8,
+    "independent_D8": 12,
+    "latest_comment_id": 6311551850,
+    "native_Windows_qualified": false,
+    "unchanged_malformed_delete_C_failures": 4
+  },
+  "all_edit_reuse_and_default_metrics_equal": true,
+  "archive": {
+    "bytes": 12160143,
+    "members": 7168,
+    "sha256": "e6e4fa008c02601f0dea3bacbadeeab15311d0ab9143a39303e6ddfc5b9e7bd1"
+  },
+  "cold_RSS": {
+    "all_initial_probes_retained": true,
+    "binary_sha256": {
+      "baseline": "97e4b95f0a9a6b409f3f33909aedfc9176b3438441b0ecc84880989fffb306dc",
+      "candidate": "7478adec134ffbaabc9f90656f5046417e920fa3ff98ff15b8a17726dfc14082"
+    },
+    "candidate_baseline_median_ratios": {
+      "go": 0.8987824468164962,
+      "yaml_ordinary": 1.0050641458474006,
+      "yaml_owned": 1.0017776946107784
+    },
+    "candidate_ceiling_failures": [],
+    "candidate_safety_pass": true,
+    "environment": {
+      "GODEBUG": null,
+      "GOGC": null,
+      "GOMAXPROCS": "1",
+      "GOMEMLIMIT": "3GiB",
+      "GOT_GLR_MAX_STACKS": null,
+      "GOT_PARSE_NODE_LIMIT_SCALE": null
+    },
+    "protocol": "20 matched alternating pairs per case; case order shuffled per explicit seed; one grammar/process; safety probes only, no timing claim",
+    "seeds": "187001..187020",
+    "summary": {
+      "go": {
+        "baseline": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 266.15634885288927,
+          "median": 260.1876842353215
+        },
+        "candidate": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 237.13332653055386,
+          "median": 233.85212346854016
+        }
+      },
+      "yaml_ordinary": {
+        "baseline": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 74.58540433624373,
+          "median": 69.35599653954182
+        },
+        "candidate": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 75.12395528844138,
+          "median": 69.70722542140987
+        }
+      },
+      "yaml_owned": {
+        "baseline": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 84.0139485428346,
+          "median": 83.42076198679081
+        },
+        "candidate": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 84.08419431920821,
+          "median": 83.56905862580174
+        }
+      }
+    }
+  },
+  "fleet": {
+    "C": 412,
+    "edit_steps": 29664,
+    "invariant": 412,
+    "ledger": 206,
+    "no_edit_allocations": 0,
+    "standard_C_checks": 1236
+  },
+  "large_Go_C": {
+    "checks": 12,
+    "digest": "1464b53d73dd7d3ad9ff2b7e064235a4a68442ec7e1379d4c2c263fc6a9eef6c",
+    "forced_legacy_nodes": 993391,
+    "public_nodes_after": 593457,
+    "public_nodes_before": 903086
+  },
+  "performance": {
+    "all_work_and_route_directions_pass": true,
+    "excluded_runs": "Original whole primary Go suite 185001..185020 and partial compact Go 186001; see original isolation-repair.json. YAML completed before overlap and was not rerun. Resume v1 stopped before any samples.",
+    "ratchet_failures": [
+      {
+        "benchmark": "BenchmarkCompactThroughputGo/fresh_one_mib",
+        "metrics": [
+          "allocs/op"
+        ],
+        "suite": "compact-go"
+      },
+      {
+        "benchmark": "BenchmarkCompactThroughputGo/full_dfa",
+        "metrics": [
+          "B/op",
+          "allocs/op"
+        ],
+        "suite": "compact-go"
+      },
+      {
+        "benchmark": "BenchmarkCompactThroughputGo/grammargen_lr",
+        "metrics": [
+          "B/op"
+        ],
+        "suite": "compact-go"
+      }
+    ],
+    "scope": "Screen versus frozen private ordinary-YAML prototype, not current main; no native Windows/Mac claim.",
+    "suites": {
+      "compact-go": {
+        "alternating_roles": true,
+        "matched_orders": true,
+        "results": [
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/fresh_one_mib",
+            "medians": {
+              "baseline": {
+                "B/op": 304947512.0,
+                "allocs/op": 262.0,
+                "ns/op": 837810089.0
+              },
+              "candidate": {
+                "B/op": 279136056.0,
+                "allocs/op": 896.0,
+                "ns/op": 809283737.5
+              }
+            },
+            "ratchet_failures": [
+              "allocs/op"
+            ],
+            "ratios": {
+              "B/op": 0.9153577091653727,
+              "allocs/op": 3.4198473282442747,
+              "ns/op": 0.9659512914984723
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/full_dfa",
+            "medians": {
+              "baseline": {
+                "B/op": 429371.0,
+                "allocs/op": 37.0,
+                "ns/op": 9220776.5
+              },
+              "candidate": {
+                "B/op": 819947.0,
+                "allocs/op": 71.0,
+                "ns/op": 9827283.5
+              }
+            },
+            "ratchet_failures": [
+              "B/op",
+              "allocs/op"
+            ],
+            "ratios": {
+              "B/op": 1.9096469020963223,
+              "allocs/op": 1.9189189189189189,
+              "ns/op": 1.0657761306761964
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/grammargen_lr",
+            "medians": {
+              "baseline": {
+                "B/op": 1105392.0,
+                "allocs/op": 1706.0,
+                "ns/op": 107340100.5
+              },
+              "candidate": {
+                "B/op": 3715747.0,
+                "allocs/op": 1808.0,
+                "ns/op": 111173091.0
+              }
+            },
+            "ratchet_failures": [
+              "B/op"
+            ],
+            "ratios": {
+              "B/op": 3.3614744814509243,
+              "allocs/op": 1.05978898007034,
+              "ns/op": 1.035708840239068
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/no_edit_dfa",
+            "medians": {
+              "baseline": {
+                "B/op": 0.0,
+                "allocs/op": 0.0,
+                "ns/op": 3.1105
+              },
+              "candidate": {
+                "B/op": 0.0,
+                "allocs/op": 0.0,
+                "ns/op": 3.1125
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1,
+              "allocs/op": 1,
+              "ns/op": 1.0006429834431763
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/query_compile",
+            "medians": {
+              "baseline": {
+                "B/op": 4496.0,
+                "allocs/op": 121.0,
+                "ns/op": 10269413.5
+              },
+              "candidate": {
+                "B/op": 4680.0,
+                "allocs/op": 120.0,
+                "ns/op": 10523705.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0409252669039146,
+              "allocs/op": 0.9917355371900827,
+              "ns/op": 1.0247620762373626
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputGo/single_byte_edit_dfa",
+            "medians": {
+              "baseline": {
+                "B/op": 399.0,
+                "allocs/op": 5.0,
+                "ns/op": 88101.5
+              },
+              "candidate": {
+                "B/op": 399.0,
+                "allocs/op": 5.0,
+                "ns/op": 87974.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.9985528055708472
+            }
+          }
+        ],
+        "rows_per_role": 120
+      },
+      "go": {
+        "alternating_roles": true,
+        "matched_orders": true,
+        "results": [
+          {
+            "benchmark": "BenchmarkGoParseFullDFA",
+            "medians": {
+              "baseline": {
+                "B/op": 1160.0,
+                "allocs/op": 6.0,
+                "ns/op": 4020737.5
+              },
+              "candidate": {
+                "B/op": 1160.0,
+                "allocs/op": 6.0,
+                "ns/op": 4028024.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 1.0018122297215375
+            }
+          },
+          {
+            "benchmark": "BenchmarkGoParseIncrementalNoEditDFA",
+            "medians": {
+              "baseline": {
+                "B/op": 0.0,
+                "allocs/op": 0.0,
+                "ns/op": 3.1265
+              },
+              "candidate": {
+                "B/op": 0.0,
+                "allocs/op": 0.0,
+                "ns/op": 3.1185
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1,
+              "allocs/op": 1,
+              "ns/op": 0.997441228210459
+            }
+          },
+          {
+            "benchmark": "BenchmarkGoParseIncrementalSingleByteEditDFA",
+            "medians": {
+              "baseline": {
+                "B/op": 394.0,
+                "allocs/op": 5.0,
+                "ns/op": 88180.0
+              },
+              "candidate": {
+                "B/op": 394.0,
+                "allocs/op": 5.0,
+                "ns/op": 88083.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.99889997731912
+            }
+          }
+        ],
+        "rows_per_role": 60
+      },
+      "yaml": {
+        "alternating_roles": true,
+        "matched_orders": true,
+        "results": [
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/eof8k_legacy",
+            "medians": {
+              "baseline": {
+                "B/op": 1264.0,
+                "allocs/op": 13.0,
+                "ns/op": 505996.5
+              },
+              "candidate": {
+                "B/op": 1264.0,
+                "allocs/op": 13.0,
+                "ns/op": 504974.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 0.997980223183362
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/eof8k_ordinary",
+            "medians": {
+              "baseline": {
+                "B/op": 18368.0,
+                "allocs/op": 71.0,
+                "ns/op": 871241.5
+              },
+              "candidate": {
+                "B/op": 18352.0,
+                "allocs/op": 70.0,
+                "ns/op": 859551.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 0.9991289198606271,
+              "allocs/op": 0.9859154929577465,
+              "ns/op": 0.9865817916157575
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/eof8k_owned",
+            "medians": {
+              "baseline": {
+                "B/op": 43296.0,
+                "allocs/op": 197.0,
+                "ns/op": 1408310.0
+              },
+              "candidate": {
+                "B/op": 43280.0,
+                "allocs/op": 196.0,
+                "ns/op": 1391753.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 0.999630450849963,
+              "allocs/op": 0.9949238578680203,
+              "ns/op": 0.9882433555112156
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/r4_legacy",
+            "medians": {
+              "baseline": {
+                "B/op": 1440.0,
+                "allocs/op": 16.0,
+                "ns/op": 140480.5
+              },
+              "candidate": {
+                "B/op": 1440.0,
+                "allocs/op": 16.0,
+                "ns/op": 140778.5
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 1.0,
+              "allocs/op": 1.0,
+              "ns/op": 1.0021212908553145
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/r4_ordinary",
+            "medians": {
+              "baseline": {
+                "B/op": 5520.0,
+                "allocs/op": 40.0,
+                "ns/op": 232492.5
+              },
+              "candidate": {
+                "B/op": 5504.0,
+                "allocs/op": 39.0,
+                "ns/op": 227919.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 0.9971014492753624,
+              "allocs/op": 0.975,
+              "ns/op": 0.980328397690248
+            }
+          },
+          {
+            "benchmark": "BenchmarkCompactThroughputYAML/r4_owned",
+            "medians": {
+              "baseline": {
+                "B/op": 13072.0,
+                "allocs/op": 74.0,
+                "ns/op": 365833.0
+              },
+              "candidate": {
+                "B/op": 13056.0,
+                "allocs/op": 73.0,
+                "ns/op": 361331.0
+              }
+            },
+            "ratchet_failures": [],
+            "ratios": {
+              "B/op": 0.9987760097919217,
+              "allocs/op": 0.9864864864864865,
+              "ns/op": 0.9876938384454109
+            }
+          }
+        ],
+        "rows_per_role": 120
+      }
+    },
+    "valid_rows_per_role": 300
+  },
+  "source": {
+    "baseline": "/home/draco/.local/state/gotreesitter-evidence/20261021-runtime-rss-architecture/compact-link-storage-v1/yaml-checkpoint-reserve-main-v2/source",
+    "candidate": "/home/draco/.local/state/gotreesitter-evidence/20261021-runtime-rss-architecture/compact-link-storage-v1/quiescent-native-publication-v10/source",
+    "changed_go_files": 10,
+    "files": [
+      {
+        "after_sha256": "026c4c703b08c8e1b1169ddf2b6ad08fdd5365cfd93fc979cc28033c4eabede4",
+        "before_sha256": "b73bbe542d349f9f6b5208bf811ae85944e50286a2d1b30f178a1b25571866df",
+        "new": false,
+        "path": "admission_switch_candidate.go",
+        "test": false
+      },
+      {
+        "after_sha256": "b9e969896a60b15bc0a3d3f1ec9b87f8140301e91c588fef85946c5e972ff101",
+        "before_sha256": "af434bc0c9f53da4979a572116695463b5a0bba561bebaac6279de1ed8dcd430",
+        "new": false,
+        "path": "internal/parsercorephase0/core.go",
+        "test": false
+      },
+      {
+        "after_sha256": "512ac13bcd250577e09754fb601faa43df5b7b3e9ed97653c02d19c2a5cf118a",
+        "before_sha256": null,
+        "new": true,
+        "path": "internal/parsercorephase0/native_projection_admission.go",
+        "test": false
+      },
+      {
+        "after_sha256": "139a208c7dc2f073be4ec0c96ad305e63d76b73f924964082362e184c45b9b37",
+        "before_sha256": null,
+        "new": true,
+        "path": "internal/parsercorephase0/native_projection_admission_test.go",
+        "test": true
+      },
+      {
+        "after_sha256": "0ccf0d62b2a54ebaa50ed9f65d05492b8de67ca31ce7279168f3960029a44def",
+        "before_sha256": "0ad729e3b9194ea2db0e499b05a2d6db7f6f325bc58095903043976c984f12a4",
+        "new": false,
+        "path": "internal/parsercorephase0/native_projection_stream.go",
+        "test": false
+      },
+      {
+        "after_sha256": "eb04c9233c797c4e425023e8cd87c4272ebaf92e067331f4bf018f4b76ca4636",
+        "before_sha256": "653405d92bebd1822e22c94bbbd21a13e269fd5aa78bfe020f0c582188390ed9",
+        "new": false,
+        "path": "parsercore_phase0_fresh_full_runner.go",
+        "test": false
+      },
+      {
+        "after_sha256": "75accb30c844f4fb23f8f6a5bb9fb0cd2756fa63f1dbc49fac1f1e26bf553d53",
+        "before_sha256": "2629fcd7ce3b758a04ff1e5a2459789ce207ccf51375b65c718388ebf8d77ca4",
+        "new": false,
+        "path": "parsercore_phase0_materializer.go",
+        "test": false
+      },
+      {
+        "after_sha256": "4016b91894c61945c02f847ba7215f637e37adb6a818a102e13fabdd21d54b26",
+        "before_sha256": "5894278ca1efefc6d2530ec2952bbc545ea98a7ffbef1d583fd14b321d3a601c",
+        "new": false,
+        "path": "parsercore_phase0_warm_scanner_external_test.go",
+        "test": true
+      },
+      {
+        "after_sha256": "c9e712ac07f5421040238647fed8f849d6351725a59ee55d368dc8a9bcb29207",
+        "before_sha256": "a005853e57141a27fc80167e88213ca52123546767ab3276812c1df13ff28d4b",
+        "new": false,
+        "path": "parsercore_selected_store_internal_test.go",
+        "test": true
+      },
+      {
+        "after_sha256": "ceba758838378b8426a5d673c32f7b7d3d37e8f6fbd52c50a2827d0cb86503bc",
+        "before_sha256": "7592da6dcaf0624dc3c676fc8c709f1b584af28fe860437137c0403f9e358d92",
+        "new": false,
+        "path": "parsestate_replay_compact.go",
+        "test": false
+      }
+    ],
+    "go_files": 3559,
+    "new_root_production": 0,
+    "patch_applies_to_frozen_baseline": true,
+    "patch_bytes": 37650,
+    "patch_sha256": "b749bbe913a4cfc6dea0b0c29db771c6beea9962fe61bf1e7262ceb1698cd5d4",
+    "production": 7,
+    "tests": 3
+  },
+  "status": "unpromoted: Go allocation ratchets fail",
+  "strict_work_changes": [
+    {
+      "after": 146,
+      "before": 206,
+      "row": "apex/candidate/full/new_nodes"
+    },
+    {
+      "after": 353,
+      "before": 651,
+      "row": "bass/candidate/full/new_nodes"
+    },
+    {
+      "after": 170,
+      "before": 221,
+      "row": "capnp/candidate/full/new_nodes"
+    },
+    {
+      "after": 540,
+      "before": 1727,
+      "row": "comment/candidate/full/new_nodes"
+    },
+    {
+      "after": 13,
+      "before": 18,
+      "row": "corn/candidate/full/new_nodes"
+    },
+    {
+      "after": 783,
+      "before": 1283,
+      "row": "css/candidate/full/new_nodes"
+    },
+    {
+      "after": 13,
+      "before": 21,
+      "row": "csv/candidate/full/new_nodes"
+    },
+    {
+      "after": 220,
+      "before": 284,
+      "row": "d/candidate/full/new_nodes"
+    },
+    {
+      "after": 40,
+      "before": 175,
+      "row": "desktop/candidate/full/new_nodes"
+    },
+    {
+      "after": 154,
+      "before": 403,
+      "row": "diff/candidate/full/new_nodes"
+    },
+    {
+      "after": 821,
+      "before": 1084,
+      "row": "dot/candidate/full/new_nodes"
+    },
+    {
+      "after": 155,
+      "before": 515,
+      "row": "editorconfig/candidate/full/new_nodes"
+    },
+    {
+      "after": 116,
+      "before": 208,
+      "row": "eex/candidate/full/new_nodes"
+    },
+    {
+      "after": 154,
+      "before": 221,
+      "row": "elisp/candidate/full/new_nodes"
+    },
+    {
+      "after": 768,
+      "before": 910,
+      "row": "elsa/candidate/full/new_nodes"
+    },
+    {
+      "after": 72,
+      "before": 439,
+      "row": "embedded_template/candidate/full/new_nodes"
+    },
+    {
+      "after": 11,
+      "before": 14,
+      "row": "enforce/candidate/full/new_nodes"
+    },
+    {
+      "after": 380,
+      "before": 701,
+      "row": "faust/candidate/full/new_nodes"
+    },
+    {
+      "after": 151,
+      "before": 166,
+      "row": "fidl/candidate/full/new_nodes"
+    },
+    {
+      "after": 354,
+      "before": 1062,
+      "row": "fish/candidate/full/new_nodes"
+    },
+    {
+      "after": 459,
+      "before": 1299,
+      "row": "foam/candidate/full/new_nodes"
+    },
+    {
+      "after": 261,
+      "before": 447,
+      "row": "forth/candidate/full/new_nodes"
+    },
+    {
+      "after": 23,
+      "before": 90,
+      "row": "git_config/candidate/full/new_nodes"
+    },
+    {
+      "after": 351,
+      "before": 576,
+      "row": "gn/candidate/full/new_nodes"
+    },
+    {
+      "after": 893,
+      "before": 1251,
+      "row": "go/candidate/full/new_nodes"
+    },
+    {
+      "after": 437,
+      "before": 585,
+      "row": "godot_resource/candidate/full/new_nodes"
+    },
+    {
+      "after": 506,
+      "before": 548,
+      "row": "graphql/candidate/full/new_nodes"
+    },
+    {
+      "after": 691,
+      "before": 1018,
+      "row": "hare/candidate/full/new_nodes"
+    },
+    {
+      "after": 653,
+      "before": 1080,
+      "row": "hurl/candidate/full/new_nodes"
+    },
+    {
+      "after": 98,
+      "before": 182,
+      "row": "hyprlang/candidate/full/new_nodes"
+    },
+    {
+      "after": 74,
+      "before": 121,
+      "row": "ini/candidate/full/new_nodes"
+    },
+    {
+      "after": 301,
+      "before": 474,
+      "row": "janet/candidate/full/new_nodes"
+    },
+    {
+      "after": 40,
+      "before": 54,
+      "row": "java/candidate/full/new_nodes"
+    },
+    {
+      "after": 266,
+      "before": 321,
+      "row": "jq/candidate/full/new_nodes"
+    },
+    {
+      "after": 489,
+      "before": 607,
+      "row": "json/candidate/full/new_nodes"
+    },
+    {
+      "after": 124,
+      "before": 203,
+      "row": "liquid/candidate/full/new_nodes"
+    },
+    {
+      "after": 2326,
+      "before": 2829,
+      "row": "llvm/candidate/full/new_nodes"
+    },
+    {
+      "after": 329,
+      "before": 733,
+      "row": "ninja/candidate/full/new_nodes"
+    },
+    {
+      "after": 6,
+      "before": 9,
+      "row": "odin/candidate/full/new_nodes"
+    },
+    {
+      "after": 15,
+      "before": 74,
+      "row": "pem/candidate/full/new_nodes"
+    },
+    {
+      "after": 196,
+      "before": 266,
+      "row": "pkl/candidate/full/new_nodes"
+    },
+    {
+      "after": 1013,
+      "before": 1208,
+      "row": "powershell/candidate/full/new_nodes"
+    },
+    {
+      "after": 169,
+      "before": 369,
+      "row": "puppet/candidate/full/new_nodes"
+    },
+    {
+      "after": 389,
+      "before": 521,
+      "row": "ql/candidate/full/new_nodes"
+    },
+    {
+      "after": 339,
+      "before": 755,
+      "row": "racket/candidate/full/new_nodes"
+    },
+    {
+      "after": 2527,
+      "before": 4149,
+      "row": "regex/candidate/full/new_nodes"
+    },
+    {
+      "after": 255,
+      "before": 636,
+      "row": "scheme/candidate/full/new_nodes"
+    },
+    {
+      "after": 528,
+      "before": 754,
+      "row": "smithy/candidate/full/new_nodes"
+    },
+    {
+      "after": 42,
+      "before": 172,
+      "row": "ssh_config/candidate/full/new_nodes"
+    },
+    {
+      "after": 217,
+      "before": 274,
+      "row": "tablegen/candidate/full/new_nodes"
+    },
+    {
+      "after": 1297,
+      "before": 1440,
+      "row": "textproto/candidate/full/new_nodes"
+    },
+    {
+      "after": 29,
+      "before": 158,
+      "row": "todotxt/candidate/full/new_nodes"
+    },
+    {
+      "after": 139,
+      "before": 278,
+      "row": "toml/candidate/full/new_nodes"
+    },
+    {
+      "after": 543,
+      "before": 621,
+      "row": "turtle/candidate/full/new_nodes"
+    },
+    {
+      "after": 14,
+      "before": 26,
+      "row": "twig/candidate/full/new_nodes"
+    },
+    {
+      "after": 405,
+      "before": 948,
+      "row": "vimdoc/candidate/full/new_nodes"
+    },
+    {
+      "after": 653,
+      "before": 707,
+      "row": "wat/candidate/full/new_nodes"
+    },
+    {
+      "after": 539,
+      "before": 1070,
+      "row": "yuck/candidate/full/new_nodes"
+    }
+  ]
+}

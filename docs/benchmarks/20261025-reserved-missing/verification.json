@@ -1,0 +1,95 @@
+{
+  "schema": "gts-reserved-missing-correctness/v1",
+  "base_head": "eff701aa3962f88fbf6e8cd3b5994d7dca1d0a32",
+  "go_blob_before": "214322327c9ee7dda29febf32e415f7ed9e00a90b7690d3c32522e393211b8da",
+  "go_blob_after": "9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4",
+  "go_blob_bytes_before": 51685,
+  "go_blob_bytes_after": 52039,
+  "c_runtime_version": "0.25.1",
+  "c_runtime_commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+  "toolchain": "go1.26.6 linux/amd64",
+  "invariants": {
+    "languages": 206,
+    "invariant_sessions": 412,
+    "edit_steps": 29664,
+    "no_edit_allocations": 0,
+    "c_fixture_checks": 618,
+    "skipped": 0,
+    "failed": 0,
+    "root_binary_authenticated": true,
+    "cgo_binary_authenticated": true,
+    "timing_claim": false
+  },
+  "work": {
+    "final_composition_work_cases": 24,
+    "identical_cases": 24,
+    "changes": []
+  },
+  "ledger_rows": 412,
+  "unchanged_ledger_rows": 410,
+  "changed_ledger_rows": 2,
+  "guarded_counter_exceptions_pending": 4,
+  "all_merges_held": true,
+  "graduated_languages_added": 0,
+  "paired_benchmark_blocks": 4,
+  "pairs_per_block": 20,
+  "before_after_pairs": 80,
+  "r4_current_runtime_diagnostics": {
+    "go": {
+      "before": {
+        "legacy_ns_median": 646024.5,
+        "compact_ns_median": 753660.0,
+        "paired_compact_legacy_ratio_median": 1.17764066209718
+      },
+      "after": {
+        "legacy_ns_median": 644124.5,
+        "compact_ns_median": 754149.5,
+        "paired_compact_legacy_ratio_median": 1.1678180962389346
+      }
+    },
+    "yaml": {
+      "before": {
+        "legacy_ns_median": 153794.0,
+        "compact_ns_median": 224746.0,
+        "paired_compact_legacy_ratio_median": 1.4329852043457356
+      },
+      "after": {
+        "legacy_ns_median": 158794.5,
+        "compact_ns_median": 226286.5,
+        "paired_compact_legacy_ratio_median": 1.4082543037653052
+      }
+    }
+  },
+  "c_eds_parity_before": {
+    "c_initial": true,
+    "c_first_edit": false,
+    "eds_initial": false,
+    "eds_first_edit": false
+  },
+  "c_eds_parity_after": {
+    "c_initial": true,
+    "c_first_edit": true,
+    "eds_initial": true,
+    "eds_first_edit": true
+  },
+  "rejected_selected_go_only": {
+    "go_c_parity": true,
+    "unchanged_ledger_rows": 412,
+    "reason": "Contains the new fixes to Go but retains the proven preexisting C and EDS parity defects; shared fix retained."
+  },
+  "limits": [
+    "C0.27.x qualification is absent",
+    "ARM64 qualification is absent",
+    "Native non-EOF recovery still declines on joined31",
+    "Included-range strict C mismatches remain; compact range routing remains closed",
+    "M1 baseline and complete all206 E-A exit gate remain unauthenticated/incomplete",
+    "The owner approved the four C/EDS guarded ledger changes on 2026-10-25; the earlier Go exception remains unapproved"
+  ],
+  "saved_source_c4": {
+    "focused": true,
+    "initial_fleet_skipped": true,
+    "explicit_fleet_pass": true,
+    "fleet_grammars": 206
+  },
+  "owner_approval": "owner-approval.json"
+}

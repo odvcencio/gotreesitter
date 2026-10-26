@@ -1,0 +1,90 @@
+goos: linux
+goarch: arm64
+pkg: github.com/odvcencio/gotreesitter
+                                     │ baseline-yaml.txt │         candidate-yaml.txt         │
+                                     │      sec/op       │   sec/op     vs base               │
+CompactThroughputYAML/r4_owned               620.4µ ± 1%   604.7µ ± 1%  -2.53% (p=0.001 n=20)
+CompactThroughputYAML/eof8k_legacy           713.1µ ± 1%   708.4µ ± 2%       ~ (p=0.265 n=20)
+CompactThroughputYAML/eof8k_owned            2.316m ± 2%   2.258m ± 1%  -2.48% (p=0.000 n=20)
+CompactThroughputYAML/r4_legacy              199.4µ ± 1%   197.5µ ± 1%  -0.94% (p=0.013 n=20)
+CompactThroughputYAML/eof8k_ordinary         1.434m ± 4%   1.369m ± 3%  -4.54% (p=0.000 n=20)
+CompactThroughputYAML/r4_ordinary            383.5µ ± 4%   367.5µ ± 1%  -4.17% (p=0.000 n=20)
+geomean                                      694.6µ        676.8µ       -2.56%
+
+                                     │ baseline-yaml.txt │         candidate-yaml.txt          │
+                                     │        B/s        │     B/s       vs base               │
+CompactThroughputYAML/r4_owned              3.071Mi ± 2%   3.152Mi ± 1%  +2.64% (p=0.001 n=20)
+CompactThroughputYAML/eof8k_legacy          10.71Mi ± 1%   10.79Mi ± 2%       ~ (p=0.262 n=20)
+CompactThroughputYAML/eof8k_owned           3.300Mi ± 2%   3.386Mi ± 1%  +2.60% (p=0.000 n=20)
+CompactThroughputYAML/r4_legacy             9.556Mi ± 1%   9.646Mi ± 1%  +0.95% (p=0.014 n=20)
+CompactThroughputYAML/eof8k_ordinary        5.331Mi ± 4%   5.579Mi ± 3%  +4.65% (p=0.000 n=20)
+CompactThroughputYAML/r4_ordinary           4.969Mi ± 4%   5.188Mi ± 1%  +4.41% (p=0.000 n=20)
+geomean                                     5.493Mi        5.639Mi       +2.64%
+
+                                     │  baseline-yaml.txt   │              candidate-yaml.txt               │
+                                     │ compact-fallbacks/op │ compact-fallbacks/op  vs base                 │
+CompactThroughputYAML/r4_owned                 0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_legacy             0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_owned              0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/r4_legacy                0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_ordinary           0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/r4_ordinary              0.000 ± 0%               0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                   ²                         +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                     │ baseline-yaml.txt │             candidate-yaml.txt             │
+                                     │ compact-routes/op │ compact-routes/op  vs base                 │
+CompactThroughputYAML/r4_owned              1.000 ± 0%            1.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_legacy          0.000 ± 0%            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_owned           1.000 ± 0%            1.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/r4_legacy             0.000 ± 0%            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_ordinary        1.000 ± 0%            1.000 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/r4_ordinary           1.000 ± 0%            1.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                ²                      +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                     │ baseline-yaml.txt │            candidate-yaml.txt            │
+                                     │  public-nodes/op  │ public-nodes/op  vs base                 │
+CompactThroughputYAML/r4_owned                232.0 ± 0%        232.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_legacy           1.156k ± 0%       1.156k ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_owned             925.0 ± 0%        925.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/r4_legacy               288.0 ± 0%        288.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_ordinary          925.0 ± 0%        925.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/r4_ordinary             232.0 ± 0%        232.0 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                       498.4             498.4       +0.00%
+¹ all samples are equal
+
+                                     │ baseline-yaml.txt │         candidate-yaml.txt          │
+                                     │     tokens/op     │ tokens/op   vs base                 │
+CompactThroughputYAML/r4_owned                102.0 ± 0%   102.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_legacy            423.0 ± 0%   423.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_owned             403.0 ± 0%   403.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/r4_legacy               107.0 ± 0%   107.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_ordinary          423.0 ± 0%   423.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/r4_ordinary             107.0 ± 0%   107.0 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                       209.4        209.4       +0.00%
+¹ all samples are equal
+
+                                     │ baseline-yaml.txt │          candidate-yaml.txt           │
+                                     │       B/op        │     B/op      vs base                 │
+CompactThroughputYAML/r4_owned              12.75Ki ± 0%   12.70Ki ± 0%  -0.37% (p=0.000 n=20)
+CompactThroughputYAML/eof8k_legacy          1.234Ki ± 0%   1.234Ki ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_owned           42.27Ki ± 0%   42.22Ki ± 0%  -0.11% (p=0.000 n=20)
+CompactThroughputYAML/r4_legacy             1.406Ki ± 0%   1.406Ki ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_ordinary        17.92Ki ± 0%   17.88Ki ± 0%  -0.26% (p=0.000 n=20)
+CompactThroughputYAML/r4_ordinary           5.375Ki ± 0%   5.328Ki ± 0%  -0.87% (p=0.000 n=20)
+geomean                                     6.696Ki        6.678Ki       -0.27%
+¹ all samples are equal
+
+                                     │ baseline-yaml.txt │         candidate-yaml.txt          │
+                                     │     allocs/op     │ allocs/op   vs base                 │
+CompactThroughputYAML/r4_owned                73.00 ± 0%   73.00 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_legacy            13.00 ± 0%   13.00 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_owned             196.0 ± 0%   196.0 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/r4_legacy               16.00 ± 0%   16.00 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/eof8k_ordinary          70.00 ± 0%   70.00 ± 0%       ~ (p=1.000 n=20) ¹
+CompactThroughputYAML/r4_ordinary             39.00 ± 0%   39.00 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                       44.84        44.84       +0.00%
+¹ all samples are equal

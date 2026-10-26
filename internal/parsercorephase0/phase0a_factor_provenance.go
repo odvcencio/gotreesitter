@@ -378,20 +378,20 @@ func phase0AResolveCandidateLocked(observer *phase0AObserver, edge IncomingEdgeK
 
 func phase0AStableLinkIDs(core *Core, id NodeID) ([]LinkID, bool) {
 	node, err := core.node(id)
-	if err != nil || node.linkCount == 0 || uint64(node.linkCount) > uint64(len(core.links)) {
+	if err != nil || node.linkCount == 0 || uint64(node.linkCount) > uint64(core.links.Len()) {
 		return nil, false
 	}
 	ids := make([]LinkID, node.linkCount)
 	next := LinkID(node.firstLink)
 	for index := len(ids) - 1; index >= 0; index-- {
-		if next == 0 || uint64(next) > uint64(len(core.links)) {
+		if next == 0 || uint64(next) > uint64(core.links.Len()) {
 			return nil, false
 		}
-		if err := core.links[next-1].validateShape(); err != nil {
+		if err := core.links.At(int(next - 1)).validateShape(); err != nil {
 			return nil, false
 		}
 		ids[index] = next
-		next = core.links[next-1].next
+		next = core.links.At(int(next - 1)).next
 	}
 	if next != 0 {
 		return nil, false

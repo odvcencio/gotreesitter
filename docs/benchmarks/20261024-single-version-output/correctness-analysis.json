@@ -1,0 +1,26 @@
+{
+  "v1": {
+    "languages": 206,
+    "invariant_sessions": 412,
+    "edit_steps": 29664,
+    "no_edit_allocations": 0,
+    "standard_C_checks": 1236,
+    "whole_operation_work_rows": 824,
+    "work_changes": 0,
+    "selected_ledger_comparisons": 206,
+    "work_reuse_route_changes": 0,
+    "memory_contract_tests": 20
+  },
+  "v3": {
+    "languages": 206,
+    "invariant_sessions": 412,
+    "edit_steps": 29664,
+    "no_edit_allocations": 0,
+    "standard_C_checks": 1236,
+    "whole_operation_work_rows": 824,
+    "work_changes": 0,
+    "selected_ledger_comparisons": 206,
+    "work_reuse_route_changes": 0,
+    "memory_contract_tests": 20
+  }
+}

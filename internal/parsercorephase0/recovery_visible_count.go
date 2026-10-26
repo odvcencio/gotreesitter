@@ -52,7 +52,7 @@ func (c *Core) SoleDerivationVisibleNodeCount(symbols []SelectedSymbolPolicy, he
 		if exact {
 			var score int64
 			for reverseIndex := len(reverseLinks) - 1; reverseIndex >= 0; reverseIndex-- {
-				link := c.links[reverseLinks[reverseIndex]-1]
+				link := c.links.At(int(reverseLinks[reverseIndex] - 1))
 				score, err = checkedAddScore(score, link.scoreDelta)
 				if err != nil {
 					return 0, false, err
@@ -62,7 +62,7 @@ func (c *Core) SoleDerivationVisibleNodeCount(symbols []SelectedSymbolPolicy, he
 			c.prepareRecoveryVisibleCounts(symbols)
 			var total uint32
 			for reverseIndex := len(reverseLinks) - 1; reverseIndex >= 0; reverseIndex-- {
-				payload := c.links[reverseLinks[reverseIndex]-1].payload
+				payload := c.links.At(int(reverseLinks[reverseIndex] - 1)).payload
 				if payload == 0 {
 					continue
 				}

@@ -27,8 +27,12 @@
 - func *parserCoreRootTables.ProductionAliases(productionID uint16, childCount int) ([]core.Symbol, error)
 - func *parserCoreRootTables.ProductionFields(productionID uint16, childCount int) ([]core.FieldMapEntry, error)
 - func *parserCoreRootTables.ReductionPlan(productionID uint16, childCount int) (core.ReductionPlan, error)
+- func *parserCoreRootTables.ReplayNativeTransition(pre core.StateID, symbol core.Symbol, terminal bool) (core.StateID, bool)
 - func *parserCoreRootTables.SelectedStorePolicy() (core.SelectedStorePolicy, error)
 - func *parserCoreRootTables.TableIdentity() ([32]byte, bool)
+- func *singleVersionAdapter.AfterSingleVersion(head core.Head, kind core.ActionType, shifted bool) (err error)
+- func *singleVersionAdapter.BeforeSingleVersion(kind core.ActionType) error
+- func *singleVersionAdapter.SingleVersionRow(state core.StateID, symbol core.Symbol) (core.ActionRow, bool)
 - func AnalyzeParserCoreCorridorTables(lang *Language) (ParserCoreCorridorTableShape, error)
 - func CompileParserCoreCorridorProgram(lang *Language) (*ParserCoreCorridorProgram, error)
 - func DerivationSetCensusBuilt() bool
@@ -50,8 +54,38 @@
 - func compactEOFRecoveryAdmissionEventKind.String() string
 - func compactEOFRecoveryAdmissionRoute.String() string
 - func compactEOFRecoveryAdmissionState.String() string
+- func nativeViewQueryReader.CaptureName(c QueryCapture) string
+- func nativeViewQueryReader.CaptureNode(c QueryCapture) core.SelectedNodeID
+- func nativeViewQueryReader.CaptureRangeOverride(c QueryCapture) (uint32, uint32, Point, Point, bool)
+- func nativeViewQueryReader.CaptureTextOverride(c QueryCapture) string
+- func nativeViewQueryReader.NewCapture(name string, id core.SelectedNodeID) QueryCapture
+- func nativeViewQueryReader.SetCaptureRangeOverride(c *QueryCapture, start, end uint32, startPoint, endPoint Point)
+- func nativeViewQueryReader.SetCaptureTextOverride(c *QueryCapture, text string)
 - func parserCoreCorridorExitReason.String() string
 - func parserCoreCorridorOpcode.String() string
+- func selectedStoreQueryReader.CaptureName(capture queryValueCapture[core.SelectedNodeID]) string
+- func selectedStoreQueryReader.CaptureNode(capture queryValueCapture[core.SelectedNodeID]) core.SelectedNodeID
+- func selectedStoreQueryReader.CaptureRangeOverride(capture queryValueCapture[core.SelectedNodeID]) (uint32, uint32, Point, Point, bool)
+- func selectedStoreQueryReader.CaptureTextOverride(capture queryValueCapture[core.SelectedNodeID]) string
+- func selectedStoreQueryReader.Child(id core.SelectedNodeID, index int) (core.SelectedNodeID, bool)
+- func selectedStoreQueryReader.ChildCanMatch(q *Query, step *QueryStep, parent core.SelectedNodeID, index int, lang *Language) bool
+- func selectedStoreQueryReader.ChildCount(id core.SelectedNodeID) int
+- func selectedStoreQueryReader.ChildHasField(parent core.SelectedNodeID, index int, field FieldID, _ *Language) bool
+- func selectedStoreQueryReader.ChildNamed(parent core.SelectedNodeID, index int) (bool, bool)
+- func selectedStoreQueryReader.EndByte(id core.SelectedNodeID) uint32
+- func selectedStoreQueryReader.HasChildWithField(parent core.SelectedNodeID, field FieldID, lang *Language) bool
+- func selectedStoreQueryReader.IsMissing(id core.SelectedNodeID) bool
+- func selectedStoreQueryReader.IsNamed(id core.SelectedNodeID) bool
+- func selectedStoreQueryReader.IsNil(id core.SelectedNodeID) bool
+- func selectedStoreQueryReader.NewCapture(name string, id core.SelectedNodeID) queryValueCapture[core.SelectedNodeID]
+- func selectedStoreQueryReader.Parent(id core.SelectedNodeID) (core.SelectedNodeID, bool)
+- func selectedStoreQueryReader.SetCaptureRangeOverride(capture *queryValueCapture[core.SelectedNodeID], startByte, endByte uint32, startPoint, endPoint Point)
+- func selectedStoreQueryReader.SetCaptureTextOverride(capture *queryValueCapture[core.SelectedNodeID], text string)
+- func selectedStoreQueryReader.StartByte(id core.SelectedNodeID) uint32
+- func selectedStoreQueryReader.SupertypeMask(id core.SelectedNodeID) uint32
+- func selectedStoreQueryReader.Symbol(id core.SelectedNodeID) Symbol
+- func selectedStoreQueryReader.Text(id core.SelectedNodeID, source []byte) string
+- func selectedStoreQueryReader.Type(id core.SelectedNodeID, lang *Language) string
 - type DiagnosticParserCoreBoundaryKind string
 - type DiagnosticParserCoreClass1Candidate struct { Detail string }
 - type DiagnosticParserCoreDispatchRound struct { Index int Before []DiagnosticParserCoreHeaderReceipt Actions []DiagnosticParserCoreRoundAction After []DiagnosticParserCoreHeaderReceipt }
@@ -68,7 +102,7 @@
 - type DiagnosticParserCoreHeaderPathReceipt struct { Header DiagnosticParserCoreHeaderReceipt Derivations []DiagnosticParserCorePackedDerivation DerivationsTruncated bool }
 - type DiagnosticParserCoreHeaderReceipt struct { CreationSeq uint64 State StateID ByteOffset uint32 Shifted bool Accepted bool Paused bool ExactPaths uint64 Checkpoint [32]byte }
 - type DiagnosticParserCorePackedDerivation struct { Score int64 BranchOrder uint64 HasBranchOrder bool }
-- type DiagnosticParserCorePrefixOptions struct { compactIncrementalReuse *compactIncrementalReuseSession Recovery bool Retry bool Incremental bool IncludedRanges bool GenericStopAtClosedByte *uint32 ReceiptMode DiagnosticParserCoreReceiptMode captureCertificationPeaks bool DisablePerHeaderSpanUnlockedRelex bool recordDropCohortCertificates bool recordDropCohortFrontiers bool verifyDropCohortFrontiers bool MaxDispatches uint64 MaxTokens uint64 Limits core.Limits freshSchedulerSession bool allowEOFAcceptNoActionSiblings bool allowMetadataEOFAcceptRecovery bool allowPrimaryAcceptDerivation bool allowCompactAcceptanceStructuralElection bool allowConvergedSplitDropArtifact bool captureLexerSkippedPrefixProvenance bool allowCompactStrategy2ErrorRegion bool allowCompactRecoverEOF bool allowCompactStackSummaryRecovery bool allowCompactMissingTokenInsertion bool allowCompactS5EOFMissingInsertion bool allowCompactFaithfulS5Recovery bool allowCompactRecoveryVersionTurns bool allowCompactRecoveryLineageSelection bool allowCompactRecoveryTrailingLineageRetirement bool allowCompactRecoveryErrorModeKeywordCapture bool noLookaheadRootSymbol Symbol hasNoLookaheadRootSymbol bool stopControlParser *Parser stopControlMemoryBudgetBytes int64 stopControlHardCeilingBytes int64 materializationParser *Parser materializationSource []byte materializationForceReplayParseStates bool materializationContextSet bool acceptanceMaterializationScratch *parserCoreRunnerScratch eagerMaterializer *compactMaterializer }
+- type DiagnosticParserCorePrefixOptions struct { compactIncrementalReuse *compactIncrementalReuseSession Recovery bool Retry bool Incremental bool IncludedRanges bool GenericStopAtClosedByte *uint32 ReceiptMode DiagnosticParserCoreReceiptMode captureCertificationPeaks bool DisablePerHeaderSpanUnlockedRelex bool recordDropCohortCertificates bool recordDropCohortFrontiers bool verifyDropCohortFrontiers bool MaxDispatches uint64 MaxTokens uint64 Limits core.Limits freshSchedulerSession bool allowEOFAcceptNoActionSiblings bool allowMetadataEOFAcceptRecovery bool allowPrimaryAcceptDerivation bool allowCompactAcceptanceStructuralElection bool allowConvergedSplitDropArtifact bool captureLexerSkippedPrefixProvenance bool allowCompactStrategy2ErrorRegion bool allowCompactRecoverEOF bool allowCompactStackSummaryRecovery bool allowCompactMissingTokenInsertion bool allowCompactS5EOFMissingInsertion bool allowCompactFaithfulS5Recovery bool allowCompactRecoveryVersionTurns bool allowCompactRecoveryLineageSelection bool allowCompactRecoveryTrailingLineageRetirement bool allowCompactRecoveryErrorModeKeywordCapture bool noLookaheadRootSymbol Symbol hasNoLookaheadRootSymbol bool stopControlParser *Parser stopControlMemoryBudgetBytes int64 stopControlHardCeilingBytes int64 nativeSelectedOutput *nativeSelectedOutputRunner materializationParser *Parser materializationSource []byte materializationForceReplayParseStates bool materializationContextSet bool acceptanceMaterializationScratch *parserCoreRunnerScratch eagerMaterializer *compactMaterializer }
 - type DiagnosticParserCorePrefixResult struct { Boundary DiagnosticParserCoreBoundaryKind Detail string Dispatches uint64 Tokens uint64 State StateID Lookahead Token LastBranchOrder uint64 GenericScheduler *DiagnosticParserCoreGenericScheduler Completed bool Elections []DiagnosticParserCoreElection SourceSHA256 [32]byte GrammarBlobSHA256 [32]byte Grammar string ExactRootDFA bool Materialized bool MaterializedTree *Tree }
 - type DiagnosticParserCoreReceiptMode uint8
 - type DiagnosticParserCoreRoundAction struct { HeaderIndex int State StateID ByteOffset uint32 Ordinal int Action ParseAction BranchOrder uint64 }

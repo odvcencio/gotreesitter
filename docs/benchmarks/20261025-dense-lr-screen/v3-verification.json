@@ -1,0 +1,746 @@
+{
+  "schema": "gts-dense-lr-v3-rejected-screen/v1",
+  "status": "REJECTED; no production promotion",
+  "source_head": "9580313574e273cd0e920cd120c6afe5dc357c8e",
+  "saved_source_files_authenticated": 3813,
+  "saved_source_manifest_sha256": "2779b534360299a4213f4cf873a85e39ba32ad637431147f84ca3ce581c4ae87",
+  "base_v2_archive_sha256": "ff53643816d9fb1d662b8053a26e2107756309c9fd3f4f824f3b243685adaf8e",
+  "original_v2_files_unchanged": {
+    "evidence.tar.gz": "ff53643816d9fb1d662b8053a26e2107756309c9fd3f4f824f3b243685adaf8e",
+    "evidence.sha256": "63655bf866256a1dfab39899edf421390512ea161e1ad8feb15619a37a6e1ee3",
+    "verification.json": "c251082a0e075b158e59b2053e21a0d13bc0ffa27a14fa65455651e9f1690e79",
+    "source-identities.json": "cf22c132143b0898473d7bf15a7cfd8a81161fd640c56ee39294329706f8a759"
+  },
+  "baseline": "same authenticated source without dense runtime overlays; common benchmark wrapper",
+  "candidate": "frozen dense-lr-v3-reentry plus combined qualification or timing controls",
+  "run_results": {
+    "dense-root-qualification-v3": {
+      "exit_code": 0,
+      "tests": {
+        "core.log": {
+          "pass": {
+            "top_level": 9,
+            "including_subtests": 13,
+            "names": [
+              "TestDenseLRAnchorPreservesStickyPerWriteLineage",
+              "TestDenseLRAnchorRefusesActualMultiplePaths",
+              "TestDenseLRAnchorLeavesCrossingReductionUntouched",
+              "TestDenseLRAnchorScratchClearsAndRebindsOwner",
+              "TestDenseLRPrototypePayloadsAndPromotionMatchPersistentGraph",
+              "TestDenseLRPrototypeRestoresPoppedCurrentElectionBoundaries",
+              "TestDenseLRPrototypePreservesScannerAndLexerPayloadReceipts",
+              "TestDenseLRPrototypePreservesScannerAndLexerPayloadReceipts/dfa-prefix",
+              "TestDenseLRPrototypePreservesScannerAndLexerPayloadReceipts/external-pair",
+              "TestDenseLRPrototypeBudgetFailurePoisonsFreshSession",
+              "TestDenseLRPrototypeMetadataCallbackCannotReenter",
+              "TestDenseLRPrototypeMetadataCallbackCannotReenter/plan",
+              "TestDenseLRPrototypeMetadataCallbackCannotReenter/goto"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "entry-off.log": {
+          "pass": {
+            "top_level": 1,
+            "including_subtests": 11,
+            "names": [
+              "TestGoEntryWorkProbe",
+              "TestGoEntryWorkProbe/primary-generated",
+              "TestGoEntryWorkProbe/primary-generated/ordinary-Parse/candidate=false",
+              "TestGoEntryWorkProbe/primary-generated/ordinary-Parse/candidate=true",
+              "TestGoEntryWorkProbe/primary-generated/registered-factory-entry/candidate=false",
+              "TestGoEntryWorkProbe/primary-generated/registered-factory-entry/candidate=true",
+              "TestGoEntryWorkProbe/real-r4",
+              "TestGoEntryWorkProbe/real-r4/ordinary-Parse/candidate=false",
+              "TestGoEntryWorkProbe/real-r4/ordinary-Parse/candidate=true",
+              "TestGoEntryWorkProbe/real-r4/registered-factory-entry/candidate=false",
+              "TestGoEntryWorkProbe/real-r4/registered-factory-entry/candidate=true"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "entry-on.log": {
+          "pass": {
+            "top_level": 1,
+            "including_subtests": 11,
+            "names": [
+              "TestGoEntryWorkProbe",
+              "TestGoEntryWorkProbe/primary-generated",
+              "TestGoEntryWorkProbe/primary-generated/ordinary-Parse/candidate=false",
+              "TestGoEntryWorkProbe/primary-generated/ordinary-Parse/candidate=true",
+              "TestGoEntryWorkProbe/primary-generated/registered-factory-entry/candidate=false",
+              "TestGoEntryWorkProbe/primary-generated/registered-factory-entry/candidate=true",
+              "TestGoEntryWorkProbe/real-r4",
+              "TestGoEntryWorkProbe/real-r4/ordinary-Parse/candidate=false",
+              "TestGoEntryWorkProbe/real-r4/ordinary-Parse/candidate=true",
+              "TestGoEntryWorkProbe/real-r4/registered-factory-entry/candidate=false",
+              "TestGoEntryWorkProbe/real-r4/registered-factory-entry/candidate=true"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "go-cgo.log": {
+          "pass": {
+            "top_level": 10,
+            "including_subtests": 47,
+            "names": [
+              "TestDensePrivateGoSourcesLockedC",
+              "TestDensePrivateGoSourcesLockedC/primary",
+              "TestDensePrivateGoSourcesLockedC/primary/candidate=false",
+              "TestDensePrivateGoSourcesLockedC/primary/candidate=true",
+              "TestDensePrivateGoSourcesLockedC/real-r4",
+              "TestDensePrivateGoSourcesLockedC/real-r4/candidate=false",
+              "TestDensePrivateGoSourcesLockedC/real-r4/candidate=true",
+              "TestGoCompactIncrementalExecutionParity",
+              "TestGoCompactIncrementalExecutionParity/growth",
+              "TestGoCompactIncrementalExecutionParity/comment",
+              "TestGoCompactIncrementalExecutionParity/same_width_kind_change",
+              "TestGoCompactNestedReuseLockedC",
+              "TestGoCompactNestedReuseBoundaryLockedC",
+              "TestGoCompactNestedReuseBoundaryLockedC/right_boundary",
+              "TestGoCompactNestedReuseBoundaryLockedC/leading_identifier_width",
+              "TestGoCompactNestedReuseBoundaryLockedC/inside_parameters",
+              "TestGoCompactNestedReuseBoundaryLockedC/parameter_separator",
+              "TestGoCompactNestedReuseChangedLookaheadLockedC",
+              "TestGoGroupedBindingSeparatorsLockedC",
+              "TestGoGroupedBindingSeparatorsLockedC/original",
+              "TestGoGroupedBindingSeparatorsLockedC/original/candidate=false",
+              "TestGoGroupedBindingSeparatorsLockedC/original/candidate=true",
+              "TestGoGroupedBindingSeparatorsLockedC/explicit_separators",
+              "TestGoGroupedBindingSeparatorsLockedC/explicit_separators/candidate=false",
+              "TestGoGroupedBindingSeparatorsLockedC/explicit_separators/candidate=true",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/production",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/production/plain",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/production/profiled",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/candidate",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/candidate/plain",
+              "TestGoGroupedConstSeparatorEditsMatchLockedC/candidate/profiled",
+              "TestGoHiddenMissingSemicolonEditsMatchLockedC",
+              "TestGoHiddenMissingSemicolonEditsMatchLockedC/production",
+              "TestGoHiddenMissingSemicolonEditsMatchLockedC/candidate",
+              "TestGoIssue490FragmentBoundaryLockedC",
+              "TestGoIssue490FragmentBoundaryLockedC/original_joined",
+              "TestGoIssue490FragmentBoundaryLockedC/original_joined/production",
+              "TestGoIssue490FragmentBoundaryLockedC/original_joined/candidate",
+              "TestGoIssue490FragmentBoundaryLockedC/newline_separated",
+              "TestGoIssue490FragmentBoundaryLockedC/newline_separated/production",
+              "TestGoIssue490FragmentBoundaryLockedC/newline_separated/candidate",
+              "TestStage6GoCompactCertification",
+              "TestStage6GoCompactCertification/smoke",
+              "TestStage6GoCompactCertification/method_and_composite",
+              "TestStage6GoCompactCertification/type_switch",
+              "TestStage6GoCompactCertification/recovery"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "invariants-go-0.log": {
+          "pass": {
+            "top_level": 1,
+            "including_subtests": 1,
+            "names": [
+              "TestV1InvariantGateR4EditSession"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "invariants-go-1.log": {
+          "pass": {
+            "top_level": 1,
+            "including_subtests": 1,
+            "names": [
+              "TestV1InvariantGateR4EditSession"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "lifetime.log": {
+          "pass": {
+            "top_level": 2,
+            "including_subtests": 2,
+            "names": [
+              "TestDenseLRPrivateWarmScratchLifetime",
+              "TestDenseLRPrivateCancellationReleasesScratch"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        },
+        "memory.log": {
+          "pass": {
+            "top_level": 15,
+            "including_subtests": 18,
+            "names": [
+              "TestParseMemoryBudgetScalesWithSourceSize",
+              "TestParseMemoryBudgetEnvironmentValuesStayFixed",
+              "TestRuntimeMemoryBudgetSoftBudgetNeverStopsParse",
+              "TestRuntimeMemoryHardCeilingStillStopsParse",
+              "TestRuntimeMemoryPollMaskKeepsTightBudgetsResponsive",
+              "TestRuntimeMemoryPollMaskKeepsTightBudgetsResponsive/tight",
+              "TestRuntimeMemoryPollMaskKeepsTightBudgetsResponsive/tight-boundary",
+              "TestRuntimeMemoryPollMaskKeepsTightBudgetsResponsive/default-sized",
+              "TestRuntimeMemoryBudgetIgnoresSysGrowth",
+              "TestRuntimeMemoryBudgetDisabledForSmallSource",
+              "TestRuntimeMemoryBudgetEnabledForLargeSource",
+              "TestRuntimeMemoryVolumeTriggerBypassesPollMask",
+              "TestParseMemoryHardCeilingStopsIndependentlyOfSoftBudget",
+              "TestParseMemoryHardCeilingDefaultClearsPopplerMargin",
+              "TestParseMemoryHardCeilingEnvOverride",
+              "TestCompactAcceptanceReferenceAndRetainedArenasStayInMemoryBudget",
+              "TestCompactAcceptanceComparisonWorkspaceMemoryBudget",
+              "TestCompactAcceptanceComparisonWorkspaceRetentionBound"
+            ]
+          },
+          "fail": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          },
+          "skip": {
+            "top_level": 0,
+            "including_subtests": 0,
+            "names": []
+          }
+        }
+      }
+    },
+    "dense-perf-v3": {
+      "exit_code": 0,
+      "tests": {}
+    },
+    "dense-alloc-v3": {
+      "exit_code": 0,
+      "tests": {}
+    }
+  },
+  "differential": {
+    "matched_pairs": 8,
+    "public_deep_digests_equal": true,
+    "scheduler_other_core_and_payload_scanner_dependency_receipts_equal": true,
+    "link_changes": [
+      {
+        "fixture": "primary-generated",
+        "entry": "ordinary-Parse",
+        "before": 15505,
+        "after": 2
+      },
+      {
+        "fixture": "primary-generated",
+        "entry": "registered-factory-entry",
+        "before": 15505,
+        "after": 2
+      },
+      {
+        "fixture": "real-r4",
+        "entry": "ordinary-Parse",
+        "before": 1381,
+        "after": 752
+      },
+      {
+        "fixture": "real-r4",
+        "entry": "registered-factory-entry",
+        "before": 1381,
+        "after": 752
+      }
+    ],
+    "observer_source_identity_now_matches_external_entry_rows": true,
+    "ordinary_candidate_observations": [
+      {
+        "fixture": "primary-generated",
+        "Dense": {
+          "Entries": 1,
+          "Reentries": 0,
+          "AnchorProofAttempts": 0,
+          "AnchorProofRejected": 0,
+          "FirstReentryElection": 0,
+          "FirstReentryByte": 0,
+          "LastAnchorPaths": 0,
+          "SourceBytes": 19294,
+          "SourceSHA256": "2e0f9d4676549c8560cebc3c53877932f921ab9d77c88518227f3018573af4b7",
+          "Started": true,
+          "Shifts": 7003,
+          "Reductions": 8502,
+          "Extras": 0,
+          "Promotions": 1,
+          "PromotionReason": "unsupported opcode/token",
+          "PromotionElection": 7003,
+          "PromotionToken": 0,
+          "PromotionTokenStart": 19294,
+          "PromotionTokenEnd": 19294,
+          "PromotionStackByte": 19294,
+          "PromotionState": 2,
+          "PeakDenseBytes": 3608
+        }
+      },
+      {
+        "fixture": "real-r4",
+        "Dense": {
+          "Entries": 45,
+          "Reentries": 44,
+          "AnchorProofAttempts": 56,
+          "AnchorProofRejected": 12,
+          "FirstReentryElection": 42,
+          "FirstReentryByte": 311,
+          "LastAnchorPaths": 1,
+          "SourceBytes": 2047,
+          "SourceSHA256": "b37389f6dbac4e417f19db04909783b0264dfec4e3c93774f0557c3e91b8f6c5",
+          "Started": true,
+          "Shifts": 429,
+          "Reductions": 338,
+          "Extras": 5,
+          "Promotions": 45,
+          "PromotionReason": "core refused action: reduction reaches opaque graph anchor",
+          "PromotionElection": 585,
+          "PromotionToken": 94,
+          "PromotionTokenStart": 2044,
+          "PromotionTokenEnd": 2045,
+          "PromotionStackByte": 2044,
+          "PromotionState": 1259,
+          "PeakDenseBytes": 4408
+        }
+      }
+    ]
+  },
+  "timing": {
+    "paired_comparisons": 40,
+    "benchmark_processes": 80,
+    "controls": {
+      "primary": {
+        "paired_seeds": 20,
+        "matched_child_order": true
+      },
+      "r4": {
+        "paired_seeds": 20,
+        "matched_child_order": true
+      }
+    },
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "benchtime": "750ms",
+    "count": 1,
+    "benchmem": true,
+    "build_tags_both_variants": "gts_parsercorephase0",
+    "observer_installed": false,
+    "primary_full": {
+      "before_ms": 9.293,
+      "after_ms": 9.025,
+      "p": 0.659,
+      "conclusion": "inconclusive",
+      "allocs_before": 22,
+      "allocs_after": 22
+    },
+    "primary_edit": {
+      "before_us": 89.52,
+      "after_us": 87.01,
+      "p": 0.157,
+      "conclusion": "inconclusive",
+      "allocs_before": 5,
+      "allocs_after": 5
+    },
+    "primary_noedit": {
+      "before_ns": 4.058,
+      "after_ns": 3.854,
+      "p": 0.021,
+      "time_change_pct": -5.05,
+      "allocs": 0,
+      "mechanism": "no core-execution mechanism claim; no-edit bypasses parse"
+    },
+    "r4_compact": {
+      "before_ms": 1.02,
+      "after_ms": 1.126,
+      "time_change_pct": 10.4,
+      "p": "0.000 reported; below0.001",
+      "allocs_before": 14,
+      "allocs_after": 37,
+      "allocs_change_pct": 164.29,
+      "bytes_change_pct": 132.37,
+      "conclusion": "regression; rejected"
+    },
+    "paired_r4_compact_legacy_ratios": {
+      "before": {
+        "pairs": 20,
+        "median_paired_compact_legacy_ratio": 1.1821749042776115,
+        "ratio_of_medians": 1.1720775489565138,
+        "per_seed": [
+          {
+            "seed": 1,
+            "compact_ns": 1037570.0,
+            "legacy_ns": 881780.0,
+            "ratio": 1.1766767220848737
+          },
+          {
+            "seed": 2,
+            "compact_ns": 1033585.0,
+            "legacy_ns": 883593.0,
+            "ratio": 1.1697523633618645
+          },
+          {
+            "seed": 3,
+            "compact_ns": 1006997.0,
+            "legacy_ns": 874685.0,
+            "ratio": 1.1512681708272121
+          },
+          {
+            "seed": 4,
+            "compact_ns": 1109677.0,
+            "legacy_ns": 936773.0,
+            "ratio": 1.1845740643677818
+          },
+          {
+            "seed": 5,
+            "compact_ns": 1130052.0,
+            "legacy_ns": 1077566.0,
+            "ratio": 1.0487079213709416
+          },
+          {
+            "seed": 6,
+            "compact_ns": 1084514.0,
+            "legacy_ns": 886179.0,
+            "ratio": 1.2238091852774666
+          },
+          {
+            "seed": 7,
+            "compact_ns": 1121051.0,
+            "legacy_ns": 893168.0,
+            "ratio": 1.2551401304121956
+          },
+          {
+            "seed": 8,
+            "compact_ns": 986995.0,
+            "legacy_ns": 875067.0,
+            "ratio": 1.1279079201935394
+          },
+          {
+            "seed": 9,
+            "compact_ns": 1016324.0,
+            "legacy_ns": 821727.0,
+            "ratio": 1.236814659856619
+          },
+          {
+            "seed": 10,
+            "compact_ns": 976839.0,
+            "legacy_ns": 791280.0,
+            "ratio": 1.2345048528965727
+          },
+          {
+            "seed": 11,
+            "compact_ns": 972440.0,
+            "legacy_ns": 799441.0,
+            "ratio": 1.2163999594716808
+          },
+          {
+            "seed": 12,
+            "compact_ns": 1038327.0,
+            "legacy_ns": 858095.0,
+            "ratio": 1.2100373501768453
+          },
+          {
+            "seed": 13,
+            "compact_ns": 999467.0,
+            "legacy_ns": 865635.0,
+            "ratio": 1.1546055785637133
+          },
+          {
+            "seed": 14,
+            "compact_ns": 1043744.0,
+            "legacy_ns": 912009.0,
+            "ratio": 1.1444448464872605
+          },
+          {
+            "seed": 15,
+            "compact_ns": 1019117.0,
+            "legacy_ns": 847099.0,
+            "ratio": 1.2030671739666792
+          },
+          {
+            "seed": 16,
+            "compact_ns": 944217.0,
+            "legacy_ns": 800336.0,
+            "ratio": 1.1797757441874412
+          },
+          {
+            "seed": 17,
+            "compact_ns": 1006947.0,
+            "legacy_ns": 858972.0,
+            "ratio": 1.172269876084436
+          },
+          {
+            "seed": 18,
+            "compact_ns": 1103862.0,
+            "legacy_ns": 878376.0,
+            "ratio": 1.2567078335473647
+          },
+          {
+            "seed": 19,
+            "compact_ns": 1020673.0,
+            "legacy_ns": 857300.0,
+            "ratio": 1.190566896069054
+          },
+          {
+            "seed": 20,
+            "compact_ns": 910499.0,
+            "legacy_ns": 824534.0,
+            "ratio": 1.1042588904763175
+          }
+        ]
+      },
+      "after": {
+        "pairs": 20,
+        "median_paired_compact_legacy_ratio": 1.2932265544729278,
+        "ratio_of_medians": 1.3036322735487635,
+        "per_seed": [
+          {
+            "seed": 1,
+            "compact_ns": 1176606.0,
+            "legacy_ns": 904136.0,
+            "ratio": 1.3013595299822152
+          },
+          {
+            "seed": 2,
+            "compact_ns": 1147330.0,
+            "legacy_ns": 900389.0,
+            "ratio": 1.274260347472037
+          },
+          {
+            "seed": 3,
+            "compact_ns": 1123471.0,
+            "legacy_ns": 873150.0,
+            "ratio": 1.286687281681269
+          },
+          {
+            "seed": 4,
+            "compact_ns": 1211209.0,
+            "legacy_ns": 917946.0,
+            "ratio": 1.3194773984526322
+          },
+          {
+            "seed": 5,
+            "compact_ns": 1171515.0,
+            "legacy_ns": 925964.0,
+            "ratio": 1.2651841756266982
+          },
+          {
+            "seed": 6,
+            "compact_ns": 1159715.0,
+            "legacy_ns": 933234.0,
+            "ratio": 1.242684042801698
+          },
+          {
+            "seed": 7,
+            "compact_ns": 1128499.0,
+            "legacy_ns": 874751.0,
+            "ratio": 1.2900802628405112
+          },
+          {
+            "seed": 8,
+            "compact_ns": 1094912.0,
+            "legacy_ns": 841417.0,
+            "ratio": 1.3012715455000314
+          },
+          {
+            "seed": 9,
+            "compact_ns": 1013342.0,
+            "legacy_ns": 795512.0,
+            "ratio": 1.2738236506803167
+          },
+          {
+            "seed": 10,
+            "compact_ns": 1054714.0,
+            "legacy_ns": 763911.0,
+            "ratio": 1.38067654478074
+          },
+          {
+            "seed": 11,
+            "compact_ns": 1067463.0,
+            "legacy_ns": 869509.0,
+            "ratio": 1.2276618183365555
+          },
+          {
+            "seed": 12,
+            "compact_ns": 1225398.0,
+            "legacy_ns": 875175.0,
+            "ratio": 1.4001748221784214
+          },
+          {
+            "seed": 13,
+            "compact_ns": 1170556.0,
+            "legacy_ns": 818871.0,
+            "ratio": 1.4294754607258042
+          },
+          {
+            "seed": 14,
+            "compact_ns": 1251551.0,
+            "legacy_ns": 887884.0,
+            "ratio": 1.4095884147028215
+          },
+          {
+            "seed": 15,
+            "compact_ns": 1102031.0,
+            "legacy_ns": 850088.0,
+            "ratio": 1.2963728461053443
+          },
+          {
+            "seed": 16,
+            "compact_ns": 1036058.0,
+            "legacy_ns": 841182.0,
+            "ratio": 1.231669246369989
+          },
+          {
+            "seed": 17,
+            "compact_ns": 1075436.0,
+            "legacy_ns": 818372.0,
+            "ratio": 1.3141163187401328
+          },
+          {
+            "seed": 18,
+            "compact_ns": 1065209.0,
+            "legacy_ns": 832373.0,
+            "ratio": 1.2797255557304237
+          },
+          {
+            "seed": 19,
+            "compact_ns": 1194448.0,
+            "legacy_ns": 846208.0,
+            "ratio": 1.4115300257147179
+          },
+          {
+            "seed": 20,
+            "compact_ns": 1084570.0,
+            "legacy_ns": 857949.0,
+            "ratio": 1.2641427404193024
+          }
+        ]
+      }
+    },
+    "EA_qualification": false
+  },
+  "memory_scope": "15 direct selected memory/cancellation/deadline tests and two lifetime tests; full canonical memory-pin suite not qualified",
+  "warm_allocation_unit_scope": "generated primary only22=22; does not cover R4",
+  "allocation_profile": "terminal0; profiler-perturbed fixed-order allocation attribution only; includes initialization and benchmark setup; no timing comparison claim",
+  "allocation_cause": {
+    "function": "tryDenseLRPrivate",
+    "source_line": 357,
+    "pprof_flat_location_ids": [
+      156,
+      448
+    ],
+    "flat_alloc_objects": 51451,
+    "flat_alloc_space_bytes": 3292864,
+    "randomized_R4_delta_allocations_per_parse": 23,
+    "randomized_R4_delta_bytes_per_parse": 1472,
+    "exact_multiplicity": 2237,
+    "objects_match": true,
+    "bytes_match": true,
+    "profile_measured_benchmark_iterations": 2133,
+    "profile_scope": "includes setup/calibration/warm calls;2237 is not the timed-iteration count",
+    "cause": "diagnostic reason concatenation at refusal is unconditional even with no observer",
+    "candidate_status": "measured V3 remains rejected; no corrected variant measured in this receipt"
+  },
+  "toolchain": "go1.26.6 linux/amd64",
+  "isolation": {
+    "network": "none",
+    "cpus": 1,
+    "pinned_cpu": 6,
+    "memory": "4g",
+    "GOMAXPROCS": 1,
+    "GOMEMLIMIT": "3GiB",
+    "shared_lock": true,
+    "image": "golang@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36"
+  },
+  "not_claimed": [
+    "runtime promotion",
+    "default change",
+    "graduation",
+    "E-A/E-G/M1 qualification",
+    "full canonical memory-pin qualification",
+    "fleet",
+    "MaxRSS",
+    "YAML",
+    "other platforms",
+    "merge authorization"
+  ],
+  "binaries_caches_credentials_private_CSV_Enforce_payloads_included": false
+}

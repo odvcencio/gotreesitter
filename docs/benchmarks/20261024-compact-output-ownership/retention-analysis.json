@@ -1,0 +1,48 @@
+{
+  "go": {
+    "pairs": 20,
+    "median": {
+      "baseline": {
+        "delta": 152211712.0,
+        "rss": 341712.0,
+        "Backing": 46137344.0,
+        "Nodes": 593457.0,
+        "SourceBytes": 1048591.0,
+        "release_delta": -16.0
+      },
+      "candidate": {
+        "delta": 46137520.0,
+        "rss": 335198.0,
+        "Backing": 46137344.0,
+        "Nodes": 593457.0,
+        "SourceBytes": 1048591.0,
+        "release_delta": -16.0
+      }
+    },
+    "retained_percent_change": -69.6885874327463,
+    "rss_percent_change": -1.9062836540712613
+  },
+  "yaml": {
+    "pairs": 20,
+    "median": {
+      "baseline": {
+        "delta": 27673720.0,
+        "rss": 96964.0,
+        "Backing": 5767168.0,
+        "Nodes": 121045.0,
+        "SourceBytes": 1049572.0,
+        "release_delta": 16.0
+      },
+      "candidate": {
+        "delta": 5767392.0,
+        "rss": 96916.0,
+        "Backing": 5767168.0,
+        "Nodes": 121045.0,
+        "SourceBytes": 1049572.0,
+        "release_delta": 16.0
+      }
+    },
+    "retained_percent_change": -79.1593179377402,
+    "rss_percent_change": -0.049502908295862014
+  }
+}

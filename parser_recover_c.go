@@ -924,6 +924,21 @@ func parseActionsCRecoveryFailure(lang *Language) string {
 	return ""
 }
 
+// recoveryMissingVersionTurnsCertified adapts parser modes to the grammar's
+// existing artifact certification. Included-range exclusions are containment
+// policy; they neither certify the legacy range result nor close E-D2.
+func (p *Parser) recoveryMissingVersionTurnsCertified() bool {
+	if p == nil || p.language == nil {
+		return false
+	}
+	certified := p.language.RecoveryMissingVersionTurnsCertified
+	if !certified || len(p.included) == 0 {
+		return certified
+	}
+	identity, known := p.language.GrammarBlobSHA256()
+	return recoveryturn.MissingVersionTurnsForIncludedRanges(certified, identity, known, p.language.ExternalScanner)
+}
+
 func (p *Parser) errorCostCompetitionEnabled() bool {
 	return p != nil && p.errorCostCompetition && !p.noTreeBenchmarkOnly && !p.noTreeCheckpointBenchmarkOnly
 }
@@ -3031,7 +3046,7 @@ func (p *Parser) cBetterVersionExists(stacks []glrStack, self int, isInError boo
 		// that recovery election before its next physical dispatch.
 		if recoveryElection && group != nil && group.eagerMissingShiftEnd > 0 && pos == group.eagerMissingShiftEnd &&
 			stacks[i].cRecoverMissingGroup == group && stacks[i].byteOffset == pos &&
-			stacks[i].cRecoveryDispatchPending.DefersRecoveryCompetition(p.language != nil && p.language.RecoveryMissingVersionTurnsCertified, p.compactPackedGSSVersionOrderEnabled()) {
+			stacks[i].cRecoveryDispatchPending.DefersRecoveryCompetition(p.recoveryMissingVersionTurnsCertified(), p.compactPackedGSSVersionOrderEnabled()) {
 			continue
 		}
 		// Outside that deferred first shift, missing-token versions remain
@@ -3968,7 +3983,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		return cRecHalted, false, reason
 	}
 	group := &cRecGroup{}
-	if p.language != nil && (p.language.RecoveryMissingVersionTurnsCertified || p.closedRecoveryHistoriesCertified()) && tok.EndByte > tok.StartByte {
+	if p.language != nil && (p.recoveryMissingVersionTurnsCertified() || p.closedRecoveryHistoriesCertified()) && tok.EndByte > tok.StartByte {
 		group.eagerMissingShiftEnd = tok.EndByte
 	}
 
@@ -4193,7 +4208,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		missingVersions[vi].cRecoverMissingGroup = group
 		missingVersions[vi].cPreviousByteOffset = missingVersions[vi].byteOffset
 		missingVersions[vi].cPreviousByteOffsetValid = true
-		if recoveryturn.Missing.DefersRecoveryCompetition(p.language.RecoveryMissingVersionTurnsCertified, p.compactPackedGSSVersionOrderEnabled()) && group.eagerMissingShiftEnd > 0 {
+		if recoveryturn.Missing.DefersRecoveryCompetition(p.recoveryMissingVersionTurnsCertified(), p.compactPackedGSSVersionOrderEnabled()) && group.eagerMissingShiftEnd > 0 {
 			missingVersions[vi].cRecoveryDispatchPending = recoveryturn.Missing
 		}
 		*stacks = append(*stacks, missingVersions[vi])

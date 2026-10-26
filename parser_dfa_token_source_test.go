@@ -2409,3 +2409,56 @@ func TestDepthOnlySuffixBounds(t *testing.T) {
 		}
 	}
 }
+
+// A generated NUL sentinel must not discard a consuming newline hidden by the
+// public tree. Its empty token remains available at EOF and closing delimiters.
+func TestNextDFATokenPreservesHiddenNewlineBeforeNULSentinel(t *testing.T) {
+	for _, tc := range []struct {
+		name, source string
+		want         Symbol
+		end          uint32
+	}{
+		{"newline", "\n", 2, 1},
+		{"before_close", "}", 1, 0},
+		{"at_eof", "", 1, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := &Language{
+				GeneratedByGrammargen: true, TokenCount: 3,
+				SymbolNames:     []string{"end", "\x00", "newline"},
+				SymbolMetadata:  []SymbolMetadata{{Name: "end"}, {Name: "\x00", Visible: true}, {Name: "newline"}},
+				ZeroWidthTokens: []bool{false, true, false},
+				LexStates: []LexState{
+					{AcceptToken: 1, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '\n', Hi: '\n', NextState: 1}}},
+					{AcceptToken: 2, Default: -1, EOF: -1},
+				},
+				LexModes:     []LexMode{{LexState: 0}, {LexState: 0}},
+				ParseActions: []ParseActionEntry{{}, {Actions: []ParseAction{{Type: ParseActionShift}}}},
+			}
+			lexer := NewLexer(lang.LexStates, []byte(tc.source))
+			lexer.zeroWidthTokens = lang.ZeroWidthTokens
+			d := &dfaTokenSource{lexer: lexer, language: lang, state: 1, hasZeroWidthTokens: true, hasZeroWidthStartAccept: true, hasZeroWidthSentinelSymbol: true, zeroWidthSentinelSymbol: 1,
+				lookupActionIndex: func(_ StateID, sym Symbol) uint16 {
+					if sym == 1 || sym == 2 {
+						return 1
+					}
+					return 0
+				},
+			}
+			tok := d.nextDFAToken()
+			if tok.Symbol != tc.want || tok.StartByte != 0 || tok.EndByte != tc.end {
+				t.Fatalf("token=%+v want symbol=%d span=0..%d", tok, tc.want, tc.end)
+			}
+			if tc.end > 0 {
+				if !tok.lexerInternalDFALexed() {
+					t.Fatal("consuming newline lost DFA provenance")
+				}
+				if tokenLookaheadEndByte(tok) < tc.end+1 {
+					t.Fatalf("newline lost lookahead frontier: %+v", tok)
+				}
+			} else if tc.source == "" && tok.lexerInternalDFALexed() {
+				t.Fatal("synthetic EOF sentinel has DFA provenance")
+			}
+		})
+	}
+}

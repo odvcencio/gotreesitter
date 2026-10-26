@@ -1974,6 +1974,11 @@ func (d *dfaTokenSource) preferZeroWidthStartAcceptForState(state StateID, lexSt
 	if !d.hasActionForStateSymbol(state, startAccept) {
 		return Token{}, false
 	}
+	// NUL sentinels use the boundary-aware rule below. A real hidden token,
+	// including a statement's terminating newline, owns its consumed bytes.
+	if d.hasZeroWidthSentinelSymbol && startAccept == d.zeroWidthSentinelSymbol {
+		return Token{}, false
+	}
 	if tok.Symbol != 0 && d.symbolVisibleOrNamed(tok.Symbol) && !d.sameSymbolName(startAccept, tok.Symbol) {
 		return Token{}, false
 	}

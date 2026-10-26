@@ -1,0 +1,887 @@
+{
+  "source_head": "9580313574e273cd0e920cd120c6afe5dc357c8e",
+  "runtime_provenance": {
+    "runtime_version": "0.27.1",
+    "runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
+    "archive_sha256": "71bbc0a7a98013b519b104e281e6ad98524a438c8c822a095e6f27de05d15562",
+    "archive_bytes": 1025988,
+    "public_source_url": "https://codeload.github.com/tree-sitter/tree-sitter/tar.gz/10eb5ac119eec9cb4267a8e035066473983f5f3a",
+    "ABI": 15,
+    "minimum_ABI": 13
+  },
+  "known_upstream_git_blobs": {
+    "Cargo.toml": "fe40983f88679d21828f26dc4a1cfc80eb287f20",
+    "lib/include/tree_sitter/api.h": "334b25f3b5e5e7f50e01744127020a4688394f73",
+    "LICENSE": "971b81f9a86c0c91827e225aeac9159a13bfd3c1"
+  },
+  "archived_files": {
+    "commands/commands-oracle0271-go-qualification-v1.json": {
+      "bytes": 3976,
+      "sha256": "b5a1e0ba40eda243ad6d5e75f0878ba64e8b86b0f1130191934405e6f7bd87fd"
+    },
+    "commands/commands-oracle0271-preflight-958-v2.json": {
+      "bytes": 2654,
+      "sha256": "9bd191793c1a33939d8d63c8b1f4194c9507dd510626a98fc196de5d62009561"
+    },
+    "commands/commands-oracle0271-preflight-958-v3.json": {
+      "bytes": 2654,
+      "sha256": "07580225d6b3d4f8591caec8919ca08883c0c6af1eee1c22e3f1a3ef3d6a7527"
+    },
+    "commands/commands-oracle0271-preflight-958.json": {
+      "bytes": 2231,
+      "sha256": "f08aa92b925501284ac461a46e49949054abbbfeb73c4a58c1b5163ec551107f"
+    },
+    "commands/worker-oracle0271-go-qualification-v1.py": {
+      "bytes": 1298,
+      "sha256": "de36d93daf26b70704113c0215c968558a988a6bd9b78df874def50040faf381"
+    },
+    "commands/worker-oracle0271-preflight-958-v2.py": {
+      "bytes": 1295,
+      "sha256": "5797ecb773e53efafc09d58bbd28bfd65529a4e507d233248e184747ec15d21b"
+    },
+    "commands/worker-oracle0271-preflight-958-v3.py": {
+      "bytes": 1295,
+      "sha256": "6a5863b31a100023fc65a1965709df66e8bc34d1b2268b2beeda1d6bd58eb610"
+    },
+    "commands/worker-oracle0271-preflight-958.py": {
+      "bytes": 1292,
+      "sha256": "92b751ec224e0fbc7e6fea2085f1e3ebbcf6d952a72ad97b9d6ef3cc6c67eee3"
+    },
+    "controls/oracle0271-module-bind-v2/checksums.container.sha256": {
+      "bytes": 444,
+      "sha256": "a863da67871775d8b48dcebe1a8bc11d4f933a6a3a90a6bd9ea7caa366f3c6a1"
+    },
+    "controls/oracle0271-module-bind-v2/go.mod": {
+      "bytes": 415,
+      "sha256": "11c50aaebeaf4024b36d54b3a218fc9c110f816719399295590293cadbdd884f"
+    },
+    "controls/oracle0271-module-bind-v2/go.sum": {
+      "bytes": 3701,
+      "sha256": "4939d7f5c5c71bf9ecf07e69b3806f3b300372c895f8c106f9152d23dbf7731c"
+    },
+    "controls/oracle0271-module-bind-v2/overlay.json": {
+      "bytes": 1392,
+      "sha256": "d05e9255bf910943dd8dda98134ad8aa95826fc2bbbc5d4ded069efd82602508"
+    },
+    "controls/oracle0271-module-bind-v2/provenance.json": {
+      "bytes": 610,
+      "sha256": "5e8737b18a381ca26b3e5d67148922fbae1ebc6e5caeefbf37b6345866d91afd"
+    },
+    "controls/oracle0271-module-bind-v2/trial.sh": {
+      "bytes": 4363,
+      "sha256": "bfec6f458e7ca5281938a7396fee8e4d551744af8e5cc6220db01559ceb5735a"
+    },
+    "controls/oracle0271-module-bind-v3/README.md": {
+      "bytes": 2581,
+      "sha256": "c161423cb090cc5ba4877968d32998691bae22382e99d61d983904361f7c4ee5"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/allocator.go": {
+      "bytes": 2719,
+      "sha256": "c2e5cc6cd97834a3d53dfe5c325f0c2f50e47a388e954d80f2c6e2d51528b4e3"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/allocator.h": {
+      "bytes": 171,
+      "sha256": "60704e7f200a76ba8c5e4f57715a5f48ce563ce731c615b1794d615545030d90"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/edit.go": {
+      "bytes": 778,
+      "sha256": "493a9b3d2ac7d9e2ed1072db43df20cd6d8fc3e64c02007809fc27d40b9f6a79"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/language.go": {
+      "bytes": 5658,
+      "sha256": "1772de0a3fc88155e2925d2e617a29f5bff33b9b595af2094347fa307f953387"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/lookahead_iterator.go": {
+      "bytes": 2036,
+      "sha256": "4f2ceec2eca8b5d2fb0ae7c4fa6c5519a0ff0d4afd3fee7ea4ae9b4426716116"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/node.go": {
+      "bytes": 11952,
+      "sha256": "9f7bc25d1f012c3a74f6548aff9aca0d314848f48503dc4170101261b56fad79"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/oracle0271_private.go": {
+      "bytes": 561,
+      "sha256": "dd3f65fd6162ed7cd08dcadf10ab71515d55880ceccd3d19505606d9c894c5ef"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/parser.go": {
+      "bytes": 26921,
+      "sha256": "4f8c5228a2d80d410af279e8a7030dc89ce8b4ba11c517346c74ee045ed36be1"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/point.go": {
+      "bytes": 752,
+      "sha256": "2f90cbd7d709a0e1064117bf2dd63c9d5f52d6bc13fd02207f5e9b3f5be2ba1a"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/query.go": {
+      "bytes": 34000,
+      "sha256": "c007abd16cd96919a88c924428277950b81217f8878b4d54c0b0c740bd0038d0"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/ranges.go": {
+      "bytes": 1130,
+      "sha256": "0ea9ed7b2a7e68af6ab3595387ada6d166c1cbd0215a3cc3a8eb80510d2152ea"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/tree.go": {
+      "bytes": 4218,
+      "sha256": "924bc3f7077b17798194fdd01caabf64e12fe97e676996d22f9a168ac97bf1bf"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/tree_cursor.go": {
+      "bytes": 5649,
+      "sha256": "c5512dd1fff6254bf017e65e7745e7f7f2698c289f28cb360c339911e7aec34d"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/binding/tree_sitter.go": {
+      "bytes": 467,
+      "sha256": "b4a0c491c17563deb277b52ab6b3c3de7f43bd3d73777976826740b4d05b98e1"
+    },
+    "controls/oracle0271-module-bind-v3/_cgo_inputs/harness/parity_c_loader_cgo.go": {
+      "bytes": 38847,
+      "sha256": "985b804b65237612697f4d7b9d863d06b0b9766fb0df60b9fec31a31c5cf5c38"
+    },
+    "controls/oracle0271-module-bind-v3/checksums.container.sha256": {
+      "bytes": 3057,
+      "sha256": "05a401d051f5122374087cb7db58669d24da034d0fff7473ac37989238e4fa25"
+    },
+    "controls/oracle0271-module-bind-v3/diagnosis.json": {
+      "bytes": 653,
+      "sha256": "503854c4b8a4d4b88e4203b8870961c4d36107b28f8d2125187228aa6c5421b1"
+    },
+    "controls/oracle0271-module-bind-v3/go.mod": {
+      "bytes": 415,
+      "sha256": "11c50aaebeaf4024b36d54b3a218fc9c110f816719399295590293cadbdd884f"
+    },
+    "controls/oracle0271-module-bind-v3/go.sum": {
+      "bytes": 3701,
+      "sha256": "4939d7f5c5c71bf9ecf07e69b3806f3b300372c895f8c106f9152d23dbf7731c"
+    },
+    "controls/oracle0271-module-bind-v3/overlay.json": {
+      "bytes": 1658,
+      "sha256": "b8da6669468ce1450e03ac789049d6f019b15da8cb70c59a8e36506a59e58aed"
+    },
+    "controls/oracle0271-module-bind-v3/provenance.json": {
+      "bytes": 3605,
+      "sha256": "ce891a7f9fad1ace7d224e32ab683b64289050c951cc2973b952126c6b691440"
+    },
+    "controls/oracle0271-module-bind-v3/staged-inputs.json": {
+      "bytes": 5596,
+      "sha256": "c0b7b2fe55c07e710e327bfd6b898a48dd50fb7e7fad708ce1dac0b35484dbb9"
+    },
+    "controls/oracle0271-module-bind-v3/trial.sh": {
+      "bytes": 4699,
+      "sha256": "b2cb3c7d4642a007acf5d01a7db0a01ec8e014f6ebd36ef31861abe21a3de916"
+    },
+    "controls/oracle0271-module-bind-v3/verify-inputs.py": {
+      "bytes": 2326,
+      "sha256": "333762f0dc40458eda34ec29369f5b853c811867e3cccaca4cea067fc996a46a"
+    },
+    "controls/oracle0271/checksums.container.sha256": {
+      "bytes": 16075,
+      "sha256": "d6037c292c7aa5f5a37ce7f2f6295b16c491c9c4c31e004b819e1cd274340353"
+    },
+    "controls/oracle0271/compatibility.json": {
+      "bytes": 1938,
+      "sha256": "60a6150779f190c08b4012fc85aad6fc0584e9108f186a5d86085020fcaa5618"
+    },
+    "controls/oracle0271/controls-manifest.json": {
+      "bytes": 23106,
+      "sha256": "bb8c46705e12ba429f7c9f461951840c2e928998a2cd12493471d59ca8c36b0b"
+    },
+    "controls/oracle0271/go-overlays/allocator.go.txt": {
+      "bytes": 2719,
+      "sha256": "c2e5cc6cd97834a3d53dfe5c325f0c2f50e47a388e954d80f2c6e2d51528b4e3"
+    },
+    "controls/oracle0271/go-overlays/edit.go.txt": {
+      "bytes": 778,
+      "sha256": "493a9b3d2ac7d9e2ed1072db43df20cd6d8fc3e64c02007809fc27d40b9f6a79"
+    },
+    "controls/oracle0271/go-overlays/language.go.txt": {
+      "bytes": 5658,
+      "sha256": "1772de0a3fc88155e2925d2e617a29f5bff33b9b595af2094347fa307f953387"
+    },
+    "controls/oracle0271/go-overlays/lookahead_iterator.go.txt": {
+      "bytes": 2036,
+      "sha256": "4f2ceec2eca8b5d2fb0ae7c4fa6c5519a0ff0d4afd3fee7ea4ae9b4426716116"
+    },
+    "controls/oracle0271/go-overlays/node.go.txt": {
+      "bytes": 11952,
+      "sha256": "9f7bc25d1f012c3a74f6548aff9aca0d314848f48503dc4170101261b56fad79"
+    },
+    "controls/oracle0271/go-overlays/oracle0271_private.go.txt": {
+      "bytes": 561,
+      "sha256": "dd3f65fd6162ed7cd08dcadf10ab71515d55880ceccd3d19505606d9c894c5ef"
+    },
+    "controls/oracle0271/go-overlays/parity_c_loader_cgo.go.txt": {
+      "bytes": 38847,
+      "sha256": "985b804b65237612697f4d7b9d863d06b0b9766fb0df60b9fec31a31c5cf5c38"
+    },
+    "controls/oracle0271/go-overlays/parser.go.txt": {
+      "bytes": 26921,
+      "sha256": "4f8c5228a2d80d410af279e8a7030dc89ce8b4ba11c517346c74ee045ed36be1"
+    },
+    "controls/oracle0271/go-overlays/point.go.txt": {
+      "bytes": 752,
+      "sha256": "2f90cbd7d709a0e1064117bf2dd63c9d5f52d6bc13fd02207f5e9b3f5be2ba1a"
+    },
+    "controls/oracle0271/go-overlays/query.go.txt": {
+      "bytes": 34000,
+      "sha256": "c007abd16cd96919a88c924428277950b81217f8878b4d54c0b0c740bd0038d0"
+    },
+    "controls/oracle0271/go-overlays/ranges.go.txt": {
+      "bytes": 1130,
+      "sha256": "0ea9ed7b2a7e68af6ab3595387ada6d166c1cbd0215a3cc3a8eb80510d2152ea"
+    },
+    "controls/oracle0271/go-overlays/tree.go.txt": {
+      "bytes": 4218,
+      "sha256": "924bc3f7077b17798194fdd01caabf64e12fe97e676996d22f9a168ac97bf1bf"
+    },
+    "controls/oracle0271/go-overlays/tree_cursor.go.txt": {
+      "bytes": 5649,
+      "sha256": "c5512dd1fff6254bf017e65e7745e7f7f2698c289f28cb360c339911e7aec34d"
+    },
+    "controls/oracle0271/go-overlays/tree_sitter.go.txt": {
+      "bytes": 467,
+      "sha256": "b4a0c491c17563deb277b52ab6b3c3de7f43bd3d73777976826740b4d05b98e1"
+    },
+    "controls/oracle0271/overlay-source-manifest.json": {
+      "bytes": 5088,
+      "sha256": "a2ac47ebfdfaf09faa910877421cf1388050c3571d6e7c6f5d713465154c1e9d"
+    },
+    "controls/oracle0271/overlay.json": {
+      "bytes": 1886,
+      "sha256": "ebb5448b12b64eee0a619c75809006b4450c05359abad9fcb2f5dbcd13556ec0"
+    },
+    "controls/oracle0271/preflight-test.go.txt": {
+      "bytes": 4999,
+      "sha256": "2a82d9be48f83044ddcf2c0b68ab8252b11a813f4b7e5d5661fccb6efc8110e1"
+    },
+    "controls/oracle0271/prepare-overlays.py": {
+      "bytes": 10211,
+      "sha256": "6a98ff600dc9d74629c34845613ccbb77fc90decb371932184f22e92bf2b9bc6"
+    },
+    "controls/oracle0271/removed-api-uses.json": {
+      "bytes": 498,
+      "sha256": "221bed0adce041d95ccb84146b5eed6cf6cc3d76a64de3e1c8984fd3e37310ef"
+    },
+    "controls/oracle0271/retained-api-prototype-differences.json": {
+      "bytes": 135,
+      "sha256": "b718c78b57f1d06e93fe54ee68ef78111735497761823c96cbb0b2d197d9c41b"
+    },
+    "controls/oracle0271/runtime/Cargo.toml": {
+      "bytes": 3864,
+      "sha256": "eee9afa18c6ba7a6504e7704dcf36c34e7a91980faec07d0e7111c7fb57431bd"
+    },
+    "controls/oracle0271/runtime/LICENSE": {
+      "bytes": 1080,
+      "sha256": "c5cfb43042b6b72045f4ba997834d0a7786d2793d91680868b5815b39f14fc78"
+    },
+    "controls/oracle0271/runtime/lib/include/tree_sitter/api.h": {
+      "bytes": 50349,
+      "sha256": "f8480415ae20cb5e0fd519ba44c84268c5acb4c918106238fc1d328d91431783"
+    },
+    "controls/oracle0271/runtime/lib/src/alloc.c": {
+      "bytes": 1542,
+      "sha256": "c7d15b9015568f439af4adf28ead9e2bd14901221819276727c11227a29576da"
+    },
+    "controls/oracle0271/runtime/lib/src/alloc.h": {
+      "bytes": 917,
+      "sha256": "6a59c4997fe6df7fa2c00fcaff9cf0882e26309d1743bea05983ea56e0ca0c91"
+    },
+    "controls/oracle0271/runtime/lib/src/array.h": {
+      "bytes": 13467,
+      "sha256": "3a66fd611d88de00207bf40466b2393170c2110b17ce0d16e3716ef3a00e3d8e"
+    },
+    "controls/oracle0271/runtime/lib/src/atomic.h": {
+      "bytes": 1384,
+      "sha256": "bbc630cb913ac64274ce4412bc9d504174220323993f306ded74abe502867e74"
+    },
+    "controls/oracle0271/runtime/lib/src/error_costs.h": {
+      "bytes": 294,
+      "sha256": "0e8d1a21e0d60981e762989108231df6610d95591892f631c6c78a9ef831a2ab"
+    },
+    "controls/oracle0271/runtime/lib/src/get_changed_ranges.c": {
+      "bytes": 17733,
+      "sha256": "6fcee7d2663ac67d88b9e79a03ff4854dde1e8d30d3c985d945bad8017532c52"
+    },
+    "controls/oracle0271/runtime/lib/src/get_changed_ranges.h": {
+      "bytes": 836,
+      "sha256": "f394bd0b6fce006be460fd16cbea3cc96e248c810a4d97e8830463c29c85e4a5"
+    },
+    "controls/oracle0271/runtime/lib/src/host.h": {
+      "bytes": 520,
+      "sha256": "e1982b9795b9c52b5ab564d8b9876189d65a97ca02f78351e1740b0985992fd2"
+    },
+    "controls/oracle0271/runtime/lib/src/language.c": {
+      "bytes": 11440,
+      "sha256": "16ca0511cd57ff301c63a19b4f10821552153224affa23908d4fc0d2bbca353e"
+    },
+    "controls/oracle0271/runtime/lib/src/language.h": {
+      "bytes": 9030,
+      "sha256": "9371240c2060bd7c145b41a32b2535bbca3c3ac1713a4684e272e268ac924c22"
+    },
+    "controls/oracle0271/runtime/lib/src/length.h": {
+      "bytes": 1275,
+      "sha256": "7fc186fb4bf50233059e8be9ca68efe95e66d34ced4b8a8f38f14497352faeb1"
+    },
+    "controls/oracle0271/runtime/lib/src/lexer.c": {
+      "bytes": 16062,
+      "sha256": "eb6ca639beaea9fb99bfb0faa0bd0f8e8df785a52dc09321582dc858a448eb34"
+    },
+    "controls/oracle0271/runtime/lib/src/lexer.h": {
+      "bytes": 1263,
+      "sha256": "7d76308f7a2d3246a3e28fb27698be928f848130d1bfacc39f9f623127671b74"
+    },
+    "controls/oracle0271/runtime/lib/src/lib.c": {
+      "bytes": 405,
+      "sha256": "a9830f5a1e72db564afef45f690510cf0aa751075ed855789e26c9f25f087b80"
+    },
+    "controls/oracle0271/runtime/lib/src/node.c": {
+      "bytes": 25151,
+      "sha256": "fb0b5eecacb6d7e324f60914893801c0d147f413dd0af73a19ef270d341a77b5"
+    },
+    "controls/oracle0271/runtime/lib/src/parser.c": {
+      "bytes": 80095,
+      "sha256": "450cb5196ffb74ffd8ba16fcb770b995f000348ac054542afb9f547bd86ab611"
+    },
+    "controls/oracle0271/runtime/lib/src/parser.h": {
+      "bytes": 7624,
+      "sha256": "180b893c8734778fd32f372dfbc27bd6ad1cd2221f26150b31256ff6716320d2"
+    },
+    "controls/oracle0271/runtime/lib/src/point.c": {
+      "bytes": 547,
+      "sha256": "04a101f16f40a651814c0f307fadf3f351d0f24013fa6d8b89c85bf1c6a5e717"
+    },
+    "controls/oracle0271/runtime/lib/src/point.h": {
+      "bytes": 1307,
+      "sha256": "0929027be2ff54627be560f3bafc1af59e81ac6d5a8d5864455601a0dbee50ff"
+    },
+    "controls/oracle0271/runtime/lib/src/portable/endian.h": {
+      "bytes": 7325,
+      "sha256": "528ca0666737e1a66218e2179004d5af2154393c6564ac9c57c110c5d8f57f85"
+    },
+    "controls/oracle0271/runtime/lib/src/query.c": {
+      "bytes": 171693,
+      "sha256": "d5424d95c92fbb95b39f64d4fbec19d53d3d51bfd30bf34b0030679547dd59fc"
+    },
+    "controls/oracle0271/runtime/lib/src/reduce_action.h": {
+      "bytes": 772,
+      "sha256": "8f40396e431d7ff558694ca248eed1332b6cf6f7e6255f06cddfde78020bd308"
+    },
+    "controls/oracle0271/runtime/lib/src/reusable_node.h": {
+      "bytes": 2747,
+      "sha256": "10be747ea4c733ca181dc43d55d155ac8e5b8caa247079621cca0ce633347bfb"
+    },
+    "controls/oracle0271/runtime/lib/src/stack.c": {
+      "bytes": 28636,
+      "sha256": "f70b7e5823e82901801193562908037db4c1a73721e48da0fe54cdb2a6b5856d"
+    },
+    "controls/oracle0271/runtime/lib/src/stack.h": {
+      "bytes": 4872,
+      "sha256": "dea9df947fa871b253528dca48611aa174181a286ec2734c16d4038e040834f6"
+    },
+    "controls/oracle0271/runtime/lib/src/subtree.c": {
+      "bytes": 36832,
+      "sha256": "6b8737764405898a2941df6951f548d73131ada230eec906ee062ca453a2bb80"
+    },
+    "controls/oracle0271/runtime/lib/src/subtree.h": {
+      "bytes": 12614,
+      "sha256": "290ac499f1cdd03d2100de98e12c3fccfe806b663337d648eaf4744348bfb2d5"
+    },
+    "controls/oracle0271/runtime/lib/src/tree.c": {
+      "bytes": 5144,
+      "sha256": "a0f63bc46fc4fcb88d35caa6fe89d7fc18edb895bc781db20f11d5c58988fb06"
+    },
+    "controls/oracle0271/runtime/lib/src/tree.h": {
+      "bytes": 915,
+      "sha256": "628701f470166ad550471a673dce078f28a7851193939f02a342c30c3a8ef39c"
+    },
+    "controls/oracle0271/runtime/lib/src/tree_cursor.c": {
+      "bytes": 23140,
+      "sha256": "5638f6702b6d0b40755fcba32d85ca0fc44ab51bd3546525b4787a304a7b503c"
+    },
+    "controls/oracle0271/runtime/lib/src/tree_cursor.h": {
+      "bytes": 1285,
+      "sha256": "3e8d9671ab1397bcaeb3e0cbf153a61a99e214782b43c09e5cde5a01e8283a1a"
+    },
+    "controls/oracle0271/runtime/lib/src/ts_assert.h": {
+      "bytes": 205,
+      "sha256": "ac1ec4b7ba388a9d8708feeb6c5c766b2927cecfd6db644b939772e1dc086526"
+    },
+    "controls/oracle0271/runtime/lib/src/unicode.h": {
+      "bytes": 2084,
+      "sha256": "968175f1e018e4130c403fe08d12b4d103e6fe6c1dbbf658e58ab9af378530a4"
+    },
+    "controls/oracle0271/runtime/lib/src/unicode/ICU_SHA": {
+      "bytes": 41,
+      "sha256": "2879b4cf5a2c625c6509c26e341b9c8b0c50fde284113b449e00567bdf4e593c"
+    },
+    "controls/oracle0271/runtime/lib/src/unicode/LICENSE": {
+      "bytes": 21001,
+      "sha256": "6a18c5fac70d7860b57f5b72b4e2c9a1ba6b3d2741eef7ff9767c5379364f10d"
+    },
+    "controls/oracle0271/runtime/lib/src/unicode/README.md": {
+      "bytes": 1270,
+      "sha256": "73bbccbcf2e6648385d188d914b16ae56b4553a0f1efb033e6b6d6242e41df1d"
+    },
+    "controls/oracle0271/runtime/lib/src/unicode/ptypes.h": {
+      "bytes": 72,
+      "sha256": "a87e9710c9cad7b08a945f4fb8b9d4629189897cc535f8ac927640c210a94b69"
+    },
+    "controls/oracle0271/runtime/lib/src/unicode/umachine.h": {
+      "bytes": 14865,
+      "sha256": "2d79c0903d9e73e247b948bc0a12b6a785257ca0273bddab56fb59561f8d7391"
+    },
+    "controls/oracle0271/runtime/lib/src/unicode/urename.h": {
+      "bytes": 72,
+      "sha256": "a87e9710c9cad7b08a945f4fb8b9d4629189897cc535f8ac927640c210a94b69"
+    },
+    "controls/oracle0271/runtime/lib/src/unicode/utf.h": {
+      "bytes": 72,
+      "sha256": "a87e9710c9cad7b08a945f4fb8b9d4629189897cc535f8ac927640c210a94b69"
+    },
+    "controls/oracle0271/runtime/lib/src/unicode/utf16.h": {
+      "bytes": 23878,
+      "sha256": "c370d9069f37fad2b53981c06dc648bbc21923db1655517a31bb237df4fba041"
+    },
+    "controls/oracle0271/runtime/lib/src/unicode/utf8.h": {
+      "bytes": 31698,
+      "sha256": "39651224b2ca2452359c7f3339f3cc0a841fe7db64f8a00c9c5ec19c0389645c"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/README.md": {
+      "bytes": 1255,
+      "sha256": "37bb3e39b390ed1cedf9127edb00bf2baf896f277ca34a8722694aa41fb3546a"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/external_scanner_allocator.c": {
+      "bytes": 4275,
+      "sha256": "b13eb3c31b8b952578260b858462e821985d347d1dae186e71566ff36d875b1f"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/external_scanner_stdlib.h": {
+      "bytes": 107108,
+      "sha256": "462bb994df614cb18899b03b1435f2749414e4722ba8cf450266a149426cea0c"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/imports.txt": {
+      "bytes": 276,
+      "sha256": "4fb97410d22925f88857d9adfecc2b955c08819e7d55de4e460d417bf1a2215d"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc.c": {
+      "bytes": 1346,
+      "sha256": "1b70f41eda904b816e641d5841c7ad0b637cf5bc637e1f3d0965f75789711ff5"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/LICENSE": {
+      "bytes": 6204,
+      "sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/README.md": {
+      "bytes": 685,
+      "sha256": "a5714bd844b272c950cb055fcabbd04e4da0ee02f35e5d5340caa4f3af9626fb"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/alpha.h": {
+      "bytes": 12783,
+      "sha256": "bf14a0a8e2e3722e8d618d00f903be102a0214c4ab30d96dc8d7f3e15c5106e7"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/casemap.h": {
+      "bytes": 16079,
+      "sha256": "e69896dc36e5b1c0f0f30917cad6dcda2f55c2d691be1b84625880ebf22fb618"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/isblank.c": {
+      "bytes": 173,
+      "sha256": "2fe71bd5c48604d04f2582e35e1230c2c302bd175ebcfa3c7ed15cf191156bd3"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/iswalnum.c": {
+      "bytes": 191,
+      "sha256": "647f8fc54b33790c1de8a26acd2f5b7212952c2e60db0ada433f9ddd639ce186"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/iswalpha.c": {
+      "bytes": 333,
+      "sha256": "c22480b08b6943bbecfb6e0ab6677bf3b41c0371d5df51286f437b3cb37c130e"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/iswblank.c": {
+      "bytes": 193,
+      "sha256": "6f3a3161506c01d7a425c766e6de722101618d14548b56998bc147e86077e744"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/iswdigit.c": {
+      "bytes": 201,
+      "sha256": "d7e9bda18ff14bd8ace47884d8bd021130e95c69a2dc747f83effc1a2714895b"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/iswlower.c": {
+      "bytes": 181,
+      "sha256": "e51bb97002c407e416bfca5689abef2e9b9dc625bef19ae684753722e98d0392"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/iswpunct.c": {
+      "bytes": 303,
+      "sha256": "6bc6c0a07485c87aa556c265f37968c42d635e4a2fd89e701efdb57f8a111b66"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/iswspace.c": {
+      "bytes": 616,
+      "sha256": "c8592c0fb5463b314c38926e3df26b9efdfe5f1437958ba20c7c36f81facba80"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/iswupper.c": {
+      "bytes": 181,
+      "sha256": "f6b68aa9983a6fb5c09479e1349a2b35721cb7aef308192584fdea5585032cd8"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/iswxdigit.c": {
+      "bytes": 222,
+      "sha256": "1f6dc78efe7c313ddcf47401101f903ce194af5dacd89922f483a995075f52cb"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/punct.h": {
+      "bytes": 10440,
+      "sha256": "45382a2b630fc896057871ac9abe9e3f1580048f1f3b1c96505aaf3dc522832d"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/ctype/towctrans.c": {
+      "bytes": 1715,
+      "sha256": "43f4374b7dfcd24a957b4be4cfa304611e24912529183174ec724fcbaedf82cd"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/memchr.c": {
+      "bytes": 2818,
+      "sha256": "1ea082084a8cfcc6aee5dc962e0ddd2167d2ce38e529a22d138bdfaab83c223a"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/memcmp.c": {
+      "bytes": 1413,
+      "sha256": "44ec5045d00709ddd9ae59b4b0e7ac7e78a8401d27acc4cb95bb46acb2d103f2"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/memcpy.c": {
+      "bytes": 2756,
+      "sha256": "4ad219f8d43467d894ef2cfd3d6d17ae958710c689097c15d41b68ee99c74769"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/memmove.c": {
+      "bytes": 965,
+      "sha256": "202adc3108340168e8604c1ed848e84df51a806726ebc992b597218a50c9a8d9"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/memset.c": {
+      "bytes": 2324,
+      "sha256": "a7a8ff014b6a196342bbe3e8bdd7ae7ee91f0003f96e328d915f1af13066dad8"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/stpncpy.c": {
+      "bytes": 819,
+      "sha256": "12f0e4fd1005104a6c1200af5b90e1694d75ad0fb2586305b560341be0ef6481"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/strchr.c": {
+      "bytes": 147,
+      "sha256": "629d401b95d07ddff9560eb5a9cfbda1652caaec273dc6a79013a56b1790af53"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/strchrnul.c": {
+      "bytes": 2295,
+      "sha256": "3eaa363698e2dfb472a59ed35c445d970a06d4da9d94a47eb918c0a3e2f74e7b"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/strcmp.c": {
+      "bytes": 150,
+      "sha256": "3e1793ea2dd358e5c884c4dd232083605d0f6775f7ebe19d03d64fe97068a78f"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/strlen.c": {
+      "bytes": 2036,
+      "sha256": "767f030f94a4868eb88c8b28e0aa535f53deb2f23b79ba5627d6d8ba6b460d7d"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/strncat.c": {
+      "bytes": 179,
+      "sha256": "784dbc83b122671f97711ab6cbcb1ee871513e8d0da3462a8ce267e1367353af"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/strncmp.c": {
+      "bytes": 220,
+      "sha256": "df801c43304b27dcda67f219a7a3ca34a8fb06f4e63d21e8a6bcb36b03c3c012"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/strncpy.c": {
+      "bytes": 123,
+      "sha256": "88301f7a48004250e1833e9155c7d2fa607ffdddca3b1b1804774d93c82acb96"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/wcschr.c": {
+      "bytes": 171,
+      "sha256": "c9ac14e131c281bef6ab9228ae4e0aea824b3b96c32ed4c2b1a573d7529e7194"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/libc/string/wcslen.c": {
+      "bytes": 109,
+      "sha256": "4baada75103e9906fa85dd6650c07752c1803b36cbdfc1b5e0678c5e3f3223a6"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm-stdlib/stdio.c": {
+      "bytes": 6791,
+      "sha256": "463ff7c94b4f9df0164aa3d966eeb5765a7f9acecdf477119e2fe54891e34b0e"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm_store.c": {
+      "bytes": 70668,
+      "sha256": "e630e55f3984cc9111646a719f793f5b7b4823632767129c4583aa2b1521e746"
+    },
+    "controls/oracle0271/runtime/lib/src/wasm_store.h": {
+      "bytes": 1137,
+      "sha256": "4f70d0500b0775e5d862a8e7d191b3853d73378c65e020e01767838a18debe0e"
+    },
+    "controls/oracle0271/static-api-audit.json": {
+      "bytes": 260,
+      "sha256": "8e929af4fa13f59c020343fa5b1758bda4208da0bf605b185a07589e8e963ba0"
+    },
+    "controls/oracle0271/tree-sitter-10eb5ac119eec9cb4267a8e035066473983f5f3a.tar.gz": {
+      "bytes": 1025988,
+      "sha256": "71bbc0a7a98013b519b104e281e6ad98524a438c8c822a095e6f27de05d15562"
+    },
+    "controls/oracle0271/trial.sh": {
+      "bytes": 4285,
+      "sha256": "34b5eb9b6e8726f0b9adc62833a56c3acbb794cedd3a748d17b4eb942c2e1de4"
+    },
+    "controls/oracle0271/upstream-provenance.json": {
+      "bytes": 18718,
+      "sha256": "35c2bdd9dd5eeabed64a92403abe534ab3e12ce660ff9b77c27b1ab3e7162c53"
+    },
+    "controls/oracle0271/verify-controls.py": {
+      "bytes": 2557,
+      "sha256": "fc0ece4e0c7da9529ea69c1ce3eeff056b9a7f69ae22249c83ca7af8301f7280"
+    },
+    "licenses/go-tree-sitter-v0.25.0-LICENSE": {
+      "bytes": 1101,
+      "sha256": "0eea8dc45e89deeb03c7799bbbc7b4688f365fb274562f4540ecfebdea82e727"
+    },
+    "licenses/gotreesitter-LICENSE": {
+      "bytes": 1076,
+      "sha256": "b174fbe1e1cffafb096528de3e8361c90a0d97e7e3f1a32061aae51e983a7cfc"
+    },
+    "reproduce.py": {
+      "bytes": 4273,
+      "sha256": "2fc9366073d57e15837c1980f9661948b4555ab92c0100d5b274b771319b112d"
+    },
+    "runs/oracle0271-go-qualification-v1/binary.sha256": {
+      "bytes": 125,
+      "sha256": "749e0010c4c68ead9e13e9e7481cbfffbeb3fd26ff4be25fbae52840243121e5"
+    },
+    "runs/oracle0271-go-qualification-v1/container.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-go-qualification-v1/finished.json": {
+      "bytes": 59,
+      "sha256": "97c0207f19a642740f8bb50f8f7ddfeaa16e00a106b5dca44991e8d879e33725"
+    },
+    "runs/oracle0271-go-qualification-v1/go-parity-query.log": {
+      "bytes": 7250,
+      "sha256": "12b4d2e2067e2d2737ac2eddbc96b04a433a5ee139c7d6d4fbb14739e305f240"
+    },
+    "runs/oracle0271-go-qualification-v1/go-regressions.log": {
+      "bytes": 88889,
+      "sha256": "35e68273e59ae9a8759fa98bf69e912156f35846e6f6fb428d46f740f72c46f1"
+    },
+    "runs/oracle0271-go-qualification-v1/process-status.json": {
+      "bytes": 50,
+      "sha256": "551f63de1a40cded468d22ab9a2b44cdd445cfb8727501af880cdaba54dcd716"
+    },
+    "runs/oracle0271-go-qualification-v1/source-after.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-go-qualification-v1/source-before.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-go-qualification-v1/started.json": {
+      "bytes": 88,
+      "sha256": "f0c2b8e5aa35142d629094d8f59c12838d70b47ef850dad0e279c9f972efaf26"
+    },
+    "runs/oracle0271-preflight-958-v2/container.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958-v2/finished.json": {
+      "bytes": 59,
+      "sha256": "1574b5aaca23886e0019f04982283c5e1200c5ae9e06d7181e8f1e6a58a69d60"
+    },
+    "runs/oracle0271-preflight-958-v2/probe/build-status.json": {
+      "bytes": 32,
+      "sha256": "2f25257d6b3b8fbd7efad23bcc0a5947641bd5f56a94f25879dec6165c732d54"
+    },
+    "runs/oracle0271-preflight-958-v2/probe/build.log": {
+      "bytes": 1375,
+      "sha256": "47f4d77ea1f98037a6d47ad53486e62c8bbd39cd9fbb9da64df29d1d4bb22904"
+    },
+    "runs/oracle0271-preflight-958-v2/probe/canonical-source-before.sha256": {
+      "bytes": 426505,
+      "sha256": "b87615c217373848f7537cb3f9fedd03f727c0201ac1f92153ec02bb42e75635"
+    },
+    "runs/oracle0271-preflight-958-v2/probe/go-env.json": {
+      "bytes": 147,
+      "sha256": "e73ba0690cc8d7a61f1200b25abc54ade401b2357c90a5c2dd8052c558e33c7f"
+    },
+    "runs/oracle0271-preflight-958-v2/probe/go-version.txt": {
+      "bytes": 32,
+      "sha256": "058fc41f36af1ff69115b2bd237ebf769e90628e64a58c9dc171751384ffef72"
+    },
+    "runs/oracle0271-preflight-958-v2/probe/head-before.txt": {
+      "bytes": 41,
+      "sha256": "b897b18d874e2f1fc41ba070650174bff2c8ed52c7a2b5f39eb04abee6631391"
+    },
+    "runs/oracle0271-preflight-958-v2/probe/input-checks-before.log": {
+      "bytes": 7953,
+      "sha256": "d337918dceb98600c065b7d1d59253f86de0f2a9e147240c3c66fa3c106be17d"
+    },
+    "runs/oracle0271-preflight-958-v2/probe/source-diff-before.patch": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958-v2/probe/started.json": {
+      "bytes": 142,
+      "sha256": "191703a5da5269919417c83ef76ee5abffc853100c78b1a78776249a052f1ffd"
+    },
+    "runs/oracle0271-preflight-958-v2/probe/status-before.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958-v2/started.json": {
+      "bytes": 85,
+      "sha256": "c868de328eb39472cc45435c926705e1e0dc519a82669d34cf4b0e92e2394f2d"
+    },
+    "runs/oracle0271-preflight-958-v3/container.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958-v3/finished.json": {
+      "bytes": 59,
+      "sha256": "0147d078da8a2758ec83501a352cc27bf7dfa22bf5c8133bcd0aefb63e247d3a"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/adapter-checks-after.log": {
+      "bytes": 1569,
+      "sha256": "538239b69c32e1368c547a38be8805c24f101620aeda07846dafcefbdc9f88eb"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/adapter-checks-before.log": {
+      "bytes": 1569,
+      "sha256": "538239b69c32e1368c547a38be8805c24f101620aeda07846dafcefbdc9f88eb"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/adapter-verification.json": {
+      "bytes": 355,
+      "sha256": "87fb419ac1631af1e7577ca371981d15656e163089c202e0cb4766ec2e357703"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/binary.sha256": {
+      "bytes": 125,
+      "sha256": "749e0010c4c68ead9e13e9e7481cbfffbeb3fd26ff4be25fbae52840243121e5"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/build-status.json": {
+      "bytes": 32,
+      "sha256": "dbbbdbde3be0a226fab979a5363868729c70d7b1162f6cfeec515f4d99a54cd8"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/build.log": {
+      "bytes": 149435,
+      "sha256": "25bf4220f6706cbc1ba367677b5a1f02bf8aa5488b4c9d54b425885dbd5b8135"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/canonical-source-after.sha256": {
+      "bytes": 426505,
+      "sha256": "b87615c217373848f7537cb3f9fedd03f727c0201ac1f92153ec02bb42e75635"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/canonical-source-before.sha256": {
+      "bytes": 426505,
+      "sha256": "b87615c217373848f7537cb3f9fedd03f727c0201ac1f92153ec02bb42e75635"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/finished.json": {
+      "bytes": 232,
+      "sha256": "08830f477341bcfacdc7e25ee529479c4d70c8d4099ace7c4918bad994a55cd8"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/go-env.json": {
+      "bytes": 147,
+      "sha256": "e73ba0690cc8d7a61f1200b25abc54ade401b2357c90a5c2dd8052c558e33c7f"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/go-small-parity.log": {
+      "bytes": 16650,
+      "sha256": "bc01102849cf63f80ebdb6d8fbf2db857ca7bccbc94c64eacf48449034654fe7"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/go-version.txt": {
+      "bytes": 32,
+      "sha256": "058fc41f36af1ff69115b2bd237ebf769e90628e64a58c9dc171751384ffef72"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/head-after.txt": {
+      "bytes": 41,
+      "sha256": "b897b18d874e2f1fc41ba070650174bff2c8ed52c7a2b5f39eb04abee6631391"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/head-before.txt": {
+      "bytes": 41,
+      "sha256": "b897b18d874e2f1fc41ba070650174bff2c8ed52c7a2b5f39eb04abee6631391"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/input-checks-after.log": {
+      "bytes": 7953,
+      "sha256": "d337918dceb98600c065b7d1d59253f86de0f2a9e147240c3c66fa3c106be17d"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/input-checks-before.log": {
+      "bytes": 7953,
+      "sha256": "d337918dceb98600c065b7d1d59253f86de0f2a9e147240c3c66fa3c106be17d"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/private-preflight.log": {
+      "bytes": 4360,
+      "sha256": "d1dfaaf8d90a882965f547cb21e87131649640a696c7920e9080c9ab98145bce"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/source-diff-after.patch": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/source-diff-before.patch": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/started.json": {
+      "bytes": 142,
+      "sha256": "77d640a9cdd7eaa3fe7ede744158fcc6b0cdeaf650937b1f3b3476cbd7ac2136"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/status-after.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958-v3/probe/status-before.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958-v3/started.json": {
+      "bytes": 85,
+      "sha256": "6ba14af46c247a0a80916324e28280aeb23ef7a74ac47d9eadd238bf00846d12"
+    },
+    "runs/oracle0271-preflight-958/container.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958/finished.json": {
+      "bytes": 59,
+      "sha256": "443216a07ede99051ad497743a7ab843f65aaa8db611373133341f39bf96d15f"
+    },
+    "runs/oracle0271-preflight-958/probe/build-status.json": {
+      "bytes": 32,
+      "sha256": "2f25257d6b3b8fbd7efad23bcc0a5947641bd5f56a94f25879dec6165c732d54"
+    },
+    "runs/oracle0271-preflight-958/probe/build.log": {
+      "bytes": 164,
+      "sha256": "e7edca4744dec0f76dff59aa09ffdf6b53e106aa9213ac6544aee3dff3c91b9d"
+    },
+    "runs/oracle0271-preflight-958/probe/canonical-source-before.sha256": {
+      "bytes": 426505,
+      "sha256": "b87615c217373848f7537cb3f9fedd03f727c0201ac1f92153ec02bb42e75635"
+    },
+    "runs/oracle0271-preflight-958/probe/go-env.json": {
+      "bytes": 147,
+      "sha256": "e73ba0690cc8d7a61f1200b25abc54ade401b2357c90a5c2dd8052c558e33c7f"
+    },
+    "runs/oracle0271-preflight-958/probe/go-version.txt": {
+      "bytes": 32,
+      "sha256": "058fc41f36af1ff69115b2bd237ebf769e90628e64a58c9dc171751384ffef72"
+    },
+    "runs/oracle0271-preflight-958/probe/head-before.txt": {
+      "bytes": 41,
+      "sha256": "b897b18d874e2f1fc41ba070650174bff2c8ed52c7a2b5f39eb04abee6631391"
+    },
+    "runs/oracle0271-preflight-958/probe/input-checks-before.log": {
+      "bytes": 7953,
+      "sha256": "d337918dceb98600c065b7d1d59253f86de0f2a9e147240c3c66fa3c106be17d"
+    },
+    "runs/oracle0271-preflight-958/probe/source-diff-before.patch": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958/probe/started.json": {
+      "bytes": 142,
+      "sha256": "e93e0ef3a945c67bd91970c7fdb01e7e8e5a465f6db48dd0ad7020490d620800"
+    },
+    "runs/oracle0271-preflight-958/probe/status-before.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runs/oracle0271-preflight-958/started.json": {
+      "bytes": 82,
+      "sha256": "1cb2711f96040793556fc13a5b930ae17304b1a33d9c12863bdff9c73f19aa20"
+    },
+    "verification.json": {
+      "bytes": 6678,
+      "sha256": "5ecbf22fd78a3e541eef7f27b2b334e8939b9716c0ef9009fe074c608c2a7e80"
+    }
+  },
+  "excluded": [
+    "test binaries",
+    "C shared-object/cache payloads",
+    "module-cache copy",
+    "private CSV/Enforce sources",
+    "credentials",
+    "unrelated experiments"
+  ]
+}

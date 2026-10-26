@@ -1,0 +1,64 @@
+{
+  "baseline": "64e22ad72e99a817d6e75c1e6ccd849ede4ec6ef",
+  "files": [
+    {
+      "path": "internal/parsercorephase0/core.go",
+      "sha256": "08f79228c851dc1874eea86485469bedbae08d25cf64d80b35a537a690b300f6"
+    },
+    {
+      "path": "internal/parsercorephase0/scheduler_owned.go",
+      "sha256": "da7acaddd0a4932928c31f044924f30ad9501f31f9551f7885e9119399ff2674"
+    },
+    {
+      "path": "parsercore_c4_vm.go",
+      "sha256": "561ad1e718effb5d8a38b3b131435e9170cdc4988159d31ec875568bd44593bf"
+    },
+    {
+      "path": "parsercore_phase0_driver.go",
+      "sha256": "b8de22c1cefd804aaa5c1dbf13c352c02dd33076884a9a63d89787e07a8791ba"
+    },
+    {
+      "path": "parsercore_phase0_stop_control.go",
+      "sha256": "a02bc453ec28e81a6d907bd3bb7794eb9d984b876525ba8e0f62081ea6ee93e3"
+    },
+    {
+      "path": "internal/parsercorephase0/native_selected_output.go",
+      "sha256": "b5dad729ad3fd82675ec7b6a3c8f7652525f001fc0f08e9c501adb779f4111de"
+    },
+    {
+      "path": "internal/parsercorephase0/reduce_direct.go",
+      "sha256": "b6c68faa983a36fedbea9c28427e3a239bc67d555f1927ab1238dff098359d68"
+    },
+    {
+      "path": "internal/parsercorephase0/reduce_direct_test.go",
+      "sha256": "ac57419f9d9b75ddf520574acfc8bef237df8ae40c62d0b210a6db5063e289cf"
+    },
+    {
+      "path": "internal/parsercorephase0/single_version.go",
+      "sha256": "cf4dcab4e6b4c7e2caa54979c992348bfe779a74e6d18b9bdc8c48930483babb"
+    },
+    {
+      "path": "internal/parsercorephase0/single_version_test.go",
+      "sha256": "ce7b6a5c1736554fd8aa867ebe8112232b67affecee44d95b38e18f3142fa8f5"
+    },
+    {
+      "path": "parsercore_native_selected_output.go",
+      "sha256": "86797c18ec8c6e0f8963af8314e2021428323068396a6fcabba826b211ab7c25"
+    },
+    {
+      "path": "parsercore_single_version.go",
+      "sha256": "8a0964f9cbc1a4b52a090eac421b555065be819b7772460a4fd33c0b7769e305"
+    },
+    {
+      "path": "parsercore_single_version_output_internal_test.go",
+      "sha256": "0cb18e46dd393fb342c16c5aad842f1fcaa8fc7238fcf85b4fc0323cfde043b6"
+    },
+    {
+      "path": "internal/parsercorephase0/native_selected_output_test.go",
+      "sha256": "74a82cf9d1c28cdfaa5cf16ff6b3bf069f70b139727347011693ef856b125b39",
+      "test_only_gofmt_from_measured_sha256": "f6d3df24fba403bcd53e72a96d842ac37722a936a9f335ddcc66958c2a06af16"
+    }
+  ],
+  "runtime_byte_identical_to_v3": true,
+  "new_core_test_formatted_only": true
+}

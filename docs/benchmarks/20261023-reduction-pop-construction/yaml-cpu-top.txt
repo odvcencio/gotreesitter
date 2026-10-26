@@ -1,0 +1,54 @@
+File: candidate.test
+Build ID: 7f46e314d86847c14984d4096625cb25354b272b
+Type: cpu
+Time: 2026-10-23 21:28:21 UTC
+Duration: 6.72s, Total samples = 6.54s (97.33%)
+Showing nodes accounting for 3.76s, 57.49% of 6.54s total
+Dropped 217 nodes (cum <= 0.03s)
+Showing top 45 nodes out of 176
+      flat  flat%   sum%        cum   cum%
+     0.23s  3.52%  3.52%         1s 15.29%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).StreamNativeProjection
+     0.21s  3.21%  6.73%      0.35s  5.35%  github.com/odvcencio/gotreesitter.(*ExternalLexer).Advance
+     0.19s  2.91%  9.63%      0.25s  3.82%  github.com/odvcencio/gotreesitter.(*ExternalLexer).recordReadFrontier
+     0.16s  2.45% 12.08%      1.23s 18.81%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).reduceOutputsClassifiedIntoActive
+     0.15s  2.29% 14.37%      0.66s 10.09%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).condenseWithOutcomeAtomic
+     0.12s  1.83% 16.21%      0.19s  2.91%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).appendSubtreeRecord
+     0.11s  1.68% 17.89%      1.60s 24.46%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).applyGenericReduction
+     0.11s  1.68% 19.57%      2.01s 30.73%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).elect
+     0.11s  1.68% 21.25%      0.13s  1.99%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).popSingleLinkPath
+     0.10s  1.53% 22.78%      0.26s  3.98%  github.com/odvcencio/gotreesitter/grammars/runtime.(*yamlEnv).lka (inline)
+     0.10s  1.53% 24.31%      0.13s  1.99%  github.com/odvcencio/gotreesitter/grammars/runtime.YamlExternalScanner.Serialize
+     0.09s  1.38% 25.69%      0.09s  1.38%  crypto/internal/fips140/sha256.blockSHANI
+     0.09s  1.38% 27.06%      4.50s 68.81%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).dispatchCorridor
+     0.09s  1.38% 28.44%      0.09s  1.38%  github.com/odvcencio/gotreesitter.corridorDispatch
+     0.09s  1.38% 29.82%      0.92s 14.07%  github.com/odvcencio/gotreesitter/grammars/runtime.(*yamlEnv).scan
+     0.09s  1.38% 31.19%      0.11s  1.68%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).fillMaterializationSubtreeView
+     0.09s  1.38% 32.57%      0.12s  1.83%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*NativeProjectionSinkAdapter[go.shape.struct { github.com/odvcencio/gotreesitter.compact *github.com/odvcencio/gotreesitter/internal/parsercorephase0.Core; github.com/odvcencio/gotreesitter.lang *github.com/odvcencio/gotreesitter.Language; github.com/odvcencio/gotreesitter.arena *github.com/odvcencio/gotreesitter.nodeArena; github.com/odvcencio/gotreesitter.points *github.com/odvcencio/gotreesitter.diagnosticParserCorePointIndex; github.com/odvcencio/gotreesitter.scratch *github.com/odvcencio/gotreesitter.nativeProjectionWorkspace }]).Read
+     0.07s  1.07% 33.64%      0.20s  3.06%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).captureExternalScannerStateInto
+     0.07s  1.07% 34.71%      0.10s  1.53%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).corridorClassify
+     0.07s  1.07% 35.78%      0.16s  2.45%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreVersionLexerSnapshot).validateDestination
+     0.07s  1.07% 36.85%      0.21s  3.21%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).appendNodeRecord
+     0.07s  1.07% 37.92%      0.23s  3.52%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).reductionParentForPath
+     0.07s  1.07% 38.99%      0.07s  1.07%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*boundaryIndex).probeWithHash
+     0.07s  1.07% 40.06%      0.08s  1.22%  runtime.(*_panic).nextDefer
+     0.06s  0.92% 40.98%      1.16s 17.74%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).nextExternalToken
+     0.06s  0.92% 41.90%      0.09s  1.38%  github.com/odvcencio/gotreesitter.wireParentLinksWithScratchUntil
+     0.06s  0.92% 42.81%      0.20s  3.06%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).StreamNativeProjection.func4 (inline)
+     0.06s  0.92% 43.73%      0.20s  3.06%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).appendGraphLinkChecked
+     0.06s  0.92% 44.65%      0.11s  1.68%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).reductionPlanForPair
+     0.06s  0.92% 45.57%      0.07s  1.07%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).subtree
+     0.06s  0.92% 46.48%      0.11s  1.68%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).validatePublishedNodeDAGAt
+     0.06s  0.92% 47.40%      0.25s  3.82%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*checkpointInterner).cacheReceipt
+     0.06s  0.92% 48.32%      0.10s  1.53%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*linkRecordStorage).Append
+     0.06s  0.92% 49.24%      0.06s  0.92%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.linkRecord.validateShape (inline)
+     0.06s  0.92% 50.15%      0.06s  0.92%  runtime.asyncPreempt
+     0.05s  0.76% 50.92%      0.18s  2.75%  crypto/internal/fips140/sha256.(*Digest).Sum
+     0.05s  0.76% 51.68%      0.16s  2.45%  github.com/odvcencio/gotreesitter.(*ExternalLexer).Lookahead
+     0.05s  0.76% 52.45%      0.07s  1.07%  github.com/odvcencio/gotreesitter.(*nativeStreamSink).rewrite
+     0.05s  0.76% 53.21%      0.05s  0.76%  github.com/odvcencio/gotreesitter.(*parserCoreRootTables).ReductionPlan
+     0.05s  0.76% 53.98%      0.43s  6.57%  github.com/odvcencio/gotreesitter.diagnosticParserCoreInternCheckpoint
+     0.05s  0.76% 54.74%      0.07s  1.07%  github.com/odvcencio/gotreesitter.validateNativeStreamRawTiling
+     0.05s  0.76% 55.50%      0.13s  1.99%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).StreamNativeProjection.func3
+     0.05s  0.76% 56.27%      0.05s  0.76%  runtime.memmove
+     0.04s  0.61% 56.88%      0.04s  0.61%  github.com/odvcencio/gotreesitter.(*ExternalLexer).token
+     0.04s  0.61% 57.49%      0.41s  6.27%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).corridorShift

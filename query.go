@@ -633,6 +633,11 @@ func (q *Query) executeNodeInto(root *Node, lang *Language, source []byte, dst [
 	if root == nil || lang == nil {
 		return dst
 	}
+	if views := nodeViews(root); views != nil {
+		if result, ok := views.executeQuery(q, root, lang, source, dst); ok {
+			return result
+		}
+	}
 
 	cursor := q.Exec(root, lang, source)
 	for {
@@ -650,6 +655,12 @@ func (q *Query) executeNodeIntoBuffer(root *Node, lang *Language, source []byte,
 		return q.executeNode(root, lang, source)
 	}
 	buf.matches = buf.matches[:0]
+	if views := nodeViews(root); views != nil {
+		if result, ok := views.executeQuery(q, root, lang, source, buf.matches); ok {
+			buf.matches = result
+			return result
+		}
+	}
 	buf.readerMatches, buf.readerWorklist = executeQueryWithReader(
 		q, root, lang, source, publicQueryReader{}, buf.readerMatches, buf.readerWorklist,
 	)

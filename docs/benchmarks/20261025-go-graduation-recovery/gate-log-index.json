@@ -1,0 +1,128 @@
+{
+  "recovery-probe.log": {
+    "sha256": "a45fa276a7b03505b786882c6b8c4a9ee4f7fc98394b6e5db3c37613b51c19bf",
+    "pass_markers": 8,
+    "failed_markers": 3,
+    "terminal_pass": false,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "recovery-trace.log": {
+    "sha256": "e9a9df8bcc73900dd3d6259c47f8f2fd68dc15883a35bff6d60b25472c747feb",
+    "pass_markers": 0,
+    "failed_markers": 2,
+    "terminal_pass": false,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "missing-cgo.log": {
+    "sha256": "3f5a6299901fafeb88e2a779c12e3e5d12de827162dc1149781e7111ea4124cc",
+    "pass_markers": 34,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "final-recovery-cgo.log": {
+    "sha256": "99960d21eebd6772ee61044a1e432c77807d2ff9aa79e8bf2f6f62e82e51dce1",
+    "pass_markers": 108,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "missing-invariant-0.log": {
+    "sha256": "024f965427ec02d53ab0aee09c9468c2dedf38bcfb44784570c4a7b9931bdac6",
+    "pass_markers": 1,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "missing-invariant-1.log": {
+    "sha256": "4e1fa5b381703831992afc80b0ffcb3c0370fda761fc2acaf58836f2252bbdf8",
+    "pass_markers": 1,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "runtime-profile.log": {
+    "sha256": "67f86bc667850b4f317a03592af7e75a2defd2086f862a18a021915f79ab7f87",
+    "pass_markers": 2,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "missing-memory.log": {
+    "sha256": "09c04818d5e53e32c491395cf135506220ffe9286826c4ce092887e97602140e",
+    "pass_markers": 20,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "missing-publication.log": {
+    "sha256": "4a62e7b92deaace87d99079726b78440bffda12028dcca08ab5b3a1f50f2cf48",
+    "pass_markers": 33,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "missing-race.log": {
+    "sha256": "b0a2c1c9f03d7652752f8e2ed49cb8e42b880261097b77fadc9b428e6d0ff5d4",
+    "pass_markers": 4,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "canonical-classification.log": {
+    "sha256": "2a75e5c780183a74eee180dd66d4254b385971592d7ffd3fbe11d1e9517ec7ee",
+    "pass_markers": 9,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "canonical-final-go.log": {
+    "sha256": "d5faf9b3ef2eb38c0bf99adb3211c36931e239b560315ebe7fc3ed08fa4a666b",
+    "pass_markers": 7,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "canonical-final-python.log": {
+    "sha256": "9860d5d42b52ff31cf8d4479bda699f41f1ad9adacfba1274474e05ee4fe7073",
+    "pass_markers": 2,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "canonical-leaf-baseline.log": {
+    "sha256": "e30e23268260f001d0fb5ec887fc3df01b79fe318cfaf3cd43e7a7b14e780c3f",
+    "pass_markers": 0,
+    "failed_markers": 2,
+    "terminal_pass": false,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "canonical-incremental.log": {
+    "sha256": "9f175c2109be27f4f9bfd266efab916813e1886a8ad180ed8f1ddb76f9631034",
+    "pass_markers": 0,
+    "failed_markers": 1,
+    "terminal_pass": false,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "canonical-incremental-final.log": {
+    "sha256": "049c5957e3bf2e0636c529db76c7777a9ea4164be6df9e35bbb5d02fcccfc7b8",
+    "pass_markers": 1,
+    "failed_markers": 2,
+    "terminal_pass": false,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "canonical-incremental-candidate.log": {
+    "sha256": "312857789bc7eaa1a23e5a2d98bd4f5f9f04446707f671c7f77734f2d9a02a1f",
+    "pass_markers": 1,
+    "failed_markers": 2,
+    "terminal_pass": false,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  },
+  "order-cgo.log": {
+    "sha256": "67e810aa3c7f2f0c5baf9470c67bd9d3af4ae3db9d4f41682ad88eaec0df87d8",
+    "pass_markers": 168,
+    "failed_markers": 0,
+    "terminal_pass": true,
+    "scope": "see exact command and README; failed diagnostic attempts are not passes"
+  }
+}

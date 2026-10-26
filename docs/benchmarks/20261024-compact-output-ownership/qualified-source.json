@@ -1,0 +1,37 @@
+{
+  "base": "377beec2d9035ad3d9b91c58162273dffedb9ddd",
+  "files": [
+    {
+      "path": "internal/parsercorephase0/core.go",
+      "sha256": "4db636224417d1e676ea37493a0d400e54b0cdfe241d1f59534d0d8a333ae7d4"
+    },
+    {
+      "path": "internal/parsercorephase0/eof_recovery_shadow.go",
+      "sha256": "abeecefbc8400aff25618e854c73c1667b9eb54d53cf451283cf7ed40df8b28b"
+    },
+    {
+      "path": "internal/parsercorephase0/selected_store.go",
+      "sha256": "19234c974d9cccfc5646d550528abdef7fa57be36f9f0d76aee9299520c2a4f5"
+    },
+    {
+      "path": "internal/parsercorephase0/selected_store_builder_onepass_test.go",
+      "sha256": "456920e4f299decf336195857a2616ee69e60801006502c6d8360ee1397b9720"
+    },
+    {
+      "path": "internal/parsercorephase0/selected_store_test.go",
+      "sha256": "b92eaf62a55ccf34965f23c84bc55eba64a3cfbae0484f7fb3ea17b71519e75f"
+    },
+    {
+      "path": "internal/parsercorephase0/storage_bytes.go",
+      "sha256": "da10ef0695ba95d67781354f6600652f9102718e58b762513c81c6c595e6bf0b"
+    },
+    {
+      "path": "internal/parsercorephase0/selected_store_pool.go",
+      "sha256": "c39e3486891ab2a2349d63af62a32b6b263a2ffc3746ba6908fb597546b4b351"
+    },
+    {
+      "path": "internal/parsercorephase0/selected_store_pool_test.go",
+      "sha256": "a4d6109eef946016128a5024e0b2dc341d5b0f201b3fe643cc653add49a25306"
+    }
+  ]
+}

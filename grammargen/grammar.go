@@ -72,6 +72,8 @@ type Grammar struct {
 	ReservedWordSets                           []ReservedWordSet
 	Supertypes                                 []string
 	Tests                                      []TestCase    // embedded test cases
+	SeparateErrorLexMode                       bool          // emit an error-state lexer with non-initial fixed terminals
+	RecoveryLookaheadTokens                    []string      // additional terminals allowed by reduce-follow and missing-token lookahead analysis
 	EnableLRSplitting                          bool          // opt-in: attempt LR(1) state splitting for merge pathology
 	BinaryRepeatMode                           bool          // use tree-sitter's binary repeat helper shape (aux→seq(aux,aux)|inner)
 	FlattenGeneratedRepeatAux                  bool          // allow generated repeat helpers to participate in hidden-choice flattening
@@ -333,6 +335,8 @@ func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Gram
 		ReservedWordSets:                   cloneReservedWordSets(base.ReservedWordSets),
 		Supertypes:                         make([]string, len(base.Supertypes)),
 		Tests:                              make([]TestCase, len(base.Tests)),
+		SeparateErrorLexMode:               base.SeparateErrorLexMode,
+		RecoveryLookaheadTokens:            append([]string(nil), base.RecoveryLookaheadTokens...),
 		EnableLRSplitting:                  base.EnableLRSplitting,
 		BinaryRepeatMode:                   base.BinaryRepeatMode,
 		FlattenGeneratedRepeatAux:          base.FlattenGeneratedRepeatAux,

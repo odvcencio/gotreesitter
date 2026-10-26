@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                                              │ baseline-go.txt │          candidate-go.txt          │
+                                                              │     sec/op      │   sec/op     vs base               │
+GTSSeededPrimary/BenchmarkGoParseIncrementalSingleByteEditDFA       90.95µ ± 6%   92.61µ ± 4%       ~ (p=0.242 n=20)
+GTSSeededPrimary/BenchmarkGoParseIncrementalNoEditDFA               3.268n ± 3%   3.304n ± 6%       ~ (p=0.113 n=20)
+GTSSeededPrimary/BenchmarkGoParseFullDFA                            4.207m ± 8%   4.481m ± 4%  +6.52% (p=0.014 n=20)
+geomean                                                             10.77µ        11.11µ       +3.13%
+
+                                                              │ baseline-go.txt │          candidate-go.txt           │
+                                                              │       B/s       │     B/s       vs base               │
+GTSSeededPrimary/BenchmarkGoParseIncrementalSingleByteEditDFA      202.3Mi ± 6%   198.7Mi ± 4%       ~ (p=0.242 n=20)
+GTSSeededPrimary/BenchmarkGoParseIncrementalNoEditDFA              5.371Ti ± 3%   5.312Ti ± 6%       ~ (p=0.114 n=20)
+GTSSeededPrimary/BenchmarkGoParseFullDFA                           4.373Mi ± 7%   4.106Mi ± 4%  -6.11% (p=0.014 n=20)
+geomean                                                            1.668Gi        1.617Gi       -3.02%
+
+                                                              │ baseline-go.txt │           candidate-go.txt            │
+                                                              │      B/op       │     B/op      vs base                 │
+GTSSeededPrimary/BenchmarkGoParseIncrementalSingleByteEditDFA      394.0 ± 0%       394.0 ± 0%       ~ (p=1.000 n=20)
+GTSSeededPrimary/BenchmarkGoParseIncrementalNoEditDFA              0.000 ± 0%       0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GTSSeededPrimary/BenchmarkGoParseFullDFA                         1.133Ki ± 0%     1.134Ki ± 0%  +0.09% (p=0.038 n=20)
+geomean                                                                       ²                 +0.03%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                              │ baseline-go.txt │          candidate-go.txt           │
+                                                              │    allocs/op    │ allocs/op   vs base                 │
+GTSSeededPrimary/BenchmarkGoParseIncrementalSingleByteEditDFA      5.000 ± 0%     5.000 ± 0%       ~ (p=1.000 n=20) ¹
+GTSSeededPrimary/BenchmarkGoParseIncrementalNoEditDFA              0.000 ± 0%     0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GTSSeededPrimary/BenchmarkGoParseFullDFA                           6.000 ± 0%     6.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                       ²               +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

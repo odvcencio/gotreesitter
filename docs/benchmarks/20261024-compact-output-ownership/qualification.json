@@ -1,0 +1,46 @@
+{
+  "baseline": "377beec2d9035ad3d9b91c58162273dffedb9ddd",
+  "correctness": {
+    "languages": 206,
+    "invariant_sessions": 412,
+    "edit_steps": 29664,
+    "no_edit_allocations": 0,
+    "standard_C_checks": 1236,
+    "whole_operation_work_rows": 824,
+    "work_changes": 0,
+    "selected_ledger_comparisons": 206,
+    "work_reuse_route_changes": 0,
+    "memory_contract_tests": 20,
+    "core_and_output_modes": [
+      "normal",
+      "one-pass",
+      "race",
+      "shadow",
+      "386"
+    ],
+    "working_source_matches_qualified_overlay": true
+  },
+  "timing_rows": 520,
+  "timing_processes": 160,
+  "heap_rss_processes": 80,
+  "timing_ratchet_failures": [],
+  "all_timing_differences_inconclusive": true,
+  "cognociente": {
+    "report": "https://github.com/odvcencio/gotreesitter/issues/454#issuecomment-6311551850",
+    "sessions": 12,
+    "independent_fresh_agreements": 12,
+    "clean_C_passes": 8,
+    "known_malformed_delete_C_failures": 4,
+    "fresh_verifier": "unchanged"
+  },
+  "scope": "internal compact output lifetime; public API control only",
+  "holds": [
+    "all merges to main",
+    "public lazy Node output",
+    "persistent replay/checkpoint/reuse metadata",
+    "known malformed C parity",
+    "main-based net qualification",
+    "Windows and ARM64 qualification",
+    "compact graduation"
+  ]
+}

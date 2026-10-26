@@ -1,0 +1,13 @@
+{
+  "path": "cgo_harness/csharp_dispatch_blocker_receipt_test.go",
+  "before_sha256": "6604b4ef6e5f76cbe32b67bc20efc7d743e3cec7c76611fe5962b7329cbf6ac7",
+  "after_sha256": "a555e68e370caa6bd59bba0cd41e42f42c698ea9ab5612d7dda734b23bd3b0ed",
+  "literal_changes": 4,
+  "unique_digest_changes": 2,
+  "runtime_changed": false,
+  "C_identities_or_expectations_changed": false,
+  "first_divergence_records_updated": 2,
+  "first_preprocessor_error_flag_now_matches_C": true,
+  "remaining_field_gap_preexists": true,
+  "A0_first_divergence_category_assertions_updated": 2
+}

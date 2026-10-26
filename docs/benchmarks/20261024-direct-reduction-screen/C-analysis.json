@@ -1,0 +1,100 @@
+{
+  "protocol": "20 seeds per language; shuffled fixture/consume groups, Go-C-C-Go within every group; warm parser; parse, validate and release included",
+  "C_transport": "native C loop; static locked runtime in cgo binary, locked -O2 grammar shared object; no per-parse or per-node Go-to-C crossing",
+  "C_memory_limit": "Go allocation metrics exclude native C allocation and are not comparable as total allocation",
+  "qualification_limit": "Not the standalone-static publication protocol or a graduation receipt",
+  "languages": {
+    "go": {
+      "seed_range": [
+        243001,
+        243020
+      ],
+      "timing_rows": 320,
+      "sha256": "e262a2f414ad17a8148469b581052aed7b03f039600b10179a3abd8f7e5c751f",
+      "results": [
+        {
+          "fixture_mode": "grammargen_lr_consume",
+          "cycles": 20,
+          "Go_ns_median": 100750400.0,
+          "C_ns_median": 37609335.75,
+          "Go_over_C_paired_ratio_median": 2.6807438422945173,
+          "paired_ratio_min": 2.646352165162769,
+          "paired_ratio_max": 2.7170056743099558
+        },
+        {
+          "fixture_mode": "grammargen_lr_parse",
+          "cycles": 20,
+          "Go_ns_median": 100249054.5,
+          "C_ns_median": 34050851.0,
+          "Go_over_C_paired_ratio_median": 2.9374123217825705,
+          "paired_ratio_min": 2.85655191596538,
+          "paired_ratio_max": 2.9882663879826605
+        },
+        {
+          "fixture_mode": "query_compile_consume",
+          "cycles": 20,
+          "Go_ns_median": 9507255.75,
+          "C_ns_median": 3647146.25,
+          "Go_over_C_paired_ratio_median": 2.603434719838686,
+          "paired_ratio_min": 2.558188321425362,
+          "paired_ratio_max": 2.633925138471405
+        },
+        {
+          "fixture_mode": "query_compile_parse",
+          "cycles": 20,
+          "Go_ns_median": 9435770.75,
+          "C_ns_median": 3224936.0,
+          "Go_over_C_paired_ratio_median": 2.929288437550677,
+          "paired_ratio_min": 2.8644531123675905,
+          "paired_ratio_max": 2.9589575470742195
+        }
+      ]
+    },
+    "yaml": {
+      "seed_range": [
+        244001,
+        244020
+      ],
+      "timing_rows": 320,
+      "sha256": "f578351531553218503eb8674f26130bd616a078068028b9b4f2936c39dfff3b",
+      "results": [
+        {
+          "fixture_mode": "eof8k_consume",
+          "cycles": 20,
+          "Go_ns_median": 768145.25,
+          "C_ns_median": 421235.0,
+          "Go_over_C_paired_ratio_median": 1.8199149662508196,
+          "paired_ratio_min": 1.7070713020362167,
+          "paired_ratio_max": 1.8365687065348653
+        },
+        {
+          "fixture_mode": "eof8k_parse",
+          "cycles": 20,
+          "Go_ns_median": 757510.5,
+          "C_ns_median": 380868.75,
+          "Go_over_C_paired_ratio_median": 1.9843151935125682,
+          "paired_ratio_min": 1.9393259659907953,
+          "paired_ratio_max": 2.0157204339188928
+        },
+        {
+          "fixture_mode": "r4_consume",
+          "cycles": 20,
+          "Go_ns_median": 198145.0,
+          "C_ns_median": 105411.5,
+          "Go_over_C_paired_ratio_median": 1.8821414915673755,
+          "paired_ratio_min": 1.8564768329302843,
+          "paired_ratio_max": 1.895692087018886
+        },
+        {
+          "fixture_mode": "r4_parse",
+          "cycles": 20,
+          "Go_ns_median": 196901.0,
+          "C_ns_median": 94919.5,
+          "Go_over_C_paired_ratio_median": 2.076403769932316,
+          "paired_ratio_min": 2.035339662928336,
+          "paired_ratio_max": 2.0939687796903446
+        }
+      ]
+    }
+  }
+}

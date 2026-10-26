@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                                    │ harness_out/docker/go-delete-20261024/repair-before.txt │ harness_out/docker/go-delete-20261024/repair-after.txt │
+                                                    │                         sec/op                          │             sec/op               vs base               │
+SmallSourceReceiptProductionGo/full_dfa                                                          6.257m ± 11%                      6.673m ±  2%       ~ (p=0.383 n=20)
+SmallSourceReceiptProductionGo/single_byte_edit_dfa                                              99.91µ ± 17%                     101.72µ ± 14%       ~ (p=0.242 n=20)
+SmallSourceReceiptProductionGo/no_edit_dfa                                                       4.913n ± 14%                      4.919n ±  5%       ~ (p=0.678 n=20)
+geomean                                                                                          14.54µ                            14.95µ        +2.82%
+
+                                                    │ harness_out/docker/go-delete-20261024/repair-before.txt │ harness_out/docker/go-delete-20261024/repair-after.txt │
+                                                    │                           B/s                           │               B/s                vs base               │
+SmallSourceReceiptProductionGo/full_dfa                                                         2.947Mi ± 12%                     2.756Mi ±  2%       ~ (p=0.365 n=20)
+SmallSourceReceiptProductionGo/single_byte_edit_dfa                                             184.2Mi ± 20%                     180.9Mi ± 16%       ~ (p=0.239 n=20)
+SmallSourceReceiptProductionGo/no_edit_dfa                                                      3.572Ti ± 16%                     3.567Ti ±  5%       ~ (p=0.678 n=20)
+geomean                                                                                         1.237Gi                           1.202Gi        -2.83%
+
+                                                    │ harness_out/docker/go-delete-20261024/repair-before.txt │ harness_out/docker/go-delete-20261024/repair-after.txt │
+                                                    │                          B/op                           │             B/op               vs base                 │
+SmallSourceReceiptProductionGo/full_dfa                                                        1.141Ki ± 0%                      1.143Ki ± 0%       ~ (p=0.156 n=20)
+SmallSourceReceiptProductionGo/single_byte_edit_dfa                                              394.0 ± 0%                        394.0 ± 0%       ~ (p=1.000 n=20)
+SmallSourceReceiptProductionGo/no_edit_dfa                                                       0.000 ± 0%                        0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                     ²                                  +0.04%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                    │ harness_out/docker/go-delete-20261024/repair-before.txt │ harness_out/docker/go-delete-20261024/repair-after.txt │
+                                                    │                        allocs/op                        │           allocs/op            vs base                 │
+SmallSourceReceiptProductionGo/full_dfa                                                          6.000 ± 0%                        6.000 ± 0%       ~ (p=1.000 n=20) ¹
+SmallSourceReceiptProductionGo/single_byte_edit_dfa                                              5.000 ± 0%                        5.000 ± 0%       ~ (p=1.000 n=20) ¹
+SmallSourceReceiptProductionGo/no_edit_dfa                                                       0.000 ± 0%                        0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                     ²                                  +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

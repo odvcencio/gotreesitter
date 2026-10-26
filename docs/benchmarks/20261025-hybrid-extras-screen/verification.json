@@ -1,0 +1,31 @@
+{
+  "archive_files_authenticated": 210,
+  "overlay_maps_complete": 11,
+  "core_top_tests": 24,
+  "extras_top_families_rerun": 5,
+  "original_failure_preserved": true,
+  "original_negative_assertion_unchanged": true,
+  "ordinary_entry_pairs": 8,
+  "invariant_sessions": 4,
+  "edit_steps": 288,
+  "actual_ledger_rows_equal": 4,
+  "graph_links": {
+    "go": [
+      1381,
+      577
+    ],
+    "yaml": [
+      304,
+      117
+    ]
+  },
+  "budget_regions": 48,
+  "budget_checks": 481,
+  "pairs": 60,
+  "processes": 120,
+  "route_fallbacks": 0,
+  "decision": "HOLD; significant YAML regression, other timing inconclusive",
+  "production_promotion": false,
+  "graduation": false,
+  "merges_held": true
+}

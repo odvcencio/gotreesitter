@@ -1,0 +1,31 @@
+{
+  "Go_C_families": 10,
+  "R4_edit_steps": 288,
+  "R4_invariant_sessions": 4,
+  "YAML_C_families": 8,
+  "actual_core_work_and_board_unchanged": true,
+  "api_query_families": 7,
+  "core_race_families": 8,
+  "full_fleet_qualified": false,
+  "graduation_claim": false,
+  "inherited_copy_abstention_explicitly_reproduced": true,
+  "lease_positive_coordinate_cases": 3,
+  "lease_positive_edit_cases": 3,
+  "merges_held": true,
+  "no_edit_allocs": 0,
+  "ordinary_ledger_rows_equal": 4,
+  "primary500_activated": true,
+  "public_race_families": 2,
+  "runtime_promoted": false,
+  "schema": "gts-construction-output-preperf/v1",
+  "table_lookup_proxy": [
+    41515,
+    26010
+  ],
+  "historical_failures_retained": [
+    "V3 public retained-byte drift:4584\u2192241104 with arena11240 unchanged",
+    "C wrapper post-check ran from wrong directory; C V2 reran all selected cases and guards successfully",
+    "API V1 asserted original-vs-grandchild receipts; same-order strict test failed equally for both publishers; API V2 verifies corresponding copies and conservative abstention",
+    "R4 V1 root-package import cycle; external-package V2 passes; completed profiles not rerun"
+  ]
+}

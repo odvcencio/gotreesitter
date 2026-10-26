@@ -1,0 +1,30 @@
+{
+  "schema": "gts-projection-ci-followup/v1",
+  "base_head": "44c44cd3559eb83c7dc8f03d5570f96291ace9b2",
+  "languages": 206,
+  "sessions": 412,
+  "session_fixture_types": {
+    "r4": 408,
+    "grammar-smoke": 4
+  },
+  "edit_steps": 29664,
+  "no_edit_allocations": 0,
+  "C_fixture_checks": 618,
+  "failed": 0,
+  "skipped": 0,
+  "new_ledger_changes": 0,
+  "ledger_rows_unchanged": 412,
+  "complete_Go_work_cases_unchanged": 24,
+  "root_Go_files": 756,
+  "all_Cobol_full_C_cases_each_route": 5,
+  "new_Go_edit_cycle_states": 20,
+  "new_Go_edit_apis": [
+    "plain",
+    "profiled"
+  ],
+  "earlier_C_EDS_exceptions_still_unapproved": 4,
+  "earlier_Go_assignment_exception_still_unapproved": true,
+  "merges_held": true,
+  "performance_claim": false,
+  "native_or_dense_prototypes_promoted": false
+}
