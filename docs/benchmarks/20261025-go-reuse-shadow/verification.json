@@ -1,0 +1,81 @@
+{
+  "schema": "gts-trusted-go-shadow-review-proof/v1",
+  "archive_members": 145,
+  "checksum_entries": 149,
+  "source_files_verified": 3817,
+  "runtime_targets": 11,
+  "native_chain_would_certify": 2,
+  "actual_fresh_verifiers": 2,
+  "unsupported_producers_qualified": 0,
+  "strict_failures_preserved": true,
+  "preexisting_internal_precedence_only": 7037,
+  "parse_or_pre_goto_differences": 0,
+  "C_families": 3,
+  "C_records": 127,
+  "D8_sessions": 2,
+  "D8_steps": 144,
+  "no_edit_allocations": 0,
+  "actual_counter_rows": [
+    {
+      "route": "default",
+      "language": "go",
+      "changes": [
+        {
+          "path": "/0/edits/0/counters/tokens",
+          "before": 572,
+          "after": 614
+        },
+        {
+          "path": "/0/edits/0/counters/new_nodes",
+          "before": 3810,
+          "after": 3219
+        },
+        {
+          "path": "/0/edits/0/counters/max_live_versions",
+          "before": 12,
+          "after": 8
+        },
+        {
+          "path": "/0/edits/0/counters/multi_version_token_share_ppm",
+          "before": 531468,
+          "after": 495114
+        },
+        {
+          "path": "/0/edits/0/counters/reused_bytes",
+          "before": 1166,
+          "after": 1044
+        },
+        {
+          "path": "/0/edits/0/counters/block_splices",
+          "before": 296,
+          "after": 260
+        }
+      ]
+    },
+    {
+      "route": "default",
+      "language": "yaml",
+      "changes": []
+    },
+    {
+      "route": "candidate",
+      "language": "go",
+      "changes": []
+    },
+    {
+      "route": "candidate",
+      "language": "yaml",
+      "changes": []
+    }
+  ],
+  "unapproved_adverse_fields": [
+    "tokens",
+    "reused_bytes",
+    "block_splices"
+  ],
+  "counter_gate_passed": false,
+  "new_timing_claim": false,
+  "runtime_promoted": false,
+  "graduation_claim": false,
+  "main_merges_held": true
+}

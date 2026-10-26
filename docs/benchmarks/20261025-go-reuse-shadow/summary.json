@@ -1,0 +1,205 @@
+{
+  "schema": "gts-go-native-reuse-shadow/v1",
+  "baseline_head": "a414ec8126acd6d5566418fbc699a5619b2820b3",
+  "runtime_map_sha256": "b8516549c515222d8aeb5d4b4a2609b50d8abbcbd4b691e091d73aff7f40f49d",
+  "runtime_changed_between_probes": false,
+  "proof": {
+    "schema": "gts-trusted-go-shadow-proof/v2",
+    "gates": {
+      "actual-producer-guards.log": {
+        "families": 1,
+        "records": 20
+      },
+      "artifact-scope.log": {
+        "families": 1,
+        "records": 1
+      },
+      "internal-policy.log": {
+        "families": 4,
+        "records": 23
+      },
+      "internal-race.log": {
+        "families": 4,
+        "records": 23
+      },
+      "invariants-go-0.log": {
+        "families": 1,
+        "records": 1
+      },
+      "invariants-go-1.log": {
+        "families": 1,
+        "records": 1
+      },
+      "memory.log": {
+        "families": 12,
+        "records": 15
+      },
+      "original-Go-producer-shadow.log": {
+        "families": 1,
+        "records": 7
+      },
+      "producer-race.log": {
+        "families": 2,
+        "records": 27
+      }
+    },
+    "D8_sessions": 2,
+    "D8_steps": 144,
+    "no_edit_allocations": 0,
+    "original_native_chain_verifiers": 2,
+    "original_native_chain_would_certify": 2,
+    "fresh_verifier_active": true,
+    "runtime_source_unchanged_from_v1": true,
+    "canonical_state_adjudication": "precedence-only, identical all3arms; original strict failures preserved",
+    "runtime_promoted": false,
+    "counter_or_timing_qualification": false,
+    "merges_held": true
+  },
+  "C": {
+    "schema": "gts-trusted-go-shadow-C/v1",
+    "scoped_C_checks": {
+      "families": 3,
+      "records": 127
+    },
+    "fresh_verifier_active": true,
+    "runtime_promoted": false,
+    "counter_or_timing_qualification": false,
+    "guards_passed": true,
+    "main_merges_held": true
+  },
+  "historical_adjudication": {
+    "schema": "gts-trusted-go-shadow-precedence-adjudication/v1",
+    "strict_tests_remain_failed": true,
+    "canonical_candidate_capability_off_identical": true,
+    "new_numeric_parse_state_differences": 0,
+    "new_numeric_pre_goto_differences": 0,
+    "preexisting_internal_precedence_differences": 7037,
+    "native_control_fresh_all_planes_exact": true,
+    "compact_source_remains_unqualified": true,
+    "rows": {
+      "baseline": [
+        [
+          "80971",
+          "0",
+          "0",
+          "0",
+          "51cc5765778ae3164031f42da631ca01de0628a6664bec97a1128c51b208115a",
+          "51cc5765778ae3164031f42da631ca01de0628a6664bec97a1128c51b208115a"
+        ],
+        [
+          "80971",
+          "0",
+          "0",
+          "7037",
+          "093b2b562b91acbe3c439708bbdd3478a1915d19a1a0f94caa2549bf011969f5",
+          "51cc5765778ae3164031f42da631ca01de0628a6664bec97a1128c51b208115a"
+        ]
+      ],
+      "candidate": [
+        [
+          "80971",
+          "0",
+          "0",
+          "0",
+          "51cc5765778ae3164031f42da631ca01de0628a6664bec97a1128c51b208115a",
+          "51cc5765778ae3164031f42da631ca01de0628a6664bec97a1128c51b208115a"
+        ],
+        [
+          "80971",
+          "0",
+          "0",
+          "7037",
+          "093b2b562b91acbe3c439708bbdd3478a1915d19a1a0f94caa2549bf011969f5",
+          "51cc5765778ae3164031f42da631ca01de0628a6664bec97a1128c51b208115a"
+        ]
+      ],
+      "capability-off": [
+        [
+          "80971",
+          "0",
+          "0",
+          "0",
+          "51cc5765778ae3164031f42da631ca01de0628a6664bec97a1128c51b208115a",
+          "51cc5765778ae3164031f42da631ca01de0628a6664bec97a1128c51b208115a"
+        ],
+        [
+          "80971",
+          "0",
+          "0",
+          "7037",
+          "093b2b562b91acbe3c439708bbdd3478a1915d19a1a0f94caa2549bf011969f5",
+          "51cc5765778ae3164031f42da631ca01de0628a6664bec97a1128c51b208115a"
+        ]
+      ]
+    },
+    "conditional_test_only_v2_admissible": true,
+    "runtime_changes_authorized": false,
+    "main_merges_held": true
+  },
+  "actual_counters": {
+    "schema": "gts-trusted-go-shadow-counters/v1",
+    "rows": [
+      {
+        "route": "default",
+        "language": "go",
+        "changes": [
+          {
+            "path": "/0/edits/0/counters/tokens",
+            "before": 572,
+            "after": 614
+          },
+          {
+            "path": "/0/edits/0/counters/new_nodes",
+            "before": 3810,
+            "after": 3219
+          },
+          {
+            "path": "/0/edits/0/counters/max_live_versions",
+            "before": 12,
+            "after": 8
+          },
+          {
+            "path": "/0/edits/0/counters/multi_version_token_share_ppm",
+            "before": 531468,
+            "after": 495114
+          },
+          {
+            "path": "/0/edits/0/counters/reused_bytes",
+            "before": 1166,
+            "after": 1044
+          },
+          {
+            "path": "/0/edits/0/counters/block_splices",
+            "before": 296,
+            "after": 260
+          }
+        ]
+      },
+      {
+        "route": "default",
+        "language": "yaml",
+        "changes": []
+      },
+      {
+        "route": "candidate",
+        "language": "go",
+        "changes": []
+      },
+      {
+        "route": "candidate",
+        "language": "yaml",
+        "changes": []
+      }
+    ],
+    "owner_exception_inferred": false,
+    "ledger_updated": false,
+    "timing_qualification": false,
+    "runtime_promoted": false,
+    "merges_held": true
+  },
+  "decision": "hold: native shadow correctness is promising; fresh verifier remains active;3Go counter directions are unapproved and fleet/complete-work gates remain open",
+  "new_timing_claim": false,
+  "runtime_promoted": false,
+  "graduation_claim": false,
+  "main_merges_held": true
+}

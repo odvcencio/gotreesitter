@@ -26,6 +26,12 @@ have only synthetic samples and are outside this real-file census.
 
 Current owner instruction: **hold all merges to main**. The earlier release condition was fulfilled, but the renewed hold remains active independently of that release. PR #1512 stays draft; branch-relative experiments do not graduate a language.
 
+### Go edit authentication: supported shadow proof passes; verifier stays active
+
+The [Go producer shadow](benchmarks/20261025-go-reuse-shadow/README.md) binds the exact Go9ad artifact and actual default native DFA/source/schedule. On the original 140,368-byte witness, two chained insertions yield two would-certify observations while both independent fresh verifiers still run; supported native incoming trees match all structure/state/precedence planes. Copy, transformed/wrapped sources and actual compact producers stay unqualified. Two Go invariant sessions, memory/race checks and 127 scoped C records pass.
+
+The unchanged baseline, candidate and capability-off controls prove the compact-origin failure is the same **7,037 internal precedence differences**, with zero parse/pre-goto state differences; all strict failures remain retained. Three actual counter rows match; default Go's first edit changes tokens **572→614**, reused bytes **1,166→1,044** and block splices **296→260** adversely, alongside lower node/version work. These are separate, unapproved directions; the assignment correctness approval does not cover them. Timing, complete-work/fleet qualification, verifier removal, compact-source certification and graduation remain held. All main merges remain held.
+
 ### Construction screen: repeated work removed; full throughput still held
 
 The [construction receipt](benchmarks/20261025-compact-construction-screen/README.md) removes repeated leaf/unary formation, duplicate normalized child projection and pool censuses. Ordinary Go formation edges fall **2,506→1,936**, local root references **1,025→528**, and hidden steps **148→75**; exact trees, retained tree bytes and warm-read work match. Core, C 0.25.1/private C 0.27.1, D8, race and memory gates pass. All four actual counter rows are safe; only candidate Go full public nodes change **892→1**, with no exception used.
