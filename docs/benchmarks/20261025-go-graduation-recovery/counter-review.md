@@ -1,6 +1,6 @@
 # Go assignment recovery: counter review
 
-Status: owner exception pending. This is the narrower missing-version protocol; the full version-order experiment is rejected. No ledger baseline is reset. The original Cognociente declaration fixture and standard Go R4 ledgers are exactly unchanged.
+Status: [approved by the owner](owner-approval.json) on 2026-10-25. Approval covers this reviewed assignment-recovery correctness exception. The full version-order experiment remains rejected. No ledger baseline is reset; the original Cognociente declaration fixture and standard Go R4 ledgers are exactly unchanged.
 
 The new assignment witness is 138,608 bytes, SHA-256 `8dc8aad35490cffcb042bf3a79dc75d3fdd63be87fc92c638ea36351c57fce4d`. Delete the target at byte 57. Before: Go elects a missing-identifier assignment; after: Go matches C's skipped-equals ERROR. Independent fresh/incremental Go and C checks pass at 16 sites for each edit class and both routes (96 cases).
 
@@ -36,6 +36,6 @@ Fresh uses `Parse`; edit includes Tree.Edit, ParseIncrementalProfiled, and both 
 | parent_constructions_proxy | 132027 → 132348 | 135627 → 136562 | 132027 → 132348 | 135612 → 136555 |
 | lexer_front_door_calls_proxy | unchanged | 177836 → 178096 | unchanged | 177829 → 178094 |
 
-The four merge-attempt increases are +4.34%, +7.38%, +4.34%, +7.40%; other complete-operation increases stay below 2%. The C-correct recovery needs both competing versions to receive their proper turn. The old cheaper result is structurally wrong. This is a correctness exception request, with no fresh-verifier removal or V4 activation.
+The four merge-attempt increases are +4.34%, +7.38%, +4.34%, +7.40%; other complete-operation increases stay below 2%. The C-correct recovery needs both competing versions to receive their proper turn. The old cheaper result is structurally wrong. This is an approved correctness exception, with no fresh-verifier removal or V4 activation.
 
-[v1 design R3](../../v1-design.md#r3-counter-ledger-changes) requires explicit owner approval: “Agents do not approve ledger exceptions.” Earlier Liquid/YAML approvals do not cover these Go changes. The draft PR and all merges remain held pending approval and the separate graduation gates.
+[v1 design R3](../../v1-design.md#r3-counter-ledger-changes) requires explicit owner approval: “Agents do not approve ledger exceptions.” Earlier Liquid/YAML approvals cover different changes. The owner has now explicitly approved this separate Go exception; the approval does not remove the fresh verifier, graduate a language, or authorize any main merge. Separate graduation gates and the main-merge hold remain.

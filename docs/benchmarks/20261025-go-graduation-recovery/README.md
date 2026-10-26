@@ -2,7 +2,7 @@
 
 The remaining reduced assignment-prefix mismatch is fixed by certifying Go's existing missing-version scheduling protocol for the exact current blob. On `= a + b`, Go now lets the absorbing version compete before an eagerly shifted missing-target version; the cheaper skipped-equals ERROR matches C. The grammar blob stays `214322327c9ee7dda29febf32e415f7ed9e00a90b7690d3c32522e393211b8da`.
 
-This bucket remains held for the [R3 counter exception](counter-review.md), broader final-source qualification, and the separate graduation gates. All merges to main remain held. No allowlist, global default, fresh-result verifier or V4 reuse activation changes.
+The owner [approved the separate R3 correctness exception](owner-approval.json) on 2026-10-25. Broader final-source qualification and the separate graduation gates remain required. All merges to main remain held. No allowlist, global default, fresh-result verifier or V4 reuse activation changes.
 
 ## Distinguishing correctness evidence
 
@@ -20,7 +20,7 @@ The C oracle for these results is still runtime **0.25.1**, commit `f5afe475deb7
 
 The standard R4 ledger and every complete count for the original declaration witness remain unchanged. Correct assignment recovery keeps competing versions alive longer. On the large assignment delete, public tokens rise **3,572→3,832 / 3,585→3,850**, new nodes **7,210→8,652 / 7,175→8,641**, and maximum stacks **2→4** on each route. Full merge attempts rise **15,840→16,527** on each route; edit merge attempts rise **15,846→17,015 / 15,843→17,015**. Smaller reuse declines and all diagnostic storage/GSS fields remain explicit in [the public-profile delta](public-profile-changes.json).
 
-[Every complete event change](complete-work-changes.json) and [the review table](counter-review.md) distinguish full operations from public profile fields. No ledger row is reset. R3 owner approval is required for these correctness costs; it is not supplied by this receipt or by earlier Liquid/YAML approvals.
+[Every complete event change](complete-work-changes.json) and [the review table](counter-review.md) distinguish full operations from public profile fields. No ledger row is reset. The owner approved these reviewed correctness costs separately from the earlier Liquid/YAML decisions; [the decision](owner-approval.json) pins every approved delta file. This does not authorize future counter increases.
 
 The full C version-order alternative also passes the 96-case matrix and the Go suites selected by its command, but is rejected before timing: candidate R4 edit nodes rise **1,553→1,706**, while the report delete's stack-version creations rise **10,635→232,371**. [Its complete event changes](discarded-version-order.json) and exact source overlay are retained. It is not activated.
 
