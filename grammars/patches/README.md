@@ -11,7 +11,9 @@ confirmed correctness gap that must be shipped before its next release.
 - separates adjacent generic call signatures at a newline;
 - permits a contextual `in` property after a newline in an object type;
 - accepts predefined type keywords and `keyof` as required and optional tuple
-  labels; and
+  labels;
+- accepts type arguments on tagged template calls, such as
+  ``tag<string[]>`text` ``; and
 - accepts `unique` as an expression identifier while preserving `unique symbol`.
 
 Required and optional tuple names use the identifier token, single-word
