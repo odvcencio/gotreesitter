@@ -85,11 +85,18 @@ func WithHighlighterAdmissionCandidateRoute(enabled bool) HighlighterOption {
 // return private captures (a leading underscore), @spell, @nospell, @conceal, or
 // the directives of a locals query (@local.scope, @local.reference,
 // @local.definition, @local.definition-value and @local.definition.*).
-// Predicates and directives still read them. @none is a reset: it clears the
-// colors beneath its span and is not returned either. (#set! priority N) sets the
+// Predicates and directives still read them. (#set! priority N) sets the
 // priority of a pattern's captures, 100 by default, and a higher priority wins
-// over a lower one even when the lower capture is the inner one. These follow the
-// conventions of Neovim's treesitter highlighter, which many shipped queries use.
+// over a lower one even when the lower capture is the inner one. These rules
+// follow the conventions of Neovim's treesitter highlighter, which many shipped
+// queries use.
+//
+// @none is a reset: it clears the colors beneath its span, including the color
+// of an enclosing capture, and is not returned either. This follows the
+// convention that nvim-treesitter documents for @none ("completely disable the
+// highlight") and the comments in the shipped queries that rely on it. It differs
+// from tree-sitter-highlight and from Neovim's own highlighter, where an inner
+// @none node keeps the color of the node around it.
 func NewHighlighter(lang *Language, highlightQuery string, opts ...HighlighterOption) (*Highlighter, error) {
 	q, err := NewQuery(highlightQuery, lang)
 	if err != nil {
@@ -187,9 +194,10 @@ func (h *Highlighter) HighlightIncrementalUTF16Bytes(source []byte, oldTree *Tre
 
 // Highlight parses the source code and executes the highlight query, returning
 // a slice of HighlightRange sorted by StartByte. When ranges overlap, the
-// higher (#set! priority N) wins; at equal priority the inner (narrower) capture
-// wins. Of two captures on one span, the injected layer wins over its host, then
-// the later pattern. See NewHighlighter for the captures that are not returned.
+// higher (#set! priority N) wins. At equal priority the inner (narrower) capture
+// wins, and of two captures on one span the injected layer wins over its host,
+// then the later pattern. See NewHighlighter for the captures that are not
+// returned.
 func (h *Highlighter) Highlight(source []byte) []HighlightRange {
 	if len(source) == 0 {
 		return nil
@@ -320,8 +328,9 @@ func withoutHighlightResets(ranges []HighlightRange) []HighlightRange {
 	return out
 }
 
-// defaultHighlightPriority is the priority of a pattern that sets none. It is
-// the default of Neovim, whose (#set! priority N) directive the query files use.
+// defaultHighlightPriority is the priority of a pattern without a
+// (#set! priority N) directive. It is the default of Neovim, whose directive the
+// query files use.
 const defaultHighlightPriority = 100
 
 // highlightResetCapture clears the colors beneath its span. It takes part in
@@ -618,6 +627,10 @@ func sortHighlightRanges(ranges []HighlightRange) {
 		}
 		// Spell captures do not color text. Give a real highlight the
 		// last position in an identical-span stack, across all patterns.
+		// NewHighlighter drops @spell before resolution, so only the
+		// selected-store path (highlightSelectedStore, build tag
+		// gts_parsercorephase0) still reaches this tie-break. Remove it when
+		// that path adopts the capture policy.
 		if a.Capture == "spell" && b.Capture != "spell" {
 			return -1
 		}

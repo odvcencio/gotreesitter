@@ -529,13 +529,13 @@ for _, r := range ranges {
 }
 ```
 
-`Highlight` returns a range only for a capture that names a color, so you can map every `Capture` straight to a style. It leaves out these captures, and predicates and directives still read them:
+`Highlight` returns a range only for a capture that names a color. It never returns query bookkeeping, but the names it does return come from each query, so keep a fallback style for names your theme does not know (for example `embedded`). It leaves out these captures, and predicates and directives still read them:
 
 - private captures, whose names start with `_`;
 - `@spell`, `@nospell` and `@conceal`;
 - the directives of a locals query: `@local.scope`, `@local.reference`, `@local.definition`, `@local.definition-value` and `@local.definition.*`.
 
-`@none` resets the colors beneath it. Bytes under a `@none` capture get no range, even inside a larger capture such as a string, and `none` never appears in the result.
+`@none` resets the colors beneath it. Bytes under a `@none` capture get no range, even inside a larger capture such as a string, and `none` never appears in the result. This is the convention that nvim-treesitter documents for `@none` ("completely disable the highlight"), and the shipped starlark and djot queries rely on it. tree-sitter-highlight and Neovim's own highlighter differ: there, an inner `@none` node keeps the color of the node around it.
 
 When captures overlap, the narrower (inner) capture wins. A pattern can change that with `(#set! priority N)`. The default priority is 100, and a higher priority wins over a lower one even when the lower capture is the inner one. In this query, every identifier inside a `commented_node` takes the comment color:
 
@@ -544,7 +544,7 @@ When captures overlap, the narrower (inner) capture wins. A pattern can change t
 ((commented_node) @comment (#set! priority 105))
 ```
 
-Of two captures on the same span, the later pattern wins. When a query injects another language, as the Markdown fence query does, the injected language's capture wins over the host's on a span that both capture.
+At equal priority, the later pattern wins on a span that two captures share. When a query injects another language, as the Markdown fence query does, the injected language's capture wins over the host's on a span that both capture at equal priority. A higher priority on the host's pattern still wins.
 
 ## Tagging
 
