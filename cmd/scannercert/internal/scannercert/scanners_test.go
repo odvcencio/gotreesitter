@@ -268,10 +268,7 @@ func (unnamedScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool) 
 	return true
 }
 
-var (
-	bothValid = []bool{true, true}
-	noneValid = []bool{false, false}
-)
+var bothValid = []bool{true, true}
 
 // scanEvery scans each origin of src once per mask, resuming the same live
 // payload throughout, the way a parser resumes one scanner across tokens.

@@ -14,6 +14,12 @@ import (
 // both through go:linkname, and so does this package. The linker does not
 // compare signatures across a linkname, so lexer_link_test.go exercises both
 // functions and the fields read below.
+//
+// Only root tests and this package call newExternalLexer, so a dead-code
+// cleanup in the root could remove it. That would break the link of
+// cmd/scannercert, and CI compiles every command, so the build would fail
+// there. Keep newExternalLexer, or give this package another way to build a
+// lexer.
 
 // newLexer builds the lexer the parser builds before a scan.
 //
