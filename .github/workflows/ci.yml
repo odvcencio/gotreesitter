@@ -1176,6 +1176,8 @@ jobs:
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 180
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -1201,6 +1203,7 @@ jobs:
           # fetch_grammar_receipt_lock.sh still verifies its committed digest.
           GTS_CORPUS_LOCK_URL: ${{ vars.GTS_CORPUS_LOCK_URL || 'https://gist.githubusercontent.com/odvcencio/b5d19a2fcb80420c751b5bb7ab3129bb/raw/63e633db3cb7229c6495095c8ab34576bbd0525d/corpus_sources.lock' }}
           RUNNER_KIND: ${{ runner.environment }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           # Fork heads stay on disposable hosted runners. Run the same paired
@@ -1212,8 +1215,12 @@ jobs:
             BASE_SHA=$(git rev-parse HEAD^)
           fi
           git fetch --no-tags origin "$BASE_SHA"
+          exception=()
+          if [ "$PR_NUMBER" = 1509 ]; then
+            exception=(--approved-go-undo-exception)
+          fi
           bash scripts/run_editor_latency_gate.sh \
-            --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency"
+            --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency" "${exception[@]}"
 
       - name: Publish W5 job summary
         if: always()

@@ -192,6 +192,56 @@ class GateTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             return gate.compare_timing(self.out, self.manifest, self.base, self.head)
 
+    def test_scoped_go_undo_exception_preserves_other_guards(self):
+        base = copy.deepcopy(self.admissions["base", "go"])
+        head = copy.deepcopy(self.admissions["head", "go"])
+        for a, count in ((base, 39), (head, 35)):
+            step = a["cells"][0]["steps"][1]
+            step.update(source_sha256=gate.GO_UNDO_FIXTURE, tree_sha256=gate.GO_UNDO_TREE, has_error=False)
+            step["counters"]["reused_subtrees"] = count
+            gate.write_json(self.admission_path("base" if a is base else "head", "go"), a)
+        with self.assertRaises(ValueError):
+            gate.compare_counters(self.out, self.manifest, self.base, self.head)
+        result = gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_UNDO_EXCEPTION)
+        self.assertEqual([x["name"] for x in result["applied_exceptions"]], [gate.GO_UNDO_EXCEPTION])
+        for change in (
+            lambda a: a["cells"][0]["steps"][1]["counters"].update(reused_subtrees=34),
+            lambda a: a["cells"][0]["steps"][0]["counters"].update(tokens=103),
+            lambda a: a["cells"][0]["steps"][1].update(tree_sha256="a" * 64),
+        ):
+            modified = copy.deepcopy(head); change(modified)
+            gate.write_json(self.admission_path("head", "go"), modified)
+            with self.assertRaises(ValueError):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_UNDO_EXCEPTION)
+        gate.write_json(self.admission_path("head", "go"), head)
+        for field, value in (("source_sha256", "d" * 64), ("tree_sha256", "e" * 64), ("has_error", True)):
+            for role, original in (("base", base), ("head", head)):
+                modified = copy.deepcopy(original)
+                modified["cells"][0]["steps"][1][field] = value
+                gate.write_json(self.admission_path(role, "go"), modified)
+            with self.assertRaises(ValueError):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_UNDO_EXCEPTION)
+        gate.write_json(self.admission_path("base", "go"), base)
+        gate.write_json(self.admission_path("head", "go"), head)
+
+    def test_exception_production_identity_fails_closed(self):
+        receipt = (Path(__file__).resolve().parents[1] / gate.GO_UNDO_RECEIPT).read_bytes()
+        def check(diff=b"scripts/editor_latency_gate.py\0", data=receipt, base=gate.GO_UNDO_BASE):
+            with mock.patch.object(gate, "git", return_value="a" * 40), mock.patch.object(gate.subprocess, "run") as run, mock.patch.object(gate.subprocess, "check_output", side_effect=[b"", diff, data]):
+                value = gate.validate_go_undo_exception(Path("/repo"), base, "a" * 40)
+                run.assert_called_once()
+                return value
+        self.assertEqual(check(), gate.GO_UNDO_EXCEPTION)
+        for kwargs in ({"diff": b"parser.go\0"}, {"diff": b"go.mod\0"}, {"diff": b"incremental_test.go\0"}, {"data": b"changed"}, {"base": "b" * 40}):
+            with self.assertRaises(ValueError):
+                check(**kwargs)
+        with mock.patch.object(gate.subprocess, "run", side_effect=subprocess.CalledProcessError(1, "git")):
+            with mock.patch.object(gate, "git", return_value="a" * 40), mock.patch.object(gate.subprocess, "check_output", return_value=b"") , self.assertRaises(subprocess.CalledProcessError):
+                gate.validate_go_undo_exception(Path("/repo"), gate.GO_UNDO_BASE, "a" * 40)
+        for dirty in (b"?? extra.go\n", b"?? assets/blob.bin\n", b"!! generated/embed.bin\n", b" M parser.go\n"):
+            with mock.patch.object(gate, "git", return_value="a" * 40), mock.patch.object(gate.subprocess, "check_output", return_value=dirty), self.assertRaises(ValueError):
+                gate.validate_go_undo_exception(Path("/repo"), gate.GO_UNDO_BASE, "a" * 40)
+
     def test_complete_campaign_and_exact_five_percent_boundary(self):
         f = self.m["fixtures"][0]
         self.write_bench(f, "head", 1.05)

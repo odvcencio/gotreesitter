@@ -30,6 +30,31 @@ EDIT_LIMIT = 1.05
 LEDGER_LIMIT = 1.02
 RUNS = 20
 BENCHSTAT_MODULE = "golang.org/x/perf/cmd/benchstat@v0.0.0-20260929162123-406019bb8b68"
+GO_UNDO_EXCEPTION = "go-one-byte-undo-reuse-20261026"
+GO_UNDO_BASE = "e079b642fa1c11a3c9bd939d367e05598fc8162f"
+GO_UNDO_REVIEWED = "462341df680f55944e1a747e4ea36014f063ae99"
+GO_UNDO_CONTROL_SNAPSHOT = "5a30fe0e1a1d9ca3fbd5a9fcc2a0ff218aba91a6"
+GO_UNDO_FIXTURE = "ff2f811d29a56303bad96c3c7cff1a83814a974503a51cee918a314a96eb476e"
+GO_UNDO_TREE = "a675b5e8c8e688c21f45cad8c5217c06802c3fa5061fb2555ba346b4769f4c55"
+GO_UNDO_RECEIPT = "docs/benchmarks/20261026-combined-authenticated-reuse-ci-repair/w5-go-undo-review.md"
+GO_UNDO_RECEIPT_SHA = "bca5e00e915ef74068038877e9c9386c5e9d6a5acbf85dd9adc13fe5a88ce753"
+GO_UNDO_SUCCESSOR_PATHS = frozenset([
+    "scripts/editor_latency_gate.py", "scripts/test_editor_latency_gate.py", ".github/workflows/ci.yml",
+])
+
+
+def validate_go_undo_exception(root, base_revision, head_revision):
+    require(base_revision == GO_UNDO_BASE, "W5 exception base mismatch")
+    require(re.fullmatch(r"[0-9a-f]{40}", head_revision) is not None, "W5 exception head must be a commit")
+    require(git(root, "rev-parse", "HEAD") == head_revision, "W5 exception checkout mismatch")
+    require(not subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--ignored"]), "W5 exception requires a clean checkout, including ignored files")
+    subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", GO_UNDO_CONTROL_SNAPSHOT, head_revision], check=True)
+    diff = subprocess.check_output(["git", "-C", str(root), "diff", "--no-renames", "--name-only", "-z", GO_UNDO_CONTROL_SNAPSHOT, head_revision])
+    changed = set(diff.decode().split("\0")) - {""}
+    require(changed <= GO_UNDO_SUCCESSOR_PATHS, "W5 exception production inputs changed")
+    receipt = subprocess.check_output(["git", "-C", str(root), "show", f"{head_revision}:{GO_UNDO_RECEIPT}"])
+    require(sha(receipt) == GO_UNDO_RECEIPT_SHA, "W5 exception review receipt changed")
+    return GO_UNDO_EXCEPTION
 
 
 def require(ok, message):
@@ -130,12 +155,13 @@ def oracle_identity(oracle):
     return {key: value for key, value in oracle.items() if key != "grammar_artifact_path"}
 
 
-def compare_counters(out, manifest_path, base_revision, head_revision):
+def compare_counters(out, manifest_path, base_revision, head_revision, exception=None):
     m = fixture_manifest(manifest_path)
     manifest_sha = sha(Path(manifest_path).read_bytes())
     changes = []
     identities = []
     failures = []
+    applied = []
     for f in m["fixtures"]:
         base = admission(out, "base", f, manifest_sha, base_revision)
         head = admission(out, "head", f, manifest_sha, head_revision)
@@ -154,8 +180,12 @@ def compare_counters(out, manifest_path, base_revision, head_revision):
                     row = {"language": f["language"], "workload": bc["workload"], "step": index, "counter": key, "before": before, "after": after}
                     changes.append(row)
                     if bad:
-                        failures.append(row)
-    result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "oracles": identities}
+                        if exception == GO_UNDO_EXCEPTION and f["sha256"] == GO_UNDO_FIXTURE and (bs["source_sha256"], bs["tree_sha256"], bs["has_error"]) == (GO_UNDO_FIXTURE, GO_UNDO_TREE, False) and row == {"language": "go", "workload": "one_byte", "step": 1, "counter": "reused_subtrees", "before": 39, "after": 35}:
+                            applied.append({"name": exception, "row": row, "receipt": GO_UNDO_RECEIPT})
+                        else:
+                            failures.append(row)
+    require(exception is None or len(applied) == 1, "approved W5 exception did not match exactly once")
+    result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "applied_exceptions": applied, "oracles": identities}
     write_json(out / "counters.json", result)
     require(not failures, f"deterministic counter gate failed: {failures[:8]}")
     return result
@@ -228,8 +258,8 @@ def sample(rows, benchmark, runtime, metric):
     return statistics.mean(rows[benchmark + "/" + n][metric] / rows[benchmark + "/" + n]["edits/op"] for n in names)
 
 
-def compare_timing(out, manifest_path, base_revision, head_revision):
-    counters = compare_counters(out, manifest_path, base_revision, head_revision)
+def compare_timing(out, manifest_path, base_revision, head_revision, exception=None):
+    counters = compare_counters(out, manifest_path, base_revision, head_revision, exception)
     m = fixture_manifest(manifest_path)
     rows = []
     for f in m["fixtures"]:
@@ -264,10 +294,12 @@ def compare_timing(out, manifest_path, base_revision, head_revision):
               "base_revision": base_revision, "head_revision": head_revision, "manifest_sha256": sha(Path(manifest_path).read_bytes()),
               "threshold_percent": 5, "counter_threshold_percent": 2, "seeds": list(range(1, RUNS+1)), "benchtime": "750ms",
               "protocol": "alternating-base-head-seeds; shuffled-workloads; Go-C-C-Go; complete-sessions; ns-per-edit",
-              "environment": environment, "cells": rows, "counter_rows": counters["rows"], "oracles": counters["oracles"]}
+              "environment": environment, "cells": rows, "counter_rows": counters["rows"], "applied_exceptions": counters["applied_exceptions"], "oracles": counters["oracles"]}
     write_json(out / "receipt.json", result)
     lines = [f"W5 editor latency: **{result['status']}**", "", f"Base `{base_revision}`; head `{head_revision}`. Twenty paired shuffle seeds, 750ms, one thread. A paired median above +5% fails any cell.", "",
              "| Language | Edit | Go base → head (µs/edit) | C base → head (µs/edit) | Go/C base → head | Paired Go change |", "|---|---|---:|---:|---:|---:|"]
+    if counters["applied_exceptions"]:
+        lines.insert(3, f"Applied owner-approved counter exception: `{GO_UNDO_EXCEPTION}` (Go one-byte undo reused subtrees 39 → 35; `{GO_UNDO_RECEIPT}`).")
     for row in rows:
         lines.append(f"| {row['language']} | {row['workload']} | {row['base_go_ns']/1000:.2f} → {row['head_go_ns']/1000:.2f} | {row['base_c_ns']/1000:.2f} → {row['head_c_ns']/1000:.2f} | {row['base_go_c']:.2f}x → {row['head_go_c']:.2f}x | {(row['paired_ratio']-1)*100:+.2f}% {'PASS' if row['passed'] else '**FAIL**'} |")
     lines += ["", "C timing and the range of paired Go samples are recorded in receipt.json. C drift is reported; it does not excuse a Go regression. Tree.Edit, reparse, and previous-tree release are timed. Go fresh resets and C snapshot restoration are excluded from edit timing. C typing allocations include the small snapshot clone; C allocations cover the Go binding only; Go allocations include parser work.", ""]
@@ -374,11 +406,12 @@ def check_work_exemptions_history(root, base_revision):
         check_work_exemptions_shrink(json.loads(previous.stdout), read_json(root / path))
 
 
-def campaign(root, base_revision, out):
+def campaign(root, base_revision, out, approved_exception=False):
     root = root.resolve(); out = out.resolve()
     head_revision = git(root, "rev-parse", "HEAD")
     base_revision = git(root, "rev-parse", base_revision + "^{commit}")
     clean_revision(root, head_revision)
+    exception = validate_go_undo_exception(root, base_revision, head_revision) if approved_exception else None
     check_work_exemptions_history(root, base_revision)
     require(not out.exists(), "campaign output already exists; do not overwrite receipts")
     out.mkdir(parents=True)
@@ -446,7 +479,7 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
                 with (out / ("correctness-" + language + ".log")).open("w") as log:
                     run_checked(common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
                 print("W5 four-way correctness passed:", language, flush=True)
-            compare_counters(out, manifest_path, base_revision, head_revision)
+            compare_counters(out, manifest_path, base_revision, head_revision, exception)
             print("W5 deterministic counter gate passed before timing", flush=True)
             for f in m["fixtures"]:
                 language = f["language"]
@@ -476,9 +509,11 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
         finally:
             run_checked(["git", "-C", root, "worktree", "remove", "--force", base])
     clean_revision(root, head_revision)
+    if approved_exception:
+        require(validate_go_undo_exception(root, base_revision, head_revision) == exception, "W5 exception identity changed during campaign")
     env["finished"] = load_sample()
     write_json(out / "environment.json", env)
-    result = compare_timing(out, manifest_path, base_revision, head_revision)
+    result = compare_timing(out, manifest_path, base_revision, head_revision, exception)
     require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")
 
 
@@ -488,6 +523,7 @@ def main():
     run = sub.add_parser("run")
     run.add_argument("--base", required=True)
     run.add_argument("--output", type=Path, required=True)
+    run.add_argument("--approved-go-undo-exception", action="store_true")
     compare = sub.add_parser("compare")
     compare.add_argument("--output", type=Path, required=True)
     compare.add_argument("--manifest", type=Path, required=True)
@@ -498,7 +534,7 @@ def main():
         if args.command == "run":
             root = Path(__file__).resolve().parents[1]
             with campaign_lock():
-                campaign(root, args.base, args.output)
+                campaign(root, args.base, args.output, args.approved_go_undo_exception)
         else:
             result = compare_timing(args.output, args.manifest, args.base, args.head)
             require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")
