@@ -1,0 +1,344 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: head
+# working directory: /workspace
+# repository root: /workspace
+# revision: 6df20a2c83bb2e7fdb700c9b696f40006d170d51
+# dirty: false
+# source metadata: informational; no source snapshot authentication
+# started: 2026-10-27T20:09:06Z
+# package: .
+# bench regex: ^BenchmarkCompactThroughputYAML$
+# required benchmarks: none
+# build tags: gts_parsercorephase0
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# suite seed environment: GTS_BENCHMARK_SEED
+# paired workload order: must match
+# seed: 1; position: 2
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_owned         	    3032	    322798 ns/op	   6.19 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy     	    1936	    493888 ns/op	  16.22 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary   	    1178	    714225 ns/op	  11.22 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned      	     714	   1226881 ns/op	   6.53 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43224 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary      	    4714	    190431 ns/op	  10.49 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy        	    7086	    136611 ns/op	  14.63 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.649s
+# workload order: BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/r4_legacy
+# completed seed: 1; at: 2026-10-27T20:09:29Z
+# seed: 2; position: 1
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/eof8k_owned         	     700	   1220708 ns/op	   6.56 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43226 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary         	    5486	    186699 ns/op	  10.70 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy           	    7273	    136700 ns/op	  14.62 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy        	    2010	    490252 ns/op	  16.34 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned            	    2805	    325463 ns/op	   6.14 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary      	    1423	    712860 ns/op	  11.24 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.853s
+# workload order: BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_ordinary
+# completed seed: 2; at: 2026-10-27T20:09:49Z
+# seed: 3; position: 2
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/eof8k_legacy         	    2038	    491633 ns/op	  16.30 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary       	    1224	    717177 ns/op	  11.17 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned          	     746	   1243168 ns/op	   6.44 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43225 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned             	    2982	    327687 ns/op	   6.10 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy            	    7396	    136354 ns/op	  14.65 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary          	    4873	    189580 ns/op	  10.54 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.111s
+# workload order: BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/r4_ordinary
+# completed seed: 3; at: 2026-10-27T20:10:10Z
+# seed: 4; position: 1
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_legacy         	    7189	    136988 ns/op	  14.59 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary       	    5121	    191327 ns/op	  10.44 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned       	     717	   1229230 ns/op	   6.52 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43225 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned          	    3006	    324621 ns/op	   6.15 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy      	    1914	    495259 ns/op	  16.18 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary    	    1224	    710555 ns/op	  11.28 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.035s
+# workload order: BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary
+# completed seed: 4; at: 2026-10-27T20:10:31Z
+# seed: 5; position: 2
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_owned         	    3248	    323974 ns/op	   6.17 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy     	    1986	    493864 ns/op	  16.22 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary   	    1147	    711552 ns/op	  11.26 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy        	    7330	    136122 ns/op	  14.68 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned      	     748	   1238271 ns/op	   6.47 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43224 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary      	    5143	    191669 ns/op	  10.42 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.152s
+# workload order: BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/r4_ordinary
+# completed seed: 5; at: 2026-10-27T20:10:49Z
+# seed: 6; position: 1
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_legacy         	    7068	    136754 ns/op	  14.61 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary    	    1264	    715569 ns/op	  11.20 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy      	    1701	    495741 ns/op	  16.16 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned          	    3003	    324732 ns/op	   6.15 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary       	    5126	    191946 ns/op	  10.41 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned       	     696	   1233953 ns/op	   6.49 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43224 B/op	     194 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.925s
+# workload order: BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/eof8k_owned
+# completed seed: 6; at: 2026-10-27T20:11:11Z
+# seed: 7; position: 2
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_legacy         	    7053	    137581 ns/op	  14.52 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary       	    4916	    193597 ns/op	  10.32 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned       	     747	   1254079 ns/op	   6.39 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43225 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy      	    1602	    495112 ns/op	  16.18 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary    	    1238	    731590 ns/op	  10.95 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned          	    2985	    336042 ns/op	   5.95 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.951s
+# workload order: BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_owned
+# completed seed: 7; at: 2026-10-27T20:11:29Z
+# seed: 8; position: 1
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_owned         	    2610	    324714 ns/op	   6.15 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary   	    1237	    719422 ns/op	  11.14 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy     	    1908	    500716 ns/op	  16.00 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary      	    5032	    201313 ns/op	   9.92 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy        	    6590	    136463 ns/op	  14.64 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned      	     711	   1249276 ns/op	   6.41 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43224 B/op	     194 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.550s
+# workload order: BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/eof8k_owned
+# completed seed: 8; at: 2026-10-27T20:11:51Z
+# seed: 9; position: 2
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/eof8k_ordinary         	    1284	    721241 ns/op	  11.11 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary            	    4818	    184472 ns/op	  10.83 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy              	    6872	    138262 ns/op	  14.45 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned            	     734	   1247078 ns/op	   6.42 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43224 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned               	    2511	    329689 ns/op	   6.06 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy           	    1750	    494645 ns/op	  16.20 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.513s
+# workload order: BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_legacy
+# completed seed: 9; at: 2026-10-27T20:12:14Z
+# seed: 10; position: 1
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_ordinary         	    5420	    188550 ns/op	  10.60 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy        	    1980	    496239 ns/op	  16.15 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary      	    1207	    728829 ns/op	  10.99 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned            	    3013	    331689 ns/op	   6.02 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned         	     740	   1268450 ns/op	   6.32 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43224 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy           	    7153	    139170 ns/op	  14.36 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.198s
+# workload order: BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/r4_legacy
+# completed seed: 10; at: 2026-10-27T20:12:33Z
+# seed: 11; position: 2
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_owned         	    2952	    327053 ns/op	   6.11 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned      	     742	   1253193 ns/op	   6.39 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43225 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary   	    1359	    712283 ns/op	  11.25 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy        	    6849	    138610 ns/op	  14.41 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary      	    4683	    192899 ns/op	  10.36 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy     	    1726	    496400 ns/op	  16.14 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.948s
+# workload order: BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/eof8k_legacy
+# completed seed: 11; at: 2026-10-27T20:12:55Z
+# seed: 12; position: 1
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/eof8k_owned         	     720	   1250322 ns/op	   6.41 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43225 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary         	    5092	    189369 ns/op	  10.55 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned            	    3038	    340424 ns/op	   5.87 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy        	    1933	    532976 ns/op	  15.03 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary      	    1100	    733719 ns/op	  10.92 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy           	    7070	    138405 ns/op	  14.44 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.102s
+# workload order: BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_legacy
+# completed seed: 12; at: 2026-10-27T20:13:14Z
+# seed: 13; position: 2
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_ordinary         	    5244	    192757 ns/op	  10.37 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned            	    3015	    332238 ns/op	   6.01 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned         	     697	   1255556 ns/op	   6.38 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43225 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy        	    1880	    511371 ns/op	  15.67 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy           	    7170	    138612 ns/op	  14.41 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary      	    1173	    722306 ns/op	  11.09 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.098s
+# workload order: BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary
+# completed seed: 13; at: 2026-10-27T20:13:36Z
+# seed: 14; position: 1
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/eof8k_owned         	     668	   1321335 ns/op	   6.06 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43225 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy        	    1594	    512569 ns/op	  15.63 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy           	    7069	    139790 ns/op	  14.29 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary      	    1137	    733697 ns/op	  10.92 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned            	    2324	    359610 ns/op	   5.56 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary         	    4518	    227294 ns/op	   8.79 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.822s
+# workload order: BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/r4_ordinary
+# completed seed: 14; at: 2026-10-27T20:13:57Z
+# seed: 15; position: 2
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_ordinary         	    4422	    219633 ns/op	   9.10 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy           	    6496	    151890 ns/op	  13.15 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned            	    2941	    345726 ns/op	   5.78 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy        	    1749	    547441 ns/op	  14.64 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary      	     972	    805187 ns/op	   9.95 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned         	     657	   1295866 ns/op	   6.18 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43224 B/op	     194 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.019s
+# workload order: BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/eof8k_owned
+# completed seed: 15; at: 2026-10-27T20:14:19Z
+# seed: 16; position: 1
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/eof8k_legacy         	    1610	    525352 ns/op	  15.25 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned          	     680	   1240128 ns/op	   6.46 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43225 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary       	    1323	    739645 ns/op	  10.83 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy            	    7026	    141196 ns/op	  14.15 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary          	    4816	    201925 ns/op	   9.89 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned             	    2150	    355702 ns/op	   5.62 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.826s
+# workload order: BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/r4_owned
+# completed seed: 16; at: 2026-10-27T20:14:41Z
+# seed: 17; position: 2
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_owned         	    2612	    385153 ns/op	   5.19 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned      	     657	   1265406 ns/op	   6.33 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43225 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy     	    1754	    497990 ns/op	  16.09 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary      	    4872	    192269 ns/op	  10.39 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary   	    1258	    727710 ns/op	  11.01 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy        	    7197	    136732 ns/op	  14.61 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.974s
+# workload order: BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_legacy
+# completed seed: 17; at: 2026-10-27T20:15:01Z
+# seed: 18; position: 1
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/eof8k_ordinary         	    1230	    712138 ns/op	  11.25 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary            	    5236	    186725 ns/op	  10.70 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy              	    7077	    137718 ns/op	  14.51 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned               	    2962	    330109 ns/op	   6.05 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned            	     736	   1274161 ns/op	   6.29 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43224 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy           	    1939	    503938 ns/op	  15.90 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.094s
+# workload order: BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/eof8k_legacy
+# completed seed: 18; at: 2026-10-27T20:15:22Z
+# seed: 19; position: 2
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/eof8k_ordinary         	    1063	    787089 ns/op	  10.18 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy           	    1724	    538763 ns/op	  14.87 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned               	    2317	    336507 ns/op	   5.94 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned            	     679	   1240279 ns/op	   6.46 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43224 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary            	    4663	    193112 ns/op	  10.35 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/r4_legacy              	    7164	    139758 ns/op	  14.30 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.365s
+# workload order: BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/eof8k_legacy,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/r4_legacy
+# completed seed: 19; at: 2026-10-27T20:15:45Z
+# seed: 20; position: 1
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkCompactThroughputYAML/r4_legacy         	    6928	    138778 ns/op	  14.40 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	       288.0 public-nodes/op	       107.0 tokens/op	    1432 B/op	      14 allocs/op
+BenchmarkCompactThroughputYAML/r4_ordinary       	    4992	    196310 ns/op	  10.18 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       107.0 tokens/op	    5448 B/op	      37 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_ordinary    	    1341	    732131 ns/op	  10.94 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       423.0 tokens/op	   18296 B/op	      68 allocs/op
+BenchmarkCompactThroughputYAML/r4_owned          	    2488	    329778 ns/op	   6.06 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       232.0 public-nodes/op	       102.0 tokens/op	   13000 B/op	      71 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_owned       	     759	   1244742 ns/op	   6.44 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	       925.0 public-nodes/op	       403.0 tokens/op	   43224 B/op	     194 allocs/op
+BenchmarkCompactThroughputYAML/eof8k_legacy      	    1947	    498851 ns/op	  16.06 MB/s	         0 compact-fallbacks/op	         0 compact-routes/op	      1156 public-nodes/op	       423.0 tokens/op	    1256 B/op	      11 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	6.054s
+# workload order: BenchmarkCompactThroughputYAML/r4_legacy,BenchmarkCompactThroughputYAML/r4_ordinary,BenchmarkCompactThroughputYAML/eof8k_ordinary,BenchmarkCompactThroughputYAML/r4_owned,BenchmarkCompactThroughputYAML/eof8k_owned,BenchmarkCompactThroughputYAML/eof8k_legacy
+# completed seed: 20; at: 2026-10-27T20:16:04Z
+# repository root at end: /workspace
+# revision at end: 6df20a2c83bb2e7fdb700c9b696f40006d170d51
+# dirty at end: false
+# completed runs: 20
+# status: complete
