@@ -37,6 +37,17 @@ for tags and release notes while still in `0.x`.
   standalone file does. Before, a layer lost its pattern indexes and the order of
   the matches decided. In a Markdown fence of starlark, `{` changes from
   `punctuation.bracket` to `punctuation.special`.
+- On a span that an injected language and its host both capture, the injected
+  capture now wins. Before, the host's capture won unless it came from the first
+  pattern of the host's query.
+- Queries that set `(#set! priority N)` now resolve overlaps by priority. Before,
+  the directive had no effect and the narrower capture won. Sixteen shipped
+  queries set a priority. In the diff query, the `---`, `+++`, `-` and `+`
+  markers now take `diff.minus` or `diff.plus` instead of `punctuation.special`.
+  In hare, `:outer` in `break :outer;` is one `label` range where it was a
+  `punctuation.delimiter` range and a `variable` range, and in tablegen, `!add` is
+  one `function` range where it was a `punctuation.special` range and a
+  `function` range.
 
 ## [0.56.0] - 2026-10-13
 
