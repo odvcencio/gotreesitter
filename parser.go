@@ -3468,7 +3468,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 					tree.arena.legacyReuseReads.CertifyDefaultProducer(key)
 					tree.arena.legacyIncrementalReuseCertified = tree.arena.legacyReuseReads.DefaultProducerSchedule(len(source)) == key
 					if tree.arena.legacyIncrementalReuseCertified {
-						observeAuthenticatedGoReuse(p, source, oldTree, tree)
+						incr.ObserveReuse(p, source, oldTree, tree, nil, true, true, true)
 					}
 				}
 			}

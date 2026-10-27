@@ -724,3 +724,185 @@ func TestTransientScratchCheckpointRetargetsNestedRawShapeNodesBeforeSlabReuse(t
 	}
 
 }
+
+func TestTransientIdentitySetBudgetAndRetention(t *testing.T) {
+	t.Run("denial-before-allocation", func(t *testing.T) {
+		s := &parserScratch{}
+		s.setBudget(1)
+		p := &Parser{budgetScratch: s}
+		before := s.allocatedBytes()
+		if s.transientParents.addSeenNode(&Node{}, p) {
+			t.Fatal("budget should deny")
+		}
+		if s.allocatedBytes() != before || s.transientParents.seen.Capacity() != 0 {
+			t.Fatal("budget denial allocated")
+		}
+	})
+	t.Run("peak-overlap-budget", func(t *testing.T) {
+		s := &parserScratch{}
+		nodes := make([]Node, 65)
+		for i := 0; i < 64; i++ {
+			if !s.transientParents.addSeenNode(&nodes[i], nil) {
+				t.Fatal("initial fill failed")
+			}
+		}
+		if s.transientParents.seen.Capacity() != 128 {
+			t.Fatal("unexpected initial capacity")
+		}
+		baseline := s.allocatedBytes()
+		peak := int64(256 * unsafe.Sizeof(uintptr(0)))
+		s.setBudget(peak - 1)
+		p := &Parser{budgetScratch: s}
+		if s.transientParents.addSeenNode(&nodes[64], p) || s.allocatedBytes() != baseline || s.transientParents.seen.Len() != 64 {
+			t.Fatal("peak allocation denial mutated state")
+		}
+		s.setBudget(peak)
+		if !s.transientParents.addSeenNode(&nodes[64], p) {
+			t.Fatal("exact peak budget declined")
+		}
+		if s.transientParents.seen.Len() != 65 || s.allocatedBytes() != baseline+peak/2 {
+			t.Fatal("retained accounting mismatch")
+		}
+		s.transientParents.clearMaterializeScratch()
+	})
+	t.Run("account-clear-and-shrink", func(t *testing.T) {
+		s := &parserScratch{}
+		s.setBudget(8 << 20)
+		p := &Parser{budgetScratch: s}
+		nodes := make([]Node, 40000)
+		for i := range nodes {
+			if !s.transientParents.addSeenNode(&nodes[i], p) {
+				t.Fatalf("insert %d", i)
+			}
+		}
+		if s.transientParents.seen.Len() != len(nodes) || s.allocatedBytes() < s.transientParents.seen.Bytes() {
+			t.Fatal("missing membership or accounting")
+		}
+		s.transientParents.clearMaterializeScratch()
+		if s.transientParents.seen.Len() != 0 {
+			t.Fatal("membership survived cleanup")
+		}
+		s.transientParents.trimForSource(1)
+		if s.transientParents.seen.Capacity() != 0 {
+			t.Fatal("large retained set survived source shrink")
+		}
+	})
+	t.Run("one-mib-source-retention-bound", func(t *testing.T) {
+		s := &parserScratch{}
+		s.setBudget(32 << 20)
+		p := &Parser{budgetScratch: s}
+		nodes := make([]Node, 200000)
+		for i := range nodes {
+			if !s.transientParents.addSeenNode(&nodes[i], p) {
+				t.Fatalf("insert %d", i)
+			}
+		}
+		if got := s.transientParents.seen.Capacity(); got != maxRetainedFullSliceCap {
+			t.Fatalf("capacity %d", got)
+		}
+		retained := s.transientParents.seen.Bytes()
+		s.transientParents.clearMaterializeScratch()
+		s.transientParents.trimForSource(1048591)
+		if s.transientParents.seen.Bytes() != retained || s.allocatedBytes() < retained {
+			t.Fatal("1 MiB retention or accounting changed")
+		}
+		s.transientParents.resetForRelease()
+		if s.transientParents.seen.Bytes() != retained {
+			t.Fatal("bounded full-source capacity was discarded")
+		}
+		s.transientParents.trimForSource(1)
+		if s.transientParents.seen.Bytes() != 0 {
+			t.Fatal("small source retained large set")
+		}
+	})
+	t.Run("nil-parser", func(t *testing.T) {
+		var s transientParentScratch
+		if !s.addSeenNode(&Node{}, nil) {
+			t.Fatal("nil parser unexpectedly denied")
+		}
+		s.clearMaterializeScratch()
+	})
+}
+
+// Exhaust the scratch budget only after real postorder insertions. The outer
+// materializer must clear the set on its early-return path.
+func TestTransientParentPartialBudgetStopClearsIdentitySet(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	leaf := newLeafNodeInArena(arena, Symbol(1), true, 0, 1, Point{}, Point{Column: 1})
+	nodes := make([]*Node, 130)
+	for i := range nodes {
+		nodes[i] = newParentNodeInArena(arena, Symbol(2), true, []*Node{leaf}, nil, 0)
+	}
+	var scratch parserScratch
+	scratch.setBudget(1024)
+	parser := &Parser{budgetScratch: &scratch}
+	reason := scratch.transientParents.materializeNodeSliceUntil(nodes, arena, nil, parser)
+	if reason != ParseStopMemoryBudget {
+		t.Fatalf("stop=%v, want memory budget", reason)
+	}
+	if scratch.transientParents.seen.Capacity() == 0 {
+		t.Fatal("budget stopped before any real membership allocation")
+	}
+	if got := scratch.transientParents.seen.Len(); got != 0 {
+		t.Fatalf("partial traversal retained %d identities", got)
+	}
+	for i, node := range nodes {
+		if node == nil || node.Child(0) != leaf {
+			t.Fatalf("partial traversal corrupted node %d", i)
+		}
+	}
+}
+
+// This covers the membership map's identity semantics for shared, non-transient
+// arena nodes, including a borrowed subtree from a different arena.
+func TestTransientParentMaterializeSharedArenaDAG(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	borrowed := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	defer borrowed.Release()
+	leaf := newLeafNodeInArena(borrowed, Symbol(1), true, 0, 1, Point{}, Point{Column: 1})
+	shared := newParentNodeInArena(borrowed, Symbol(2), true, []*Node{leaf}, nil, 0)
+	left := newParentNodeInArena(arena, Symbol(3), true, []*Node{shared}, nil, 0)
+	right := newParentNodeInArena(arena, Symbol(4), true, []*Node{shared}, nil, 0)
+	nodes := []*Node{left, right}
+	var scratch transientParentScratch
+	if reason := scratch.materializeNodeSliceUntil(nodes, arena, nil, nil); reason != ParseStopNone {
+		t.Fatalf("materialize: %v", reason)
+	}
+	if nodes[0] != left || nodes[1] != right || left.Child(0) != shared || right.Child(0) != shared || shared.Child(0) != leaf {
+		t.Fatal("shared borrowed DAG identity changed")
+	}
+	if scratch.seen.Len() != 0 {
+		t.Fatal("completed materialization retained seen nodes")
+	}
+}
+
+func TestTransientParentMaterializeCancelledClearsPriorMarks(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	leaf := newLeafNodeInArena(arena, Symbol(1), true, 0, 1, Point{}, Point{Column: 1})
+	node := newParentNodeInArena(arena, Symbol(2), true, []*Node{leaf}, nil, 0)
+	var scratch transientParentScratch
+	// First traversal allocates/populates the map and its defer must clear it.
+	if reason := scratch.materializeNodeSliceUntil([]*Node{node}, arena, nil, nil); reason != ParseStopNone {
+		t.Fatalf("initial: %v", reason)
+	}
+	if scratch.seen.Len() != 0 {
+		t.Fatal("initial traversal retained seen nodes")
+	}
+	// Seed an entry to make cleanup observable even though cancellation is polled
+	// before traversal begins. Both identity-map and membership-set store this key.
+	if scratch.seen.Capacity() == 0 {
+		t.Fatal("initial traversal did not initialize seen map")
+	}
+	scratch.seen.AddKnownAbsent(node)
+	var cancelled uint32 = 1
+	parser := &Parser{cancellationFlag: &cancelled}
+	if reason := scratch.materializeNodeSliceUntil([]*Node{node}, arena, nil, parser); reason != ParseStopCancelled {
+		t.Fatalf("stop=%v", reason)
+	}
+	if scratch.seen.Len() != 0 {
+		t.Fatal("cancelled traversal retained seen nodes")
+	}
+}

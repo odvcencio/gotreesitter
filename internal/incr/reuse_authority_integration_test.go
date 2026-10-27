@@ -1,6 +1,26 @@
 package incr
 
-import "testing"
+import (
+	"bytes"
+	"encoding/gob"
+	"testing"
+)
+
+func TestReuseAuthorityGobCannotTransferGrant(t *testing.T) {
+	owner := new(int)
+	original := NewReuseAuthorityGrant(owner)
+	var encoded bytes.Buffer
+	if err := gob.NewEncoder(&encoded).Encode(original); err != nil {
+		t.Fatal(err)
+	}
+	decoded := NewReuseAuthorityGrant(owner)
+	if err := gob.NewDecoder(&encoded).Decode(decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Matches(owner) || !original.Matches(owner) {
+		t.Fatal("serialization transferred or revoked the original authority")
+	}
+}
 
 // A default-producer grant must survive valid grouped-storage transitions but
 // cannot survive an incomplete history or arena reuse.

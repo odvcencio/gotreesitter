@@ -210,7 +210,7 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	}
 	if p.reuseCursor.smallFreshShadowArtifact {
 		would := p.reuseCursor.shadowWouldCertify && p.reuseCursor.certifiesIncrementalResult(tree, p, source, 0)
-		observeTrustedGoReuseShadow(p, source, oldTree, tree, fresh, would)
+		incr.ObserveReuse(p, source, oldTree, tree, fresh, would, p.reuseCursor.smallFreshReuse, false)
 	}
 	// A stopped attempt can have the same visible shape as an accepted parse,
 	// but its stop reason still controls the later retry policy. Authenticate
