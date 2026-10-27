@@ -378,47 +378,8 @@ func TestSymbolNames(t *testing.T) {
 	}
 }
 
-// The parser reads these interfaces during a full parse. The recorder must
-// answer as the real scanner does, and as the parser assumes for a scanner
-// that lacks them, or the recorded parse would differ from the real one.
-func TestRecorderMirrorsTheOptionalInterfaces(t *testing.T) {
-	declared := capableScanner{
-		reuse: true, checkpointed: true, stateless: true, preserves: true, retains: true,
-		errorRetry: false, packedUpTo: 10,
-	}
-	got := newRecorder(declared).install()
-	if !got.(gts.IncrementalReuseExternalScanner).SupportsIncrementalReuse() ||
-		!got.(gts.CheckpointedExternalScanner).UsesExternalScannerCheckpoints() ||
-		!got.(gts.StatelessExternalScanner).ExternalScannerIsStateless() ||
-		!got.(gts.FailurePreservingExternalScanner).PreservesStateOnScanFailure() ||
-		!got.(gts.FailureStateRetainingExternalScanner).RetainsStateOnScanFailure() {
-		t.Fatal("the recorder drops a capability the scanner declares")
-	}
-	retry := got.(interface{ SupportsErrorModeExternalRetry() bool })
-	packed := got.(interface{ SupportsPackedGSSVersionOrder(int) bool })
-	if retry.SupportsErrorModeExternalRetry() || !packed.SupportsPackedGSSVersionOrder(10) || packed.SupportsPackedGSSVersionOrder(11) {
-		t.Fatal("the recorder changes the scanner's error-retry or packed-GSS answer")
-	}
-	if _, ok := got.(gts.ExternalScannerCheckpointIdentityProvider); ok {
-		t.Fatal("the recorder gives a scanner without a checkpoint identity one")
-	}
-
-	plain := newRecorder(counterScanner{}).install()
-	if plain.(gts.IncrementalReuseExternalScanner).SupportsIncrementalReuse() ||
-		plain.(gts.CheckpointedExternalScanner).UsesExternalScannerCheckpoints() ||
-		plain.(gts.StatelessExternalScanner).ExternalScannerIsStateless() ||
-		plain.(gts.FailurePreservingExternalScanner).PreservesStateOnScanFailure() ||
-		plain.(gts.FailureStateRetainingExternalScanner).RetainsStateOnScanFailure() {
-		t.Fatal("the recorder invents a capability for a scanner that has none")
-	}
-	if !plain.(interface{ SupportsErrorModeExternalRetry() bool }).SupportsErrorModeExternalRetry() ||
-		!plain.(interface{ SupportsPackedGSSVersionOrder(int) bool }).SupportsPackedGSSVersionOrder(1<<20) {
-		t.Fatal("the recorder must read true where the parser reads an absent interface as true")
-	}
-}
-
 func TestRecorderKeepsACheckpointIdentity(t *testing.T) {
-	identity := identityScanner{capableScanner{checkpointed: true}}
+	identity := identityScanner{answeringScanner{yes: map[string]bool{"UsesExternalScannerCheckpoints": true}}}
 	got, ok := newRecorder(identity).install().(gts.ExternalScannerCheckpointIdentityProvider)
 	if !ok || !got.UsesExternalScannerCheckpoints() {
 		t.Fatal("the recorder hides the checkpoint identity")

@@ -289,45 +289,55 @@ func TestScannerProbesRequireAScannerType(t *testing.T) {
 
 // mirroredProbes lists the capabilities the recorder implements for every
 // scanner, and the root files that ask for each. Where the scanner has no
-// opinion the recorder answers false, or true for the two retry and ordering
-// opinions the parser also assumes true. That matches production exactly
-// wherever the root treats an absent interface and a false answer alike.
+// opinion the recorder answers false, or true for the three opinions the parser
+// also assumes true (error-mode retry, packed-GSS order and composite reuse of
+// checkpointed subtrees). That matches production exactly wherever the root
+// treats an absent interface and a false answer alike.
 // classifyExternalScannerQuiescence is the one place that does not: it reads a
-// false SupportsIncrementalReuse as a refusal, not as no opinion, and only
-// incremental reuse and the compact route reach it.
+// false SupportsIncrementalReuse as a refusal, not as no opinion. Incremental
+// reuse and the compact route call it. A full parse reaches it only through
+// forestIncrementalReuseProven (glr_forest.go), which compares the result with
+// "proven", so a refusal and no opinion read the same there.
+//
+// A key that begins with "type " names an interface the checker cannot resolve
+// because it lives outside the root, written as the root writes it.
+// capabilityQuestions (questions_test.go) names the recorder method that
+// answers each question and tests it.
 //
 // A probe in a file that is not listed may read that difference during a full
 // parse. Check how the new code treats an absent interface, then add the file.
 var mirroredProbes = map[string][]string{
-	"CheckpointIdentity":             {"external_scanner_checkpoint_capability.go"},
-	"ExternalScannerIsStateless":     {"admission_switch.go", "external_scanner_quiescence.go", "glr.go", "incremental.go", "parser.go", "parser_recover_c.go", "parsercore_phase0_per_version_lexer_state.go", "token_invariant_dependency.go", "token_invariant_lexical_proof.go"},
-	"PreservesStateOnScanFailure":    {"parser_dfa_token_source.go"},
-	"RetainsStateOnScanFailure":      {"parser_dfa_token_source.go"},
-	"SupportsErrorModeExternalRetry": {"parser_dfa_token_source.go"},
-	"SupportsIncrementalReuse":       {"external_scanner_quiescence.go", "parser.go"},
-	"SupportsPackedGSSVersionOrder":  {"parser.go"},
-	"UsesExternalScannerCheckpoints": {"external_scanner_checkpoint_capability.go", "external_scanner_checkpoints.go"},
+	"CheckpointIdentity":                   {"external_scanner_checkpoint_capability.go"},
+	"ExternalScannerIsStateless":           {"admission_switch.go", "external_scanner_quiescence.go", "glr.go", "incremental.go", "parser.go", "parser_recover_c.go", "parsercore_phase0_per_version_lexer_state.go", "token_invariant_dependency.go", "token_invariant_lexical_proof.go"},
+	"PreservesStateOnScanFailure":          {"parser_dfa_token_source.go"},
+	"RetainsStateOnScanFailure":            {"parser_dfa_token_source.go"},
+	"SupportsCheckpointedNonLeafReuse":     {"external_scanner_checkpoints.go"},
+	"SupportsErrorModeExternalRetry":       {"parser_dfa_token_source.go"},
+	"SupportsIncrementalReuse":             {"external_scanner_quiescence.go", "parser.go"},
+	"SupportsPackedGSSVersionOrder":        {"parser.go"},
+	"UsesExternalScannerCheckpoints":       {"external_scanner_checkpoint_capability.go", "external_scanner_checkpoints.go"},
+	"type incr.CheckpointReadScanner":      {"incremental.go"},
+	"type incr.LargeCheckpointReadScanner": {"incremental.go"},
+	"type incr.LargeStatelessReadScanner":  {"incremental.go"},
+	"type incr.StatelessReadScanner":       {"incremental.go"},
 }
 
-// onlyIncrementalProbes lists the questions the recorder does not answer,
-// each with the reason it cannot change a full parse. The recorder reads as if
-// the scanner lacked these capabilities. Certify parses each source from
-// scratch with no old tree, and these are asked only when a new parse reuses
-// an old one.
+// onlyIncrementalProbes lists the questions the recorder does not answer, each
+// with the reason a full parse of a default run does not put it. The recorder
+// reads as if the scanner lacked these capabilities. Most are asked only when
+// a new parse reuses an old one, and Certify parses each source from scratch
+// with no old tree. Do not list a question here because its function sounds
+// like reuse: every parse also runs legacyReuseReadsEligible, which asks the
+// read certificates and the composite reuse policy (see mirroredProbes).
 var onlyIncrementalProbes = map[string]string{
 	"AllowsIncrementalReuseWithoutCheckpoint": "languageAllowsCheckpointlessExternalReuse: looks up a checkpoint for a reused subtree",
 	"ExternalScannerASCIIEquivalenceClass":    "tokenInvariantScannerASCIIEditEquivalent: judges whether an edit leaves a token unchanged",
 	"RequiresIncrementalPrefixFrontierProof":  "languageRequiresExternalScannerPrefixFrontierProof: gates an incremental reparse (parser_api.go)",
-	"SupportsCheckpointedNonLeafReuse":        "languageSupportsCheckpointedNonLeafReuse: gates composite subtree reuse (incremental.go)",
 	"SupportsIncrementalReuseFromErrorTree":   "languageSupportsIncrementalReuseFromErrorTree: gates reuse of an error-bearing old tree",
 
-	"type *externalScannerOrderAdapter":    "checkpoint identity unwrapping for incremental reuse; only languages built from an override blob carry the adapter",
-	"type incr.StatelessReadScanner":       "legacyReuseReadsEligible: incremental and compact reuse eligibility",
-	"type incr.LargeStatelessReadScanner":  "legacyReuseReadsEligible: incremental and compact reuse eligibility",
-	"type incr.CheckpointReadScanner":      "legacyReuseReadsEligible: incremental and compact reuse eligibility",
-	"type incr.LargeCheckpointReadScanner": "legacyReuseReadsEligible: incremental and compact reuse eligibility",
-	"reflect.TypeOf":                       "parser-core phase zero diagnostics (parsercore_phase0_*.go), not the parse",
-	"reflect.ValueOf":                      "parser-core phase zero diagnostics (parsercore_phase0_*.go), not the parse",
+	"type *externalScannerOrderAdapter": "checkpoint identity lookup; only a language loaded from an override blob with another external-symbol order carries the adapter (grammars/runtime/embedded_loader.go), and the report's environment names the override",
+	"reflect.TypeOf":                    "parser-core phase zero diagnostics (parsercore_phase0_*.go), not the parse",
+	"reflect.ValueOf":                   "parser-core phase zero diagnostics (parsercore_phase0_*.go), not the parse",
 }
 
 // adapterFile holds the root's own scanner wrapper. Its probes ask about the
@@ -336,14 +346,26 @@ const adapterFile = "external_scanner_adapter.go"
 
 func TestRecorderImplementsEveryMirroredProbe(t *testing.T) {
 	typ := reflect.TypeOf(&identityRecorder{})
+	method := map[string]string{"CheckpointIdentity": "CheckpointIdentity"}
+	for _, q := range capabilityQuestions {
+		method[q.key] = q.method
+	}
 	for key := range mirroredProbes {
-		if _, ok := typ.MethodByName(key); !ok {
-			t.Errorf("%s is listed as mirrored but the recorder has no such method", key)
+		name, ok := method[key]
+		if !ok {
+			t.Errorf("%s is listed as mirrored but capabilityQuestions has no question for it", key)
+			continue
+		}
+		if _, ok := typ.MethodByName(name); !ok {
+			t.Errorf("%s is listed as mirrored but the recorder has no %s method", key, name)
 		}
 	}
 	for key := range onlyIncrementalProbes {
 		if _, ok := typ.MethodByName(key); ok {
 			t.Errorf("%s is listed as unmirrored but the recorder implements it; move it to mirroredProbes", key)
+		}
+		if _, ok := method[key]; ok {
+			t.Errorf("%s is listed as unmirrored but capabilityQuestions tests the recorder's answer; move it to mirroredProbes", key)
 		}
 	}
 }
@@ -374,7 +396,7 @@ func probeProblems(probes []rootProbe) []string {
 func TestProbeProblemsNameWhatTheRecorderDoesNotCover(t *testing.T) {
 	covered := []rootProbe{
 		{key: "SupportsIncrementalReuse", file: "parser.go", line: 1},
-		{key: "SupportsCheckpointedNonLeafReuse", file: "incremental.go", line: 2},
+		{key: "SupportsIncrementalReuseFromErrorTree", file: "parser.go", line: 2},
 		{key: "type incr.CheckpointReadScanner", file: "incremental.go", line: 3},
 		{key: "NewQuestion", file: adapterFile, line: 4},
 	}

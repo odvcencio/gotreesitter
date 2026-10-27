@@ -97,29 +97,43 @@
 //
 // The recorder implements the optional scanner interfaces that a full parse
 // reads. Where the scanner lacks one, it answers as the parser does for a
-// scanner without an opinion. Certify parses every source twice, once without
-// the recorder and once with it, and compares a digest of each tree. A
+// scanner without an opinion. Those interfaces include the read certificates,
+// which every parse asks about when it starts: the answer decides whether the
+// parse records read history and charges it to the memory budget. They also
+// include the composite-reuse policy, which that check asks next for a scanner
+// that certifies checkpoint reads. Certify parses every source twice, once
+// without the recorder and once with it, and compares a digest of each tree. A
 // difference gives the verdict not-transparent; the counts under parses show
 // how many sources differed.
 //
 // The comparison sees trees only. A change in which Scan calls the parser makes
 // can leave the tree the same, so equal digests do not prove that the recorded
-// calls are the production calls. probes_test.go narrows the gap. It reads the
-// root package's source with go/types and lists every place the root asks a
-// scanner about its type. It fails when the root asks a question that the
-// recorder neither answers nor is known to be asked only by incremental reuse,
-// so a new probe in a full-parse path fails a test before it becomes a silent
-// difference in a report. Two differences remain by design:
+// calls are the production calls. Two tests narrow the gap. probes_test.go
+// reads the root package's source with go/types and lists every place the root
+// asks a scanner about its type. It fails when the root asks a question that
+// the recorder neither answers nor is known to be asked only by incremental
+// reuse, so a new probe in a full-parse path fails a test before it becomes a
+// silent difference in a report. questions_test.go checks each answer the
+// recorder gives, and that a recorded parse puts a scanner the questions that a
+// production parse puts.
 //
-//   - The recorder does not mirror the interfaces that only incremental reuse
-//     reads, because Certify parses each source from scratch with no old tree.
-//   - The recorder answers false for five capabilities when the scanner has no
+// Two differences remain by design:
+//
+//   - The recorder does not mirror the questions that only incremental reuse
+//     asks, because Certify parses each source from scratch, with no old tree
+//     and no edit. onlyIncrementalProbes in probes_test.go lists them and says
+//     why.
+//   - The recorder answers false for nine capabilities when the scanner has no
 //     opinion (incremental reuse, checkpoints, statelessness, preserving or
-//     retaining state on failure), where the parser sees no interface. That is
-//     the same answer wherever the root treats an absent interface and a false
+//     retaining state on failure, and four read certificates), and true for
+//     three (error-mode retry, packed-GSS version order and composite reuse of
+//     checkpointed subtrees), where the parser sees no interface. That is the
+//     same answer wherever the root treats an absent interface and a false
 //     answer alike. One place does not: classifyExternalScannerQuiescence reads
-//     a false SupportsIncrementalReuse as a refusal, and only incremental
-//     reuse and the compact route reach it.
+//     a false SupportsIncrementalReuse as a refusal. Incremental reuse and the
+//     compact route call it. A full parse reaches it only through
+//     forestIncrementalReuseProven, which compares the result with "proven", so
+//     a refusal and no opinion read the same there.
 //
 // The package reaches unexported parts of the root package through go:linkname
 // and reflection; see lexer_link.go. lexer_link_test.go fails if those change.

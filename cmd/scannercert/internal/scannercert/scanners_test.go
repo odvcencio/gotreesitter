@@ -296,26 +296,8 @@ func certified(inner gts.ExternalScanner, src string, masks ...[]bool) analysis 
 	return rec.analyze(inner, symbolNames{})
 }
 
-// capableScanner answers every optional scanner interface the recorder mirrors,
-// each with a value the test sets.
-type capableScanner struct {
-	echoScanner
-	reuse, checkpointed, stateless, preserves, retains, errorRetry bool
-	packedUpTo                                                     int
-}
-
-func (s capableScanner) SupportsIncrementalReuse() bool       { return s.reuse }
-func (s capableScanner) UsesExternalScannerCheckpoints() bool { return s.checkpointed }
-func (s capableScanner) ExternalScannerIsStateless() bool     { return s.stateless }
-func (s capableScanner) PreservesStateOnScanFailure() bool    { return s.preserves }
-func (s capableScanner) RetainsStateOnScanFailure() bool      { return s.retains }
-func (s capableScanner) SupportsErrorModeExternalRetry() bool { return s.errorRetry }
-func (s capableScanner) SupportsPackedGSSVersionOrder(n int) bool {
-	return n <= s.packedUpTo
-}
-
 // identityScanner is a checkpointed scanner that names its implementation.
-type identityScanner struct{ capableScanner }
+type identityScanner struct{ answeringScanner }
 
 func (identityScanner) CheckpointIdentity() (gts.ExternalScannerCheckpointIdentity, bool) {
 	return gts.ExternalScannerCheckpointIdentity{Scanner: []byte("scanner"), Grammar: []byte("grammar")}, true

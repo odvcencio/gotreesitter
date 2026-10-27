@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	gts "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/incr"
 )
 
 // stateBufferSize is the buffer the parser hands to Serialize
@@ -46,7 +47,9 @@ type call struct {
 // with the recorder as without it. Certify compares trees, and probes_test.go
 // compares the root's questions with what the recorder answers; the package
 // comment says what neither can see. The interfaces that only incremental
-// reuse consults are not mirrored.
+// reuse consults are not mirrored. Every parse, a fresh one too, asks the read
+// certificates, and the non-leaf reuse policy of a scanner that certifies
+// checkpoint reads, so those are mirrored.
 type recorder struct {
 	inner gts.ExternalScanner
 
@@ -122,6 +125,40 @@ func (r *recorder) SupportsErrorModeExternalRetry() bool {
 func (r *recorder) SupportsPackedGSSVersionOrder(n int) bool {
 	s, ok := r.inner.(interface{ SupportsPackedGSSVersionOrder(int) bool })
 	return !ok || s.SupportsPackedGSSVersionOrder(n)
+}
+
+// The next four methods answer what every parse asks when it starts
+// (legacyReuseReadsEligible, through beginLegacyReuseReads). The answers decide
+// whether the parse records read history and charges it to the arena budget.
+// The root reads a missing interface and a false answer alike, so the recorder
+// reads false where the scanner has no opinion.
+
+func (r *recorder) SupportsStatelessReadDependencies() bool {
+	s, ok := r.inner.(incr.StatelessReadScanner)
+	return ok && s.SupportsStatelessReadDependencies()
+}
+
+func (r *recorder) SupportsLargeStatelessReadDependencies() bool {
+	s, ok := r.inner.(incr.LargeStatelessReadScanner)
+	return ok && s.SupportsLargeStatelessReadDependencies()
+}
+
+func (r *recorder) SupportsCheckpointReadDependencies() bool {
+	s, ok := r.inner.(incr.CheckpointReadScanner)
+	return ok && s.SupportsCheckpointReadDependencies()
+}
+
+func (r *recorder) SupportsLargeCheckpointReadDependencies() bool {
+	s, ok := r.inner.(incr.LargeCheckpointReadScanner)
+	return ok && s.SupportsLargeCheckpointReadDependencies()
+}
+
+// SupportsCheckpointedNonLeafReuse reads true when the scanner has no opinion,
+// as the parser does. The check that asks the certificates above asks it next
+// for a scanner that certifies checkpoint reads.
+func (r *recorder) SupportsCheckpointedNonLeafReuse() bool {
+	s, ok := r.inner.(interface{ SupportsCheckpointedNonLeafReuse() bool })
+	return !ok || s.SupportsCheckpointedNonLeafReuse()
 }
 
 // identityRecorder adds the checkpoint identity method for a scanner that has
