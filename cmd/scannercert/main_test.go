@@ -97,12 +97,12 @@ func TestRunPrintsASingleReportToStandardOutput(t *testing.T) {
 	}
 }
 
-// A report exists only if the recorder left the parse unchanged. Each grammar
-// below has a different mix of the optional scanner interfaces the recorder
-// forwards: stateless and failure-preserving (go), failure-retaining with
-// checkpoints (swift), checkpoints that preserve failures (html), checkpoint
-// identity (scala), an error-mode retry opinion (matlab), a packed-GSS opinion
-// (dart), and none (bash, lua).
+// The command fails any report whose parse the recorder changed, so these
+// grammars must come out transparent. Each has a different mix of the optional
+// scanner interfaces the recorder forwards: stateless and failure-preserving
+// (go), failure-retaining with checkpoints (swift), checkpoints that preserve
+// failures (html), checkpoint identity (scala), an error-mode retry opinion
+// (matlab), a packed-GSS opinion (dart), and none (bash, lua).
 func TestRecordingLeavesTheParseUnchanged(t *testing.T) {
 	for _, name := range []string{"go", "swift", "html", "scala", "matlab", "dart", "bash", "lua"} {
 		t.Run(name, func(t *testing.T) {
@@ -115,6 +115,32 @@ func TestRecordingLeavesTheParseUnchanged(t *testing.T) {
 				t.Fatalf("parses %+v calls %+v, want a transparent parse that called the scanner", report.Parses, report.Calls)
 			}
 		})
+	}
+}
+
+// A report whose recorded parse differs from the production parse is not
+// evidence about the scanner. The command still writes it, so a reader can see
+// which sources changed, but it must name the verdict and exit nonzero.
+func TestRunFailsAReportWhoseRecordedParseDiffers(t *testing.T) {
+	notTransparent := func(_, name string, _ bool) (*scannercert.Report, error) {
+		return &scannercert.Report{
+			Schema: scannercert.Schema, Language: name, Verdict: scannercert.VerdictNotTransparent,
+			Parses: scannercert.ParseInfo{Sources: 73, Divergent: 73},
+		}, nil
+	}
+	dir := t.TempDir()
+	var out, errOut bytes.Buffer
+	err := runWith([]string{"-root", root, "-language", "matlab,lua", "-out", dir}, &out, &errOut, notTransparent)
+	if err == nil || !strings.Contains(err.Error(), "matlab") || !strings.Contains(err.Error(), "73 of 73") {
+		t.Fatalf("err = %v, want the failure to name matlab and the 73 of 73 sources that changed", err)
+	}
+	if !strings.Contains(errOut.String(), "matlab: not-transparent") {
+		t.Fatalf("stderr = %q, want the verdict printed", errOut.String())
+	}
+	for _, name := range []string{"matlab", "lua"} {
+		if report := readReport(t, filepath.Join(dir, name+".json")); report.Verdict != scannercert.VerdictNotTransparent {
+			t.Fatalf("%s report verdict = %q, want it written for inspection", name, report.Verdict)
+		}
 	}
 }
 

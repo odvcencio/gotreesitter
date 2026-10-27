@@ -55,6 +55,13 @@ func Certify(lang *gts.Language, corpus *Corpus) (*Report, error) {
 	}
 
 	a := rec.analyze(inner, symbolNames{lang: lang})
+	verdict := a.verdict()
+	if divergent > 0 {
+		// The recorder changed the parse, so the calls it saw are not the
+		// production parser's. Whatever the checks found describes the
+		// recorded parse, not the scanner's use in production.
+		verdict = VerdictNotTransparent
+	}
 	name := corpus.Language
 	if name == "" {
 		name = lang.Name
@@ -76,7 +83,7 @@ func Certify(lang *gts.Language, corpus *Corpus) (*Report, error) {
 		},
 		Calls:     a.calls,
 		Checks:    a.checks,
-		Verdict:   a.verdict(),
+		Verdict:   verdict,
 		Witnesses: a.witnesses,
 	}, nil
 }

@@ -6,14 +6,18 @@ import (
 )
 
 // Schema names the report layout. Change it with any field change.
-const Schema = "scannercert-report-v1"
+const Schema = "scannercert-report-v2"
 
 // Verdicts. No findings means no check failed on the recorded calls; it is
-// evidence, not proof, and it grants nothing. See the package comment.
+// evidence, not proof, and it grants nothing. Not transparent means the parse
+// with the recorder differed from the parse without it, so the recorded calls
+// are not the production parser's and the report says nothing about the
+// scanner. See the package comment.
 const (
-	VerdictNoFindings = "no-findings"
-	VerdictFindings   = "findings"
-	VerdictNoEvidence = "no-evidence"
+	VerdictNoFindings     = "no-findings"
+	VerdictFindings       = "findings"
+	VerdictNoEvidence     = "no-evidence"
+	VerdictNotTransparent = "not-transparent"
 )
 
 // Witness kinds, one per check that can fail.

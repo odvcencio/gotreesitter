@@ -3,8 +3,11 @@
 // deterministic JSON report per grammar.
 //
 // It is report-only. It exits zero when it wrote every report, whatever the
-// verdicts, and it changes no grant. Run it from the repository root with the
-// GOT_ and GTS_ variables unset; each report lists any that are set:
+// scanner findings, and it changes no grant. It exits nonzero for a report
+// with the verdict not-transparent, because the parse with the recorder then
+// differed from the parse without it. Run it from the repository root with the
+// GOT_, GTS_ and GOTREESITTER_ variables unset; each report lists any that are
+// set:
 //
 //	go run ./cmd/scannercert -language lua,yaml -out /tmp/scannercert
 //	go run ./cmd/scannercert -language lua
@@ -37,7 +40,14 @@ func main() {
 	}
 }
 
+// certifier turns one grammar name into its report.
+type certifier func(root, name string, session bool) (*scannercert.Report, error)
+
 func run(args []string, stdout, stderr io.Writer) error {
+	return runWith(args, stdout, stderr, certify)
+}
+
+func runWith(args []string, stdout, stderr io.Writer, makeReport certifier) error {
 	flags := flag.NewFlagSet("scannercert", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	root := flags.String("root", ".", "repository root")
@@ -63,9 +73,12 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 	var failures []string
 	for _, name := range names {
-		report, err := certify(*root, name, *session)
+		report, err := makeReport(*root, name, *session)
 		if err == nil {
 			err = write(report, *out, stdout, stderr)
+		}
+		if err == nil {
+			err = unreliable(report)
 		}
 		if err != nil {
 			failures = append(failures, fmt.Sprintf("%s: %v", name, err))
@@ -101,6 +114,17 @@ func certify(root, name string, session bool) (*scannercert.Report, error) {
 		return nil, err
 	}
 	return scannercert.Certify(entry.Language(), corpus)
+}
+
+// unreliable reports a report that records a parse the recorder changed. The
+// command writes such a report so a reader can see which sources changed, but
+// it counts as a failure: the recorded calls are not the production parser's.
+func unreliable(report *scannercert.Report) error {
+	if report.Verdict != scannercert.VerdictNotTransparent {
+		return nil
+	}
+	return fmt.Errorf("the recorded parse differs from the production parse in %d of %d sources, so the report says nothing about the scanner",
+		report.Parses.Divergent, report.Parses.Sources)
 }
 
 // write puts the report in dir, or on stdout when dir is empty.

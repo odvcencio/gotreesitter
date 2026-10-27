@@ -158,6 +158,58 @@ func TestCertifyReportsAScannerThatForgetsStateWhenSerializing(t *testing.T) {
 	}
 }
 
+// savesScanner counts its Serialize calls in its state and refuses "#" once
+// the count passes two. The parser serializes once before each scan. The
+// recorder serializes around every scan as well, so the recorded parse reaches
+// the limit sooner and refuses a "#" that the production parse accepts.
+type savesScanner struct{}
+
+type savesState struct{ saves uint8 }
+
+func (savesScanner) Create() any { return &savesState{} }
+func (savesScanner) Destroy(any) {}
+func (savesScanner) Serialize(payload any, buf []byte) int {
+	st := payload.(*savesState)
+	st.saves++
+	buf[0] = st.saves
+	return 1
+}
+
+func (savesScanner) Deserialize(payload any, buf []byte) {
+	st := payload.(*savesState)
+	st.saves = 0
+	if len(buf) > 0 {
+		st.saves = buf[0]
+	}
+}
+
+func (savesScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool) bool {
+	st := payload.(*savesState)
+	if len(valid) == 0 || !valid[0] || lexer.Lookahead() != '#' || st.saves > 2 {
+		return false
+	}
+	lexer.Advance(false)
+	lexer.MarkEnd()
+	lexer.SetResultSymbol(2)
+	return true
+}
+
+// A report is evidence about the production parser only if the parse with the
+// recorder equals the parse without it. When it does not, the verdict must say
+// so rather than present the recorded calls as findings or as a clean result.
+func TestCertifyReportsAParseThatTheRecorderChanged(t *testing.T) {
+	report, err := Certify(miniLanguage(savesScanner{}), miniCorpus())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Parses.Transparent || report.Parses.Divergent == 0 {
+		t.Fatalf("parses = %+v, want a recorded parse that differs from the production parse", report.Parses)
+	}
+	if report.Verdict != VerdictNotTransparent {
+		t.Fatalf("verdict = %q with %d of %d sources changed, want %q", report.Verdict, report.Parses.Divergent, report.Parses.Sources, VerdictNotTransparent)
+	}
+}
+
 func TestCertifyIsDeterministic(t *testing.T) {
 	var out [2][]byte
 	for i := range out {

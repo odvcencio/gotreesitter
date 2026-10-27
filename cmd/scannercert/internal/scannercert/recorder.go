@@ -43,8 +43,10 @@ type call struct {
 // It also implements the optional scanner interfaces that a full parse
 // consults. Where the real scanner lacks one, the recorder answers with the
 // value the parser assumes for a missing interface, so the parse is the same
-// with the recorder as without it. Certify checks that by comparing trees. The
-// interfaces that only incremental reuse consults are not mirrored.
+// with the recorder as without it. Certify compares trees, and probes_test.go
+// compares the root's questions with what the recorder answers; the package
+// comment says what neither can see. The interfaces that only incremental
+// reuse consults are not mirrored.
 type recorder struct {
 	inner gts.ExternalScanner
 

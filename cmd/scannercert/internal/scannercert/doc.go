@@ -39,13 +39,39 @@
 // how many distinct calls, states and masks the corpus reached, and how many
 // scans the scanner accepted. A scanner that accepted nothing was tested only
 // on its rejections. The verdict no-evidence means the parser never called the
-// scanner.
+// scanner. The verdict not-transparent means the parse with the recorder
+// differed from the parse without it for at least one source. The recorded
+// calls then are not the production parser's, so the report says nothing about
+// the scanner, and the command exits nonzero.
+//
+// # How closely the recorded parse follows production
 //
 // The recorder implements the optional scanner interfaces that a full parse
-// reads, so the parse is the same with it as without it. Certify checks this by
-// comparing a digest of every tree and reports the result as parses.transparent.
-// The recorder does not mirror the interfaces that only incremental reuse
-// reads. The package reaches unexported parts of the root package through
-// go:linkname and reflection; see lexer_link.go. lexer_link_test.go fails if
-// those change.
+// reads. Where the scanner lacks one, it answers as the parser does for a
+// scanner without an opinion. Certify parses every source twice, once without
+// the recorder and once with it, and compares a digest of each tree. A
+// difference gives the verdict not-transparent; the counts under parses show
+// how many sources differed.
+//
+// The comparison sees trees only. A change in which Scan calls the parser makes
+// can leave the tree the same, so equal digests do not prove that the recorded
+// calls are the production calls. probes_test.go narrows the gap. It reads the
+// root package's source with go/types and lists every place the root asks a
+// scanner about its type. It fails when the root asks a question that the
+// recorder neither answers nor is known to be asked only by incremental reuse,
+// so a new probe in a full-parse path fails a test before it becomes a silent
+// difference in a report. Two differences remain by design:
+//
+//   - The recorder does not mirror the interfaces that only incremental reuse
+//     reads, because Certify parses each source from scratch with no old tree.
+//   - The recorder answers false for five capabilities when the scanner has no
+//     opinion (incremental reuse, checkpoints, statelessness, preserving or
+//     retaining state on failure), where the parser sees no interface. That is
+//     the same answer wherever the root treats an absent interface and a false
+//     answer alike. One place does not: classifyExternalScannerQuiescence reads
+//     a false SupportsIncrementalReuse as a refusal, and only incremental
+//     reuse and the compact route reach it.
+//
+// The package reaches unexported parts of the root package through go:linkname
+// and reflection; see lexer_link.go. lexer_link_test.go fails if those change.
 package scannercert
