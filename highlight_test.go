@@ -736,6 +736,15 @@ func TestHighlighterCapturePolicyInjected(t *testing.T) {
 			childQuery: "(expression) @expr",
 			want:       "0-1:doc 1-6:expr 6-7:doc",
 		},
+		{
+			// The second pattern matches at the wrapper, before the first pattern's match
+			// at the number. The layer used to lose its pattern indexes, so the first
+			// pattern won by match order.
+			name:       "child layer keeps its own pattern order on identical spans",
+			hostQuery:  "(document) @doc",
+			childQuery: "(NUMBER) @first\n(expression (NUMBER) @second)",
+			want:       "0-1:doc 1-3:second 3-4:doc 4-6:second 6-7:doc",
+		},
 	}
 	for i, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -866,11 +875,9 @@ type pricedHighlightRange struct {
 	priority int32
 }
 
-// TestHighlightTiersMatchPainter checks the resolved ranges against a
-// byte-by-byte model: the highest priority wins, then the narrowest range, then
-// the later pattern, then the range added last. A reset capture wins like any
-// other and leaves no range.
-
+// modelRangeBeats reports whether range a, the aIndex-th range added, takes a
+// byte from range b, the bIndex-th: the higher priority wins, then the narrower
+// range, then the later pattern, then the range added last.
 func modelRangeBeats(a pricedHighlightRange, aIndex int, b pricedHighlightRange, bIndex int) bool {
 	if a.priority != b.priority {
 		return a.priority > b.priority
@@ -990,6 +997,9 @@ func TestHighlighterCapturePolicyOverlay(t *testing.T) {
 	})
 }
 
+// TestHighlighterCapturePolicyPainter checks the resolved ranges of 3,000 random
+// nested range sets against a byte-by-byte model that picks each byte's winner
+// with modelRangeBeats. A reset capture wins like any other and leaves no range.
 func TestHighlighterCapturePolicyPainter(t *testing.T) {
 	r := rand.New(rand.NewSource(20261026))
 	captures := []string{"a", "b", "c", "d", highlightResetCapture}

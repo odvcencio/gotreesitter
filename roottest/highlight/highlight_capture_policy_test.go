@@ -232,6 +232,124 @@ func TestHighlightKDLCommentedNodeHonorsPriority(t *testing.T) {
 	}
 }
 
+// spanWant names a token of a sample and the capture that must cover it. text is
+// searched inside the first occurrence of in, so a short token such as "." is
+// found where the case means it. An empty capture means that no range covers
+// the token.
+type spanWant struct {
+	in, text, capture string
+}
+
+func requireSpans(t *testing.T, source []byte, ranges []gotreesitter.HighlightRange, wants []spanWant) {
+	t.Helper()
+	for _, w := range wants {
+		at := strings.Index(string(source), w.in)
+		if at < 0 {
+			t.Fatalf("the sample does not hold %q", w.in)
+		}
+		within := strings.Index(w.in, w.text)
+		if within < 0 {
+			t.Fatalf("%q does not hold %q", w.in, w.text)
+		}
+		start := uint32(at + within)
+		for offset := start; offset < start+uint32(len(w.text)); offset++ {
+			if got := captureAt(ranges, offset); got != w.capture {
+				t.Errorf("%q in %q has capture %q at byte %d, want %q:%s", w.text, w.in, got, offset, w.capture, describeRanges(source, ranges))
+				break
+			}
+		}
+	}
+}
+
+// TestHighlightShippedQueryCases pins the colors that shipped queries give small
+// samples where a private capture, the none capture or a priority used to change
+// them. The sweep above cannot catch a regression in most of these grammars: their
+// smoke samples never reach such a capture, so it passes with or without the policy.
+// Every case here fails without the policy.
+func TestHighlightShippedQueryCases(t *testing.T) {
+	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+	cases := []struct {
+		name    string
+		grammar string
+		source  string
+		wants   []spanWant
+	}{
+		{
+			// The diff query gives its punctuation captures (#set! priority 95), so the
+			// diff.minus and diff.plus captures cover the markers. Without the priority
+			// the markers took punctuation.special.
+			name:    "diff markers take diff.minus and diff.plus",
+			grammar: "diff",
+			source:  "diff --git a/x b/x\nindex 83db48f..bf2a3c1 100644\n--- a/x\n+++ b/x\n@@ -1,2 +1,2 @@\n-old\n+new\n context\n",
+			wants: []spanWant{
+				{in: "--- a/x", text: "---", capture: "diff.minus"},
+				{in: "+++ b/x", text: "+++", capture: "diff.plus"},
+				{in: "-old", text: "-old", capture: "diff.minus"},
+				{in: "+new", text: "+new", capture: "diff.plus"},
+			},
+		},
+		{
+			// Several haskell patterns capture an operator a second time as the private
+			// @_op, after the pattern that colors it.
+			name:    "haskell operators keep the operator color",
+			grammar: "haskell",
+			source:  "module Main where\n\nmain :: IO ()\nmain = print $ map f xs\n  where f = g . h\n",
+			wants: []spanWant{
+				{in: "print $ map", text: "$", capture: "operator"},
+				{in: "g . h", text: ".", capture: "operator"},
+			},
+		},
+		{
+			// cmake captures a command name a second time as the private @_function.
+			name:    "cmake command names keep the builtin color",
+			grammar: "cmake",
+			source:  "cmake_minimum_required(VERSION 3.10)\nset(FOO \"bar\" CACHE STRING \"doc\")\nlist(APPEND SRCS a.c)\n",
+			wants: []spanWant{
+				{in: "set(FOO", text: "set", capture: "function.builtin"},
+				{in: "list(APPEND", text: "list", capture: "function.builtin"},
+			},
+		},
+		{
+			// scala writes (interpolation (identifier) @none). This case pins the reset:
+			// the name takes no range, not even the string color around it. tree-sitter-
+			// highlight would keep that color; change the empty capture below if the
+			// reset is ever narrowed to the node's own captures.
+			name:    "scala interpolated name is reset",
+			grammar: "scala",
+			source:  "object A {\n  val s = s\"a $b c\"\n}\n",
+			wants: []spanWant{
+				{in: "a $b c", text: "a ", capture: "string"},
+				{in: "$b", text: "$", capture: "punctuation.special"},
+				{in: "$b", text: "b", capture: ""},
+				{in: "b c", text: " c", capture: "string"},
+			},
+		},
+		{
+			// The fence layer keeps the starlark query's pattern order. Its interpolation
+			// pattern comes after the bracket pattern, so on the shared span the braces take
+			// punctuation.special, as they do in a starlark file. The layer used to lose the
+			// pattern index, and the braces took punctuation.bracket.
+			name:    "markdown fence keeps the child query's pattern order",
+			grammar: "markdown",
+			source:  "# T\n\n```starlark\nx = f\"a{ b }c\"\n```\n",
+			wants: []spanWant{
+				{in: "a{ b }c", text: "{", capture: "punctuation.special"},
+				{in: "{ b }", text: "b", capture: "variable"},
+				{in: "a{ b }c", text: "}", capture: "punctuation.special"},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, _ := highlighterForEntry(t, tc.grammar)
+			source := []byte(tc.source)
+			ranges := h.Highlight(source)
+			requireNoForbiddenCaptures(t, source, ranges)
+			requireSpans(t, source, ranges, tc.wants)
+		})
+	}
+}
+
 // elm names real highlight captures local.function.elm. Only the locals-query
 // vocabulary is dropped, so these stay.
 func TestHighlightElmKeepsLocalFunctionCapture(t *testing.T) {
