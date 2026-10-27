@@ -1,6 +1,7 @@
 package scannercert
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -355,6 +356,76 @@ func TestRecorderKeepsItsOwnCopyOfEachSource(t *testing.T) {
 	a := rec.analyze(inner, symbolNames{})
 	if a.checks.SymbolMismatches != 1 || a.witnesses[0].Context != "ab" {
 		t.Fatalf("checks %+v witnesses %+v, want the mismatch replayed on the original bytes", a.checks, a.witnesses)
+	}
+}
+
+// The recorder serializes twice before a scan and twice after it. Each pair
+// can show an unstable Serialize that the other pair does not.
+func TestSerializeThatIsUnstableOnlyBeforeOrAfterAScanIsReported(t *testing.T) {
+	// A save before the first scan is steady, so only the saves after it differ.
+	a := certified(counterScanner{flipAfterScan: true}, "a", bothValid)
+	if a.checks != (Checks{Replayed: 1, SerializeUnstable: 1}) || a.verdict() != VerdictFindings {
+		t.Fatalf("checks %+v verdict %q, want one unstable Serialize and nothing else", a.checks, a.verdict())
+	}
+	// The saves before the scan differ, and the saves after it are steady.
+	b := certified(counterScanner{flipAtStart: true}, "a", bothValid)
+	if b.checks.SerializeUnstable != 1 {
+		t.Fatalf("checks %+v, want one unstable Serialize", b.checks)
+	}
+}
+
+// counterScanner accepts "a" only while token 0 is valid and "b" only while
+// token 1 is. A replay that ignored the recorded mask would accept both of
+// these scans, which the parser rejected.
+func TestReplayPassesTheRecordedMaskToTheScanner(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		source string
+		mask   []bool
+	}{
+		{"token 0 is not valid at an a", "a", []bool{false, true}},
+		{"token 1 is not valid at a b", "b", []bool{true, false}},
+		{"no token is valid", "a", []bool{false, false}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := certified(counterScanner{}, tc.source, tc.mask)
+			if a.calls.Distinct != 1 || a.calls.Rejected != 1 {
+				t.Fatalf("calls = %+v, want one rejected scan", a.calls)
+			}
+			if a.verdict() != VerdictNoFindings || a.checks != (Checks{Replayed: 1}) || len(a.witnesses) != 0 {
+				t.Fatalf("verdict %q checks %+v witnesses %+v, want the replay to reject as the parser did", a.verdict(), a.checks, a.witnesses)
+			}
+		})
+	}
+}
+
+// The parser keeps one slice for the valid-symbol mask and rewrites it between
+// its retry scans. The recorder must keep a copy of each mask, or every call
+// would read the mask of the last scan. Serialize omits the counter, so the
+// second scan replays with another symbol and gives a witness to read the mask from.
+func TestRecorderKeepsItsOwnCopyOfEachMask(t *testing.T) {
+	inner := counterScanner{omitState: true}
+	rec := newRecorder(inner)
+	rec.begin(0)
+	payload := rec.Create()
+	scratch := []bool{true, true}
+	rec.Scan(payload, newLexer([]byte("aa"), 0, 0, 0), scratch)
+	scratch[1] = false
+	rec.Scan(payload, newLexer([]byte("aa"), 1, 0, 1), scratch)
+	scratch[0], scratch[1] = false, true // the parser's next scan, with another mask
+	a := rec.analyze(inner, symbolNames{})
+	if a.calls.Distinct != 2 || a.calls.Masks != 2 {
+		t.Fatalf("calls = %+v, want two scans with two different masks", a.calls)
+	}
+	if a.checks != (Checks{Replayed: 2, SymbolMismatches: 1}) || len(a.witnesses) != 1 {
+		t.Fatalf("checks %+v witnesses %+v, want the second scan to be the one mismatch", a.checks, a.witnesses)
+	}
+	w := a.witnesses[0]
+	if w.Origin.Byte != 1 || !slices.Equal(w.Valid, []string{"0"}) {
+		t.Fatalf("witness origin %+v valid %q, want the mask the second scan began with (token 0 only)", w.Origin, w.Valid)
+	}
+	if !w.Live.Accepted || !w.Replay.Accepted || w.Live.Symbol != 2 || w.Replay.Symbol != 1 {
+		t.Fatalf("live %+v replay %+v, want both scans accepted, symbol 2 live and 1 replayed", w.Live, w.Replay)
 	}
 }
 

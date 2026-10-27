@@ -16,6 +16,8 @@ type counterScanner struct {
 	omitState     bool  // Serialize writes nothing, so a restored counter is always 0
 	dirtyOnReject bool  // a rejected scan advances the counter
 	flipOnSave    bool  // Serialize changes a hidden bit, so two saves differ
+	flipAtStart   bool  // the same, but only while the counter is still zero
+	flipAfterScan bool  // the same, but only once a scan has counted
 	clampAbove    uint8 // Deserialize clamps a larger counter down to this value
 	panicOn       uint8 // Deserialize panics when it reads this counter
 	oversize      bool  // Serialize reports more bytes than the buffer holds
@@ -40,7 +42,7 @@ func (s counterScanner) Serialize(payload any, buf []byte) int {
 		return len(buf) + 1
 	case s.omitState:
 		return 0
-	case s.flipOnSave:
+	case s.flipOnSave, s.flipAtStart && st.n == 0, s.flipAfterScan && st.n > 0:
 		st.flip ^= 0x80
 		buf[0] = st.n | st.flip
 		return 1
