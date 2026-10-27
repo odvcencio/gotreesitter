@@ -177,6 +177,134 @@ func TestRepeatedCallsAreReplayedOnce(t *testing.T) {
 	}
 }
 
+// The recorder replays a call once and drops later copies. Its key must keep
+// calls apart when they differ in any one input, or the report would count
+// fewer findings than the corpus holds. Each of the last three calls differs
+// from the first in one input only, and all four have one outcome.
+func TestCallsThatDifferInOneInputAreReplayedSeparately(t *testing.T) {
+	inner := forgetfulScanner{}
+	rec := newRecorder(inner)
+	rec.begin(0)
+	scan := func(src string, state byte, mask []bool) {
+		payload := rec.Create()
+		defer rec.Destroy(payload)
+		inner.Deserialize(payload, []byte{state})
+		rec.Scan(payload, newLexer([]byte(src), 0, 0, 0), mask)
+	}
+	scan("ab", 0, []bool{true})        // the first call
+	scan("ac", 0, []bool{true})        // another source
+	scan("ab", 0, []bool{true, false}) // another valid-symbol mask
+	scan("ab", 5, []bool{true})        // another state before the scan
+	a := rec.analyze(inner, symbolNames{})
+	if a.calls.Recorded != 4 || a.calls.Distinct != 4 || a.checks.Replayed != 4 {
+		t.Fatalf("calls %+v checks %+v, want four calls kept apart and replayed", a.calls, a.checks)
+	}
+	if a.calls.States != 2 || a.calls.Masks != 2 || a.calls.Accepted != 4 || a.verdict() != VerdictNoFindings {
+		t.Fatalf("calls %+v verdict %q, want two states, two masks and four accepted scans with no findings", a.calls, a.verdict())
+	}
+}
+
+// Two scans with the same source, origin, mask and state can still differ, if
+// the scanner keeps something its serialization leaves out. The replay is
+// deterministic, so it must disagree with one of them.
+func TestCallsThatDifferOnlyInOutcomeStaySeparateAndTheReplayDisagrees(t *testing.T) {
+	inner := counterScanner{omitState: true}
+	rec := newRecorder(inner)
+	rec.begin(0)
+	payload := rec.Create()
+	for i := 0; i < 2; i++ {
+		rec.Scan(payload, newLexer([]byte("a"), 0, 0, 0), bothValid)
+	}
+	a := rec.analyze(inner, symbolNames{})
+	if a.calls.Recorded != 2 || a.calls.Distinct != 2 {
+		t.Fatalf("calls %+v, want the two outcomes kept apart", a.calls)
+	}
+	if a.checks != (Checks{Replayed: 2, SymbolMismatches: 1}) || a.verdict() != VerdictFindings {
+		t.Fatalf("checks %+v verdict %q, want the replay to match one scan and miss the other", a.checks, a.verdict())
+	}
+	if w := a.witnesses[0]; w.Live.Symbol != 2 || w.Replay.Symbol != 1 {
+		t.Fatalf("witness live %+v replay %+v, want the second scan's symbol 2 against the replay's 1", w.Live, w.Replay)
+	}
+}
+
+// The token's start can differ while its end does not. A comparison that only
+// looks at the end would miss it.
+func TestTokenStartMismatchIsReported(t *testing.T) {
+	inner := shiftScanner{omitState: true}
+	rec := newRecorder(inner)
+	rec.begin(0)
+	payload := rec.Create()
+	for i := 0; i < 2; i++ {
+		rec.Scan(payload, newLexer([]byte("aa"), 0, 0, 0), bothValid)
+	}
+	a := rec.analyze(inner, symbolNames{})
+	if a.checks != (Checks{Replayed: 2, SpanMismatches: 1}) {
+		t.Fatalf("checks = %+v, want one span mismatch", a.checks)
+	}
+	w := a.witnesses[0]
+	if w.Kind != KindSpan || w.Live.StartByte != 1 || w.Replay.StartByte != 0 || w.Live.EndByte != 2 || w.Replay.EndByte != 2 {
+		t.Fatalf("witness = %+v live %+v replay %+v, want a token starting at byte 1 live and 0 replayed, both ending at 2", w, w.Live, w.Replay)
+	}
+}
+
+// A scanner may name its token with symbol zero. That differs from naming
+// nothing only in the flag that says the scanner set a symbol. A scan that sets
+// no symbol leaves no token, so the span differs as well, but only the flag
+// distinguishes the two symbols.
+func TestMissingResultSymbolDiffersFromSymbolZero(t *testing.T) {
+	inner := unnamedScanner{omitState: true}
+	rec := newRecorder(inner)
+	rec.begin(0)
+	payload := rec.Create()
+	for i := 0; i < 2; i++ {
+		rec.Scan(payload, newLexer([]byte("a"), 0, 0, 0), bothValid)
+	}
+	a := rec.analyze(inner, symbolNames{})
+	if a.checks != (Checks{Replayed: 2, SymbolMismatches: 1, SpanMismatches: 1}) {
+		t.Fatalf("checks = %+v, want one symbol mismatch and the span that goes with it", a.checks)
+	}
+	w := a.witnesses[0]
+	if w.Kind != KindSymbol || !w.Live.HasSymbol || w.Replay.HasSymbol || w.Live.Symbol != 0 || w.Replay.Symbol != 0 {
+		t.Fatalf("live %+v replay %+v, want symbol zero set live and nothing set on replay", w.Live, w.Replay)
+	}
+}
+
+// compare must name every field of an outcome that can differ, one at a time,
+// including those a real lexer cannot move alone (the end row follows the end
+// byte).
+func TestCompareNamesEachOutcomeFieldThatDiffers(t *testing.T) {
+	live := outcome{accepted: true, hasSymbol: true, symbol: 3, start: 1, end: 4, endRow: 2, endColumn: 5, state: []byte{7}}
+	recorded := call{state: []byte{1}, live: live}
+	same := replayed{out: live, restored: []byte{1}}
+	if got := compare(&recorded, same, ContractRestored); len(got) != 0 {
+		t.Fatalf("failures = %+v, want none for equal outcomes", got)
+	}
+	for _, tc := range []struct {
+		name   string
+		change func(*replayed)
+		want   string
+	}{
+		{"result", func(r *replayed) { r.out.accepted = false }, KindResult},
+		{"has symbol", func(r *replayed) { r.out.hasSymbol = false }, KindSymbol},
+		{"symbol", func(r *replayed) { r.out.symbol = 4 }, KindSymbol},
+		{"start byte", func(r *replayed) { r.out.start = 0 }, KindSpan},
+		{"end byte", func(r *replayed) { r.out.end = 5 }, KindSpan},
+		{"end row", func(r *replayed) { r.out.endRow = 3 }, KindSpan},
+		{"end column", func(r *replayed) { r.out.endColumn = 6 }, KindSpan},
+		{"state after", func(r *replayed) { r.out.state = []byte{8} }, KindState},
+		{"state restored", func(r *replayed) { r.restored = []byte{2} }, KindRoundTrip},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			res := same
+			tc.change(&res)
+			got := compare(&recorded, res, ContractRestored)
+			if len(got) != 1 || got[0].kind != tc.want {
+				t.Fatalf("failures = %+v, want exactly one of kind %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestUnusedScannerHasNoEvidence(t *testing.T) {
 	rec := newRecorder(echoScanner{})
 	a := rec.analyze(echoScanner{}, symbolNames{})

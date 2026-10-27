@@ -161,6 +161,113 @@ func (widthScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool) bo
 	return true
 }
 
+// forgetfulScanner accepts "a" under token 0 and always leaves its counter at
+// zero, so its outcome does not depend on the state it began with. Calls that
+// differ only in that state, in the mask or in the source have one outcome.
+type forgetfulScanner struct{}
+
+func (forgetfulScanner) Create() any { return &counterState{} }
+func (forgetfulScanner) Destroy(any) {}
+func (forgetfulScanner) Serialize(payload any, buf []byte) int {
+	buf[0] = payload.(*counterState).n
+	return 1
+}
+
+func (forgetfulScanner) Deserialize(payload any, buf []byte) {
+	st := payload.(*counterState)
+	st.n = 0
+	if len(buf) > 0 {
+		st.n = buf[0]
+	}
+}
+
+func (forgetfulScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool) bool {
+	st := payload.(*counterState)
+	if !valid[0] || lexer.Lookahead() != 'a' {
+		return false
+	}
+	lexer.Advance(false)
+	lexer.MarkEnd()
+	lexer.SetResultSymbol(1)
+	st.n = 0
+	return true
+}
+
+// shiftScanner accepts "a" and ends its token two bytes in. After its first
+// scan it skips the first byte, so the token starts one byte later and ends at
+// the same place. With omitState set, a restored scanner is back at its first
+// scan.
+type shiftScanner struct{ omitState bool }
+
+func (shiftScanner) Create() any { return &counterState{} }
+func (shiftScanner) Destroy(any) {}
+func (s shiftScanner) Serialize(payload any, buf []byte) int {
+	if s.omitState {
+		return 0
+	}
+	buf[0] = payload.(*counterState).n
+	return 1
+}
+
+func (shiftScanner) Deserialize(payload any, buf []byte) {
+	st := payload.(*counterState)
+	st.n = 0
+	if len(buf) > 0 {
+		st.n = buf[0]
+	}
+}
+
+func (shiftScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool) bool {
+	st := payload.(*counterState)
+	if !valid[0] || lexer.Lookahead() != 'a' {
+		return false
+	}
+	lexer.Advance(st.n > 0)
+	lexer.Advance(false)
+	lexer.MarkEnd()
+	lexer.SetResultSymbol(7)
+	st.n++
+	return true
+}
+
+// unnamedScanner accepts "a". After its first scan it names the token with
+// symbol zero; before that it names nothing. A missing symbol and symbol zero
+// read the same except for the flag that says a scanner set one. With
+// omitState set, a restored scanner is back at its first scan.
+type unnamedScanner struct{ omitState bool }
+
+func (unnamedScanner) Create() any { return &counterState{} }
+func (unnamedScanner) Destroy(any) {}
+func (s unnamedScanner) Serialize(payload any, buf []byte) int {
+	if s.omitState {
+		return 0
+	}
+	buf[0] = payload.(*counterState).n
+	return 1
+}
+
+func (unnamedScanner) Deserialize(payload any, buf []byte) {
+	st := payload.(*counterState)
+	st.n = 0
+	if len(buf) > 0 {
+		st.n = buf[0]
+	}
+}
+
+func (unnamedScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool) bool {
+	st := payload.(*counterState)
+	if !valid[0] || lexer.Lookahead() != 'a' {
+		return false
+	}
+	lexer.Advance(false)
+	lexer.MarkEnd()
+	if st.n > 0 {
+		lexer.SetResultSymbol(0)
+	}
+	st.n++
+	return true
+}
+
 var (
 	bothValid = []bool{true, true}
 	noneValid = []bool{false, false}
