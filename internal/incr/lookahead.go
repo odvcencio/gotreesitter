@@ -4,6 +4,7 @@ package incr
 import (
 	"math/bits"
 	"sort"
+	"unsafe"
 )
 
 // Reads records examined byte ends, including failed lexer/scanner attempts.
@@ -12,12 +13,13 @@ import (
 // earlier and boundary probes is conservative: no dependency can disappear in a projection
 // that hides a token or collapses a production.
 type Reads struct {
-	ends             readWords
-	allocated        *int64
-	budget, baseline int64
-	sourceBytes      uint32
-	packedBits       uint8
-	flags            uint8
+	ends                    readWords
+	allocated               *int64
+	budget, baseline        int64
+	sourceBytes             uint32
+	packedBits              uint8
+	flags                   uint8
+	defaultProducerSchedule uint16
 }
 
 const (
@@ -45,6 +47,7 @@ func (r *Reads) Reset(sourceBytes int) bool {
 	r.ends.reset()
 	r.sourceBytes = 0
 	r.flags = 0
+	r.defaultProducerSchedule = 0
 	r.allocated = nil
 	r.budget, r.baseline = 0, 0
 	r.packedBits = 0
@@ -64,6 +67,30 @@ func (r *Reads) Recording() bool {
 // producer's history; abstention still makes it unavailable.
 func (r *Reads) ValidForSource(sourceBytes int) bool {
 	return r != nil && r.flags&readsValid != 0 && r.flags&readsCommittedDropped == 0 && sourceBytes >= 0 && uint64(sourceBytes) == uint64(r.sourceBytes)
+}
+
+// CertifyDefaultProducer records the parser-owned producer context. Invalid or
+// incomplete read history can never authorize the schedule.
+func (r *Reads) CertifyDefaultProducer(schedule uint16) {
+	if r == nil {
+		return
+	}
+	r.defaultProducerSchedule = 0
+	if schedule != 0 && r.ValidForSource(int(r.sourceBytes)) {
+		r.defaultProducerSchedule = schedule
+	}
+}
+
+func (r *Reads) DefaultProducerSchedule(sourceBytes int) uint16 {
+	if !r.ValidForSource(sourceBytes) {
+		return 0
+	}
+	return r.defaultProducerSchedule
+}
+
+func (r *Reads) invalidate() {
+	r.flags &^= readsValid
+	r.defaultProducerSchedule = 0
 }
 
 func (r *Reads) SourceBytes() uint32 {
@@ -91,13 +118,14 @@ func (r *Reads) CertifiedForestAttributes() bool {
 func (r *Reads) TrimCapacity(limit int) {
 	if r != nil && r.ends.bytes() > int64(limit)*8 {
 		r.ends = readWords{}
+		r.defaultProducerSchedule = 0
 	}
 }
 
 // Abstain prevents a new ancestor from authenticating incomplete history.
 func (r *Reads) Abstain() {
 	if r != nil {
-		r.flags &^= readsValid
+		r.invalidate()
 	}
 }
 
@@ -109,6 +137,7 @@ func (r *Reads) CommitDroppedInput(dropped bool) {
 		// Preserve ordinary read metadata; it still serves the legacy frontier.
 		// The completed history cannot certify a result that omitted input.
 		r.flags |= readsCommittedDropped
+		r.defaultProducerSchedule = 0
 	}
 }
 
@@ -122,7 +151,7 @@ func (r *Reads) Bytes() int64 {
 	if r == nil {
 		return 0
 	}
-	return 64 + r.ends.bytes()
+	return ReadsHeaderBytes() + r.ends.bytes()
 }
 
 // Records use one word when the source origin and probe width fit together.
@@ -175,7 +204,6 @@ func (r *Reads) charge(cost int64) bool {
 	if r.allocated != nil {
 		used := max(int64(0), *r.allocated-r.baseline)
 		if r.budget > 0 && (used >= r.budget || cost > r.budget-used) {
-			r.flags &^= readsValid
 			return false
 		}
 		*r.allocated += cost
@@ -185,7 +213,7 @@ func (r *Reads) charge(cost int64) bool {
 func (r *Reads) promoteWide() bool {
 	n := r.count()
 	if r.ends.capacity() > int(^uint(0)>>1)/2 || !r.ends.reserve(2*r.ends.capacity(), r.charge) {
-		r.flags &^= readsValid
+		r.invalidate()
 		return false
 	}
 	r.ends.resize(2 * n)
@@ -203,7 +231,7 @@ func (r *Reads) Record(start int, end uint32) {
 		return
 	}
 	if r.flags&readsSealed != 0 || start < 0 || uint64(start) > uint64(r.sourceBytes) || uint64(start) > uint64(end) {
-		r.flags &^= readsValid
+		r.invalidate()
 		return
 	}
 	origin := uint32(start)
@@ -243,7 +271,7 @@ func (r *Reads) Record(start int, end uint32) {
 			capacity = want
 		}
 		if !r.ends.reserve(capacity, r.charge) {
-			r.flags &^= readsValid
+			r.invalidate()
 			return
 		}
 	}
@@ -421,3 +449,6 @@ func RecoveryEditChangesTerminal(oldStart, newStart, newEnd, editStart, editOldE
 	return !sameSymbol || (editStart == editOldEnd && editNewEnd > editStart &&
 		newStart == editStart && newEnd == editNewEnd && oldStart >= editNewEnd)
 }
+
+// ReadsHeaderBytes charges the full header while preserving the conservative floor.
+func ReadsHeaderBytes() int64 { return max(64, int64(unsafe.Sizeof(Reads{}))) }

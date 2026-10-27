@@ -3347,13 +3347,24 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 
 	var reuse *reuseCursor
 	p.reuseCursor.disableLeadingSplice = p.disableLeadingRunSplice
+	// The transferred small proof covers the ordinary DFA stream. A custom
+	// factory or included-range wrapper may transform dispatch independently
+	// of the underlying DFA's primitive read receipt; retain its verifier.
+	_, defaultDFATokenSource := ts.(*dfaTokenSource)
+	smallProducerStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
+	smallProducerMerge := p.resolveParseMergePerKeyCap(source, nil, 0)
+	smallProducerSchedule := p.defaultReuseProducerSchedule(ts, source, smallProducerStacks, smallProducerMerge,
+		smallProducerStacks, 0, maxMergePerKeyOverride, fullParseUsesDeterministicExternalConflicts(p.language))
+	p.reuseCursor.smallFreshShadowArtifact = p.language != nil && p.language.SmallSourceReuseAuthority.Matches(p.language)
+	p.reuseCursor.smallFreshReuseAllowed = !p.admissionCandidateRouteEnabled() && defaultDFATokenSource && p.reparseFactory == nil && smallProducerSchedule != 0 && p.smallIdentifierReuseAdmission(source, oldTree, ts)
+	p.reuseCursor.shadowWouldCertify = false
 	p.reuseCursor.cEquivalentReuse = legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
 	if timing != nil {
 		reuseStart := time.Now()
-		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
+		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch, smallProducerSchedule)
 		timing.reuseNanos += time.Since(reuseStart).Nanoseconds()
 	} else {
-		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch)
+		reuse = p.reuseCursor.reset(oldTree, source, &p.reuseScratch, smallProducerSchedule)
 	}
 	// The compact projection can publish trailing-padding spans differently
 	// from a reused native tree. Read certificates do not prove that geometry.
@@ -3373,7 +3384,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 	}
 	incrementalMaxStacks := 0
-	if (reuse != nil && reuse.cEquivalentReuse && reuse.oldRecoveryCertified && !reuse.unprovenReuse && incr.RequiresFreshResult(len(source))) || (p.language != nil && p.language.Name == "python") {
+	if (reuse != nil && reuse.cEquivalentReuse && reuse.oldRecoveryCertified && !reuse.unprovenReuse && reuse.freshScheduleReuse) || (p.language != nil && p.language.Name == "python") {
 		// Match the fresh first pass. A wider reuse pass can select a
 		// different branch when the fresh parse widens only after an error.
 		incrementalMaxStacks = fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
@@ -3392,7 +3403,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		freshCap := p.resolveParseMergePerKeyCap(source, nil, maxMergePerKeyOverride)
 		maxMergePerKeyOverride = incr.FreshVerifiedMergeOverride(maxMergePerKeyOverride, freshCap, customStream, spanChangingEdit)
 	}
-	deterministicExternalConflicts := reuse != nil && reuse.cEquivalentReuse && incr.RequiresFreshResult(len(source)) && fullParseUsesDeterministicExternalConflicts(p.language)
+	deterministicExternalConflicts := reuse != nil && reuse.cEquivalentReuse && reuse.freshScheduleReuse && fullParseUsesDeterministicExternalConflicts(p.language)
 	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, incrementalMaxStacks, 0, maxMergePerKeyOverride, deterministicExternalConflicts)
 	if tree != nil && reuse != nil {
 		tree.ensureParseRuntime().IncrementalOldTreeReuseRoute = true
@@ -3440,12 +3451,36 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		uncertifiedScanner := underlyingDFATokenSource(ts) != nil && !legacyReuseReadsEligible(underlyingDFATokenSource(ts), source)
 		budgetRetry := tree != nil && (tree.rawParseStopReason() == ParseStopReuseBudget || tree.rawParseStopReason() == ParseStopMemoryBudget)
 		if tree != nil && tree.arena != nil {
-			tree.arena.legacyIncrementalReuseCertified = reuse.certifiesIncrementalResult(tree, p, source, maxMergePerKeyOverride)
+			wouldCertify := reuse.certifiesIncrementalResult(tree, p, source, maxMergePerKeyOverride)
+			reuse.shadowWouldCertify = reuse.smallFreshReuse && wouldCertify
+			tree.arena.legacyIncrementalReuseCertified = wouldCertify && !reuse.smallFreshReuse
+			if reuse.smallFreshReuse && wouldCertify && tree != oldTree {
+				// Authenticate the public result after deferred compatibility work.
+				// A successful transfer carries the same producer policy into the
+				// next edit; it does not pretend that a fresh verifier ran.
+				p.normalizeReturnedIncrementalTree(tree, oldTree, source)
+				tree.ensureResultCompatibility()
+				complete := reuse.certifiesIncrementalResult(tree, p, source, maxMergePerKeyOverride)
+				key := incr.TransferNativeReuseProducer(
+					oldTree.arena.legacyReuseReads.DefaultProducerSchedule(len(oldTree.source)), smallProducerSchedule,
+					complete, tree.rawParseRuntime().SourceLen == uint32(len(source)) && tree.root.EndByte() == uint32(len(source)))
+				if key != 0 {
+					tree.arena.legacyReuseReads.CertifyDefaultProducer(key)
+					tree.arena.legacyIncrementalReuseCertified = tree.arena.legacyReuseReads.DefaultProducerSchedule(len(source)) == key
+					if tree.arena.legacyIncrementalReuseCertified {
+						observeAuthenticatedGoReuse(p, source, oldTree, tree)
+					}
+				}
+			}
 		}
+		// Ordinary DFA entries verify the selected error result after their
+		// pending base-merge retry. Defer only the additional small-mode
+		// check, and reconfirm eligibility after compatibility observations.
 		if tree != nil && tree != oldTree && !budgetRetry &&
 			(underlyingDFATokenSource(ts) != nil || p.reparseFactory != nil) &&
 			!tree.hasCertifiedIncrementalReuse() &&
-			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner) {
+			(oldErrorFrontier || newWholeDocumentError || newErrorFrontier || stateMismatch || spanChangingEdit || uncertifiedScanner ||
+				(reuse.smallFreshReuse && (!pendingAcceptedErrorRetry || incrementalAcceptedErrorBaseMergeCap(p, tree, source) == 0))) {
 			var err error
 			tree, err = p.verifyIncrementalFreshResult(source, oldTree, ts, tree, timing)
 			if err != nil {
@@ -3896,7 +3931,7 @@ func captureParseScratchStats(parseRuntime *ParseRuntime, scratch *parserScratch
 		arena.legacyNoPolicyPruning = !scratch.merge.policyPruned
 	}
 	parseRuntime.ScratchBytesAllocated = scratch.allocatedBytes()
-	parseRuntime.TransientScratchBytesAllocated = scratch.transientParents.allocatedBytes + scratch.transientChildren.allocatedBytes
+	parseRuntime.TransientScratchBytesAllocated = scratch.transientParents.allocatedBytes + scratch.transientParents.seen.Bytes() + scratch.transientChildren.allocatedBytes
 	parseRuntime.ScratchBaselineBytes = scratch.budgetBaselineBytes
 	parseRuntime.EntryScratchBytesAllocated = scratch.entries.allocatedBytes
 	parseRuntime.EntryScratchPeak = uint64(scratch.entries.peakEntriesUsed())
@@ -5754,6 +5789,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		workCountTopologyRecordInitialVersion(&stacks[0]) // work-count-assembly: topology initial-version seam
 	}
 	caps := p.configureParseCaps(source, reuse, arenaClass, scratch, maxStacksOverride, maxNodesOverride, maxMergePerKeyOverride)
+	if reuse == nil && oldTree == nil {
+		arena.legacyReuseReads.CertifyDefaultProducer(p.defaultReuseProducerSchedule(ts, source, caps.maxStacks, caps.mergePerKeyCap,
+			maxStacksOverride, maxNodesOverride, maxMergePerKeyOverride, deterministicExternalConflicts))
+	}
 	workCountResolveParseAttempt(
 		workCountAttempt,
 		caps.maxStacks,
@@ -8096,7 +8135,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 	}
 	mergePerKeyCap := p.resolveParseMergePerKeyCap(source, reuse, maxMergePerKeyOverride)
 	scratch.merge.perKeyCap = mergePerKeyCap
-	scratch.merge.faithfulCapOne = (reuse == nil || (reuse.cEquivalentReuse && incr.RequiresFreshResult(len(source)))) &&
+	scratch.merge.faithfulCapOne = (reuse == nil || (reuse.cEquivalentReuse && reuse.freshScheduleReuse)) &&
 		mergePerKeyCap == 1 &&
 		((p.language != nil && p.language.FullParseGSSConvergenceEnabled) ||
 			parseMaxMergePerKeyEnvConfigured() ||
@@ -8105,7 +8144,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 	// stack. Preserve that convergence after recovery makes error cost
 	// relevant. Otherwise, separate Go stacks fork each history at each
 	// conflict in the valid suffix. This behavior can grow quadratically.
-	scratch.merge.recoveryCapOneConvergence = (reuse == nil || (reuse.cEquivalentReuse && incr.RequiresFreshResult(len(source)))) &&
+	scratch.merge.recoveryCapOneConvergence = (reuse == nil || (reuse.cEquivalentReuse && reuse.freshScheduleReuse)) &&
 		mergePerKeyCap == 1 &&
 		p.errorCostCompetitionEnabled()
 
@@ -8140,7 +8179,7 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 // required policy.
 func (p *Parser) resolveParseMergePerKeyCap(source []byte, reuse *reuseCursor, maxMergePerKeyOverride int) int {
 	// Certified reuse preserves fresh dispatch, including its survivor policy.
-	if reuse != nil && reuse.cEquivalentReuse && incr.RequiresFreshResult(len(source)) {
+	if reuse != nil && reuse.cEquivalentReuse && reuse.freshScheduleReuse {
 		reuse = nil
 	}
 	mergePerKeyCap := effectiveParseMergePerKeyCap(p.language, parseMaxMergePerKeyValue(), reuse != nil, len(source))
@@ -9981,4 +10020,78 @@ func classifyConflictShape(actions []ParseAction) (rrConflict, rsConflict bool) 
 		return false, true
 	}
 	return reduceCount >= 2, false
+}
+
+// defaultReuseProducerSchedule adapts private parser/source facts to the
+// internal positive receipt. Pointer-and-length identity authenticates the
+// exact lexer buffer without a document scan. Full Parse may install its own
+// DFA rebuild factory, so producer eligibility does not infer anything from a
+// nil/non-nil factory alone.
+func (p *Parser) defaultReuseProducerSchedule(ts TokenSource, source []byte, stacks, merge, stacksOverride, nodesOverride, mergeOverride int, deterministicExternal bool) uint16 {
+	d, exact := ts.(*dfaTokenSource)
+	facts := incr.DefaultProducerFacts{ExactDFA: exact, MaxStacks: stacks, MergePerKey: merge, ArtifactCapability: p != nil && p.language != nil && p.language.SmallSourceReuseAuthority.Matches(p.language)}
+	if p == nil || !exact || d == nil || d.lexer == nil {
+		return 0
+	}
+	facts.ParserOwnedLexer = d.ownedLexer != nil && d.lexer == d.ownedLexer
+	facts.SourceIdentity = len(d.lexer.source) == len(source) && (len(source) == 0 || &d.lexer.source[0] == &source[0])
+	facts.SameLanguage = p.language != nil && d.language == p.language
+	facts.NoRanges = len(p.included) == 0 && len(d.lexer.includedRanges) == 0
+	facts.DefaultControls = p.MemoryBudgetBytes() == 0 && p.timeoutMicros == 0 && p.cancellationFlag == nil &&
+		!p.parseWorkLimits.configured() && !p.hasActiveParseObservability() && !p.noTreeBenchmarkOnly && !p.noTreeCheckpointBenchmarkOnly &&
+		!p.noResultCompatibilityBenchmarkOnly && !p.recoveryInitialOnly && !p.skipRecoveryReparse
+	initial := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
+	facts.DefaultPolicy = !parseMaxGLRStacksEnvConfigured() && !parseMaxMergePerKeyEnvConfigured() && !parseNodeLimitScaleEnvConfigured() &&
+		!glrFaithfulCapOneMerge && !p.forceCleanRetryPass && !p.retryStructuralTopLevelResync && !p.crecoverySwallowedErrorCheckActive &&
+		p.errorCostCompetition == errorCostCompetitionLanguage(p.language) && d.cRecoveryEnabled == p.errorCostCompetitionEnabled() &&
+		stacks == initial && stacksOverride == initial && nodesOverride == 0 && mergeOverride == 0 &&
+		merge == p.resolveParseMergePerKeyCap(source, nil, 0) && deterministicExternal == fullParseUsesDeterministicExternalConflicts(p.language)
+	return facts.ScheduleKey()
+}
+
+// This preflight only chooses a stricter reuse schedule. The fresh verifier
+// and all producer/read/state/publication guards remain mandatory.
+func (p *Parser) smallIdentifierReuseAdmission(source []byte, old *Tree, ts TokenSource) bool {
+	if old == nil || len(old.edits) != 1 || old.RootNode() == nil {
+		return false
+	}
+	edit := old.edits[0]
+	if edit.StartPoint.Row != edit.OldEndPoint.Row || edit.StartPoint.Row != edit.NewEndPoint.Row {
+		return false
+	}
+	begin, oldEnd, newEnd, ok := incr.IdentifierEditToken(old.source, source, incr.TokenEdit{Start: edit.StartByte, OldEnd: edit.OldEndByte, NewEnd: edit.NewEndByte, Row: edit.StartPoint.Row})
+	if !ok || newEnd == 0 || edit.StartPoint.Column < edit.StartByte-begin {
+		return false
+	}
+	// Anchor in an old byte that survives the edit. Newly inserted suffix
+	// bytes may lie outside the edited old leaf's public span.
+	anchor := begin
+	if edit.StartByte == begin && edit.OldEndByte < oldEnd {
+		anchor = edit.NewEndByte
+	}
+	leaf := old.RootNode().DescendantForByteRange(anchor, anchor+1)
+	if leaf == nil || leaf.ChildCount() != 0 || leaf.HasError() || leaf.IsMissing() || leaf.IsExtra() || leaf.symbol != p.language.KeywordCaptureToken || int(leaf.preGotoState) >= len(p.language.LexModes) {
+		return false
+	}
+	point := Point{Row: edit.StartPoint.Row, Column: edit.StartPoint.Column - (edit.StartByte - begin)}
+	d, exact := ts.(*dfaTokenSource)
+	if !exact || d == nil || d.lexer == nil || !d.tokenInvariantInternalDependenciesForwardOnly() {
+		return false
+	}
+	// Probe isolated lexer copies so admission cannot mutate live read receipts.
+	local, lexer := *d, *d.lexer
+	lexer.reuseReads = nil
+	local.lexer = &lexer
+	mode := p.language.LexModes[leaf.preGotoState].LexStateIndex()
+	budget := tokenInvariantPrimitiveBudget{bytes: 2048, scans: 4}
+	before, _, beforeOK, proved := local.tokenInvariantProbeDFA(old.source, begin, point, mode, &budget)
+	if !proved || !beforeOK || before.Symbol != leaf.symbol || before.StartByte != begin || before.EndByte != oldEnd {
+		return false
+	}
+	after, _, afterOK, proved := local.tokenInvariantProbeDFA(source, begin, point, mode, &budget)
+	if !proved || !afterOK || after.Symbol != before.Symbol || after.StartByte != begin || after.EndByte != newEnd {
+		return false
+	}
+	// Keyword reclassification is outside this bounded identifier filter.
+	return !p.language.keywordLexCouldMatch(old.source, int(begin), int(oldEnd)) && !p.language.keywordLexCouldMatch(source, int(begin), int(newEnd))
 }

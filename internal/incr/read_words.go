@@ -66,6 +66,15 @@ func (w *readWords) resize(n int) {
 	}
 	w.extra.n = n
 }
+
+func readWordGroupChunk(missing int) int { return min(8, missing) }
+
+// readWordPagesFit prevents page rounding from overflowing slice lengths on
+// either 32-bit or 64-bit hosts. maxInt is explicit for portable tests.
+func readWordPagesFit(pages, maxInt int) bool {
+	return pages > 0 && pages <= maxInt/readWordPageSize
+}
+
 func (w *readWords) reserve(want int, charge func(int64) bool) bool {
 	if want < 0 || want > int(^uint(0)>>1)-(readWordPageSize-1) {
 		return false
@@ -87,32 +96,45 @@ func (w *readWords) reserve(want int, charge func(int64) bool) bool {
 		w.first = next
 		return true
 	}
-	pages := (want + readWordPageSize - 1) >> readWordPageShift
-	// Each suffix allocation contains two pages. The first flat page still
-	// stands alone, so its existing 64 KiB retention contract is unchanged.
-	pages = 1 + 2*(pages/2)
+	minimumPages := (want + readWordPageSize - 1) >> readWordPageShift
+	// Prefer bounded eight-page suffix groups. If budget cannot fund that
+	// headroom, retry the original two-page reservation before abstaining.
+	groupPages := 1 + 8*((minimumPages-1+7)/8)
+	pairPages := 1 + 2*((minimumPages-1+1)/2)
 	const maxBytes = uint64(1<<63 - 1)
-	if uint64(pages) > maxBytes/(readWordPageSize*4) {
-		return false
+	plan := func(pages int) (int, int64, bool) {
+		if !readWordPagesFit(pages, int(^uint(0)>>1)) || uint64(pages) > maxBytes/(readWordPageSize*4) {
+			return 0, 0, false
+		}
+		tableCapacity := 2
+		if w.extra != nil {
+			tableCapacity = cap(w.extra.pages)
+		}
+		for tableCapacity < pages {
+			if tableCapacity > int(^uint(0)>>1)/2 {
+				return 0, 0, false
+			}
+			tableCapacity *= 2
+		}
+		dataBytes := uint64(pages) * readWordPageSize * 4
+		sliceHeaderBytes := uint64(unsafe.Sizeof([]uint32{}))
+		if uint64(tableCapacity) > uint64(int(^uint(0)>>1))/sliceHeaderBytes {
+			return 0, 0, false
+		}
+		metadataBytes := uint64(unsafe.Sizeof(readWordPages{})) + uint64(tableCapacity)*sliceHeaderBytes
+		if metadataBytes > maxBytes-dataBytes {
+			return 0, 0, false
+		}
+		return tableCapacity, int64(dataBytes+metadataBytes) - w.bytes(), true
 	}
-	tableCapacity := 2
-	if w.extra != nil {
-		tableCapacity = cap(w.extra.pages)
-	}
-	for tableCapacity < pages {
-		if tableCapacity > int(^uint(0)>>1)/2 {
+	pages := groupPages
+	tableCapacity, cost, ok := plan(pages)
+	if !ok || !charge(cost) {
+		pages = pairPages
+		tableCapacity, cost, ok = plan(pages)
+		if !ok || !charge(cost) {
 			return false
 		}
-		tableCapacity *= 2
-	}
-	dataBytes := uint64(pages) * readWordPageSize * 4
-	metadataBytes := uint64(unsafe.Sizeof(readWordPages{})) + uint64(tableCapacity)*uint64(unsafe.Sizeof([]uint32{}))
-	if metadataBytes > maxBytes-dataBytes {
-		return false
-	}
-	bytes := int64(dataBytes + metadataBytes)
-	if !charge(bytes - w.bytes()) {
-		return false
 	}
 	if w.extra == nil {
 		n := len(w.first)
@@ -129,11 +151,15 @@ func (w *readWords) reserve(want int, charge func(int64) bool) bool {
 		copy(table, w.extra.pages)
 		w.extra.pages = table
 	}
-	for len(w.extra.pages) < pages {
-		pair := make([]uint32, 2*readWordPageSize)
-		w.extra.pages = append(w.extra.pages,
-			pair[:readWordPageSize:readWordPageSize],
-			pair[readWordPageSize:2*readWordPageSize:2*readWordPageSize])
+	for missing := pages - len(w.extra.pages); missing > 0; missing = pages - len(w.extra.pages) {
+		// Large promotion jumps remain a sequence of bounded allocations;
+		// no individual backing array exceeds eight 64 KiB pages.
+		chunk := readWordGroupChunk(missing)
+		group := make([]uint32, chunk*readWordPageSize)
+		for i := 0; i < chunk; i++ {
+			start := i * readWordPageSize
+			w.extra.pages = append(w.extra.pages, group[start:start+readWordPageSize:start+readWordPageSize])
+		}
 	}
 	return true
 }

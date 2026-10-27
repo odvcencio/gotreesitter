@@ -45,7 +45,7 @@ func (d *compactReuseDependencies) reset() compactReuseDependencies {
 	if reads != nil {
 		reads.Reset(-1)
 		remaining := int64(compactReuseDependencyRetainedEntries-cap(ends)-cap(leafWords)) * 4
-		const readHeaderBytes = 64
+		readHeaderBytes := incr.ReadsHeaderBytes()
 		if remaining < readHeaderBytes {
 			reads = nil
 		} else {

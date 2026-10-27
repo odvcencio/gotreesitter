@@ -4911,8 +4911,11 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		}
 		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(scanStart), examinedEnd)
 		if d.lexer != nil && d.lexer.reuseReads != nil {
-			if !incr.RequiresFreshResult(len(source)) {
-				// Preserve the established small-edit frontier and fresh proof.
+			// A scanner may emit or decline a zero-width marker without reading
+			// lookahead. Use the normalized cursor frontier above so the receipt
+			// never ends before its own origin. Nonlocal reads still abstain.
+			shadowArtifact := d.language != nil && d.language.SmallSourceReuseShadowArtifact != ([32]byte{})
+			if !incr.RequiresFreshResult(len(source)) && !shadowArtifact {
 				d.lexer.reuseReads.Record(int(scanStart), legacyExaminedEnd)
 			} else if d.externalLexer.readFrontier != nil && d.externalLexer.readFrontier.nonlocal {
 				d.lexer.reuseReads.Abstain()

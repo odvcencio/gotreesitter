@@ -85,7 +85,7 @@ func (s *parserScratch) allocatedBytes() int64 {
 	if s == nil {
 		return 0
 	}
-	return int64(cap(s.reuseState.arenaRefs)+cap(s.reuseState.arenaWalk))*int64(unsafe.Sizeof(uintptr(0))) + s.entries.allocatedBytes + s.gss.allocatedBytes + s.merge.allocatedBytes() + s.transientChildren.allocatedBytes + s.transientParents.allocatedBytes + int64(len(s.advancePages))*int64(unsafe.Sizeof([syntheticRootReplayAdvancePageFrames]syntheticRootReplayFrame{})) + int64(len(s.closePages))*int64(unsafe.Sizeof([syntheticRootReplayClosePageFrames]syntheticRootReplayFrame{}))
+	return int64(cap(s.reuseState.arenaRefs)+cap(s.reuseState.arenaWalk))*int64(unsafe.Sizeof(uintptr(0))) + s.entries.allocatedBytes + s.gss.allocatedBytes + s.merge.allocatedBytes() + s.transientChildren.allocatedBytes + s.transientParents.allocatedBytes + s.transientParents.seen.Bytes() + int64(len(s.advancePages))*int64(unsafe.Sizeof([syntheticRootReplayAdvancePageFrames]syntheticRootReplayFrame{})) + int64(len(s.closePages))*int64(unsafe.Sizeof([syntheticRootReplayClosePageFrames]syntheticRootReplayFrame{}))
 }
 
 func (s *parserScratch) resetReplayPages() {

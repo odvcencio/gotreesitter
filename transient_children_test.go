@@ -303,7 +303,7 @@ func TestTransientParentScratchMaterializeEntriesUntilStopsWhenCancelled(t *test
 	if !parentScratch.owns(parent) {
 		t.Fatal("parent was materialized despite cancellation")
 	}
-	if len(parentScratch.seen) != 0 {
+	if parentScratch.seen.Len() != 0 {
 		t.Fatal("materialization scratch was not cleared after abort")
 	}
 }
@@ -398,7 +398,7 @@ func TestTransientParentScratchMaterializeNodeSliceUntilStopsOnExpiredTimeout(t 
 	if !parentScratch.owns(parent) {
 		t.Fatal("parent was materialized despite timeout")
 	}
-	if len(parentScratch.seen) != 0 {
+	if parentScratch.seen.Len() != 0 {
 		t.Fatal("materialization scratch was not cleared after timeout")
 	}
 }

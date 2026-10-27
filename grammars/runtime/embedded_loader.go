@@ -548,6 +548,11 @@ func attachExternalScannerForLanguage(name string, lang *gotreesitter.Language) 
 // native Symbol IDs, then builds an adapter that remaps them to the target
 // Language's Symbol IDs.
 func AdaptScannerForLanguage(name string, targetLang *gotreesitter.Language) bool {
+	if targetLang != nil {
+		// Adaptation may replace scanner or lex state contracts. A decoded
+		// artifact grant does not survive even an unsuccessful adaptation.
+		targetLang.SmallSourceReuseAuthority = nil
+	}
 	if targetLang == nil || len(targetLang.ExternalSymbols) == 0 {
 		return false
 	}
