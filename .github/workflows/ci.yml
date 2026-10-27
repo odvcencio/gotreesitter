@@ -448,6 +448,8 @@ jobs:
           TestDiagnosticParserCoreReductionUnchangedDistinctLexerSnapshotIsRetained
           TestDiagnosticParserCoreReplacementClearsDiscardedVersionStateTail
           TestDiagnosticParserCoreRollbackClearsDiscardedVersionStateTail
+          TestCompactRelexRecordsGlobalReads
+          TestCompactNegativeMemoKeepsRecordedHistory
           TestDiagnosticParserCoreSameSpanRelexReconstructsExactToken
           TestDiagnosticParserCoreSameSpanRelexRejectsTokenFieldChanges
           TestDiagnosticParserCoreSchedulerFootprintCountsWideSharedVersionStates
@@ -2104,8 +2106,17 @@ jobs:
             --memory 4g \
             --cpus 2 \
             --gomemlimit 3GiB \
-            --wall-timeout 10m \
-            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestGoCompactIncrementalExecution.*Parity|TestGoCompactNestedReuse.*LockedC|TestGoCompactDeclineProfileReportsSelectedTreeReuse|TestStage6GoCompactCertification|TestGoTokenInvariantLookaheadNumeric(Repair|Reuse)LockedC)$' -count=1 -parallel 1 -timeout 5m -v"
+            --wall-timeout 12m \
+            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestGoCompactIncrementalExecution.*Parity|TestGoCompactNestedReuse.*LockedC|TestGoCompactDeclineProfileReportsSelectedTreeReuse|TestStage6GoCompactCertification|TestGoTokenInvariantLookaheadNumeric(Repair|Reuse)LockedC|TestGoHiddenMissingSemicolonEditsMatchLockedC|TestGoMalformedDeclarationPrefixLockedC|TestGoAssignmentTargetEdits16SitesLockedC)$' -count=1 -parallel 1 -timeout 8m -v"
+
+      - name: C and EDS hidden missing parity
+        run: |
+          for grammar in C EDS; do
+            bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build --label "ci-hidden-missing-${grammar,,}" \
+              --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 5m \
+              -- "cd /workspace/cgo_harness && go test . -tags treesitter_c_parity -run '^Test${grammar}HiddenMissingCorpus(Fresh|FirstEdit)LockedC$' -count=1 -parallel 1 -timeout 3m -v"
+          done
 
       - name: Nightly fuzz route witnesses against locked C
         run: |
