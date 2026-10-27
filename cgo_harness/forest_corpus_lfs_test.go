@@ -2,9 +2,12 @@ package cgoharness
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -48,6 +51,77 @@ func initForestLFSTestCheckout(t *testing.T, lfsPaths []string, files map[string
 	return root, forestCorpusLockEntry{
 		Language: "odin", Repository: "https://example.invalid/odin",
 		Revision: revision, Subdir: ".", Matchers: []string{".odin"},
+	}
+}
+
+// forestLFSTestManyObjects returns count LFS paths, sorted the way git lists
+// them, and a distinct object for each. Odin has 16 such files.
+func forestLFSTestManyObjects(count int) ([]string, map[string]string) {
+	paths := make([]string, 0, count)
+	objects := make(map[string]string, count)
+	for i := 0; i < count; i++ {
+		path := fmt.Sprintf("vendor/dir%d/blob%02d.lib", i%4, i)
+		paths = append(paths, path)
+		objects[path] = fmt.Sprintf("object %02d\n", i) + strings.Repeat("x", 11*i)
+	}
+	sort.Strings(paths)
+	return paths, objects
+}
+
+// forestLFSTestRehashedCheckout commits a pointer for each path, writes the
+// object over it, and returns a checkout in which git hashes every file.
+//
+// A checkout restored from actions/cache gets a new inode and change time for
+// every file, so git trusts none of the stat data in its index. Git then reads
+// each file and compares it with the blob in the index, and every LFS path
+// shows as modified, not only the last one written. "git read-tree HEAD" gives
+// the same state: it rebuilds the index from the commit without stat data.
+func forestLFSTestRehashedCheckout(t *testing.T, paths []string, objects map[string]string) (string, forestCorpusLockEntry) {
+	t.Helper()
+	pointers := make(map[string]string, len(paths))
+	for _, path := range paths {
+		pointers[path] = forestLFSTestPointer(objects[path])
+	}
+	root, entry := initForestLFSTestCheckout(t, paths, pointers)
+	checkout := filepath.Join(root, "odin")
+	for _, path := range paths {
+		writeForestManifestTestFile(t, checkout, path, objects[path])
+	}
+	runForestManifestGit(t, checkout, "read-tree", "HEAD")
+	var want strings.Builder
+	for _, path := range paths {
+		fmt.Fprintf(&want, " M %s\n", path)
+	}
+	if status := runForestManifestGit(t, checkout, "status", "--porcelain=v1"); status != want.String() {
+		t.Fatalf("git status = %q, want exactly the LFS paths as modified, so this test shows nothing: %q", status, want.String())
+	}
+	return root, entry
+}
+
+func TestVerifyForestCorpusCheckoutAcceptsEveryGitLFSObjectWhenGitRehashesTheCheckout(t *testing.T) {
+	paths, objects := forestLFSTestManyObjects(16)
+	root, entry := forestLFSTestRehashedCheckout(t, paths, objects)
+	if err := verifyForestCorpusCheckout(root, entry); err != nil {
+		t.Fatalf("verify checkout in which git reports all %d LFS files as modified: %v", len(paths), err)
+	}
+}
+
+func TestVerifyForestCorpusCheckoutRejectsOneChangedGitLFSObjectAmongMany(t *testing.T) {
+	// The change keeps the object's size, so only the SHA-256 shows it. The
+	// changed path is first, in the middle or last in git's order. A verified
+	// path before it must not vouch for it, and the check must not stop after
+	// the first verified path.
+	paths, objects := forestLFSTestManyObjects(16)
+	for name, index := range map[string]int{"first": 0, "middle": 8, "last": len(paths) - 1} {
+		t.Run(name, func(t *testing.T) {
+			root, entry := forestLFSTestRehashedCheckout(t, paths, objects)
+			changed := paths[index]
+			writeForestManifestTestFile(t, filepath.Join(root, "odin"), changed, strings.Repeat("y", len(objects[changed])))
+			err := verifyForestCorpusCheckout(root, entry)
+			if err == nil || !strings.Contains(err.Error(), "checkout is dirty ( M "+changed+")") {
+				t.Fatalf("verify error = %v, want the changed path %s", err, changed)
+			}
+		})
 	}
 }
 
@@ -195,6 +269,47 @@ func TestVerifyForestCorpusCheckoutOnlyForgivesWorktreeChangeToGitLFSPath(t *tes
 			test.mutate(t, filepath.Join(root, "odin"))
 			if err := verifyForestCorpusCheckout(root, entry); err == nil || !strings.Contains(err.Error(), "checkout is dirty") {
 				t.Fatalf("verify error = %v", err)
+			}
+		})
+	}
+}
+
+func TestVerifyForestCorpusCheckoutReadsNoGitLFSBlobAtThePointerSizeLimit(t *testing.T) {
+	// The Git LFS specification says a pointer file is less than 1024 bytes. The
+	// check reads a blob of 1023 bytes and no blob of 1024 bytes or more. The
+	// strict parser would reject a longer blob anyway, so only the calls to git
+	// show the limit.
+	tests := []struct {
+		size     int
+		wantRead bool
+	}{
+		{size: 133, wantRead: true},
+		{size: 1023, wantRead: true},
+		{size: 1024},
+		{size: 1025},
+		{size: 54820956},
+	}
+	for _, test := range tests {
+		t.Run(strconv.Itoa(test.size), func(t *testing.T) {
+			blobRead := false
+			git := func(args ...string) ([]byte, error) {
+				switch {
+				case args[0] == "check-attr":
+					return []byte(forestLFSTestPath + "\x00filter\x00lfs\x00"), nil
+				case args[0] == "cat-file" && args[1] == "-s":
+					return []byte(strconv.Itoa(test.size) + "\n"), nil
+				case args[0] == "cat-file" && args[1] == "blob":
+					blobRead = true
+					return nil, errors.New("fake git has no blob")
+				}
+				t.Fatalf("unexpected git call %q", args)
+				return nil, nil
+			}
+			if forestGitLFSObjectCurrent(t.TempDir(), forestLFSTestPath, git) {
+				t.Fatal("accepted a path although the fake git has no pointer")
+			}
+			if blobRead != test.wantRead {
+				t.Fatalf("blob read = %v for a blob of %d bytes, want %v", blobRead, test.size, test.wantRead)
 			}
 		})
 	}

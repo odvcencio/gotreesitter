@@ -290,7 +290,7 @@ func forestGitLFSObjectCurrent(checkout, rel string, git func(args ...string) ([
 	if err != nil {
 		return false
 	}
-	if n, err := strconv.Atoi(strings.TrimSpace(string(blobSize))); err != nil || n > forestGitLFSPointerMaxBytes {
+	if n, err := strconv.Atoi(strings.TrimSpace(string(blobSize))); err != nil || n >= forestGitLFSPointerSizeLimit {
 		return false
 	}
 	pointer, err := git("cat-file", "blob", blob)
@@ -308,8 +308,11 @@ func forestGitLFSObjectCurrent(checkout, rel string, git func(args ...string) ([
 	return forestVerifyManifestFile(filePath, size, oid, rel) == nil
 }
 
-// forestGitLFSPointerMaxBytes is the largest pointer the Git LFS specification allows.
-const forestGitLFSPointerMaxBytes = 1024
+// forestGitLFSPointerSizeLimit is the size at which a blob stops being a Git
+// LFS pointer: the specification (docs/spec.md in git-lfs/git-lfs) says pointer
+// files "must be less than 1024 bytes in size". The check reads no blob of this
+// size or larger.
+const forestGitLFSPointerSizeLimit = 1024
 
 // parseForestGitLFSPointer reads a Git LFS version 1 pointer: the lines
 // "version https://git-lfs.github.com/spec/v1", "oid sha256:<lowercase hex>"

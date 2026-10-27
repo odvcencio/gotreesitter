@@ -32,7 +32,10 @@ count:
   are stored this way. A checkout made with git-lfs replaces each pointer with
   its object. The harness image has no git-lfs, so its git cannot map the object
   back to the pointer. The check accepts such a file only when the pointer
-  committed at HEAD names the file's exact size and SHA-256.
+  committed at HEAD (a version 1 pointer under 1,024 bytes) names the file's
+  exact size and SHA-256. It checks each file on its own, so it also accepts a
+  checkout restored from the Actions cache, where git re-hashes every file and
+  reports all the LFS files, not only the last one written, as modified.
 
 The incremental check uses the design's 72-step session on the largest
 selected file: 24 insertions, 24 replacements, and 24 deletions across 16
