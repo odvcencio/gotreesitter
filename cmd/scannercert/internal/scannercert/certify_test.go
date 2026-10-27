@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
@@ -207,6 +209,41 @@ func TestCertifyReportsAParseThatTheRecorderChanged(t *testing.T) {
 	}
 	if report.Verdict != VerdictNotTransparent {
 		t.Fatalf("verdict = %q with %d of %d sources changed, want %q", report.Verdict, report.Parses.Divergent, report.Parses.Sources, VerdictNotTransparent)
+	}
+}
+
+// The parser and the grammar loader read variables with three prefixes. A
+// report made under an override must not look like one made without.
+func TestEnvironmentListsTheVariablesThatChangeTheParserOrTheGrammar(t *testing.T) {
+	t.Setenv("GOT_SCANNERCERT_TEST", "1")
+	t.Setenv("GTS_SCANNERCERT_TEST", "1")
+	t.Setenv("GOTREESITTER_GRAMMARGEN_BLOB_DIR", "/private/override")
+	t.Setenv("GOTREESITTER_GRAMMAR_BLOB_DIR", "/private/override")
+	t.Setenv("SCANNERCERT_UNRELATED", "1")
+	got := environment()
+	for _, name := range []string{"GOT_SCANNERCERT_TEST", "GTS_SCANNERCERT_TEST", "GOTREESITTER_GRAMMARGEN_BLOB_DIR", "GOTREESITTER_GRAMMAR_BLOB_DIR"} {
+		if !slices.Contains(got, name) {
+			t.Errorf("environment = %q, want it to list %s", got, name)
+		}
+	}
+	for _, name := range got {
+		if name == "SCANNERCERT_UNRELATED" || strings.Contains(name, "/private/override") {
+			t.Errorf("environment lists %q, want only variable names with the three prefixes", name)
+		}
+	}
+	if !sort.StringsAreSorted(got) {
+		t.Errorf("environment = %q, want it sorted", got)
+	}
+}
+
+// A language built in memory has no blob to name.
+func TestCertifyLeavesTheBlobDigestEmptyForALanguageNotLoadedFromABlob(t *testing.T) {
+	report, err := Certify(miniLanguage(hashScanner{}), miniCorpus())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.GrammarBlobSHA256 != "" {
+		t.Fatalf("blob digest = %q, want none for a language that was not loaded from a blob", report.GrammarBlobSHA256)
 	}
 }
 

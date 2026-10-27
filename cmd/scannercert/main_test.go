@@ -2,13 +2,16 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/odvcencio/gotreesitter/cmd/scannercert/internal/scannercert"
+	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 // Tests run in this directory, two levels below the repository root.
@@ -141,6 +144,20 @@ func TestRunFailsAReportWhoseRecordedParseDiffers(t *testing.T) {
 		if report := readReport(t, filepath.Join(dir, name+".json")); report.Verdict != scannercert.VerdictNotTransparent {
 			t.Fatalf("%s report verdict = %q, want it written for inspection", name, report.Verdict)
 		}
+	}
+}
+
+// The report names the grammar blob the language was loaded from, so two
+// reports for one grammar can be told apart when a blob differs.
+func TestReportNamesTheGrammarBlob(t *testing.T) {
+	blob := grammars.BlobByName("lua")
+	if len(blob) == 0 {
+		t.Skip("this build embeds no lua blob")
+	}
+	want := fmt.Sprintf("%x", sha256.Sum256(blob))
+	report := writeTwice(t, "lua", "-session=false")
+	if report.GrammarBlobSHA256 != want {
+		t.Fatalf("grammar blob digest = %q, want the lua blob's %q", report.GrammarBlobSHA256, want)
 	}
 }
 

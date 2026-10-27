@@ -58,12 +58,19 @@ const MaxWitnessesPerKind = 3
 
 // Report is the certification result for one grammar's external scanner.
 type Report struct {
-	Schema   string   `json:"schema"`
-	Language string   `json:"language"`
-	Scanner  string   `json:"scanner"`
-	Declared Declared `json:"declared"`
-	// Environment names the GOT_ and GTS_ variables set during the run. They
-	// change parser behavior, so they change which calls the parser makes.
+	Schema   string `json:"schema"`
+	Language string `json:"language"`
+	Scanner  string `json:"scanner"`
+	// GrammarBlobSHA256 is the SHA-256 of the grammar blob the language was
+	// loaded from, as the loader recorded it, so it names a blob loaded from an
+	// override directory as well as an embedded one. It is empty for a language
+	// that was not loaded from a blob.
+	GrammarBlobSHA256 string   `json:"grammar_blob_sha256"`
+	Declared          Declared `json:"declared"`
+	// Environment names the GOT_, GTS_ and GOTREESITTER_ variables set during
+	// the run, without their values. The first two change parser behavior and so
+	// the calls the parser makes. The last select the grammar blob and its
+	// scanner adapter, or limit which grammars load.
 	Environment []string   `json:"environment"`
 	Corpus      CorpusInfo `json:"corpus"`
 	Parses      ParseInfo  `json:"parses"`

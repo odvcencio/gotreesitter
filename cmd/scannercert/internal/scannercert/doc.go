@@ -65,6 +65,13 @@
 // calls then are not the production parser's, so the report says nothing about
 // the scanner, and the command exits nonzero.
 //
+// A report also says which grammar and settings produced it.
+// grammar_blob_sha256 is the digest of the blob the loader decoded, whether it
+// was embedded or came from an override directory. environment lists the GOT_,
+// GTS_ and GOTREESITTER_ variables that were set, by name only. A report made
+// under GOTREESITTER_GRAMMARGEN_BLOB_DIR or GOTREESITTER_GRAMMAR_BLOB_DIR
+// therefore differs from one made without in those fields.
+//
 // # How closely the recorded parse follows production
 //
 // The recorder implements the optional scanner interfaces that a full parse

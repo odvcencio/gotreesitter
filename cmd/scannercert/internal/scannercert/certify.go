@@ -1,6 +1,7 @@
 package scannercert
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -67,11 +68,12 @@ func Certify(lang *gts.Language, corpus *Corpus) (*Report, error) {
 		name = lang.Name
 	}
 	return &Report{
-		Schema:      Schema,
-		Language:    name,
-		Scanner:     fmt.Sprintf("%T", inner),
-		Declared:    declared(inner),
-		Environment: environment(),
+		Schema:            Schema,
+		Language:          name,
+		Scanner:           fmt.Sprintf("%T", inner),
+		GrammarBlobSHA256: grammarBlobDigest(lang),
+		Declared:          declared(inner),
+		Environment:       environment(),
 		Corpus: CorpusInfo{
 			Path: corpus.Path, SampleSHA256: corpus.SampleSHA256,
 			SessionSHA256: corpus.SessionSHA256, ManifestSHA256: corpus.ManifestSHA256,
@@ -139,6 +141,16 @@ func parseOne(parser *gts.Parser, lang *gts.Language, source []byte) (result par
 	return parsed{digest: inspection.SHA256, hasError: root.HasError()}, nil
 }
 
+// grammarBlobDigest returns the hex SHA-256 of the blob the loader decoded
+// lang from, or "" when lang was not loaded from a blob.
+func grammarBlobDigest(lang *gts.Language) string {
+	sum, ok := lang.GrammarBlobSHA256()
+	if !ok {
+		return ""
+	}
+	return hex.EncodeToString(sum[:])
+}
+
 // declared reports the scanner's own capability claims.
 func declared(scanner gts.ExternalScanner) Declared {
 	tri := func(present, value bool) string {
@@ -165,14 +177,24 @@ func declared(scanner gts.ExternalScanner) Declared {
 	return d
 }
 
-// environment lists the GOT_ and GTS_ variables set now, sorted, without
-// their values. The parser reads several of them.
+// environmentPrefixes are the variable prefixes the parser and the grammar
+// loader read. GOT_ and GTS_ tune the parser. GOTREESITTER_ includes the
+// variables that swap in another grammar blob and an order-adapted scanner
+// (GOTREESITTER_GRAMMARGEN_BLOB_DIR, GOTREESITTER_GRAMMAR_BLOB_DIR) and the ones
+// that limit which grammars load.
+var environmentPrefixes = []string{"GOT_", "GTS_", "GOTREESITTER_"}
+
+// environment lists the variables with those prefixes that are set now,
+// sorted, without their values.
 func environment() []string {
 	names := []string{}
 	for _, entry := range os.Environ() {
 		name, _, _ := strings.Cut(entry, "=")
-		if strings.HasPrefix(name, "GOT_") || strings.HasPrefix(name, "GTS_") {
-			names = append(names, name)
+		for _, prefix := range environmentPrefixes {
+			if strings.HasPrefix(name, prefix) {
+				names = append(names, name)
+				break
+			}
 		}
 	}
 	sort.Strings(names)
