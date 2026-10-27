@@ -1216,7 +1216,7 @@ jobs:
           fi
           git fetch --no-tags origin "$BASE_SHA"
           exception=()
-          if [ "$PR_NUMBER" = 1509 ]; then
+          if [ "${PR_NUMBER:-}" = 1509 ]; then
             exception=(--approved-go-undo-exception)
           fi
           bash scripts/run_editor_latency_gate.sh \

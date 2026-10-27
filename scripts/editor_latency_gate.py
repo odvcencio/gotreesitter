@@ -389,6 +389,11 @@ def campaign_go_environment():
                      if os.environ.get(variable)) or "true"
 
 
+def campaign_edit_environment(language):
+    require(re.fullmatch(r"[a-z_]+", language) is not None, "unsafe language")
+    return ["export GOWORK=off GOMAXPROCS=1 GTS_PARITY_C_REF_BUILD_CACHE=/campaign/c-cache GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]
+
+
 def check_work_exemptions_shrink(before, after):
     def keyed(entries):
         rows = {(e["fixture_sha256"], e["cell"], e["class"]): e for e in entries}
@@ -473,7 +478,7 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
             write_json(out / "environment.json", env)
             for f in m["fixtures"]:
                 language = f["language"]
-                commands = ["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]
+                commands = ["set -euo pipefail", campaign_go_environment(), *campaign_edit_environment(language)]
                 for role, revision in (("base", base_revision), ("head", head_revision)):
                     commands += [f"cd /campaign/modules/{role}", "go mod tidy", f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json go test -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m"]
                 with (out / ("correctness-" + language + ".log")).open("w") as log:
@@ -490,7 +495,7 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
                     prefix = f"{language}-seed-{seed}"
                     for role in fragments:
                         fragments[role].append(out / "timing" / f"{prefix}-{role}.txt")
-                    command = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}", "cd /campaign/modules/head", "/usr/bin/time -v bash /workspace/scripts/run_randomized_benchmarks.sh " + " ".join(shlex.quote(x) for x in ["--runs", "1", "--seed-start", str(seed), "--baseline-root", "/campaign/modules/base", "--baseline-output", f"/campaign/timing/{prefix}-base.txt", "--output", f"/campaign/timing/{prefix}-head.txt", "--tags", "treesitter_c_parity", "--bench-regex", "^BenchmarkW5(OneByte|HundredByte|Typing)$", "--require-benchmarks", ",".join(NAMES)])])
+                    command = "\n".join(["set -euo pipefail", campaign_go_environment(), *campaign_edit_environment(language), "cd /campaign/modules/head", "/usr/bin/time -v bash /workspace/scripts/run_randomized_benchmarks.sh " + " ".join(shlex.quote(x) for x in ["--runs", "1", "--seed-start", str(seed), "--baseline-root", "/campaign/modules/base", "--baseline-output", f"/campaign/timing/{prefix}-base.txt", "--output", f"/campaign/timing/{prefix}-head.txt", "--tags", "treesitter_c_parity", "--bench-regex", "^BenchmarkW5(OneByte|HundredByte|Typing)$", "--require-benchmarks", ",".join(NAMES)])])
                     log_path = out / f"timing-{prefix}.log"
                     with log_path.open("w") as log:
                         run_checked(common + ["--label", "w5-timing-" + prefix, "--wall-timeout", "90m", "--", command], stdout=log, stderr=subprocess.STDOUT)

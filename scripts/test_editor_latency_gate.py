@@ -16,6 +16,13 @@ import editor_latency_gate as gate
 
 
 class HostedCampaignTests(unittest.TestCase):
+    def test_edit_environment_keeps_c_oracle_cache_in_campaign(self):
+        commands = gate.campaign_edit_environment("go")
+        self.assertIn("GTS_PARITY_C_REF_BUILD_CACHE=/campaign/c-cache", commands[0])
+        self.assertEqual(commands[1], "export GTS_EDIT_LANGUAGE=go")
+        with self.assertRaises(ValueError):
+            gate.campaign_edit_environment("go;false")
+
     def test_lane_cache_scratch_and_unique_image(self):
         environment = {"GOCACHE": "/cache", "GOTMPDIR": "/go-tmp", "TMPDIR": "/tmp-dir", "GTS_EDITOR_LATENCY_IMAGE": "gotreesitter/test:unique"}
         with mock.patch.dict(os.environ, environment, clear=True):
