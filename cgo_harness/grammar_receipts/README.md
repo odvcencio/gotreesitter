@@ -25,8 +25,12 @@ count:
   `cgo_harness/cmd/real_corpus_extract` builds it from the pinned checkout, and
   `real_corpus_sources` does not. `run_one_in_docker.sh` runs the extractor in a
   separate, writable container before the receipt run, which mounts the corpus
-  read-only. `gitcommit` reads the checkout's history, so that container needs
-  network access.
+  read-only. `gitcommit` fetches the checkout's full commit history (without
+  file contents), so that container needs network access. If the extractor
+  fails, the script prints a `::warning::` line, removes the partial tree and
+  goes on. The receipt then records the missing corpus: no corpus files,
+  `unavailable` parity and invariant results, and a `corpus-unavailable`
+  failure. The job still produces the grammar's receipt.
 - A file that git reports as modified only because the checkout holds a Git LFS
   object where the commit holds its pointer. Odin's vendored Windows libraries
   are stored this way. A checkout made with git-lfs replaces each pointer with
