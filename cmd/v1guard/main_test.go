@@ -292,3 +292,36 @@ func TestEngineFileScope(t *testing.T) {
 		}
 	}
 }
+
+// A go:linkname declaration has no body. The scanner must read past it and
+// still see the declarations around it.
+func TestR6ScansFunctionsDeclaredWithoutABody(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "grammars/grammar_blobs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "grammars/grammar_blobs/go.bin"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	source := `package tool
+import (
+	"os"
+	_ "unsafe"
+)
+
+//go:linkname link example.com/root.link
+func link(source []byte) int
+
+func f() { _ = os.Getenv("GOT_AFTER_LINK") }
+`
+	if err := os.WriteFile(filepath.Join(root, "tool.go"), []byte(source), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, env, err := scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := countFindings(env); got["tool.go|env|GOT_AFTER_LINK"] != 1 || len(env) != 1 {
+		t.Fatalf("environment findings = %v, want one read of GOT_AFTER_LINK", got)
+	}
+}
