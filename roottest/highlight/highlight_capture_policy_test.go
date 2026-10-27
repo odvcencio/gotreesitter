@@ -265,9 +265,9 @@ func requireSpans(t *testing.T, source []byte, ranges []gotreesitter.HighlightRa
 // samples where a private capture, the none capture or a priority used to change
 // them. The sweep above cannot catch a regression in most of these grammars: their
 // smoke samples never reach such a capture, so it passes with or without the policy.
-// Every case but the two fence cases of a low priority fails without the policy.
-// Those two guard against the opposite error: origin/main colored the fenced code,
-// and a reset in the host must not take that color away.
+// Every case here fails on origin/main. The two fence cases also guard against
+// the opposite error: the host's reset of a fence must not hide the injected
+// language's captures of a lower priority, which origin/main kept for zig.
 func TestHighlightShippedQueryCases(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 	cases := []struct {
