@@ -1372,7 +1372,7 @@ func TestPruningCertificateDiscards(t *testing.T) {
 				tree.ensureParseRuntime().StopReason = ParseStopAccepted
 				parser := NewParser(buildArithmeticLanguage())
 				tree.ensureParseRuntime().MaxStacksSeen = fullParseInitialMaxStacks(parser.language, parser.maxConflictWidth, source)
-				cursor := reuseCursor{cEquivalentReuse: true, oldRecoveryCertified: true, oldRuntimeNoPolicyPruning: true}
+				cursor := reuseCursor{cEquivalentReuse: true, freshScheduleReuse: true, oldRecoveryCertified: true, oldRuntimeNoPolicyPruning: true}
 				if cursor.certifiesIncrementalResult(tree, parser, source, 0) {
 					t.Error("pruned recovery result bypassed fresh verification")
 				}

@@ -1,0 +1,11 @@
+{
+  "validated": true,
+  "members": 1710,
+  "repair_paired_seeds": 20,
+  "actual_bypass_steps": 144,
+  "arm_v28_above_ceiling": {
+    "baseline": 10,
+    "candidate": 15
+  },
+  "main_merge_held": true
+}
