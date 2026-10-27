@@ -1,0 +1,2532 @@
+{
+  "Go_files": 3542,
+  "RSS": {
+    "all_initial_probes_retained": true,
+    "binary_sha256": {
+      "baseline": "e103b9adb7d2f1a4143ba2f20be11d18440724e8b998f9a022a2d79c5b0024d7",
+      "candidate": "5536cb75e953cc5ccb37f18856268f65257d65e3f1e7153a53e9d34f36013b47"
+    },
+    "candidate_baseline_median_ratios": {
+      "yaml_ordinary": 1.009913472007335,
+      "yaml_owned": 0.964960964960965
+    },
+    "candidate_ceiling_failures": [],
+    "candidate_safety_pass": true,
+    "environment": {
+      "GODEBUG": null,
+      "GOGC": null,
+      "GOMAXPROCS": "1",
+      "GOMEMLIMIT": "3GiB",
+      "GOT_GLR_MAX_STACKS": null,
+      "GOT_PARSE_NODE_LIMIT_SCALE": null
+    },
+    "initial": [
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 69697536,
+        "position": null,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 66.40567393185032,
+        "seed": null,
+        "stage": "initial"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 106233856,
+        "position": null,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 101.21635866810472,
+        "seed": null,
+        "stage": "initial"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 71962624,
+        "position": null,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 68.56378028377281,
+        "seed": null,
+        "stage": "initial"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 110891008,
+        "position": null,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 105.65355020903759,
+        "seed": null,
+        "stage": "initial"
+      }
+    ],
+    "matched": [
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 71741440,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 68.353042954652,
+        "seed": 180001,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 73908224,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 70.41748827140968,
+        "seed": 180001,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 110604288,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 105.38037218980689,
+        "seed": 180001,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 106708992,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 101.6690536714013,
+        "seed": 180001,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 105922560,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 100.91976539008282,
+        "seed": 180002,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 106770432,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 101.7275918183793,
+        "seed": 180002,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72630272,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 69.19989481426715,
+        "seed": 180002,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72200192,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 68.7901277854211,
+        "seed": 180002,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 69775360,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 66.47982225135578,
+        "seed": 180003,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72237056,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 68.82525067360791,
+        "seed": 180003,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 114044928,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 108.65850842057525,
+        "seed": 180003,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 106512384,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 101.48173160107167,
+        "seed": 180003,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72564736,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 69.13745412415727,
+        "seed": 180004,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 69775360,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 66.47982225135578,
+        "seed": 180004,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 107102208,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 102.04369781206053,
+        "seed": 180004,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 112111616,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 106.81650806233398,
+        "seed": 180004,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72265728,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 68.85256847553097,
+        "seed": 180005,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 71909376,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 68.51304722305854,
+        "seed": 180005,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 106737664,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 101.69637147332436,
+        "seed": 180005,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 114278400,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 108.88095337909166,
+        "seed": 180005,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 105562112,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 100.5763415944785,
+        "seed": 180006,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 104771584,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 99.82315077002816,
+        "seed": 180006,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 71909376,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 68.51304722305854,
+        "seed": 180006,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 71905280,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 68.50914467992668,
+        "seed": 180006,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 106934272,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 101.88369354365399,
+        "seed": 180007,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 107069440,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 102.0124774670056,
+        "seed": 180007,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72626176,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 69.19599227113528,
+        "seed": 180007,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72237056,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 68.82525067360791,
+        "seed": 180007,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 70139904,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 66.82714859009197,
+        "seed": 180008,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 69971968,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 66.66714432168541,
+        "seed": 180008,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 106938368,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 101.88759608678585,
+        "seed": 180008,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 112111616,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 106.81650806233398,
+        "seed": 180008,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 103723008,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 98.82409972827018,
+        "seed": 180009,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 106414080,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 101.38807056590686,
+        "seed": 180009,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 71282688,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 67.91595812388287,
+        "seed": 180009,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 69779456,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 66.48372479448766,
+        "seed": 180009,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72597504,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 69.1686744692122,
+        "seed": 180010,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 70922240,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 67.57253432827858,
+        "seed": 180010,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 105922560,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 100.91976539008282,
+        "seed": 180010,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 106213376,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 101.19684595244537,
+        "seed": 180010,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 73543680,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 70.07016193267351,
+        "seed": 180011,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 70139904,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 66.82714859009197,
+        "seed": 180011,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 113618944,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 108.25264393486107,
+        "seed": 180011,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 105725952,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 100.7324433197532,
+        "seed": 180011,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 106217472,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 101.20074849557724,
+        "seed": 180012,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 105558016,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 100.57243905134665,
+        "seed": 180012,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 74006528,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 70.5111493065745,
+        "seed": 180012,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 71839744,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 68.4467039898168,
+        "seed": 180012,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 69578752,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 66.29250018102617,
+        "seed": 180013,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 69943296,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 66.63982651976234,
+        "seed": 180013,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 112963584,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 107.62823703376233,
+        "seed": 180013,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 111951872,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 106.66430888019116,
+        "seed": 180013,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72630272,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 69.19989481426715,
+        "seed": 180014,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 69771264,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 66.47591970822393,
+        "seed": 180014,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 111034368,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 105.79013921865294,
+        "seed": 180014,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 112242688,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 106.94138944255373,
+        "seed": 180014,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 111915008,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 106.62918599200437,
+        "seed": 180015,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 108019712,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 102.91786747359876,
+        "seed": 180015,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72101888,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 68.69646675025629,
+        "seed": 180015,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 70336512,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 67.01447066042158,
+        "seed": 180015,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 115589120,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 110.12976718128914,
+        "seed": 180016,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 110800896,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 105.56769426013652,
+        "seed": 180016,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72597504,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 69.1686744692122,
+        "seed": 180016,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 70332416,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 67.01056811728971,
+        "seed": 180016,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72593408,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 69.16477192608035,
+        "seed": 180017,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72433664,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 69.01257274393753,
+        "seed": 180017,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 104411136,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 99.47972697442385,
+        "seed": 180017,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 107200512,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 102.13735884722534,
+        "seed": 180017,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 110804992,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 105.57159680326838,
+        "seed": 180018,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 111751168,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 106.47308426672967,
+        "seed": 180018,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 72138752,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 68.7315896384431,
+        "seed": 180018,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 71675904,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 68.29060226454212,
+        "seed": 180018,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 108212224,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 103.10128700079652,
+        "seed": 180019,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 105955328,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 100.95098573513775,
+        "seed": 180019,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 68005888,
+        "position": 1,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 64.79392361838921,
+        "seed": 180019,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 70139904,
+        "position": 2,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 66.82714859009197,
+        "seed": 180019,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 103235584,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 98.35969709557801,
+        "seed": 180020,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_owned",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 111915008,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 106.62918599200437,
+        "seed": 180020,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 69976064,
+        "position": 1,
+        "role": "candidate",
+        "rss_bytes_per_source_byte": 66.67104686481728,
+        "seed": 180020,
+        "stage": "matched"
+      },
+      {
+        "case": "yaml_ordinary",
+        "input_bytes": 1049572,
+        "peak_rss_bytes": 69775360,
+        "position": 2,
+        "role": "baseline",
+        "rss_bytes_per_source_byte": 66.47982225135578,
+        "seed": 180020,
+        "stage": "matched"
+      }
+    ],
+    "protocol": "20 matched alternating pairs per case; case order shuffled per explicit seed; one grammar/process; safety probes only, no timing claim",
+    "seeds": "180001..180020",
+    "summary": {
+      "yaml_ordinary": {
+        "baseline": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 70.07016193267351,
+          "median": 68.10328019421249
+        },
+        "candidate": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 70.5111493065745,
+          "median": 68.7784201560255
+        }
+      },
+      "yaml_owned": {
+        "baseline": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 108.65850842057525,
+          "median": 105.4740332249717
+        },
+        "candidate": {
+          "ceiling_failures": 0,
+          "count": 20,
+          "maximum": 110.12976718128914,
+          "median": 101.77832487909357
+        }
+      }
+    }
+  },
+  "all_timing_allocation_RSS_median_ratchets_pass": true,
+  "archive": {
+    "bytes": 1341684,
+    "regular_members": 284,
+    "sha256": "07a9059543992c8ba6738c75d61d44c6864ef3cc4eba7ce41f64e229fe4fc6f0"
+  },
+  "baseline_commit": "c5695bc4c3a155cc1af490e18c6a0684c8317945",
+  "changed_source": {
+    "grammars/runtime/yaml_scanner.go": "498a5dcb94e1b35f401a041cccc3a8699a2c3b527e760b0191ac00bbdf4d0eab",
+    "grammars/runtime/yaml_scanner_checkpoint_test.go": "18767fbb893bc8a2442ed7fcaed18930c0019a0d9f17ec2693bf5b13c67f5a61"
+  },
+  "counter_gate": {
+    "comparisons": [
+      {
+        "after": 288,
+        "before": 288,
+        "fixture": "r4/legacy",
+        "metric": "full/nodes"
+      },
+      {
+        "after": 107,
+        "before": 107,
+        "fixture": "r4/legacy",
+        "metric": "full/tokens"
+      },
+      {
+        "after": 480,
+        "before": 480,
+        "fixture": "r4/legacy",
+        "metric": "edit/nodes"
+      },
+      {
+        "after": 107,
+        "before": 107,
+        "fixture": "r4/legacy",
+        "metric": "edit/tokens"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "r4/legacy",
+        "metric": "edit/reused_bytes"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "r4/legacy",
+        "metric": "edit/splices"
+      },
+      {
+        "after": 1,
+        "before": 1,
+        "fixture": "r4/legacy",
+        "metric": "full/peak"
+      },
+      {
+        "after": 1156,
+        "before": 1156,
+        "fixture": "eof8k/legacy",
+        "metric": "full/nodes"
+      },
+      {
+        "after": 423,
+        "before": 423,
+        "fixture": "eof8k/legacy",
+        "metric": "full/tokens"
+      },
+      {
+        "after": 1920,
+        "before": 1920,
+        "fixture": "eof8k/legacy",
+        "metric": "edit/nodes"
+      },
+      {
+        "after": 423,
+        "before": 423,
+        "fixture": "eof8k/legacy",
+        "metric": "edit/tokens"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "eof8k/legacy",
+        "metric": "edit/reused_bytes"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "eof8k/legacy",
+        "metric": "edit/splices"
+      },
+      {
+        "after": 1,
+        "before": 1,
+        "fixture": "eof8k/legacy",
+        "metric": "full/peak"
+      },
+      {
+        "after": 288,
+        "before": 288,
+        "fixture": "r4/ordinary",
+        "metric": "full/nodes"
+      },
+      {
+        "after": 107,
+        "before": 107,
+        "fixture": "r4/ordinary",
+        "metric": "full/tokens"
+      },
+      {
+        "after": 288,
+        "before": 288,
+        "fixture": "r4/ordinary",
+        "metric": "edit/nodes"
+      },
+      {
+        "after": 107,
+        "before": 107,
+        "fixture": "r4/ordinary",
+        "metric": "edit/tokens"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "r4/ordinary",
+        "metric": "edit/reused_bytes"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "r4/ordinary",
+        "metric": "edit/splices"
+      },
+      {
+        "after": 2,
+        "before": 2,
+        "fixture": "r4/ordinary",
+        "metric": "full/total_peak_including_decline"
+      },
+      {
+        "after": 288,
+        "before": 288,
+        "fixture": "r4/ordinary",
+        "metric": "full/total_nodes_including_decline"
+      },
+      {
+        "after": 124,
+        "before": 124,
+        "fixture": "r4/ordinary",
+        "metric": "full/total_tokens_including_decline"
+      },
+      {
+        "after": 1156,
+        "before": 1156,
+        "fixture": "eof8k/ordinary",
+        "metric": "full/nodes"
+      },
+      {
+        "after": 423,
+        "before": 423,
+        "fixture": "eof8k/ordinary",
+        "metric": "full/tokens"
+      },
+      {
+        "after": 1156,
+        "before": 1156,
+        "fixture": "eof8k/ordinary",
+        "metric": "edit/nodes"
+      },
+      {
+        "after": 423,
+        "before": 423,
+        "fixture": "eof8k/ordinary",
+        "metric": "edit/tokens"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "eof8k/ordinary",
+        "metric": "edit/reused_bytes"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "eof8k/ordinary",
+        "metric": "edit/splices"
+      },
+      {
+        "after": 2,
+        "before": 2,
+        "fixture": "eof8k/ordinary",
+        "metric": "full/total_peak_including_decline"
+      },
+      {
+        "after": 1156,
+        "before": 1156,
+        "fixture": "eof8k/ordinary",
+        "metric": "full/total_nodes_including_decline"
+      },
+      {
+        "after": 441,
+        "before": 441,
+        "fixture": "eof8k/ordinary",
+        "metric": "full/total_tokens_including_decline"
+      },
+      {
+        "after": 484,
+        "before": 484,
+        "fixture": "r4/owned",
+        "metric": "full/nodes"
+      },
+      {
+        "after": 102,
+        "before": 102,
+        "fixture": "r4/owned",
+        "metric": "full/tokens"
+      },
+      {
+        "after": 484,
+        "before": 484,
+        "fixture": "r4/owned",
+        "metric": "edit/nodes"
+      },
+      {
+        "after": 102,
+        "before": 102,
+        "fixture": "r4/owned",
+        "metric": "edit/tokens"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "r4/owned",
+        "metric": "edit/reused_bytes"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "r4/owned",
+        "metric": "edit/splices"
+      },
+      {
+        "after": 2,
+        "before": 2,
+        "fixture": "r4/owned",
+        "metric": "full/total_peak_including_decline"
+      },
+      {
+        "after": 484,
+        "before": 484,
+        "fixture": "r4/owned",
+        "metric": "full/total_nodes_including_decline"
+      },
+      {
+        "after": 102,
+        "before": 102,
+        "fixture": "r4/owned",
+        "metric": "full/total_tokens_including_decline"
+      },
+      {
+        "after": 1936,
+        "before": 1936,
+        "fixture": "eof8k/owned",
+        "metric": "full/nodes"
+      },
+      {
+        "after": 403,
+        "before": 403,
+        "fixture": "eof8k/owned",
+        "metric": "full/tokens"
+      },
+      {
+        "after": 1936,
+        "before": 1936,
+        "fixture": "eof8k/owned",
+        "metric": "edit/nodes"
+      },
+      {
+        "after": 403,
+        "before": 403,
+        "fixture": "eof8k/owned",
+        "metric": "edit/tokens"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "eof8k/owned",
+        "metric": "edit/reused_bytes"
+      },
+      {
+        "after": 0,
+        "before": 0,
+        "fixture": "eof8k/owned",
+        "metric": "edit/splices"
+      },
+      {
+        "after": 2,
+        "before": 2,
+        "fixture": "eof8k/owned",
+        "metric": "full/total_peak_including_decline"
+      },
+      {
+        "after": 1936,
+        "before": 1936,
+        "fixture": "eof8k/owned",
+        "metric": "full/total_nodes_including_decline"
+      },
+      {
+        "after": 403,
+        "before": 403,
+        "fixture": "eof8k/owned",
+        "metric": "full/total_tokens_including_decline"
+      }
+    ],
+    "failures": [],
+    "passed": true,
+    "scope": "Six public YAML full/edit cases; four retained-runner attempt censuses. The baseline ordinary route declines before returning its legacy tree. Peak comparisons include that compact attempt; the returned legacy peak alone does not."
+  },
+  "focused_correctness_pass": true,
+  "initial_invocation_failure": "yaml-indent-frames-main-v1: unsupported subset build excluded scanners referenced by unrelated untagged tests; no source repair or measured samples",
+  "members": {
+    "source/grammars/runtime/yaml_scanner.go": {
+      "bytes": 52091,
+      "sha256": "498a5dcb94e1b35f401a041cccc3a8699a2c3b527e760b0191ac00bbdf4d0eab"
+    },
+    "source/grammars/runtime/yaml_scanner_checkpoint_test.go": {
+      "bytes": 8256,
+      "sha256": "18767fbb893bc8a2442ed7fcaed18930c0019a0d9f17ec2693bf5b13c67f5a61"
+    },
+    "source/source.patch": {
+      "bytes": 6604,
+      "sha256": "1ddbd98ecc79d7aaf0ad0e9fa0fc448c73df2dc58e3f80cee86049f0d76ef97d"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/command.json": {
+      "bytes": 2043,
+      "sha256": "50d620ae2eb5c2f9827b6833d6a2277ce680f0ba6254e010552a62df1add0406"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/overlay.json": {
+      "bytes": 748,
+      "sha256": "7441cf51d0aa126f922a588a5debca35b7673a80ba9ea979b03dbad1f9722eb6"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/analyze-counters.py": {
+      "bytes": 3441,
+      "sha256": "c52975c4f54cf38cd8527a4037c8cf2a69e1f34524c5f68b0e352483cef7a523"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/attempt_census_test.go": {
+      "bytes": 2378,
+      "sha256": "fab7b526d3787676f75e95d743bfcb07b755fbd90ce054a214d91092075f2636"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/canonical_work_census_test.go.txt": {
+      "bytes": 1657,
+      "sha256": "762a4f418b36ccf78031c70656c0e1e01851217fc5e4d96bd9207fe6f58a89d4"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/capacity/go-source.txt": {
+      "bytes": 1048591,
+      "sha256": "76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/capacity/overlay.json": {
+      "bytes": 118,
+      "sha256": "653b8c930ccde53b19d1476cf65b0eb75b56df2fa10978555401b2b6343d65f4"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/capacity/run.sh": {
+      "bytes": 607,
+      "sha256": "e28d58ebd8387efc8e25a877fc8a2ecf5220d72d67b5533539b89ac6b8503326"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/capacity/storage_probe_test.go.txt": {
+      "bytes": 4008,
+      "sha256": "da93c5157051d3adfc6ec3a54031c39af29ebc4740c64a15d97d60e17724c73e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/census-and-capacity.sh": {
+      "bytes": 552,
+      "sha256": "7c96714ac95aa72b3722e42a93bf043176f90fcb1d4016246c89e89ecb0d6b3a"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/census-overlay.json": {
+      "bytes": 372,
+      "sha256": "9c06568332715ce8872416552e79a924e4ebe573040394c243b26e2a9835f065"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/census.sh": {
+      "bytes": 1172,
+      "sha256": "6a439972936498c3b04da40a257880c73451796f10fd3d6adde1bf1552b0d622"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/cgo_probe_test.go.txt": {
+      "bytes": 1843,
+      "sha256": "b64321d16e8e74f7dba8fdfe5686610d536a869a084c27534727a2d14c6cb195"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/compact_yaml_document_stream_test.go.txt": {
+      "bytes": 7237,
+      "sha256": "89628971e6041c336bd1e44de68b02447104d000ab9e643748dec2b8a63f5aab"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/counter_main.go.txt": {
+      "bytes": 13651,
+      "sha256": "631f745d63b2e9201967150dfe1157bf27e777710c0ca20fc6a019a9bba3cd79"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/expanded_probe_test.go.txt": {
+      "bytes": 1447,
+      "sha256": "3b305fcf57758641943dc58c638dad98c530a8eb18e1520330f3bd0f87a725f1"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/focused.sh": {
+      "bytes": 1614,
+      "sha256": "64d8564d9629fea8e430ecd8527a5926279e596d39f90eb858a7c5336172d257"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/large_go_test.go.txt": {
+      "bytes": 1951,
+      "sha256": "e793e8bddb6c1c19848ac3e62fb27aeb893da35fac68b967d844fc036f2cb2dd"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/overlay.json": {
+      "bytes": 440,
+      "sha256": "e8e2dfd0a20059abc018f34f8012f0414e357f83f2f0b2c0d30b551c82695eee"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/owned_yaml_invariant_test.go.txt": {
+      "bytes": 1407,
+      "sha256": "50dd3e2cfd58362ce4e4052161489e5cd6e3bdfe7d77f671af7bdd5ac2b2ee64"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/prefix_binding_regression_test.go.txt": {
+      "bytes": 3774,
+      "sha256": "15ef9a2b4e95331930c8a212453ff60a71cd5a14c217cdc1ad1be86902516e4b"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/rss/overlay.json": {
+      "bytes": 178,
+      "sha256": "7226088b5d278d1ba265f1e5a6a809a26e014390efc14e0be1ad107186baa94b"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/rss/repeat_rss.py": {
+      "bytes": 3837,
+      "sha256": "35e49d102221791d0fe54b5fde5ed585caad62ecf1e5d5814ac3284d70f23b54"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/rss/run.sh": {
+      "bytes": 973,
+      "sha256": "5441f51a9a44263fa2e9bcd9bf5ddd6daf465367b041486cc25afbff5df0cbdd"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/rss_root_test.go.txt": {
+      "bytes": 2752,
+      "sha256": "7c74689d8ab118f012e45fcb8e1f6cb785b1100a5b4947422a2074f3b3c944ff"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/run-census-and-analyze.sh": {
+      "bytes": 101,
+      "sha256": "377cac6e49ece956652136c0243b5e98159a33063abe9a8cdbca5dc5db78004c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/shared_bench_test.go": {
+      "bytes": 5406,
+      "sha256": "4edd9b89664d19b540ef8eb638de14bf39d7527adb7713baef2ca607fdae35b2"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/protocol/streamed_prefix_metadata_test.go.txt": {
+      "bytes": 7862,
+      "sha256": "397e03baf85c54542cc2c7cd0aa5a8d0de8cfc8d4740e05dc039e6c58f0c1674"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/run.sh": {
+      "bytes": 1681,
+      "sha256": "ba425c94ce6b4370f1843f6ffd11c939ec11fd4597d44c3fed9e4cc299db0fa3"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/source_hashes.py": {
+      "bytes": 249,
+      "sha256": "348809e2ab2c1f75fae19dfa68fb5a78ec5378fe6606931f95d504d693f6f6fa"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/controls/worker.py": {
+      "bytes": 927,
+      "sha256": "f91317b3a1e53aef6514053cbd133efa70417944118c1da65370473d8fe81f38"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/analyze-counters.py": {
+      "bytes": 3441,
+      "sha256": "c52975c4f54cf38cd8527a4037c8cf2a69e1f34524c5f68b0e352483cef7a523"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/audit.json": {
+      "bytes": 325,
+      "sha256": "a1266e40769b69321d3eca25383cd7cd6516c648d7f8654e1fad46962179a612"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/census/baseline.log": {
+      "bytes": 8755,
+      "sha256": "89bfd7d10a8241117c16b46306b93e3307ab1e53d28583e74e0e018971a10471"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/census/candidate.log": {
+      "bytes": 8755,
+      "sha256": "1eb3b9c077396c35525772fc15c942c23dca6250104355c19a18cdc1d7aaaba7"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/complete.txt": {
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/container.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/counter-analysis.log": {
+      "bytes": 60,
+      "sha256": "8db4d6ae08f344bd35845f57335f102406dabefc0b2a62b7b502e2cc87dc9467"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/counter-gate.json": {
+      "bytes": 6346,
+      "sha256": "8f31a97cba581882933be9acdec604805d585a3fa4fca027bb1f8faa601cb953"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/focused-complete.txt": {
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/go-version.txt": {
+      "bytes": 32,
+      "sha256": "058fc41f36af1ff69115b2bd237ebf769e90628e64a58c9dc171751384ffef72"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/inspect.json": {
+      "bytes": 10684,
+      "sha256": "bb6340165398f1143c5f5bde5ab041c99c4bb5f3f4e846a9e15e4d88823c8c7a"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/probes/baseline-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/probes/baseline-standalone-yaml_ordinary.log": {
+      "bytes": 655,
+      "sha256": "c820190f9f3711a9e6ba4c9eda495dacefdd990434c8bf3d804f6419825f745c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/probes/baseline-standalone-yaml_ordinary.rss": {
+      "bytes": 427,
+      "sha256": "bb1f2f59a35e57b2b197c5263ab7d8fc135a6881f530a93b7b430074d45fd43e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/probes/baseline-standalone-yaml_owned.log": {
+      "bytes": 581,
+      "sha256": "ffb690eacc1ff9c067ea9c8dcdea600c04892d1a22e4a71cec5835c73104dc97"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/probes/baseline-standalone-yaml_owned.rss": {
+      "bytes": 426,
+      "sha256": "2507a7f5c8fdb59e4bc667c6dc962c5c21dfd5c8cdc767f2f21a1be465570e68"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/probes/candidate-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/probes/candidate-standalone-yaml_ordinary.log": {
+      "bytes": 655,
+      "sha256": "cdea72b02edad80b0ba279f152b7648cf03dc1c5cda7ae4f9d0f61aa223eb335"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/probes/candidate-standalone-yaml_ordinary.rss": {
+      "bytes": 428,
+      "sha256": "bdf68414b0720744b3259589ef2c2efd0631dbc0dfee104337d4730f5526d1ca"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/probes/candidate-standalone-yaml_owned.log": {
+      "bytes": 581,
+      "sha256": "ffb690eacc1ff9c067ea9c8dcdea600c04892d1a22e4a71cec5835c73104dc97"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/probes/candidate-standalone-yaml_owned.rss": {
+      "bytes": 427,
+      "sha256": "b3549ddc0917a4604bee4599f0ea5044f6e326d309b8f0ff9ef05e4f947e6b8d"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180001-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "aa3e60fe9f0d4f726d006b3b02179a41047b06fbbb1ef3934a1a680226c214d0"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180001-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "a27bff381378aa37f1081032689134a5c809d206be6c463575b5ea1d5882cccd"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180001-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "aa3e60fe9f0d4f726d006b3b02179a41047b06fbbb1ef3934a1a680226c214d0"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180001-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "727a9f1b9a7bcdbe8ae202ff26e3c2df71fa14ab3b53b52a0607186ae7c9471d"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180001-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "222ec7c5f53f59299a812b07d6d5307bb1665949f0fa12d9c126287377b500e9"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180001-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "2c8f59ecbf40830ed6960bf03369183c586e7a1326498b4ad5d85819c021579c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180001-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "222ec7c5f53f59299a812b07d6d5307bb1665949f0fa12d9c126287377b500e9"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180001-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "41104d8a8879833dd9e72e213b207b6dae6931bd82a56bee3a7dafa0d644b865"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180002-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "ff11e4108be633f0cdbbc1c685365eb154eb0fa75927e88011fbde18c96bc4fa"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180002-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "3b8d0b1e2dc435e2918088903a03977ed92b72dc27f2a2b5f54d0b4f0fedfabe"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180002-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "ff11e4108be633f0cdbbc1c685365eb154eb0fa75927e88011fbde18c96bc4fa"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180002-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "766cf741b1f11fadf3cb21a743fc2728aa1321c30a6a73a5f8e6e0c87759f977"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180002-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "2986874303d7bbeba8d4bebcffae2b00c5ea66881a9044f23359515f482fdf7b"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180002-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "dc0f89425b8137a78e643ed27fb367845152be062714e4f53407c6184672168e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180002-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "259c29316b5fb7ab135ecfb9c358efcbd69b3c082db1bdfec11019b4b0c91e7f"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180002-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "869a12e396d12e076bdbe154ea935182485c7928566c2ec858cf408829ff5c31"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180003-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "02f28cc3fafcfa5902c3b65e29a387720537d6346813660e5e66d7538a8b30d8"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180003-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "40c4d3ebdb7cda7a84c8c6b757bc4e50ed0afb5b705faa93cc49e85947de91c6"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180003-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "943959c10cd536f9d3a4e85435b1288281e96cb09720be5b709624eec9018246"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180003-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "6a1aa5dfa483a0dbba4452a0ed7e75682604ad713e706a248d87bcdf2293652f"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180003-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "2f68ac6c9888d9dec66c9ffced90b16fdb0adf10d7e6a79af39dca88f93a721e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180003-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "360b364c515aa06cf43da9b6a0b11f8d4b34207aacfd3b1701b3659e3c69480d"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180003-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "2f68ac6c9888d9dec66c9ffced90b16fdb0adf10d7e6a79af39dca88f93a721e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180003-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "3d7e6a21adae211ed864226262055107207b585748a86b446c0fc498f7770648"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180004-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "935e2c08e0048aa78f4d72caf6c3dfbc97dd2b93df77cc197ada0e9ab739dfbd"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180004-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "a3d0cb87e4948c447df8992f5a48f60e3e89e4f9a95fd5945cb2edc01c43bedc"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180004-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "88c03be9ccec58b7222485770e2bddba508be6b47a475fc98f95181b2e906589"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180004-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "5492786edd7a3f32e2f49052a1f5db3cb7e260321ad969008045f1786bf139ee"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180004-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "55102ba32410d6465d80ac31a014954a407bacde2f75e4568e77d2bd634eec35"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180004-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "dfe106dde28a6902593e2915fb6938cd0f9b252af073727be71c35b38c2d04f7"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180004-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "55102ba32410d6465d80ac31a014954a407bacde2f75e4568e77d2bd634eec35"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180004-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "1c8adef1ed808793155c9a55ea2323f7f7ab527f5d7713566dee2dd7655cb5f4"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180005-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "80de6315264ea79c1f6b10e2750c6191c90f107f94ed9ee98de6ec75fecbeb5c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180005-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "81cb7577fa89f470794e7cb4f3006648909939e3a45ca548bd26ee277c754b57"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180005-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "80de6315264ea79c1f6b10e2750c6191c90f107f94ed9ee98de6ec75fecbeb5c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180005-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "114d5d634b334461535e0b106aff3070f74c772c2559df64165067eb5cb11e9c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180005-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "0f788731e26e400fa3580f05973f002ae156973759e35f2b9a628c15c392a196"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180005-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "9b8b92c3b922ae9a50fa5d13186ff40419bb37d6a8fa9def028f17918d71a8a9"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180005-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "0f788731e26e400fa3580f05973f002ae156973759e35f2b9a628c15c392a196"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180005-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "0582f2a5adfb7cf2a0d345fe196c6e36898b56db95af45a99872dd5adea679e9"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180006-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "3dad6b74dd58798b7938072fa3ff9abfce70d5a4232eb91c5890ceaddc4e6465"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180006-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "fe8a6d3843811a4decdb242fd4926ed80f405ddd0a87b0ea77946934d8f70889"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180006-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "3dad6b74dd58798b7938072fa3ff9abfce70d5a4232eb91c5890ceaddc4e6465"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180006-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "ac3ddca444f9e4f00a234e818bc6189a0984398af40a0ed07f9b8c74eec34f51"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180006-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "75dc0c7b6231b4e2a0d558ead8b9f226b891c889f91cffe093fa10187902a61c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180006-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "9652f58790a965dc2c8380ecfad7c814fc28ee6c390860e250228ca03bb39a09"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180006-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "75dc0c7b6231b4e2a0d558ead8b9f226b891c889f91cffe093fa10187902a61c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180006-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "cfd24986400e7d1645728937901a0b353b4e8fa22b68d52f9b5c9cf084430536"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180007-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "714e02cf9a27e15c0f3f60320eee65596bade30edcca897ead65d3bc335b6c23"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180007-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "2abf3d26ea508de0670e64e550b3f7e8a4b7ab68f2d6fa15af83eaeeb99a5155"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180007-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "714e02cf9a27e15c0f3f60320eee65596bade30edcca897ead65d3bc335b6c23"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180007-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "f27a9f4de0ce831f4f0e85fa225469e9897856db5d8f0993d855877a586dbea5"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180007-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "1727348da59175446f7c81a772797144fd0f7439a915b282dad5d5db1b71c3dd"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180007-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "dd2d55f1d664fd21958c463bf98002bf7d8485c3f20bef63cfad33aad7cdd64e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180007-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "5b6e7c22bec2d527bb66b86d4007c7cb688b3a7657d4549134a49dbd71ff89f5"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180007-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "62f41bcfd32e5668f61bdf73ac736da010af08fda693bfdd3d3ceff4bb72cecc"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180008-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "a3deba6fbf12111e8a49b7a5b7d157c26830a7d37603e6c06552f329689d1477"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180008-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "483543cbee22a12b9850b09638742d353048d79562795d8d89ee445f2cd40601"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180008-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "a3deba6fbf12111e8a49b7a5b7d157c26830a7d37603e6c06552f329689d1477"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180008-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "d4bab153c7a0c51ed33fc51863101ff533f83c7f4013e29325e51b0b266188e5"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180008-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "71d04b1c17ff208868b65f398a926684b48c565b3ef7cc42221a4cfedce0c910"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180008-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "a28f65c6b657eb68f77dabec5fe4172e490166a4c7959bbe6bf4c1792804523c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180008-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "71d04b1c17ff208868b65f398a926684b48c565b3ef7cc42221a4cfedce0c910"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180008-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "b7a429dae8f45cee38ed8e1f2345a3677e5208c4dbd17bd62c930f3b3760660a"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180009-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "6b32adc766f1cd97dac6379f92ea0c8b6038259c60e8291583cf39f91fe5022f"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180009-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "0dd5d353dd187a3fca8c890bffef58d94b353c6a69489b68aabf6de4a537bd53"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180009-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "7fa6c745af8b63f4a7402db81ee56e62ca8fa3393be6807594c8b9e326fe0e96"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180009-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "c30015e9ce44e488e58d9a84108c2d51921f148d514617d949a93ddca4354269"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180009-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "431c368e3006932831edd45481f56ba32a9cba3864274b218553df46bd899e8e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180009-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "dfc9f05065c42aaf6caa3a4dc91fcb5783703b06bca94d86cb59081b48090dba"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180009-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "431c368e3006932831edd45481f56ba32a9cba3864274b218553df46bd899e8e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180009-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "ef39e1f8fab53bf358c3358baf4d570cb2f4e79448410b447f3135c680e72426"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180010-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "4e7b52d4aa13dc9bb0d6b3c16b0fc39c9ffb11673720ba209d84398008d7276e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180010-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "48c25d6c454b7e393d85247dbae9b917c908e874d5f3e96840a2e676273c0419"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180010-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "4e7b52d4aa13dc9bb0d6b3c16b0fc39c9ffb11673720ba209d84398008d7276e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180010-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "7988333028f2afe9e2dbbb1e6d37d7435cecd8617ad0ef7775a43ac1b24d1379"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180010-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "69251570dea45aae6ad2b550615f84d086a53e02ea68c0da39e7891c0218cee9"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180010-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "a8708da0ced4626207fe29b19bb8869813a583ef8fe7466a0bae64c3c6bf014e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180010-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "69251570dea45aae6ad2b550615f84d086a53e02ea68c0da39e7891c0218cee9"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180010-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "4aa73db8c693c45cb4d79008f1c47c23a24282e750155f0c8ab32c05af1419c8"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180011-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "8d38ae8c20f7cdb29aa30a30d889d746c871eef9dfe2b6d9a2e318736506d474"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180011-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "0efe1fc27b846c4e21368d3c588e03ab1ae64fc79af4dea248fc5d84db7542bc"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180011-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "4a8217fec29865c936d949f80da1b7f1b2166984481bb75e22a8947723a7e7eb"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180011-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "4f6e712a4aeb946a5b62009a623fdb3869ccbafef55109f553af401a0ccfd063"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180011-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "c2f431f3c8d8b2fa6409b478926ebb2615a07320029b55d7b957fb0b50dd286d"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180011-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "e14bc8fa024cc4af8843dbc6ce91dae154f5c36bd1764ba1aacdee174ecac3dc"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180011-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "4e9b51015899b6d6a1fa20e476e7481883548e0d9b83bb762dea85a4cec42a17"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180011-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "f4a55737371d6b326814a3df8580d5a5d90a0daf7504488c806bcf7d468b652b"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180012-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "d7a0bd5300894ec36ed40fe5b11a5557a989196d96fc475b185862553ac82310"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180012-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "3060ca9c214f2ecf3fbe9c6bb294e976553dce2533026bfd10b2e57462256a0a"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180012-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "d7a0bd5300894ec36ed40fe5b11a5557a989196d96fc475b185862553ac82310"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180012-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "7624412b4a76ce43359d0de7b2aff29a5d77441afc6476a865200fe42c83c687"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180012-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "20528177bb3adf83c5c78b1a39f1a779f5cd679a8ec12dbfa676e1484c6c3a98"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180012-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "2373514d4c034c3bd7710c05dff72e22c7bcc8cee0d0942df8efa64cba28de18"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180012-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "20528177bb3adf83c5c78b1a39f1a779f5cd679a8ec12dbfa676e1484c6c3a98"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180012-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "7cbd92ecbc8fef77182b2203ce228f127b1c2ea8c4db523bd771b5f4693cc3d2"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180013-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "35c81114c50a74847f8b52fc2a1ae0a66a2e291f2fd7e241cf23ca7e19237a3b"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180013-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "7b08bf4076a094a47592b3692121f08d591a977d1ea55539bb20e8af06f842e4"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180013-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "35c81114c50a74847f8b52fc2a1ae0a66a2e291f2fd7e241cf23ca7e19237a3b"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180013-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "213e0954710693248a4f11429e91c898a952dfe20f9a7d3d1d7428ca3df2470e"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180013-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "8af17fd10a9ed92a1b4eaa74f828cd35305904b529f20ed530850885f81a74a7"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180013-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "91f44c5bd3850144b5e5f754fe30c23d9464b1168a4428142ce19a30776923a1"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180013-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "26a711657350a31f726723ac0f355fa24ec41fc2f0f8525f9937820f0479d917"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180013-yaml_owned-candidate.rss": {
+      "bytes": 454,
+      "sha256": "225e062a3a5252499d25f36ed97cf5af7d939b9c3d69e61982cd81f5f41b8a6b"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180014-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "cebb39d0979ca8bbcef61c349fc3b659cc4dbd0823458fa78653bfe9230c55e1"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180014-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "da6429b9e197cd9ccb69c0f6f1624bb60f5c481853cfa0e7814322883f049ec2"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180014-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "bb89072d15074d7ab094465ec32ae09b3127dc80f8bf1a1de9cd31d1aad97812"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180014-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "b0ae78928e46fcec1e9166b2eade7009dcb7f93a772be32b34373eaa694ba713"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180014-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "35e7e6ce113b23486f2aa8c215077d875f00bc36d774380cbb2612498e89a514"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180014-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "73fec5ea59818a31df1c291e89c4389211a7344b4663c5d3766e9b37393a6f5a"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180014-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "e06341d763b4cfe132279c710bea78cd214d2baf8ebf36fc326565a0d0125dbe"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180014-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "e1c8b6aa6566276a62e0fce6ffb2f26a35e2cbda914ff34fcdd264478f2bae54"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180015-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "c71309b8925ad3cb6ebb6fc81f091cfedb4430c03684479b175841d8e426b32a"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180015-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "7291d267fa771c0adf77a488e15aabfbb3bc39079a2084bbcc6b42988727747f"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180015-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "1b2bb68e333cc65dd3a240cfadb2d1ac8eca7aaf58dd9c5cc68e6a9f4928c721"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180015-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "7a0880eb063d374c2e790b1a2f0234c3bbe8f8f7312f162ab7f63374b36cb3bc"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180015-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "eeb7d5dd94ae46ebf84e08d94a17f70e98ca224f8c171f03701bd971bd7594cc"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180015-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "e4e8e5b32c084ba13fc3874f2d743d6e16c140a55d258c6ca94561a376e2fd2b"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180015-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "0a59b10b37a1d21795b6d66f8f3a506218ee29515da800729d4956feeb5af876"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180015-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "7bed053d6fb5a07810436a771d354113a4ba4d065e5e3f312e8f693e8f6888f1"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180016-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "da8d28a7e295a49395991d07666512c182a4a5970998afec7541906da8c20032"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180016-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "0654be34fd629f92fda28dca8f92731fcf6adaa70255d31dad8d3dff3194ba49"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180016-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "da8d28a7e295a49395991d07666512c182a4a5970998afec7541906da8c20032"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180016-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "6acf17dcce8120f00febbd13a239c9058d3ada1dc580125125c6b568af9aec65"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180016-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "f0a58d0e23b4d2abd2523a31a61ad632d2352900b3374aa83cd4e6951e778739"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180016-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "fc9314eaa886710b97dd93922c185165b65d48a0d8b4cdb4b301f9ccdc5a905f"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180016-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "b6ad450b67e2f483de22d1894063c44a40e04b25ebc59848e659332805ba0b99"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180016-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "a191a90dd3089f1620ca96432f4be28e83d0da9fb82d0adefe6919e878a07b22"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180017-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "b89e834ef9f1a40e085f97aca414780e8ebabb9436e70d74959858321690e593"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180017-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "1f25901e0a36ee0ab597507466cab8ca1de99242388f9825a7f2aa5d4fff9c4a"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180017-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "23cd8c3ebde35b494764671746b2b4f36cc446ed42868e62fb90ae8dc901dc0b"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180017-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "8e2097827682b1a9bd8e50839e64fcbfde73b5e5d823018769d4c083bd44c89d"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180017-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "458423208c1a393474334da60b2d87a3a9dc5b868caf096281fabbd90b359b2f"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180017-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "158e859c410c295bf70279f61c210b363e551d79c09a9c4b28ce29076a9f1ed4"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180017-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "458423208c1a393474334da60b2d87a3a9dc5b868caf096281fabbd90b359b2f"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180017-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "c44dd97b1d7ab61b4022d8ebc7dc50788f99b2d33dcc37e48096c74be50adfc6"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180018-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "6e9734a74e0a26499e7ef631ba02a62a2e564acdadfe0ef836da2b634bba28a0"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180018-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "42e15737cb44b67b90d548049f063f7f5bf1a9229e2728f8a2911053df85e91c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180018-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "7912c54655b032711e992b3ee4e2342d010e78d768398a6731b02bd5e2146520"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180018-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "26110274284547269f206b8c768badd4268afa9a43161e87ff094fa6dc520d13"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180018-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "f266e67034f18454cc018d46ccf433d0c7dcec3bf114562593f6c8950b54baa3"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180018-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "88b274313763d85422fac5a559e60128de2aadb88c4f7e643047ed30e6c11cf5"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180018-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "f266e67034f18454cc018d46ccf433d0c7dcec3bf114562593f6c8950b54baa3"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180018-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "576c254ec98f6c02580a04ebbfce57b34b8632a1442ad4522a8d81b4500cf81c"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180019-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "4cb38c03221a9fda6265d3feaf95894e2840b4bc58542fb61b846765ba675e89"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180019-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "689cd0db14243f2da28d453e94c09988ced070d6a73de8ca680c30406077cad8"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180019-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "5767e306fd82d99ac3907ba1af2d7406a39e44be0c338064753a01b4362d4fb7"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180019-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "26cadad6c1dbdb9e95f518b6e34c0994d058d730828de74bb3f0d93ea4980f05"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180019-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "3cc6d328afe459a13a097796785158c2cb9de928b4fdfcdb93f0a1c6e7e15e15"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180019-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "2cd7b943056a15032cfa9a9838d39c54c9318204bd4d295e498191bbde061839"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180019-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "826fee98f0fdd43552813d10c12cb34a51543594db295e6125a7c026fcb96f14"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180019-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "012506f5ef64c00a70f12f907de7a7e815ef2a3a08ad7887ef5f3cf789fac062"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180020-yaml_ordinary-baseline.log": {
+      "bytes": 676,
+      "sha256": "1faa7cd5ae3282e3e42f15ecf2e6d40c279c8d71b633ad48e005fa5f795cb376"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180020-yaml_ordinary-baseline.rss": {
+      "bytes": 455,
+      "sha256": "7f9462997822239c59835b0ac16500be8f2260a451d64855f3bdb03a170d51d6"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180020-yaml_ordinary-candidate.log": {
+      "bytes": 676,
+      "sha256": "1faa7cd5ae3282e3e42f15ecf2e6d40c279c8d71b633ad48e005fa5f795cb376"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180020-yaml_ordinary-candidate.rss": {
+      "bytes": 456,
+      "sha256": "2674266f5ec94c9d075b30e45de2a6d58c1c598e2bd7880ccedff2017b5e11cd"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180020-yaml_owned-baseline.log": {
+      "bytes": 602,
+      "sha256": "4fa8e2c5fb12baaacc12f1b42a156a8d8a04c0e6324664f9b2a42a070b50dd2a"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180020-yaml_owned-baseline.rss": {
+      "bytes": 454,
+      "sha256": "5575ab2828c4c20f025abdb90fd87e1a40ac3018b578b43e0d1968f14092cc3f"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180020-yaml_owned-candidate.log": {
+      "bytes": 602,
+      "sha256": "4fa8e2c5fb12baaacc12f1b42a156a8d8a04c0e6324664f9b2a42a070b50dd2a"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/180020-yaml_owned-candidate.rss": {
+      "bytes": 455,
+      "sha256": "9165f004f572424be171e2a1b156a407505ddb18912cdeee383e6992ceb4a2b9"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/audit.json": {
+      "bytes": 23016,
+      "sha256": "f1e4df2cdfccdf7c77c3c85a635b85afc250efe85afb33aaa71bdc13505479cf"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/complete.txt": {
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-matched/rows.json": {
+      "bytes": 18866,
+      "sha256": "471a8f3b48da4d9f746f3f4a86a630180a11d5de149a3c6302ec94c9a29ac869"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-run.log": {
+      "bytes": 4386,
+      "sha256": "31053526a798743dc5797290f46fb82c6f696e23985a3e91519a68f4435336d0"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-wrapper-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/rss-wrapper.go": {
+      "bytes": 1095,
+      "sha256": "b0261ffe69f7e9503c678305cef67601c285c799dcca1dfed795df784ba1bef4"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/source-after.json": {
+      "bytes": 776246,
+      "sha256": "21bc437b3af894d8bf03514929a0f1825fc4bae6f96ac15e5a19dd77e3b84df7"
+    },
+    "yaml-indent-frames-main-cold-rss-v1/out/source-before.json": {
+      "bytes": 776246,
+      "sha256": "21bc437b3af894d8bf03514929a0f1825fc4bae6f96ac15e5a19dd77e3b84df7"
+    },
+    "yaml-indent-frames-main-v1/controls/command.json": {
+      "bytes": 1857,
+      "sha256": "2291f0b4bb06609bca7308cd436d96c8dae434d770412863fa24ae3a0fba834a"
+    },
+    "yaml-indent-frames-main-v1/controls/run.sh": {
+      "bytes": 4912,
+      "sha256": "81af8041081d6f2900550c14be5c673c2d519e5c90f6d4bafb9e0f025868153d"
+    },
+    "yaml-indent-frames-main-v1/controls/source-scope.json": {
+      "bytes": 322,
+      "sha256": "b43e60ff23f65faf0cf9b8fba972e6a761fbb9e483a795b6fa9a977c69ada3b8"
+    },
+    "yaml-indent-frames-main-v1/controls/source_hashes.py": {
+      "bytes": 200,
+      "sha256": "be8b979fe66dbf963e0076ae30b241445a9deaec35764725dd47b975c7665646"
+    },
+    "yaml-indent-frames-main-v1/controls/worker.py": {
+      "bytes": 927,
+      "sha256": "f91317b3a1e53aef6514053cbd133efa70417944118c1da65370473d8fe81f38"
+    },
+    "yaml-indent-frames-main-v1/out/audit.json": {
+      "bytes": 326,
+      "sha256": "2ee3271a29095bcd1accfeda728f8869ced4280ead8fe4fbc719790590bbae87"
+    },
+    "yaml-indent-frames-main-v1/out/container.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-v1/out/go-version.txt": {
+      "bytes": 32,
+      "sha256": "058fc41f36af1ff69115b2bd237ebf769e90628e64a58c9dc171751384ffef72"
+    },
+    "yaml-indent-frames-main-v1/out/inspect.json": {
+      "bytes": 10193,
+      "sha256": "6a57b0cf6f6c2b08d3de11e7e18bc3ea89745505498ce9078a0037a4fc761b3c"
+    },
+    "yaml-indent-frames-main-v1/out/source-before.json": {
+      "bytes": 388109,
+      "sha256": "6918b33d783979d133609c4d1cd731a0115eb74ece91fbae270c336bc5c9813b"
+    },
+    "yaml-indent-frames-main-v1/out/yaml-scanner-unit.log": {
+      "bytes": 1117,
+      "sha256": "df90221da9ff4ba5fa8b0a2468b4c1ad55951d90678bfdc209ffd6f982911def"
+    },
+    "yaml-indent-frames-main-v2/controls/command.json": {
+      "bytes": 1857,
+      "sha256": "50319651666e865f13f1005469e2ef143e788584d07ac75da5816c4ddc5fd69e"
+    },
+    "yaml-indent-frames-main-v2/controls/invocation-repair.json": {
+      "bytes": 307,
+      "sha256": "5d7000ef669a8e3258c6373facbacca5b1977e65da5583337f4087d710aed348"
+    },
+    "yaml-indent-frames-main-v2/controls/run.sh": {
+      "bytes": 4676,
+      "sha256": "87a193b201c078130a90d49ae4ef93677aafb1c6e2ba86f1c1485c1b53e61754"
+    },
+    "yaml-indent-frames-main-v2/controls/source-scope.json": {
+      "bytes": 322,
+      "sha256": "b43e60ff23f65faf0cf9b8fba972e6a761fbb9e483a795b6fa9a977c69ada3b8"
+    },
+    "yaml-indent-frames-main-v2/controls/source_hashes.py": {
+      "bytes": 200,
+      "sha256": "be8b979fe66dbf963e0076ae30b241445a9deaec35764725dd47b975c7665646"
+    },
+    "yaml-indent-frames-main-v2/controls/worker.py": {
+      "bytes": 927,
+      "sha256": "f91317b3a1e53aef6514053cbd133efa70417944118c1da65370473d8fe81f38"
+    },
+    "yaml-indent-frames-main-v2/out/audit.json": {
+      "bytes": 326,
+      "sha256": "eb3c9d36383bd2dbe68ae588e6496f41605f4d435648a7fac89f6d0b76d2698d"
+    },
+    "yaml-indent-frames-main-v2/out/baseline-go-ledger.json": {
+      "bytes": 2400,
+      "sha256": "9e201ed84b5261e35709ed7e9c24ba8e4eae121828fa0c4eeafabae6b5230b29"
+    },
+    "yaml-indent-frames-main-v2/out/baseline-go-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-v2/out/baseline-go.txt": {
+      "bytes": 16115,
+      "sha256": "277f8e537cb4a837586030f65cd32d3c18e84afe979b34f8ac786c5b157282e8"
+    },
+    "yaml-indent-frames-main-v2/out/baseline-ledger-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-v2/out/baseline-yaml-ledger.json": {
+      "bytes": 1616,
+      "sha256": "9e36a13dac55665e933670d70e89157c915b9e5b9edc27887e5ab6756c42dc5b"
+    },
+    "yaml-indent-frames-main-v2/out/baseline-yaml-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-v2/out/baseline-yaml.txt": {
+      "bytes": 39972,
+      "sha256": "ac4b28ae622f1857bcc8b3003aa3413de8cea4619ad49090506de9952c2599a5"
+    },
+    "yaml-indent-frames-main-v2/out/benchstat-go.txt": {
+      "bytes": 2522,
+      "sha256": "094188267fb1b67ec1b47450d04fa28404132501ccc6489c12b9e4143b2ef968"
+    },
+    "yaml-indent-frames-main-v2/out/benchstat-yaml.txt": {
+      "bytes": 7519,
+      "sha256": "3f06285ad302fa69d9aeb23d076fe5e8778b5bcb6b16abcd61cc656515b462f8"
+    },
+    "yaml-indent-frames-main-v2/out/candidate-go-ledger.json": {
+      "bytes": 2400,
+      "sha256": "9e201ed84b5261e35709ed7e9c24ba8e4eae121828fa0c4eeafabae6b5230b29"
+    },
+    "yaml-indent-frames-main-v2/out/candidate-go-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-v2/out/candidate-go.txt": {
+      "bytes": 16112,
+      "sha256": "6a2203b6a722d57fb3553f2296d9588e4547d8145c98b668ce092e33a60495ba"
+    },
+    "yaml-indent-frames-main-v2/out/candidate-ledger-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-v2/out/candidate-yaml-ledger.json": {
+      "bytes": 1616,
+      "sha256": "9e36a13dac55665e933670d70e89157c915b9e5b9edc27887e5ab6756c42dc5b"
+    },
+    "yaml-indent-frames-main-v2/out/candidate-yaml-ledger.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-v2/out/candidate-yaml.txt": {
+      "bytes": 39969,
+      "sha256": "d64d5e6c3fde55003246cc7ce5460f1a926580f087398ad06c5d2475071b088c"
+    },
+    "yaml-indent-frames-main-v2/out/cgo-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-v2/out/complete.txt": {
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    "yaml-indent-frames-main-v2/out/container.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-v2/out/correctness-complete.txt": {
+      "bytes": 32,
+      "sha256": "e488f110a325bec9d91fd85136d357b0f2585ee44fd1ef10e47f6b63e34071a6"
+    },
+    "yaml-indent-frames-main-v2/out/go-cgo-0.log": {
+      "bytes": 483,
+      "sha256": "50c61f7eb8df5de5acd1c377b21122573a699128fd34650556e0854abac2a560"
+    },
+    "yaml-indent-frames-main-v2/out/go-cgo-1.log": {
+      "bytes": 483,
+      "sha256": "a8d4571fa133a9ff104c546525217864e2d001772f780cfe244bf52c15c2530a"
+    },
+    "yaml-indent-frames-main-v2/out/go-driver.log": {
+      "bytes": 1578,
+      "sha256": "0b01224142b2ffd3b96d43777589a254d314b3301a5ae30585c8f25510889699"
+    },
+    "yaml-indent-frames-main-v2/out/go-invariant-0.log": {
+      "bytes": 218,
+      "sha256": "2ee40954a2d5f6cf0fb413d308ee232b966b6a7ab3f24a5e64291547f9067d1f"
+    },
+    "yaml-indent-frames-main-v2/out/go-invariant-1.log": {
+      "bytes": 218,
+      "sha256": "79d64438746e99aead78f8efbc7294d8349152568fea223dd8989fec23b5cf65"
+    },
+    "yaml-indent-frames-main-v2/out/go-version.txt": {
+      "bytes": 32,
+      "sha256": "058fc41f36af1ff69115b2bd237ebf769e90628e64a58c9dc171751384ffef72"
+    },
+    "yaml-indent-frames-main-v2/out/independent-analysis.json": {
+      "bytes": 36938,
+      "sha256": "a82a249fd1feea8c303bfe4c111b36936b8167e65e6333f724918ec0f1e7238c"
+    },
+    "yaml-indent-frames-main-v2/out/inspect.json": {
+      "bytes": 10193,
+      "sha256": "a565a215d1441e48fb46b74c5e163b31888625c24242a244aec4feda91a8d852"
+    },
+    "yaml-indent-frames-main-v2/out/memory.log": {
+      "bytes": 3533,
+      "sha256": "7a20e2cadfbcc8c9fcb3564c250afa4740aa972daa8303b3068ec1a6bf477db7"
+    },
+    "yaml-indent-frames-main-v2/out/root-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "yaml-indent-frames-main-v2/out/root-checkpoint.log": {
+      "bytes": 15801,
+      "sha256": "d03f253daecb93e88d514a4abb55b49197d963ec84285018ac9256e7f65f3a45"
+    },
+    "yaml-indent-frames-main-v2/out/source-after.json": {
+      "bytes": 388109,
+      "sha256": "6918b33d783979d133609c4d1cd731a0115eb74ece91fbae270c336bc5c9813b"
+    },
+    "yaml-indent-frames-main-v2/out/source-before.json": {
+      "bytes": 388109,
+      "sha256": "6918b33d783979d133609c4d1cd731a0115eb74ece91fbae270c336bc5c9813b"
+    },
+    "yaml-indent-frames-main-v2/out/yaml-cgo-0.log": {
+      "bytes": 495,
+      "sha256": "067e854f8986345d9262accc1c2d113cd78ff4874a06d86d8df467910fd40d15"
+    },
+    "yaml-indent-frames-main-v2/out/yaml-cgo-1.log": {
+      "bytes": 495,
+      "sha256": "57e064fc672b80458001ef89460e11818e1ac2d198beb432317349b7d6c33ce4"
+    },
+    "yaml-indent-frames-main-v2/out/yaml-driver.log": {
+      "bytes": 1582,
+      "sha256": "4a285373866c936c6f8b020a1fadfd989053401af463f9d72eeaba7f0792e0bf"
+    },
+    "yaml-indent-frames-main-v2/out/yaml-invariant-0.log": {
+      "bytes": 220,
+      "sha256": "efb1c0d7734db59c7587f8086a5a988e8dee47ac98e2c39906b2b496f7c8eccb"
+    },
+    "yaml-indent-frames-main-v2/out/yaml-invariant-1.log": {
+      "bytes": 220,
+      "sha256": "06accdcc75bdfad73e3be6c116038e6f14b9a34f67208ab5aecb8745e47f6b5c"
+    },
+    "yaml-indent-frames-main-v2/out/yaml-owned-cgo.log": {
+      "bytes": 60835,
+      "sha256": "3d1a59e8c281ae2dea4f09a4d161d8423faefeea0f1c86a75f09f7b669c5daa4"
+    },
+    "yaml-indent-frames-main-v2/out/yaml-scanner-386.log": {
+      "bytes": 2082,
+      "sha256": "79339aa1e7fb71272c065473cd63905c24529dd5047b20a1f593f57a894967bc"
+    },
+    "yaml-indent-frames-main-v2/out/yaml-scanner-race.log": {
+      "bytes": 2082,
+      "sha256": "2ad0d4bc9510a6952971221919a25043f34271ff695bccba16cf14f779c42707"
+    },
+    "yaml-indent-frames-main-v2/out/yaml-scanner-unit.log": {
+      "bytes": 2082,
+      "sha256": "36eb43a6d67397298c4d55343c6ba5743994842c37528527ebf38428dd0390b8"
+    }
+  },
+  "no_graduation_claimed": true,
+  "no_throughput_win_claimed": true,
+  "source_unchanged": true,
+  "suites": {
+    "go": {
+      "cells": {
+        "BenchmarkGoParseFullDFA": {
+          "B/op": {
+            "after": 1160.0,
+            "before": 1160.0,
+            "ratio": 1.0
+          },
+          "allocs/op": {
+            "after": 6.0,
+            "before": 6.0,
+            "ratio": 1.0
+          },
+          "ns/op": {
+            "after": 4100047.5,
+            "before": 4102108.0,
+            "ratio": 0.9994976972814953
+          }
+        },
+        "BenchmarkGoParseIncrementalNoEditDFA": {
+          "B/op": {
+            "after": 0.0,
+            "before": 0.0,
+            "ratio": 1
+          },
+          "allocs/op": {
+            "after": 0.0,
+            "before": 0.0,
+            "ratio": 1
+          },
+          "ns/op": {
+            "after": 3.284,
+            "before": 3.3035,
+            "ratio": 0.9940971696685332
+          }
+        },
+        "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+          "B/op": {
+            "after": 394.0,
+            "before": 394.0,
+            "ratio": 1.0
+          },
+          "allocs/op": {
+            "after": 5.0,
+            "before": 5.0,
+            "ratio": 1.0
+          },
+          "ns/op": {
+            "after": 89621.5,
+            "before": 89226.0,
+            "ratio": 1.004432564499137
+          }
+        }
+      },
+      "pairs": 20,
+      "seed_orders_and_roles_verified": true,
+      "seeds": [
+        179001,
+        179020
+      ]
+    },
+    "yaml": {
+      "cells": {
+        "BenchmarkCompactThroughputYAML/eof8k_legacy": {
+          "B/op": {
+            "after": 1256.0,
+            "before": 1264.0,
+            "ratio": 0.9936708860759493
+          },
+          "allocs/op": {
+            "after": 11.0,
+            "before": 13.0,
+            "ratio": 0.8461538461538461
+          },
+          "ns/op": {
+            "after": 514383.5,
+            "before": 514451.5,
+            "ratio": 0.9998678203873446
+          }
+        },
+        "BenchmarkCompactThroughputYAML/eof8k_ordinary": {
+          "B/op": {
+            "after": 45720.0,
+            "before": 45736.0,
+            "ratio": 0.9996501661710687
+          },
+          "allocs/op": {
+            "after": 31.0,
+            "before": 34.0,
+            "ratio": 0.9117647058823529
+          },
+          "ns/op": {
+            "after": 594901.0,
+            "before": 593036.5,
+            "ratio": 1.0031439886077838
+          }
+        },
+        "BenchmarkCompactThroughputYAML/eof8k_owned": {
+          "B/op": {
+            "after": 41040.0,
+            "before": 41048.0,
+            "ratio": 0.9998051062171117
+          },
+          "allocs/op": {
+            "after": 189.0,
+            "before": 191.0,
+            "ratio": 0.9895287958115183
+          },
+          "ns/op": {
+            "after": 1387241.0,
+            "before": 1395258.5,
+            "ratio": 0.9942537529783907
+          }
+        },
+        "BenchmarkCompactThroughputYAML/r4_legacy": {
+          "B/op": {
+            "after": 1432.0,
+            "before": 1440.0,
+            "ratio": 0.9944444444444445
+          },
+          "allocs/op": {
+            "after": 14.0,
+            "before": 16.0,
+            "ratio": 0.875
+          },
+          "ns/op": {
+            "after": 142520.0,
+            "before": 142111.5,
+            "ratio": 1.0028745034708662
+          }
+        },
+        "BenchmarkCompactThroughputYAML/r4_ordinary": {
+          "B/op": {
+            "after": 14024.0,
+            "before": 14040.0,
+            "ratio": 0.9988603988603989
+          },
+          "allocs/op": {
+            "after": 34.0,
+            "before": 37.0,
+            "ratio": 0.918918918918919
+          },
+          "ns/op": {
+            "after": 190426.0,
+            "before": 191270.0,
+            "ratio": 0.9955873895540336
+          }
+        },
+        "BenchmarkCompactThroughputYAML/r4_owned": {
+          "B/op": {
+            "after": 11840.0,
+            "before": 11848.0,
+            "ratio": 0.9993247805536799
+          },
+          "allocs/op": {
+            "after": 70.0,
+            "before": 72.0,
+            "ratio": 0.9722222222222222
+          },
+          "ns/op": {
+            "after": 360709.0,
+            "before": 362905.0,
+            "ratio": 0.9939488295834998
+          }
+        }
+      },
+      "pairs": 20,
+      "seed_orders_and_roles_verified": true,
+      "seeds": [
+        178001,
+        178020
+      ]
+    }
+  }
+}
