@@ -48,7 +48,31 @@ func (n symbolNames) valid(mask []bool) []string {
 type analysis struct {
 	calls     CallInfo
 	checks    Checks
+	info      Informational
 	witnesses []Witness
+}
+
+// failureContractOf reads what the token source does after a rejected scan.
+// Retention wins if a scanner declares both capabilities, as in the token
+// source.
+func failureContractOf(scanner gts.ExternalScanner) string {
+	if retaining, ok := scanner.(gts.FailureStateRetainingExternalScanner); ok && retaining.RetainsStateOnScanFailure() {
+		return ContractRetained
+	}
+	if preserving, ok := scanner.(gts.FailurePreservingExternalScanner); ok && preserving.PreservesStateOnScanFailure() {
+		return ContractPreserved
+	}
+	return ContractRestored
+}
+
+// count adds one failed check, or one informational difference, of the given
+// witness kind.
+func (a *analysis) count(kind string) {
+	if kind == KindFailedScanStateAllowed {
+		a.info.FailedScanStateAllowed++
+		return
+	}
+	a.checks.add(kind)
 }
 
 func (a analysis) verdict() string {
@@ -97,9 +121,10 @@ func replay(scanner gts.ExternalScanner, c *call, source []byte) (res replayed) 
 // failure is one check that a call failed.
 type failure struct{ kind, detail string }
 
-// compare names the checks that call c failed, given what its replay did.
-// Failures come in a fixed order, so reports do not vary.
-func compare(c *call, res replayed) []failure {
+// compare names the checks that call c failed, given what its replay did and
+// the scanner's failure contract. Failures come in a fixed order, so reports do
+// not vary.
+func compare(c *call, res replayed, contract string) []failure {
 	var failures []failure
 	if res.panicked == "" {
 		live, again := c.live, res.out
@@ -124,7 +149,7 @@ func compare(c *call, res replayed) []failure {
 		}
 	}
 	if !c.live.accepted && !bytes.Equal(c.state, c.live.state) {
-		failures = append(failures, failure{KindFailedScanState, "a rejected Scan changed the serialized state"})
+		failures = append(failures, failedScanChange(contract))
 	}
 	if c.unstable {
 		failures = append(failures, failure{KindSerializeUnstable, "two Serialize calls on one state returned different bytes"})
@@ -138,6 +163,20 @@ func compare(c *call, res replayed) []failure {
 	return failures
 }
 
+// failedScanChange describes a rejected scan that changed the serialized state.
+// Only a scanner that declares it preserves the state has broken a promise.
+// With the default contract the token source restores the state saved before
+// the scan, and a retaining scanner keeps the change on purpose.
+func failedScanChange(contract string) failure {
+	switch contract {
+	case ContractPreserved:
+		return failure{KindFailedScanState, "a rejected Scan changed the serialized state, though the scanner declares that it preserves the state"}
+	case ContractRetained:
+		return failure{KindFailedScanStateAllowed, "a rejected Scan changed the serialized state, which the scanner declares that it retains"}
+	}
+	return failure{KindFailedScanStateAllowed, "a rejected Scan changed the serialized state, which the token source restores after a rejected scan"}
+}
+
 // analyze replays every distinct recorded call on inner, which must be the
 // scanner the recorder wrapped, and totals the checks.
 func (r *recorder) analyze(inner gts.ExternalScanner, names symbolNames) analysis {
@@ -147,6 +186,7 @@ func (r *recorder) analyze(inner gts.ExternalScanner, names symbolNames) analysi
 	states := map[string]struct{}{}
 	masks := map[string]struct{}{}
 	witnessed := map[string]int{}
+	contract := failureContractOf(inner)
 	for i := range r.calls {
 		c := &r.calls[i]
 		source := r.sources[c.source]
@@ -164,8 +204,8 @@ func (r *recorder) analyze(inner gts.ExternalScanner, names symbolNames) analysi
 
 		res := replay(inner, c, source)
 		a.checks.Replayed++
-		for _, f := range compare(c, res) {
-			a.checks.add(f.kind)
+		for _, f := range compare(c, res, contract) {
+			a.count(f.kind)
 			if witnessed[f.kind] >= MaxWitnessesPerKind {
 				continue
 			}

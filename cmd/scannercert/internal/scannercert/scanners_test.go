@@ -86,6 +86,24 @@ func (s counterScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool
 	return false
 }
 
+// preservingCounter declares that a rejected scan leaves its state alone, so
+// the token source restores nothing after one.
+type preservingCounter struct{ counterScanner }
+
+func (preservingCounter) PreservesStateOnScanFailure() bool { return true }
+
+// retainingCounter declares that a rejected scan may change its state on
+// purpose, and that the change stays live.
+type retainingCounter struct{ counterScanner }
+
+func (retainingCounter) RetainsStateOnScanFailure() bool { return true }
+
+// bothCounter declares both. The token source lets retention win.
+type bothCounter struct{ counterScanner }
+
+func (bothCounter) PreservesStateOnScanFailure() bool { return true }
+func (bothCounter) RetainsStateOnScanFailure() bool   { return true }
+
 // echoScanner carries no state: it accepts "a" under token 0.
 type echoScanner struct{}
 

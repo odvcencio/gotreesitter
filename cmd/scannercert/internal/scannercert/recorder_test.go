@@ -59,15 +59,51 @@ func TestTokenSpanMismatchIsReported(t *testing.T) {
 	}
 }
 
-func TestFailedScanThatChangesStateIsReported(t *testing.T) {
-	a := certified(counterScanner{dirtyOnReject: true}, "abacab", bothValid)
-	want := Checks{Replayed: 6, FailedScanStateChanges: 1}
-	if a.checks != want || a.verdict() != VerdictFindings {
-		t.Fatalf("checks = %+v verdict %q, want %+v and findings", a.checks, a.verdict(), want)
+// A rejected scan that changes the serialized state breaks the contract only
+// for a scanner that promises to preserve it. By default the token source
+// restores the saved state itself, and a scanner that declares retention keeps
+// the change on purpose. The count stays in the report either way.
+func TestRejectedScanThatChangesStateIsAFindingOnlyWhenTheScannerPromisesNone(t *testing.T) {
+	dirty := counterScanner{dirtyOnReject: true}
+	for _, tc := range []struct {
+		name     string
+		scanner  gts.ExternalScanner
+		contract string
+		finding  bool
+	}{
+		{"default contract", dirty, ContractRestored, false},
+		{"declares retention", retainingCounter{dirty}, ContractRetained, false},
+		{"declares both, retention wins", bothCounter{dirty}, ContractRetained, false},
+		{"declares preservation", preservingCounter{dirty}, ContractPreserved, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := failureContractOf(tc.scanner); got != tc.contract {
+				t.Fatalf("contract = %q, want %q", got, tc.contract)
+			}
+			a := certified(tc.scanner, "abacab", bothValid)
+			w := a.witnesses[0]
+			if w.Origin.Byte != 3 || w.State != "02" || w.Live.State != "03" || w.Live.Accepted {
+				t.Fatalf("witness = %+v live %+v, want the rejected scan at byte 3 moving state 02 to 03", w, w.Live)
+			}
+			if tc.finding {
+				want := Checks{Replayed: 6, FailedScanStateChanges: 1}
+				if a.checks != want || a.info != (Informational{}) || a.verdict() != VerdictFindings || w.Kind != KindFailedScanState {
+					t.Fatalf("checks %+v info %+v verdict %q kind %q, want %+v and a finding", a.checks, a.info, a.verdict(), w.Kind, want)
+				}
+				return
+			}
+			if a.checks != (Checks{Replayed: 6}) || a.info != (Informational{FailedScanStateAllowed: 1}) ||
+				a.verdict() != VerdictNoFindings || w.Kind != KindFailedScanStateAllowed {
+				t.Fatalf("checks %+v info %+v verdict %q kind %q, want the change counted as informational", a.checks, a.info, a.verdict(), w.Kind)
+			}
+		})
 	}
-	w := a.witnesses[0]
-	if w.Kind != KindFailedScanState || w.Origin.Byte != 3 || w.State != "02" || w.Live.State != "03" || w.Live.Accepted {
-		t.Fatalf("witness = %+v live %+v, want the rejected scan at byte 3 moving state 02 to 03", w, w.Live)
+}
+
+func TestPreservingScannerThatKeepsItsPromiseHasNoFailedScanFinding(t *testing.T) {
+	a := certified(preservingCounter{counterScanner{}}, "abacab", bothValid)
+	if a.verdict() != VerdictNoFindings || a.checks != (Checks{Replayed: 6}) || a.info != (Informational{}) {
+		t.Fatalf("verdict %q checks %+v info %+v, want a clean report", a.verdict(), a.checks, a.info)
 	}
 }
 

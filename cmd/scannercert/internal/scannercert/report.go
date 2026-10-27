@@ -20,17 +20,36 @@ const (
 	VerdictNotTransparent = "not-transparent"
 )
 
-// Witness kinds, one per check that can fail.
+// Witness kinds, one per check that can fail, and one for a difference that
+// the verdict ignores (KindFailedScanStateAllowed).
 const (
-	KindResult            = "result"
-	KindSymbol            = "symbol"
-	KindSpan              = "span"
-	KindState             = "state"
-	KindRoundTrip         = "roundtrip"
-	KindFailedScanState   = "failed-scan-state"
-	KindSerializeUnstable = "serialize-unstable"
-	KindSerializeOverflow = "serialize-overflow"
-	KindReplayPanic       = "replay-panic"
+	KindResult                 = "result"
+	KindSymbol                 = "symbol"
+	KindSpan                   = "span"
+	KindState                  = "state"
+	KindRoundTrip              = "roundtrip"
+	KindFailedScanState        = "failed-scan-state"
+	KindFailedScanStateAllowed = "failed-scan-state-allowed"
+	KindSerializeUnstable      = "serialize-unstable"
+	KindSerializeOverflow      = "serialize-overflow"
+	KindReplayPanic            = "replay-panic"
+)
+
+// Failure contracts, as Declared.FailureContract reports them. They say what
+// the token source does after a Scan call returns false, which decides whether
+// a changed serialized state is a defect.
+const (
+	// ContractRestored is the default. The token source restores the state it
+	// saved before the scan, so a rejected scan may change state freely.
+	ContractRestored = "restored"
+	// ContractPreserved is for a scanner that declares PreservesStateOnScanFailure.
+	// The token source restores nothing, so a rejected scan must leave the state
+	// unchanged.
+	ContractPreserved = "preserved"
+	// ContractRetained is for a scanner that declares RetainsStateOnScanFailure.
+	// The token source restores nothing and the changed state stays live by
+	// design. Retention wins when a scanner declares both.
+	ContractRetained = "retained"
 )
 
 // MaxWitnessesPerKind bounds the witnesses a report keeps for each kind. The
@@ -50,8 +69,10 @@ type Report struct {
 	Parses      ParseInfo  `json:"parses"`
 	Calls       CallInfo   `json:"calls"`
 	Checks      Checks     `json:"checks"`
-	Verdict     string     `json:"verdict"`
-	Witnesses   []Witness  `json:"witnesses"`
+	// Informational counts what the report shows and the verdict ignores.
+	Informational Informational `json:"informational"`
+	Verdict       string        `json:"verdict"`
+	Witnesses     []Witness     `json:"witnesses"`
 }
 
 // Declared records the scanner's own capability claims: "true", "false", or
@@ -62,6 +83,9 @@ type Declared struct {
 	Stateless               string `json:"stateless"`
 	PreservesStateOnFailure string `json:"preserves_state_on_failure"`
 	RetainsStateOnFailure   string `json:"retains_state_on_failure"`
+	// FailureContract is what the token source does after a rejected scan:
+	// ContractRestored, ContractPreserved or ContractRetained.
+	FailureContract string `json:"failure_contract"`
 }
 
 // CorpusInfo identifies the pinned inputs. Sources counts the sample and the
@@ -108,7 +132,9 @@ type CallInfo struct {
 }
 
 // Checks counts how many distinct calls failed each check. One call can fail
-// several checks.
+// several checks. FailedScanStateChanges counts only a scanner that declares
+// PreservesStateOnScanFailure and not RetainsStateOnScanFailure; for any other
+// scanner a rejected scan that changes state is under Informational.
 type Checks struct {
 	Replayed               int `json:"replayed"`
 	ResultMismatches       int `json:"result_mismatches"`
@@ -120,6 +146,17 @@ type Checks struct {
 	SerializeUnstable      int `json:"serialize_unstable"`
 	SerializeOverflow      int `json:"serialize_overflow"`
 	ReplayPanics           int `json:"replay_panics"`
+}
+
+// Informational counts differences that a scanner's declared contract allows.
+type Informational struct {
+	// FailedScanStateAllowed counts distinct calls whose rejected scan changed
+	// the serialized state although the scanner does not promise to preserve it.
+	// With the default contract the token source restores the saved state after
+	// a rejected scan, and a scanner that declares RetainsStateOnScanFailure
+	// keeps the change on purpose. Neither is a defect, so the verdict ignores
+	// the count; the round-trip checks still cover the restore.
+	FailedScanStateAllowed int `json:"failed_scan_state_allowed"`
 }
 
 // add counts one failed check of the given witness kind.

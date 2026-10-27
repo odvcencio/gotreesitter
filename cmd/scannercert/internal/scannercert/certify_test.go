@@ -229,7 +229,7 @@ func TestCertifyIsDeterministic(t *testing.T) {
 	if err := json.Unmarshal(out[0], &decoded); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"schema", "language", "scanner", "declared", "environment", "corpus", "parses", "calls", "checks", "verdict", "witnesses"} {
+	for _, key := range []string{"schema", "language", "scanner", "declared", "environment", "corpus", "parses", "calls", "checks", "informational", "verdict", "witnesses"} {
 		if _, ok := decoded[key]; !ok {
 			t.Fatalf("report has no %q field: %s", key, out[0])
 		}
@@ -258,7 +258,7 @@ func TestCertifyDescribesTheDeclaredCapabilities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Declared{IncrementalReuse: "absent", Checkpointed: "absent", Stateless: "absent", PreservesStateOnFailure: "absent", RetainsStateOnFailure: "absent"}
+	want := Declared{IncrementalReuse: "absent", Checkpointed: "absent", Stateless: "absent", PreservesStateOnFailure: "absent", RetainsStateOnFailure: "absent", FailureContract: ContractRestored}
 	if report.Declared != want {
 		t.Fatalf("declared = %+v, want %+v", report.Declared, want)
 	}
@@ -266,7 +266,8 @@ func TestCertifyDescribesTheDeclaredCapabilities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stateless.Declared.Stateless != "true" || stateless.Declared.PreservesStateOnFailure != "true" || stateless.Declared.IncrementalReuse != "false" {
+	if stateless.Declared.Stateless != "true" || stateless.Declared.PreservesStateOnFailure != "true" || stateless.Declared.IncrementalReuse != "false" ||
+		stateless.Declared.FailureContract != ContractPreserved {
 		t.Fatalf("declared = %+v, want stateless, failure-preserving and reuse opt-out", stateless.Declared)
 	}
 }

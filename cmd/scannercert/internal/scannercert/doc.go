@@ -24,12 +24,33 @@
 //   - the token's start, end and end point, when both scans accept;
 //   - the serialized state after the scan;
 //   - that Deserialize followed by Serialize returns the recorded bytes;
-//   - that a rejected scan leaves the serialized state unchanged.
+//   - that a rejected scan leaves the serialized state unchanged, for a scanner
+//     that declares it does (see "Rejected scans" below).
 //
 // It also counts a Serialize that returns different bytes on two calls in a
 // row, a length beyond the 4096-byte buffer the parser provides, and a panic
 // during replay. Each failed check is counted. The first witnesses of each kind
 // keep the origin, mask, state and both outcomes, so a reader can replay them.
+//
+// # Rejected scans
+//
+// What a rejected scan may do to the serialized state depends on the failure
+// contract the token source applies to the scanner. The report names it in
+// declared.failure_contract:
+//
+//   - restored, the default. The token source restores the state saved before
+//     the scan, so the scanner may change its state freely. The replay checks
+//     cover that restore, because they scan from a state rebuilt from bytes.
+//   - preserved, for a scanner that declares PreservesStateOnScanFailure. The
+//     token source restores nothing, so a rejected scan that changes the state
+//     is a finding (checks.failed_scan_state_changes).
+//   - retained, for a scanner that declares RetainsStateOnScanFailure. The
+//     change stays live by design. Retention wins when a scanner declares both,
+//     as it does in the token source.
+//
+// Under the restored and retained contracts, a rejected scan that changes the
+// state is counted in informational.failed_scan_state_allowed and kept as a
+// witness of kind failed-scan-state-allowed. The verdict ignores it.
 //
 // # What a report shows
 //

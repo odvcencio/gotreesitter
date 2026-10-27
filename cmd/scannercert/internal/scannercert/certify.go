@@ -81,10 +81,11 @@ func Certify(lang *gts.Language, corpus *Corpus) (*Report, error) {
 			Sources: len(corpus.Sources), SampleHasError: len(got) > 0 && got[0].hasError,
 			ErrorTrees: errorTrees, Transparent: divergent == 0, Divergent: divergent,
 		},
-		Calls:     a.calls,
-		Checks:    a.checks,
-		Verdict:   verdict,
-		Witnesses: a.witnesses,
+		Calls:         a.calls,
+		Checks:        a.checks,
+		Informational: a.info,
+		Verdict:       verdict,
+		Witnesses:     a.witnesses,
 	}, nil
 }
 
@@ -160,6 +161,7 @@ func declared(scanner gts.ExternalScanner) Declared {
 	d.PreservesStateOnFailure = tri(ok, ok && preserving.PreservesStateOnScanFailure())
 	retaining, ok := scanner.(gts.FailureStateRetainingExternalScanner)
 	d.RetainsStateOnFailure = tri(ok, ok && retaining.RetainsStateOnScanFailure())
+	d.FailureContract = failureContractOf(scanner)
 	return d
 }
 
