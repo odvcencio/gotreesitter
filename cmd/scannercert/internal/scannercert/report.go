@@ -186,7 +186,9 @@ type Informational struct {
 	// With the default contract the token source restores the saved state after
 	// a rejected scan, and a scanner that declares RetainsStateOnScanFailure
 	// keeps the change on purpose. Neither is a defect, so the verdict ignores
-	// the count; the replay checks still cover the restore.
+	// the count. The replay deserializes into a fresh payload, so it does not
+	// test the restore; under the default contract the count marks the calls
+	// where an incomplete Deserialize would matter.
 	FailedScanStateAllowed int `json:"failed_scan_state_allowed"`
 }
 
@@ -244,7 +246,9 @@ type Outcome struct {
 }
 
 // Witness is one failing call, with enough detail to replay it by hand.
-// Source 0 is the pinned sample; source k is step k of its editing session.
+// Source is the position of the parse among the corpus sources, as in
+// CorpusInfo: 0 is the pinned sample, then come the steps of its editing
+// session when that is on, then the fetched inputs.
 // State is the hex of the serialized scanner state before the scan, and Valid
 // lists the external tokens the parser allowed as "index:name".
 type Witness struct {

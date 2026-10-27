@@ -60,8 +60,11 @@
 // declared.failure_contract:
 //
 //   - restored, the default. The token source restores the state saved before
-//     the scan, so the scanner may change its state freely. The replay checks
-//     cover that restore, because they scan from a state rebuilt from bytes.
+//     the scan, so the scanner may change its state freely. The replay does not
+//     test that restore. It deserializes into a fresh payload from Create, and
+//     the token source deserializes into the live payload, which the rejected
+//     scan may already have changed. A Deserialize that does not reset the
+//     whole payload passes every check here.
 //   - preserved, for a scanner that declares PreservesStateOnScanFailure. The
 //     token source restores nothing, so a rejected scan that changes the state
 //     is a finding (checks.failed_scan_state_changes).
@@ -71,13 +74,15 @@
 //
 // Under the restored and retained contracts, a rejected scan that changes the
 // state is counted in informational.failed_scan_state_allowed and kept as a
-// witness of kind failed-scan-state-allowed. The verdict ignores it.
+// witness of kind failed-scan-state-allowed. The verdict ignores it. Under
+// restored, those are the calls where the untested restore matters.
 //
 // # What a report shows
 //
 // The verdict no-findings means no check failed on the recorded calls. It does
-// not prove the property: a call the corpus never makes is not checked, and the
-// replay covers only the states the parser produced. Read the counts beside it:
+// not prove the property: a call the corpus never makes is not checked, the
+// replay covers only the states the parser produced, and it restores each into
+// a fresh payload (see "Rejected scans"). Read the counts beside it:
 // how many distinct calls, states and masks the corpus reached, and how many
 // scans the scanner accepted. A scanner that accepted nothing was tested only
 // on its rejections. The verdict no-evidence means the parser never called the
@@ -116,6 +121,14 @@
 // silent difference in a report. questions_test.go checks each answer the
 // recorder gives, and that a recorded parse puts a scanner the questions that a
 // production parse puts.
+//
+// The source scan has limits. It reads the root package only. It finds a
+// question only when the asked value's static type implements ExternalScanner.
+// It misses a question put through an any value or a conversion to any, one
+// asked by an assertion to a type parameter, and one asked in a package below
+// internal/ that receives the scanner as any. The root passes the scanner to
+// one such function, incr.LengthNeutralScannerEdit; it needs an edit, so only
+// incremental reuse reaches it.
 //
 // Two differences remain by design:
 //

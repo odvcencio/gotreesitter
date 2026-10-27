@@ -27,6 +27,17 @@ import (
 // cannot see a changed sequence of Scan calls. This test closes that gap at the
 // source: a new probe in a full-parse path is a failure here before it is a
 // silent difference in a report.
+//
+// The scan has limits. It reads the root package only, and counts every file
+// in it, whatever its build constraints. It finds a question only when the
+// asked value's static type implements ExternalScanner. It does not see a
+// question put through an any value or a conversion to any, or asked by an
+// assertion to a type parameter, and it does not read a package below internal/
+// that receives the scanner as any. incr.LengthNeutralScannerEdit is one such
+// package function: it asks for ExternalScannerLengthNeutralASCIIClass, and it
+// needs an edit, so only incremental reuse reaches it.
+// TestScannerProbesMissQuestionsAskedThroughOtherTypes pins the first three
+// limits, so that extending the scan is a deliberate change.
 
 // rootProbe is one place where the root package asks about a scanner's type.
 // The key is the method asked about when the asked interface is declared in
@@ -284,6 +295,59 @@ func TestScannerProbesRequireAScannerType(t *testing.T) {
 	dir := writeRoot(t, map[string]string{"x.go": "package root\n"})
 	if _, err := scannerProbes(dir); err == nil || !strings.Contains(err.Error(), "ExternalScanner") {
 		t.Fatalf("err = %v, want a root without ExternalScanner to be refused", err)
+	}
+}
+
+// The scan keys on the static type of the asked value. These questions go to
+// the same scanner, but not through a value the scan can type, so it finds none
+// of them, while it still finds the direct question beside them. If the scan
+// learns to follow one, change this test and the limits in the header above.
+func TestScannerProbesMissQuestionsAskedThroughOtherTypes(t *testing.T) {
+	dir := writeRoot(t, map[string]string{
+		"language.go": `package root
+
+type ExternalScanner interface {
+	Create() any
+	Destroy(payload any)
+	Serialize(payload any, buf []byte) int
+	Deserialize(payload any, buf []byte)
+	Scan(payload any, lexer *Lexer, valid []bool) bool
+}
+
+type Lexer struct{}
+
+type Language struct{ ExternalScanner ExternalScanner }
+`,
+		"hidden.go": `package root
+
+func direct(lang *Language) {
+	_, _ = lang.ExternalScanner.(interface{ Seen() bool })
+}
+
+func throughAnyVariable(lang *Language) {
+	var s any = lang.ExternalScanner
+	_, _ = s.(interface{ ThroughVariable() bool })
+}
+
+func throughConversion(lang *Language) {
+	_, _ = any(lang.ExternalScanner).(interface{ ThroughConversion() bool })
+}
+
+func throughTypeParameter[T any](lang *Language) {
+	_, _ = lang.ExternalScanner.(T)
+}
+`,
+	})
+	got, err := scannerProbes(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keys []string
+	for _, p := range got {
+		keys = append(keys, p.key)
+	}
+	if want := []string{"Seen"}; !slices.Equal(keys, want) {
+		t.Fatalf("probes = %q, want only the direct question %q", keys, want)
 	}
 }
 
