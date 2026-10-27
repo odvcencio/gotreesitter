@@ -56,7 +56,8 @@ const (
 // counts in Checks still include every mismatch.
 const MaxWitnessesPerKind = 3
 
-// Report is the certification result for one grammar's external scanner.
+// Report is the replay result for one grammar's external scanner. It is
+// evidence for a reader, not a certificate, and grants nothing.
 type Report struct {
 	Schema   string `json:"schema"`
 	Language string `json:"language"`
@@ -135,7 +136,9 @@ type ParseInfo struct {
 	// about the rest of such a source.
 	StoppedEarly int `json:"stopped_early"`
 	// Transparent is true when every source parsed to the same tree with the
-	// recorder installed as without it.
+	// recorder installed as without it. It compares trees only, so it cannot
+	// see a change in which Scan calls the parser made that left the tree as it
+	// was; see the package comment.
 	Transparent bool `json:"transparent"`
 	Divergent   int  `json:"divergent"`
 }
@@ -183,7 +186,7 @@ type Informational struct {
 	// With the default contract the token source restores the saved state after
 	// a rejected scan, and a scanner that declares RetainsStateOnScanFailure
 	// keeps the change on purpose. Neither is a defect, so the verdict ignores
-	// the count; the round-trip checks still cover the restore.
+	// the count; the replay checks still cover the restore.
 	FailedScanStateAllowed int `json:"failed_scan_state_allowed"`
 }
 

@@ -7,7 +7,7 @@ import (
 )
 
 // The root exposes no constructor for ExternalLexer and no reader for its
-// scan result. The certifier reaches both through go:linkname, which the
+// scan result. This package reaches both through go:linkname, which the
 // linker does not type-check. These tests fail loudly if the root changes the
 // linked signatures or the lexer fields the recorder reads.
 func TestLexerLinkContract(t *testing.T) {
