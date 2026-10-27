@@ -91,12 +91,16 @@ func WithHighlighterAdmissionCandidateRoute(enabled bool) HighlighterOption {
 // follow the conventions of Neovim's treesitter highlighter, which many shipped
 // queries use.
 //
-// @none is a reset: it clears the colors beneath its span, including the color
-// of an enclosing capture, and is not returned either. This follows the
-// convention that nvim-treesitter documents for @none ("completely disable the
-// highlight") and the comments in the shipped queries that rely on it. It differs
-// from tree-sitter-highlight and from Neovim's own highlighter, where an inner
-// @none node keeps the color of the node around it.
+// @none is a reset and is not returned either. It clears the colors of its own
+// priority beneath its span, including the color of an enclosing capture of that
+// priority, but it never clears a capture of a lower priority. The Markdown
+// query resets a fence at the default priority, and the injected language's
+// captures that set a lower one, such as zig's strings at 95, keep their color.
+// This follows the convention that nvim-treesitter documents for @none
+// ("completely disable the highlight") and the comments in the shipped
+// starlark, bitbake and djot queries, which reset a capture of the same priority.
+// It differs from tree-sitter-highlight and from Neovim's own highlighter, where
+// an inner @none node keeps the color of the node around it.
 func NewHighlighter(lang *Language, highlightQuery string, opts ...HighlighterOption) (*Highlighter, error) {
 	q, err := NewQuery(highlightQuery, lang)
 	if err != nil {
@@ -328,13 +332,28 @@ func withoutHighlightResets(ranges []HighlightRange) []HighlightRange {
 	return out
 }
 
+// dropHighlightResets removes the reset captures from ranges in place and
+// returns the shortened slice. The resolved ranges of a tier have already used
+// their resets to clear the captures of that priority, so a reset has nothing
+// left to do when the tier is laid over the lower ones.
+func dropHighlightResets(ranges []HighlightRange) []HighlightRange {
+	kept := ranges[:0]
+	for _, r := range ranges {
+		if r.Capture != highlightResetCapture {
+			kept = append(kept, r)
+		}
+	}
+	return kept
+}
+
 // defaultHighlightPriority is the priority of a pattern without a
 // (#set! priority N) directive. It is the default of Neovim, whose directive the
 // query files use.
 const defaultHighlightPriority = 100
 
-// highlightResetCapture clears the colors beneath its span. It takes part in
-// resolution like any capture, and the result leaves it out.
+// highlightResetCapture clears the colors of its own priority beneath its span.
+// It takes part in resolution within its priority like any capture, and the
+// result leaves it out.
 const highlightResetCapture = "none"
 
 // isNonHighlightCapture reports whether a capture name never colors text:
@@ -502,7 +521,10 @@ func clipHighlightRanges(ranges []HighlightRange, lo, hi uint32) []HighlightRang
 
 // resolve turns the ranges into sorted, non-overlapping ranges. The innermost
 // capture wins within one priority; a higher priority replaces the lower ones
-// wherever it applies. scratch is reusable space for the result.
+// wherever it applies. A reset wins within its own priority like any capture, so
+// it clears the other captures of that priority beneath it. It hides nothing at a
+// lower priority, which shows through it. scratch is reusable space for the
+// result, which may still hold resets.
 func (t *highlightTiers) resolve(scratch []HighlightRange) []HighlightRange {
 	if len(t.others) == 0 {
 		return resolveOverlapsInto(t.base, scratch)
@@ -527,7 +549,7 @@ func (t *highlightTiers) resolve(scratch []HighlightRange) []HighlightRange {
 	}
 	resolved = resolveOverlapsInto(tiers[0].ranges, resolved)
 	for _, tier := range tiers[1:] {
-		layer = resolveOverlapsInto(tier.ranges, layer)
+		layer = dropHighlightResets(resolveOverlapsInto(tier.ranges, layer))
 		overlaid := overlayHighlightRangesInto(resolved, layer, spare)
 		resolved, spare = overlaid, resolved
 	}

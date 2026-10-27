@@ -265,7 +265,9 @@ func requireSpans(t *testing.T, source []byte, ranges []gotreesitter.HighlightRa
 // samples where a private capture, the none capture or a priority used to change
 // them. The sweep above cannot catch a regression in most of these grammars: their
 // smoke samples never reach such a capture, so it passes with or without the policy.
-// Every case here fails without the policy.
+// Every case but the two fence cases of a low priority fails without the policy.
+// Those two guard against the opposite error: origin/main colored the fenced code,
+// and a reset in the host must not take that color away.
 func TestHighlightShippedQueryCases(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 	cases := []struct {
@@ -336,6 +338,41 @@ func TestHighlightShippedQueryCases(t *testing.T) {
 				{in: "a{ b }c", text: "{", capture: "punctuation.special"},
 				{in: "{ b }", text: "b", capture: "variable"},
 				{in: "a{ b }c", text: "}", capture: "punctuation.special"},
+			},
+		},
+		{
+			// djot resets the raw color of a code block that names a language, with
+			// (code) @none at the same priority 90 as the block's @markup.raw.block.
+			// The reset clears its own priority: it removes that color here, and only
+			// there, because the second block names no language.
+			name:    "djot code with a language is reset and plain code is not",
+			grammar: "djot",
+			source:  "``` lua\nprint(1)\n```\n\n```\nplain\n```\n",
+			wants: []spanWant{
+				{in: "print(1)", text: "print(1)", capture: ""},
+				{in: "plain", text: "plain", capture: "markup.raw.block"},
+			},
+		},
+		{
+			// The markdown query resets a fence with (code_fence_content) @none at the
+			// default priority 100, and zig gives its strings priority 95. The reset must
+			// clear Markdown's own color over the fence, not the zig string inside it.
+			name:    "markdown fence keeps a zig string of priority 95",
+			grammar: "markdown",
+			source:  "# T\n\n```zig\nconst s = \"hello world\";\n```\n",
+			wants: []spanWant{
+				{in: "const s", text: "const", capture: "keyword"},
+				{in: "\"hello world\"", text: "\"hello world\"", capture: "string"},
+			},
+		},
+		{
+			// djot gives a raw inline span priority 90.
+			name:    "markdown fence keeps a djot raw span of priority 90",
+			grammar: "markdown",
+			source:  "# T\n\n```djot\nHello `raw`{=html} done\n```\n",
+			wants: []spanWant{
+				{in: "`raw`{=html}", text: "raw", capture: "markup.raw"},
+				{in: "`raw`{=html}", text: "html", capture: "attribute"},
 			},
 		},
 	}

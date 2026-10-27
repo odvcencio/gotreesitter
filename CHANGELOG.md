@@ -14,8 +14,11 @@ for tags and release notes while still in `0.x`.
   `@conceal`, or the directives of a locals query (`@local.scope`,
   `@local.reference`, `@local.definition`, `@local.definition-value` and
   `@local.definition.*`); predicates and directives still read them. `@none`
-  clears the colors beneath it, including the color of an enclosing capture, and
-  is not returned. This follows the convention nvim-treesitter documents for
+  clears the colors of its own priority beneath it, including the color of an
+  enclosing capture of that priority, and is not returned. It does not clear a
+  capture of a lower priority, so the reset that the Markdown query puts on a
+  fence leaves the injected language's own colors, such as zig's strings at
+  priority 95. This follows the convention nvim-treesitter documents for
   `@none`; tree-sitter-highlight and Neovim's own highlighter keep the enclosing
   color under an inner `@none` node. `(#set! priority N)` sets the priority of a
   pattern's captures, with a default of 100. Injected child queries follow the

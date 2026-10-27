@@ -634,10 +634,30 @@ func TestHighlighterCapturePolicy(t *testing.T) {
 			want:   "0-2:number 2-3:outer 3-5:number",
 		},
 		{
-			name:   "none honors set! priority",
+			name:   "none clears the captures of its own priority",
+			source: "42+77",
+			query:  "((expression) @outer (#set! priority 105))\n((NUMBER) @none (#set! priority 105))",
+			want:   "2-3:outer",
+		},
+		{
+			name:   "a higher priority none clears nothing beneath it",
 			source: "42+77",
 			query:  "((expression) @outer (#set! priority 105))\n((NUMBER) @none (#set! priority 110))",
-			want:   "2-3:outer",
+			want:   "0-5:outer",
+		},
+		{
+			// zig writes its string captures at priority 95 and a markdown fence resets
+			// its content at the default 100. The reset must not hide the lower capture.
+			name:   "none leaves the captures of a lower priority beneath it",
+			source: "42+77",
+			query:  "((NUMBER) @number (#set! priority 90))\n(NUMBER) @none",
+			want:   "0-2:number 3-5:number",
+		},
+		{
+			name:   "none clears its own priority and lets a lower priority show",
+			source: "42+77",
+			query:  "((expression) @low (#set! priority 90))\n(expression) @enclosing\n(NUMBER) @none",
+			want:   "0-2:low 2-3:enclosing 3-5:low",
 		},
 		{
 			name:   "a low priority none does not reset a default capture",
@@ -717,6 +737,21 @@ func TestHighlighterCapturePolicyInjected(t *testing.T) {
 			hostQuery:  "(document) @doc",
 			childQuery: "(expression) @expr\n(NUMBER) @none",
 			want:       "0-1:doc 3-4:expr 6-7:doc",
+		},
+		{
+			// The markdown query resets a fence with (code_fence_content) @none at the
+			// default priority, and zig gives its strings priority 95. The host reset
+			// must not hide a capture of the child's lower priority.
+			name:       "a host reset keeps the child captures of a lower priority",
+			hostQuery:  "(content) @none",
+			childQuery: "((NUMBER) @number (#set! priority 90))",
+			want:       "1-3:number 4-6:number",
+		},
+		{
+			name:       "a host reset clears the host capture of its priority and keeps the child's lower one",
+			hostQuery:  "(document) @doc\n(content) @none",
+			childQuery: "((NUMBER) @number (#set! priority 90))",
+			want:       "0-1:doc 1-3:number 4-6:number 6-7:doc",
 		},
 		{
 			name:       "child priority is read from the child query",
@@ -876,12 +911,9 @@ type pricedHighlightRange struct {
 }
 
 // modelRangeBeats reports whether range a, the aIndex-th range added, takes a
-// byte from range b, the bIndex-th: the higher priority wins, then the narrower
-// range, then the later pattern, then the range added last.
+// byte from range b, the bIndex-th, when both have the same priority: the
+// narrower range wins, then the later pattern, then the range added last.
 func modelRangeBeats(a pricedHighlightRange, aIndex int, b pricedHighlightRange, bIndex int) bool {
-	if a.priority != b.priority {
-		return a.priority > b.priority
-	}
 	if aw, bw := a.EndByte-a.StartByte, b.EndByte-b.StartByte; aw != bw {
 		return aw < bw
 	}
@@ -998,14 +1030,17 @@ func TestHighlighterCapturePolicyOverlay(t *testing.T) {
 }
 
 // TestHighlighterCapturePolicyPainter checks the resolved ranges of 3,000 random
-// nested range sets against a byte-by-byte model that picks each byte's winner
-// with modelRangeBeats. A reset capture wins like any other and leaves no range.
+// nested range sets against a byte-by-byte model. The model takes the highest
+// priority that has a capture on the byte, and within a priority the winner of
+// modelRangeBeats. A reset that wins its priority leaves the byte to the next
+// lower priority, because a reset clears only the captures of its own priority.
 // Like the Highlighter, it keeps the input and result buffers from one round to
 // the next, so a result that shared memory with an input would corrupt a later round.
 func TestHighlighterCapturePolicyPainter(t *testing.T) {
 	r := rand.New(rand.NewSource(20261026))
 	captures := []string{"a", "b", "c", "d", highlightResetCapture}
 	priorities := []int32{90, defaultHighlightPriority, defaultHighlightPriority, 105, 110}
+	descending := []int32{110, 105, defaultHighlightPriority, 90} // the distinct values above
 	const size = 48
 	var base, scratch []HighlightRange
 	for round := 0; round < 3000; round++ {
@@ -1026,19 +1061,26 @@ func TestHighlighterCapturePolicyPainter(t *testing.T) {
 		// Model: pick the winner of every byte, then join equal neighbors.
 		var want []HighlightRange
 		for b := uint32(0); b < size; b++ {
-			best := -1
-			for i, a := range added {
-				if b < a.StartByte || b >= a.EndByte {
-					continue
+			winner := -1
+			for _, priority := range descending {
+				best := -1
+				for i, a := range added {
+					if a.priority != priority || b < a.StartByte || b >= a.EndByte {
+						continue
+					}
+					if best < 0 || modelRangeBeats(a, i, added[best], best) {
+						best = i
+					}
 				}
-				if best < 0 || modelRangeBeats(a, i, added[best], best) {
-					best = i
+				if best >= 0 && added[best].Capture != highlightResetCapture {
+					winner = best
+					break
 				}
 			}
-			if best < 0 || added[best].Capture == highlightResetCapture {
+			if winner < 0 {
 				continue
 			}
-			want = appendHighlightSegment(want, HighlightRange{StartByte: b, EndByte: b + 1, Capture: added[best].Capture})
+			want = appendHighlightSegment(want, HighlightRange{StartByte: b, EndByte: b + 1, Capture: added[winner].Capture})
 		}
 
 		tiers := highlightTiers{base: base[:0]}
