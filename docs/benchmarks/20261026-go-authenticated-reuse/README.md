@@ -13,7 +13,7 @@ The actual bypass was exercised in 144 release and 144 race session steps, with 
 | Primary numeric edit | 86.78 µs | 105.67 µs | +21.77%, gate failed |
 | Primary full parse | 5.389 ms | 5.527 ms | Inconclusive |
 | Primary no-edit | 3.925 ns | 3.882 ns | Inconclusive; zero allocations |
-| RSS median, 140288-byte workload | 108514 KiB | 59156 KiB | -45.49% |
+| RSS median, 140368-byte workload (140288 target) | 108514 KiB | 59156 KiB | -45.49% |
 | RSS median, 1 MiB workload | 214252 KiB | 214316 KiB | +0.03% |
 
 Timing uses the required randomized benchmark script with 20 paired seeds and 750 ms per benchmark; the archive retains the benchstat report and samples. RSS uses 20 pairs per size. The 140368-byte original report fixture has SHA-256 `5434575bb249338937331c3756e10dcec34237d107f523ea315996fb6de0ef8f`. Runs used a 4 GiB, one-CPU, network-disabled Docker container on an Intel Core Ultra 9 285. These Linux measurements do not establish Windows latency for the [reported issue](https://github.com/odvcencio/gotreesitter/issues/454#issuecomment-6311551850).
@@ -28,7 +28,7 @@ A subsequent negative authority test also rejected V1: a copied language, one wi
 
 The combined candidate binds the owner-bound authority fix and performance change to the same `v11/inputs.sha256` manifest in the archive. Focused correctness, 412 fleet route runs across 206 languages, 144 release and 144 race bypass steps, both pinned C comparisons (127 matching cases), and focused race tests passed. All 206 languages' two route ledger exports match their baseline. Complete-operation work and selected reuse match V1, whose four identifier operations reduce work compared with baseline. The authority contract remains the existing immutable-language contract.
 
-The full 20-seed comparison measured numeric edit 76.44 → 59.51 µs (-22.15%, p=0.000), plain report-fixture edit 83.682 → 8.290 ms (-90.09%, p=0.000), and profiled edit 79.960 → 8.637 ms (-89.20%, p=0.000). Primary full and no-edit timing were inconclusive; no-edit remained zero allocations. RSS medians were 108460 → 59660 KiB at 140288 bytes and 214284 → 214036 KiB at 1 MiB.
+The full 20-seed comparison measured numeric edit 76.44 → 59.51 µs (-22.15%, p=0.000), plain report-fixture edit 83.682 → 8.290 ms (-90.09%, p=0.000), and profiled edit 79.960 → 8.637 ms (-89.20%, p=0.000). Primary full and no-edit timing were inconclusive; no-edit remained zero allocations. RSS medians were 108460 → 59660 KiB at 140368 bytes (140288 target) and 214284 → 214036 KiB at the 1 MiB target.
 
 Profiled reuse selection rose from 446.9 to 690.6 µs (+54.54%, p=0.000), while reparse fell from 73.324 to 6.020 ms (-91.79%, p=0.000). **A measured allocation regression remains:** report-fixture full parse rose from 1.402 to 4.956 KiB/op (+253.38%, p=0.017) and 6 to 6.5 allocs/op (+8.33%, p=0.002). A separate 10-second-per-arm allocation profile measured about 1182 B/op and six allocations in both arms; it does not negate the 20-seed result. Raw samples, benchstat, profile and container settings are archived. V11 passed the scoped comparative checks; runtime promotion and main merges remain held. Porting to the existing incremental draft requires fresh qualification on its combined branch. The earlier V3 and V5 pilots are rejected diagnostic variants; V9 is exploratory. An authority test setup failure is archived with reconstructed inputs explicitly labeled because its original overlay was overwritten.
 

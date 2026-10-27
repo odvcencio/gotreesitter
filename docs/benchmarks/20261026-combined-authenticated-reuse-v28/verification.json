@@ -1,0 +1,10 @@
+{
+  "validated": true,
+  "status": "relative checks passed; absolute RSS held",
+  "members": 2983,
+  "fleet_routes": 412,
+  "c_checks": 1236,
+  "go_paired_seeds": 20,
+  "yaml_paired_seeds": 20,
+  "rss_samples_above_ceiling_per_arm": 20
+}
