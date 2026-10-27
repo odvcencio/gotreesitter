@@ -260,6 +260,46 @@ func TestRecordedParseAsksTheScannerWhatTheProductionParseAsks(t *testing.T) {
 	}
 }
 
+// Certify pins every parser to the production route. GTS_ADMISSION_CANDIDATE
+// sets the process-wide default at start-up, and a default of the compact
+// candidate route must not change which questions a recorded parse puts to the
+// scanner.
+func TestParseAllStaysOnTheProductionRouteWhenTheProcessDefaultIsTheCandidate(t *testing.T) {
+	source := [][]byte{[]byte("1#2")}
+	asked := func(parse func(*gts.Language) error) map[string]int {
+		log := map[string]int{}
+		if err := parse(miniLanguage(answeringScanner{log: log})); err != nil {
+			t.Fatal(err)
+		}
+		return log
+	}
+	pinnedParse := func(lang *gts.Language) error {
+		_, err := parseAll(lang, source, nil, nil)
+		return err
+	}
+	production := asked(pinnedParse)
+
+	previous := gts.AdmissionCandidateRouteDefault()
+	gts.SetAdmissionCandidateRouteDefault(true)
+	t.Cleanup(func() { gts.SetAdmissionCandidateRouteDefault(previous) })
+
+	// A parser that is not pinned takes the candidate route and asks other
+	// questions. Without that difference the test would prove nothing.
+	unpinned := asked(func(lang *gts.Language) error {
+		tree, err := gts.NewParser(lang).Parse(source[0])
+		if err == nil {
+			tree.Release()
+		}
+		return err
+	})
+	if maps.Equal(unpinned, production) {
+		t.Skip("the candidate route no longer changes the questions put to a scanner, so the pin cannot be observed")
+	}
+	if pinned := asked(pinnedParse); !maps.Equal(pinned, production) {
+		t.Fatalf("with the candidate route as the process default, parseAll asked %q, want the production route's %q", listAsked(pinned), listAsked(production))
+	}
+}
+
 // A question the recorder is tested to answer must be one that probes_test.go
 // lists as mirrored. TestRecorderImplementsEveryMirroredProbe checks the other
 // direction.
