@@ -2,13 +2,14 @@ package gotreesitter
 
 import "strings"
 
-func (h *Highlighter) appendInjectedRanges(tree *Tree, source []byte, ranges []HighlightRange) []HighlightRange {
+// appendInjectedRanges adds the highlights of every injected tree to tiers.
+func (h *Highlighter) appendInjectedRanges(tree *Tree, source []byte, tiers *highlightTiers) {
 	if h == nil || tree == nil || h.injectionQuery == nil || h.injectionResolver == nil || len(source) == 0 {
-		return ranges
+		return
 	}
 	root := tree.RootNode()
 	if root == nil {
-		return ranges
+		return
 	}
 
 	cursor := h.injectionQuery.Exec(root, h.lang, source)
@@ -22,11 +23,9 @@ func (h *Highlighter) appendInjectedRanges(tree *Tree, source []byte, ranges []H
 		if !ok {
 			continue
 		}
-		childRanges := h.collectInjectedHighlightRanges(ctx)
-		ranges = appendOffsetHighlightRanges(ranges, childRanges, ctx.start)
+		layer := h.collectInjectedHighlightRanges(ctx)
+		tiers.merge(&layer, ctx.start, h.query.PatternCount())
 	}
-
-	return ranges
 }
 
 type injectionMatchCaptures struct {
@@ -110,25 +109,25 @@ func injectedHighlightCacheKey(lang *Language, fallback string) string {
 	return fallback
 }
 
-func (h *Highlighter) collectInjectedHighlightRanges(ctx injectedHighlightContext) []HighlightRange {
+func (h *Highlighter) collectInjectedHighlightRanges(ctx injectedHighlightContext) highlightTiers {
 	childTree, err := h.parseInjectedTree(ctx.lang, ctx.tokenSourceFactory, ctx.source)
 	if err != nil || childTree == nil || childTree.RootNode() == nil {
 		if childTree != nil {
 			childTree.Release()
 		}
-		return nil
+		return highlightTiers{}
 	}
 	defer childTree.Release()
 
 	childQuery, ok := h.childHighlightQuery(ctx.cacheKey, ctx.querySource, ctx.lang)
 	if !ok {
-		return nil
+		return highlightTiers{}
 	}
-	childRanges := collectHighlightRanges(childQuery, childTree)
-	if len(childRanges) == 0 && ctx.cacheKey == "go" {
-		childRanges = h.collectWrappedGoHighlightRanges(ctx, childQuery)
+	layer := collectHighlightTiers(childQuery, childTree)
+	if layer.empty() && ctx.cacheKey == "go" {
+		layer = h.collectWrappedGoHighlightRanges(ctx, childQuery)
 	}
-	return childRanges
+	return layer
 }
 
 func (h *Highlighter) childHighlightQuery(cacheKey string, querySource string, lang *Language) (*Query, bool) {
@@ -143,11 +142,12 @@ func (h *Highlighter) childHighlightQuery(cacheKey string, querySource string, l
 	if err != nil {
 		return nil, false
 	}
+	disableNonHighlightCaptures(childQuery)
 	h.childQueries[compositeKey] = childQuery
 	return childQuery, true
 }
 
-func (h *Highlighter) collectWrappedGoHighlightRanges(ctx injectedHighlightContext, childQuery *Query) []HighlightRange {
+func (h *Highlighter) collectWrappedGoHighlightRanges(ctx injectedHighlightContext, childQuery *Query) highlightTiers {
 	const prefix = "package main\nfunc __gts_markdown_fence__() {\n"
 	const suffix = "\n}\n"
 
@@ -161,35 +161,14 @@ func (h *Highlighter) collectWrappedGoHighlightRanges(ctx injectedHighlightConte
 		if wrappedTree != nil {
 			wrappedTree.Release()
 		}
-		return nil
+		return highlightTiers{}
 	}
 	defer wrappedTree.Release()
 
 	offset := uint32(len(prefix))
-	endOffset := offset + uint32(len(ctx.source))
-	childRanges := make([]HighlightRange, 0)
-	for _, r := range collectHighlightRanges(childQuery, wrappedTree) {
-		if r.StartByte < offset || r.EndByte > endOffset {
-			continue
-		}
-		childRanges = append(childRanges, HighlightRange{
-			StartByte: r.StartByte - offset,
-			EndByte:   r.EndByte - offset,
-			Capture:   r.Capture,
-		})
-	}
-	return childRanges
-}
-
-func appendOffsetHighlightRanges(dst []HighlightRange, ranges []HighlightRange, offset uint32) []HighlightRange {
-	for _, r := range ranges {
-		dst = append(dst, HighlightRange{
-			StartByte: r.StartByte + offset,
-			EndByte:   r.EndByte + offset,
-			Capture:   r.Capture,
-		})
-	}
-	return dst
+	layer := collectHighlightTiers(childQuery, wrappedTree)
+	layer.clip(offset, offset+uint32(len(ctx.source)))
+	return layer
 }
 
 func (h *Highlighter) parseInjectedTree(lang *Language, tokenSourceFactory func(source []byte) TokenSource, source []byte) (*Tree, error) {
@@ -218,27 +197,15 @@ func (h *Highlighter) newInjectedParser(lang *Language) *Parser {
 	return childParser
 }
 
-func collectHighlightRanges(q *Query, tree *Tree) []HighlightRange {
+// collectHighlightTiers runs a child highlight query over an injected tree.
+func collectHighlightTiers(q *Query, tree *Tree) highlightTiers {
+	var tiers highlightTiers
 	if q == nil || tree == nil {
-		return nil
+		return tiers
 	}
-	matches := q.Execute(tree)
-	if len(matches) == 0 {
-		return nil
+	if matches := q.Execute(tree); len(matches) > 0 {
+		tiers.base = make([]HighlightRange, 0, len(matches)*2)
+		tiers.addMatches(q, matches, 0)
 	}
-	ranges := make([]HighlightRange, 0, len(matches)*2)
-	for _, m := range matches {
-		for _, c := range m.Captures {
-			startByte, endByte := c.ByteRange()
-			if startByte == endByte {
-				continue
-			}
-			ranges = append(ranges, HighlightRange{
-				StartByte: startByte,
-				EndByte:   endByte,
-				Capture:   c.Name,
-			})
-		}
-	}
-	return ranges
+	return tiers
 }

@@ -12,6 +12,7 @@ import (
 var highlightNoRangesExpected = map[string]bool{
 	"cpp":     true, // C++ highlight query requires predicate support beyond current Highlighter
 	"angular": true, // upstream highlights.scm (synced at 38a8014) targets bindings, pipes, and control-flow syntax the plain-tag smoke sample does not exercise
+	"djot":    true, // the plain-paragraph smoke sample matches only @spell, which colors nothing and is not returned
 }
 
 func TestAllHighlightQueriesCompile(t *testing.T) {

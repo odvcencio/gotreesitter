@@ -7,6 +7,21 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Changed
+
+- Make the highlighter return only captures that name a color. It no longer
+  returns private captures (a leading underscore), `@spell`, `@nospell`,
+  `@conceal`, or the directives of a locals query (`@local.scope`,
+  `@local.reference`, `@local.definition`, `@local.definition-value` and
+  `@local.definition.*`); predicates and directives still read them. `@none`
+  clears the colors beneath it and is not returned. `(#set! priority N)` orders
+  a pattern's captures, with a default of 100. Injected child queries follow the
+  same rules, and an injected capture wins over the host's capture on the same
+  span. A VHDL comment keeps its `@comment` color, and a private capture such as
+  `@_key` no longer hides the color of its node. Code that reads a `spell`,
+  `none` or underscore capture from `Highlight` no longer receives it
+  ([#454](https://github.com/odvcencio/gotreesitter/issues/454)).
+
 ## [0.56.0] - 2026-10-13
 
 ### Added

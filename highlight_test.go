@@ -2,6 +2,9 @@ package gotreesitter
 
 import (
 	"errors"
+	"fmt"
+	"math/rand"
+	"strings"
 	"testing"
 	"time"
 )
@@ -508,5 +511,514 @@ func TestHighlighterAdmissionRouteForInjectedParser(t *testing.T) {
 		if got := h.newInjectedParser(lang).admissionCandidateRouteEnabled(); got != enabled {
 			t.Fatalf("injected route=%v, want %v", got, enabled)
 		}
+	}
+}
+
+// formatHighlightRanges renders ranges as "start-end:capture" for readable
+// comparisons in test failures.
+func formatHighlightRanges(ranges []HighlightRange) string {
+	if len(ranges) == 0 {
+		return "(empty)"
+	}
+	var b strings.Builder
+	for i, r := range ranges {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		fmt.Fprintf(&b, "%d-%d:%s", r.StartByte, r.EndByte, r.Capture)
+	}
+	return b.String()
+}
+
+// TestHighlighterCapturePolicy covers what the highlighter does with captures
+// that do not name a color. The arithmetic language parses "42+77" as
+// (expression (expression (NUMBER)) "+" (NUMBER)), and "42" as
+// (expression (NUMBER)), where the wrapper and its child share one span.
+func TestHighlighterCapturePolicy(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	cases := []struct {
+		name   string
+		source string
+		query  string
+		want   string
+	}{
+		{
+			name:   "drops private, spell, nospell, conceal and locals captures",
+			source: "42+77",
+			query: `
+(NUMBER) @number
+(NUMBER) @spell
+(NUMBER) @nospell
+(NUMBER) @conceal
+(NUMBER) @local.reference
+((NUMBER) @_private (#eq? @_private "42"))
+`,
+			want: "0-2:number 3-5:number",
+		},
+		{
+			name:   "private captures still feed predicates",
+			source: "42+77",
+			query:  `((NUMBER) @number @_n (#eq? @_n "42"))`,
+			want:   "0-2:number",
+		},
+		{
+			name:   "only the locals vocabulary is dropped",
+			source: "42+77",
+			query: `
+(NUMBER) @local.function.elm
+(NUMBER) @local.scope
+(NUMBER) @local.definition.var
+(NUMBER) @local.definition-value
+`,
+			want: "0-2:local.function.elm 3-5:local.function.elm",
+		},
+		{
+			name:   "none resets the enclosing capture and is not returned",
+			source: "42+77",
+			query:  "(expression) @outer\n(NUMBER) @none",
+			want:   "2-3:outer",
+		},
+		{
+			name:   "none after a capture on the same node clears it",
+			source: "42+77",
+			query:  "(NUMBER) @number @none",
+			want:   "(empty)",
+		},
+		{
+			name:   "a capture after none on the same node wins",
+			source: "42+77",
+			query:  "(NUMBER) @none @number",
+			want:   "0-2:number 3-5:number",
+		},
+		{
+			name:   "none alone returns nothing",
+			source: "42+77",
+			query:  "(NUMBER) @none",
+			want:   "(empty)",
+		},
+		{
+			name:   "set! priority above the default beats nesting",
+			source: "42+77",
+			query:  "((expression) @outer (#set! priority 105))\n(NUMBER) @number",
+			want:   "0-5:outer",
+		},
+		{
+			name:   "set! priority accepts a quoted key",
+			source: "42+77",
+			query:  "((expression) @outer (#set! \"priority\" 105))\n(NUMBER) @number",
+			want:   "0-5:outer",
+		},
+		{
+			name:   "set! priority below the default loses to an outer capture",
+			source: "42+77",
+			query:  "((NUMBER) @number (#set! priority 90))\n(expression) @outer",
+			want:   "0-5:outer",
+		},
+		{
+			name:   "equal priorities keep inner-wins nesting",
+			source: "42+77",
+			query:  "((expression) @outer (#set! priority 105))\n((NUMBER) @number (#set! priority 105))",
+			want:   "0-2:number 2-3:outer 3-5:number",
+		},
+		{
+			name:   "an invalid priority is ignored",
+			source: "42+77",
+			query:  "((expression) @outer (#set! priority high))\n(NUMBER) @number",
+			want:   "0-2:number 2-3:outer 3-5:number",
+		},
+		{
+			name:   "none honors set! priority",
+			source: "42+77",
+			query:  "((expression) @outer (#set! priority 105))\n((NUMBER) @none (#set! priority 110))",
+			want:   "2-3:outer",
+		},
+		{
+			name:   "a low priority none does not reset a default capture",
+			source: "42+77",
+			query:  "((NUMBER) @none (#set! priority 90))\n(expression) @outer",
+			want:   "0-5:outer",
+		},
+		{
+			// teal and SQL write (identifier) @variable first and a wrapper such as
+			// (simple_type) @type later; the later pattern must keep the span.
+			name:   "a later pattern wins on a span shared by a wrapper and its child",
+			source: "42",
+			query:  "(NUMBER) @inner\n(expression) @outer",
+			want:   "0-2:outer",
+		},
+		{
+			name:   "an earlier pattern loses on a span shared by a wrapper and its child",
+			source: "42",
+			query:  "(expression) @outer\n(NUMBER) @inner",
+			want:   "0-2:inner",
+		},
+		{
+			name:   "later pattern still wins on the same node",
+			source: "42+77",
+			query:  "(NUMBER) @a\n(NUMBER) @b",
+			want:   "0-2:b 3-5:b",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, err := NewHighlighter(lang, tc.query)
+			if err != nil {
+				t.Fatalf("NewHighlighter: %v", err)
+			}
+			// Repeat so buffer reuse cannot change the result.
+			for i := 0; i < 3; i++ {
+				if got := formatHighlightRanges(h.Highlight([]byte(tc.source))); got != tc.want {
+					t.Fatalf("call %d, query:\n%s\ngot  %s\nwant %s", i+1, tc.query, got, tc.want)
+				}
+			}
+			ranges, tree := h.HighlightIncremental([]byte(tc.source), nil)
+			defer tree.Release()
+			if got := formatHighlightRanges(ranges); got != tc.want {
+				t.Fatalf("HighlightIncremental, query:\n%s\ngot  %s\nwant %s", tc.query, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestHighlighterInjectedQueriesFollowCapturePolicy checks that an injected
+// child tree obeys the same capture policy as the host document. The host
+// "[42+77]" holds the child document "42+77" at bytes 1-6.
+func TestHighlighterInjectedQueriesFollowCapturePolicy(t *testing.T) {
+	childLang := buildArithmeticLanguage()
+	cases := []struct {
+		name       string
+		hostQuery  string
+		childQuery string
+		want       string
+	}{
+		{
+			name:      "drops non-highlight captures",
+			hostQuery: "(document) @doc",
+			childQuery: `
+(expression) @expr
+(NUMBER) @number
+(NUMBER) @spell
+(NUMBER) @nospell
+(NUMBER) @conceal
+(NUMBER) @local.reference
+((NUMBER) @_private)
+`,
+			want: "0-1:doc 1-3:number 3-4:expr 4-6:number 6-7:doc",
+		},
+		{
+			name:       "none resets the host capture beneath it",
+			hostQuery:  "(document) @doc",
+			childQuery: "(expression) @expr\n(NUMBER) @none",
+			want:       "0-1:doc 3-4:expr 6-7:doc",
+		},
+		{
+			name:       "child priority is read from the child query",
+			hostQuery:  "(document) @doc",
+			childQuery: "((NUMBER) @number (#set! priority 90))\n(expression) @expr",
+			want:       "0-1:doc 1-6:expr 6-7:doc",
+		},
+		{
+			name:       "host priority beats the child layer",
+			hostQuery:  "((content) @content (#set! priority 105))",
+			childQuery: "(expression) @expr",
+			want:       "1-6:content",
+		},
+		{
+			name:       "child layer beats the host on an identical span",
+			hostQuery:  "(document) @doc\n(content) @content",
+			childQuery: "(expression) @expr",
+			want:       "0-1:doc 1-6:expr 6-7:doc",
+		},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			parentLang := buildContainerLanguage()
+			parentLang.Name = fmt.Sprintf("gts_capture_policy_container_%d", i)
+			childQuery := tc.childQuery
+			RegisterHighlighterInjection(parentLang.Name, HighlighterInjectionSpec{
+				Query: `(content) @injection.content (#set! injection.language "child")`,
+				ResolveLanguage: func(hint string) (*Language, string, func([]byte) TokenSource, bool) {
+					if hint != "child" {
+						return nil, "", nil, false
+					}
+					return childLang, childQuery, nil, true
+				},
+			})
+			h, err := NewHighlighter(parentLang, tc.hostQuery)
+			if err != nil {
+				t.Fatalf("NewHighlighter: %v", err)
+			}
+			for call := 0; call < 3; call++ {
+				if got := formatHighlightRanges(h.Highlight([]byte("[42+77]"))); got != tc.want {
+					t.Fatalf("call %d, host query:\n%s\nchild query:\n%s\ngot  %s\nwant %s", call+1, tc.hostQuery, tc.childQuery, got, tc.want)
+				}
+			}
+		})
+	}
+}
+
+func TestIsNonHighlightCapture(t *testing.T) {
+	for name, want := range map[string]bool{
+		"_":                       true,
+		"_private":                true,
+		"__name__":                true,
+		"_heading.marker":         true,
+		"spell":                   true,
+		"nospell":                 true,
+		"conceal":                 true,
+		"local.scope":             true,
+		"local.reference":         true,
+		"local.definition":        true,
+		"local.definition-value":  true,
+		"local.definition.var":    true,
+		"local.definition.import": true,
+		"keyword":                 false,
+		"comment.documentation":   false,
+		"none":                    false, // a reset, which resolution handles
+		"spellcheck":              false,
+		"nospell.line":            false,
+		"concealed":               false,
+		"Spell":                   false,
+		"local":                   false,
+		"local.function.elm":      false, // a real highlight name in the elm query
+		"variable.local":          false,
+		"locals.scope":            false,
+		"":                        false,
+	} {
+		if got := isNonHighlightCapture(name); got != want {
+			t.Errorf("isNonHighlightCapture(%q) = %v, want %v", name, got, want)
+		}
+	}
+}
+
+func TestHighlightPatternPriorities(t *testing.T) {
+	lang := queryTestLanguage()
+	plain, err := NewQuery("(identifier) @a\n(number) @b", lang)
+	if err != nil {
+		t.Fatalf("NewQuery: %v", err)
+	}
+	if got := highlightPatternPriorities(plain); got != nil {
+		t.Fatalf("priorities = %v for a query that sets none, want nil", got)
+	}
+
+	q, err := NewQuery(`
+(identifier) @plain
+((identifier) @raised (#set! priority 105))
+((identifier) @lowered (#set! "priority" 90))
+((identifier) @negative (#set! priority -5))
+((identifier) @invalid (#set! priority high))
+((identifier) @empty (#set! priority))
+((identifier) @overflow (#set! priority 99999999999))
+((identifier) @other-key (#set! injection.language "go"))
+((identifier) @last-wins (#set! priority 120) (#set! priority 95))
+((identifier) @invalid-last (#set! priority 120) (#set! priority high))
+((identifier) @with-predicate (#set! priority 110) (#eq? @with-predicate "x"))
+`, lang)
+	if err != nil {
+		t.Fatalf("NewQuery: %v", err)
+	}
+	want := []int32{100, 105, 90, -5, 100, 100, 100, 100, 95, 100, 110}
+	got := highlightPatternPriorities(q)
+	if len(got) != len(want) {
+		t.Fatalf("priorities = %v, want %v", got, want)
+	}
+	for pattern := range want {
+		if got[pattern] != want[pattern] {
+			t.Errorf("pattern %d priority = %d, want %d", pattern, got[pattern], want[pattern])
+		}
+	}
+}
+
+func TestOverlayHighlightRanges(t *testing.T) {
+	r := func(start, end uint32, capture string) HighlightRange {
+		return HighlightRange{StartByte: start, EndByte: end, Capture: capture}
+	}
+	for _, tc := range []struct {
+		name         string
+		lower, upper []HighlightRange
+		want         string
+	}{
+		{"no upper", []HighlightRange{r(0, 5, "a")}, nil, "0-5:a"},
+		{"no lower", nil, []HighlightRange{r(2, 4, "u")}, "2-4:u"},
+		{"upper inside lower", []HighlightRange{r(0, 10, "a")}, []HighlightRange{r(3, 6, "u")}, "0-3:a 3-6:u 6-10:a"},
+		{"upper covers lower", []HighlightRange{r(2, 4, "a")}, []HighlightRange{r(0, 10, "u")}, "0-10:u"},
+		{"upper clips the start", []HighlightRange{r(5, 10, "a")}, []HighlightRange{r(0, 7, "u")}, "0-7:u 7-10:a"},
+		{"upper clips the end", []HighlightRange{r(0, 5, "a")}, []HighlightRange{r(3, 9, "u")}, "0-3:a 3-9:u"},
+		{
+			"upper spans several lower ranges",
+			[]HighlightRange{r(0, 10, "a"), r(10, 20, "b")},
+			[]HighlightRange{r(5, 15, "u")},
+			"0-5:a 5-15:u 15-20:b",
+		},
+		{
+			"upper spans a gap between lower ranges",
+			[]HighlightRange{r(0, 4, "a"), r(8, 12, "b")},
+			[]HighlightRange{r(2, 10, "u")},
+			"0-2:a 2-10:u 10-12:b",
+		},
+		{
+			"upper in a gap",
+			[]HighlightRange{r(0, 4, "a"), r(8, 12, "b")},
+			[]HighlightRange{r(5, 7, "u")},
+			"0-4:a 5-7:u 8-12:b",
+		},
+		{
+			"several upper ranges in one lower range",
+			[]HighlightRange{r(0, 20, "a")},
+			[]HighlightRange{r(2, 4, "u"), r(6, 8, "v"), r(8, 10, "w")},
+			"0-2:a 2-4:u 4-6:a 6-8:v 8-10:w 10-20:a",
+		},
+		{
+			"equal captures join",
+			[]HighlightRange{r(0, 10, "a")},
+			[]HighlightRange{r(3, 6, "a")},
+			"0-10:a",
+		},
+		{
+			"upper before and after all lower ranges",
+			[]HighlightRange{r(5, 8, "a")},
+			[]HighlightRange{r(0, 2, "u"), r(9, 12, "v")},
+			"0-2:u 5-8:a 9-12:v",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatHighlightRanges(overlayHighlightRanges(tc.lower, tc.upper)); got != tc.want {
+				t.Fatalf("got  %s\nwant %s", got, tc.want)
+			}
+		})
+	}
+}
+
+// genLaminarRanges emits intervals that nest or stay disjoint, as the nodes of
+// one syntax tree do. Intervals may repeat.
+func genLaminarRanges(r *rand.Rand, lo, hi uint32, depth int, emit func(lo, hi uint32)) {
+	if hi <= lo {
+		return
+	}
+	for n := r.Intn(3); n > 0; n-- {
+		emit(lo, hi)
+	}
+	if depth == 0 || hi-lo < 2 {
+		return
+	}
+	for cur := lo; cur < hi; {
+		end := cur + 1 + uint32(r.Intn(int(hi-cur)))
+		if r.Intn(3) != 0 {
+			genLaminarRanges(r, cur, end, depth-1, emit)
+		}
+		cur = end
+	}
+}
+
+type pricedHighlightRange struct {
+	HighlightRange
+	priority int32
+}
+
+// TestHighlightTiersMatchPainter checks the resolved ranges against a
+// byte-by-byte model: the highest priority wins, then the narrowest range, then
+// the later pattern, then the range added last. A reset capture wins like any
+// other and leaves no range.
+func TestHighlightTiersMatchPainter(t *testing.T) {
+	r := rand.New(rand.NewSource(20261026))
+	captures := []string{"a", "b", "c", "d", highlightResetCapture}
+	priorities := []int32{90, defaultHighlightPriority, defaultHighlightPriority, 105, 110}
+	const size = 48
+	for round := 0; round < 3000; round++ {
+		var added []pricedHighlightRange
+		genLaminarRanges(r, 0, size, 4, func(lo, hi uint32) {
+			added = append(added, pricedHighlightRange{
+				HighlightRange: HighlightRange{
+					StartByte:    lo,
+					EndByte:      hi,
+					Capture:      captures[r.Intn(len(captures))],
+					PatternIndex: r.Intn(6),
+				},
+				priority: priorities[r.Intn(len(priorities))],
+			})
+		})
+		r.Shuffle(len(added), func(i, j int) { added[i], added[j] = added[j], added[i] })
+
+		// Model: pick the winner of every byte, then join equal neighbors.
+		var want []HighlightRange
+		for b := uint32(0); b < size; b++ {
+			best := -1
+			for i, a := range added {
+				if b < a.StartByte || b >= a.EndByte {
+					continue
+				}
+				if best < 0 || modelRangeBeats(a, i, added[best], best) {
+					best = i
+				}
+			}
+			if best < 0 || added[best].Capture == highlightResetCapture {
+				continue
+			}
+			want = appendHighlightSegment(want, HighlightRange{StartByte: b, EndByte: b + 1, Capture: added[best].Capture})
+		}
+
+		var tiers highlightTiers
+		for _, a := range added {
+			tiers.add(a.priority, a.HighlightRange)
+		}
+		got := withoutHighlightResets(tiers.resolve(nil))
+		if gotText, wantText := formatHighlightRanges(got), formatHighlightRanges(want); gotText != wantText {
+			t.Fatalf("round %d\nadded: %+v\ngot  %s\nwant %s", round, added, gotText, wantText)
+		}
+	}
+}
+
+func modelRangeBeats(a pricedHighlightRange, aIndex int, b pricedHighlightRange, bIndex int) bool {
+	if a.priority != b.priority {
+		return a.priority > b.priority
+	}
+	if aw, bw := a.EndByte-a.StartByte, b.EndByte-b.StartByte; aw != bw {
+		return aw < bw
+	}
+	if a.PatternIndex != b.PatternIndex {
+		return a.PatternIndex > b.PatternIndex
+	}
+	return aIndex > bIndex
+}
+
+func TestHighlightTiersOfOnlyResetsResolveToNil(t *testing.T) {
+	var tiers highlightTiers
+	if !tiers.empty() {
+		t.Fatal("zero tiers are not empty")
+	}
+	tiers.add(defaultHighlightPriority, HighlightRange{StartByte: 0, EndByte: 4, Capture: highlightResetCapture})
+	tiers.add(110, HighlightRange{StartByte: 2, EndByte: 3, Capture: highlightResetCapture})
+	if tiers.empty() {
+		t.Fatal("tiers with ranges are empty")
+	}
+	if got := withoutHighlightResets(tiers.resolve(nil)); got != nil {
+		t.Fatalf("got %v, want nil", got)
+	}
+}
+
+func TestHighlightTiersMergeAndClip(t *testing.T) {
+	var host highlightTiers
+	host.add(defaultHighlightPriority, HighlightRange{StartByte: 1, EndByte: 6, Capture: "content", PatternIndex: 3})
+
+	var layer highlightTiers
+	layer.add(defaultHighlightPriority, HighlightRange{StartByte: 0, EndByte: 5, Capture: "expr", PatternIndex: 0})
+	layer.add(105, HighlightRange{StartByte: 0, EndByte: 2, Capture: "raised", PatternIndex: 1})
+	layer.add(105, HighlightRange{StartByte: 8, EndByte: 9, Capture: "outside", PatternIndex: 1})
+	layer.clip(0, 5) // the wrapped-source path keeps what lies inside the fence
+	host.merge(&layer, 1, 10)
+
+	// The layer's expr shares the host's span and has the later pattern, so it wins;
+	// raised has a higher priority and keeps the start of the span.
+	if got, want := formatHighlightRanges(host.resolve(nil)), "1-3:raised 3-6:expr"; got != want {
+		t.Fatalf("got %s, want %s", got, want)
+	}
+
+	var shifted highlightTiers
+	shifted.add(defaultHighlightPriority, HighlightRange{StartByte: 3, EndByte: 5, Capture: "in"})
+	shifted.add(defaultHighlightPriority, HighlightRange{StartByte: 0, EndByte: 3, Capture: "before"})
+	shifted.add(defaultHighlightPriority, HighlightRange{StartByte: 4, EndByte: 9, Capture: "after"})
+	shifted.clip(3, 8)
+	if got, want := formatHighlightRanges(shifted.base), "0-2:in"; got != want {
+		t.Fatalf("clip kept %s, want %s", got, want)
 	}
 }
