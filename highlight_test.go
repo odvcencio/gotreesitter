@@ -947,7 +947,7 @@ func TestHighlighterCapturePolicyOverlay(t *testing.T) {
 			},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				if got := formatHighlightRanges(overlayHighlightRanges(tc.lower, tc.upper)); got != tc.want {
+				if got := formatHighlightRanges(overlayHighlightRangesInto(tc.lower, tc.upper, nil)); got != tc.want {
 					t.Fatalf("got  %s\nwant %s", got, tc.want)
 				}
 			})
@@ -1000,11 +1000,14 @@ func TestHighlighterCapturePolicyOverlay(t *testing.T) {
 // TestHighlighterCapturePolicyPainter checks the resolved ranges of 3,000 random
 // nested range sets against a byte-by-byte model that picks each byte's winner
 // with modelRangeBeats. A reset capture wins like any other and leaves no range.
+// Like the Highlighter, it keeps the input and result buffers from one round to
+// the next, so a result that shared memory with an input would corrupt a later round.
 func TestHighlighterCapturePolicyPainter(t *testing.T) {
 	r := rand.New(rand.NewSource(20261026))
 	captures := []string{"a", "b", "c", "d", highlightResetCapture}
 	priorities := []int32{90, defaultHighlightPriority, defaultHighlightPriority, 105, 110}
 	const size = 48
+	var base, scratch []HighlightRange
 	for round := 0; round < 3000; round++ {
 		var added []pricedHighlightRange
 		genLaminarRanges(r, 0, size, 4, func(lo, hi uint32) {
@@ -1038,11 +1041,14 @@ func TestHighlighterCapturePolicyPainter(t *testing.T) {
 			want = appendHighlightSegment(want, HighlightRange{StartByte: b, EndByte: b + 1, Capture: added[best].Capture})
 		}
 
-		var tiers highlightTiers
+		tiers := highlightTiers{base: base[:0]}
 		for _, a := range added {
 			tiers.add(a.priority, a.HighlightRange)
 		}
-		got := withoutHighlightResets(tiers.resolve(nil))
+		base = tiers.base[:0]
+		resolved := tiers.resolve(scratch[:0])
+		scratch = resolved[:0]
+		got := withoutHighlightResets(resolved)
 		if gotText, wantText := formatHighlightRanges(got), formatHighlightRanges(want); gotText != wantText {
 			t.Fatalf("round %d\nadded: %+v\ngot  %s\nwant %s", round, added, gotText, wantText)
 		}

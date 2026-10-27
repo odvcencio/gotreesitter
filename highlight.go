@@ -502,8 +502,7 @@ func clipHighlightRanges(ranges []HighlightRange, lo, hi uint32) []HighlightRang
 
 // resolve turns the ranges into sorted, non-overlapping ranges. The innermost
 // capture wins within one priority; a higher priority replaces the lower ones
-// wherever it applies. scratch is reusable space for the common case of a single
-// priority.
+// wherever it applies. scratch is reusable space for the result.
 func (t *highlightTiers) resolve(scratch []HighlightRange) []HighlightRange {
 	if len(t.others) == 0 {
 		return resolveOverlapsInto(t.base, scratch)
@@ -513,22 +512,33 @@ func (t *highlightTiers) resolve(scratch []HighlightRange) []HighlightRange {
 	tiers = append(tiers, t.others...)
 	slices.SortFunc(tiers, func(a, b highlightTier) int { return cmp.Compare(a.priority, b.priority) })
 
-	var resolved []HighlightRange
-	for i, tier := range tiers {
-		layer := resolveOverlapsInto(tier.ranges, nil)
-		if i == 0 {
-			resolved = layer
-		} else {
-			resolved = overlayHighlightRanges(resolved, layer)
-		}
+	// Three buffers take turns, so the tiers share their allocations instead of
+	// making two new slices per tier. resolved holds the lower priorities, layer
+	// the tier laid over them and spare receives the overlay. The overlay then
+	// becomes resolved, and the old resolved becomes the spare. Each overlay swaps
+	// resolved and spare, so with an odd number of overlays the first tier starts
+	// in a fresh buffer. The last overlay then lands in scratch, which the caller
+	// keeps. A buffer too small for a later tier is replaced by a larger one.
+	var resolved, layer, spare []HighlightRange
+	if len(tiers)%2 == 1 {
+		resolved = scratch
+	} else {
+		spare = scratch
+	}
+	resolved = resolveOverlapsInto(tiers[0].ranges, resolved)
+	for _, tier := range tiers[1:] {
+		layer = resolveOverlapsInto(tier.ranges, layer)
+		overlaid := overlayHighlightRangesInto(resolved, layer, spare)
+		resolved, spare = overlaid, resolved
 	}
 	return resolved
 }
 
-// overlayHighlightRanges returns lower with every byte that upper covers given
-// to upper. Both inputs are sorted and non-overlapping, and so is the result.
-func overlayHighlightRanges(lower, upper []HighlightRange) []HighlightRange {
-	out := make([]HighlightRange, 0, len(lower)+len(upper))
+// overlayHighlightRangesInto returns lower with every byte that upper covers given
+// to upper. Both inputs are sorted and non-overlapping, and so is the result. dst
+// is reusable space for the result and must not share memory with either input.
+func overlayHighlightRangesInto(lower, upper, dst []HighlightRange) []HighlightRange {
+	out := prepareHighlightResult(dst, len(lower)+len(upper))
 	next := 0          // the first upper range not yet written
 	var covered uint32 // the end of the last upper range written
 	for _, l := range lower {
