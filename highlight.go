@@ -4,6 +4,8 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 )
 
 // HighlightRange represents a styled range of source code, mapping a byte span
@@ -78,11 +80,33 @@ func WithHighlighterAdmissionCandidateRoute(enabled bool) HighlighterOption {
 // NewHighlighter creates a Highlighter for the given language and highlight
 // query (in tree-sitter .scm format). Returns an error if the query fails
 // to compile.
+//
+// Only captures that name a color become ranges. The highlighter does not
+// return private captures (a leading underscore), @spell, @nospell, @conceal, or
+// the directives of a locals query (@local.scope, @local.reference,
+// @local.definition, @local.definition-value and @local.definition.*).
+// Predicates and directives still read them. (#set! priority N) sets the
+// priority of a pattern's captures, 100 by default, and a higher priority wins
+// over a lower one even when the lower capture is the inner one. These rules
+// follow the conventions of Neovim's treesitter highlighter, which many shipped
+// queries use.
+//
+// @none is a reset and is not returned either. It clears the colors of its own
+// priority beneath its span, including the color of an enclosing capture of that
+// priority, but it never clears a capture of a lower priority. The Markdown
+// query resets a fence at the default priority, and the injected language's
+// captures that set a lower one, such as zig's strings at 95, keep their color.
+// This follows the convention that nvim-treesitter documents for @none
+// ("completely disable the highlight") and the comments in the shipped
+// starlark, bitbake and djot queries, which reset a capture of the same priority.
+// It differs from tree-sitter-highlight and from Neovim's own highlighter, where
+// an inner @none node keeps the color of the node around it.
 func NewHighlighter(lang *Language, highlightQuery string, opts ...HighlighterOption) (*Highlighter, error) {
 	q, err := NewQuery(highlightQuery, lang)
 	if err != nil {
 		return nil, err
 	}
+	disableNonHighlightCaptures(q)
 
 	h := &Highlighter{
 		parser: NewParser(lang),
@@ -173,8 +197,11 @@ func (h *Highlighter) HighlightIncrementalUTF16Bytes(source []byte, oldTree *Tre
 }
 
 // Highlight parses the source code and executes the highlight query, returning
-// a slice of HighlightRange sorted by StartByte. When ranges overlap, inner
-// (more specific) captures take priority over outer ones.
+// a slice of HighlightRange sorted by StartByte. When ranges overlap, the
+// higher (#set! priority N) wins. At equal priority the inner (narrower) capture
+// wins, and of two captures on one span the injected layer wins over its host,
+// then the later pattern. See NewHighlighter for the captures that are not
+// returned.
 func (h *Highlighter) Highlight(source []byte) []HighlightRange {
 	if len(source) == 0 {
 		return nil
@@ -270,40 +297,309 @@ func (h *Highlighter) highlightTree(tree *Tree, source []byte) []HighlightRange 
 		return nil
 	}
 
-	ranges := h.rangeBuffer[:0]
+	tiers := highlightTiers{base: h.rangeBuffer[:0]}
 	// Most highlight patterns have exactly one capture per match, so pre-sizing
 	// to len(matches) avoids early growth when reusing a smaller prior buffer.
-	if cap(ranges) < len(matches) {
-		ranges = make([]HighlightRange, 0, len(matches))
+	if cap(tiers.base) < len(matches) {
+		tiers.base = make([]HighlightRange, 0, len(matches))
 	}
-	for _, m := range matches {
-		for _, c := range m.Captures {
-			startByte, endByte := c.ByteRange()
-			if startByte == endByte {
+	tiers.addMatches(h.query, matches, 0)
+	h.appendInjectedRanges(tree, source, &tiers)
+	h.rangeBuffer = tiers.base[:0]
+
+	if tiers.empty() {
+		return nil
+	}
+	resolved := tiers.resolve(h.resolvedBuffer[:0])
+	h.resolvedBuffer = resolved[:0]
+
+	return withoutHighlightResets(resolved)
+}
+
+// withoutHighlightResets copies ranges and leaves out the reset captures, which
+// clear the colors beneath them but are not colors. It returns nil when no range
+// is left.
+func withoutHighlightResets(ranges []HighlightRange) []HighlightRange {
+	out := make([]HighlightRange, 0, len(ranges))
+	for _, r := range ranges {
+		if r.Capture != highlightResetCapture {
+			out = append(out, r)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// dropHighlightResets removes the reset captures from ranges in place and
+// returns the shortened slice. The resolved ranges of a tier have already used
+// their resets to clear the captures of that priority, so a reset has nothing
+// left to do when the tier is laid over the lower ones.
+func dropHighlightResets(ranges []HighlightRange) []HighlightRange {
+	kept := ranges[:0]
+	for _, r := range ranges {
+		if r.Capture != highlightResetCapture {
+			kept = append(kept, r)
+		}
+	}
+	return kept
+}
+
+// defaultHighlightPriority is the priority of a pattern without a
+// (#set! priority N) directive. It is the default of Neovim, whose directive the
+// query files use.
+const defaultHighlightPriority = 100
+
+// highlightResetCapture clears the colors of its own priority beneath its span.
+// It takes part in resolution within its priority like any capture, and the
+// result leaves it out.
+const highlightResetCapture = "none"
+
+// isNonHighlightCapture reports whether a capture name never colors text:
+// a private helper (leading underscore), a spell-check or conceal marker, or a
+// directive of a locals query. Only the locals vocabulary is dropped, because
+// other dotted names that start with "local." are real highlight names; the Elm
+// query captures @local.function.elm, for one.
+func isNonHighlightCapture(name string) bool {
+	switch name {
+	case "spell", "nospell", "conceal",
+		"local.scope", "local.reference", "local.definition", "local.definition-value":
+		return true
+	}
+	return strings.HasPrefix(name, "_") || strings.HasPrefix(name, "local.definition.")
+}
+
+// disableNonHighlightCaptures drops every capture of q that never colors text.
+// DisableCapture filters only a finished match, so predicates and directives
+// still read the dropped captures.
+func disableNonHighlightCaptures(q *Query) {
+	for _, name := range q.captures {
+		if isNonHighlightCapture(name) {
+			q.DisableCapture(name)
+		}
+	}
+}
+
+// highlightPatternPriorities returns the priority of each pattern of q, or nil
+// when no pattern sets one. The last (#set! priority N) directive of a pattern
+// decides; a value that is not an integer leaves the default.
+func highlightPatternPriorities(q *Query) []int32 {
+	var priorities []int32
+	for pattern := range q.patterns {
+		priority, set := int32(defaultHighlightPriority), false
+		for i := range q.patterns[pattern].predicates {
+			pred := &q.patterns[pattern].predicates[i]
+			if pred.kind != predicateSet || pred.literal != "priority" || len(pred.values) == 0 {
 				continue
 			}
-			ranges = append(ranges, HighlightRange{
+			set = true
+			priority = defaultHighlightPriority
+			if n, err := strconv.ParseInt(pred.values[0], 10, 32); err == nil {
+				priority = int32(n)
+			}
+		}
+		if !set || priority == defaultHighlightPriority {
+			continue
+		}
+		if priorities == nil {
+			priorities = make([]int32, len(q.patterns))
+			for j := range priorities {
+				priorities[j] = defaultHighlightPriority
+			}
+		}
+		priorities[pattern] = priority
+	}
+	return priorities
+}
+
+// highlightTier holds the ranges of the patterns that share one priority.
+type highlightTier struct {
+	priority int32
+	ranges   []HighlightRange
+}
+
+// highlightTiers collects ranges by the priority of their pattern. The ranges of
+// patterns that set no priority go to base, which keeps the highlighter's reusable
+// buffer; the few other priorities allocate.
+type highlightTiers struct {
+	base   []HighlightRange
+	others []highlightTier
+}
+
+func (t *highlightTiers) empty() bool {
+	if len(t.base) > 0 {
+		return false
+	}
+	for i := range t.others {
+		if len(t.others[i].ranges) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (t *highlightTiers) add(priority int32, r HighlightRange) {
+	if priority == defaultHighlightPriority {
+		t.base = append(t.base, r)
+		return
+	}
+	for i := range t.others {
+		if t.others[i].priority == priority {
+			t.others[i].ranges = append(t.others[i].ranges, r)
+			return
+		}
+	}
+	t.others = append(t.others, highlightTier{priority: priority, ranges: []HighlightRange{r}})
+}
+
+// addMatches adds one range for each non-empty capture of matches, which q
+// produced. patternBase is added to each pattern index.
+func (t *highlightTiers) addMatches(q *Query, matches []QueryMatch, patternBase int) {
+	priorities := highlightPatternPriorities(q)
+	for i := range matches {
+		match := &matches[i]
+		priority := int32(defaultHighlightPriority)
+		if priorities != nil {
+			priority = priorities[match.PatternIndex]
+		}
+		for _, c := range match.Captures {
+			startByte, endByte := c.ByteRange()
+			if endByte <= startByte {
+				continue
+			}
+			t.add(priority, HighlightRange{
 				StartByte:    startByte,
 				EndByte:      endByte,
 				Capture:      c.Name,
-				PatternIndex: m.PatternIndex,
+				PatternIndex: patternBase + match.PatternIndex,
 			})
 		}
 	}
+}
 
-	ranges = h.appendInjectedRanges(tree, source, ranges)
-	h.rangeBuffer = ranges[:0]
-
-	if len(ranges) == 0 {
-		return nil
+// merge adds the ranges of an injected layer, moved up by shift bytes. Its
+// pattern indexes start at patternBase, so on a span that host and layer both
+// capture, the layer's capture is the later one and wins.
+func (t *highlightTiers) merge(layer *highlightTiers, shift uint32, patternBase int) {
+	move := func(r HighlightRange) HighlightRange {
+		r.StartByte += shift
+		r.EndByte += shift
+		r.PatternIndex += patternBase
+		return r
 	}
+	for _, r := range layer.base {
+		t.add(defaultHighlightPriority, move(r))
+	}
+	for _, tier := range layer.others {
+		for _, r := range tier.ranges {
+			t.add(tier.priority, move(r))
+		}
+	}
+}
 
-	resolved := resolveOverlapsInto(ranges, h.resolvedBuffer[:0])
-	h.resolvedBuffer = resolved[:0]
+// clip keeps the ranges that lie inside [lo, hi) and moves them down by lo.
+func (t *highlightTiers) clip(lo, hi uint32) {
+	t.base = clipHighlightRanges(t.base, lo, hi)
+	for i := range t.others {
+		t.others[i].ranges = clipHighlightRanges(t.others[i].ranges, lo, hi)
+	}
+}
 
-	out := make([]HighlightRange, len(resolved))
-	copy(out, resolved)
+func clipHighlightRanges(ranges []HighlightRange, lo, hi uint32) []HighlightRange {
+	kept := ranges[:0]
+	for _, r := range ranges {
+		if r.StartByte < lo || r.EndByte > hi {
+			continue
+		}
+		r.StartByte -= lo
+		r.EndByte -= lo
+		kept = append(kept, r)
+	}
+	return kept
+}
+
+// resolve turns the ranges into sorted, non-overlapping ranges. The innermost
+// capture wins within one priority; a higher priority replaces the lower ones
+// wherever it applies. A reset wins within its own priority like any capture, so
+// it clears the other captures of that priority beneath it. It hides nothing at a
+// lower priority, which shows through it. scratch is reusable space for the
+// result, which may still hold resets.
+func (t *highlightTiers) resolve(scratch []HighlightRange) []HighlightRange {
+	if len(t.others) == 0 {
+		return resolveOverlapsInto(t.base, scratch)
+	}
+	tiers := make([]highlightTier, 0, len(t.others)+1)
+	tiers = append(tiers, highlightTier{priority: defaultHighlightPriority, ranges: t.base})
+	tiers = append(tiers, t.others...)
+	slices.SortFunc(tiers, func(a, b highlightTier) int { return cmp.Compare(a.priority, b.priority) })
+
+	// Three buffers take turns, so the tiers share their allocations instead of
+	// making two new slices per tier. resolved holds the lower priorities, layer
+	// the tier laid over them and spare receives the overlay. The overlay then
+	// becomes resolved, and the old resolved becomes the spare. Each overlay swaps
+	// resolved and spare, so with an odd number of overlays the first tier starts
+	// in a fresh buffer. The last overlay then lands in scratch, which the caller
+	// keeps. A buffer too small for a later tier is replaced by a larger one.
+	var resolved, layer, spare []HighlightRange
+	if len(tiers)%2 == 1 {
+		resolved = scratch
+	} else {
+		spare = scratch
+	}
+	resolved = resolveOverlapsInto(tiers[0].ranges, resolved)
+	for _, tier := range tiers[1:] {
+		layer = dropHighlightResets(resolveOverlapsInto(tier.ranges, layer))
+		overlaid := overlayHighlightRangesInto(resolved, layer, spare)
+		resolved, spare = overlaid, resolved
+	}
+	return resolved
+}
+
+// overlayHighlightRangesInto returns lower with every byte that upper covers given
+// to upper. Both inputs are sorted and non-overlapping, and so is the result. dst
+// is reusable space for the result and must not share memory with either input.
+func overlayHighlightRangesInto(lower, upper, dst []HighlightRange) []HighlightRange {
+	out := prepareHighlightResult(dst, len(lower)+len(upper))
+	next := 0          // the first upper range not yet written
+	var covered uint32 // the end of the last upper range written
+	for _, l := range lower {
+		start := max(l.StartByte, covered)
+		for start < l.EndByte {
+			for next < len(upper) && upper[next].EndByte <= start {
+				out = appendHighlightSegment(out, upper[next])
+				next++
+			}
+			if next == len(upper) || upper[next].StartByte >= l.EndByte {
+				out = appendHighlightSegment(out, HighlightRange{StartByte: start, EndByte: l.EndByte, Capture: l.Capture})
+				break
+			}
+			if upper[next].StartByte > start {
+				out = appendHighlightSegment(out, HighlightRange{StartByte: start, EndByte: upper[next].StartByte, Capture: l.Capture})
+			}
+			out = appendHighlightSegment(out, upper[next])
+			start = upper[next].EndByte
+			covered = start
+			next++
+		}
+	}
+	for ; next < len(upper); next++ {
+		out = appendHighlightSegment(out, upper[next])
+	}
 	return out
+}
+
+// appendHighlightSegment appends r, joining it to the last range when they touch
+// and share a capture.
+func appendHighlightSegment(dst []HighlightRange, r HighlightRange) []HighlightRange {
+	if r.EndByte <= r.StartByte {
+		return dst
+	}
+	if n := len(dst); n > 0 && dst[n-1].Capture == r.Capture && dst[n-1].EndByte == r.StartByte {
+		dst[n-1].EndByte = r.EndByte
+		return dst
+	}
+	return append(dst, HighlightRange{StartByte: r.StartByte, EndByte: r.EndByte, Capture: r.Capture})
 }
 
 // resolveOverlaps takes a range list (in any order) and returns a sorted,
@@ -363,6 +659,10 @@ func sortHighlightRanges(ranges []HighlightRange) {
 		}
 		// Spell captures do not color text. Give a real highlight the
 		// last position in an identical-span stack, across all patterns.
+		// NewHighlighter drops @spell before resolution, so only the
+		// selected-store path (highlightSelectedStore, build tag
+		// gts_parsercorephase0) still reaches this tie-break. Remove it when
+		// that path adopts the capture policy.
 		if a.Capture == "spell" && b.Capture != "spell" {
 			return -1
 		}

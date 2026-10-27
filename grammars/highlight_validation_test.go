@@ -14,6 +14,17 @@ var highlightNoRangesExpected = map[string]bool{
 	"angular": true, // upstream highlights.scm (synced at 38a8014) targets bindings, pipes, and control-flow syntax the plain-tag smoke sample does not exercise
 }
 
+// highlightSampleOverrides replaces the parse smoke sample of a language whose
+// sample reaches no capture that colors text, so the zero-ranges check below can
+// still fail for it. The shared smoke sample stays as it is: the parser,
+// admission and parity suites read it for every language, and the admission
+// scorecard ratchet (admissionScorecardRequiredCompactPasses) lists djot against it.
+var highlightSampleOverrides = map[string]string{
+	// The plain-paragraph smoke sample matches only @spell, which colors nothing
+	// and is not returned. A heading is the smallest djot construct with a color.
+	"djot": "# Heading\n\nHello world\n",
+}
+
 func TestAllHighlightQueriesCompile(t *testing.T) {
 	entries := AllLanguages()
 	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
@@ -82,6 +93,9 @@ func TestHighlightQueriesProduceResults(t *testing.T) {
 		}
 
 		sample := ParseSmokeSample(name)
+		if override, ok := highlightSampleOverrides[name]; ok {
+			sample = override
+		}
 		if sample == "x\n" {
 			skippedNoSample++
 			UnloadEmbeddedLanguage(entry.Name + ".bin")
