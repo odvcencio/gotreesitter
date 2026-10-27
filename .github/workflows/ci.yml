@@ -2389,7 +2389,7 @@ jobs:
             if [ "$lang" = javascript ]; then
               pattern='^TestComputedSetterLookaheadCParity/javascript$'
             else
-              pattern="^(TestTypeScriptIssue1429CParity|TestTypeScriptContextualFollowupsCParity|TestComputedSetterLookaheadCParity|TestTypeScriptAsyncGenericArrowLockedC)/${lang}$"
+              pattern="^(TestTypeScriptIssue1429CParity|TestTypeScriptContextualFollowupsCParity|TestComputedSetterLookaheadCParity|TestTypeScriptAsyncGenericArrowLockedC|TestTypeScriptGenericTaggedTemplateCParity)/${lang}$"
             fi
             bash cgo_harness/docker/run_parity_in_docker.sh \
               "${contextual_args[@]}" --label "ci-contextual-lookahead-${lang}" \
