@@ -16,13 +16,23 @@ digest authenticates the full 206-grammar lock; the manifest digest
 authenticates the selected files and their locked revisions.
 
 Before selection, the generator checks that the corpus checkout is at the locked
-commit, has the locked origin, and has no changes. A file that git reports as
-modified only because the checkout holds a Git LFS object where the commit holds
-its pointer does not count as a change. Odin's vendored Windows libraries are
-stored this way. A checkout made with git-lfs replaces each pointer with its
-object. The harness image has no git-lfs, so its git cannot map the object back
-to the pointer. The check accepts such a file only when the pointer committed at
-HEAD names the file's exact size and SHA-256.
+commit, has the locked origin, and has no changes. Two kinds of change do not
+count:
+
+- Untracked files under `.gts-extracted/<grammar>`, when the grammar's lock row
+  selects exactly that directory. Five injection grammars (`comment`, `doxygen`,
+  `gitcommit`, `jsdoc`, `markdown_inline`) take their samples from such a tree.
+  `cgo_harness/cmd/real_corpus_extract` builds it from the pinned checkout, and
+  `real_corpus_sources` does not. `run_one_in_docker.sh` runs the extractor in a
+  separate, writable container before the receipt run, which mounts the corpus
+  read-only. `gitcommit` reads the checkout's history, so that container needs
+  network access.
+- A file that git reports as modified only because the checkout holds a Git LFS
+  object where the commit holds its pointer. Odin's vendored Windows libraries
+  are stored this way. A checkout made with git-lfs replaces each pointer with
+  its object. The harness image has no git-lfs, so its git cannot map the object
+  back to the pointer. The check accepts such a file only when the pointer
+  committed at HEAD names the file's exact size and SHA-256.
 
 The incremental check uses the design's 72-step session on the largest
 selected file: 24 insertions, 24 replacements, and 24 deletions across 16

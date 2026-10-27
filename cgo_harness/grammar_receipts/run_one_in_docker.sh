@@ -94,6 +94,25 @@ if [[ "${GTS_GRAMMAR_RECEIPT_ALLOW_CONCURRENT:-0}" != "1" ]] && docker ps --form
   exit 1
 fi
 
+# The injection grammars (comment, doxygen, gitcommit, jsdoc, markdown_inline)
+# take their samples from .gts-extracted/<grammar>. real_corpus_sources does not
+# create that tree, so build it from the pinned checkout before the receipt run.
+# The receipt container mounts the corpus read-only, so this one can write it.
+# gitcommit deepens its shallow checkout to read the history, so it needs the
+# network. The lock row says which grammars use a generated tree.
+if [[ "$(awk -v g="$GRAMMAR" '!/^#/ && $1 == g {print $4; exit}' "$CORPUS_LOCK")" == ".gts-extracted/$GRAMMAR" ]]; then
+  EXTRACT_CMD="cd /workspace/cgo_harness && export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0='/corpus_sources/$GRAMMAR'"
+  EXTRACT_CMD+=" && GOWORK=off go run ./cmd/real_corpus_extract -root /corpus_sources -langs '$GRAMMAR' > /dev/null"
+  "$DOCKER_RUNNER" "${BUILD_ARGS[@]}" \
+    --out-root "$OUTPUT_DIR/.docker" \
+    --label "grammar-receipt-$GRAMMAR-extract" \
+    --cpus 1 --memory 3g \
+    --wall-timeout 20m \
+    --mount "$CORPUS_ROOT/$GRAMMAR:/corpus_sources/$GRAMMAR" \
+    -- "$EXTRACT_CMD"
+  BUILD_ARGS=(--no-build)
+fi
+
 RUN_ARGS=(
   "${BUILD_ARGS[@]}"
   --out-root "$OUTPUT_DIR/.docker"
