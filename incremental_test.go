@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 	"unsafe"
@@ -1430,9 +1431,21 @@ func TestPruningCertificatePreservingMergesAndReset(t *testing.T) {
 // RunLanguageCopyDoesNotAuthenticate checks the producer boundary, before
 // any tree edit: copies and caller-constructed metadata are not the artifact.
 func RunLanguageCopyDoesNotAuthenticate(t *testing.T, original *Language) {
+	AssertLanguageProducerKey(t, original, true)
 	for _, variant := range []string{"copy", "modified-symbol-table", "forged-receipt"} {
 		t.Run(variant, func(t *testing.T) {
-			clone := *original
+			// Copy the public language configuration, including the grant pointer,
+			// without copying the source's private synchronization and caches.
+			clone := new(Language)
+			src, dst := reflect.ValueOf(original).Elem(), reflect.ValueOf(clone).Elem()
+			for i := 0; i < src.NumField(); i++ {
+				if src.Type().Field(i).IsExported() {
+					dst.Field(i).Set(src.Field(i))
+				}
+			}
+			if clone.SmallSourceReuseAuthority == nil || !clone.SmallSourceReuseAuthority.Matches(original) || clone.SmallSourceReuseAuthority.Matches(clone) {
+				t.Fatal("copied grant must remain bound to the original language")
+			}
 			switch variant {
 			case "modified-symbol-table":
 				clone.SymbolNames = append([]string(nil), original.SymbolNames...)
@@ -1440,7 +1453,7 @@ func RunLanguageCopyDoesNotAuthenticate(t *testing.T, original *Language) {
 			case "forged-receipt":
 				clone.SmallSourceReuseShadowArtifact = [32]byte{1}
 			}
-			parser := NewParser(&clone)
+			parser := NewParser(clone)
 			tree, err := parser.Parse([]byte("package p\nvar value = 1\n"))
 			if err != nil || tree == nil {
 				t.Fatalf("parse: %v", err)
