@@ -12,6 +12,7 @@ import (
 
 	"github.com/odvcencio/gotreesitter/cmd/scannercert/internal/scannercert"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
 // Tests run in this directory, two levels below the repository root.
@@ -66,7 +67,7 @@ func writeTwice(t *testing.T, name string, args ...string) scannercert.Report {
 func TestRunWritesOneDeterministicReportPerGrammar(t *testing.T) {
 	for _, name := range []string{"lua", "go"} {
 		report := writeTwice(t, name, "-session=false")
-		corpus, err := scannercert.LoadCorpus(root, name, false)
+		corpus, err := scannercert.LoadCorpus(root, name, scannercert.CorpusOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -125,7 +126,7 @@ func TestRecordingLeavesTheParseUnchanged(t *testing.T) {
 // evidence about the scanner. The command still writes it, so a reader can see
 // which sources changed, but it must name the verdict and exit nonzero.
 func TestRunFailsAReportWhoseRecordedParseDiffers(t *testing.T) {
-	notTransparent := func(_, name string, _ bool) (*scannercert.Report, error) {
+	notTransparent := func(_, name string, _ scannercert.CorpusOptions) (*scannercert.Report, error) {
 		return &scannercert.Report{
 			Schema: scannercert.Schema, Language: name, Verdict: scannercert.VerdictNotTransparent,
 			Parses: scannercert.ParseInfo{Sources: 73, Divergent: 73},
@@ -158,6 +159,92 @@ func TestReportNamesTheGrammarBlob(t *testing.T) {
 	report := writeTwice(t, "lua", "-session=false")
 	if report.GrammarBlobSHA256 != want {
 		t.Fatalf("grammar blob digest = %q, want the lua blob's %q", report.GrammarBlobSHA256, want)
+	}
+}
+
+// writeLuaCorpus lays out a manifest for lua under a temporary root: the
+// committed sample and one fetched median whose bytes sit in the fetch
+// directory, laid out as scripts/benchfixture_corpus.py fetch lays them out.
+func writeLuaCorpus(t *testing.T, median string) (root, fetched string) {
+	t.Helper()
+	const sample = "local x = 1\nreturn x\n"
+	root, fetched = t.TempDir(), t.TempDir()
+	dir := filepath.Join(root, "internal", "benchfixtures")
+	if err := os.MkdirAll(filepath.Join(dir, "testdata", "real"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "testdata", "real", "lua"), []byte(sample), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(fetched, "lua"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(fetched, "lua", "median_1"), []byte(median), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	digest := func(text string) string { return fmt.Sprintf("%x", sha256.Sum256([]byte(text))) }
+	manifest := map[string]any{"schema": "benchfixture-real-corpus-v1", "entries": []map[string]any{
+		{"language": "lua", "role": "sample", "committed_path": "testdata/real/lua", "bytes": len(sample),
+			"sha256": digest(sample), "session_sha256": benchfixtures.EditingSessionSHA256([]byte(sample))},
+		{"language": "lua", "role": "median_1", "committed_path": "", "bytes": len(median), "sha256": digest(median)},
+	}}
+	data, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "real_corpus.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return root, fetched
+}
+
+func TestRunParsesTheFetchedInputsAndRecordsThem(t *testing.T) {
+	const median = "local function f(a)\n  return a + 1\nend\nprint(f(2))\n"
+	tmpRoot, fetched := writeLuaCorpus(t, median)
+	out := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{"-root", tmpRoot, "-language", "lua", "-session=false", "-fetched", fetched, "-out", out}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	report := readReport(t, filepath.Join(out, "lua.json"))
+	wantDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(median)))
+	if report.Corpus.Sources != 2 || report.Parses.Sources != 2 || len(report.Corpus.Fetched) != 1 {
+		t.Fatalf("corpus %+v parses %+v, want the sample and the median", report.Corpus, report.Parses)
+	}
+	if got := report.Corpus.Fetched[0]; got.Role != "median_1" || got.Source != 1 || got.Bytes != len(median) || got.SHA256 != wantDigest || got.HasError {
+		t.Fatalf("fetched = %+v, want median_1 at source 1 with the pinned digest and a clean parse", got)
+	}
+	// A second run produces the same bytes.
+	again := t.TempDir()
+	if err := run([]string{"-root", tmpRoot, "-language", "lua", "-session=false", "-fetched", fetched, "-out", again}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := os.ReadFile(filepath.Join(out, "lua.json"))
+	second, _ := os.ReadFile(filepath.Join(again, "lua.json"))
+	if len(first) == 0 || !bytes.Equal(first, second) {
+		t.Fatal("two runs over the same fetched inputs produced different reports")
+	}
+	// Without -fetched the same root yields the sample alone.
+	if err := run([]string{"-root", tmpRoot, "-language", "lua", "-session=false", "-out", out}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if again := readReport(t, filepath.Join(out, "lua.json")); again.Corpus.Sources != 1 || len(again.Corpus.Fetched) != 0 {
+		t.Fatalf("corpus %+v, want committed inputs only by default", again.Corpus)
+	}
+}
+
+func TestRunRefusesFetchedInputsThatAreMissingOrChanged(t *testing.T) {
+	tmpRoot, fetched := writeLuaCorpus(t, "return 1\n")
+	if err := os.WriteFile(filepath.Join(fetched, "lua", "median_1"), []byte("return 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := run([]string{"-root", tmpRoot, "-language", "lua", "-fetched", fetched, "-out", t.TempDir()}, &bytes.Buffer{}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "lua: ") || !strings.Contains(err.Error(), "digest") {
+		t.Fatalf("err = %v, want the changed median named", err)
+	}
+	err = run([]string{"-root", tmpRoot, "-language", "lua", "-fetched", t.TempDir(), "-out", t.TempDir()}, &bytes.Buffer{}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "benchfixture_corpus.py fetch") {
+		t.Fatalf("err = %v, want the fetch command named", err)
 	}
 }
 

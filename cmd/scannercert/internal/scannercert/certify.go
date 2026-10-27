@@ -34,24 +34,27 @@ func Certify(lang *gts.Language, corpus *Corpus) (*Report, error) {
 	inner := lang.ExternalScanner
 	defer func() { lang.ExternalScanner = inner }()
 
-	want, err := parseAll(lang, corpus.Sources, nil)
+	want, err := parseAll(lang, corpus.Sources, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("scannercert: %s: %w", corpus.Language, err)
 	}
 	rec := newRecorder(inner)
 	lang.ExternalScanner = rec.install()
-	got, err := parseAll(lang, corpus.Sources, rec.begin)
+	got, err := parseAll(lang, corpus.Sources, rec.begin, nil)
 	lang.ExternalScanner = inner
 	if err != nil {
 		return nil, fmt.Errorf("scannercert: %s: %w", corpus.Language, err)
 	}
-	divergent, errorTrees := 0, 0
+	divergent, errorTrees, stoppedEarly := 0, 0, 0
 	for i := range got {
 		if want[i].digest != got[i].digest {
 			divergent++
 		}
 		if got[i].hasError {
 			errorTrees++
+		}
+		if got[i].stoppedEarly {
+			stoppedEarly++
 		}
 	}
 
@@ -77,11 +80,11 @@ func Certify(lang *gts.Language, corpus *Corpus) (*Report, error) {
 		Corpus: CorpusInfo{
 			Path: corpus.Path, SampleSHA256: corpus.SampleSHA256,
 			SessionSHA256: corpus.SessionSHA256, ManifestSHA256: corpus.ManifestSHA256,
-			Sources: len(corpus.Sources),
+			Sources: len(corpus.Sources), Fetched: fetchedInfo(corpus, got),
 		},
 		Parses: ParseInfo{
 			Sources: len(corpus.Sources), SampleHasError: len(got) > 0 && got[0].hasError,
-			ErrorTrees: errorTrees, Transparent: divergent == 0, Divergent: divergent,
+			ErrorTrees: errorTrees, StoppedEarly: stoppedEarly, Transparent: divergent == 0, Divergent: divergent,
 		},
 		Calls:         a.calls,
 		Checks:        a.checks,
@@ -91,18 +94,37 @@ func Certify(lang *gts.Language, corpus *Corpus) (*Report, error) {
 	}, nil
 }
 
+// fetchedInfo copies the corpus's fetched inputs, adding how each one's parse
+// ended. It returns an empty list, not nil, so the report encodes [].
+func fetchedInfo(corpus *Corpus, got []parsed) []InputInfo {
+	out := make([]InputInfo, 0, len(corpus.Fetched))
+	for _, in := range corpus.Fetched {
+		if in.Source >= 0 && in.Source < len(got) {
+			in.HasError, in.StoppedEarly = got[in.Source].hasError, got[in.Source].stoppedEarly
+		}
+		out = append(out, in)
+	}
+	return out
+}
+
 // parsed is what Certify keeps of one parse: a digest of the whole tree and
 // whether the tree contains an error.
 type parsed struct {
-	digest   string
-	hasError bool
+	digest       string
+	hasError     bool
+	stoppedEarly bool
 }
 
 // parseAll parses each source with one parser. begin, when set, is told the
-// index of each source before it is parsed.
-func parseAll(lang *gts.Language, sources [][]byte, begin func(int)) ([]parsed, error) {
+// index of each source before it is parsed. configure, when set, adjusts the
+// parser first; Certify sets neither limits nor flags, and tests use it to
+// force a stop.
+func parseAll(lang *gts.Language, sources [][]byte, begin func(int), configure func(*gts.Parser)) ([]parsed, error) {
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(false)
+	if configure != nil {
+		configure(parser)
+	}
 	results := make([]parsed, 0, len(sources))
 	for i, source := range sources {
 		if begin != nil {
@@ -138,7 +160,7 @@ func parseOne(parser *gts.Parser, lang *gts.Language, source []byte) (result par
 	if err != nil {
 		return parsed{}, err
 	}
-	return parsed{digest: inspection.SHA256, hasError: root.HasError()}, nil
+	return parsed{digest: inspection.SHA256, hasError: root.HasError(), stoppedEarly: tree.ParseStoppedEarly()}, nil
 }
 
 // grammarBlobDigest returns the hex SHA-256 of the blob the loader decoded

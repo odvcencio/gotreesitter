@@ -247,6 +247,66 @@ func TestCertifyLeavesTheBlobDigestEmptyForALanguageNotLoadedFromABlob(t *testin
 	}
 }
 
+// Each fetched input keeps its role and digest in the report, and says how its
+// own parse ended, so a reader can tell which large input carried an error.
+func TestCertifyReportsHowEachFetchedInputParsed(t *testing.T) {
+	corpus := miniCorpus()
+	corpus.Fetched = []InputInfo{
+		{Role: "median_1", Source: 0, Bytes: 3, SHA256: "aa"},
+		{Role: "largest", Source: 1, Bytes: 7, SHA256: "bb"},
+	}
+	report, err := Certify(miniLanguage(hashScanner{}), corpus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []InputInfo{
+		{Role: "median_1", Source: 0, Bytes: 3, SHA256: "aa"},
+		{Role: "largest", Source: 1, Bytes: 7, SHA256: "bb", HasError: true},
+	}
+	if len(report.Corpus.Fetched) != 2 || report.Corpus.Fetched[0] != want[0] || report.Corpus.Fetched[1] != want[1] {
+		t.Fatalf("fetched = %+v, want %+v (source 1 holds the refused third '#')", report.Corpus.Fetched, want)
+	}
+	plain, err := Certify(miniLanguage(hashScanner{}), miniCorpus())
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := plain.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(data, []byte(`"fetched": []`)) {
+		t.Fatalf("a corpus with no fetched input must encode fetched as []: %s", data)
+	}
+}
+
+// A parse that stops before the end of its input leaves the scanner unasked
+// about the rest. The report must say which sources did.
+func TestParseAllRecordsAParseThatStoppedEarly(t *testing.T) {
+	lang := miniLanguage(hashScanner{})
+	sources := miniCorpus().Sources
+	whole, err := parseAll(lang, sources, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, p := range whole {
+		if p.stoppedEarly {
+			t.Fatalf("source %d stopped early without a limit", i)
+		}
+	}
+	cancelled, err := parseAll(lang, sources, nil, func(p *gts.Parser) {
+		flag := uint32(1)
+		p.SetCancellationFlag(&flag)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, p := range cancelled {
+		if !p.stoppedEarly {
+			t.Fatalf("source %d did not report that a cancelled parse stopped early", i)
+		}
+	}
+}
+
 func TestCertifyIsDeterministic(t *testing.T) {
 	var out [2][]byte
 	for i := range out {

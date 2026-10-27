@@ -13,7 +13,8 @@
 // # What Certify does
 //
 // Certify parses a grammar's pinned real-corpus sample, then the sources of
-// the sample's pinned editing session. A recorder stands in for the grammar's
+// the sample's pinned editing session, then any fetched inputs (see "Inputs"
+// below). A recorder stands in for the grammar's
 // scanner and notes every Scan call: the serialized state before the call, the
 // byte origin, the valid-symbol mask, and the outcome. Certify then replays
 // each distinct call on a fresh scanner payload restored from the recorded
@@ -31,6 +32,26 @@
 // row, a length beyond the 4096-byte buffer the parser provides, and a panic
 // during replay. Each failed check is counted. The first witnesses of each kind
 // keep the origin, mask, state and both outcomes, so a reader can replay them.
+//
+// # Inputs
+//
+// The repository commits a sample of about 2 KB for each grammar, and with its
+// editing session that reaches only a few scanner states. The real-corpus
+// manifest also pins three median files and the largest file under 512 KiB for
+// each grammar, and does not commit them. LoadCorpus reads them from a fetch
+// directory when CorpusOptions.Fetched names one:
+//
+//	python3 scripts/benchfixture_corpus.py fetch --language lua --output DIR
+//
+// writes DIR/lua/<role> and checks each file's length and SHA-256. LoadCorpus
+// checks both again against the manifest before it parses anything, and
+// refuses a missing, resized or changed file. Each fetched input is parsed
+// whole, with no editing session of its own: a session is 72 more parses, and
+// for a 512 KiB file that would multiply the recorder's memory by about 73.
+// Two roles that pin the same bytes are parsed once. The report
+// lists every fetched input under corpus.fetched with its role, size, digest,
+// the source position of its parse, and whether that parse had an error or
+// stopped early. Without a fetch directory, only committed inputs are used.
 //
 // # Rejected scans
 //

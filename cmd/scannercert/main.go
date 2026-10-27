@@ -13,6 +13,12 @@
 //	go run ./cmd/scannercert -language lua
 //	go run ./cmd/scannercert -list
 //
+// The committed samples are small. To also parse each grammar's median and
+// largest R4 inputs, fetch them first and name the directory:
+//
+//	python3 scripts/benchfixture_corpus.py fetch --language lua --output /tmp/r4
+//	go run ./cmd/scannercert -language lua -fetched /tmp/r4 -out /tmp/scannercert
+//
 // The internal/scannercert package describes what a report records.
 package main
 
@@ -41,7 +47,7 @@ func main() {
 }
 
 // certifier turns one grammar name into its report.
-type certifier func(root, name string, session bool) (*scannercert.Report, error)
+type certifier func(root, name string, opts scannercert.CorpusOptions) (*scannercert.Report, error)
 
 func run(args []string, stdout, stderr io.Writer) error {
 	return runWith(args, stdout, stderr, certify)
@@ -54,6 +60,7 @@ func runWith(args []string, stdout, stderr io.Writer, makeReport certifier) erro
 	languages := flags.String("language", "", "comma-separated grammar names")
 	out := flags.String("out", "", "directory for the <language>.json reports; required for several languages")
 	session := flags.Bool("session", true, "also parse the 72 sources of the sample's editing session")
+	fetched := flags.String("fetched", "", "directory written by scripts/benchfixture_corpus.py fetch; also parse each grammar's median and largest inputs from it")
 	list := flags.Bool("list", false, "list the grammars that have an external scanner and a committed sample")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -73,7 +80,7 @@ func runWith(args []string, stdout, stderr io.Writer, makeReport certifier) erro
 	}
 	var failures []string
 	for _, name := range names {
-		report, err := makeReport(*root, name, *session)
+		report, err := makeReport(*root, name, scannercert.CorpusOptions{Session: *session, Fetched: *fetched})
 		if err == nil {
 			err = write(report, *out, stdout, stderr)
 		}
@@ -104,12 +111,12 @@ func splitNames(list string) []string {
 	return names
 }
 
-func certify(root, name string, session bool) (*scannercert.Report, error) {
+func certify(root, name string, opts scannercert.CorpusOptions) (*scannercert.Report, error) {
 	entry := grammars.DetectLanguageByName(name)
 	if entry == nil {
 		return nil, errors.New("unknown grammar")
 	}
-	corpus, err := scannercert.LoadCorpus(root, entry.Name, session)
+	corpus, err := scannercert.LoadCorpus(root, entry.Name, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +163,7 @@ func listCertifiable(root string, stdout io.Writer) error {
 		if !hasScanner {
 			continue
 		}
-		if _, err := scannercert.LoadCorpus(root, entry.Name, false); err == nil {
+		if _, err := scannercert.LoadCorpus(root, entry.Name, scannercert.CorpusOptions{}); err == nil {
 			names = append(names, entry.Name)
 		}
 	}

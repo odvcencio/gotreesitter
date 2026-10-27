@@ -95,14 +95,31 @@ type Declared struct {
 	FailureContract string `json:"failure_contract"`
 }
 
-// CorpusInfo identifies the pinned inputs. Sources counts the sample and the
-// sources of its editing session.
+// CorpusInfo identifies the pinned inputs. Sources counts every parse: the
+// sample, the sources of its editing session when that is on, then the fetched
+// inputs. A witness names a source by that position.
 type CorpusInfo struct {
 	Path           string `json:"path"`
 	SampleSHA256   string `json:"sample_sha256"`
 	SessionSHA256  string `json:"session_sha256"`
 	ManifestSHA256 string `json:"manifest_sha256"`
 	Sources        int    `json:"sources"`
+	// Fetched lists the inputs read from a fetch directory (empty when none
+	// was given), each with the source position of its parse.
+	Fetched []InputInfo `json:"fetched"`
+}
+
+// InputInfo identifies one fetched input the manifest pins, and how its parse
+// ended. Source is the position of the parse among the corpus sources. An input
+// whose bytes equal an earlier source's is not parsed again, and its Source
+// names that earlier parse.
+type InputInfo struct {
+	Role         string `json:"role"`
+	Source       int    `json:"source"`
+	Bytes        int    `json:"bytes"`
+	SHA256       string `json:"sha256"`
+	HasError     bool   `json:"has_error"`
+	StoppedEarly bool   `json:"stopped_early"`
 }
 
 // ParseInfo summarizes the parses that produced the recorded calls.
@@ -113,6 +130,10 @@ type ParseInfo struct {
 	// breaks most of them.
 	SampleHasError bool `json:"sample_has_error"`
 	ErrorTrees     int  `json:"error_trees"`
+	// StoppedEarly counts the sources whose parse stopped before the end of the
+	// input (a limit, a budget or a cancellation). The scanner was never asked
+	// about the rest of such a source.
+	StoppedEarly int `json:"stopped_early"`
 	// Transparent is true when every source parsed to the same tree with the
 	// recorder installed as without it.
 	Transparent bool `json:"transparent"`
