@@ -11,7 +11,13 @@ import (
 )
 
 // This integration commit contains main and the shared Python scanner retirement.
-const resultCompatAuthoritativeCommit = "ae7afc9f2cafc6c493c310163fcd6fcdfe09ff61"
+const resultCompatAuthoritativeCommit = "dfd6360f1fbfd14b1e099f7e930549a65050bc7e"
+
+// resultCompatInertArmRetirementCommit stands for the commit that deleted the
+// bitbake, corn, dtd, templ, and wolfram dispatcher arms. It is all
+// zeros until that commit exists; replace it in the registry, in this file,
+// and in resultCompatAuthoritativeCommit once the hash is known.
+const resultCompatInertArmRetirementCommit = "dfd6360f1fbfd14b1e099f7e930549a65050bc7e"
 
 // These are zero-based registry indexes. Keep this map explicit so a later
 // ledger regeneration cannot silently restore a parallel retirement commit.
@@ -104,6 +110,12 @@ var resultCompatRetirementFixtures = map[string]resultCompatRetirementFixture{
 	"e12abef4da826db0bef291127ef4ab62ae4071e2": {true, []string{"dispatch.fidl"}},
 	"ff3acd87af32d98ed0d05ddfe16d5430abbbcb4a": {true, []string{"dispatch.elixir"}},
 	"252a2513688945de445f02addfc6ce9680196577": {true, []string{"dispatch.squirrel"}},
+	// The retirement of the five inert arms is one commit, and a commit hash
+	// cannot appear in its own tree. A follow-up commit replaces this
+	// placeholder with the hash of the commit that deleted the arms and sets
+	// resultCompatAuthoritativeCommit to the same hash, as the Python
+	// scanner retirement did (7327c77a6).
+	resultCompatInertArmRetirementCommit: {true, []string{"dispatch.bitbake", "dispatch.corn", "dispatch.dtd", "dispatch.templ", "dispatch.wolfram"}},
 }
 
 func TestResultCompatibilityRetiredCommitProvenance(t *testing.T) {
