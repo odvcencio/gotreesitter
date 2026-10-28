@@ -37,25 +37,42 @@ func reconcileStaleHasErrorFlags(n *Node, depth int) bool {
 }
 
 func reconcileStaleHasErrorFlagsWithMissing(n *Node, depth int, retainMissing bool) bool {
+	has, _ := reconcileStaleHasErrorFlagsRetaining(n, depth, retainMissing, nil)
+	return has
+}
+
+// reconcileStaleHasErrorFlagsRetaining is reconcileStaleHasErrorFlagsWithMissing
+// with two additions. A node listed in hiddenOwners holds a hidden MISSING
+// leaf that the public child list drops, so it keeps its flag and so do its
+// ancestors. The second result reports whether the public tree itself holds
+// an ERROR or MISSING node, so a caller can tell retained hidden evidence from
+// visible evidence.
+func reconcileStaleHasErrorFlagsRetaining(n *Node, depth int, retainMissing bool, hiddenOwners map[*Node]struct{}) (has, public bool) {
 	if n == nil {
-		return false
+		return false, false
 	}
 	if n.symbol == errorSymbol || n.isMissing() {
 		n.setHasError(true)
-		return true
+		return true, true
 	}
 	if depth >= maxTreeWalkDepth {
-		return n.hasError()
+		return n.hasError(), false
 	}
-	has := false
 	// Materializing accessors: recovery-produced spines can still hold
 	// unmaterialized child forms here, and a no-materialize count would skip
 	// exactly the subtrees this repair exists for.
 	for i, count := 0, nodeChildCount(n); i < count; i++ {
 		// No early exit: every stale sibling flag gets repaired.
-		if reconcileStaleHasErrorFlagsWithMissing(resultChildAt(n, i), depth+1, retainMissing) {
+		childHas, childPublic := reconcileStaleHasErrorFlagsRetaining(resultChildAt(n, i), depth+1, retainMissing, hiddenOwners)
+		if childHas {
 			has = true
 		}
+		if childPublic {
+			public = true
+		}
+	}
+	if !has && len(hiddenOwners) != 0 {
+		_, has = hiddenOwners[n]
 	}
 	if retainMissing && !has && n.hasError() && n.ownerArena != nil && rawShapeRefIsArenaBacked(n.rawShape) {
 		// A hidden missing leaf still contributes C error cost even when its
@@ -74,7 +91,7 @@ func reconcileStaleHasErrorFlagsWithMissing(n *Node, depth int, retainMissing bo
 			})
 	}
 	n.setHasError(has)
-	return has
+	return has, public
 }
 
 type parseMaterializationTiming struct {
@@ -1729,5 +1746,82 @@ func resultRecomputeHasErrorSubtree(n *Node) {
 			}
 		}
 		cur.setHasError(has)
+	}
+}
+
+// Hidden MISSING tokens and their owners.
+//
+// C counts a MISSING leaf in the error cost of every ancestor, whether or not
+// the symbol is visible. The public child list drops a hidden leaf, so result
+// repair (reconcileStaleHasErrorFlags) would clear the error flag of each
+// ancestor that owns one. The parser lists those owners by node identity while
+// the raw reduction shapes still show the leaf, because a later unary collapse
+// can drop a shape. The list lives in the lazy cold sidecar and is nil unless
+// the parse inserted a hidden MISSING token.
+
+// hiddenMissingOwners returns the owner set of the parse in progress, or nil.
+func (p *Parser) hiddenMissingOwners() map[*Node]struct{} {
+	if p == nil || p.forestDeclineMemo == nil {
+		return nil
+	}
+	return p.forestDeclineMemo.hiddenMissingOwners
+}
+
+// beginHiddenMissingTracking starts the owner list once the parse shifts a
+// hidden MISSING leaf.
+func (p *Parser) beginHiddenMissingTracking() {
+	cold := p.ensureParserColdState()
+	if cold != nil && cold.hiddenMissingOwners == nil {
+		cold.hiddenMissingOwners = make(map[*Node]struct{})
+	}
+}
+
+// swapHiddenMissingOwners installs owners as the list for the parse in
+// progress and returns the previous list, so a nested parse leaves the outer
+// parse's list intact.
+func (p *Parser) swapHiddenMissingOwners(owners map[*Node]struct{}) map[*Node]struct{} {
+	if p == nil {
+		return nil
+	}
+	if p.forestDeclineMemo == nil {
+		if owners == nil {
+			return nil
+		}
+		p.ensureParserColdState()
+	}
+	previous := p.forestDeclineMemo.hiddenMissingOwners
+	p.forestDeclineMemo.hiddenMissingOwners = owners
+	return previous
+}
+
+// entryHoldsHiddenMissing reports whether a reduction child is a hidden
+// MISSING leaf or a node that already owns one.
+func (p *Parser) entryHoldsHiddenMissing(owners map[*Node]struct{}, entry stackEntry) bool {
+	child := stackEntryNode(entry)
+	if child == nil {
+		return false
+	}
+	if child.isMissing() {
+		return !p.isVisibleSymbol(child.symbol)
+	}
+	_, owned := owners[child]
+	return owned
+}
+
+// noteHiddenMissingOwner lists node when its reduction held a hidden MISSING
+// leaf, directly or through a child that already owns one.
+func (p *Parser) noteHiddenMissingOwner(owners map[*Node]struct{}, node *Node) {
+	if node == nil || node.ownerArena == nil || !rawShapeRefIsArenaBacked(node.rawShape) {
+		return
+	}
+	shape, ok := node.ownerArena.rawShapeForRef(node.rawShape)
+	if !ok {
+		return
+	}
+	for _, child := range node.ownerArena.rawShapeChildren(shape) {
+		if p.entryHoldsHiddenMissing(owners, child.entry()) {
+			owners[node] = struct{}{}
+			return
+		}
 	}
 }

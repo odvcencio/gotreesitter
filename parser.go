@@ -4926,7 +4926,11 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	p.recordLegacyParserEntry()
 	outerRetainMissing := p.retainExternalFallbackMissingFlags
 	p.retainExternalFallbackMissingFlags = false
-	defer func() { p.retainExternalFallbackMissingFlags = outerRetainMissing }()
+	outerHiddenMissingOwners := p.swapHiddenMissingOwners(nil)
+	defer func() {
+		p.retainExternalFallbackMissingFlags = outerRetainMissing
+		p.swapHiddenMissingOwners(outerHiddenMissingOwners)
+	}()
 	// A nested parse on this parser appends its own anchors after the outer
 	// parse's entries and truncates back on return, so outer refs stay valid.
 	missingStackAnchorBase := len(p.missingStackAnchors)
@@ -5566,8 +5570,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// hasError=false is definitionally C-correct.
 		if tree != nil && p.crecoveryEnteredErrorState && stopReason == ParseStopAccepted {
 			if root := tree.root; root != nil && root.endByte >= expectedEOFByte {
-				hasError := reconcileStaleHasErrorFlagsWithMissing(root, 0, p.retainExternalFallbackMissingFlags)
+				hiddenOwners := p.hiddenMissingOwners()
+				hasError, publicError := reconcileStaleHasErrorFlagsRetaining(root, 0, p.retainExternalFallbackMissingFlags, hiddenOwners)
 				hiddenMissing := !hasError && retainedHiddenMissingFlags(root, p.language, arena)
+				if len(hiddenOwners) != 0 {
+					// Retained hidden evidence stays distinguishable from
+					// visible ERROR and MISSING nodes: the clean forest rescue
+					// cannot authenticate it.
+					hiddenMissing = !publicError && (hasError || hiddenMissing)
+				}
 				hasError = hasError || hiddenMissing
 				if hasError {
 					root.setHasError(true)

@@ -2847,6 +2847,9 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		if isMissing {
 			leaf.setMissing(true)
 			leaf.setHasError(true)
+			if !p.isVisibleSymbol(tok.Symbol) {
+				p.beginHiddenMissingTracking()
+			}
 			if tok.missingDependencyExact() {
 				dependency, exact := p.missingNodeDependencyFromToken(tok)
 				if !exact || arena == nil || !arena.setMissingNodeDependency(leaf, dependency) {
@@ -2969,6 +2972,9 @@ func extraShiftTargetState(current StateID, act ParseAction) StateID {
 }
 
 func (p *Parser) pushStackNode(s *glrStack, state StateID, node *Node, entryScratch *glrEntryScratch, gssScratch *gssScratch) {
+	if owners := p.hiddenMissingOwners(); owners != nil {
+		p.noteHiddenMissingOwner(owners, node)
+	}
 	// C summarizes hidden missing children before the public tree flattens them.
 	if p.retainExternalFallbackMissingFlags && node != nil && !node.hasError() && rawShapeRefIsArenaBacked(node.rawShape) && node.ownerArena != nil {
 		if shape, ok := node.ownerArena.rawShapeForRef(node.rawShape); ok {

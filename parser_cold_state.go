@@ -22,6 +22,9 @@ type parserColdState struct {
 	// Nonadvancing stateless markers require C recovery ordering and GSS paths.
 	crecoveryEmptyExternal bool
 	admissionConvergedWork [3]uint64
+	// hiddenMissingOwners lists the nodes whose reduction held a hidden
+	// MISSING leaf during the parse in progress (parser_hidden_missing.go).
+	hiddenMissingOwners map[*Node]struct{}
 	// snippetRootMemo maps snippet bytes to a zero-offset copy of the snippet
 	// root for the current parse operation (parseSnippetRootWithOffset).
 	snippetRootMemo      map[string]*Node
