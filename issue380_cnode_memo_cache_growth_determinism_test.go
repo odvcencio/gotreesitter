@@ -4,9 +4,9 @@ package gotreesitter_test
 // cNodeMemoCache adaptive growth trigger (parser_recover_c.go's
 // cNodeMemoSlot / cNodeMemoThrashGrowThreshold).
 //
-// Unlike the sibling issue380_incremental_insert_*_repro_test.go files (which
-// are env-gated wall-clock demonstrations of the ORIGINAL bug), these tests
-// always run as part of `go test .` and assert only on the deterministic,
+// Unlike the retired issue380 wall-clock repro files (env-gated
+// demonstrations of the ORIGINAL bug; they remain in git history), these
+// tests always run as part of `go test .` and assert only on the deterministic,
 // collision-count-driven growth DECISION exposed via
 // (*Parser).DebugCNodeMemoCacheStats -- never on wall-clock timing. They are
 // cheap (well under a second) and are the permanent guard against the W2
@@ -25,6 +25,7 @@ package gotreesitter_test
 // spec asks for ("same input always takes the same growth path").
 
 import (
+	"bytes"
 	"os"
 	"testing"
 
@@ -40,7 +41,7 @@ import (
 // top-level sibling admission, since this repro's blocker is the deeper
 // reduce-chain-settling gap W1 documented, not the language allowlist W1
 // removed), which is what drives real memo-set contention -- see the
-// sibling repro files' doc comments for the full mechanism.
+// retired issue380 repro files in git history for the full mechanism.
 func issue380CNodeMemoGrowthScenario(t *testing.T) (cacheLen int, thrash uint32) {
 	t.Helper()
 	src, err := os.ReadFile("tree.go")
@@ -88,12 +89,13 @@ func issue380CNodeMemoGrowthScenario(t *testing.T) (cacheLen int, thrash uint32)
 // IDENTICAL growth decision every time. Before W2, this property held only
 // for the sticky cHandleError trigger (which this scenario never reaches --
 // AcceptedErrorRetryAttempts is 0 and the input is syntactically valid, see
-// the sibling repro files), so the cache stayed stuck at
+// the retired repro files), so the cache stayed stuck at
 // cNodeMemoCacheInitialSize (128) for every one of these fresh, "cold"
-// instances -- correct, but pathologically slow (see the env-gated repros
-// for the wall-clock evidence). After W2, the adaptive trigger fires from
-// THIS parse's own memo-set contention alone, so the decision is reached the
-// same way regardless of the instance's (nonexistent, here) prior history.
+// instances -- correct, but pathologically slow (see the retired env-gated
+// repros in git history for the wall-clock evidence). After W2, the adaptive
+// trigger fires from THIS parse's own memo-set contention alone, so the
+// decision is reached the same way regardless of the instance's (nonexistent,
+// here) prior history.
 func TestCNodeMemoCacheAdaptiveGrowthDeterministicAcrossFreshParsers(t *testing.T) {
 	const iterations = 5
 	var firstCacheLen int
@@ -160,4 +162,14 @@ func TestCNodeMemoCacheStaysSmallForCleanFullParse(t *testing.T) {
 			}
 		})
 	}
+}
+
+func issue380PointForOffset(src []byte, off int) gotreesitter.Point {
+	prefix := src[:off]
+	row := bytes.Count(prefix, []byte{'\n'})
+	col := off
+	if idx := bytes.LastIndexByte(prefix, '\n'); idx >= 0 {
+		col = off - idx - 1
+	}
+	return gotreesitter.Point{Row: uint32(row), Column: uint32(col)}
 }

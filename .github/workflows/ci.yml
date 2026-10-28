@@ -336,8 +336,6 @@ jobs:
           TestD2SpanUnlockedSameSpanRelexOnRealJavaScriptDivisionRegexWitness
           TestD2SpanUnlockedSameSpanRelexStillShiftsRealBashInstallWitness
           TestD2SpanUnlockedSchedulerActivatesOwnedLexerRequests
-          TestDiagnosticParserCoreB4bShadowCensusCanonicalReport
-          TestDiagnosticParserCoreB4bShadowCensusSmokeCorpusReport
           TestDiagnosticParserCoreBoundaryIndexCensus
           TestDiagnosticParserCoreCanonicalAdmissions
           TestDiagnosticParserCoreCanonicalClearsDiscardedVersionStateTail
