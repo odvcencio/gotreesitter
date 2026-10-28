@@ -1644,8 +1644,14 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 		return tree
 	}
 	if len(nodes) == 0 {
+		// An accepted parse with no nodes still needs a root. Grammars whose
+		// state 0 answers EOF with a recover action (doxygen, tlaplus, norg and
+		// xml for empty input, markdown_inline for "") reach this point on
+		// empty or whitespace-only source. tree-sitter C publishes a childless
+		// ERROR root there. Returning a Tree with a nil root broke every
+		// caller that reads RootNode() without a nil check.
 		if isWhitespaceOnlySource(source) {
-			return newTreeWithArenas(nil, source, p.language, arena, nil)
+			return parseEOFErrorTreeWithArena(source, p.language, arena)
 		}
 		return parseErrorTreeWithArena(source, p.language, arena)
 	}
