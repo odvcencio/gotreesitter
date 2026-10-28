@@ -1,7 +1,0 @@
-{
-  "harness-metadata.tar.gz": "4590d8eccb438a6df0a0165f92a8a6ea7a213450fa5e6be18c8b54ee6f349fc8",
-  "rss-logs.tar.gz": "5134861a097cec919785c7ee6b3f3369b2d8659afb9512a187e15ac0fdc98ef1",
-  "complete-source-pins.tar.gz": "5a21762ab52afcbd7506d1b591330e102ebabedcff0c5992f0d9d18441379109",
-  "replay-inputs.tar.gz": "b2dd85df3623b3c0e00da12a3a768df98d2a9646984e08822bf67419657115ee",
-  "correctness-logs.tar.gz": "60a287a24615ba1027767763b80e53b227ee694a21702ecf24195ba9e22aeb1b"
-}

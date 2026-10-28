@@ -1,2 +1,0 @@
-API tag set default: /evidence/candidate-source/cmd/v1layout/api/default.txt differs from checked-in snapshot; added [func *prototypeDFATerminalSource.AuthenticatesSharedDFATerminal(tok core.Token) bool func *prototypeDFATerminalSource.SharedDFATerminalOrigin(tok core.Token) uint32], removed [] (refresh with go run ./cmd/v1layout -write after an intentional change)
-exit status 1

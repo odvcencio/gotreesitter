@@ -1,8 +1,0 @@
-{
-  "status": "audit_harness_assertion_corrected",
-  "reason": "Expected diagnostic benchmark override filename was admission_switch_bench_test.go; the qualified overlay uses benchmark_admission_candidate_route_test.go. Runtime source was unchanged after promotion.",
-  "actual_diagnostic_overrides": [
-    "benchmark_admission_candidate_route_test.go",
-    "cmd/perfcounterledger/main.go"
-  ]
-}

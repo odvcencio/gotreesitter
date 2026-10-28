@@ -1,4 +1,0 @@
-# github.com/odvcencio/gotreesitter [github.com/odvcencio/gotreesitter/internal/parsercorephase0.test]
-/evidence/runtime/parsercore_phase0_driver.go:8046:2: undefined: recordLinkStorageCensusForTest
-FAIL	github.com/odvcencio/gotreesitter/internal/parsercorephase0 [build failed]
-FAIL

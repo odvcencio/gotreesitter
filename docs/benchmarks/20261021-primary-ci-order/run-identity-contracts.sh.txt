@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-export PATH=/usr/local/go/bin:$PATH GOMAXPROCS=1 GOWORK=off GOFLAGS='-p=1 -mod=readonly -buildvcs=false'
-git config --global --add safe.directory /protocol
-cd /protocol
-GOTOOLCHAIN=go1.22.0 bash scripts/run_primary_go_suite_test.sh > /evidence/go122-contract.log 2>&1
-GOTOOLCHAIN=local bash scripts/run_primary_go_suite_test.sh > /evidence/go125-contract.log 2>&1
-printf 'complete\n' > /evidence/complete.txt

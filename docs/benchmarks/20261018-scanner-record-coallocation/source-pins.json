@@ -1,6 +1,0 @@
-{
-  "parsercore_phase0_per_version_lexer_state.go": "ee19033008fbb10f3701deb8e78c4577172ed89540ff490448e33fa87e4a1f99",
-  "parsercore_phase0_per_version_lexer_snapshot_internal_test.go": "2c90258d15d8676dd5c3c25229ad5b015877c43db21e871dabe96422c0cea919",
-  "internal/parsercorephase0/scanner_snapshot_record_test.go": "95eadb44dabe694b1bc0fd590780f788c0f31eb432e258568b669af8565b1074",
-  "internal/parsercorephase0/scanner_snapshot_record.go": "62f5286d01c930a0c1bd9f99ffb12e9abb18ab77b140a9eaa06d27432ad5c794"
-}

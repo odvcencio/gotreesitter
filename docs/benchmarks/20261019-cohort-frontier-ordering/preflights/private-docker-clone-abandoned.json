@@ -1,7 +1,0 @@
-{
-  "private_daemon_started": false,
-  "main_daemon_settings_modified": false,
-  "copy_preflight": "Docker build-layer cache IDs include 25-character IDs; strict hex-only check stopped the copy",
-  "recovery": "main daemon independently became available; private bootstrap not needed",
-  "copied_task_owned_layers_removed": true
-}

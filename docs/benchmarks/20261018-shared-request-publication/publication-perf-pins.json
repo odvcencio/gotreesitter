@@ -1,8 +1,0 @@
-{
-  "combined_probe.go": "0377d3e17a7c9957a88fda4799d55f693261325a4461db5c0c60cbc69074d773",
-  "no_action_driver.go": "191cc8df5a7e9144c82adc2ed95cccd2e6b0b078d0e6d262b729081b367bb422",
-  "no_action_observer.go": "477450ff4a0821db0cb33f561da6e19158a1fc69cd83b4483fde9257a0b5bacc",
-  "publication_bench_test.go": "3b916708975ec8fc3f6e252e7152ef6f43864f7f466c757bd481f91e8ab9f8ba",
-  "perf-overlay.json": "44e6e252b2d0b942419a762ef893efd40806c5ad6a925530941a47f1c0e14fcc",
-  "publication-perf.sh": "19331f725aa8aa17f8ed682931915c12735e84d7b56af9c1b8ea823b4df281d9"
-}

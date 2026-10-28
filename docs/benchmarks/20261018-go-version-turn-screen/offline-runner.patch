@@ -1,8 +1,0 @@
---- a/cgo_harness/docker/run_parity_in_docker.sh
-+++ b/cgo_harness/docker/run_parity_in_docker.sh
-@@ -483 +483 @@
--CID="$(docker create \
-+CID="$(docker create --network none \
-@@ -546 +546 @@
--  if docker run --rm \
-+  if docker run --rm --network none \

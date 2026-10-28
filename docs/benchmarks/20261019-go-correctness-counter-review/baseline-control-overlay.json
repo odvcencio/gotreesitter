@@ -1,6 +1,0 @@
-{
-  "Replace": {
-    "/reference/cgo_harness/zz_go_generic_frontier_test.go": "/evidence/cgo_probe_test.go.txt",
-    "/reference/cgo_harness/zz_go_token_turn_expanded_test.go": "/evidence/expanded_probe_test.go.txt"
-  }
-}

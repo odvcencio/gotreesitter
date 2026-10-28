@@ -1,7 +1,0 @@
-2026-10-21T22:23:08.7563656Z randomized baseline output: /home/runner/work/_temp/bench-gate/base.txt
-2026-10-21T22:23:09.2469004Z running baseline shuffle seed 1
-2026-10-21T22:24:21.3526721Z running head shuffle seed 1
-2026-10-21T22:25:29.2110627Z seed 1 workload order differs between revisions; use a suite with explicit GTS_BENCHMARK_SEED ordering
-2026-10-21T22:25:29.2112853Z baseline: BenchmarkGoParseIncrementalNoEditDFA,BenchmarkGoParseFullDFA,BenchmarkGoParseIncrementalSingleByteEditDFA
-2026-10-21T22:25:29.2115240Z head: BenchmarkGoParseFullDFA,BenchmarkGoParseIncrementalSingleByteEditDFA,BenchmarkGoParseIncrementalNoEditDFA
-2026-10-21T22:25:29.9834811Z ##[error]Process completed with exit code 1.

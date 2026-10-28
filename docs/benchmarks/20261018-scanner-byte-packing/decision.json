@@ -1,8 +1,0 @@
-{
-  "runtime_promoted": false,
-  "reason": "No supported timing gain and no byte/allocation gain on YAML; byte-only packing cannot combine the separate boolean-mask copy",
-  "full_fleet_rss_actual_source_qualification": "not run after rejection; prepared harness was not launched",
-  "additional_seeds": 0,
-  "counter_exception": false,
-  "route_or_graduation_change": false
-}

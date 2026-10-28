@@ -1,8 +1,0 @@
-=== RUN   TestCompactR4StructuralLockedC
-    compact_r4_parity_test.go:26: R4 language=scss bytes=2032 compact=0 fallback=1 reason="compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token"
-    compact_r4_parity_test.go:26: /stylesheet: type go="stylesheet" c="ERROR"
-    compact_r4_parity_test.go:26: /stylesheet: error go="false" c="true"
-    compact_r4_parity_test.go:26: /stylesheet: child_count go="10" c="361"
-    compact_r4_parity_test.go:26: 3 structural differences
---- FAIL: TestCompactR4StructuralLockedC (0.02s)
-FAIL

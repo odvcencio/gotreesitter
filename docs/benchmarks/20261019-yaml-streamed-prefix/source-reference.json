@@ -1,9 +1,0 @@
-{
-  "baseline_runtime": "54863cf280722c720bda81c2a8480f2398255730",
-  "baseline_go_files": 3514,
-  "candidate_go_files": 3517,
-  "runtime_files": 13,
-  "runtime_patch_sha256": "c9fdafe46a1c05ee68fa7e1b5f7b8cd4d298b64ce192861997e4ba6c6195018f",
-  "baseline_frozen_source": "/home/draco/.local/state/gotreesitter-evidence/20261019-progress-arena-projection-production/native-source",
-  "candidate_frozen_source": "/home/draco/.local/state/gotreesitter-evidence/20261019-yaml-streamed-prefix/pooled-source"
-}

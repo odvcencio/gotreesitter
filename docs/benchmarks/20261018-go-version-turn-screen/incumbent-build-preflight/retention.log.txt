@@ -1,4 +1,0 @@
-# github.com/odvcencio/gotreesitter/internal/parsercorephase0
-/evidence/runtime/internal/parsercorephase0/reduction_child_selection.go:156:22: undefined: errors
-FAIL	github.com/odvcencio/gotreesitter/cgo_harness [build failed]
-FAIL

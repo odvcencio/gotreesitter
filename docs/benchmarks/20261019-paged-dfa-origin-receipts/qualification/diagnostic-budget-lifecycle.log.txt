@@ -1,6 +1,0 @@
-=== RUN   TestDiagnosticPrivateChangedSourceKeepsRebuildBudget
---- PASS: TestDiagnosticPrivateChangedSourceKeepsRebuildBudget (0.03s)
-=== RUN   TestDiagnosticPrivateRepeatedCanonicalLifecycle
---- PASS: TestDiagnosticPrivateRepeatedCanonicalLifecycle (0.28s)
-PASS
-ok  	github.com/odvcencio/gotreesitter	0.315s
