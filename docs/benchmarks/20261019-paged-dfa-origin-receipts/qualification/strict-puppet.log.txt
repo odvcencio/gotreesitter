@@ -1,4 +1,0 @@
-=== RUN   TestCompactR4StructuralLockedC
-    compact_r4_parity_test.go:26: R4 language=puppet bytes=491 compact=1 fallback=0 reason=""
---- PASS: TestCompactR4StructuralLockedC (0.01s)
-PASS

@@ -1,2 +1,0 @@
-# github.com/odvcencio/gotreesitter/internal/parsercorephase0
-/evidence/runtime/internal/parsercorephase0/link_provenance.go:81:18: c.graphLinkAt undefined (type *Core has no field or method graphLinkAt)

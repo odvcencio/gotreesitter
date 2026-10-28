@@ -1,4 +1,0 @@
-=== RUN   TestOrdinaryShiftCohortPreservesAlreadyShiftedSibling
---- PASS: TestOrdinaryShiftCohortPreservesAlreadyShiftedSibling (0.00s)
-PASS
-ok  	github.com/odvcencio/gotreesitter	0.009s

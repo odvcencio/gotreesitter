@@ -1,1 +1,0 @@
-E preliminary throughput screen: held, no statistically clear improvement. Four hash-verified archives retain exact source replay, focused correctness/memory gates, all 80-process ARM64 observations and failed attempts. Full fleet/RSS qualification and runtime promotion remain false. Original private files remain local; no binaries or credentials are included.

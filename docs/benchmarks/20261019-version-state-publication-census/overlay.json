@@ -1,8 +1,0 @@
-{
-  "Replace": {
-    "/reference/parsercore_phase0_driver.go": "/evidence/driver.go.txt",
-    "/reference/publication_census_helper_test.go": "/evidence/publication_census_helper_test.go.txt",
-    "/reference/small_census_test.go": "/evidence/small_census_test.go.txt",
-    "/reference/rss_census_test.go": "/evidence/rss_root_test.go.txt"
-  }
-}

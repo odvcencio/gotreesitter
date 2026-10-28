@@ -1,0 +1,9 @@
+# Existing files that scripts/check_evidence_paths.sh would otherwise reject.
+# One path per line, then " # reason". Entries may only be removed. Delete
+# each entry in the PR that deletes its file, which is the registry retirement
+# PR (C01-A5).
+docs/a8-derivation-divergence-certificate-v1.md # certificate name; the lifecycle registry reads it
+docs/compact-route-coverage-census.md # census name; the lifecycle registry reads it
+docs/compact-route-real-corpus-matrix.md # compact- prefix and over 200,000 bytes; the registry and tests read it
+docs/perf-attribution.md # over 200,000 bytes; cgo_harness/attribution comments cite it
+docs/root-normalization-retirement.md # over 200,000 bytes; 15 receipt tests and ci.yml read it

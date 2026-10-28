@@ -1,7 +1,0 @@
-{
-  "full_checkouts_verified": true,
-  "baseline_hashes_per_checkout": 3512,
-  "timed_and_native_modes_prepared": true,
-  "go_tests_run_by_helper_check": false,
-  "primary_checkout_changed": false
-}

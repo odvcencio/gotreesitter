@@ -1,6 +1,0 @@
-=== RUN   TestOrdinaryShiftCohortPreservesAlreadyShiftedSibling
-    zz_cohort_frontier_regression_test.go:27: paths=[{Payloads:[2] Score:0 BranchOrder:0 HasBranchOrder:false} {Payloads:[2] Score:0 BranchOrder:0 HasBranchOrder:false}] err=<nil>, want all three incoming histories
---- FAIL: TestOrdinaryShiftCohortPreservesAlreadyShiftedSibling (0.00s)
-FAIL
-FAIL	github.com/odvcencio/gotreesitter	0.010s
-FAIL

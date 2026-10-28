@@ -1,7 +1,0 @@
-=== RUN   TestParserCoreFreshFullRunnerReusesSchedulerStorage
---- PASS: TestParserCoreFreshFullRunnerReusesSchedulerStorage (0.02s)
-=== RUN   TestCompactLegacyReadScratchPooledLargeThenSmall
-    parsercore_phase0_reuse_dependency_scanner_internal_test.go:104: large={leaves:752 leafCapacity:1024 ends:12024 endCapacity:16384 readBytes:32832} first small={leaves:81 leafCapacity:1024 ends:58 endCapacity:128 readBytes:32832} second small={leaves:81 leafCapacity:128 ends:58 endCapacity:128 readBytes:32832}; warm=22 cold-history=27 allocations
---- PASS: TestCompactLegacyReadScratchPooledLargeThenSmall (0.03s)
-PASS
-ok  	github.com/odvcencio/gotreesitter	0.061s

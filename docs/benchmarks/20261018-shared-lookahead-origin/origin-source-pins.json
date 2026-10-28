@@ -1,6 +1,0 @@
-{
-  "driver.go": "de0ce888a88b40f09b19b7afe1e38cc328fefe77d5c493bb6e0be489516aac4b",
-  "shared_origin_export_test.go": "8edcde3932aa52084dfe430b279a59594dde67be16b8b11ebf4c7190eb5e7bef",
-  "shared_origin_trace_test.go": "8525a4ef506a623caade4292e9d0d65f553fe4c26df71037aba9d66f0250d1d2",
-  "overlay.json": "ea3a75936b8c175987701449ba5439d38d18e434fc393188629269e2a65a2554"
-}

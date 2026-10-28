@@ -1,5 +1,0 @@
-# github.com/odvcencio/gotreesitter
-/evidence/runtime/parsercore_phase0_driver.go:9195:149: invalid operation: s.prototypePriorityElection != s.electionIndex (mismatched types uint64 and int)
-/evidence/runtime/parsercore_phase0_driver.go:9196:67: cannot use s.electionIndex (variable of type int) as uint64 value in assignment
-FAIL	github.com/odvcencio/gotreesitter/cgo_harness [build failed]
-FAIL

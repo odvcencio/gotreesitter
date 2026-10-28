@@ -1,8 +1,0 @@
-{
-  "canonical_work_census_test.go.txt": "762a4f418b36ccf78031c70656c0e1e01851217fc5e4d96bd9207fe6f58a89d4",
-  "cgo_probe_test.go.txt": "b64321d16e8e74f7dba8fdfe5686610d536a869a084c27534727a2d14c6cb195",
-  "cohort_regression_test.go.txt": "089e01c81c8990b079d47bfffea9f81c655370a17595f504056171f35ddf9ede",
-  "edit_sessions_test.go.txt": "641668309aab6a5f8ce9cf54e4a1a76bd23b83e7c3d48371f82a56efaa765bd4",
-  "expanded_probe_test.go.txt": "3b305fcf57758641943dc58c638dad98c530a8eb18e1520330f3bd0f87a725f1",
-  "counter_main.go.txt": "631f745d63b2e9201967150dfe1157bf27e777710c0ca20fc6a019a9bba3cd79"
-}

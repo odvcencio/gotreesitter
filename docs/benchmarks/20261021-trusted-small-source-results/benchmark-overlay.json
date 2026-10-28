@@ -1,6 +1,0 @@
-{
-  "Replace": {
-    "/baseline/benchmark_admission_candidate_route_test.go": "/protocol/benchmark.go.txt",
-    "/candidate/benchmark_admission_candidate_route_test.go": "/protocol/benchmark.go.txt"
-  }
-}
