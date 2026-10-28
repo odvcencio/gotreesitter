@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "source_sha": "3c8459f5050703c5aaa20c4b4f14128c0a927e87",
+  "languages": 206,
+  "required_sessions": 412,
+  "passed_sessions": 412,
+  "completed_edit_steps": 29664,
+  "no_edit_allocations_in_passed_sessions": 0,
+  "source_unchanged": true,
+  "rejected": [],
+  "missing": [],
+  "binary_sha256": "f74eba9e9aa68137db2d63a0b6c5c6fd17e5feb2e39b6c21879a120f6aced2e2",
+  "counter_sha256": "e1fc248f253c6a72801d883d200d1a2499fc709d3f4260aec6f43bdfec78ce24",
+  "timing_claim": false
+}
