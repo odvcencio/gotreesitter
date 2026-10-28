@@ -5142,6 +5142,12 @@ func (d *dfaTokenSource) allowRepeatedZeroWidthExternalSymbol(sym Symbol) bool {
 		// Suppressing a repeated token before the scanner has exhausted its indent stack can leave valid input incomplete.
 		// Keep repeats bounded by the shared zero-width token limit so a broken scanner still cannot loop forever.
 		return true
+	case "_cond_layout_end":
+		// One dedent closes every open layout above the new indent, one end token
+		// each. After a case layout closes, the parser can return to the same
+		// state to close the next layout at the same byte. Keep repeats bounded by
+		// the shared zero-width token limit.
+		return true
 	default:
 		return false
 	}
