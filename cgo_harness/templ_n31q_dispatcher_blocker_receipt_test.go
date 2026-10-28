@@ -271,8 +271,8 @@ func TestTemplN31qLiveArmLockedCRoutes(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(oldTree.Release)
-			end := templN31qPointAtByte(source)
-			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(source)), StartPoint: end, OldEndPoint: templN31qPointAtByte(base), NewEndPoint: end})
+			end := endPoint(source)
+			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(source)), StartPoint: end, OldEndPoint: endPoint(base), NewEndPoint: end})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(source, oldTree)
 			if err != nil {
 				t.Fatal(err)
@@ -345,17 +345,4 @@ func templN31qHashFile(t *testing.T, path string) string {
 		t.Fatalf("empty evidence file %s", path)
 	}
 	return fmt.Sprintf("%x", sha256.Sum256(data))
-}
-
-func templN31qPointAtByte(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

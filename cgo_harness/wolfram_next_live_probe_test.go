@@ -182,7 +182,7 @@ func TestWolframNextLiveArmLockedCRoutes(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(oldTree.Release)
-			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(witness.source)), StartPoint: wolframNextPoint(base), OldEndPoint: wolframNextPoint(base), NewEndPoint: wolframNextPoint(witness.source)})
+			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(witness.source)), StartPoint: endPoint(base), OldEndPoint: endPoint(base), NewEndPoint: endPoint(witness.source)})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(witness.source, oldTree)
 			if err != nil {
 				t.Fatal(err)
@@ -322,16 +322,4 @@ func wolframNextDispatch(tree *gotreesitter.Tree) string {
 		}
 	}
 	return "none"
-}
-func wolframNextPoint(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

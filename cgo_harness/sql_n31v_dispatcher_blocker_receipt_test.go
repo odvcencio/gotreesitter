@@ -12,7 +12,6 @@ import (
 	gots "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
-	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
 const (
@@ -77,7 +76,7 @@ func TestSQLN31vDispatcherBlockerRoutes(t *testing.T) {
 		t.Fatalf("locked-C SQL artifact=%s, want %s", identity.GrammarArtifactSHA256, sqlN31vCArtifactSHA)
 	}
 	t.Logf("grammar_lock_sha256=%s blob_sha256=e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268 scanner_identity=%x grammar_identity=%x c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_artifact_sha256=%s", currentGrammarLockSHA256(t), scannerIdentity.Scanner, scannerIdentity.Grammar, identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
-	cTree := sqlN31vCTree(t, cLang, source)
+	cTree := receiptCTree(t, cLang, source)
 	defer cTree.Close()
 	cDigest, err := COracleDeepDigest(cTree)
 	if err != nil {
@@ -145,7 +144,7 @@ func TestSQLN31vDispatcherBlockerRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer oldTree.Release()
-	oldTree.Edit(gots.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(source)), StartPoint: sqlN31vPoint(base), OldEndPoint: sqlN31vPoint(base), NewEndPoint: sqlN31vPoint(source)})
+	oldTree.Edit(gots.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(source)), StartPoint: endPoint(base), OldEndPoint: endPoint(base), NewEndPoint: endPoint(source)})
 	incremental, profile, err := incParser.ParseIncrementalProfiled(source, oldTree)
 	if err != nil {
 		t.Fatal(err)
@@ -207,31 +206,4 @@ func sqlN31vDispatch(tree *gots.Tree) string {
 		}
 	}
 	return "none"
-}
-
-func sqlN31vPoint(source []byte) gots.Point {
-	var point gots.Point
-	for _, b := range source {
-		if b == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
-}
-
-func sqlN31vCTree(t *testing.T, language *sitter.Language, source []byte) *sitter.Tree {
-	t.Helper()
-	parser := sitter.NewParser()
-	t.Cleanup(parser.Close)
-	if err := parser.SetLanguage(language); err != nil {
-		t.Fatal(err)
-	}
-	tree := parser.Parse(source, nil)
-	if tree == nil || tree.RootNode() == nil {
-		t.Fatal("C parser returned no root")
-	}
-	return tree
 }

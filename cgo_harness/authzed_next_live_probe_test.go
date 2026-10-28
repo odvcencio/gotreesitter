@@ -273,7 +273,7 @@ func TestAuthzedNextLiveArmProbe(t *testing.T) {
 			}
 			t.Cleanup(compact.Release)
 			routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
-			compactMode := authzedNextCompactMode(routedBefore, fallbackBefore, routedAfter, fallbackAfter)
+			compactMode := admissionCompactMode(routedBefore, fallbackBefore, routedAfter, fallbackAfter)
 			if compactMode != witness.wantCompactMode {
 				t.Fatalf("compact mode=%s, want %s (counters=%d/%d->%d/%d)", compactMode, witness.wantCompactMode, routedBefore, fallbackBefore, routedAfter, fallbackAfter)
 			}
@@ -313,7 +313,7 @@ func TestAuthzedNextLiveArmProbe(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(oldTree.Release)
-			end := authzedNextPointAtByte(source)
+			end := endPoint(source)
 			oldEnd := end
 			oldEnd.Column++
 			oldTree.Edit(gotreesitter.InputEdit{
@@ -409,16 +409,6 @@ func authzedNextPass(tree *gotreesitter.Tree) *gotreesitter.NormalizationPassRun
 	return nil
 }
 
-func authzedNextCompactMode(routedBefore, fallbackBefore, routedAfter, fallbackAfter uint64) string {
-	if routedAfter == routedBefore+1 && fallbackAfter == fallbackBefore {
-		return "accepted"
-	}
-	if routedAfter == routedBefore && fallbackAfter == fallbackBefore+1 {
-		return "fallback"
-	}
-	return fmt.Sprintf("counters=%d/%d->%d/%d", routedBefore, fallbackBefore, routedAfter, fallbackAfter)
-}
-
 func authzedNextReceipt(tree *gotreesitter.Tree, language *gotreesitter.Language, cTree *sitter.Tree, cDigest string) string {
 	if tree == nil || tree.RootNode() == nil {
 		return "tree=nil"
@@ -428,32 +418,7 @@ func authzedNextReceipt(tree *gotreesitter.Tree, language *gotreesitter.Language
 		return fmt.Sprintf("inspect_error=%v", err)
 	}
 	diff := FirstDivergenceDumpV1(tree.RootNode(), language, cTree.RootNode())
-	return fmt.Sprintf("error_root=%t digest=%s c_digest=%s exact=%t rewrites=%d native_authoritative=%t passes=%s divergence=%+v", tree.RootNode().HasError(), inspection.SHA256, cDigest, diff == nil && inspection.SHA256 == cDigest, tree.ParseRuntime().NormalizationNodesRewritten, tree.ParseRuntime().NativeRecoveredStructureAuthoritative, authzedNextPasses(tree), diff)
-}
-
-func authzedNextPasses(tree *gotreesitter.Tree) string {
-	runtime := tree.ParseRuntime()
-	if runtime.NormalizationPasses == nil {
-		return "none"
-	}
-	parts := make([]string, 0, len(*runtime.NormalizationPasses))
-	for _, pass := range *runtime.NormalizationPasses {
-		parts = append(parts, fmt.Sprintf("%s:%d/%d/%d/%d", pass.Name, pass.Checked, pass.Run, pass.NodesVisited, pass.NodesRewritten))
-	}
-	return fmt.Sprintf("%v", parts)
-}
-
-func authzedNextPointAtByte(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
+	return fmt.Sprintf("error_root=%t digest=%s c_digest=%s exact=%t rewrites=%d native_authoritative=%t passes=%s divergence=%+v", tree.RootNode().HasError(), inspection.SHA256, cDigest, diff == nil && inspection.SHA256 == cDigest, tree.ParseRuntime().NormalizationNodesRewritten, tree.ParseRuntime().NativeRecoveredStructureAuthoritative, normalizationPassesSummary(tree), diff)
 }
 
 // TestAuthzedNextLiveArmReceiptDocument guards the durable blocker receipt.

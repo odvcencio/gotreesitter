@@ -205,7 +205,7 @@ func TestJuliaDispatchBlockerReceiptRoutes(t *testing.T) {
 				if route.name == "raw" {
 					wantDiff = witness.want.rawDiff
 				}
-				juliaDispatchAssertDivergence(t, route.name, diff, wantDiff)
+				requireSameDivergence(t, route.name, diff, wantDiff)
 				if route.name == "raw" && juliaDispatchSummary(route.tree) != "none" {
 					t.Fatalf("raw dispatch=%s, want none", juliaDispatchSummary(route.tree))
 				}
@@ -233,7 +233,7 @@ func TestJuliaDispatchBlockerReceiptRoutes(t *testing.T) {
 				if !witness.want.forestAccepted || inspection.SHA256 != witness.want.forestDigest {
 					t.Fatalf("forest digest=%s, want %s", inspection.SHA256, witness.want.forestDigest)
 				}
-				juliaDispatchAssertDivergence(t, "forest", FirstDivergenceDumpV1(forest.RootNode(), goLanguage, cTree.RootNode()), witness.want.forestDiff)
+				requireSameDivergence(t, "forest", FirstDivergenceDumpV1(forest.RootNode(), goLanguage, cTree.RootNode()), witness.want.forestDiff)
 				if juliaDispatchSummary(forest) != witness.want.forestDispatch {
 					t.Fatalf("forest dispatch=%s, want %s", juliaDispatchSummary(forest), witness.want.forestDispatch)
 				}
@@ -322,19 +322,6 @@ func juliaDispatchCheckStaticEvidence(t *testing.T, identity COracleBuildIdentit
 	}
 	if got := fmt.Sprintf("%x", sha256.Sum256(grammars.BlobByName("julia"))); got != juliaGrammarBlobSHA256 {
 		t.Fatalf("embedded Julia blob SHA-256=%s, want %s", got, juliaGrammarBlobSHA256)
-	}
-}
-
-func juliaDispatchAssertDivergence(t *testing.T, route string, got, want *DumpV1Divergence) {
-	t.Helper()
-	if got == nil || want == nil {
-		if got != want {
-			t.Fatalf("%s divergence=%+v, want %+v", route, got, want)
-		}
-		return
-	}
-	if *got != *want {
-		t.Fatalf("%s divergence=%+v, want %+v", route, got, want)
 	}
 }
 

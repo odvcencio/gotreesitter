@@ -205,7 +205,7 @@ func TestTypeScriptDispatchBlockerRoutes(t *testing.T) {
 			}
 			t.Cleanup(compact.Release)
 			routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
-			compactMode := typescriptDispatchCompactMode(routedBefore, fallbackBefore, routedAfter, fallbackAfter)
+			compactMode := admissionCompactMode(routedBefore, fallbackBefore, routedAfter, fallbackAfter)
 			if compactMode != witness.wantCompactMode {
 				t.Fatalf("compact mode=%s, want %s", compactMode, witness.wantCompactMode)
 			}
@@ -235,9 +235,9 @@ func TestTypeScriptDispatchBlockerRoutes(t *testing.T) {
 				StartByte:   uint32(len(base)),
 				OldEndByte:  uint32(len(base)),
 				NewEndByte:  uint32(len(source)),
-				StartPoint:  typescriptDispatchPoint(base),
-				OldEndPoint: typescriptDispatchPoint(base),
-				NewEndPoint: typescriptDispatchPoint(source),
+				StartPoint:  endPoint(base),
+				OldEndPoint: endPoint(base),
+				NewEndPoint: endPoint(source),
 			})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(source, oldTree)
 			if err != nil {
@@ -415,27 +415,4 @@ func typescriptDispatchCheckPass(t *testing.T, route string, tree *gotreesitter.
 		return
 	}
 	t.Fatalf("%s did not record dispatch.typescript", route)
-}
-
-func typescriptDispatchCompactMode(routedBefore, fallbackBefore, routedAfter, fallbackAfter uint64) string {
-	if routedAfter == routedBefore+1 && fallbackAfter == fallbackBefore {
-		return "accepted"
-	}
-	if routedAfter == routedBefore && fallbackAfter == fallbackBefore+1 {
-		return "fallback"
-	}
-	return fmt.Sprintf("counters=%d/%d->%d/%d", routedBefore, fallbackBefore, routedAfter, fallbackAfter)
-}
-
-func typescriptDispatchPoint(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

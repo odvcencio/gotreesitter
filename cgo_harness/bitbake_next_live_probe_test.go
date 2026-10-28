@@ -187,9 +187,9 @@ func TestBitbakeNextLiveArmProbe(t *testing.T) {
 				StartByte:   uint32(len(base)),
 				OldEndByte:  uint32(len(base)),
 				NewEndByte:  uint32(len(source)),
-				StartPoint:  bitbakeNextPointAtByte(base),
-				OldEndPoint: bitbakeNextPointAtByte(base),
-				NewEndPoint: bitbakeNextPointAtByte(source),
+				StartPoint:  endPoint(base),
+				OldEndPoint: endPoint(base),
+				NewEndPoint: endPoint(source),
 			})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(source, oldTree)
 			if err != nil {
@@ -232,30 +232,5 @@ func bitbakeNextReceipt(tree *gotreesitter.Tree, language *gotreesitter.Language
 		return fmt.Sprintf("inspect_error=%v", err)
 	}
 	diff := FirstDivergenceDumpV1(tree.RootNode(), language, cTree.RootNode())
-	return fmt.Sprintf("error_root=%t digest=%s c_digest=%s exact=%t rewrites=%d passes=%s divergence=%+v", tree.RootNode().HasError(), inspection.SHA256, cDigest, diff == nil && inspection.SHA256 == cDigest, tree.ParseRuntime().NormalizationNodesRewritten, bitbakeNextPasses(tree), diff)
-}
-
-func bitbakeNextPasses(tree *gotreesitter.Tree) string {
-	runtime := tree.ParseRuntime()
-	if runtime.NormalizationPasses == nil {
-		return "none"
-	}
-	parts := make([]string, 0, len(*runtime.NormalizationPasses))
-	for _, pass := range *runtime.NormalizationPasses {
-		parts = append(parts, fmt.Sprintf("%s:%d/%d/%d/%d", pass.Name, pass.Checked, pass.Run, pass.NodesVisited, pass.NodesRewritten))
-	}
-	return fmt.Sprintf("%v", parts)
-}
-
-func bitbakeNextPointAtByte(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
+	return fmt.Sprintf("error_root=%t digest=%s c_digest=%s exact=%t rewrites=%d passes=%s divergence=%+v", tree.RootNode().HasError(), inspection.SHA256, cDigest, diff == nil && inspection.SHA256 == cDigest, tree.ParseRuntime().NormalizationNodesRewritten, normalizationPassesSummary(tree), diff)
 }

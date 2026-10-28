@@ -189,8 +189,8 @@ func TestDoxygenNextLiveArmProbe(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(oldTree.Release)
-			sourceEnd := doxygenNextPoint(source)
-			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(source)), StartPoint: sourceEnd, OldEndPoint: doxygenNextPoint(base), NewEndPoint: sourceEnd})
+			sourceEnd := endPoint(source)
+			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(source)), StartPoint: sourceEnd, OldEndPoint: endPoint(base), NewEndPoint: sourceEnd})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(source, oldTree)
 			if err != nil {
 				t.Fatal(err)
@@ -258,19 +258,6 @@ func doxygenNextFileSHA(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return fmt.Sprintf("%x", sha256.Sum256(data))
-}
-
-func doxygenNextPoint(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }
 
 // TestDoxygenNextLiveArmReceiptDocument guards the current blocker receipt.
