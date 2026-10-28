@@ -50,14 +50,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactRecoveryPlainFirst           bool
 	lineContinuationEscapeByte          byte
 	conflictPolicies                    []gotreesitter.ConflictPolicy
-	conflictPolicyExclusions            []conflictPolicyExclusionProfile
-}
-
-type conflictPolicyExclusionProfile struct {
-	state         gotreesitter.StateID
-	lookahead     gotreesitter.Symbol
-	kind          gotreesitter.ConflictPolicyKind
-	reduceSymbols []gotreesitter.Symbol
+	conflictPolicyKindExclusions        []gotreesitter.ConflictPolicyKind
 }
 
 type nativeUnaryWrapperFlatteningProfile struct {
@@ -104,18 +97,18 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                 mustRuntimeProfileSHA256("4642dc6a95190584d30ef1928c8dc8b2d72f1b025ef2acaa846090e2b951f42b"),
 		conflictActionVersionOrder: true,
 	},
-	// The Agda table's repetition shift at state 4039 on `id` must decline so
-	// the parser can reduce `_atoms` and finish the function head. Tree-sitter's
-	// C runtime stops on repetition shifts in conflicts, so this exact-blob
-	// exclusion restores that behavior without changing other Agda rows.
+	// The Agda table's generated repetition-shift rows must not decide
+	// conflicts. Tree-sitter's C runtime never takes a repetition shift at a
+	// conflict: it reduces `_atoms`, then dispatches the same lookahead again.
+	// A generated row that shifts instead commits to one reading before the
+	// next token. In `(I U p)` the shift at state 3987 on `id` leaves the parser
+	// in state 5856, which has no action for `)`, and recovery inserts a missing
+	// `qid`. Dropping every row of this kind from the exact blob restores the
+	// engine's C-faithful fold at all Agda conflicts, not only at the one state
+	// (4039) that an earlier exclusion covered.
 	"agda": {
-		blobSHA256: mustRuntimeProfileSHA256("dfa9e4bbccc88516d47bde22fcf5cc2d8822d84b80d3d4cb0ea76079e1cc0377"),
-		conflictPolicyExclusions: []conflictPolicyExclusionProfile{{
-			state:         4039,
-			lookahead:     1,
-			kind:          gotreesitter.ConflictPolicyRepetitionShift,
-			reduceSymbols: []gotreesitter.Symbol{173},
-		}},
+		blobSHA256:                   mustRuntimeProfileSHA256("dfa9e4bbccc88516d47bde22fcf5cc2d8822d84b80d3d4cb0ea76079e1cc0377"),
+		conflictPolicyKindExclusions: []gotreesitter.ConflictPolicyKind{gotreesitter.ConflictPolicyRepetitionShift},
 	},
 	// The canonical compact corpus certifies Go's converged-path split drops
 	// against the production parser and the tree-sitter C oracle.
@@ -1137,31 +1130,26 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		lang.ConflictPolicies = append(lang.ConflictPolicies, policy)
 		changed = true
 	}
-	if excludeBuiltinConflictPolicies(lang, profile.conflictPolicyExclusions) {
+	if excludeBuiltinConflictPolicyKinds(lang, profile.conflictPolicyKindExclusions) {
 		changed = true
 	}
 	return changed
 }
 
-func excludeBuiltinConflictPolicies(lang *gotreesitter.Language, exclusions []conflictPolicyExclusionProfile) bool {
-	if lang == nil || len(exclusions) == 0 || len(lang.ConflictPolicies) == 0 {
+// excludeBuiltinConflictPolicyKinds drops every table-derived conflict policy
+// row whose kind appears in kinds. It reports whether it dropped any row.
+func excludeBuiltinConflictPolicyKinds(lang *gotreesitter.Language, kinds []gotreesitter.ConflictPolicyKind) bool {
+	if lang == nil || len(kinds) == 0 || len(lang.ConflictPolicies) == 0 {
 		return false
 	}
 	kept := lang.ConflictPolicies[:0]
 	changed := false
 	for _, policy := range lang.ConflictPolicies {
-		excluded := false
-		for _, exclusion := range exclusions {
-			if policy.State == exclusion.state && policy.Lookahead == exclusion.lookahead &&
-				policy.Kind == exclusion.kind && slices.Equal(policy.ReduceSymbols, exclusion.reduceSymbols) {
-				excluded = true
-				changed = true
-				break
-			}
+		if slices.Contains(kinds, policy.Kind) {
+			changed = true
+			continue
 		}
-		if !excluded {
-			kept = append(kept, policy)
-		}
+		kept = append(kept, policy)
 	}
 	if changed {
 		lang.ConflictPolicies = kept

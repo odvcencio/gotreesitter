@@ -58,9 +58,14 @@ func init() {
 	RegisterExternalScannerSpec(agdaExternalScannerSpec)
 }
 
-// agdaState tracks indent stack for Agda parsing.
+// agdaState mirrors the C scanner's payload: the indent stack, the count of
+// dedents still owed, and a queue of tokens to emit on the next scans. The
+// queue is payload only, as in C: Serialize does not write it and Deserialize
+// does not clear it.
 type agdaState struct {
-	indents []uint16
+	indents      []uint16
+	queuedDedent uint8
+	tokens       []int
 }
 
 // AgdaExternalScanner handles newline/indent/dedent for Agda.
@@ -102,22 +107,40 @@ func (AgdaExternalScanner) Create() any {
 
 func (AgdaExternalScanner) Destroy(payload any) {}
 
+// Serialize writes the owed dedent count, then every indent as a
+// little-endian uint16, including the base indent of zero. This matches the
+// C scanner's buffer.
 func (AgdaExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*agdaState)
-	n := 0
-	for i := 1; i < len(s.indents) && n < len(buf); i++ {
-		buf[n] = byte(s.indents[i])
-		n++
+	if len(s.indents)*2+1 > len(buf) {
+		return 0
+	}
+	buf[0] = s.queuedDedent
+	n := 1
+	for _, indent := range s.indents {
+		buf[n] = byte(indent)
+		buf[n+1] = byte(indent >> 8)
+		n += 2
 	}
 	return n
 }
 
+// Deserialize restores the owed dedent count and the indent stack. An empty
+// buffer is the initial state, an indent stack of one zero.
 func (AgdaExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*agdaState)
+	s.queuedDedent = 0
 	s.indents = s.indents[:0]
-	s.indents = append(s.indents, 0)
-	for i := 0; i < len(buf); i++ {
-		s.indents = append(s.indents, uint16(buf[i]))
+	if len(buf) == 0 {
+		s.indents = append(s.indents, 0)
+		return
+	}
+	s.queuedDedent = buf[0]
+	for i := 1; i+1 < len(buf); i += 2 {
+		s.indents = append(s.indents, uint16(buf[i])|uint16(buf[i+1])<<8)
+	}
+	if len(s.indents) == 0 {
+		s.indents = append(s.indents, 0)
 	}
 }
 
@@ -139,109 +162,70 @@ func (sc AgdaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 	}
 	syms := sc.symbolTable()
 
-	lexer.MarkEnd()
-
-	foundEol := false
-	indentLen := uint32(0)
-
-	for {
-		ch := lexer.Lookahead()
-		switch {
-		case ch == '\n':
-			foundEol = true
-			indentLen = 0
-			lexer.Advance(true)
-		case ch == ' ':
-			indentLen++
-			lexer.Advance(true)
-		case ch == '\r' || ch == '\f':
-			indentLen = 0
-			lexer.Advance(true)
-		case ch == '\t':
-			indentLen += 8
-			lexer.Advance(true)
-		case ch == '-':
-			// Skip -- line comments
-			lexer.Advance(true)
-			if lexer.Lookahead() == '-' {
-				for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' {
-					lexer.Advance(true)
+	if len(s.tokens) == 0 {
+		if agdaValid(validSymbols, agdaTokDedent) && s.queuedDedent > 0 {
+			s.queuedDedent--
+			s.tokens = append(s.tokens, agdaTokDedent, agdaTokNewline)
+		} else {
+			skippedNewline := false
+			for ch := lexer.Lookahead(); ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n'; ch = lexer.Lookahead() {
+				if ch == '\n' {
+					skippedNewline = true
 				}
-				indentLen = 0
-			} else {
-				// Not a comment, put us back
-				if foundEol {
-					break
-				}
-				return false
-			}
-		case ch == '{':
-			// Skip {- -} block comments
-			lexer.Advance(true)
-			if lexer.Lookahead() == '-' {
 				lexer.Advance(true)
-				depth := 1
-				for depth > 0 && lexer.Lookahead() != 0 {
-					if lexer.Lookahead() == '{' {
-						lexer.Advance(true)
-						if lexer.Lookahead() == '-' {
-							depth++
-							lexer.Advance(true)
+			}
+
+			if lexer.Lookahead() == 0 {
+				if agdaValid(validSymbols, agdaTokDedent) && len(s.indents) > 1 {
+					s.indents = s.indents[:len(s.indents)-1]
+					s.tokens = append(s.tokens, agdaTokDedent, agdaTokNewline)
+				} else if agdaValid(validSymbols, agdaTokNewline) {
+					s.tokens = append(s.tokens, agdaTokNewline)
+				}
+			} else {
+				indentLength := uint16(lexer.Column())
+				top := s.indents[len(s.indents)-1]
+				indent := indentLength > top
+				dedent := indentLength < top
+
+				if skippedNewline {
+					if indent {
+						if agdaValid(validSymbols, agdaTokIndent) {
+							s.indents = append(s.indents, indentLength)
+							s.tokens = append(s.tokens, agdaTokIndent)
 						}
-					} else if lexer.Lookahead() == '-' {
-						lexer.Advance(true)
-						if lexer.Lookahead() == '}' {
-							depth--
-							lexer.Advance(true)
+					} else if agdaValid(validSymbols, agdaTokNewline) {
+						s.tokens = append(s.tokens, agdaTokNewline)
+					}
+				} else {
+					if indent {
+						if agdaValid(validSymbols, agdaTokIndent) {
+							s.indents = append(s.indents, indentLength)
+							s.tokens = append(s.tokens, agdaTokIndent)
 						}
-					} else {
-						lexer.Advance(true)
+					} else if dedent {
+						s.indents = s.indents[:len(s.indents)-1]
+						for indentLength < s.indents[len(s.indents)-1] {
+							s.indents = s.indents[:len(s.indents)-1]
+							s.queuedDedent++
+						}
+						if agdaValid(validSymbols, agdaTokDedent) {
+							s.tokens = append(s.tokens, agdaTokDedent, agdaTokNewline)
+						} else {
+							s.queuedDedent++
+						}
 					}
 				}
-				indentLen = 0
-			} else {
-				if foundEol {
-					break
-				}
-				return false
 			}
-		case ch == 0:
-			indentLen = 0
-			foundEol = true
-			goto done
-		default:
-			goto done
-		}
-		continue
-	done:
-		break
-	}
-
-	if foundEol {
-		if len(s.indents) > 0 {
-			currentIndent := s.indents[len(s.indents)-1]
-
-			if agdaValid(validSymbols, agdaTokIndent) && indentLen > uint32(currentIndent) {
-				s.indents = append(s.indents, uint16(indentLen))
-				lexer.SetResultSymbol(syms[agdaTokIndent])
-				return true
-			}
-
-			if (agdaValid(validSymbols, agdaTokDedent) || !agdaValid(validSymbols, agdaTokNewline)) &&
-				indentLen < uint32(currentIndent) {
-				s.indents = s.indents[:len(s.indents)-1]
-				lexer.SetResultSymbol(syms[agdaTokDedent])
-				return true
-			}
-		}
-
-		if agdaValid(validSymbols, agdaTokNewline) {
-			lexer.SetResultSymbol(syms[agdaTokNewline])
-			return true
 		}
 	}
 
-	return false
+	if len(s.tokens) == 0 {
+		return false
+	}
+	lexer.SetResultSymbol(syms[s.tokens[0]])
+	s.tokens = s.tokens[1:]
+	return true
 }
 
 func agdaValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
