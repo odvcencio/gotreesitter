@@ -123,7 +123,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: native recovery emits the same tree for every registered witness. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
@@ -137,7 +137,7 @@
       "retired_commit": "2ef4802f2dbb853486d852cc9c1909e2a26f0199",
       "receipt_refs": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -262,7 +262,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: native recovery emits the same tree for every registered witness. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
@@ -276,7 +276,7 @@
       "retired_commit": "2ef4802f2dbb853486d852cc9c1909e2a26f0199",
       "receipt_refs": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -358,7 +358,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: native recovery emits the same tree for every registered witness. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
@@ -372,7 +372,7 @@
       "retired_commit": "2ef4802f2dbb853486d852cc9c1909e2a26f0199",
       "receipt_refs": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -595,7 +595,7 @@
       "authoritative_owner": "scanner_checkpoint_state",
       "witnesses": [
         "grammars/crystal_opener_span_native_regression_test.go",
-        "cgo_harness/crystal_opener_span_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: the Crystal scanner skips post-opener whitespace during lookahead. Production, compact, forest, incremental, and C-oracle receipts now preserve exact opener spans.",
       "route_coverage": {
@@ -609,7 +609,7 @@
       "retired_commit": "16d4873e62d7eeff43cf61b552465e27eda87536",
       "receipt_refs": [
         "grammars/crystal_opener_span_native_regression_test.go",
-        "cgo_harness/crystal_opener_span_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -628,7 +628,7 @@
       "authoritative_owner": "materialization",
       "witnesses": [
         "grammars/collapsed_token_native_regression_test.go",
-        "cgo_harness/collapsed_token_retirement_parity_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: reduction preserves required wrapper tokens and collapses the same-name CPON null token without source reconstruction. Compatibility-free, production, compact, forest, incremental, and C-oracle receipts return the same tree.",
       "route_coverage": {
@@ -642,7 +642,7 @@
       "retired_commit": "6f9047d75b4406e2aadf8eeb1a47ebca752734b5",
       "receipt_refs": [
         "grammars/collapsed_token_native_regression_test.go",
-        "cgo_harness/collapsed_token_retirement_parity_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -851,7 +851,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/elixir_extras_and_pairs_native_regression_test.go",
-        "cgo_harness/elixir_extras_and_pairs_retirement_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: native root-extra folding drops the hidden comment-synchronization token, and reduction groups map keyword pairs and update/arrow entries directly. Production and incremental routes are exact. Compact and forest routes remain exact.",
       "route_coverage": {
@@ -865,7 +865,7 @@
       "retired_commit": "ff3acd87af32d98ed0d05ddfe16d5430abbbcb4a",
       "receipt_refs": [
         "grammars/elixir_extras_and_pairs_native_regression_test.go",
-        "cgo_harness/elixir_extras_and_pairs_retirement_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -884,7 +884,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/enforce_const_param_native_regression_test.go",
-        "cgo_harness/enforce_const_param_retirement_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: native scheduling and reduction publish the C-equivalent formal_parameter_modifier, type_int, identifier, and default-value shape directly. Production and incremental routes are exact. Compact and forest routes remain exact.",
       "route_coverage": {
@@ -898,7 +898,7 @@
       "retired_commit": "062fb1a130c15c030192bc23cdd0dd7eed6af18f",
       "receipt_refs": [
         "grammars/enforce_const_param_native_regression_test.go",
-        "cgo_harness/enforce_const_param_retirement_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -950,7 +950,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: native recovery emits the same tree for every registered witness. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
@@ -964,7 +964,7 @@
       "retired_commit": "2ef4802f2dbb853486d852cc9c1909e2a26f0199",
       "receipt_refs": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -1017,7 +1017,7 @@
       "authoritative_owner": "materialization",
       "witnesses": [
         "grammars/fsharp_unary_wrapper_native_regression_test.go",
-        "cgo_harness/fsharp_unary_wrapper_retirement_parity_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied by exact production and incremental trees, compact fallback, forest fail-closed behavior, and pinned C parity.",
       "route_coverage": {
@@ -1031,7 +1031,7 @@
       "retired_commit": "9e2a7d8668f99e6f3eb43f6a74f4d449451943b2",
       "receipt_refs": [
         "grammars/fsharp_unary_wrapper_native_regression_test.go",
-        "cgo_harness/fsharp_unary_wrapper_retirement_parity_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -1050,7 +1050,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/recovery_action_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: native recovery emits C-equivalent missing terminators and preserves empty-definition errors. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
@@ -1064,7 +1064,7 @@
       "retired_commit": "3f2a9256d72a838bb62a39ccf4af2e7cc1724dbb",
       "receipt_refs": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/recovery_action_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -1083,7 +1083,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/fidl_versioned_layout_modifier_native_regression_test.go",
-        "cgo_harness/fidl_versioned_layout_modifier_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: native parsing already recovers a versioned-layout-modifier declaration into the C-equivalent error shape without a post-parse pass. Production, compact, forest, incremental, and C-oracle receipts are exact.",
       "route_coverage": {
@@ -1097,7 +1097,7 @@
       "retired_commit": "e12abef4da826db0bef291127ef4ab62ae4071e2",
       "receipt_refs": [
         "grammars/fidl_versioned_layout_modifier_native_regression_test.go",
-        "cgo_harness/fidl_versioned_layout_modifier_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -1374,7 +1374,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/expected_root_fallback_native_regression_test.go",
-        "cgo_harness/expected_root_fallback_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: native parsing retains the C-equivalent hurl_file root. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
@@ -1388,7 +1388,7 @@
       "retired_commit": "2427094ae0629d0bd5c6a2fe2c2e801cbc709d3a",
       "receipt_refs": [
         "grammars/expected_root_fallback_native_regression_test.go",
-        "cgo_harness/expected_root_fallback_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -1408,7 +1408,7 @@
       "witnesses": [
         "cgo_harness/parity_cgo_test.go",
         "grammars/hlsl_subscript_assignment_native_regression_test.go",
-        "cgo_harness/hlsl_subscript_assignment_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "One member retired 2026-08-12: the subscript-assignment declarator repair. `structured_binding_declarator` carries a negative dynamic precedence in the grammar, so a clean, unambiguous election already prefers the subscript-assignment expression natively; production, compact, forest, incremental, and C-oracle receipts are exact with no post-parse pass. The cast-negative-number and unorm-buffer members stay live: both still rewrite the tree to reach the C-equivalent shape. Delete a remaining member only after scheduler_action_semantics or derivation_election_selection emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
       "route_coverage": {
@@ -1470,7 +1470,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/expected_root_fallback_native_regression_test.go",
-        "cgo_harness/expected_root_fallback_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: native recovery emits C-equivalent document trees for malformed files and continuation inputs. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
@@ -1484,7 +1484,7 @@
       "retired_commit": "2427094ae0629d0bd5c6a2fe2c2e801cbc709d3a",
       "receipt_refs": [
         "grammars/expected_root_fallback_native_regression_test.go",
-        "cgo_harness/expected_root_fallback_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -1812,7 +1812,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/recovery_action_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: recovery actions materialize recovered end tokens as C-equivalent identifiers. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
@@ -1826,7 +1826,7 @@
       "retired_commit": "3f2a9256d72a838bb62a39ccf4af2e7cc1724dbb",
       "receipt_refs": [
         "grammars/recovery_action_materialization_native_regression_test.go",
-        "cgo_harness/recovery_action_materialization_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -2310,7 +2310,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/robot_scheme_skipped_error_native_regression_test.go",
-        "cgo_harness/robot_scheme_skipped_error_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: parser recovery now emits the skipped Robot error structure. Production and incremental routes are exact. Compact and forest routes remain fail-closed.",
       "route_coverage": {
@@ -2324,7 +2324,7 @@
       "retired_commit": "0d84d2eb5e597420de90d7d275b945e9b15ba7df",
       "receipt_refs": [
         "grammars/robot_scheme_skipped_error_native_regression_test.go",
-        "cgo_harness/robot_scheme_skipped_error_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -2438,7 +2438,7 @@
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "grammars/robot_scheme_skipped_error_native_regression_test.go",
-        "cgo_harness/robot_scheme_skipped_error_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: parser recovery now emits the skipped Scheme quote-family error leaves. Production and incremental routes are exact. Compact and forest routes remain fail-closed.",
       "route_coverage": {
@@ -2452,7 +2452,7 @@
       "retired_commit": "0d84d2eb5e597420de90d7d275b945e9b15ba7df",
       "receipt_refs": [
         "grammars/robot_scheme_skipped_error_native_regression_test.go",
-        "cgo_harness/robot_scheme_skipped_error_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -2745,7 +2745,7 @@
       "authoritative_owner": "materialization",
       "witnesses": [
         "grammars/typst_indent_native_regression_test.go",
-        "cgo_harness/typst_indent_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ],
       "retirement_condition": "Satisfied: the Typst scanner initializes its base indentation state. Production, compact, forest, incremental, and C-oracle receipts produce nested list items directly.",
       "route_coverage": {
@@ -2759,7 +2759,7 @@
       "retired_commit": "af6dce4cf9dc323fba10155fdcab6a84a25e3927",
       "receipt_refs": [
         "grammars/typst_indent_native_regression_test.go",
-        "cgo_harness/typst_indent_parity_cgo_test.go"
+        "cgo_harness/witness_table_test.go"
       ]
     },
     {
@@ -2884,7 +2884,7 @@
       "receipt_refs": [
         "parser_result_trailing_extra_native_test.go",
         "grammars/trailing_extra_native_regression_test.go",
-        "cgo_harness/trailing_extra_root_parity_test.go",
+        "cgo_harness/witness_table_test.go",
         "glr_test.go"
       ]
     },
@@ -2903,7 +2903,7 @@
       "purpose": "Historical: applied generic terminal-leaf, alias-target, stop-reason, and error-summary compatibility. Retired after reduction and alias materialization produced the terminal shape natively across every registered route.",
       "authoritative_owner": "materialization",
       "witnesses": [
-        "cgo_harness/terminal_leaf_native_parity_test.go",
+        "cgo_harness/witness_table_test.go",
         "grammars/terminal_leaf_native_regression_test.go",
         "parser_collapsed_child_policy_test.go",
         "parser_result_test/dispatcher_census_test.go",
@@ -2920,7 +2920,7 @@
       "status": "retired",
       "retired_commit": "31bc9f1ed88bc930d22d0c2eaedc84195604cce1",
       "receipt_refs": [
-        "cgo_harness/terminal_leaf_native_parity_test.go",
+        "cgo_harness/witness_table_test.go",
         "grammars/terminal_leaf_native_regression_test.go",
         "parser_collapsed_child_policy_test.go",
         "parser_result_test/dispatcher_census_test.go",

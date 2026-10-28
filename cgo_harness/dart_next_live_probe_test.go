@@ -309,9 +309,9 @@ func TestDartNextLiveArmProbe(t *testing.T) {
 				StartByte:   uint32(len(base)),
 				OldEndByte:  uint32(len(base)),
 				NewEndByte:  uint32(len(witness.source)),
-				StartPoint:  dartNextPointAtByte(base),
-				OldEndPoint: dartNextPointAtByte(base),
-				NewEndPoint: dartNextPointAtByte(witness.source),
+				StartPoint:  endPoint(base),
+				OldEndPoint: endPoint(base),
+				NewEndPoint: endPoint(witness.source),
 			})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(witness.source, oldTree)
 			if err != nil {
@@ -406,32 +406,7 @@ func dartNextReceipt(tree *gotreesitter.Tree, language *gotreesitter.Language, c
 		return fmt.Sprintf("inspect_error=%v", err)
 	}
 	diff := FirstDivergenceDumpV1(tree.RootNode(), language, cTree.RootNode())
-	return fmt.Sprintf("error_root=%t digest=%s c_digest=%s exact=%t rewrites=%d native_authoritative=%t passes=%s divergence=%+v", tree.RootNode().HasError(), inspection.SHA256, cDigest, diff == nil && inspection.SHA256 == cDigest, tree.ParseRuntime().NormalizationNodesRewritten, tree.ParseRuntime().NativeRecoveredStructureAuthoritative, dartNextPasses(tree), diff)
-}
-
-func dartNextPasses(tree *gotreesitter.Tree) string {
-	runtime := tree.ParseRuntime()
-	if runtime.NormalizationPasses == nil {
-		return "none"
-	}
-	parts := make([]string, 0, len(*runtime.NormalizationPasses))
-	for _, pass := range *runtime.NormalizationPasses {
-		parts = append(parts, fmt.Sprintf("%s:%d/%d/%d/%d", pass.Name, pass.Checked, pass.Run, pass.NodesVisited, pass.NodesRewritten))
-	}
-	return fmt.Sprintf("%v", parts)
-}
-
-func dartNextPointAtByte(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
+	return fmt.Sprintf("error_root=%t digest=%s c_digest=%s exact=%t rewrites=%d native_authoritative=%t passes=%s divergence=%+v", tree.RootNode().HasError(), inspection.SHA256, cDigest, diff == nil && inspection.SHA256 == cDigest, tree.ParseRuntime().NormalizationNodesRewritten, tree.ParseRuntime().NativeRecoveredStructureAuthoritative, normalizationPassesSummary(tree), diff)
 }
 
 // TestDartNextLiveArmReceiptDocument guards the Dart blocker receipt.

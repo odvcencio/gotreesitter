@@ -1,4 +1,4 @@
-//go:build cgo && (treesitter_c_bench || treesitter_c_bench_legacy)
+//go:build cgo && treesitter_c_bench
 
 package cgoharness
 

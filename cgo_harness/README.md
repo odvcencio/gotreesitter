@@ -653,9 +653,7 @@ go test . -tags treesitter_c_bench \
 ```
 
 These harnesses are intentionally kept in a separate module so the root
-`gotreesitter` module remains pure-Go in dependency metadata. Historical
-smacker-backed corpus probes remain behind the explicit
-`treesitter_c_bench_legacy` tag and are not admissible for C/Go ratio claims.
+`gotreesitter` module remains pure-Go in dependency metadata.
 
 ## Run Pure-C Runtime Matrix (No CGo)
 

@@ -292,7 +292,7 @@ func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
 				t.Fatalf("incremental base parse: %v", err)
 			}
 			t.Cleanup(oldTree.Release)
-			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(witness.source)), StartPoint: solidityNextPointAtByte(base), OldEndPoint: solidityNextPointAtByte(base), NewEndPoint: solidityNextPointAtByte(witness.source)})
+			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(witness.source)), StartPoint: endPoint(base), OldEndPoint: endPoint(base), NewEndPoint: endPoint(witness.source)})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(witness.source, oldTree)
 			if err != nil {
 				t.Fatalf("incremental parse: %v", err)
@@ -412,17 +412,4 @@ func solidityNextDispatchReceipt(tree *gotreesitter.Tree) string {
 		}
 	}
 	return "none"
-}
-
-func solidityNextPointAtByte(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

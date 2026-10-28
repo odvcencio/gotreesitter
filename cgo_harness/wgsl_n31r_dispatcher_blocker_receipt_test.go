@@ -210,7 +210,7 @@ func TestWGSLN31rDispatcherBlockerReceipt(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(oldTree.Release)
-			oldTree.Edit(gots.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(witness.source)), StartPoint: wgslN31rPoint(base), OldEndPoint: wgslN31rPoint(base), NewEndPoint: wgslN31rPoint(witness.source)})
+			oldTree.Edit(gots.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(witness.source)), StartPoint: endPoint(base), OldEndPoint: endPoint(base), NewEndPoint: endPoint(witness.source)})
 			inc, profile, err := incParser.ParseIncrementalProfiled(witness.source, oldTree)
 			if err != nil {
 				t.Fatal(err)
@@ -281,17 +281,4 @@ func wgslN31rDispatch(tree *gots.Tree, name string) string {
 		}
 	}
 	return "none"
-}
-
-func wgslN31rPoint(source []byte) gots.Point {
-	var point gots.Point
-	for _, b := range source {
-		if b == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

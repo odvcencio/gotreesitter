@@ -17,7 +17,7 @@ func TestAWKRecoveredProductionMatchesLockedC(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cTree := awkCTree(t, cLanguage, source)
+	cTree := receiptCTree(t, cLanguage, source)
 	defer cTree.Close()
 	cDigest, err := COracleDeepDigest(cTree)
 	if err != nil {
