@@ -578,8 +578,12 @@ func norgSkip(s *norgState, lexer *gotreesitter.ExternalLexer) {
 	lexer.Advance(true)
 }
 
+// norgSetResult records the result token without touching the token end. The
+// C scanner sets result_symbol and leaves the end where the last mark_end put
+// it, or at the cursor when it never called mark_end. Marking here would move
+// an end the scanner set earlier, such as the end after the "@" of an "@end"
+// line, to the cursor.
 func norgSetResult(s *norgState, lexer *gotreesitter.ExternalLexer, tok int, syms *[norgTokenCount]gotreesitter.Symbol) {
-	lexer.MarkEnd()
 	lexer.SetResultSymbol(norgSym(tok, syms))
 	s.lastToken = tok
 }
@@ -1031,11 +1035,14 @@ func norgCheckDetached(s *norgState, lexer *gotreesitter.ExternalLexer, results 
 			return true
 		}
 
+		// The C scanner counts the character before it tests the next one, so
+		// a lone "*" that is not followed by blank space still counts as one
+		// parsed character and can start an attached modifier below.
+		i++
+		s.parsedChars++
 		if !norgIsDetachedMod(lexer.Lookahead()) {
 			break
 		}
-		i++
-		s.parsedChars++
 	}
 
 	// If only one character parsed, might be an attached modifier
@@ -1152,7 +1159,6 @@ func norgCheckLinkLocation(s *norgState, lexer *gotreesitter.ExternalLexer, syms
 	switch s.lastToken {
 	case norgLINK_LOCATION_BEGIN:
 		if lexer.Lookahead() == ':' {
-			lexer.MarkEnd()
 			lexer.SetResultSymbol(norgSym(norgLINK_FILE_BEGIN, syms))
 			s.lastToken = norgLINK_FILE_BEGIN
 			norgAdvance(s, lexer)
@@ -1237,7 +1243,6 @@ func norgCheckLinkLocation(s *norgState, lexer *gotreesitter.ExternalLexer, syms
 
 	case norgLINK_FILE_TEXT:
 		if lexer.Lookahead() == ':' {
-			lexer.MarkEnd()
 			lexer.SetResultSymbol(norgSym(norgLINK_FILE_END, syms))
 			s.lastToken = norgLINK_FILE_END
 			norgAdvance(s, lexer)
