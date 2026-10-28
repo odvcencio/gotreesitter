@@ -2758,7 +2758,8 @@ func replaceRawShapeChildEntry(arena *nodeArena, parent, oldChild, newChild *Nod
 // consumed the most input at the lowest error cost, materialize its top-level
 // fragment list (the result-link chain down to the start), and wrap it in the
 // grammar's expected root symbol — retagged to errorSymbol when a fragment
-// carries an error (production's synthetic-root rule). Recovery-only.
+// carries an error (production's synthetic-root rule) or the parse stopped
+// short of an accept. Recovery-only.
 func (p *Parser) collectForestErrorRoot(idx *gssForestIndex, arena *nodeArena) *Node {
 	if idx == nil || idx.len() == 0 {
 		return nil
@@ -2793,13 +2794,11 @@ func (p *Parser) collectForestErrorRoot(idx *gssForestIndex, arena *nodeArena) *
 	for i, j := 0, len(frags)-1; i < j; i, j = i+1, j-1 {
 		frags[i], frags[j] = frags[j], frags[i]
 	}
-	hasErr := false
-	for _, f := range frags {
-		if f != nil && (f.symbol == errorSymbol || f.HasError()) {
-			hasErr = true
-			break
-		}
-	}
+	// The caller reaches this point when EOF came without an accept, so the
+	// parse is incomplete even if no fragment carries an error. A clean root
+	// here would hide the missing tail from HasError and from the clean forest
+	// rescue.
+	hasErr := true
 	rootSym := p.rootSymbol
 	if hasErr {
 		// Forest EOF recovery does not run the result-root parser-table replay
