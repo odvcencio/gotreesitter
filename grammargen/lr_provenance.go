@@ -50,14 +50,3 @@ func (p *mergeProvenance) recordLookaheadContributor(stateIdx, lookahead, ntTran
 		p.laContributors[stateIdx][lookahead], ntTransIdx,
 	)
 }
-
-func (p *mergeProvenance) lookaheadContributors(stateIdx, lookahead int) []int {
-	if m, ok := p.laContributors[stateIdx]; ok {
-		return m[lookahead]
-	}
-	return nil
-}
-
-func (p *mergeProvenance) mergedStateCount() int {
-	return len(p.merges)
-}
