@@ -418,7 +418,7 @@ scanner attachment — **nothing**. Things that genuinely still need a PR:
   a registry entry with quality auditing, parity CI.
 - **Hand-written TokenSource registered by name**: the name-keyed factory
   registry (`registerTokenSourceFactory` in
-  `grammars/token_source_factory_registry.go`) is unexported. Out of tree,
+  `grammars/runtime/token_source_factory_registry.go`) is unexported. Out of tree,
   set `LangEntry.TokenSourceFactory` on your own `grammars.Register` entry
   and call
   `Parser.ParseWithTokenSource(src, entry.TokenSourceFactory(src, lang))`
@@ -440,7 +440,7 @@ scanner attachment — **nothing**. Things that genuinely still need a PR:
 
 ## Known limits: grammargen state budgets
 
-Verified against `grammargen/lr.go` and `grammargen/assemble.go` at v0.25.0:
+Verified against `grammargen/lr.go` and `grammargen/assemble.go` at v0.56.0 (commit 98cf5b3b7):
 
 - **Runtime state IDs are uint32.** `StateID` was widened from uint16
   specifically for large grammars (COBOL generates ~67k states). The only
@@ -520,7 +520,7 @@ cleanly, kept here so the docs and the backlog agree:
    resolution boilerplate from `docs/external-scanners.md`. Every author
    hand-writes the same 60 lines.
 2. **TokenSource-by-name registry is unexported**
-   (`grammars/token_source_factory_registry.go`). The workaround is
+   (`grammars/runtime/token_source_factory_registry.go`). The workaround is
    documented above (`LangEntry.TokenSourceFactory`); exporting a
    `RegisterTokenSourceFactory` function would remove the need to
    re-`Register` the whole entry.
