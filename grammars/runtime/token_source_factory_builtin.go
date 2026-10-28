@@ -47,7 +47,6 @@ func init() {
 	// parser_retry.go for the full ledger and the measured perf cost of the
 	// unconditional cap=8 on large real files.
 	registerTokenSourceFactory("java", NewJavaTokenSourceOrEOF)
-	registerTokenSourceFactory("json", NewJSONTokenSourceOrEOF)
 	// Lua now parses via the blob's DFA lexer plus LuaExternalScanner (a
 	// line-faithful port of upstream scanner.c), which matches the C oracle
 	// where the hand-tuned LuaTokenSource diverged (7/40 corpus parity).

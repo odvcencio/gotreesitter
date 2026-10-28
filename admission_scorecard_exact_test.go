@@ -21,10 +21,10 @@ func TestAdmissionCandidateScorecardExactDenominator(t *testing.T) {
 		row := runAdmissionScorecardLanguage(entry)
 		counts[row.status]++
 	}
-	if len(entries) != 206 || counts[scorecardPass] != 198 || counts[scorecardFallback] != 3 ||
-		counts[scorecardSkip] != 5 || counts[scorecardDiverge] != 0 || counts[scorecardError] != 0 {
+	if len(entries) != 206 || counts[scorecardPass] != 202 || counts[scorecardFallback] != 0 ||
+		counts[scorecardSkip] != 4 || counts[scorecardDiverge] != 0 || counts[scorecardError] != 0 {
 		t.Fatalf(
-			"G4 scorecard PASS=%d FALLBACK=%d SKIP=%d DIVERGE=%d ERROR=%d total=%d; want 198/3/5/0/0/206",
+			"G4 scorecard PASS=%d FALLBACK=%d SKIP=%d DIVERGE=%d ERROR=%d total=%d; want 202/0/4/0/0/206",
 			counts[scorecardPass],
 			counts[scorecardFallback],
 			counts[scorecardSkip],

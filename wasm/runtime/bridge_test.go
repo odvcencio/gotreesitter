@@ -196,14 +196,14 @@ func TestExecuteQueryJSONCapsWorkAndReportsTruncation(t *testing.T) {
 }
 
 func TestRuntimeLanguageUsesRegisteredTokenSourceFactory(t *testing.T) {
-	entry := grammars.DetectLanguageByName("json")
+	entry := grammars.DetectLanguageByName("c")
 	if entry == nil {
-		t.Skip("JSON is not included in this grammar subset")
+		t.Skip("C is not included in this grammar subset")
 	}
 	lang := entry.Language()
-	loaded := newRuntimeLanguage("json", lang)
+	loaded := newRuntimeLanguage("c", lang)
 	if loaded.tokenSourceFactory == nil {
-		t.Fatal("JSON runtime language did not retain its registered token-source factory")
+		t.Fatal("C runtime language did not retain its registered token-source factory")
 	}
 
 	factory := loaded.tokenSourceFactory
@@ -213,7 +213,7 @@ func TestRuntimeLanguageUsesRegisteredTokenSourceFactory(t *testing.T) {
 		return factory(source)
 	}
 
-	tree, err := loaded.parseUTF16(`{"name":"gotreesitter"}`)
+	tree, err := loaded.parseUTF16(`char *s = "gotreesitter";`)
 	if err != nil {
 		t.Fatalf("parse through registered token source: %v", err)
 	}
@@ -222,31 +222,31 @@ func TestRuntimeLanguageUsesRegisteredTokenSourceFactory(t *testing.T) {
 		t.Fatalf("parse token-source factory calls = %d, want 1", calls)
 	}
 
-	highlighter, err := loaded.newHighlighter(`(string) @string`)
+	highlighter, err := loaded.newHighlighter(`(string_literal) @string`)
 	if err != nil {
 		t.Fatalf("create highlighter through registered token source: %v", err)
 	}
-	if ranges := highlighter.Highlight([]byte(`{"name":"gotreesitter"}`)); len(ranges) == 0 {
+	if ranges := highlighter.Highlight([]byte(`char *s = "gotreesitter";`)); len(ranges) == 0 {
 		t.Fatal("highlighter returned no string captures")
 	}
 	if calls != 2 {
 		t.Fatalf("parse and highlight token-source factory calls = %d, want 2", calls)
 	}
 
-	uncertified := newRuntimeLanguage("out-of-tree-json", lang)
+	uncertified := newRuntimeLanguage("out-of-tree-c", lang)
 	if uncertified.tokenSourceFactory != nil {
 		t.Fatal("unknown language name inherited a registry token-source factory")
 	}
 }
 
 func TestRuntimeLanguageIncrementalUTF16UsesRegisteredTokenSourceFactory(t *testing.T) {
-	entry := grammars.DetectLanguageByName("json")
+	entry := grammars.DetectLanguageByName("c")
 	if entry == nil {
-		t.Skip("JSON is not included in this grammar subset")
+		t.Skip("C is not included in this grammar subset")
 	}
-	loaded := newRuntimeLanguage("json", entry.Language())
+	loaded := newRuntimeLanguage("c", entry.Language())
 	if loaded.tokenSourceFactory == nil {
-		t.Fatal("JSON runtime language did not retain its registered token-source factory")
+		t.Fatal("C runtime language did not retain its registered token-source factory")
 	}
 
 	factory := loaded.tokenSourceFactory
@@ -256,8 +256,8 @@ func TestRuntimeLanguageIncrementalUTF16UsesRegisteredTokenSourceFactory(t *test
 		return factory(source)
 	}
 	parser := gotreesitter.NewParser(loaded.language)
-	oldSource := units(`{"name":"gotreesitter"}`)
-	newSource := units(`{"name":"treesitter"}`)
+	oldSource := units(`char *s = "gotreesitter";`)
+	newSource := units(`char *s = "treesitter";`)
 	oldTree, err := loaded.parseUTF16Units(parser, oldSource, nil)
 	if err != nil {
 		t.Fatalf("parse old source: %v", err)
@@ -284,7 +284,7 @@ func TestRuntimeLanguageIncrementalUTF16UsesRegisteredTokenSourceFactory(t *test
 	}
 	// A span-changing edit requires a fresh result check. The verification
 	// must use the registered factory with the edited source too.
-	wantSources := []string{`{"name":"gotreesitter"}`, `{"name":"treesitter"}`, `{"name":"treesitter"}`}
+	wantSources := []string{`char *s = "gotreesitter";`, `char *s = "treesitter";`, `char *s = "treesitter";`}
 	if !reflect.DeepEqual(factorySources, wantSources) {
 		t.Fatalf("full, incremental, and verification factory sources = %q, want %q", factorySources, wantSources)
 	}

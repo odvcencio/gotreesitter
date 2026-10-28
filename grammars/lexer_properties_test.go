@@ -21,7 +21,6 @@ func allLexerTestCases() []lexerTestCase {
 		{"go", []byte("package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n"), NewGoTokenSourceOrEOF, GoLanguage},
 		{"java", []byte("public class Main {\n  public static void main(String[] args) {\n    System.out.println(\"hello\");\n  }\n}\n"), NewJavaTokenSourceOrEOF, JavaLanguage},
 		{"html", []byte("<html><head><title>Test</title></head><body><p class=\"x\">Hello</p></body></html>"), NewHTMLTokenSourceOrEOF, HtmlLanguage},
-		{"json", []byte(`{"key": "value", "num": 42, "arr": [1, true, null]}`), NewJSONTokenSourceOrEOF, JsonLanguage},
 		{"lua", []byte("local x = 1\nfunction foo(a, b)\n  return a + b\nend\nprint(foo(1, 2))\n"), NewLuaTokenSourceOrEOF, LuaLanguage},
 		{"toml", []byte("[section]\nkey = \"value\"\nnum = 42\narr = [1, 2, 3]\n"), NewTomlTokenSourceOrEOF, TomlLanguage},
 		{"authzed", []byte("definition user {}\n\ndefinition document {\n  relation viewer: user\n  permission view = viewer\n}\n"), NewAuthzedTokenSourceOrEOF, AuthzedLanguage},

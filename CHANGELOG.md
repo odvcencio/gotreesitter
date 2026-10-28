@@ -42,6 +42,19 @@ for tags and release notes while still in `0.x`.
   differences were inconclusive. The compact route is not the default for every
   language.
 
+- Parse JSON with the grammar's own DFA lexer, and delete its hand-written token
+  source (`grammars/runtime/json_lexer.go`). Both paths were compared with the
+  locked C parser on 303 JSON files: the DFA path matched C on 303 files, and the
+  token source on 297. No file matched C only through the token source.
+  `LangEntry.TokenSourceFactory` is now nil for JSON, so `ParseFile`,
+  `ParseFilePooled` and the other registry helpers use `Parser.Parse`. The Java
+  token source stays: it is the only implementation of the end-of-file comment
+  append proof, and without it typing at the end of a trailing comment in a
+  Java file runs a hidden fresh parse on every keystroke. C, C++ and authzed
+  also keep their token sources: C matched C on 4 corpus files where the DFA path
+  did not, and the C++ token source matches C on a malformed class body that the
+  DFA path parses without an error.
+
 ### Added
 
 - Add `cmd/scannercert`, a report-only tool that replays external scanner calls
@@ -69,6 +82,16 @@ for tags and release notes while still in `0.x`.
   metadata exactly. The Go supertype query failed before this fix ([#1484](https://github.com/odvcencio/gotreesitter/pull/1484)).
 
 ### Breaking Changes
+
+- `grammars.JSONTokenSource`, `NewJSONTokenSource` and `NewJSONTokenSourceOrEOF`
+  are removed, and the registry no longer routes `json` through a token source.
+  To upgrade, call `parser.Parse(src)` where you called
+  `ParseWithTokenSource(src, grammars.NewJSONTokenSourceOrEOF(src, lang))`, and
+  `parser.ParseIncremental(src, old)` for incremental parses. Drop
+  `WithTokenSourceFactory` from highlighters and taggers for JSON. Code that
+  calls `entry.TokenSourceFactory(...)` without a nil check must check for nil
+  and fall back to `Parse`. Trees differ from the old ones on 6 JSON files in the
+  test corpus, and in each of them only the DFA tree matched C.
 
 - `Highlight` and its incremental and UTF-16 variants no longer return a range
   for a `spell`, `nospell`, `conceal`, `none`, underscore-prefixed or

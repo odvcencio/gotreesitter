@@ -111,21 +111,6 @@ func TestJavaNoNewlineTokens(t *testing.T) {
 	}
 }
 
-func TestJSONNoNewlineTokens(t *testing.T) {
-	lang := JsonLanguage()
-	src := []byte("{\n  \"a\": 1,\n  \"b\": 2\n}\n")
-	ts := NewJSONTokenSourceOrEOF(src, lang)
-	tokens := collectAllTokens(ts, 100)
-	names := tokenNames(tokens, lang)
-
-	for _, name := range names {
-		if name == "\n" {
-			t.Errorf("JSON should not produce newline tokens, but found one")
-			break
-		}
-	}
-}
-
 func TestLuaNoNewlineTokens(t *testing.T) {
 	lang := LuaLanguage()
 	src := []byte("local x = 1\nprint(x)\n")
