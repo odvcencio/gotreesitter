@@ -649,13 +649,6 @@ func TestHighlightInheritanceComposesDefaultChains(t *testing.T) {
 	}
 	for child, parent := range defaultHighlightInherits {
 		childQuery, parentQuery := get(child), get(parent)
-		if reason := blockedDefaultHighlightInherits[child]; reason != "" {
-			entry := DetectLanguageByName(child)
-			if childQuery != entry.rawHighlightQuery {
-				t.Errorf("%s blocked inheritance should keep its raw query (%s)", child, reason)
-			}
-			continue
-		}
 		if !strings.HasPrefix(childQuery, parentQuery) || len(childQuery) <= len(parentQuery) {
 			t.Errorf("%s highlight query should compose %s base ahead of its additions (%s=%dB %s=%dB)",
 				child, parent, parent, len(parentQuery), child, len(childQuery))
