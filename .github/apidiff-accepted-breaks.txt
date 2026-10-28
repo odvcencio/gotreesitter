@@ -1,0 +1,61 @@
+# Accepted public API breaks for v0.57.0 (package gotreesitter).
+#
+# The apidiff job in .github/workflows/ci.yml compares the root package with the
+# latest stable tag and fails on every incompatible change that this file does
+# not list. An entry has three fields separated by single TAB characters:
+#
+#   <exact apidiff line><TAB><PR><TAB><upgrade note>
+#
+# The first field must equal one line of `apidiff -incompatible` output
+# (whole-line match; no patterns). The job reports an entry that apidiff no
+# longer reports as stale. A removal PR appends its own entries. Delete this
+# file when v0.57.0 is tagged, because the baseline then moves to that tag.
+#
+# Removals outside package gotreesitter are not visible to apidiff. They are
+# recorded in comments for the v0.57.0 upgrade notes.
+#
+# grammars facade (P09): the generator no longer mirrors these names from
+# grammars/runtime. Import github.com/odvcencio/gotreesitter/grammars/runtime
+# and use grammarruntime.<Name> instead.
+#   <Lang>ExternalScanner type aliases, 118 in all (for example
+#     grammars.PythonExternalScanner)
+#   RegisterCaddySupport, RegisterDisassemblySupport, RegisterNimSupport
+#   DecodeAndCertifyLanguageBlob, NewGenericTokenSourceOrEOF
+#   ExternalScannerSpecs (deleted from grammars/runtime as well; nothing used it)
+# Kept on the facade: RegisterExternalScanner, LookupExternalScanner,
+# SetEmbeddedLanguageCacheLimit and the other documented loader functions.
+#
+- ExternalVMInstr: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOp: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpAdvance: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpEmit: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpFail: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpIfRuneClass: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpIfRuneEq: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpIfRuneInRange: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpJump: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpMarkEnd: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpRequireStateEq: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpRequireValid: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMOpSetState: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMProgram: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMRuneClass: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMRuneClassDigit: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMRuneClassLetter: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMRuneClassNewline: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMRuneClassWhitespace: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMRuneClassWord: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- ExternalVMScanner: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- MustNewExternalVMScanner: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- NewExternalVMScanner: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMAdvance: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMEmit: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMFail: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMIfRuneClass: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMIfRuneEq: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMIfRuneInRange: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMJump: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMMarkEnd: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMRequireStateEq: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMRequireValid: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- VMSetState: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
