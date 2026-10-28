@@ -395,7 +395,7 @@ func (p *Parser) schedParserModes() sched.Mode {
 	}
 	// A forced candidate route takes precedence over the forest default, as it
 	// does in admissionCandidateFullParseEligible.
-	if p.admissionCandidateRoute != admissionRouteCandidateForced && glrForestEnabled && parserWantsForest(p) {
+	if p.admissionCandidateRoute != admissionRouteCandidateForced && glrForestEnabled.Load() && parserWantsForest(p) {
 		modes |= sched.ForestRoute
 	}
 	return modes

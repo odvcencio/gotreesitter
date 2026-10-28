@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "testing"
+import (
+	"sync"
+	"testing"
+)
 
 func parseRuntimeHasNormalizationPass(rt ParseRuntime, name string) bool {
 	if rt.NormalizationPasses == nil {
@@ -19,9 +22,9 @@ func seedStaleForestNormalizationStats(parser *Parser) {
 }
 
 func TestForestAttemptResetsNormalizationStatsOnParserReuse(t *testing.T) {
-	previous := glrForestEnabled
-	glrForestEnabled = true
-	t.Cleanup(func() { glrForestEnabled = previous })
+	previous := glrForestEnabled.Load()
+	glrForestEnabled.Store(true)
+	t.Cleanup(func() { glrForestEnabled.Store(previous) })
 
 	t.Run("success", func(t *testing.T) {
 		lang := loadBlobForDecode(t, "json")
@@ -79,4 +82,62 @@ func TestForestAttemptResetsNormalizationStatsOnParserReuse(t *testing.T) {
 			t.Fatal("forest fallback published stale normalization stats")
 		}
 	})
+}
+
+// Parses read the forest switch and the arena profile counters while tests and
+// benchmarks toggle them. Run under -race: the plain globals this replaced
+// reported a race on glrForestEnabled and on the arena counters.
+func TestExportedTogglesRaceFree(t *testing.T) {
+	previousForest := glrForestEnabled.Load()
+	previousRecover := glrForestRecover.Load()
+	t.Cleanup(func() {
+		glrForestEnabled.Store(previousForest)
+		glrForestRecover.Store(previousRecover)
+		EnableArenaProfile(false)
+		ResetArenaProfile()
+	})
+
+	lang := loadBlobForDecode(t, "json")
+	source := []byte(`{"a": [1, 2, 3], "b": {"c": null}}`)
+
+	stop := make(chan struct{})
+	var toggler sync.WaitGroup
+	toggler.Add(1)
+	go func() {
+		defer toggler.Done()
+		for i := 0; ; i++ {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			SetGLRForestEnabled(i%2 == 0)
+			SetGLRForestRecover(i%3 == 0)
+			EnableArenaProfile(i%2 == 0)
+			if i%5 == 0 {
+				ResetArenaProfile()
+			}
+			_ = ArenaProfileSnapshot()
+		}
+	}()
+
+	var parsers sync.WaitGroup
+	for g := 0; g < 2; g++ {
+		parsers.Add(1)
+		go func() {
+			defer parsers.Done()
+			parser := NewParser(lang)
+			for i := 0; i < 20; i++ {
+				tree, err := parser.Parse(source)
+				if err != nil {
+					t.Errorf("parse: %v", err)
+					return
+				}
+				tree.Release()
+			}
+		}()
+	}
+	parsers.Wait()
+	close(stop)
+	toggler.Wait()
 }

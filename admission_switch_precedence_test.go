@@ -88,7 +88,7 @@ func preTableAdmissionEligible(p *Parser, oldTree *Tree, usingProductionDFA bool
 	if !usingProductionDFA {
 		return false
 	}
-	if p.admissionCandidateRoute == admissionRouteFollowDefault && glrForestEnabled && parserWantsForest(p) {
+	if p.admissionCandidateRoute == admissionRouteFollowDefault && glrForestEnabled.Load() && parserWantsForest(p) {
 		return false
 	}
 	if !p.admissionCandidateRouteEnabled() {
@@ -110,7 +110,7 @@ func preTableAdmissionEligible(p *Parser, oldTree *Tree, usingProductionDFA bool
 func TestAdmissionEligibilityMatchesPreTableChecks(t *testing.T) {
 	previousDefault := admissionCandidateRouteDefault.Load()
 	defer admissionCandidateRouteDefault.Store(previousDefault)
-	previousForest := glrForestEnabled
+	previousForest := glrForestEnabled.Load()
 	defer SetGLRForestEnabled(previousForest)
 	admissionCandidateRouteDefault.Store(2)
 
@@ -169,7 +169,7 @@ func TestAdmissionEligibilityMatchesPreTableChecks(t *testing.T) {
 // TestSchedRequestAddsParserAndOldTreeModes checks each mode that a
 // schedCall request derives from parser state or from the old tree.
 func TestSchedRequestAddsParserAndOldTreeModes(t *testing.T) {
-	previousForest := glrForestEnabled
+	previousForest := glrForestEnabled.Load()
 	defer SetGLRForestEnabled(previousForest)
 	SetGLRForestEnabled(true)
 	lang := &Language{Name: "sched_modes_test"}

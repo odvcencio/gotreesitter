@@ -47,16 +47,16 @@ func TestForestDeclineMemoHashIsOnlyPrefilter(t *testing.T) {
 func TestForestDeclineMemoSeparatesSemanticModes(t *testing.T) {
 	parser := &Parser{language: &Language{Name: "memo-test"}}
 	source := []byte("mode source")
-	previousRecover := glrForestRecover
-	defer func() { glrForestRecover = previousRecover }()
-	glrForestRecover = false
+	previousRecover := glrForestRecover.Load()
+	defer func() { glrForestRecover.Store(previousRecover) }()
+	glrForestRecover.Store(false)
 	parser.rememberForestDecline(source, forestDeclineEOFRecoveryConflict)
 
-	glrForestRecover = true
+	glrForestRecover.Store(true)
 	if parser.forestDeclineMemoHit(source) {
 		t.Fatal("memo matched after forest recovery mode changed")
 	}
-	glrForestRecover = false
+	glrForestRecover.Store(false)
 	if !parser.forestDeclineMemoHit(source) {
 		t.Fatal("memo missed after forest recovery mode was restored")
 	}
@@ -209,17 +209,17 @@ func TestForestDeclineMemoDoesNotBypassExplicitForest(t *testing.T) {
 }
 
 func TestForestDeclineMemoWarmSemanticDeclineMatchesProduction(t *testing.T) {
-	previousEnabled, previousRecover := glrForestEnabled, glrForestRecover
+	previousEnabled, previousRecover := glrForestEnabled.Load(), glrForestRecover.Load()
 	defer func() {
-		glrForestEnabled = previousEnabled
-		glrForestRecover = previousRecover
+		glrForestEnabled.Store(previousEnabled)
+		glrForestRecover.Store(previousRecover)
 	}()
-	glrForestRecover = false
+	glrForestRecover.Store(false)
 	lang := loadBlobForDecode(t, "make")
 	lang.WantsForest = true
 	source := []byte("all:\n\t@echo hi\n")
 
-	glrForestEnabled = false
+	glrForestEnabled.Store(false)
 	// Pin to production: this test compares the production forest decline path
 	// against production, and observes production-internal decline-memo state.
 	productionParser := NewParser(lang)
@@ -232,7 +232,7 @@ func TestForestDeclineMemoWarmSemanticDeclineMatchesProduction(t *testing.T) {
 	wantSExpr := production.RootNode().SExpr(lang)
 	wantRuntime := production.ParseRuntime()
 
-	glrForestEnabled = true
+	glrForestEnabled.Store(true)
 	parser := NewParser(lang)
 	// Pin to production: this test observes production-internal forest decline
 	// reason and memo state, which the compact candidate route does not produce.

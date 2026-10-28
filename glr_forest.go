@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -45,10 +46,16 @@ import (
 // automatically (with production fallback). Set GOT_GLR_FOREST=0 to disable
 // globally; tests/benchmarks toggle via SetGLRForestEnabled. Languages that
 // want neither always use production regardless of this switch.
-var glrForestEnabled = os.Getenv("GOT_GLR_FOREST") != "0"
+//
+// The switch is atomic because parses read it while tests and benchmarks
+// toggle it.
+var glrForestEnabled atomic.Bool
+
+func init() { glrForestEnabled.Store(os.Getenv("GOT_GLR_FOREST") != "0") }
 
 // SetGLRForestEnabled toggles the GSS-forest path at runtime (tests/benchmarks).
-func SetGLRForestEnabled(on bool) { glrForestEnabled = on }
+// It is safe to call while parses run.
+func SetGLRForestEnabled(on bool) { glrForestEnabled.Store(on) }
 
 // nodeCachedHeight returns the subtree height (root = 1), memoized on the node
 // (n.subtreeHeight, 0 = uncomputed). Nodes are immutable after build and arena
@@ -99,10 +106,12 @@ func forestDedupTieReplace(entry, existing stackEntry) bool {
 // in its states and advances past the token), instead of declining. The aim is to
 // reproduce the production parser's error tree fast; until it is byte-verified
 // against production it must stay OFF in any default path.
-var glrForestRecover = os.Getenv("GOT_GLR_FOREST_RECOVER") == "1"
+var glrForestRecover atomic.Bool
+
+func init() { glrForestRecover.Store(os.Getenv("GOT_GLR_FOREST_RECOVER") == "1") }
 
 // SetGLRForestRecover toggles experimental forest error recovery (tests).
-func SetGLRForestRecover(on bool) { glrForestRecover = on }
+func SetGLRForestRecover(on bool) { glrForestRecover.Store(on) }
 
 // languageWantsForestRecover reports whether a forest-dispatched language enables
 // the recover-action error_cost recovery path by default (so error-bearing files
@@ -228,7 +237,7 @@ func (p *Parser) forestDeclineMemoMode() uint8 {
 		return 0
 	}
 	var mode uint8
-	if glrForestRecover {
+	if glrForestRecover.Load() {
 		mode |= forestDeclineModeRecoverEnabled
 	}
 	if languageWantsForestRecover(p.language.Name) {
@@ -701,7 +710,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	// ForestCapTieStats reporting an earlier, unrelated parse's counts (see
 	// resetForestCapTieStats's doc comment).
 	p.resetForestCapTieStats()
-	if p.parseWorkLimits.configured() || !glrForestEnabled || !parserWantsForest(p) {
+	if p.parseWorkLimits.configured() || !glrForestEnabled.Load() || !parserWantsForest(p) {
 		return nil
 	}
 	if p.language != nil && len(p.language.NativeUnaryWrapperFlattening) != 0 {
@@ -3422,7 +3431,7 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 	processEpoch := int32(0)
 	noLookaheadSteps := 0
 	recoverCount := 0
-	recoverActive := glrForestRecover || languageWantsForestRecover(lang.Name)
+	recoverActive := glrForestRecover.Load() || languageWantsForestRecover(lang.Name)
 	if progress.enabled {
 		progress.emit(time.Now(), "forest_setup_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0,
 			forestProgressExtra(frontier, work, nextFrontier, curIndex, nextIndex, processEpoch, recoverCount, reducer, nil, fmt.Sprintf("recover_active=%t", recoverActive)))

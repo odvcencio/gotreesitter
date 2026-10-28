@@ -144,9 +144,9 @@ func TestParseWorkLimitsStopDeterministically(t *testing.T) {
 
 func TestParseWorkLimitsUseProductionInsteadOfSpeculativeRoutes(t *testing.T) {
 	resetAdmissionCandidateCounters()
-	previousForest := glrForestEnabled
-	glrForestEnabled = true
-	t.Cleanup(func() { glrForestEnabled = previousForest })
+	previousForest := glrForestEnabled.Load()
+	glrForestEnabled.Store(true)
+	t.Cleanup(func() { glrForestEnabled.Store(previousForest) })
 
 	lang := loadBlobForDecode(t, "json")
 	lang.WantsForest = true

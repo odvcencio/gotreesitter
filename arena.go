@@ -399,9 +399,9 @@ type nodeArenaPool struct {
 
 // ArenaProfile captures node arena allocation statistics.
 // Enable with EnableArenaProfile(true) and retrieve with
-// ArenaProfileSnapshot(). The counters are plain package-level state, not
-// atomic: read and write them from a single goroutine only, with no parse
-// running concurrently.
+// ArenaProfileSnapshot(). The counters are atomic, so parses on several
+// goroutines can run while the profile is enabled, reset, or read. A snapshot
+// taken during a parse is not a single point in time across the four fields.
 type ArenaProfile struct {
 	IncrementalAcquire uint64
 	IncrementalNew     uint64
@@ -410,29 +410,39 @@ type ArenaProfile struct {
 }
 
 var (
-	arenaProfileEnabled bool
-	arenaProfileData    ArenaProfile
+	arenaProfileEnabled atomic.Bool
+	arenaProfileData    struct {
+		incrementalAcquire atomic.Uint64
+		incrementalNew     atomic.Uint64
+		fullAcquire        atomic.Uint64
+		fullNew            atomic.Uint64
+	}
 )
 
 // EnableArenaProfile toggles arena pool counters.
-// This debug hook is not concurrency-safe and is intended for single-threaded
-// benchmark/profiling runs.
+// This debug hook is intended for benchmark and profiling runs.
 func EnableArenaProfile(enabled bool) {
-	arenaProfileEnabled = enabled
+	arenaProfileEnabled.Store(enabled)
 }
 
 // ResetArenaProfile resets arena pool counters.
-// This debug hook is not concurrency-safe and is intended for single-threaded
-// benchmark/profiling runs.
+// This debug hook is intended for benchmark and profiling runs.
 func ResetArenaProfile() {
-	arenaProfileData = ArenaProfile{}
+	arenaProfileData.incrementalAcquire.Store(0)
+	arenaProfileData.incrementalNew.Store(0)
+	arenaProfileData.fullAcquire.Store(0)
+	arenaProfileData.fullNew.Store(0)
 }
 
 // ArenaProfileSnapshot returns current arena pool counters.
-// This debug hook is not concurrency-safe and is intended for single-threaded
-// benchmark/profiling runs.
+// This debug hook is intended for benchmark and profiling runs.
 func ArenaProfileSnapshot() ArenaProfile {
-	return arenaProfileData
+	return ArenaProfile{
+		IncrementalAcquire: arenaProfileData.incrementalAcquire.Load(),
+		IncrementalNew:     arenaProfileData.incrementalNew.Load(),
+		FullAcquire:        arenaProfileData.fullAcquire.Load(),
+		FullNew:            arenaProfileData.fullNew.Load(),
+	}
 }
 
 func (p *nodeArenaPool) acquire() *nodeArena {
@@ -441,14 +451,14 @@ func (p *nodeArenaPool) acquire() *nodeArena {
 	if n == 0 {
 		p.mu.Unlock()
 		a := newNodeArena(p.class)
-		if arenaProfileEnabled {
+		if arenaProfileEnabled.Load() {
 			switch p.class {
 			case arenaClassIncremental:
-				arenaProfileData.IncrementalAcquire++
-				arenaProfileData.IncrementalNew++
+				arenaProfileData.incrementalAcquire.Add(1)
+				arenaProfileData.incrementalNew.Add(1)
 			default:
-				arenaProfileData.FullAcquire++
-				arenaProfileData.FullNew++
+				arenaProfileData.fullAcquire.Add(1)
+				arenaProfileData.fullNew.Add(1)
 			}
 		}
 		return a
@@ -456,12 +466,12 @@ func (p *nodeArenaPool) acquire() *nodeArena {
 	a := p.free[n-1]
 	p.free = p.free[:n-1]
 	p.mu.Unlock()
-	if arenaProfileEnabled {
+	if arenaProfileEnabled.Load() {
 		switch p.class {
 		case arenaClassIncremental:
-			arenaProfileData.IncrementalAcquire++
+			arenaProfileData.incrementalAcquire.Add(1)
 		default:
-			arenaProfileData.FullAcquire++
+			arenaProfileData.fullAcquire.Add(1)
 		}
 	}
 	return a
