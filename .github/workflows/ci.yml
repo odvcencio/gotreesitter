@@ -967,15 +967,12 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: cgo_harness/go.mod
 
-      # The correct toolchain alone was not enough: `go -C cgo_harness list
-      # -m -f {{.Dir}}` (language_version_stamp_test.go) printed nothing on
-      # a runner where nothing had populated cgo_harness's own module
-      # cache yet, because no earlier step in this job runs `go build`/`go
-      # test` inside cgo_harness the way the (unrelated) cgo-tagged jobs
-      # do. Downloading the exact dependency explicitly, once, up front
-      # removes that ordering dependency instead of relying on `go list -m`
-      # to fetch it lazily on first use.
-      - name: Warm cgo_harness's locked tree-sitter dependency
+      # The locked tree-sitter binding is a local replace
+      # (cgo_harness/internal/coracle), so no module download is needed
+      # and the cold-cache failure described in language_version_stamp_test.go
+      # cannot happen. This step stays as a cheap check that the replace
+      # directory resolves before the grammargen tests rely on it.
+      - name: Check cgo_harness's locked tree-sitter binding resolves
         working-directory: cgo_harness
         run: go mod download github.com/tree-sitter/go-tree-sitter
 
