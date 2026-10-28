@@ -195,7 +195,7 @@ func runParserCoreCorridorSuperinstructionIncrementalReceipt(t *testing.T, label
 	}
 
 	edited := append(append([]byte(nil), fixture.Source...), ' ')
-	eof := admissionTestPointAtByte(fixture.Source, len(fixture.Source))
+	eof := pointForByte(fixture.Source, uint32(len(fixture.Source)))
 	edit := InputEdit{
 		StartByte: uint32(len(fixture.Source)), OldEndByte: uint32(len(fixture.Source)),
 		NewEndByte: uint32(len(edited)), StartPoint: eof, OldEndPoint: eof,

@@ -264,8 +264,8 @@ func requireSwiftTernaryConditionsRewrite(t *testing.T, tree *gotreesitter.Tree)
 func swiftTernaryIncrementalBase(source []byte) ([]byte, gotreesitter.InputEdit) {
 	if len(source) > 0 && source[len(source)-1] == '\n' {
 		base := append([]byte(nil), source[:len(source)-1]...)
-		start := retiredDispatchPointAtByte(base, len(base))
-		end := retiredDispatchPointAtByte(source, len(source))
+		start := pointAtByte(base, len(base))
+		end := pointAtByte(source, len(source))
 		return base, gotreesitter.InputEdit{
 			StartByte:   uint32(len(base)),
 			OldEndByte:  uint32(len(base)),
@@ -276,8 +276,8 @@ func swiftTernaryIncrementalBase(source []byte) ([]byte, gotreesitter.InputEdit)
 		}
 	}
 	base := append(append([]byte(nil), source...), '\n')
-	start := retiredDispatchPointAtByte(source, len(source))
-	oldEnd := retiredDispatchPointAtByte(base, len(base))
+	start := pointAtByte(source, len(source))
+	oldEnd := pointAtByte(base, len(base))
 	return base, gotreesitter.InputEdit{
 		StartByte:   uint32(len(source)),
 		OldEndByte:  uint32(len(base)),

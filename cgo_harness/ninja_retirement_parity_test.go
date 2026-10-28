@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -96,8 +95,8 @@ func TestNinjaDispatchRetirementLockedCParity(t *testing.T) {
 			if err != nil {
 				t.Fatalf("inspect C deep tree: %v", err)
 			}
-			rawDigest := assertNinjaLockedCTreeExact(t, "raw", rawTree, language, cTree, cDigest)
-			productionDigest := assertNinjaLockedCTreeExact(t, "production", productionTree, language, cTree, cDigest)
+			rawDigest := assertLockedCTreeDigestExact(t, "raw", rawTree, language, cTree, cDigest)
+			productionDigest := assertLockedCTreeDigestExact(t, "production", productionTree, language, cTree, cDigest)
 			t.Logf(
 				"witness=%s bytes=%d source_sha256=%s raw_digest=%s production_digest=%s raw_rewrites=%d production_rewrites=%d",
 				test.file,
@@ -110,32 +109,4 @@ func TestNinjaDispatchRetirementLockedCParity(t *testing.T) {
 			)
 		})
 	}
-}
-
-func assertNinjaLockedCTreeExact(
-	t *testing.T,
-	label string,
-	goTree *gotreesitter.Tree,
-	goLang *gotreesitter.Language,
-	cTree *sitter.Tree,
-	wantDigest string,
-) string {
-	t.Helper()
-	goRoot := goTree.RootNode()
-	cRoot := cTree.RootNode()
-	if diff := FirstDivergenceDumpV1(goRoot, goLang, cRoot); diff != nil {
-		t.Fatalf("%s tree diverges from the locked C oracle: %+v", label, diff)
-	}
-	if diff := firstLockedCTreeFlagDivergence(goRoot, goLang, cRoot, "/"+goRoot.Type(goLang)); diff != nil {
-		t.Fatalf("%s tree has a missing or error flag divergence: %v", label, diff)
-	}
-	inspection, err := benchfixtures.InspectGoTree(goRoot, goLang)
-	if err != nil {
-		t.Fatalf("inspect %s Go deep tree: %v", label, err)
-	}
-	if inspection.SHA256 != wantDigest {
-		t.Fatalf("%s deep digest Go=%s C=%s", label, inspection.SHA256, wantDigest)
-	}
-	t.Logf("%s route matches locked C exactly: symbols, fields, spans, points, extras, missing/error flags, deep digest=%s", label, inspection.SHA256)
-	return inspection.SHA256
 }

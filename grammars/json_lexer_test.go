@@ -161,9 +161,9 @@ func TestParseJSONIncrementalWithTokenSourceStringEdit(t *testing.T) {
 		StartByte:   uint32(editAt),
 		OldEndByte:  uint32(editAt + 1),
 		NewEndByte:  uint32(editAt + 1),
-		StartPoint:  jsonTestPointAtOffset(oldSrc, editAt),
-		OldEndPoint: jsonTestPointAtOffset(oldSrc, editAt+1),
-		NewEndPoint: jsonTestPointAtOffset(newSrc, editAt+1),
+		StartPoint:  pointAtByte(oldSrc, editAt),
+		OldEndPoint: pointAtByte(oldSrc, editAt+1),
+		NewEndPoint: pointAtByte(newSrc, editAt+1),
 	}
 	oldTree.Edit(edit)
 
@@ -179,20 +179,4 @@ func TestParseJSONIncrementalWithTokenSourceStringEdit(t *testing.T) {
 	if got, want := incrTree.RootNode().SExpr(lang), freshTree.RootNode().SExpr(lang); got != want {
 		t.Fatalf("incremental SExpr mismatch\n got: %s\nwant: %s", got, want)
 	}
-}
-
-func jsonTestPointAtOffset(src []byte, offset int) gotreesitter.Point {
-	var pt gotreesitter.Point
-	if offset > len(src) {
-		offset = len(src)
-	}
-	for i := 0; i < offset; i++ {
-		if src[i] == '\n' {
-			pt.Row++
-			pt.Column = 0
-		} else {
-			pt.Column++
-		}
-	}
-	return pt
 }

@@ -54,7 +54,7 @@ func TestIssue728IncrementalReuseMeasurement(t *testing.T) {
 				edited = append(edited, src[:editOffset]...)
 				edited = append(edited, tc.insert)
 				edited = append(edited, src[editOffset:]...)
-				point := issue728PointAt(src, editOffset)
+				point := pointForOffset(src, editOffset)
 
 				gotreesitter.ResetAdmissionCandidateCountersForTest()
 				parser := gotreesitter.NewParser(tc.lang())
@@ -73,7 +73,7 @@ func TestIssue728IncrementalReuseMeasurement(t *testing.T) {
 				}
 				oldTree.Edit(gotreesitter.InputEdit{
 					StartByte: uint32(editOffset), OldEndByte: uint32(editOffset), NewEndByte: uint32(editOffset + 1),
-					StartPoint: point, OldEndPoint: point, NewEndPoint: issue728PointAt(edited, editOffset+1),
+					StartPoint: point, OldEndPoint: point, NewEndPoint: pointForOffset(edited, editOffset+1),
 				})
 				newTree, profile, err := parser.ParseIncrementalProfiled(edited, oldTree)
 				if err != nil {
@@ -157,7 +157,7 @@ func TestIssue728RefutedExternalScannersFailClosed(t *testing.T) {
 			}
 			oldTree.Edit(gotreesitter.InputEdit{
 				StartByte: uint32(offset + len(tc.marker)), OldEndByte: uint32(offset + len(tc.marker)), NewEndByte: uint32(offset + len(tc.marker) + 1),
-				StartPoint: issue728PointAt(src, offset+len(tc.marker)), OldEndPoint: issue728PointAt(src, offset+len(tc.marker)), NewEndPoint: issue728PointAt(edited, offset+len(tc.marker)+1),
+				StartPoint: pointForOffset(src, offset+len(tc.marker)), OldEndPoint: pointForOffset(src, offset+len(tc.marker)), NewEndPoint: pointForOffset(edited, offset+len(tc.marker)+1),
 			})
 			incremental, profile, err := parser.ParseIncrementalProfiled(edited, oldTree)
 			if err != nil {
@@ -182,19 +182,6 @@ func TestIssue728RefutedExternalScannersFailClosed(t *testing.T) {
 
 func issue728TreeDigest(tree *gotreesitter.Tree, lang *gotreesitter.Language) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(tree.RootNode().SExpr(lang))))
-}
-
-func issue728PointAt(src []byte, offset int) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, b := range src[:offset] {
-		if b == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }
 
 func issue728FillSource(target int, line func(int) string) []byte {

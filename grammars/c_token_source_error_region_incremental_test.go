@@ -55,9 +55,9 @@ func TestCTokenSourceErrorRegionIncrementalMatchesFresh(t *testing.T) {
 				edit := gotreesitter.InputEdit{
 					StartByte: uint32(change.start), OldEndByte: uint32(change.oldEnd),
 					NewEndByte: uint32(change.start + len(change.replacement)),
-					StartPoint: directiveTestPoint(current, change.start),
-					OldEndPoint: directiveTestPoint(current, change.oldEnd),
-					NewEndPoint: directiveTestPoint(next, change.start+len(change.replacement)),
+					StartPoint: pointAtByte(current, change.start),
+					OldEndPoint: pointAtByte(current, change.oldEnd),
+					NewEndPoint: pointAtByte(next, change.start+len(change.replacement)),
 				}
 				old.Edit(edit)
 				current = next
