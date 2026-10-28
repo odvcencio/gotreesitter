@@ -27,6 +27,47 @@ for tags and release notes while still in `0.x`.
   private capture such as `@_key` no longer hides the color of its node
   ([#454](https://github.com/odvcencio/gotreesitter/issues/454)).
 
+- Reduce YAML parse time and allocation. The YAML scanner caches the current
+  rune within each request ([#1486](https://github.com/odvcencio/gotreesitter/pull/1486)), prepares its scanner bindings once
+  ([#1491](https://github.com/odvcencio/gotreesitter/pull/1491)) and keeps indentation type and width in one frame stack ([#1514](https://github.com/odvcencio/gotreesitter/pull/1514)).
+  The cached-rune change cut legacy YAML parse time by 5.39% (p=.004, 20 pairs);
+  the prepared bindings cut ordinary YAML parse time by 2.60% (p=.028).
+
+- Reduce memory on the compact parse route. Allocated bytes for a fresh 1 MiB
+  Go parse fall 17.52% (453,602,488 to 374,143,160 B/op, p<.001) because public
+  subtrees now live in 64K-record blocks ([#1504](https://github.com/odvcencio/gotreesitter/pull/1504)). Graph nodes shrink from 24
+  to 16 bytes ([#1500](https://github.com/odvcencio/gotreesitter/pull/1500)) and no longer copy the whole arena when it grows
+  ([#1502](https://github.com/odvcencio/gotreesitter/pull/1502)). Dependency and lexer-history allocations also shrink ([#1480](https://github.com/odvcencio/gotreesitter/pull/1480));
+  allocation for a 20 KB query compile falls from 140,563 to 10,512 B. Timing
+  differences were inconclusive. The compact route is not the default for every
+  language.
+
+### Added
+
+- Add `cmd/scannercert`, a report-only tool that replays external scanner calls
+  from saved state and reports any difference from the live result. It grants no
+  incremental-reuse approval and changes no scanner capability flag
+  ([#1518](https://github.com/odvcencio/gotreesitter/pull/1518)).
+
+### Fixed
+
+- Go: make compact recovery return `(source_file (ERROR))` for `,`, as the C
+  parser does. Reuse completed Scala snippet roots, which removes about 17 MB of
+  allocation for malformed 24-30 byte Scala inputs ([#1452](https://github.com/odvcencio/gotreesitter/pull/1452)).
+- TypeScript and TSX: parse an async generic arrow such as
+  `async <T>(v: T): Promise<T> => v` correctly instead of as a
+  `binary_expression` ([#1483](https://github.com/odvcencio/gotreesitter/pull/1483)).
+- TypeScript and TSX: parse generic tagged template calls such as
+  ``tag<string[]>`text` `` instead of reading them as comparisons or failing
+  ([#1515](https://github.com/odvcencio/gotreesitter/pull/1515)). This regenerates `typescript.bin` and `tsx.bin`.
+- Generated grammars: keep the span of a consumed hidden newline when a
+  newline-or-NUL terminator follows ([#1513](https://github.com/odvcencio/gotreesitter/pull/1513)). None of the 206 shipped grammars
+  takes the changed branch.
+- 32-bit builds: fix a panic when a parser state with the high bit set became a
+  negative `int` in a bounds check ([#1485](https://github.com/odvcencio/gotreesitter/pull/1485)).
+- Compact projection: publish hidden-supertype ancestry and synthetic-root
+  metadata exactly. The Go supertype query failed before this fix ([#1484](https://github.com/odvcencio/gotreesitter/pull/1484)).
+
 ### Breaking Changes
 
 - `Highlight` and its incremental and UTF-16 variants no longer return a range
@@ -164,7 +205,7 @@ for tags and release notes while still in `0.x`.
 On 2026-10-04, the owner authorized the v0.56.0-only tag-creation exception.
 The exception permits publication without a workflow-only tag-creation actor rule.
 All other gates remain mandatory under
-[the release process](docs/releasing.md#v0560-only-tag-creation-exception).
+[the release process](docs/releasing.md#tag-creation-rule-gap).
 This standard minor release still requires full CI and performance evidence for
 the exact candidate, a signed receipt, and protected release environment approval.
 
@@ -217,7 +258,7 @@ C corpus results remain 23/25 clean files and 20/25 deep matches.
 
 On 2026-09-26, the owner authorized the v0.55.1-only tag-creation exception.
 The exception permits publication without a workflow-only tag-creation actor rule.
-All other gates remain mandatory under [the release process](docs/releasing.md#v0551-only-tag-creation-exception).
+All other gates remain mandatory under [the release process](docs/releasing.md#tag-creation-rule-gap).
 This urgent patch addresses the Python regression and false C errors reported in [#454](https://github.com/odvcencio/gotreesitter/issues/454).
 Waiting prolongs Python keystroke delays and false errors in valid C documents.
 
@@ -331,7 +372,7 @@ Its primary allocation counts remained 8, 5, and 0.
 
 On 2026-09-24, the owner approved a one-time tag-creation exception for v0.55.0.
 The exception permits publication without a workflow-only tag-creation actor rule.
-All other gates remain mandatory under [the release process](docs/releasing.md#v0550-only-tag-creation-exception).
+All other gates remain mandatory under [the release process](docs/releasing.md#tag-creation-rule-gap).
 
 ### Known gaps
 
@@ -952,7 +993,7 @@ The attempted flag correction changed AWK recovery selection and remains deferre
 
 The owner authorized a v0.52.0-only exception for an unsupported tag-creation
 actor rule. All other publication gates remain mandatory. See
-[the dated exception](docs/releasing.md#v0520-only-tag-creation-exception).
+[the dated exception](docs/releasing.md#tag-creation-rule-gap).
 
 ### Performance
 

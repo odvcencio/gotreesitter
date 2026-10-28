@@ -10,14 +10,7 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-var parseSmokeKnownDegraded = map[string]string{
-	"vimdoc": "DFA cannot parse vimdoc grammar (0 external tokens, root always errors)",
-}
-
-func parseSmokeDegradedReason(report grammars.ParseSupport, name string) string {
-	if reason, ok := parseSmokeKnownDegraded[name]; ok {
-		return reason
-	}
+func parseSmokeDegradedReason(report grammars.ParseSupport) string {
 	if report.Reason != "" {
 		return report.Reason
 	}
@@ -79,7 +72,7 @@ func main() {
 				st.reason = "smoke parse failed"
 			} else if hasError {
 				st.degraded = true
-				st.reason = parseSmokeDegradedReason(report, report.Name)
+				st.reason = parseSmokeDegradedReason(report)
 				parseable++
 			} else {
 				st.parseOK = true
@@ -91,7 +84,7 @@ func main() {
 				parseable++
 			} else if parsed && hasError {
 				st.degraded = true
-				st.reason = parseSmokeDegradedReason(report, report.Name)
+				st.reason = parseSmokeDegradedReason(report)
 				parseable++
 			} else {
 				st.reason = "smoke parse failed"
