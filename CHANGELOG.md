@@ -26,6 +26,14 @@ for tags and release notes while still in `0.x`.
   capture on the same span. A VHDL comment keeps its `@comment` color, and a
   private capture such as `@_key` no longer hides the color of its node
   ([#454](https://github.com/odvcencio/gotreesitter/issues/454)).
+- Remove the BitBake, Corn, DTD, Templ, and Wolfram result-compatibility
+  arms. None of them rewrote a node on any registered witness, and the trees
+  on the production, compact, forest, and incremental routes are the same with
+  the arms removed. `ParseRuntime().NormalizationPasses` and the
+  `GTS_DISPATCHER_CENSUS` output no longer list a `dispatch.<language>` pass
+  for these five languages. The five languages are now eligible for
+  compact-tail elision. The Perl arm stays: it still regroups `push @a => ...`
+  arguments the way locked C does.
 
 - Reduce YAML parse time and allocation. The YAML scanner caches the current
   rune within each request ([#1486](https://github.com/odvcencio/gotreesitter/pull/1486)), prepares its scanner bindings once

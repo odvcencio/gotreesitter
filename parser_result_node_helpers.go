@@ -206,33 +206,6 @@ func walkResultTreeBounded(root *Node, visit func(*Node)) {
 	walk(root, 0)
 }
 
-func rewriteResultTreeChildrenPostorder(root *Node, rewrite func(*Node) *Node) {
-	if rewrite == nil {
-		return
-	}
-	walkResultTreePostorder(root, func(n *Node) {
-		if n == nil {
-			return
-		}
-		children := n.children
-		if n.ownerArena != nil && n.childIndex <= finalChildSidecarIndexBase {
-			children = resultDenseChildrenFallbackForMutation(n)
-		}
-		for i, child := range children {
-			for {
-				rewritten := rewrite(child)
-				if rewritten == nil {
-					break
-				}
-				children[i] = rewritten
-				rewritten.parent = n
-				rewritten.childIndex = int32(i)
-				child = rewritten
-			}
-		}
-	})
-}
-
 func replaceChildRangeWithSingleNode(parent *Node, start, end int, replacement *Node) {
 	if parent == nil || replacement == nil {
 		return

@@ -4,10 +4,10 @@
 # A lock change moves three values in order:
 #   1. sha256(grammars/languages.lock) becomes "grammar_lock_sha256" in
 #      testdata/dispatcher_census_a0_manifest_v1.json.
-#   2. sha256(that manifest) becomes the *A0ManifestSHA256 constant in six
+#   2. sha256(that manifest) becomes the *A0ManifestSHA256 constant in four
 #      cgo_harness receipt tests.
 #   3. With --tracked, sha256(testdata/dispatcher_census_tracked_v1.json)
-#      becomes the *TrackedManifestSHA256 constant in five of those tests.
+#      becomes the *TrackedManifestSHA256 constant in the same four tests.
 # Every hash is the plain SHA-256 of the file bytes.
 #
 # The script edits only the files listed below. It never touches
@@ -55,16 +55,13 @@ a0_receipt_files=(
 	cgo_harness/julia_dispatch_blocker_receipt_test.go
 	cgo_harness/perl_n31s_dispatcher_blocker_receipt_test.go
 	cgo_harness/solidity_next_live_probe_test.go
-	cgo_harness/templ_n31q_dispatcher_blocker_receipt_test.go
 	cgo_harness/wgsl_n31r_dispatcher_blocker_receipt_test.go
-	cgo_harness/wolfram_next_live_probe_test.go
 )
 tracked_receipt_files=(
 	cgo_harness/julia_dispatch_blocker_receipt_test.go
 	cgo_harness/perl_n31s_dispatcher_blocker_receipt_test.go
 	cgo_harness/solidity_next_live_probe_test.go
 	cgo_harness/wgsl_n31r_dispatcher_blocker_receipt_test.go
-	cgo_harness/wolfram_next_live_probe_test.go
 )
 
 lock_field_re='^([[:space:]]*"grammar_lock_sha256":[[:space:]]*")[0-9a-f]{64}(")'

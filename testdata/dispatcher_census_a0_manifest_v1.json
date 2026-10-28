@@ -10,17 +10,12 @@
     "ada",
     "apex",
     "authzed",
-    "bitbake",
     "cobol",
     "cooklang",
-    "corn",
     "doxygen",
-    "dtd",
     "hlsl",
     "solidity",
-    "templ",
-    "wgsl",
-    "wolfram"
+    "wgsl"
   ],
   "entries": [
     {
@@ -114,36 +109,6 @@
       "output_path": "testdata/dispatcher_census_a0/authzed/small__localimport_with_quotes_in_quotes.zed"
     },
     {
-      "language": "bitbake",
-      "bucket": "large",
-      "bytes": 168224,
-      "sha256": "eaa9e3f2354345d558717c4791a67144d8b27767674bf5468e157a0e0a332ff6",
-      "source_repo": "https://github.com/openembedded/openembedded-core",
-      "source_commit": "eeea0396b60e50ddb636088eee8ffe23c512d367",
-      "source_path": "meta/recipes-kernel/linux-firmware/linux-firmware_20260519.bb",
-      "output_path": "testdata/dispatcher_census_a0/bitbake/large__linux-firmware_20260519.bb"
-    },
-    {
-      "language": "bitbake",
-      "bucket": "medium",
-      "bytes": 9229,
-      "sha256": "7deb41efd839d8b5b8b2c98589614377d12fd81fa6033824330084e07c5eaf9f",
-      "source_repo": "https://github.com/openembedded/openembedded-core",
-      "source_commit": "eeea0396b60e50ddb636088eee8ffe23c512d367",
-      "source_path": "meta/recipes-devtools/clang/clang_git.bb",
-      "output_path": "testdata/dispatcher_census_a0/bitbake/medium__clang_git.bb"
-    },
-    {
-      "language": "bitbake",
-      "bucket": "small",
-      "bytes": 259,
-      "sha256": "fbdb85e443edd378e944e5a1416c0c4a1e485f0cd38f70a5ac75748073a15d12",
-      "source_repo": "https://github.com/openembedded/openembedded-core",
-      "source_commit": "eeea0396b60e50ddb636088eee8ffe23c512d367",
-      "source_path": "meta-selftest/recipes-test/error/error.bb",
-      "output_path": "testdata/dispatcher_census_a0/bitbake/small__error.bb"
-    },
-    {
       "language": "cobol",
       "bucket": "large",
       "bytes": 64212,
@@ -204,36 +169,6 @@
       "output_path": "testdata/dispatcher_census_a0/cooklang/medium__test_recipe.cook"
     },
     {
-      "language": "corn",
-      "bucket": "small",
-      "bytes": 288,
-      "sha256": "e9793277f21b19593024cf7f670934333deefb54eae122caaa1f66cf41c7606a",
-      "source_repo": "https://github.com/jakestanger/corn",
-      "source_commit": "e0629ecab1511d591c271b2512da0f676c6d30a5",
-      "source_path": "assets/inputs/compact.corn",
-      "output_path": "testdata/dispatcher_census_a0/corn/small__compact.corn"
-    },
-    {
-      "language": "corn",
-      "bucket": "small",
-      "bytes": 863,
-      "sha256": "98aaba0d478418a7855fa538cb9cd52ab81b2d2e581402d212bc3951a6a5db02",
-      "source_repo": "https://github.com/jakestanger/corn",
-      "source_commit": "e0629ecab1511d591c271b2512da0f676c6d30a5",
-      "source_path": "assets/inputs/complex.corn",
-      "output_path": "testdata/dispatcher_census_a0/corn/small__complex.corn"
-    },
-    {
-      "language": "corn",
-      "bucket": "small",
-      "bytes": 568,
-      "sha256": "7d412d6e3c5e396818885601df14ad092b8cbe4aac690a45d7a4c29e0410da94",
-      "source_repo": "https://github.com/jakestanger/corn",
-      "source_commit": "e0629ecab1511d591c271b2512da0f676c6d30a5",
-      "source_path": "assets/inputs/readme_example.corn",
-      "output_path": "testdata/dispatcher_census_a0/corn/small__readme_example.corn"
-    },
-    {
       "language": "doxygen",
       "bucket": "medium",
       "bytes": 7220,
@@ -262,36 +197,6 @@
       "source_commit": "b3e7fb3b6e2f4278c21317d4af1f6f3fdb388f72",
       "source_path": "examples/example.cfg",
       "output_path": "testdata/dispatcher_census_a0/doxygen/small__example.cfg"
-    },
-    {
-      "language": "dtd",
-      "bucket": "large",
-      "bytes": 285292,
-      "sha256": "923e8f6ea911bd940ea95d957028fa3155a11b54a756bbe291d3710e110172d9",
-      "source_repo": "https://github.com/docbook/docbook",
-      "source_commit": "0f5c6e72120a540c898025707b3d6c829785790b",
-      "source_path": "MovedToCodeberg/src/docbook/schemas/5.0/dtd/dbits.dtd",
-      "output_path": "testdata/dispatcher_census_a0/dtd/large__dbits.dtd"
-    },
-    {
-      "language": "dtd",
-      "bucket": "large",
-      "bytes": 198540,
-      "sha256": "4f54c108abea1e4ae8e13e98d79bc0534d442012ed7ab40fcb4052dc843f65dd",
-      "source_repo": "https://github.com/docbook/docbook",
-      "source_commit": "0f5c6e72120a540c898025707b3d6c829785790b",
-      "source_path": "MovedToCodeberg/src/docbook/schemas/5.0/dtd/docbook.dtd",
-      "output_path": "testdata/dispatcher_census_a0/dtd/large__docbook.dtd"
-    },
-    {
-      "language": "dtd",
-      "bucket": "medium",
-      "bytes": 9174,
-      "sha256": "54c96c2aa55e2a95b4d0f9ac30df90cfdd717fa1c52f6d3547f1cbd3c8ad4b85",
-      "source_repo": "https://github.com/docbook/docbook",
-      "source_commit": "0f5c6e72120a540c898025707b3d6c829785790b",
-      "source_path": "MovedToCodeberg/src/docbook/schemas/4.5/dtd/calstblx.dtd",
-      "output_path": "testdata/dispatcher_census_a0/dtd/medium__calstblx.dtd"
     },
     {
       "language": "hlsl",
@@ -354,36 +259,6 @@
       "output_path": "testdata/dispatcher_census_a0/solidity/small__IERC3156.sol"
     },
     {
-      "language": "templ",
-      "bucket": "medium",
-      "bytes": 2161,
-      "sha256": "4415618a310cc880cb67fcd902bb7e9f82e91b9d0f461349e0cfb5cd0b1fa007",
-      "source_repo": "https://github.com/a-h/templ",
-      "source_commit": "f8e3a1b4efb329e94e4831e3ad494bbc2086b756",
-      "source_path": "examples/htmx-fragments/main.templ",
-      "output_path": "testdata/dispatcher_census_a0/templ/medium__main.templ"
-    },
-    {
-      "language": "templ",
-      "bucket": "medium",
-      "bytes": 2999,
-      "sha256": "e4a5934ad709206e1c5ca82ab9bc86cd20467df61484357096e6378b5dbb7791",
-      "source_repo": "https://github.com/a-h/templ",
-      "source_commit": "f8e3a1b4efb329e94e4831e3ad494bbc2086b756",
-      "source_path": "generator/test-css-usage/template.templ",
-      "output_path": "testdata/dispatcher_census_a0/templ/medium__template.templ"
-    },
-    {
-      "language": "templ",
-      "bucket": "small",
-      "bytes": 257,
-      "sha256": "bdc8798d13311d9f459108d3fad77f291dde4156fe68295671706684b8dd3eb3",
-      "source_repo": "https://github.com/a-h/templ",
-      "source_commit": "f8e3a1b4efb329e94e4831e3ad494bbc2086b756",
-      "source_path": "generator/test-go-template-in-templ/template.templ",
-      "output_path": "testdata/dispatcher_census_a0/templ/small__template.templ"
-    },
-    {
       "language": "wgsl",
       "bucket": "medium",
       "bytes": 5737,
@@ -412,36 +287,6 @@
       "source_commit": "904fe349a66cae556eaff2bebf4ff00e59d184b5",
       "source_path": "sample/reversedZ/fragmentTextureQuad.wgsl",
       "output_path": "testdata/dispatcher_census_a0/wgsl/small__fragmentTextureQuad.wgsl"
-    },
-    {
-      "language": "wolfram",
-      "bucket": "large",
-      "bytes": 19124,
-      "sha256": "e03c8588214ce3a0a5ba48d1f1335276c1826356052c33df1f3184a6d6303a53",
-      "source_repo": "https://github.com/WolframResearch/WolframLanguageForJupyter",
-      "source_commit": "9a26ac78743cc47084c9c99ff75c5aee2657a409",
-      "source_path": "WolframLanguageForJupyter/Resources/EvaluationUtilities.wl",
-      "output_path": "testdata/dispatcher_census_a0/wolfram/large__EvaluationUtilities.wl"
-    },
-    {
-      "language": "wolfram",
-      "bucket": "medium",
-      "bytes": 9315,
-      "sha256": "45a6287c3c8ad5f4f37298d4915d1bfb29e6e91ee0eccde1c842efb7c90e3dec",
-      "source_repo": "https://github.com/WolframResearch/WolframLanguageForJupyter",
-      "source_commit": "9a26ac78743cc47084c9c99ff75c5aee2657a409",
-      "source_path": "WolframLanguageForJupyter/Resources/OutputHandlingUtilities.wl",
-      "output_path": "testdata/dispatcher_census_a0/wolfram/medium__OutputHandlingUtilities.wl"
-    },
-    {
-      "language": "wolfram",
-      "bucket": "small",
-      "bytes": 322,
-      "sha256": "55be9b6143e5dd68ddb433bb9c95c0388a505b65c452fb6036e064d537e3f602",
-      "source_repo": "https://github.com/WolframResearch/WolframLanguageForJupyter",
-      "source_commit": "9a26ac78743cc47084c9c99ff75c5aee2657a409",
-      "source_path": "WolframLanguageForJupyter/PacletInfo.m",
-      "output_path": "testdata/dispatcher_census_a0/wolfram/small__PacletInfo.m"
     }
   ],
   "receipts": [
@@ -479,17 +324,6 @@
       "parse_errors": 0
     },
     {
-      "language": "bitbake",
-      "arm_id": "dispatch.bitbake",
-      "files": 3,
-      "checked": 3,
-      "run": 3,
-      "nodes_visited": 40418,
-      "nodes_rewritten": 0,
-      "error_roots": 2,
-      "parse_errors": 0
-    },
-    {
       "language": "cobol",
       "arm_id": "predicate.cobol-exact",
       "files": 3,
@@ -512,17 +346,6 @@
       "parse_errors": 0
     },
     {
-      "language": "corn",
-      "arm_id": "dispatch.corn",
-      "files": 3,
-      "checked": 3,
-      "run": 3,
-      "nodes_visited": 792,
-      "nodes_rewritten": 0,
-      "error_roots": 0,
-      "parse_errors": 0
-    },
-    {
       "language": "doxygen",
       "arm_id": "dispatch.doxygen",
       "files": 3,
@@ -531,17 +354,6 @@
       "nodes_visited": 813,
       "nodes_rewritten": 0,
       "error_roots": 3,
-      "parse_errors": 0
-    },
-    {
-      "language": "dtd",
-      "arm_id": "dispatch.dtd",
-      "files": 3,
-      "checked": 3,
-      "run": 3,
-      "nodes_visited": 105771,
-      "nodes_rewritten": 0,
-      "error_roots": 2,
       "parse_errors": 0
     },
     {
@@ -567,17 +379,6 @@
       "parse_errors": 0
     },
     {
-      "language": "templ",
-      "arm_id": "dispatch.templ",
-      "files": 3,
-      "checked": 3,
-      "run": 3,
-      "nodes_visited": 1375,
-      "nodes_rewritten": 0,
-      "error_roots": 0,
-      "parse_errors": 0
-    },
-    {
       "language": "wgsl",
       "arm_id": "dispatch.wgsl",
       "files": 3,
@@ -586,17 +387,6 @@
       "nodes_visited": 2630,
       "nodes_rewritten": 28,
       "error_roots": 2,
-      "parse_errors": 0
-    },
-    {
-      "language": "wolfram",
-      "arm_id": "dispatch.wolfram",
-      "files": 3,
-      "checked": 4,
-      "run": 4,
-      "nodes_visited": 1019,
-      "nodes_rewritten": 0,
-      "error_roots": 3,
       "parse_errors": 0
     }
   ]
