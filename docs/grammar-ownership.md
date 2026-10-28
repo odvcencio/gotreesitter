@@ -80,7 +80,7 @@ An Own row cannot go stale against a registry entry that stops advertising
 
 YAML is Tier 1 and Own. Its canonical grammar source is
 [yaml_grammar.go](../grammargen/yaml_grammar.go). Its canonical external scanner
-is [yaml_scanner.go](../grammars/yaml_scanner.go).
+is [yaml_scanner.go](../grammars/runtime/yaml_scanner.go).
 
 The source is tree-sitter-yaml commit
 `a1c4812a73ec5e089de8e441fdea3a921e8d5079`, under the MIT license. The Go DSL
@@ -137,7 +137,7 @@ fields, and node names.
 
 Go is Tier 1 and Own. Its canonical grammar source is
 [go_grammar.go](../grammargen/go_grammar.go). Its canonical external scanner
-is [go_scanner.go](../grammars/go_scanner.go), which resolves automatic
+is [go_scanner.go](../grammars/runtime/go_scanner.go), which resolves automatic
 semicolon insertion (ASI).
 
 Regenerate the blob with:
@@ -178,6 +178,23 @@ does `grammars/runtime/runtime_profiles.go`'s `"go"` certification entry.
 Some pin the exact blob SHA-256; a few also pin exact internal state IDs or
 work-item counts. Update all of them together with the blob. Run
 `rg -n "<old-sha256-prefix>"` to find every pinned site.
+
+## TSX grammargen source
+
+TSX is Tier 1 and Mirror, so `grammars/grammar_blobs/tsx.bin` comes from the
+upstream import, not from grammargen. The grammargen definition in
+[tsx_grammar.go](../grammargen/tsx_grammar.go) is hand-written source, not
+generated output. It builds TSX from `TypeScriptGrammar` and applies four edits:
+
+1. Rename the grammar to `tsx`.
+2. Drop `type_assertion` from `expression`.
+3. Add `_jsx_element` to `expression`, after `primary_expression`.
+4. Replace the `primary_type`/`type_parameter` conflict with
+   `jsx_opening_element`/`type_parameter`, and add the conflict
+   `jsx_namespace_name`/`primary_type`.
+
+A TypeScript grammar change reaches TSX with no second edit. Member order and
+conflict order carry through to the parse tables, so keep the edits in place.
 
 ## Regex ownership
 
