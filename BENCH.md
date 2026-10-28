@@ -107,7 +107,7 @@ Every step first passes fresh Go = incremental Go = fresh C = incremental C,
 using deep tree digests, both profiled and public Go APIs, complete roots,
 accepted parses, and unchanged immutable C snapshots. Correctness runs in
 Docker one language at a time before the paired 2% counter ledger and timing.
-The C oracle is the locked v0.25.1 runtime, v0.25.0 Go binding, and locked
+The C oracle is the locked v0.27.1 runtime, v0.25.0 Go binding, and locked
 `-O2` grammars. Both revisions use exactly the same driver and oracle.
 
 Timing uses twenty matching shuffle seeds, alternating base/head order,
@@ -150,15 +150,23 @@ including known issues.
 
 Every new "versus C" claim names and fingerprints the same oracle inputs:
 
-- upstream tree-sitter runtime v0.25.1, commit
-  `f5afe475deb7c0bae6407fb776c76824f717bb61`;
+- upstream tree-sitter runtime v0.27.1, commit
+  `10eb5ac119eec9cb4267a8e035066473983f5f3a`;
 - `github.com/tree-sitter/go-tree-sitter v0.25.0` wrapper commit
-  `adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3` for in-process parity;
+  `adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3` for in-process parity, with its
+  sources vendored in `cgo_harness/internal/coracle` and the runtime sources
+  pinned by `cgo_harness/internal/coracle/upstream.json`;
 - tree-sitter-go commit
   `2346a3ab1bb3857b48b29d779a1ef9799a248cd7`, from
   `grammars/languages.lock`;
 - C runtime and grammar compiled with `-O2` into the static publication
   artifact, with compiler identity, flags, and artifact SHA-256 in the receipt.
+
+The owner moved the oracle runtime from v0.25.1 (commit
+`f5afe475deb7c0bae6407fb776c76824f717bb61`) to v0.27.1 on 2026-10-28
+(issue #1325). Receipts and ratios published before that date measured
+against v0.25.1 and stay as recorded; they are not re-measured by the pin
+change. New "versus C" claims name v0.27.1.
 
 The in-process cgo parity transport and the static throughput artifact must
 consume those same runtime and grammar sources. The former
@@ -474,7 +482,8 @@ rather than promote them as representative claims.
 The replacement canonical matrix freezes four clean, human-authored Go files
 spanning 5-236 KiB. They reach 12-18 live stacks and constructed-to-selected
 node ratios of 3.65-4.47. Admission requires exact deep parity against one
-oracle: upstream tree-sitter v0.25.1 commit `f5afe475…`, tree-sitter-go
+oracle: upstream tree-sitter v0.27.1 commit `10eb5ac1…` (v0.25.1
+commit `f5afe475…` for receipts recorded before 2026-10-28), tree-sitter-go
 commit `2346a3ab…`, compiled with `-O2` into a fingerprinted static C
 artifact. The benchmark and parity lanes share those oracle sources and
 identity; see this file for the full contract and fixture hashes.

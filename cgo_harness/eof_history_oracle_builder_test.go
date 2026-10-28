@@ -17,7 +17,7 @@ import (
 	"testing"
 )
 
-const eofHistoryRuntimeParserSHA256 = "97a49276242294bc1b1a22908671a202f92d2a213a872edbe467a9e121822615"
+const eofHistoryRuntimeParserSHA256 = "450cb5196ffb74ffd8ba16fcb770b995f000348ac054542afb9f547bd86ab611"
 
 type eofHistoryCVersion struct {
 	AcceptIndex int
