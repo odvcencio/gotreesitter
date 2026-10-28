@@ -33,7 +33,7 @@ import (
 // (derivation_set_differential.go, PR #646) rather than building a parallel
 // instrument. It reuses D0's corpora (derivationSetCensusLanguages), D0's
 // per-source loop shape, and D0's pinned-baseline discipline. D0's baseline
-// is 32 set differences over 95 constructed sources; this one's is merge
+// is 21 set differences over 105 compared constructed sources; this one's is merge
 // counts and refusal counts.
 //
 // # The reference-runtime counting method, and why the logger is not enough
@@ -51,7 +51,7 @@ import (
 // enforcement as well as for merge, so a difference is not a merge count.
 //
 // The census therefore reads the instrumented build, which this repository
-// already carries and already validates: cgo_harness/work_count/tree_sitter_v0_25_1.patch
+// already carries and already validates: the patch selected by COracleWorkCountPatch
 // puts merge_attempts_proxy and merge_successes_proxy directly around
 // ts_stack_merge and the six GTSLinkUnionOutcome counters around
 // stack_node_add_link. No new C instrumentation is invented here.
@@ -59,8 +59,8 @@ import (
 // Two properties keep the instrumented build equal to D0's oracle:
 //
 //   - The runtime source is the SAME source. The patch is applied to
-//     github.com/tree-sitter/go-tree-sitter@v0.25.0/src, resolved from the
-//     module cache, which is exactly the runtime D0's sitter.NewParser()
+//     the harness-local binding's pinned src directory, resolved through
+//     go.mod, which is exactly the runtime D0's sitter.NewParser()
 //     compiles. The compile flags are the module's own cgo flags.
 //   - The grammar table is the SAME table. The driver dlopens the shared
 //     object COracleIdentity reports, which the parity C-reference loader
@@ -189,7 +189,7 @@ func mergeCensusBuildCOracle(repoRoot string) (*mergeCensusCOracle, error) {
 	if err != nil {
 		return nil, err
 	}
-	patchPath := filepath.Join(repoRoot, "cgo_harness", "work_count", "tree_sitter_v0_25_1.patch")
+	patchPath := filepath.Join(repoRoot, "cgo_harness", "work_count", COracleWorkCountPatch)
 	driverPath := filepath.Join(repoRoot, "cgo_harness", "pure_c", "merge_census_oracle.c")
 	patchSHA, err := mergeCensusFileSHA(patchPath)
 	if err != nil {

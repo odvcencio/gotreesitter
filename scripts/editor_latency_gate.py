@@ -107,7 +107,7 @@ def admission(out, role, f, manifest_sha, revision):
     oracle = a["oracle"]
     require(oracle["language"] == f["language"] and oracle["contract"] == "tree-sitter-c-v1", "wrong C oracle contract/language")
     require(oracle["binding_module"] == "github.com/tree-sitter/go-tree-sitter" and oracle["binding_version"] == "v0.25.0" and oracle["binding_commit"] == "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3", "C binding is not locked")
-    require(oracle["runtime_version"] == "0.25.1" and oracle["runtime_commit"] == "f5afe475deb7c0bae6407fb776c76824f717bb61", "C runtime is not locked")
+    require(oracle["runtime_version"] == "0.27.1" and oracle["runtime_commit"] == "10eb5ac119eec9cb4267a8e035066473983f5f3a", "C runtime is not locked")
     require(re.fullmatch(r"[0-9a-f]{40}", oracle["grammar_commit"]) and re.fullmatch(r"[0-9a-f]{64}", oracle["grammar_artifact_sha256"]), "C grammar/artifact identity is missing")
     require(oracle["grammar_compile_flags"] == "-std=c11 -fPIC -O2 -I .", "C grammar flags differ from the locked oracle")
     require([c["workload"] for c in a["cells"]] == list(WORKLOADS.values()), "missing or duplicate admission cell")
@@ -417,7 +417,7 @@ require (
 )
 replace github.com/odvcencio/gotreesitter => {source}
 replace github.com/odvcencio/gotreesitter/cgo_harness => /workspace/cgo_harness
-replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-sitter v0.25.0
+replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal/coracle
 """)
     (out / "timing").mkdir()
     (out / "tools").mkdir()

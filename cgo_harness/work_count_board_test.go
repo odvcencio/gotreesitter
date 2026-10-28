@@ -207,7 +207,7 @@ var workCountFrozenStaticCCausalVectors = map[string]workCountFrozenCausalVector
 	},
 	"grammargen_lr": {
 		ConflictActionArmsAdmitted: 13249, CausalConflictForks: 5421,
-		PredecessorLinkUnionAttempts: 10300, PredecessorLinkUnionDuplicateNoop: 2914,
+		PredecessorLinkUnionAttempts: 10299, PredecessorLinkUnionDuplicateNoop: 2913,
 		PredecessorLinkUnionPrecedenceReplaced: 98, PredecessorLinkUnionRecursiveChanged: 694,
 		PredecessorLinkUnionAlternateAppended: 6594,
 		RawSelectedInternalNodes:              113511, RawSelectedInternalParentOccurrences: 63600, RawSelectedInternalLeafOccurrences: 49911,
@@ -307,7 +307,7 @@ func TestAuthenticatedFourFixtureWorkCountBoard(t *testing.T) {
 		t.Fatalf("work-count board contract identity=%s want=%s", boardContractSHA, workCountBoardContractSHA256)
 	}
 	boardContract := workCountLoadBoardContract(t, boardContractPath)
-	patchPath := filepath.Join(sourceSnapshot.Root, "cgo_harness", "work_count", "tree_sitter_v0_25_1.patch")
+	patchPath := filepath.Join(sourceSnapshot.Root, "cgo_harness", "work_count", COracleWorkCountPatch)
 	driverPath := filepath.Join(sourceSnapshot.Root, "cgo_harness", "pure_c", "work_count_oracle.c")
 	if got := workCountFileSHA(t, patchPath); got == "" {
 		t.Fatal("work-count C patch identity is empty")
