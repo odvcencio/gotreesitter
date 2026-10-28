@@ -11,6 +11,62 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
+// byteToPoint computes the (row, column) for a byte offset, matching the
+// tree-sitter convention (row = newlines before off, column = bytes since the
+// last newline).
+func byteToPoint(src []byte, off int) gts.Point {
+	row, col := 0, 0
+	for i := 0; i < off && i < len(src); i++ {
+		if src[i] == '\n' {
+			row++
+			col = 0
+		} else {
+			col++
+		}
+	}
+	return gts.Point{Row: uint32(row), Column: uint32(col)}
+}
+
+type forestEdit struct {
+	desc   string
+	edited []byte
+	inEdit gts.InputEdit
+}
+
+func replaceEdit(src []byte, p int) forestEdit {
+	nb := byte('z')
+	if src[p] == 'z' {
+		nb = 'q'
+	}
+	ed := append([]byte(nil), src...)
+	ed[p] = nb
+	return forestEdit{"replace", ed, gts.InputEdit{
+		StartByte: uint32(p), OldEndByte: uint32(p + 1), NewEndByte: uint32(p + 1),
+		StartPoint: byteToPoint(src, p), OldEndPoint: byteToPoint(src, p+1), NewEndPoint: byteToPoint(ed, p+1),
+	}}
+}
+
+func insertEdit(src []byte, p int) forestEdit {
+	ed := make([]byte, 0, len(src)+1)
+	ed = append(ed, src[:p]...)
+	ed = append(ed, 'x')
+	ed = append(ed, src[p:]...)
+	return forestEdit{"insert", ed, gts.InputEdit{
+		StartByte: uint32(p), OldEndByte: uint32(p), NewEndByte: uint32(p + 1),
+		StartPoint: byteToPoint(src, p), OldEndPoint: byteToPoint(src, p), NewEndPoint: byteToPoint(ed, p+1),
+	}}
+}
+
+func deleteEdit(src []byte, p int) forestEdit {
+	ed := make([]byte, 0, len(src))
+	ed = append(ed, src[:p]...)
+	ed = append(ed, src[p+1:]...)
+	return forestEdit{"delete", ed, gts.InputEdit{
+		StartByte: uint32(p), OldEndByte: uint32(p + 1), NewEndByte: uint32(p),
+		StartPoint: byteToPoint(src, p), OldEndPoint: byteToPoint(src, p+1), NewEndPoint: byteToPoint(ed, p),
+	}}
+}
+
 type unavailableForestCheckpointScanner struct {
 	gts.ExternalScanner
 }

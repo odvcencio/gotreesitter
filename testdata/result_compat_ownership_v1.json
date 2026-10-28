@@ -487,7 +487,7 @@
       "witnesses": [
         "grammars/trailing_span_native_regression_test.go",
         "parsercore_phase0_generic_extra_internal_test.go",
-        "forest_trailing_extra_test.go",
+        "roottest/parse/forest_trailing_extra_test.go",
         "cgo_harness/retired_dispatch_arm_parity_test.go"
       ],
       "retirement_condition": "Satisfied: materialization owns visible trailing extras and full root ranges, compact scheduling admits progressing external zero-width extras, and every route receipt is exact.",
@@ -503,7 +503,7 @@
       "receipt_refs": [
         "grammars/trailing_span_native_regression_test.go",
         "parsercore_phase0_generic_extra_internal_test.go",
-        "forest_trailing_extra_test.go",
+        "roottest/parse/forest_trailing_extra_test.go",
         "cgo_harness/retired_dispatch_arm_parity_test.go"
       ]
     },
@@ -1123,7 +1123,7 @@
           "purpose": "Retag a recovered ERROR root back to source_file and, when the root does not already look like Go top level, rebuild the top-level declarations by a wrapped re-parse. Live on the included-ranges route, which injection children use.",
           "authoritative_owner": "scheduler_action_semantics",
           "witnesses": [
-            "parser_included_ranges_go_root_test.go",
+            "roottest/parse/parser_included_ranges_go_root_test.go",
             "parser_result_c_go_cobol_test.go",
             "cgo_harness/included_ranges_go_root_parity_cgo_test.go"
           ]
@@ -1142,7 +1142,7 @@
           "purpose": "Drop the auto-semicolon terminals the C grammar hides, and align statement-list and case boundary spans.",
           "authoritative_owner": "materialization",
           "witnesses": [
-            "parser_result_go_compat_byte_identity_test.go",
+            "roottest/parse/parser_result_go_compat_byte_identity_test.go",
             "cgo_harness/parity_cgo_test.go"
           ]
         },
@@ -1698,7 +1698,7 @@
           "purpose": "Retag a recovered ERROR root as source_file when its children still look like Kotlin top-level declarations. Restored on 2026-08-03 after the retirement of 2026-08-02 was reversed. Live on the included-ranges route and inert on the fresh route; both halves are pinned by the witnesses below.",
           "authoritative_owner": "derivation_election_selection",
           "witnesses": [
-            "parser_included_ranges_kotlin_root_test.go",
+            "roottest/parse/parser_included_ranges_kotlin_root_test.go",
             "cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go",
             "parser_result_test/materialization_subpass_census_test.go"
           ]
@@ -1712,7 +1712,7 @@
       "witnesses": [
         "cgo_harness/parity_cgo_test.go",
         "query_kotlin_regression_test.go",
-        "parser_included_ranges_kotlin_root_test.go",
+        "roottest/parse/parser_included_ranges_kotlin_root_test.go",
         "cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go"
       ],
       "retirement_condition": "Delete only after derivation_election_selection emits the same tree natively for every registered witness and production, compact, forest, incremental, included-ranges, and C-oracle route receipts are exact. The included-ranges route is mandatory: it reversed the 2026-08-02 retirement of normalizeKotlinRecoveredSourceFileRoot.",
@@ -1879,7 +1879,7 @@
       "purpose": "Reconcile Objective-C method types, sizeof operands, literals, sized types, encode types, function pointers, fields, and spans.",
       "authoritative_owner": "materialization",
       "witnesses": [
-        "parser_result_objc_test.go",
+        "roottest/parse/parser_result_objc_test.go",
         "grammars/objc_sizeof_native_regression_test.go",
         "cgo_harness/type_projection_retirement_parity_test.go"
       ],
@@ -1894,7 +1894,7 @@
       "status": "retired",
       "retired_commit": "29b6e302701058e2ed101941c6da5f52a98dfe9a",
       "receipt_refs": [
-        "parser_result_objc_test.go",
+        "roottest/parse/parser_result_objc_test.go",
         "grammars/objc_sizeof_native_regression_test.go",
         "cgo_harness/type_projection_retirement_parity_test.go"
       ]
@@ -3137,7 +3137,7 @@
       "receipt_refs": [
         "parser_result_javascript_typescript_test.go",
         "glr_forest_dispatch_test.go",
-        "forest_incremental_correctness_test.go",
+        "forest_incremental_admission_test.go",
         "cgo_harness/parity_cgo_test.go"
       ]
     }
