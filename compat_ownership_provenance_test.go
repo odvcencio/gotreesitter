@@ -11,13 +11,13 @@ import (
 )
 
 // This integration commit contains main and the shared Python scanner retirement.
-const resultCompatAuthoritativeCommit = "dfd6360f1fbfd14b1e099f7e930549a65050bc7e"
+const resultCompatAuthoritativeCommit = "8dd2fc2012001a43be95b39544ef5dc9b47bbb82"
 
 // resultCompatInertArmRetirementCommit stands for the commit that deleted the
 // bitbake, corn, dtd, templ, and wolfram dispatcher arms. It is all
 // zeros until that commit exists; replace it in the registry, in this file,
 // and in resultCompatAuthoritativeCommit once the hash is known.
-const resultCompatInertArmRetirementCommit = "dfd6360f1fbfd14b1e099f7e930549a65050bc7e"
+const resultCompatInertArmRetirementCommit = "8dd2fc2012001a43be95b39544ef5dc9b47bbb82"
 
 // These are zero-based registry indexes. Keep this map explicit so a later
 // ledger regeneration cannot silently restore a parallel retirement commit.
