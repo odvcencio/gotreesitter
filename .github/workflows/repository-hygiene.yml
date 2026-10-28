@@ -1,0 +1,38 @@
+name: repository-hygiene
+
+# Runs for every pull request, including docs-only ones, so the evidence guard
+# also sees changes that ci.yml skips. Do not add a paths filter.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-hygiene-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  evidence-paths:
+    name: evidence paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # A pull request checks only the paths it adds. A push to main checks the
+      # whole tree.
+      - name: Check evidence paths in the pull request
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          bash scripts/check_evidence_paths.sh "$BASE_SHA"
+
+      - name: Check evidence paths in the tree
+        if: github.event_name != 'pull_request'
+        run: bash scripts/check_evidence_paths.sh

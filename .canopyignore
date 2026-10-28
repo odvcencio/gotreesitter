@@ -13,6 +13,7 @@
 /benchgate
 /Preparing worktree (detached HEAD *
 docs/blog-outlines/
+docs/benchmarks/
 docs/plans/
 docs/superpowers/
 cgo_harness/bench/runs/
