@@ -138,61 +138,52 @@ func (sc PugExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	syms := sc.symbolTable()
 
 	s := payload.(*pugState)
-	lexer.MarkEnd()
 
-	foundEol := false
-	indentLen := uint32(0)
-
-	for {
-		ch := lexer.Lookahead()
-		switch {
-		case ch == '\n':
-			foundEol = true
-			indentLen = 0
+	// This follows src/scanner.c: a newline token exists only for a real '\n'
+	// byte, and indent or dedent tokens exist only at column 0 on a non-empty
+	// line. At end of input the scanner emits nothing, so a file without a
+	// final newline reaches the parser as a missing newline, as it does in C.
+	if lexer.Lookahead() == '\n' {
+		if pugValid(validSymbols, pugTokNewline) {
 			lexer.Advance(true)
-		case ch == ' ':
-			indentLen++
-			lexer.Advance(true)
-		case ch == '\r' || ch == '\f':
-			indentLen = 0
-			lexer.Advance(true)
-		case ch == '\t':
-			indentLen += 2
-			lexer.Advance(true)
-		case ch == 0:
-			indentLen = 0
-			foundEol = true
-			goto done
-		default:
-			goto done
+			lexer.SetResultSymbol(syms[pugTokNewline])
+			return true
 		}
+		return false
 	}
 
-done:
-	if foundEol {
-		if len(s.indents) > 0 {
-			currentIndent := s.indents[len(s.indents)-1]
+	if lexer.Lookahead() != 0 && lexer.Column() == 0 {
+		indentLen := uint32(0)
 
-			if pugValid(validSymbols, pugTokIndent) && indentLen > uint32(currentIndent) {
+		// Indent and dedent tokens are zero width.
+		lexer.MarkEnd()
+
+		for {
+			ch := lexer.Lookahead()
+			if ch == ' ' {
+				indentLen++
+				lexer.Advance(true)
+			} else if ch == '\t' {
+				indentLen += 8
+				lexer.Advance(true)
+			} else {
+				break
+			}
+		}
+
+		if len(s.indents) > 0 {
+			currentIndent := uint32(s.indents[len(s.indents)-1])
+
+			if indentLen > currentIndent && pugValid(validSymbols, pugTokIndent) {
 				s.indents = append(s.indents, uint16(indentLen))
-				lexer.MarkEnd()
 				lexer.SetResultSymbol(syms[pugTokIndent])
 				return true
 			}
-
-			if (pugValid(validSymbols, pugTokDedent) || !pugValid(validSymbols, pugTokNewline)) &&
-				indentLen < uint32(currentIndent) {
+			if indentLen < currentIndent && pugValid(validSymbols, pugTokDedent) {
 				s.indents = s.indents[:len(s.indents)-1]
-				lexer.MarkEnd()
 				lexer.SetResultSymbol(syms[pugTokDedent])
 				return true
 			}
-		}
-
-		if pugValid(validSymbols, pugTokNewline) {
-			lexer.MarkEnd()
-			lexer.SetResultSymbol(syms[pugTokNewline])
-			return true
 		}
 	}
 
