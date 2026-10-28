@@ -1021,7 +1021,7 @@ func TestGoInterpretedStringFalseErrors(t *testing.T) {
 			src:  "package p\nvar s = \"hello \\\"world\\\"\"\n",
 		},
 		{
-			// Real-world repro (derived from cgo_harness/c_extern_wrapper_parity_test.go,
+			// Real-world repro (derived from TestCExternCWrapperParity in cgo_harness/witness_table_test.go,
 			// which itself hit the false ERROR under the stale blob): a
 			// string literal containing both a space-then-escaped-quote and
 			// several runs of adjacent escape_sequence tokens (\n\n).
