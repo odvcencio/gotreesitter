@@ -11,7 +11,6 @@
 /tmp/
 /nul
 /benchgate
-/Preparing worktree (detached HEAD *
 docs/blog-outlines/
 docs/benchmarks/
 docs/plans/
@@ -26,10 +25,10 @@ cgo_harness/real_corpus_bench_report
 *.test
 *.log
 *.prof
-scannertest
-ts2go
-tsquery
-parity_report
+/scannertest
+/ts2go
+/tsquery
+/parity_report
 cgo_harness/reports/
 cgo_harness/corpus_real/
 harness_out/
