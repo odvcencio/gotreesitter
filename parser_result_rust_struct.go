@@ -1067,20 +1067,6 @@ func rustDocCommentFieldIDs(arena *nodeArena, lang *Language, markerName string)
 	return cloneFieldIDSliceInArena(arena, []FieldID{0, fid, docFID})
 }
 
-func rustRefreshRecoveredErrorFlags(node *Node) bool {
-	if node == nil {
-		return false
-	}
-	hasError := node.symbol == errorSymbol
-	for _, child := range node.children {
-		if rustRefreshRecoveredErrorFlags(child) {
-			hasError = true
-		}
-	}
-	node.setHasError(hasError)
-	return node.IsError() || node.hasError()
-}
-
 func rustFindBlockCommentEnd(source []byte, start, end uint32) uint32 {
 	depth := 1
 	for i := start; i+1 < end; i++ {

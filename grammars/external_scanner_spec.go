@@ -15,4 +15,3 @@ func RegisterExternalScannerSpec(spec ExternalScannerSpec) {
 func LookupExternalScannerSpec(name string) (ExternalScannerSpec, bool) {
 	return grammarruntime.LookupExternalScannerSpec(name)
 }
-func ExternalScannerSpecs() []ExternalScannerSpec { return grammarruntime.ExternalScannerSpecs() }

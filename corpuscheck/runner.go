@@ -239,12 +239,6 @@ func RunLanguage(language, corpusDir string) *LanguageReport {
 	return RunLanguageWithOptions(language, corpusDir, RunOptions{})
 }
 
-// RunLanguageLimited behaves like RunLanguage but stops issuing new
-// parses once report.Cases reaches maxCases (0 means unlimited).
-func RunLanguageLimited(language, corpusDir string, maxCases int) *LanguageReport {
-	return RunLanguageWithOptions(language, corpusDir, RunOptions{MaxCases: maxCases})
-}
-
 // RunLanguageWithOptions is RunLanguage with full control over
 // RunOptions. See RunOptions for the -- language() tag filtering and
 // per-language case cap -- knobs it exposes.

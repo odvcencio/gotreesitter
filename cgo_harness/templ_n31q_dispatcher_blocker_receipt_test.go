@@ -11,6 +11,7 @@ import (
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
@@ -62,8 +63,8 @@ func TestTemplN31qLiveArmLockedCRoutes(t *testing.T) {
 	if language.ExternalScanner == nil {
 		t.Fatal("Templ external scanner is absent")
 	}
-	if _, ok := language.ExternalScanner.(grammars.TemplExternalScanner); !ok {
-		t.Fatalf("Templ scanner type=%T, want grammars.TemplExternalScanner", language.ExternalScanner)
+	if _, ok := language.ExternalScanner.(grammarruntime.TemplExternalScanner); !ok {
+		t.Fatalf("Templ scanner type=%T, want grammarruntime.TemplExternalScanner", language.ExternalScanner)
 	}
 	if _, ok := language.ExternalScanner.(gotreesitter.IncrementalReuseExternalScanner); ok {
 		t.Fatal("Templ external scanner unexpectedly advertises incremental reuse")
