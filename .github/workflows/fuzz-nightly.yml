@@ -22,6 +22,15 @@ on:
         description: 'Per-target fuzz duration (Go duration string, e.g. 30s, 2m)'
         required: false
         default: '30s'
+      report:
+        description: 'Open, update, and close fuzz-nightly issues for this manual run (a short fuzztime counts as a green night; use 30s or more)'
+        type: boolean
+        required: false
+        default: false
+      close_after:
+        description: 'Consecutive green nights that close a fuzz issue'
+        required: false
+        default: '3'
 
 concurrency:
   group: fuzz-nightly
@@ -89,12 +98,44 @@ jobs:
           go-version-file: go.mod
 
       - name: Fuzz ${{ matrix.target.package }} ${{ matrix.target.target }}
+        id: fuzz
         shell: bash
+        env:
+          FUZZ_PACKAGE: ${{ matrix.target.package }}
+          FUZZ_TARGET: ${{ matrix.target.target }}
+          FUZZ_TIME: ${{ github.event.inputs.fuzztime || '30s' }}
         run: |
-          set -euo pipefail
-          GOWORK=off go test "${{ matrix.target.package }}" -run '^$' \
-            -fuzz "^${{ matrix.target.target }}\$" \
-            -fuzztime "${{ github.event.inputs.fuzztime || '30s' }}"
+          set -uo pipefail
+          GOWORK=off go test "$FUZZ_PACKAGE" -run '^$' \
+            -fuzz "^${FUZZ_TARGET}\$" \
+            -fuzztime "$FUZZ_TIME" 2>&1 | tee fuzz.log
+          rc=${PIPESTATUS[0]}
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      # Record the outcome for the report job. The step fails the job only if
+      # the script itself breaks; the fuzz step above keeps the job red.
+      - name: Record fuzz result
+        continue-on-error: true
+        if: always() && (steps.fuzz.outcome == 'success' || steps.fuzz.outcome == 'failure')
+        shell: bash
+        env:
+          FUZZ_PACKAGE: ${{ matrix.target.package }}
+          FUZZ_TARGET: ${{ matrix.target.target }}
+          FUZZ_RC: ${{ steps.fuzz.outputs.rc }}
+        run: |
+          python3 .github/scripts/fuzz_issues.py collect --log fuzz.log \
+            --package "$FUZZ_PACKAGE" --target "$FUZZ_TARGET" \
+            --exit-code "${FUZZ_RC:-1}" --out fuzz-result/result.json
+
+      - name: Upload fuzz result
+        continue-on-error: true
+        if: always() && (steps.fuzz.outcome == 'success' || steps.fuzz.outcome == 'failure')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fuzz-result-${{ strategy.job-index }}
+          path: fuzz-result/result.json
+          retention-days: 7
 
       - name: Upload crashers
         if: failure()
@@ -104,3 +145,41 @@ jobs:
           path: '**/testdata/fuzz/${{ matrix.target.target }}'
           if-no-files-found: warn
           retention-days: 90
+
+  # One issue per failing target, closed after N green nights. The report job
+  # never fails the run: the red fuzz leg already does.
+  report:
+    needs: [discover, fuzz]
+    if: always() && needs.discover.result == 'success' && (github.event_name == 'schedule' || github.event.inputs.report == 'true')
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: fuzz-nightly-report
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      # Needs python3 and gh on the runner (both ship on ubuntu-latest).
+      - name: Download fuzz results
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: fuzz-result-*
+          path: fuzz-results
+
+      - name: Sync fuzz issues
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLOSE_AFTER: ${{ github.event.inputs.close_after || '3' }}
+        run: |
+          python3 .github/scripts/fuzz_issues.py sync --results fuzz-results \
+            --repo "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --close-after "$CLOSE_AFTER"
