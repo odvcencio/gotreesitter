@@ -2266,7 +2266,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            --run '^TestIncrementalCReuseCommentTrailingNewline$|^TestIncrementalCReuseReceiptEOFMatchesFresh$|^TestCooklangNextLiveArmLockedCRoutes$|^TestWolframNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$|^TestJuliaDispatchBlockerReceiptRoutes$|^TestWGSLN31rDispatcherBlockerReceipt$|^TestTemplN31qLiveArmLockedCRoutes$|^TestGoNextLiveArmProbe$'
+            --run '^TestIncrementalCReuseCommentTrailingNewline$|^TestIncrementalCReuseReceiptEOFMatchesFresh$|^TestCooklangNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$|^TestJuliaDispatchBlockerReceiptRoutes$|^TestWGSLN31rDispatcherBlockerReceipt$|^TestGoNextLiveArmProbe$'
 
   parity-cgo:
     needs: exhaustive_parity_scope
@@ -2479,14 +2479,14 @@ jobs:
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestCobolCGOErrorOracleParity$' -count=1 -timeout=8m -v"
 
-      - name: DTD dispatch retirement parity against locked C
+      - name: Retired inert dispatch arm parity against locked C
         run: |
-          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/dtd-retirement-reference" --langs dtd
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/retired-inert-arms-reference" --langs bitbake,corn,dtd,templ,wolfram
           GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
-            --no-build --label ci-dtd-retirement-parity \
-            --mount "${RUNNER_TEMP}/dtd-retirement-reference:/tmp/grammar_parity:ro" \
+            --no-build --label ci-retired-inert-arms-parity \
+            --mount "${RUNNER_TEMP}/retired-inert-arms-reference:/tmp/grammar_parity:ro" \
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
-            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'cgo treesitter_c_parity' -run '^TestDTDDispatchRetirementLockedCParity$' -count=1 -timeout=8m -v"
+            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'cgo treesitter_c_parity' -run '^TestRetiredInertArmsLockedCParity$' -count=1 -timeout=8m -v"
 
       - name: Seed pinned-digest parity corpora
         run: |
@@ -2506,7 +2506,7 @@ jobs:
             --no-build --label ci-pinned-digest-parity-batch-b \
             --mount "${RUNNER_TEMP}/pinned-digest-reference:/tmp/grammar_parity" \
             --memory 4g --gomemlimit 3GiB --cpus 2 --wall-timeout 10m \
-            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'cgo gts_derivation_set_census gts_eof_history_census gts_eof_recovery_admission_contract gts_eof_recovery_shadow gts_merge_census gts_parsercorephase0 treesitter_c_parity' -run '^(TestAuthzedNextLiveArmProbe|TestAuthzedNextLiveArmReceiptDocument|TestBashSkippedEscapeLockedCParity|TestBitbakeNextLiveArmReceiptDocument|TestCSSForestScannerWidthLockedC|TestCSharpDispatchBlockerReceiptDocument|TestCSharpDispatchBlockerRoutes|TestCTopologyReceiptErlangIssue984|TestCTopologyReceiptErlangOneBytePhysicalMerge|TestCornNextLiveArmReceiptDocument|TestDartInheritedFieldProjectionLockedCParity|TestDoxygenNextLiveArmReceiptDocument|TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree|TestElixirExtrasAndPairsRetirementLockedCParity|TestElixirInheritedFieldProjectionLockedCParity|TestErlangLeadingSkippedPrefixLockedCParity|TestForestExperimentalCleanControlLockedC|TestGoCompactRecoveryVersionTurnsLockedC|TestHLSLSubscriptAssignmentLockedCParity|TestHaskellSmallAdmissionLockedCParity|TestJavaScriptRetiredRecoveryAliasWithoutArtifactGrantLockedC|TestJsdocLexerSkipProvenanceLockedCParity|TestJsdocLexerSkippedPrefixMutationsLockedCParity|TestJuliaDispatchBlockerReceiptDocument|TestKotlinInterpolatedCallRetirementLockedCRoutes|TestLedgerForestExperimentalErrorRootFallbackLockedC|TestMesonAcceptanceElectionLockedCParity|TestNinjaDispatchRetirementLockedCParity|TestPythonRootHasErrorAgreementCReceipts|TestPythonRootHasErrorLockedCParityByteDrop|TestReleaseTokenInvariantGoNumericLookaheadLockedC|TestRobotSkippedErrorLockedCParity|TestSCSSForestScannerWidthLockedC|TestSchemeQuoteFamilySkippedErrorLockedCParity|TestSwiftDirectiveNewlinesMatchLockedC|TestSwiftTernaryRetirementMatchesLockedC|TestSwiftUnsafeMinimalWitnessMatchesLockedC|TestSwiftUnsafeMinimalWitnessMatchesLockedCAfterPooledRecoveryControl|TestTypeScriptTokenInvariantNumericLockedC|TestTypeScriptTokenInvariantSyntaxLockedC|TestYAMLOneBytePrintableEOFAdmissionMatchesLockedC)$' -count=1 -timeout=8m -v"
+            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'cgo gts_derivation_set_census gts_eof_history_census gts_eof_recovery_admission_contract gts_eof_recovery_shadow gts_merge_census gts_parsercorephase0 treesitter_c_parity' -run '^(TestAuthzedNextLiveArmProbe|TestAuthzedNextLiveArmReceiptDocument|TestBashSkippedEscapeLockedCParity|TestCSSForestScannerWidthLockedC|TestCSharpDispatchBlockerReceiptDocument|TestCSharpDispatchBlockerRoutes|TestCTopologyReceiptErlangIssue984|TestCTopologyReceiptErlangOneBytePhysicalMerge|TestDartInheritedFieldProjectionLockedCParity|TestDoxygenNextLiveArmReceiptDocument|TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree|TestElixirExtrasAndPairsRetirementLockedCParity|TestElixirInheritedFieldProjectionLockedCParity|TestErlangLeadingSkippedPrefixLockedCParity|TestForestExperimentalCleanControlLockedC|TestGoCompactRecoveryVersionTurnsLockedC|TestHLSLSubscriptAssignmentLockedCParity|TestHaskellSmallAdmissionLockedCParity|TestJavaScriptRetiredRecoveryAliasWithoutArtifactGrantLockedC|TestJsdocLexerSkipProvenanceLockedCParity|TestJsdocLexerSkippedPrefixMutationsLockedCParity|TestJuliaDispatchBlockerReceiptDocument|TestKotlinInterpolatedCallRetirementLockedCRoutes|TestLedgerForestExperimentalErrorRootFallbackLockedC|TestMesonAcceptanceElectionLockedCParity|TestNinjaDispatchRetirementLockedCParity|TestPythonRootHasErrorAgreementCReceipts|TestPythonRootHasErrorLockedCParityByteDrop|TestReleaseTokenInvariantGoNumericLookaheadLockedC|TestRobotSkippedErrorLockedCParity|TestSCSSForestScannerWidthLockedC|TestSchemeQuoteFamilySkippedErrorLockedCParity|TestSwiftDirectiveNewlinesMatchLockedC|TestSwiftTernaryRetirementMatchesLockedC|TestSwiftUnsafeMinimalWitnessMatchesLockedC|TestSwiftUnsafeMinimalWitnessMatchesLockedCAfterPooledRecoveryControl|TestTypeScriptTokenInvariantNumericLockedC|TestTypeScriptTokenInvariantSyntaxLockedC|TestYAMLOneBytePrintableEOFAdmissionMatchesLockedC)$' -count=1 -timeout=8m -v"
 
       - name: HLSL next-live-arm parity against locked C
         run: |

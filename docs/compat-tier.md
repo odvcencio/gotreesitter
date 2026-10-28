@@ -16,19 +16,21 @@ without updating that registry.
 At exact main commit `f5adfc7091bad6f8adb5088a32f3b2912561fc72`, the v1
 registry freezes the current source and registry:
 
-- 31 explicit `runLanguageResultCompatibility` switch arms;
-- 33 dispatcher languages across those arms;
+- 26 explicit `runLanguageResultCompatibility` switch arms;
+- 28 dispatcher languages across those arms;
 - one predicate-dispatched COBOL entry matching exactly `cobol` or `COBOL`;
 - zero generic passes after language dispatch;
 - zero post-finalization second-pass fixpoint arms;
 - zero post-finalization languages.
 
-The registry contains 32 live entries and 57 retired entries. The live entries
-name 35 language labels. Shared switch arms account for the label difference.
+The registry contains 27 live entries and 62 retired entries. The live entries
+name 30 language labels. Shared switch arms account for the label difference.
 The retired count includes the Swift ternary, JavaScript dynamic-import, Kotlin
 interpolated-call, Bash generated-command assignment, Ninja recovery, and
 Ledger recovery, and JSDoc recovery arms.
-The 2026-08-22 normalization checkpoint keeps the DTD entry live. See the
+The bitbake, corn, dtd, templ, and wolfram arms are retired; see
+[inert arms](#current-progress-inert-arms). The 2026-08-22 normalization
+checkpoint kept the DTD entry live at that time. See the
 [checkpoint receipt](root-normalization-retirement.md#2026-08-22-normalization-checkpoint).
 The registry covers
 only this documented internal result-compatibility tier. Scheduler experiments
@@ -93,14 +95,18 @@ directories: 7 inert arms and 13 active arms. Its exact log is:
 
 `harness_out/docker/20260811T222732Z-a0-arm-census/container.log`
 
-The corpus census does not cover these 18 live arms:
+The corpus census does not cover these 13 live arms:
 
-`dispatch.ada`, `dispatch.apex`, `dispatch.authzed`, `dispatch.bitbake`,
-`dispatch.cooklang`, `dispatch.corn`, `dispatch.doxygen`, `dispatch.dtd`,
+`dispatch.ada`, `dispatch.apex`, `dispatch.authzed`,
+`dispatch.cooklang`, `dispatch.doxygen`,
 `dispatch.enforce`, `dispatch.fidl`, `dispatch.hlsl`,
-`dispatch.hyprlang`, `dispatch.ql`, `dispatch.solidity`, `dispatch.templ`,
-`dispatch.wgsl`, `dispatch.wolfram`,
+`dispatch.hyprlang`, `dispatch.ql`, `dispatch.solidity`,
+`dispatch.wgsl`,
 and `predicate.cobol-exact`.
+
+The original list also named `dispatch.bitbake`, `dispatch.corn`,
+`dispatch.dtd`, `dispatch.templ`, and `dispatch.wolfram`. Those five arms are
+retired and left the A0 manifest with their fixtures.
 
 This is defect `A0-CORPUS-001`, an evidence gap. Add a small real-source
 corpus for each arm before using rewrite frequency for retirement or
@@ -411,6 +417,54 @@ The change removes local repairs for:
 - Squirrel.
 
 Squirrel needed no other result repair, so its dispatcher arm is retired.
+
+## Current progress: inert arms
+
+Five dispatcher arms are retired because they rewrote no node on any registered
+witness: bitbake, corn, dtd, templ, and wolfram. A0 and the authenticated
+census recorded zero rewrites for them. The dedicated route receipts did the
+same, including the inputs that match each arm's trigger: a DTD
+parameter-entity reference in an element declaration, Corn quoted keys,
+BitBake function and `addtask` shapes, a Templ component import and dangling
+quote, and a Wolfram split infix. A sweep of real-corpus files for the same
+five languages (bitbake 400 files, corn 34, dtd 44, templ 86, wolfram 12) found
+no firing either.
+
+With the arms removed, the production, compact, forest, and incremental routes
+return the same tree as the parse that skips result compatibility, and the
+dispatcher records no pass for these languages. The locked C comparison is
+`cgo_harness/retired_inert_arm_parity_test.go`. The route receipt is
+`grammars/retired_inert_arm_route_receipt_test.go`. The witness fixtures that
+the receipts still read are in `testdata/retired_dispatch_arms`.
+
+BitBake, Corn, Templ, and Wolfram keep known differences from locked C on some
+witnesses: three BitBake recipes (the `clang_git` recipe, a function-flag
+assignment, and adjacent override functions), the Corn quoted-keys input, two
+Templ error inputs, and three Wolfram error inputs. Those trees are the same
+with and without the arm, so the retirement does not change them. The C parity
+test pins each difference. DTD matches locked C exactly on every witness.
+
+These five languages are now eligible for compact-tail elision, as
+[compat-tail-elision.md](compat-tail-elision.md) describes.
+
+Reopen an entry if a future witness for one of these languages needs a
+rewrite to match locked C.
+
+### Perl stays live
+
+The Perl arm was a candidate and is not retired. It regroups the arguments of
+a `push` call, and the two comma-form witnesses (`push @found, $_;`) never
+reach it. The fat-comma form does: in `push @a => 1;` the arm rewrites four
+nodes, and the result matches locked C. Without the arm the engine emits
+`(list_expression (ambiguous_function_call_expression (function) (array ...))
+(number))`, and locked C emits `(ambiguous_function_call_expression function:
+(function) arguments: (list_expression (array ...) (number)))`. A real file,
+`Porting/checkpodencoding.pl` line 49 (`push @non_ascii => {`), triggers the arm.
+
+Retire Perl only after the engine emits the grouped shape for `push LIST => ...`
+without the arm, and after the Perl parity and route receipts include the
+fat-comma witnesses. Locked C also groups `unshift @a => 1`; the engine does
+not, and the arm never covered that shape.
 
 ## Current progress: field projection
 

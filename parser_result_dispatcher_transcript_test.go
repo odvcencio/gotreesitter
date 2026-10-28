@@ -9,24 +9,31 @@ import (
 	"testing"
 )
 
-// wolframTranscriptFixture builds the same known-firing witness as
-// TestNormalizeWolframSplitInfixRoot (parser_result_wolfram_test.go): a
-// hand-built Wolfram source_file tree with a symbol operand followed by a
-// split prefix ("a" then "+ b", from source "   a + b\n").
-// dispatch.wolfram (runLanguageResultCompatibility's "wolfram" case) merges
-// the two into one infix node, replacing the root's two children with one.
+// doxygenTranscriptFixture builds a known-firing witness for
+// dispatch.doxygen (runLanguageResultCompatibility's "doxygen" case): a
+// hand-built whole-input ERROR root that wraps only comment delimiter tokens
+// and carries no recovered doxygen structure, from source "/** a */".
+// normalizeDoxygenWholeBlockCommentError drops both delimiter children, as C
+// does for such input, so the root ends with no children.
 // This exercises a different transcript shape than a leaf retag: the first
 // divergence is the root's own child_count, not a descendant's node_type.
-func wolframTranscriptFixture() (lang *Language, source []byte, root *Node) {
-	lang = wolframCompatLang()
+func doxygenTranscriptFixture() (lang *Language, source []byte, root *Node) {
+	lang = &Language{
+		Name:        "doxygen",
+		SymbolNames: []string{"EOF", "document", "_multiline_begin", "_multiline_end"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF"},
+			{Name: "document", Visible: true, Named: true},
+			{Name: "_multiline_begin", Visible: true, Named: false},
+			{Name: "_multiline_end", Visible: true, Named: false},
+		},
+	}
 	arena := newNodeArena(arenaClassFull)
-	source = []byte("   a + b\n")
+	source = []byte("/** a */")
 
-	left := newLeafNodeInArena(arena, 2, true, 3, 4, Point{Row: 0, Column: 3}, Point{Row: 0, Column: 4})
-	op := newLeafNodeInArena(arena, 4, false, 5, 6, Point{Row: 0, Column: 5}, Point{Row: 0, Column: 6})
-	right := newLeafNodeInArena(arena, 2, true, 7, 8, Point{Row: 0, Column: 7}, Point{Row: 0, Column: 8})
-	prefix := newParentNodeInArena(arena, 3, true, []*Node{op, right}, nil, 0)
-	root = newParentNodeInArena(arena, 1, true, []*Node{left, prefix}, nil, 0)
+	begin := newLeafNodeInArena(arena, 2, false, 0, 3, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 3})
+	end := newLeafNodeInArena(arena, 3, false, 6, 8, Point{Row: 0, Column: 6}, Point{Row: 0, Column: 8})
+	root = newParentNodeInArena(arena, errorSymbol, true, []*Node{begin, end}, nil, 0)
 	return lang, source, root
 }
 
@@ -43,9 +50,9 @@ func jsonLines(t *testing.T, raw []byte) [][]byte {
 	return lines
 }
 
-// TestDispatcherArmTranscriptRecordsKnownFiringWitness runs dispatch.wolfram
-// (a known-firing arm: it always merges a split infix operand with its
-// operator and right operand) through the real dispatcher switch with
+// TestDispatcherArmTranscriptRecordsKnownFiringWitness runs dispatch.doxygen
+// (a known-firing arm: it empties a whole-input ERROR root that wraps only
+// comment delimiters) through the real dispatcher switch with
 // GTS_DISPATCHER_TRANSCRIPT=1 and asserts a transcript record appears in the
 // JSON-lines output with the shape the cohort-proof instrument promises:
 // language, arm, a node path into the changed subtree, and a compact
@@ -59,21 +66,17 @@ func TestDispatcherArmTranscriptRecordsKnownFiringWitness(t *testing.T) {
 	resetDispatcherTranscriptEnvCacheForTest()
 	t.Cleanup(resetDispatcherTranscriptEnvCacheForTest)
 
-	lang, source, root := wolframTranscriptFixture()
+	lang, source, root := doxygenTranscriptFixture()
 	ctx := resultCompatibilityContext{root: root, source: source, lang: lang}
 
 	if result := runLanguageResultCompatibility(ctx); result.stopReason != ParseStopNone {
 		t.Fatalf("dispatcher returned stop reason %v, want none", result.stopReason)
 	}
 
-	// The witness fired exactly as it does with no instrumentation at all
-	// (TestNormalizeWolframSplitInfixRoot): the transcript never alters
-	// normalization, it only observes it.
-	if got, want := resultChildCount(root), 1; got != want {
+	// The witness fired exactly as it does with no instrumentation at all:
+	// the transcript never alters normalization, it only observes it.
+	if got, want := resultChildCount(root), 0; got != want {
 		t.Fatalf("root child count = %d, want %d", got, want)
-	}
-	if got, want := root.Child(0).Type(lang), "infix"; got != want {
-		t.Fatalf("merged node type = %q, want %q", got, want)
 	}
 
 	raw, err := os.ReadFile(outPath)
@@ -82,7 +85,7 @@ func TestDispatcherArmTranscriptRecordsKnownFiringWitness(t *testing.T) {
 	}
 	lines := jsonLines(t, raw)
 	if len(lines) != 1 {
-		t.Fatalf("transcript recorded %d lines for dispatch.wolfram's single case body, want 1: %s", len(lines), raw)
+		t.Fatalf("transcript recorded %d lines for dispatch.doxygen's single case body, want 1: %s", len(lines), raw)
 	}
 
 	var rec dispatcherTranscriptRecord
@@ -90,11 +93,11 @@ func TestDispatcherArmTranscriptRecordsKnownFiringWitness(t *testing.T) {
 		t.Fatalf("unmarshal transcript line %s: %v", lines[0], err)
 	}
 
-	if rec.Language != "wolfram" {
-		t.Errorf("record language = %q, want %q", rec.Language, "wolfram")
+	if rec.Language != "doxygen" {
+		t.Errorf("record language = %q, want %q", rec.Language, "doxygen")
 	}
-	if rec.Arm != "dispatch.wolfram" {
-		t.Errorf("record arm = %q, want %q", rec.Arm, "dispatch.wolfram")
+	if rec.Arm != "dispatch.doxygen" {
+		t.Errorf("record arm = %q, want %q", rec.Arm, "dispatch.doxygen")
 	}
 	if want := []int{}; !slices.Equal(rec.NodePath, want) {
 		t.Errorf("record node_path = %v, want %v (root itself, whose child_count changed)", rec.NodePath, want)
@@ -102,8 +105,8 @@ func TestDispatcherArmTranscriptRecordsKnownFiringWitness(t *testing.T) {
 	if rec.Effect.NodeType != nil {
 		t.Errorf("record node_type = %+v, want nil: the root's own symbol does not change", rec.Effect.NodeType)
 	}
-	if rec.Effect.ChildCountDelta != -1 {
-		t.Errorf("record child_count_delta = %d, want -1 (two root children merge into one)", rec.Effect.ChildCountDelta)
+	if rec.Effect.ChildCountDelta != -2 {
+		t.Errorf("record child_count_delta = %d, want -2 (both delimiter children are dropped)", rec.Effect.ChildCountDelta)
 	}
 	if rec.Effect.Span != nil {
 		t.Errorf("record span = %+v, want nil: the root's own byte range does not move", rec.Effect.Span)
@@ -116,8 +119,8 @@ func TestDispatcherArmTranscriptRecordsKnownFiringWitness(t *testing.T) {
 	}
 
 	summary := dispatcherTranscriptSummary()
-	if summary["dispatch.wolfram"] != 1 {
-		t.Errorf("summary count map[dispatch.wolfram] = %d, want 1: %v", summary["dispatch.wolfram"], summary)
+	if summary["dispatch.doxygen"] != 1 {
+		t.Errorf("summary count map[dispatch.doxygen] = %d, want 1: %v", summary["dispatch.doxygen"], summary)
 	}
 }
 
@@ -135,22 +138,15 @@ func TestDispatcherArmTranscriptDisabledRecordsNothing(t *testing.T) {
 	resetDispatcherTranscriptEnvCacheForTest()
 	t.Cleanup(resetDispatcherTranscriptEnvCacheForTest)
 
-	lang, source, root := wolframTranscriptFixture()
+	lang, source, root := doxygenTranscriptFixture()
 	ctx := resultCompatibilityContext{root: root, source: source, lang: lang}
 
 	if result := runLanguageResultCompatibility(ctx); result.stopReason != ParseStopNone {
 		t.Fatalf("dispatcher returned stop reason %v, want none", result.stopReason)
 	}
 
-	if got, want := resultChildCount(root), 1; got != want {
+	if got, want := resultChildCount(root), 0; got != want {
 		t.Fatalf("root child count = %d, want %d (same result as with the flag on)", got, want)
-	}
-	infix := root.Child(0)
-	if got, want := infix.Type(lang), "infix"; got != want {
-		t.Fatalf("merged node type = %q, want %q (same result as with the flag on)", got, want)
-	}
-	if got, want := resultChildCount(infix), 3; got != want {
-		t.Fatalf("infix child count = %d, want %d (same result as with the flag on)", got, want)
 	}
 
 	if _, err := os.Stat(outPath); !os.IsNotExist(err) {

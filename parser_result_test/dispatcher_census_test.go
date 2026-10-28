@@ -524,8 +524,8 @@ func TestDispatcherArmCensusA0Manifest(t *testing.T) {
 
 	wantLanguages := append([]string(nil), manifest.Languages...)
 	sort.Strings(wantLanguages)
-	if len(wantLanguages) != 14 {
-		t.Fatalf("A0 manifest languages = %d, want 14", len(wantLanguages))
+	if len(wantLanguages) != 9 {
+		t.Fatalf("A0 manifest languages = %d, want 9", len(wantLanguages))
 	}
 	for i, language := range wantLanguages {
 		if i > 0 && language == wantLanguages[i-1] {

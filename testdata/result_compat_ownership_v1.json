@@ -2,14 +2,14 @@
   "schema": "gotreesitter/result-compat-ownership/v1",
   "source_of_truth": true,
   "denominator": {
-    "dispatcher_arms": 31,
-    "dispatcher_languages": 33,
+    "dispatcher_arms": 26,
+    "dispatcher_languages": 28,
     "dispatcher_predicates": 1,
     "generic_passes": 0,
     "post_finalization_arms": 0,
     "post_finalization_languages": 0,
-    "live_entries": 32,
-    "retired_entries": 57
+    "live_entries": 27,
+    "retired_entries": 62
   },
   "live_evidence_baseline": {
     "scope": "baseline_corpus_wide_only",
@@ -326,21 +326,26 @@
       "languages": [
         "bitbake"
       ],
-      "purpose": "Reconcile BitBake recovery and returned-tree shape.",
+      "purpose": "Historical: unwrapped addtask ERROR wrappers and rebuilt recovered shell functions and function-flag assignments after materialization.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/retired_inert_arm_parity_test.go",
+        "grammars/retired_inert_arm_route_receipt_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: the arm rewrote no node on any registered witness, so production, compact, forest, incremental, and C-oracle receipts return the same trees with the arm removed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_known_divergence_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "retired_commit": "8dd2fc2012001a43be95b39544ef5dc9b47bbb82",
+      "receipt_refs": [
+        "cgo_harness/retired_inert_arm_parity_test.go",
+        "grammars/retired_inert_arm_route_receipt_test.go"
+      ]
     },
     {
       "id": "dispatch.chatito",
@@ -563,21 +568,26 @@
       "languages": [
         "corn"
       ],
-      "purpose": "Reconcile Corn recovery and returned-tree shape.",
+      "purpose": "Historical: cleared error flags on extra ERROR leaves and rebuilt quoted whole-path segments after materialization.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/retired_inert_arm_parity_test.go",
+        "grammars/retired_inert_arm_route_receipt_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: the arm rewrote no node on any registered witness, so production, compact, forest, incremental, and C-oracle receipts return the same trees with the arm removed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_known_divergence_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "retired_commit": "8dd2fc2012001a43be95b39544ef5dc9b47bbb82",
+      "receipt_refs": [
+        "cgo_harness/retired_inert_arm_parity_test.go",
+        "grammars/retired_inert_arm_route_receipt_test.go"
+      ]
     },
     {
       "id": "dispatch.crystal",
@@ -819,21 +829,26 @@
       "languages": [
         "dtd"
       ],
-      "purpose": "Reconcile DTD recovery and returned-tree shape.",
+      "purpose": "Historical: rebuilt a recovered parameter-entity reference inside an element declaration after materialization.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/retired_inert_arm_parity_test.go",
+        "grammars/retired_inert_arm_route_receipt_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: the arm rewrote no node on any registered witness, so production, compact, forest, incremental, and C-oracle receipts return the same trees with the arm removed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "retired_commit": "8dd2fc2012001a43be95b39544ef5dc9b47bbb82",
+      "receipt_refs": [
+        "cgo_harness/retired_inert_arm_parity_test.go",
+        "grammars/retired_inert_arm_route_receipt_test.go"
+      ]
     },
     {
       "id": "dispatch.elixir",
@@ -2628,21 +2643,26 @@
       "languages": [
         "templ"
       ],
-      "purpose": "Reconcile Templ recovery and returned-tree shape.",
+      "purpose": "Historical: merged component-import arguments into their import node and added a dangling-quote ERROR to tag starts after materialization.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/retired_inert_arm_parity_test.go",
+        "grammars/retired_inert_arm_route_receipt_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: the arm rewrote no node on any registered witness, so production, compact, forest, incremental, and C-oracle receipts return the same trees with the arm removed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_known_divergence_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "retired_commit": "8dd2fc2012001a43be95b39544ef5dc9b47bbb82",
+      "receipt_refs": [
+        "cgo_harness/retired_inert_arm_parity_test.go",
+        "grammars/retired_inert_arm_route_receipt_test.go"
+      ]
     },
     {
       "id": "dispatch.wgsl",
@@ -2684,21 +2704,26 @@
       "languages": [
         "wolfram"
       ],
-      "purpose": "Reconcile Wolfram derivation selection and returned-tree shape.",
+      "purpose": "Historical: merged a split infix operand with its operator and right operand after materialization.",
       "authoritative_owner": "derivation_election_selection",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/retired_inert_arm_parity_test.go",
+        "grammars/retired_inert_arm_route_receipt_test.go"
       ],
-      "retirement_condition": "Delete only after derivation_election_selection emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: the arm rewrote no node on any registered witness, so production, compact, forest, incremental, and C-oracle receipts return the same trees with the arm removed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_known_divergence_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "retired_commit": "8dd2fc2012001a43be95b39544ef5dc9b47bbb82",
+      "receipt_refs": [
+        "cgo_harness/retired_inert_arm_parity_test.go",
+        "grammars/retired_inert_arm_route_receipt_test.go"
+      ]
     },
     {
       "id": "dispatch.typescript",
