@@ -44,14 +44,29 @@ var dartDefaultSymTable = [dartTokenCount]gotreesitter.Symbol{
 	dartSymDocBlockComment,
 }
 
-var dartExternalSymbolNames = []string{
-	"_template_chars_double",
-	"_template_chars_single",
-	"_template_chars_double_single",
-	"_template_chars_single_single",
-	"_template_chars_raw_slash",
-	"_block_comment",
-	"_documentation_block_comment",
+// dartExternalScannerSpec records the upstream scanner-source contract for
+// this port. Its Externals list is also the positional binding source.
+var dartExternalScannerSpec = ExternalScannerSpec{
+	Language:       "dart",
+	UpstreamRepo:   "https://github.com/UserNobody14/tree-sitter-dart",
+	UpstreamCommit: "be07cf7118d3dba06236a3f19541685a68209934",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "4014c0bc789f0481f4fcfbba991085dbdce7ff84fbcb17f150c0d204d2626707"},
+		{Path: "src/scanner.c", SHA256: "07a7b7818b175e9460523e705dd88d20f7b5141bac95c593d4426e6d52284996"},
+	},
+	Externals: []string{
+		"_template_chars_double",
+		"_template_chars_single",
+		"_template_chars_double_single",
+		"_template_chars_single_single",
+		"_template_chars_raw_slash",
+		"_block_comment",
+		"_documentation_block_comment",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(dartExternalScannerSpec)
 }
 
 // DartExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-dart.
@@ -68,7 +83,7 @@ type DartExternalScanner struct {
 
 func (DartExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
 	s := DartExternalScanner{symbols: dartDefaultSymTable}
-	s.externalToToken = bindExternalScannerSymbolNames(lang, dartExternalSymbolNames, func(tokenIdx int, sym gotreesitter.Symbol) {
+	s.externalToToken = bindExternalScannerSpec(lang, dartExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
 		s.symbols[tokenIdx] = sym
 	})
 	return s

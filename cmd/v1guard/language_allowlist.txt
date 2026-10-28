@@ -1,4 +1,17 @@
 # R6 baseline. Counts may only shrink; remove a row when its last use leaves.
+# prefixes: parser,glr,lexer,lex_,scanner,external_scanner,incremental,conflict,token_invariant,result_compat
+1	conflict_policy.go|compare|gomod
+3	conflict_policy.go|map-index|language.Name
+1	conflict_policy.go|map|c
+1	conflict_policy.go|map|c_sharp
+1	conflict_policy.go|map|dart
+1	conflict_policy.go|map|haskell
+1	conflict_policy.go|map|php
+1	conflict_policy.go|switch|c_sharp
+1	conflict_policy.go|switch|erlang
+1	conflict_policy.go|switch|java
+1	conflict_policy.go|switch|kotlin
+1	conflict_policy.go|switch|swift
 3	glr.go|compare|bash
 2	glr.go|compare|c_sharp
 1	glr.go|compare|perl
@@ -16,6 +29,21 @@
 1	glr_forest.go|map|nix
 1	glr_forest.go|map|prisma
 1	glr_forest.go|map|squirrel
+1	incremental_leaf_fastpath.go|switch|awk
+1	incremental_leaf_fastpath.go|switch|bash
+1	incremental_leaf_fastpath.go|switch|c_sharp
+1	incremental_leaf_fastpath.go|switch|clojure
+1	incremental_leaf_fastpath.go|switch|cmake
+1	incremental_leaf_fastpath.go|switch|css
+1	incremental_leaf_fastpath.go|switch|elixir
+1	incremental_leaf_fastpath.go|switch|hcl
+1	incremental_leaf_fastpath.go|switch|julia
+1	incremental_leaf_fastpath.go|switch|powershell
+1	incremental_leaf_fastpath.go|switch|rust
+1	incremental_leaf_fastpath.go|switch|scss
+1	incremental_leaf_fastpath.go|switch|sql
+1	incremental_leaf_fastpath.go|switch|typescript
+1	incremental_leaf_fastpath.go|switch|yaml
 1	parser.go|compare-dynamic|language.Name
 3	parser.go|compare|bash
 3	parser.go|compare|c_sharp
@@ -261,3 +289,8 @@
 4	parsercore_phase0_driver.go|map-index|language.Name
 1	parsercore_phase0_driver.go|map|markdown_inline
 1	parsercore_phase0_selected_query.go|compare-dynamic|language.Name
+1	result_compat_elision.go|map-index|language.Name
+2	token_invariant_dependency.go|compare|go
+1	token_invariant_dependency.go|compare|julia
+2	token_invariant_dependency.go|compare|python
+2	token_invariant_dependency.go|compare|typescript

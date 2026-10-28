@@ -57,22 +57,36 @@ var jsDefaultSymTable = [jsTokenCount]gotreesitter.Symbol{
 	jsTokJsxText:        jsSymJsxText,
 }
 
-// jsExternalSymbolNames lists the javascript grammar's external tokens in
+// jsExternalScannerSpec records the upstream scanner-source contract for this
+// port. Externals lists the javascript grammar's external tokens in
 // declaration order (matching the jsTok* indexes above and the language's
-// ExternalSymbols order). Used by ExternalScannerForLanguage to bind this
-// scanner's token slots to a Language's external symbols positionally, the
+// ExternalSymbols order). ExternalScannerForLanguage binds this scanner's
+// token slots to a Language's external symbols positionally through it, the
 // same pattern used by the kotlin/python/swift/dart/rust/hcl scanners. See
 // bindExternalScannerSymbolNames for why positional (not absolute-ID or
 // by-name) binding is required.
-var jsExternalSymbolNames = []string{
-	"_automatic_semicolon",
-	"_template_chars",
-	"_ternary_qmark",
-	"html_comment",
-	"||",
-	"escape_sequence",
-	"regex_pattern",
-	"jsx_text",
+var jsExternalScannerSpec = ExternalScannerSpec{
+	Language:       "javascript",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-javascript",
+	UpstreamCommit: "58404d8cf191d69f2674a8fd507bd5776f46cb11",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "7d9364b824be9250ba023065784550475d277b9dc9a7d20f9bebe9e471c908c3"},
+		{Path: "src/scanner.c", SHA256: "b3d3f64284d97bf80749c026862427782cf7ecc0b7dc094e6698ab311c9a42c7"},
+	},
+	Externals: []string{
+		"_automatic_semicolon",
+		"_template_chars",
+		"_ternary_qmark",
+		"html_comment",
+		"||",
+		"escape_sequence",
+		"regex_pattern",
+		"jsx_text",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(jsExternalScannerSpec)
 }
 
 // JavaScriptExternalScanner handles automatic semicolons, template strings,
@@ -99,7 +113,7 @@ const (
 // numbering) — see bindExternalScannerSymbolNames.
 func (JavaScriptExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
 	s := JavaScriptExternalScanner{symbols: jsDefaultSymTable}
-	s.externalToToken = bindExternalScannerSymbolNames(lang, jsExternalSymbolNames, func(tokenIdx int, sym gotreesitter.Symbol) {
+	s.externalToToken = bindExternalScannerSpec(lang, jsExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
 		s.symbols[tokenIdx] = sym
 	})
 	return s
@@ -128,10 +142,10 @@ func (s JavaScriptExternalScanner) symbolTable() *[jsTokenCount]gotreesitter.Sym
 
 // remapValidSymbols translates a Language-external-indexed validSymbols
 // slice into scanner-token-indexed space via s.externalToToken. When the
-// Language's external count and order agree with jsExternalSymbolNames (the
+// Language's external count and order agree with jsExternalScannerSpec.Externals (the
 // common case), externalToToken is the identity permutation and this is a
 // copy; it only diverges when a future grammar version adds, removes, or
-// reorders an external token relative to jsExternalSymbolNames.
+// reorders an external token relative to jsExternalScannerSpec.Externals.
 func (s JavaScriptExternalScanner) remapValidSymbols(validSymbols []bool, semanticValid *[jsTokenCount]bool) []bool {
 	if len(s.externalToToken) == 0 {
 		return validSymbols

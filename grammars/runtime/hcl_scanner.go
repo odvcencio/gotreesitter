@@ -52,21 +52,35 @@ var hclDefaultSymTable = [hclTokenCount]gotreesitter.Symbol{
 	hclTokHeredocIdentifier:          hclSymHeredocIdentifier,
 }
 
-// hclExternalSymbolNames lists the HCL grammar's external tokens, in scanner
+// hclExternalScannerSpec records the upstream scanner-source contract for this
+// port. Externals lists the HCL grammar's external tokens in scanner
 // token-index order (matching upstream tree-sitter-hcl's `externals: [...]`
-// order). Used by ExternalScannerForLanguage to bind this scanner's token slots
-// to a Language's ExternalSymbols positionally, the same pattern used by the
-// kotlin/python/swift/dart/rust scanners. See bindExternalScannerSymbolNames for
-// why positional (not absolute-ID or by-name) binding is required.
-var hclExternalSymbolNames = []string{
-	"quoted_template_start",
-	"quoted_template_end",
-	"_template_literal_chunk",
-	"template_interpolation_start",
-	"template_interpolation_end",
-	"template_directive_start",
-	"template_directive_end",
-	"heredoc_identifier",
+// order). ExternalScannerForLanguage binds this scanner's token slots to a
+// Language's ExternalSymbols positionally through it. See
+// bindExternalScannerSymbolNames for why positional (not absolute-ID or
+// by-name) binding is required.
+var hclExternalScannerSpec = ExternalScannerSpec{
+	Language:       "hcl",
+	UpstreamRepo:   "https://github.com/tree-sitter-grammars/tree-sitter-hcl",
+	UpstreamCommit: "64ad62785d442eb4d45df3a1764962dafd5bc98b",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "81b66a3a20a60d1f46c699d3a9d5d05e7d3b160eea0bd8b2d41d3c921608ba98"},
+		{Path: "src/scanner.c", SHA256: "846b6e63d4b352c6cf9de1255ca100100e52b1a3f8a7b9805c501bbc83d41966"},
+	},
+	Externals: []string{
+		"quoted_template_start",
+		"quoted_template_end",
+		"_template_literal_chunk",
+		"template_interpolation_start",
+		"template_interpolation_end",
+		"template_directive_start",
+		"template_directive_end",
+		"heredoc_identifier",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(hclExternalScannerSpec)
 }
 
 // hclContextType identifies the kind of template context being tracked.
@@ -126,7 +140,7 @@ type HclExternalScanner struct {
 // result symbols through the bound table instead of hardcoded absolute IDs.
 func (HclExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
 	s := HclExternalScanner{symbols: hclDefaultSymTable}
-	s.externalToToken = bindExternalScannerSymbolNames(lang, hclExternalSymbolNames, func(tokenIdx int, sym gotreesitter.Symbol) {
+	s.externalToToken = bindExternalScannerSpec(lang, hclExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
 		s.symbols[tokenIdx] = sym
 	})
 	return s
