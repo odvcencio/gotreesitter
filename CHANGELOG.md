@@ -7,6 +7,48 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Changed
+
+- Make the highlighter return only captures that name a color. It no longer
+  returns private captures (a leading underscore), `@spell`, `@nospell`,
+  `@conceal`, or the directives of a locals query (`@local.scope`,
+  `@local.reference`, `@local.definition`, `@local.definition-value` and
+  `@local.definition.*`); predicates and directives still read them. `@none`
+  clears the colors of its own priority beneath it, including the color of an
+  enclosing capture of that priority, and is not returned. It does not clear a
+  capture of a lower priority, so the reset that the Markdown query puts on a
+  fence leaves the injected language's own colors, such as zig's strings at
+  priority 95. This follows the convention nvim-treesitter documents for
+  `@none`; tree-sitter-highlight and Neovim's own highlighter keep the enclosing
+  color under an inner `@none` node. `(#set! priority N)` sets the priority of a
+  pattern's captures, with a default of 100. Injected child queries follow the
+  same rules, and at equal priority an injected capture wins over the host's
+  capture on the same span. A VHDL comment keeps its `@comment` color, and a
+  private capture such as `@_key` no longer hides the color of its node
+  ([#454](https://github.com/odvcencio/gotreesitter/issues/454)).
+
+### Breaking Changes
+
+- `Highlight` and its incremental and UTF-16 variants no longer return a range
+  for a `spell`, `nospell`, `conceal`, `none`, underscore-prefixed or
+  locals-directive capture. Code that reads a `spell`, `none` or underscore
+  capture from `Highlight` no longer receives it.
+- Injected child layers keep their own pattern order on identical spans, as a
+  standalone file does. Before, a layer lost its pattern indexes and the order of
+  the matches decided. In a Markdown fence of starlark, `{` changes from
+  `punctuation.bracket` to `punctuation.special`.
+- On a span that an injected language and its host both capture, the injected
+  capture now wins. Before, the host's capture won unless it came from the first
+  pattern of the host's query.
+- Queries that set `(#set! priority N)` now resolve overlaps by priority. Before,
+  the directive had no effect and the narrower capture won. Sixteen shipped
+  queries set a priority. In the diff query, the `---`, `+++`, `-` and `+`
+  markers now take `diff.minus` or `diff.plus` instead of `punctuation.special`.
+  In hare, `:outer` in `break :outer;` is one `label` range where it was a
+  `punctuation.delimiter` range and a `variable` range, and in tablegen, `!add` is
+  one `function` range where it was a `punctuation.special` range and a
+  `function` range.
+
 ## [0.56.0] - 2026-10-13
 
 ### Added

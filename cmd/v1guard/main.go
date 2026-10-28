@@ -276,7 +276,8 @@ func scan(root string) ([]finding, []finding, error) {
 			}
 		}
 		for _, decl := range file.Decls {
-			if fn, ok := decl.(*ast.FuncDecl); ok {
+			// A go:linkname declaration has no body, so it has no local aliases.
+			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Body != nil {
 				names := make(map[string]bool, len(globalNames))
 				for name := range globalNames {
 					names[name] = true
