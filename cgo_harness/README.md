@@ -2,6 +2,28 @@
 
 This module contains CGo-only parity and baseline benchmark harnesses used to compare `gotreesitter` against native C tree-sitter parsers.
 
+## Oracle Diff
+
+`c_oracle_diff_test.go` (build tag `gts_oracle_diff`) compares the locked C
+oracle against `gotreesitter` on a fixed input set: every smoke sample, the
+committed real samples and their first edit, the recovery board, tiny and
+mutated probes, and fuzz witnesses. It writes one JSONL row per grammar and
+input with both deep digests. Run it once per oracle checkout, then join the
+two files:
+
+```sh
+bash cgo_harness/docker/run_parity_in_docker.sh -- \
+  "cd /workspace/cgo_harness && GTS_ORACLE_DIFF_OUT=/workspace/harness_out/oracle-a.jsonl \
+   go test . -tags 'treesitter_c_parity gts_oracle_diff' -run '^TestCOracleDiff\$' -count=1 -timeout 3h"
+python3 cgo_harness/oracle/diff_join.py harness_out/oracle-a.jsonl harness_out/oracle-b.jsonl \
+  harness_out/joined.tsv harness_out/summary.json
+```
+
+The test header lists the environment variables, including the per-parse
+timeout and the watchdog that records a parser that never returns. The
+watchdog exits with status 75. Rerun with `GTS_ORACLE_DIFF_RESUME=1` to
+continue; the stuck input is retried with the hung side skipped.
+
 ## Unified Harness Gate
 
 Do not start local OOM diagnosis with the unified gate runner. It aggregates
