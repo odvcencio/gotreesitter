@@ -341,7 +341,7 @@
         "c_oracle": "retired_known_divergence_receipt"
       },
       "status": "retired",
-      "retired_commit": "dfd6360f1fbfd14b1e099f7e930549a65050bc7e",
+      "retired_commit": "8dd2fc2012001a43be95b39544ef5dc9b47bbb82",
       "receipt_refs": [
         "cgo_harness/retired_inert_arm_parity_test.go",
         "grammars/retired_inert_arm_route_receipt_test.go"
@@ -583,7 +583,7 @@
         "c_oracle": "retired_known_divergence_receipt"
       },
       "status": "retired",
-      "retired_commit": "dfd6360f1fbfd14b1e099f7e930549a65050bc7e",
+      "retired_commit": "8dd2fc2012001a43be95b39544ef5dc9b47bbb82",
       "receipt_refs": [
         "cgo_harness/retired_inert_arm_parity_test.go",
         "grammars/retired_inert_arm_route_receipt_test.go"
@@ -844,7 +844,7 @@
         "c_oracle": "retired_exact_receipt"
       },
       "status": "retired",
-      "retired_commit": "dfd6360f1fbfd14b1e099f7e930549a65050bc7e",
+      "retired_commit": "8dd2fc2012001a43be95b39544ef5dc9b47bbb82",
       "receipt_refs": [
         "cgo_harness/retired_inert_arm_parity_test.go",
         "grammars/retired_inert_arm_route_receipt_test.go"
@@ -2658,7 +2658,7 @@
         "c_oracle": "retired_known_divergence_receipt"
       },
       "status": "retired",
-      "retired_commit": "dfd6360f1fbfd14b1e099f7e930549a65050bc7e",
+      "retired_commit": "8dd2fc2012001a43be95b39544ef5dc9b47bbb82",
       "receipt_refs": [
         "cgo_harness/retired_inert_arm_parity_test.go",
         "grammars/retired_inert_arm_route_receipt_test.go"
@@ -2719,7 +2719,7 @@
         "c_oracle": "retired_known_divergence_receipt"
       },
       "status": "retired",
-      "retired_commit": "dfd6360f1fbfd14b1e099f7e930549a65050bc7e",
+      "retired_commit": "8dd2fc2012001a43be95b39544ef5dc9b47bbb82",
       "receipt_refs": [
         "cgo_harness/retired_inert_arm_parity_test.go",
         "grammars/retired_inert_arm_route_receipt_test.go"
