@@ -8,7 +8,7 @@ import (
 )
 
 // Languages with a registered token source (grammars/runtime/token_source_factory_builtin.go).
-var entryTokenSourceLanguages = []string{"authzed", "c", "cpp", "java", "json"}
+var entryTokenSourceLanguages = []string{"authzed", "c", "cpp", "java"}
 
 func entryForTest(t *testing.T, name string) *LangEntry {
 	t.Helper()
