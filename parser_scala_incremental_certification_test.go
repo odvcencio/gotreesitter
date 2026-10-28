@@ -6,6 +6,7 @@ import (
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
 )
 
 type scalaCheckpointIdentityDriftScanner struct {
@@ -131,7 +132,7 @@ func TestScalaTokenInvariantLeafRejectsCheckpointCapabilityRemoval(t *testing.T)
 		t.Fatalf("parse Scala capability source: %v", err)
 	}
 	defer oldTree.Release()
-	lang.ExternalScanner = (grammars.ScalaExternalScanner{}).ExternalScannerForLanguage(lang)
+	lang.ExternalScanner = (grammarruntime.ScalaExternalScanner{}).ExternalScannerForLanguage(lang)
 	edited := bytes.Replace(source, []byte("1"), []byte("2"), 1)
 	offset := bytes.Index(source, []byte("1"))
 	oldTree.Edit(gts.InputEdit{

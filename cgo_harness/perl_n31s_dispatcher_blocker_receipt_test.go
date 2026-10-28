@@ -12,6 +12,7 @@ import (
 
 	gots "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
@@ -42,8 +43,8 @@ func TestPerlN31sDispatcherBlockerReceipt(t *testing.T) {
 	if goLang == nil || goLang.Name != "perl" {
 		t.Fatalf("language=%v, want perl", goLang)
 	}
-	if _, ok := goLang.ExternalScanner.(grammars.PerlExternalScanner); !ok {
-		t.Fatalf("scanner=%T, want grammars.PerlExternalScanner", goLang.ExternalScanner)
+	if _, ok := goLang.ExternalScanner.(grammarruntime.PerlExternalScanner); !ok {
+		t.Fatalf("scanner=%T, want grammarruntime.PerlExternalScanner", goLang.ExternalScanner)
 	}
 	if _, ok := goLang.ExternalScanner.(gots.IncrementalReuseExternalScanner); ok {
 		t.Fatal("Perl scanner unexpectedly advertises incremental reuse")

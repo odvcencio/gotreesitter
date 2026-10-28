@@ -110,8 +110,6 @@ external_scanner_quiescence.go
 external_scanner_quiescence_test.go
 external_symbol_resolver.go
 external_symbol_resolver_test.go
-external_vm.go
-external_vm_test.go
 fact_program.go
 fact_program_test.go
 final_tree_compaction.go

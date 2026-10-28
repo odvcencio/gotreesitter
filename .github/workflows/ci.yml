@@ -1815,8 +1815,32 @@ jobs:
 
           incompatible="${RUNNER_TEMP}/apidiff-incompatible.txt"
           apidiff_run -incompatible "${OLD_EXPORT}" "${NEW_EXPORT}" | tee "${incompatible}"
-          if [ -s "${incompatible}" ]; then
-            echo "::error::incompatible public API change(s) in package gotreesitter against ${APIDIFF_BASELINE_TAG}; see the job log or step summary above"
+
+          # The owner accepts breaks for the next release in
+          # .github/apidiff-accepted-breaks.txt: one entry per line, three
+          # tab-separated fields (the exact apidiff line, the PR, the upgrade
+          # note). Only whole-line matches count. Every other break fails.
+          accepted="${RUNNER_TEMP}/apidiff-accepted.txt"
+          awk -F'\t' '
+            /^[[:space:]]*(#|$)/ { next }
+            NF < 3 || $1 == "" || $2 == "" || $3 == "" { printf "::error file=.github/apidiff-accepted-breaks.txt,line=%d::entry needs <apidiff line><TAB><PR><TAB><upgrade note>\n", FNR > "/dev/stderr"; bad = 1; next }
+            seen[$1]++ { printf "::error file=.github/apidiff-accepted-breaks.txt,line=%d::duplicate entry: %s\n", FNR, $1 > "/dev/stderr"; bad = 1; next }
+            { print $1 }
+            END { exit bad }
+          ' .github/apidiff-accepted-breaks.txt > "${accepted}"
+
+          unexpected="${RUNNER_TEMP}/apidiff-unexpected.txt"
+          stale="${RUNNER_TEMP}/apidiff-stale.txt"
+          grep -Fxv -f "${accepted}" "${incompatible}" > "${unexpected}" || true
+          grep -Fxv -f "${incompatible}" "${accepted}" > "${stale}" || true
+          if [ -s "${stale}" ]; then
+            while IFS= read -r line; do
+              echo "::warning file=.github/apidiff-accepted-breaks.txt::stale accepted break (no longer reported by apidiff): ${line}"
+            done < "${stale}"
+          fi
+          if [ -s "${unexpected}" ]; then
+            echo "::error::incompatible public API change(s) in package gotreesitter against ${APIDIFF_BASELINE_TAG} that .github/apidiff-accepted-breaks.txt does not list; see the job log or step summary above"
+            cat "${unexpected}"
             exit 1
           fi
 
