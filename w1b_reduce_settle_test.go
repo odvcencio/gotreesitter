@@ -71,19 +71,6 @@ func w1bStructuralDiff(lang *gts.Language, fresh, incr *gts.Node, path string) s
 	return ""
 }
 
-func w1bPointAt(src []byte, off int) gts.Point {
-	row, col := 0, 0
-	for i := 0; i < off && i < len(src); i++ {
-		if src[i] == '\n' {
-			row++
-			col = 0
-		} else {
-			col++
-		}
-	}
-	return gts.Point{Row: uint32(row), Column: uint32(col)}
-}
-
 // w1bInsertByte builds the edited buffer and InputEdit for a single-byte insert
 // (duplicating the byte at off), the same near-top keystroke the #380 repro
 // uses.
@@ -92,10 +79,10 @@ func w1bInsertByte(src []byte, off int) ([]byte, gts.InputEdit) {
 	edited = append(edited, src[:off]...)
 	edited = append(edited, src[off])
 	edited = append(edited, src[off:]...)
-	p := w1bPointAt(src, off)
+	p := pointForOffset(src, off)
 	return edited, gts.InputEdit{
 		StartByte: uint32(off), OldEndByte: uint32(off), NewEndByte: uint32(off + 1),
-		StartPoint: p, OldEndPoint: p, NewEndPoint: w1bPointAt(edited, off+1),
+		StartPoint: p, OldEndPoint: p, NewEndPoint: pointForOffset(edited, off+1),
 	}
 }
 

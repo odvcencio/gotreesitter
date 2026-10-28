@@ -1374,252 +1374,54 @@ func TestMatchNumber(t *testing.T) {
 	}
 }
 
-func TestMatchPredicateEq(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#eq? @name "main")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
+func TestMatchPredicate(t *testing.T) {
+	tests := []struct {
+		name            string
+		supertypes      bool // build the language with supertype declarations
+		query           string
+		wantMatches     int
+		wantCaptureText string // checked on the first capture when non-empty
+	}{
+		{name: "Eq", query: `(identifier) @name (#eq? @name "main")`, wantMatches: 1, wantCaptureText: "main"},
+		{name: "EqNoMatch", query: `(identifier) @name (#eq? @name "other")`, wantMatches: 0},
+		{name: "Match", query: `(identifier) @name (#match? @name "^ma")`, wantMatches: 1},
+		{name: "NotEq", query: `(identifier) @name (#not-eq? @name "other")`, wantMatches: 1, wantCaptureText: "main"},
+		{name: "NotEqNoMatch", query: `(identifier) @name (#not-eq? @name "main")`, wantMatches: 0},
+		{name: "AnyOf", query: `(identifier) @name (#any-of? @name "root" "main" "entry")`, wantMatches: 1, wantCaptureText: "main"},
+		{name: "AnyOfNoMatch", query: `(identifier) @name (#any-of? @name "root" "entry")`, wantMatches: 0},
+		{name: "NotMatch", query: `(identifier) @name (#not-match? @name "^zz")`, wantMatches: 1},
+		{name: "NotAnyOf", query: `(identifier) @name (#not-any-of? @name "root" "entry")`, wantMatches: 1},
+		{name: "LuaMatch", query: `(identifier) @name (#lua-match? @name "^[%l]+$")`, wantMatches: 1},
+		{name: "HasAncestor", query: `(identifier) @name (#has-ancestor? @name function_declaration)`, wantMatches: 1},
+		{name: "HasAncestorViaSupertype", supertypes: true, query: `(identifier) @name (#has-ancestor? @name declaration)`, wantMatches: 1},
+		{name: "NotHasAncestor", query: `(identifier) @name (#not-has-ancestor? @name function_declaration)`, wantMatches: 0},
+		{name: "HasParent", query: `(identifier) @name (#has-parent? @name function_declaration)`, wantMatches: 1},
+		{name: "HasParentDoesNotMatchAncestor", query: `(identifier) @name (#has-parent? @name program)`, wantMatches: 0},
+		{name: "NotHasParent", query: `(identifier) @name (#not-has-parent? @name parameter_list)`, wantMatches: 1},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lang := queryTestLanguage()
+			if tt.supertypes {
+				lang = queryTestLanguageWithSupertypes()
+			}
+			tree := buildSimpleTree(lang)
 
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-	if got := matches[0].Captures[0].Node.Text(tree.Source()); got != "main" {
-		t.Fatalf("capture text: got %q, want %q", got, "main")
-	}
-}
+			q, err := NewQuery(tt.query, lang)
+			if err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
 
-func TestMatchPredicateEqNoMatch(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#eq? @name "other")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches))
-	}
-}
-
-func TestMatchPredicateMatch(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#match? @name "^ma")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-}
-
-func TestMatchPredicateNotEq(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#not-eq? @name "other")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-	if got := matches[0].Captures[0].Node.Text(tree.Source()); got != "main" {
-		t.Fatalf("capture text: got %q, want %q", got, "main")
-	}
-}
-
-func TestMatchPredicateNotEqNoMatch(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#not-eq? @name "main")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches))
-	}
-}
-
-func TestMatchPredicateAnyOf(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#any-of? @name "root" "main" "entry")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-	if got := matches[0].Captures[0].Node.Text(tree.Source()); got != "main" {
-		t.Fatalf("capture text: got %q, want %q", got, "main")
-	}
-}
-
-func TestMatchPredicateAnyOfNoMatch(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#any-of? @name "root" "entry")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches))
-	}
-}
-
-func TestMatchPredicateNotMatch(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#not-match? @name "^zz")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-}
-
-func TestMatchPredicateNotAnyOf(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#not-any-of? @name "root" "entry")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-}
-
-func TestMatchPredicateLuaMatch(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#lua-match? @name "^[%l]+$")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-}
-
-func TestMatchPredicateHasAncestor(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#has-ancestor? @name function_declaration)`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-}
-
-func TestMatchPredicateHasAncestorViaSupertype(t *testing.T) {
-	lang := queryTestLanguageWithSupertypes()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#has-ancestor? @name declaration)`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-}
-
-func TestMatchPredicateNotHasAncestor(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#not-has-ancestor? @name function_declaration)`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches))
-	}
-}
-
-func TestMatchPredicateHasParent(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#has-parent? @name function_declaration)`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-}
-
-func TestMatchPredicateHasParentDoesNotMatchAncestor(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#has-parent? @name program)`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches))
-	}
-}
-
-func TestMatchPredicateNotHasParent(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#not-has-parent? @name parameter_list)`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
+			matches := q.Execute(tree)
+			if len(matches) != tt.wantMatches {
+				t.Fatalf("matches: got %d, want %d", len(matches), tt.wantMatches)
+			}
+			if tt.wantCaptureText != "" {
+				if got := matches[0].Captures[0].Node.Text(tree.Source()); got != tt.wantCaptureText {
+					t.Fatalf("capture text: got %q, want %q", got, tt.wantCaptureText)
+				}
+			}
+		})
 	}
 }
 

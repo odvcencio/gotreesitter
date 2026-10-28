@@ -2,6 +2,7 @@ package main
 
 import (
 	"hash/fnv"
+	"slices"
 
 	"github.com/odvcencio/gotreesitter"
 )
@@ -67,7 +68,7 @@ func (c *LanguageCompactor) internUint16Row(row []uint16) []uint16 {
 	hash := hashUint16s(row)
 	if bucket, ok := c.rows[hash]; ok {
 		for _, existing := range bucket {
-			if uint16SliceEqual(existing, row) {
+			if slices.Equal(existing, row) {
 				return existing
 			}
 		}
@@ -84,7 +85,7 @@ func (c *LanguageCompactor) internTransitions(ts []gotreesitter.LexTransition) [
 	hash := hashLexTransitions(ts)
 	if bucket, ok := c.transitions[hash]; ok {
 		for _, existing := range bucket {
-			if lexTransitionsEqual(existing, ts) {
+			if slices.Equal(existing, ts) {
 				return existing
 			}
 		}
@@ -114,30 +115,6 @@ func compactTransitions(ts []gotreesitter.LexTransition) []gotreesitter.LexTrans
 		merged = append(merged, tr)
 	}
 	return merged
-}
-
-func uint16SliceEqual(a []uint16, b []uint16) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func lexTransitionsEqual(a []gotreesitter.LexTransition, b []gotreesitter.LexTransition) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].Lo != b[i].Lo || a[i].Hi != b[i].Hi || a[i].NextState != b[i].NextState || a[i].Skip != b[i].Skip {
-			return false
-		}
-	}
-	return true
 }
 
 func hashUint16s(row []uint16) uint64 {

@@ -62,7 +62,7 @@ func TestIssue454PHPWholeTreeFallbackMatchesFresh(t *testing.T) {
 		t.Fatalf("old Parse: %v", err)
 	}
 	defer oldTree.Release()
-	point := issue454PointAt(source, site)
+	point := pointAtByte(source, site)
 	editStart := time.Now()
 	oldTree.Edit(gotreesitter.InputEdit{
 		StartByte:   uint32(site),

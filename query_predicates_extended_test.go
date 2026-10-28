@@ -74,156 +74,39 @@ func TestParsePredicateCountFirstArgNotCapture(t *testing.T) {
 }
 
 // Test #count? evaluation: simple tree has 1 identifier ("main").
-func TestMatchPredicateCountEqPass(t *testing.T) {
+func TestMatchPredicateCount(t *testing.T) {
+	tests := []struct {
+		name        string
+		op          string
+		value       string
+		wantMatches int
+	}{
+		{"EqPass", "==", "1", 1},
+		{"EqFail", "==", "5", 0},
+		{"GT/1>0", ">", "0", 1},
+		{"GT/1>1", ">", "1", 0},
+		{"LT/1<2", "<", "2", 1},
+		{"LT/1<1", "<", "1", 0},
+		{"GTE/1>=1", ">=", "1", 1},
+		{"GTE/1>=2", ">=", "2", 0},
+		{"LTE/1<=1", "<=", "1", 1},
+		{"LTE/1<=0", "<=", "0", 0},
+		{"NotEq/1!=2", "!=", "2", 1},
+		{"NotEq/1!=1", "!=", "1", 0},
+	}
 	lang := queryTestLanguage()
 	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#count? @name "==" "1")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-}
-
-func TestMatchPredicateCountEqFail(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	q, err := NewQuery(`(identifier) @name (#count? @name "==" "5")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches := q.Execute(tree)
-	if len(matches) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches))
-	}
-}
-
-func TestMatchPredicateCountGT(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	// 1 > 0 => true
-	q, err := NewQuery(`(identifier) @name (#count? @name ">" "0")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-
-	// 1 > 1 => false
-	q2, err := NewQuery(`(identifier) @name (#count? @name ">" "1")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches2 := q2.Execute(tree)
-	if len(matches2) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches2))
-	}
-}
-
-func TestMatchPredicateCountLT(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	// 1 < 2 => true
-	q, err := NewQuery(`(identifier) @name (#count? @name "<" "2")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-
-	// 1 < 1 => false
-	q2, err := NewQuery(`(identifier) @name (#count? @name "<" "1")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches2 := q2.Execute(tree)
-	if len(matches2) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches2))
-	}
-}
-
-func TestMatchPredicateCountGTE(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	// 1 >= 1 => true
-	q, err := NewQuery(`(identifier) @name (#count? @name ">=" "1")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-
-	// 1 >= 2 => false
-	q2, err := NewQuery(`(identifier) @name (#count? @name ">=" "2")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches2 := q2.Execute(tree)
-	if len(matches2) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches2))
-	}
-}
-
-func TestMatchPredicateCountLTE(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	// 1 <= 1 => true
-	q, err := NewQuery(`(identifier) @name (#count? @name "<=" "1")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-
-	// 1 <= 0 => false
-	q2, err := NewQuery(`(identifier) @name (#count? @name "<=" "0")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches2 := q2.Execute(tree)
-	if len(matches2) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches2))
-	}
-}
-
-func TestMatchPredicateCountNotEq(t *testing.T) {
-	lang := queryTestLanguage()
-	tree := buildSimpleTree(lang)
-
-	// 1 != 2 => true
-	q, err := NewQuery(`(identifier) @name (#count? @name "!=" "2")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches := q.Execute(tree)
-	if len(matches) != 1 {
-		t.Fatalf("matches: got %d, want 1", len(matches))
-	}
-
-	// 1 != 1 => false
-	q2, err := NewQuery(`(identifier) @name (#count? @name "!=" "1")`, lang)
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	matches2 := q2.Execute(tree)
-	if len(matches2) != 0 {
-		t.Fatalf("matches: got %d, want 0", len(matches2))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q, err := NewQuery(`(identifier) @name (#count? @name "`+tt.op+`" "`+tt.value+`")`, lang)
+			if err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
+			matches := q.Execute(tree)
+			if len(matches) != tt.wantMatches {
+				t.Fatalf("matches: got %d, want %d", len(matches), tt.wantMatches)
+			}
+		})
 	}
 }
 

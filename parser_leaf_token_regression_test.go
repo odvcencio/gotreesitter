@@ -64,17 +64,32 @@ func parseLanguageSample(t *testing.T, name, src string) (*gotreesitter.Tree, *g
 	return tree, lang
 }
 
-func TestParseAsmImmediateIntStaysInt(t *testing.T) {
-	src := grammars.ParseSmokeSample("asm")
-	tree, lang := parseLanguageSample(t, "asm", src)
-	t.Cleanup(tree.Release)
-
-	node := tree.RootNode().NamedDescendantForByteRange(19, 20)
-	if node == nil {
-		t.Fatal("missing named descendant for asm immediate")
+func TestParseSmokeSampleLeafTokenType(t *testing.T) {
+	tests := []struct {
+		name       string
+		lang       string
+		start, end uint32
+		subject    string
+		wantType   string
+	}{
+		{"AsmImmediateIntStaysInt", "asm", 19, 20, "immediate", "int"},
+		{"FennelImmediateNumberStaysNumber", "fennel", 8, 9, "number", "number"},
+		{"ForthBuiltinOperatorBeatsWord", "forth", 13, 14, "operator", "operator"},
 	}
-	if got, want := node.Type(lang), "int"; got != want {
-		t.Fatalf("asm immediate type = %q, want %q", got, want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := grammars.ParseSmokeSample(tt.lang)
+			tree, lang := parseLanguageSample(t, tt.lang, src)
+			t.Cleanup(tree.Release)
+
+			node := tree.RootNode().NamedDescendantForByteRange(tt.start, tt.end)
+			if node == nil {
+				t.Fatalf("missing named descendant for %s %s", tt.lang, tt.subject)
+			}
+			if got, want := node.Type(lang), tt.wantType; got != want {
+				t.Fatalf("%s %s type = %q, want %q", tt.lang, tt.subject, got, want)
+			}
+		})
 	}
 }
 
@@ -108,34 +123,6 @@ impl Arg {
 	}
 	if impl := findNamedChild(lang, root, "impl_item"); impl == nil {
 		t.Fatalf("expected recovered impl_item, got %s", root.SExpr(lang))
-	}
-}
-
-func TestParseFennelImmediateNumberStaysNumber(t *testing.T) {
-	src := grammars.ParseSmokeSample("fennel")
-	tree, lang := parseLanguageSample(t, "fennel", src)
-	t.Cleanup(tree.Release)
-
-	node := tree.RootNode().NamedDescendantForByteRange(8, 9)
-	if node == nil {
-		t.Fatal("missing named descendant for fennel number")
-	}
-	if got, want := node.Type(lang), "number"; got != want {
-		t.Fatalf("fennel binding value type = %q, want %q", got, want)
-	}
-}
-
-func TestParseForthBuiltinOperatorBeatsWord(t *testing.T) {
-	src := grammars.ParseSmokeSample("forth")
-	tree, lang := parseLanguageSample(t, "forth", src)
-	t.Cleanup(tree.Release)
-
-	node := tree.RootNode().NamedDescendantForByteRange(13, 14)
-	if node == nil {
-		t.Fatal("missing named descendant for forth operator")
-	}
-	if got, want := node.Type(lang), "operator"; got != want {
-		t.Fatalf("forth operator type = %q, want %q", got, want)
 	}
 }
 
@@ -299,57 +286,33 @@ func firstNodeByTypeAndText(root *gotreesitter.Node, lang *gotreesitter.Language
 	return nil
 }
 
-func TestParseJavaScriptJSXSelfClosingAttributeExpression(t *testing.T) {
-	src := "const el = <Avatar userId={foo.creatorId} />\n"
-	tree, lang := parseLanguageSample(t, "javascript", src)
-	t.Cleanup(tree.Release)
+func TestParseJSXSingleStatementRoot(t *testing.T) {
+	tests := []struct {
+		name string
+		lang string
+		src  string
+	}{
+		{"JavaScriptSelfClosingAttributeExpression", "javascript", "const el = <Avatar userId={foo.creatorId} />\n"},
+		{"JavaScriptNamespacedSpreadChildren", "javascript", "const el = <Foo:Bar bar={}>{...children}</Foo:Bar>\n"},
+		{"TSXSelfClosingAttributeExpression", "tsx", "const el = <Avatar userId={foo.creatorId} />\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tree, lang := parseLanguageSample(t, tt.lang, tt.src)
+			t.Cleanup(tree.Release)
 
-	root := tree.RootNode()
-	if got, want := root.ChildCount(), 1; got != want {
-		t.Fatalf("javascript root child count = %d, want %d", got, want)
-	}
-	stmt := root.Child(0)
-	if stmt == nil {
-		t.Fatal("javascript root child is nil")
-	}
-	if got, want := stmt.Type(lang), "lexical_declaration"; got != want {
-		t.Fatalf("javascript root child type = %q, want %q", got, want)
-	}
-}
-
-func TestParseJavaScriptJSXNamespacedSpreadChildren(t *testing.T) {
-	src := "const el = <Foo:Bar bar={}>{...children}</Foo:Bar>\n"
-	tree, lang := parseLanguageSample(t, "javascript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	if got, want := root.ChildCount(), 1; got != want {
-		t.Fatalf("javascript root child count = %d, want %d", got, want)
-	}
-	stmt := root.Child(0)
-	if stmt == nil {
-		t.Fatal("javascript root child is nil")
-	}
-	if got, want := stmt.Type(lang), "lexical_declaration"; got != want {
-		t.Fatalf("javascript root child type = %q, want %q", got, want)
-	}
-}
-
-func TestParseTSXJSXSelfClosingAttributeExpression(t *testing.T) {
-	src := "const el = <Avatar userId={foo.creatorId} />\n"
-	tree, lang := parseLanguageSample(t, "tsx", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	if got, want := root.ChildCount(), 1; got != want {
-		t.Fatalf("tsx root child count = %d, want %d", got, want)
-	}
-	stmt := root.Child(0)
-	if stmt == nil {
-		t.Fatal("tsx root child is nil")
-	}
-	if got, want := stmt.Type(lang), "lexical_declaration"; got != want {
-		t.Fatalf("tsx root child type = %q, want %q", got, want)
+			root := tree.RootNode()
+			if got, want := root.ChildCount(), 1; got != want {
+				t.Fatalf("%s root child count = %d, want %d", tt.lang, got, want)
+			}
+			stmt := root.Child(0)
+			if stmt == nil {
+				t.Fatalf("%s root child is nil", tt.lang)
+			}
+			if got, want := stmt.Type(lang), "lexical_declaration"; got != want {
+				t.Fatalf("%s root child type = %q, want %q", tt.lang, got, want)
+			}
+		})
 	}
 }
 
@@ -451,77 +414,199 @@ func TestParseJavaScriptTypeScriptDynamicImportKeepsKeywordChild(t *testing.T) {
 	}
 }
 
-func TestParseTSXTypedArrowParameters(t *testing.T) {
-	src := "export const renderTrack = (values: number[], domain: number[], colors: string[]) => { return null; };\n"
-	tree, lang := parseLanguageSample(t, "tsx", src)
-	t.Cleanup(tree.Release)
+// TestParseTypeScriptFamilyShapes parses each sample and checks the root is a
+// clean "program" whose S-expression holds every want substring and none of
+// the absent ones.
+func TestParseTypeScriptFamilyShapes(t *testing.T) {
+	tests := []struct {
+		name   string
+		lang   string
+		src    string
+		want   []string
+		absent []string
+	}{
+		{
+			name: "TSXTypedArrowParameters",
+			lang: "tsx",
+			src:  "export const renderTrack = (values: number[], domain: number[], colors: string[]) => { return null; };\n",
+			want: []string{"arrow_function", "formal_parameters"},
+		},
+		{
+			name: "TypeScriptTypedArrowParameters",
+			lang: "typescript",
+			src:  "const f = (str: string) => str;\n",
+			want: []string{"arrow_function", "formal_parameters"},
+		},
+		// The TypeScriptBareDefaultParameter case guards against a v0.43.0 regression
+		// where "function f(a = 1) {}" collapsed to a top-level ERROR. The locked C
+		// tree-sitter-typescript oracle parses this as
+		// "(required_parameter pattern: (identifier) value: (number))"; our GLR
+		// engine's steady-state cap-one merge budget was discarding the
+		// pattern-reduction derivation in favor of a same-state, lower-precedence
+		// assignment_expression derivation before the parse could complete. Fixed by
+		// the structure-aware cap-two steady state (typeScriptSteadyStateMergeCap in
+		// parser_retry.go), which subsumed the source-text detector originally added
+		// for this shape.
+		{
+			name:   "TypeScriptBareDefaultParameter",
+			lang:   "typescript",
+			src:    "function f(a = 1) {}\n",
+			want:   []string{"function_declaration", "required_parameter"},
+			absent: []string{"ERROR"},
+		},
+		{
+			name:   "TSXBareDefaultParameter",
+			lang:   "tsx",
+			src:    "function f(a = 1) {}\n",
+			want:   []string{"function_declaration", "required_parameter"},
+			absent: []string{"ERROR"},
+		},
+		// The TypeScriptArrayElementDefaultParameter case guards the array-element
+		// default parameter shape ("[a = 1]") that the bare-default-parameter
+		// detector was widened to cover: unlike a whole-pattern default
+		// ("{a} = {}"), the identifier here sits directly before '=', so it hits the
+		// same required_parameter/assignment_expression fork as "function f(a = 1)".
+		// This is the React-hook tuple pattern ("const [state, setState] = ...")
+		// with an initial-value default on the first slot.
+		{
+			name: "TypeScriptArrayElementDefaultParameter",
+			lang: "typescript",
+			src:  "function f([a = 1]) {}\n",
+			want: []string{"required_parameter", "array_pattern", "assignment_pattern"},
+		},
+		{
+			name: "TSXArrayElementDefaultParameter",
+			lang: "tsx",
+			src:  "function f([a = 1]) {}\n",
+			want: []string{"required_parameter", "array_pattern", "assignment_pattern"},
+		},
+		// The TypeScriptReactHookTupleDefaultParameter case is the flagship
+		// real-world shape motivating the array-element widening: a destructured
+		// tuple parameter with a default on the state slot, as commonly authored in
+		// custom React hook wrappers, e.g. "function useToggle([state = false,
+		// setState]) {}".
+		{
+			name: "TypeScriptReactHookTupleDefaultParameter",
+			lang: "typescript",
+			src:  "function h([state = 0, setState]) {}\n",
+			want: []string{"(array_pattern (assignment_pattern (identifier) (number)) (identifier))"},
+		},
+		// The TypeScriptRenamedPropertyDefaultParameter case guards the renamed
+		// destructured-property default shape ("{a: b = 1}"): the preceding-context
+		// gate widened to accept ':' immediately before the bound identifier for
+		// this case.
+		{
+			name: "TypeScriptRenamedPropertyDefaultParameter",
+			lang: "typescript",
+			src:  "function f({a: b = 1}) {}\n",
+			want: []string{"required_parameter", "object_pattern", "pair_pattern", "assignment_pattern"},
+		},
+		// The TypeScriptUnicodeIdentifierDefaultParameter case guards the bare
+		// default parameter shape when the parameter name is a multi-byte UTF-8
+		// identifier (a case the retired source-text detector's unicode-aware byte
+		// scan used to require; the structure-aware cap-two steady state has no such
+		// requirement, but the shape stays pinned here).
+		{
+			name: "TypeScriptUnicodeIdentifierDefaultParameter",
+			lang: "typescript",
+			src:  "function f(café = 1) {}\n",
+			want: []string{"required_parameter"},
+		},
+		// The TypeScriptCommentAdjacentDefaultParameter case guards a block comment
+		// sitting between the opening '(' and the defaulted identifier: the gate's
+		// backward scan must skip over a complete "/* ... */" comment (in addition
+		// to whitespace) to still see the '(' context character.
+		{
+			name: "TypeScriptCommentAdjacentDefaultParameter",
+			lang: "typescript",
+			src:  "function f(/* c */ a = 1) {}\n",
+			want: []string{"comment", "required_parameter"},
+		},
+		// The TypeScriptArrayDestructuringDeclarationDefaultValue case documents
+		// current behavior for a destructuring DECLARATION (not a parameter list)
+		// with an array-element default: "const [a = 1] = arr;". This shares the
+		// same required_parameter-shaped fork as the parameter-list case -- '[' is
+		// now an accepted preceding-context gate character -- so the widened
+		// detector incidentally also fixes this declaration shape even though this
+		// pass only targeted parameter lists. This test asserts the actual observed
+		// behavior (no error) rather than assuming it is unfixed; if a future change
+		// to the detector's gate narrows it back to parameter-list-only contexts,
+		// this test will fail and should be revisited rather than silently loosened.
+		{
+			name: "TypeScriptArrayDestructuringDeclarationDefaultValue",
+			lang: "typescript",
+			src:  "const [a = 1] = arr;\n",
+			want: []string{"array_pattern", "assignment_pattern"},
+		},
+		// The TypeScriptExportArrowReturnTypeAnnotation case covers the "export
+		// const" variant of issue #402: the export wrapper must not change whether
+		// the widening detector fires.
+		{
+			name: "TypeScriptExportArrowReturnTypeAnnotation",
+			lang: "typescript",
+			src:  "export const f = (a: A): B => { return a; };\n",
+			want: []string{"export_statement", "lexical_declaration", "arrow_function", "type_annotation"},
+		},
+		// The TypeScriptArrowParenthesizedReturnType case guards a sibling shape of
+		// issue #402 found in PR review: a typed-parameter arrow whose return-type
+		// annotation is itself parenthesized ("(a: A): (B) => a"). The original
+		// fix's backward colon-scan stopped at the first ')' it met, so it never
+		// walked past the return type's own closing paren to find the true
+		// return-type colon. The scan now balances parens while walking backward so
+		// it only accepts a colon seen at paren depth zero.
+		{
+			name: "TypeScriptArrowParenthesizedReturnType",
+			lang: "typescript",
+			src:  "const f = (a: A): (B) => a;\n",
+			want: []string{"arrow_function", "formal_parameters", "required_parameter", "parenthesized_type"},
+		},
+		// The TypeScriptArrowUnionInParensReturnType case covers a union type inside
+		// a parenthesized return-type annotation ("(a: A): (string | number) =>
+		// a"), the shape that motivated the balanced-paren backward scan: the union
+		// members and the "|" separator sit between the return type's own
+		// parentheses, well within the scan's 512-byte window, and must not be
+		// mistaken for a top-level colon boundary.
+		{
+			name: "TypeScriptArrowUnionInParensReturnType",
+			lang: "typescript",
+			src:  "const f = (a: A): (string | number) => a;\n",
+			want: []string{"arrow_function", "parenthesized_type", "union_type"},
+		},
+		// The TypeScriptArrowFunctionTypeReturnType case covers a nested
+		// function-type return annotation ("(a: A): (() => B) => a"): the return
+		// type itself contains an inner "=>" and its own parenthesized empty
+		// parameter list. The detector's outer loop tries every "=>" occurrence in
+		// source order, so a non-matching inner "=>" (its own backward scan lands
+		// on the outer arrow's parameter-list colon, which is not immediately
+		// preceded by ')') falls through cleanly to the real, outer arrow.
+		{
+			name: "TypeScriptArrowFunctionTypeReturnType",
+			lang: "typescript",
+			src:  "const f = (a: A): (() => B) => a;\n",
+			want: []string{"arrow_function", "parenthesized_type", "function_type"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tree, lang := parseLanguageSample(t, tt.lang, tt.src)
+			t.Cleanup(tree.Release)
 
-	root := tree.RootNode()
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typed TSX arrow root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), root.SExpr(lang))
-	}
-	if sexpr := root.SExpr(lang); !strings.Contains(sexpr, "arrow_function") || !strings.Contains(sexpr, "formal_parameters") {
-		t.Fatalf("typed TSX arrow did not preserve formal parameters: %s", sexpr)
-	}
-}
-
-func TestParseTypeScriptTypedArrowParameters(t *testing.T) {
-	src := "const f = (str: string) => str;\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typed TypeScript arrow root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), root.SExpr(lang))
-	}
-	if sexpr := root.SExpr(lang); !strings.Contains(sexpr, "arrow_function") || !strings.Contains(sexpr, "formal_parameters") {
-		t.Fatalf("typed TypeScript arrow did not preserve formal parameters: %s", sexpr)
-	}
-}
-
-// TestParseTypeScriptBareDefaultParameter guards against a v0.43.0 regression
-// where "function f(a = 1) {}" collapsed to a top-level ERROR. The locked C
-// tree-sitter-typescript oracle parses this as
-// "(required_parameter pattern: (identifier) value: (number))"; our GLR
-// engine's steady-state cap-one merge budget was discarding the
-// pattern-reduction derivation in favor of a same-state, lower-precedence
-// assignment_expression derivation before the parse could complete. Fixed by
-// the structure-aware cap-two steady state (typeScriptSteadyStateMergeCap in
-// parser_retry.go), which subsumed the source-text detector originally added
-// for this shape.
-func TestParseTypeScriptBareDefaultParameter(t *testing.T) {
-	src := "function f(a = 1) {}\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript bare default parameter root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), root.SExpr(lang))
-	}
-	sexpr := root.SExpr(lang)
-	if !strings.Contains(sexpr, "function_declaration") || !strings.Contains(sexpr, "required_parameter") {
-		t.Fatalf("typescript bare default parameter did not preserve required_parameter: %s", sexpr)
-	}
-	if strings.Contains(sexpr, "ERROR") {
-		t.Fatalf("typescript bare default parameter retained an ERROR node: %s", sexpr)
-	}
-}
-
-func TestParseTSXBareDefaultParameter(t *testing.T) {
-	src := "function f(a = 1) {}\n"
-	tree, lang := parseLanguageSample(t, "tsx", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("tsx bare default parameter root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), root.SExpr(lang))
-	}
-	sexpr := root.SExpr(lang)
-	if !strings.Contains(sexpr, "function_declaration") || !strings.Contains(sexpr, "required_parameter") {
-		t.Fatalf("tsx bare default parameter did not preserve required_parameter: %s", sexpr)
-	}
-	if strings.Contains(sexpr, "ERROR") {
-		t.Fatalf("tsx bare default parameter retained an ERROR node: %s", sexpr)
+			root := tree.RootNode()
+			sexpr := root.SExpr(lang)
+			if root.Type(lang) != "program" || root.HasError() {
+				t.Fatalf("%s root = %s hasError=%v; tree=%s", tt.name, root.Type(lang), root.HasError(), sexpr)
+			}
+			for _, want := range tt.want {
+				if !strings.Contains(sexpr, want) {
+					t.Fatalf("%s missing %s: %s", tt.name, want, sexpr)
+				}
+			}
+			for _, absent := range tt.absent {
+				if strings.Contains(sexpr, absent) {
+					t.Fatalf("%s retained %s: %s", tt.name, absent, sexpr)
+				}
+			}
+		})
 	}
 }
 
@@ -563,156 +648,6 @@ func TestParseTypeScriptArrowAndMethodBareDefaultParameter(t *testing.T) {
 			t.Fatalf("typescript %q did not preserve required_parameter: %s", src, sexpr)
 		}
 		tree.Release()
-	}
-}
-
-// TestParseTypeScriptArrayElementDefaultParameter guards the array-element
-// default parameter shape ("[a = 1]") that the bare-default-parameter
-// detector was widened to cover: unlike a whole-pattern default
-// ("{a} = {}"), the identifier here sits directly before '=', so it hits the
-// same required_parameter/assignment_expression fork as "function f(a = 1)".
-// This is the React-hook tuple pattern ("const [state, setState] = ...")
-// with an initial-value default on the first slot.
-func TestParseTypeScriptArrayElementDefaultParameter(t *testing.T) {
-	src := "function f([a = 1]) {}\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript array-element default parameter root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	for _, want := range []string{"required_parameter", "array_pattern", "assignment_pattern"} {
-		if !strings.Contains(sexpr, want) {
-			t.Fatalf("typescript array-element default parameter missing %s: %s", want, sexpr)
-		}
-	}
-}
-
-func TestParseTSXArrayElementDefaultParameter(t *testing.T) {
-	src := "function f([a = 1]) {}\n"
-	tree, lang := parseLanguageSample(t, "tsx", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("tsx array-element default parameter root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	for _, want := range []string{"required_parameter", "array_pattern", "assignment_pattern"} {
-		if !strings.Contains(sexpr, want) {
-			t.Fatalf("tsx array-element default parameter missing %s: %s", want, sexpr)
-		}
-	}
-}
-
-// TestParseTypeScriptReactHookTupleDefaultParameter is the flagship
-// real-world shape motivating the array-element widening: a destructured
-// tuple parameter with a default on the state slot, as commonly authored in
-// custom React hook wrappers, e.g. "function useToggle([state = false,
-// setState]) {}".
-func TestParseTypeScriptReactHookTupleDefaultParameter(t *testing.T) {
-	src := "function h([state = 0, setState]) {}\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript react-hook tuple default parameter root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	if !strings.Contains(sexpr, "(array_pattern (assignment_pattern (identifier) (number)) (identifier))") {
-		t.Fatalf("typescript react-hook tuple default parameter did not preserve the [state = 0, setState] shape: %s", sexpr)
-	}
-}
-
-// TestParseTypeScriptRenamedPropertyDefaultParameter guards the renamed
-// destructured-property default shape ("{a: b = 1}"): the preceding-context
-// gate widened to accept ':' immediately before the bound identifier for
-// this case.
-func TestParseTypeScriptRenamedPropertyDefaultParameter(t *testing.T) {
-	src := "function f({a: b = 1}) {}\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript renamed-property default parameter root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	for _, want := range []string{"required_parameter", "object_pattern", "pair_pattern", "assignment_pattern"} {
-		if !strings.Contains(sexpr, want) {
-			t.Fatalf("typescript renamed-property default parameter missing %s: %s", want, sexpr)
-		}
-	}
-}
-
-// TestParseTypeScriptUnicodeIdentifierDefaultParameter guards the bare
-// default parameter shape when the parameter name is a multi-byte UTF-8
-// identifier (a case the retired source-text detector's unicode-aware byte
-// scan used to require; the structure-aware cap-two steady state has no such
-// requirement, but the shape stays pinned here).
-func TestParseTypeScriptUnicodeIdentifierDefaultParameter(t *testing.T) {
-	src := "function f(café = 1) {}\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript unicode default parameter root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	if !strings.Contains(sexpr, "required_parameter") {
-		t.Fatalf("typescript unicode default parameter did not preserve required_parameter: %s", sexpr)
-	}
-}
-
-// TestParseTypeScriptCommentAdjacentDefaultParameter guards a block comment
-// sitting between the opening '(' and the defaulted identifier: the gate's
-// backward scan must skip over a complete "/* ... */" comment (in addition
-// to whitespace) to still see the '(' context character.
-func TestParseTypeScriptCommentAdjacentDefaultParameter(t *testing.T) {
-	src := "function f(/* c */ a = 1) {}\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript comment-adjacent default parameter root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	for _, want := range []string{"comment", "required_parameter"} {
-		if !strings.Contains(sexpr, want) {
-			t.Fatalf("typescript comment-adjacent default parameter missing %s: %s", want, sexpr)
-		}
-	}
-}
-
-// TestParseTypeScriptArrayDestructuringDeclarationDefaultValue documents
-// current behavior for a destructuring DECLARATION (not a parameter list)
-// with an array-element default: "const [a = 1] = arr;". This shares the
-// same required_parameter-shaped fork as the parameter-list case -- '[' is
-// now an accepted preceding-context gate character -- so the widened
-// detector incidentally also fixes this declaration shape even though this
-// pass only targeted parameter lists. This test asserts the actual observed
-// behavior (no error) rather than assuming it is unfixed; if a future change
-// to the detector's gate narrows it back to parameter-list-only contexts,
-// this test will fail and should be revisited rather than silently loosened.
-func TestParseTypeScriptArrayDestructuringDeclarationDefaultValue(t *testing.T) {
-	src := "const [a = 1] = arr;\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript array destructuring declaration default root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	for _, want := range []string{"array_pattern", "assignment_pattern"} {
-		if !strings.Contains(sexpr, want) {
-			t.Fatalf("typescript array destructuring declaration default missing %s: %s", want, sexpr)
-		}
 	}
 }
 
@@ -846,26 +781,6 @@ func TestParseTSXArrowReturnTypeAnnotation(t *testing.T) {
 	}
 }
 
-// TestParseTypeScriptExportArrowReturnTypeAnnotation covers the "export
-// const" variant of issue #402: the export wrapper must not change whether
-// the widening detector fires.
-func TestParseTypeScriptExportArrowReturnTypeAnnotation(t *testing.T) {
-	src := "export const f = (a: A): B => { return a; };\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript export arrow return-type annotation root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	for _, want := range []string{"export_statement", "lexical_declaration", "arrow_function", "type_annotation"} {
-		if !strings.Contains(sexpr, want) {
-			t.Fatalf("typescript export arrow return-type annotation missing %s: %s", want, sexpr)
-		}
-	}
-}
-
 // TestParseTypeScriptArrowNoReturnTypeAnnotationControl is the negative
 // control for issue #402: a typed-parameter arrow with no return-type
 // annotation was never affected (the existing typed-arrow-parameters
@@ -934,77 +849,6 @@ export const make = (id: ID): User => {
 	}
 }
 
-// TestParseTypeScriptArrowParenthesizedReturnType guards a sibling shape of
-// issue #402 found in PR review: a typed-parameter arrow whose return-type
-// annotation is itself parenthesized ("(a: A): (B) => a"). The original
-// fix's backward colon-scan stopped at the first ')' it met, so it never
-// walked past the return type's own closing paren to find the true
-// return-type colon. The scan now balances parens while walking backward so
-// it only accepts a colon seen at paren depth zero.
-func TestParseTypeScriptArrowParenthesizedReturnType(t *testing.T) {
-	src := "const f = (a: A): (B) => a;\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript arrow parenthesized return type root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	for _, want := range []string{"arrow_function", "formal_parameters", "required_parameter", "parenthesized_type"} {
-		if !strings.Contains(sexpr, want) {
-			t.Fatalf("typescript arrow parenthesized return type missing %s: %s", want, sexpr)
-		}
-	}
-}
-
-// TestParseTypeScriptArrowUnionInParensReturnType covers a union type inside
-// a parenthesized return-type annotation ("(a: A): (string | number) =>
-// a"), the shape that motivated the balanced-paren backward scan: the union
-// members and the "|" separator sit between the return type's own
-// parentheses, well within the scan's 512-byte window, and must not be
-// mistaken for a top-level colon boundary.
-func TestParseTypeScriptArrowUnionInParensReturnType(t *testing.T) {
-	src := "const f = (a: A): (string | number) => a;\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript arrow union-in-parens return type root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	for _, want := range []string{"arrow_function", "parenthesized_type", "union_type"} {
-		if !strings.Contains(sexpr, want) {
-			t.Fatalf("typescript arrow union-in-parens return type missing %s: %s", want, sexpr)
-		}
-	}
-}
-
-// TestParseTypeScriptArrowFunctionTypeReturnType covers a nested
-// function-type return annotation ("(a: A): (() => B) => a"): the return
-// type itself contains an inner "=>" and its own parenthesized empty
-// parameter list. The detector's outer loop tries every "=>" occurrence in
-// source order, so a non-matching inner "=>" (its own backward scan lands
-// on the outer arrow's parameter-list colon, which is not immediately
-// preceded by ')') falls through cleanly to the real, outer arrow.
-func TestParseTypeScriptArrowFunctionTypeReturnType(t *testing.T) {
-	src := "const f = (a: A): (() => B) => a;\n"
-	tree, lang := parseLanguageSample(t, "typescript", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	sexpr := root.SExpr(lang)
-	if root.Type(lang) != "program" || root.HasError() {
-		t.Fatalf("typescript arrow function-type return type root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), sexpr)
-	}
-	for _, want := range []string{"arrow_function", "parenthesized_type", "function_type"} {
-		if !strings.Contains(sexpr, want) {
-			t.Fatalf("typescript arrow function-type return type missing %s: %s", want, sexpr)
-		}
-	}
-}
-
 // TestParseTypeScriptTypeAnnotationArrowValueControl is a negative-control
 // pin: "const x: (a: A) => B = foo" is a variable's own type annotation (a
 // function_type in type position), not an arrow_function value expression.
@@ -1032,108 +876,63 @@ func TestParseTypeScriptTypeAnnotationArrowValueControl(t *testing.T) {
 	}
 }
 
-func TestParseJavaScriptJSXMultipleAttributesAfterExpression(t *testing.T) {
+func TestParseJSXMultipleAttributesAfterExpression(t *testing.T) {
 	src := "const el = <Foo bar=\"string\" baz={2} data-i8n=\"dialogs.welcome.heading\" bam />\n"
-	tree, lang := parseLanguageSample(t, "javascript", src)
-	t.Cleanup(tree.Release)
+	for _, langName := range []string{"javascript", "tsx"} {
+		t.Run(langName, func(t *testing.T) {
+			tree, lang := parseLanguageSample(t, langName, src)
+			t.Cleanup(tree.Release)
 
-	root := tree.RootNode()
-	if got, want := root.ChildCount(), 1; got != want {
-		t.Fatalf("javascript root child count = %d, want %d", got, want)
-	}
-	stmt := root.Child(0)
-	if stmt == nil {
-		t.Fatal("javascript root child is nil")
-	}
-	if got, want := stmt.Type(lang), "lexical_declaration"; got != want {
-		t.Fatalf("javascript root child type = %q, want %q", got, want)
-	}
-	attrPos := strings.Index(src, "data-i8n")
-	if attrPos < 0 {
-		t.Fatal("data-i8n attribute not found in sample")
-	}
-	node := root.NamedDescendantForByteRange(uint32(attrPos), uint32(attrPos+len("data-i8n")))
-	if node == nil {
-		t.Fatal("javascript data-i8n descendant is nil")
-	}
-	if got, want := node.Type(lang), "property_identifier"; got != want {
-		t.Fatalf("javascript data-i8n type = %q, want %q", got, want)
+			root := tree.RootNode()
+			if got, want := root.ChildCount(), 1; got != want {
+				t.Fatalf("%s root child count = %d, want %d", langName, got, want)
+			}
+			stmt := root.Child(0)
+			if stmt == nil {
+				t.Fatalf("%s root child is nil", langName)
+			}
+			if got, want := stmt.Type(lang), "lexical_declaration"; got != want {
+				t.Fatalf("%s root child type = %q, want %q", langName, got, want)
+			}
+			attrPos := strings.Index(src, "data-i8n")
+			if attrPos < 0 {
+				t.Fatal("data-i8n attribute not found in sample")
+			}
+			node := root.NamedDescendantForByteRange(uint32(attrPos), uint32(attrPos+len("data-i8n")))
+			if node == nil {
+				t.Fatalf("%s data-i8n descendant is nil", langName)
+			}
+			if got, want := node.Type(lang), "property_identifier"; got != want {
+				t.Fatalf("%s data-i8n type = %q, want %q", langName, got, want)
+			}
+		})
 	}
 }
 
-func TestParseTSXJSXMultipleAttributesAfterExpression(t *testing.T) {
-	src := "const el = <Foo bar=\"string\" baz={2} data-i8n=\"dialogs.welcome.heading\" bam />\n"
-	tree, lang := parseLanguageSample(t, "tsx", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	if got, want := root.ChildCount(), 1; got != want {
-		t.Fatalf("tsx root child count = %d, want %d", got, want)
-	}
-	stmt := root.Child(0)
-	if stmt == nil {
-		t.Fatal("tsx root child is nil")
-	}
-	if got, want := stmt.Type(lang), "lexical_declaration"; got != want {
-		t.Fatalf("tsx root child type = %q, want %q", got, want)
-	}
-	attrPos := strings.Index(src, "data-i8n")
-	if attrPos < 0 {
-		t.Fatal("data-i8n attribute not found in sample")
-	}
-	node := root.NamedDescendantForByteRange(uint32(attrPos), uint32(attrPos+len("data-i8n")))
-	if node == nil {
-		t.Fatal("tsx data-i8n descendant is nil")
-	}
-	if got, want := node.Type(lang), "property_identifier"; got != want {
-		t.Fatalf("tsx data-i8n type = %q, want %q", got, want)
-	}
-}
-
-func TestParseJavaScriptJSXStatementBoundaryAfterClosingElement(t *testing.T) {
+func TestParseJSXStatementBoundaryAfterClosingElement(t *testing.T) {
 	src := "var a = <Foo></Foo>\n" +
 		"b = <Foo.Bar></Foo.Bar>\n"
-	tree, lang := parseLanguageSample(t, "javascript", src)
-	t.Cleanup(tree.Release)
+	for _, langName := range []string{"javascript", "tsx"} {
+		t.Run(langName, func(t *testing.T) {
+			tree, lang := parseLanguageSample(t, langName, src)
+			t.Cleanup(tree.Release)
 
-	root := tree.RootNode()
-	if got, want := root.NamedChildCount(), 2; got != want {
-		t.Fatalf("javascript root named child count = %d, want %d", got, want)
-	}
-	if stmt := root.NamedChild(0); stmt == nil || stmt.Type(lang) != "variable_declaration" {
-		if stmt == nil {
-			t.Fatal("javascript first statement is nil")
-		}
-		t.Fatalf("javascript first statement type = %q, want %q", stmt.Type(lang), "variable_declaration")
-	}
-	if stmt := root.NamedChild(1); stmt == nil || stmt.Type(lang) != "expression_statement" {
-		if stmt == nil {
-			t.Fatal("javascript second statement is nil")
-		}
-		t.Fatalf("javascript second statement type = %q, want %q", stmt.Type(lang), "expression_statement")
-	}
-}
-
-func TestParseTSXJSXStatementBoundaryAfterClosingElement(t *testing.T) {
-	src := "var a = <Foo></Foo>\n" +
-		"b = <Foo.Bar></Foo.Bar>\n"
-	tree, lang := parseLanguageSample(t, "tsx", src)
-	t.Cleanup(tree.Release)
-
-	root := tree.RootNode()
-	if got, want := root.NamedChildCount(), 2; got != want {
-		t.Fatalf("tsx root named child count = %d, want %d", got, want)
-	}
-	if stmt := root.NamedChild(0); stmt == nil || stmt.Type(lang) != "variable_declaration" {
-		if stmt == nil {
-			t.Fatal("tsx first statement is nil")
-		}
-		t.Fatalf("tsx first statement type = %q, want %q", stmt.Type(lang), "variable_declaration")
-	}
-	if stmt := root.NamedChild(1); stmt == nil || stmt.Type(lang) != "expression_statement" {
-		if stmt == nil {
-			t.Fatal("tsx second statement is nil")
-		}
-		t.Fatalf("tsx second statement type = %q, want %q", stmt.Type(lang), "expression_statement")
+			root := tree.RootNode()
+			if got, want := root.NamedChildCount(), 2; got != want {
+				t.Fatalf("%s root named child count = %d, want %d", langName, got, want)
+			}
+			if stmt := root.NamedChild(0); stmt == nil || stmt.Type(lang) != "variable_declaration" {
+				if stmt == nil {
+					t.Fatalf("%s first statement is nil", langName)
+				}
+				t.Fatalf("%s first statement type = %q, want %q", langName, stmt.Type(lang), "variable_declaration")
+			}
+			if stmt := root.NamedChild(1); stmt == nil || stmt.Type(lang) != "expression_statement" {
+				if stmt == nil {
+					t.Fatalf("%s second statement is nil", langName)
+				}
+				t.Fatalf("%s second statement type = %q, want %q", langName, stmt.Type(lang), "expression_statement")
+			}
+		})
 	}
 }

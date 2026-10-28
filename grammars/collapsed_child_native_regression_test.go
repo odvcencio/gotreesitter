@@ -188,7 +188,7 @@ public class C { public C(){ super(); } void f(Account a, User u) { insert a; de
 			assertCollapsedChildRouteTree(t, "adapted-production", oldTree, &adapted, test.want, test.allowChecks)
 
 			nextSource := append(append([]byte(nil), oldSource...), '\n')
-			endPoint := collapsedChildEndPoint(oldSource)
+			endPoint := pointAtByte(oldSource, len(oldSource))
 			oldTree.Edit(gotreesitter.InputEdit{
 				StartByte:   uint32(len(oldSource)),
 				OldEndByte:  uint32(len(oldSource)),
@@ -217,19 +217,6 @@ public class C { public C(){ super(); } void f(Account a, User u) { insert a; de
 			oldTree.Release()
 		})
 	}
-}
-
-func collapsedChildEndPoint(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, b := range source {
-		if b == '\n' {
-			point.Row++
-			point.Column = 0
-			continue
-		}
-		point.Column++
-	}
-	return point
 }
 
 func assertCollapsedChildDeepTreeEqual(t *testing.T, incremental, fresh *gotreesitter.Tree, lang *gotreesitter.Language) {

@@ -284,7 +284,7 @@ func TestAdmissionSwitchDeclinesWhenIncludedRangesSet(t *testing.T) {
 	gts.ResetAdmissionCandidateCountersForTest()
 
 	parser, source := newAdmissionDFAParser(t)
-	parser.SetIncludedRanges([]gts.Range{{StartByte: 0, EndByte: uint32(len(source)), EndPoint: admissionEOFPoint(source)}})
+	parser.SetIncludedRanges([]gts.Range{{StartByte: 0, EndByte: uint32(len(source)), EndPoint: pointForOffset(source, len(source))}})
 	before := admissionRoutingEvents(t)
 	tree, err := parser.Parse(source)
 	if err != nil {
@@ -782,20 +782,6 @@ func TestAdmissionCandidateGoTypeConversionFailsClosed(t *testing.T) {
 	}
 }
 
-// admissionEOFPoint returns the row/column point at the end of source.
-func admissionEOFPoint(source []byte) gts.Point {
-	var row, col uint32
-	for _, b := range source {
-		if b == '\n' {
-			row++
-			col = 0
-			continue
-		}
-		col++
-	}
-	return gts.Point{Row: row, Column: col}
-}
-
 // admissionSpaceInsertion inserts before the last byte for an interior edit,
 // or after it for an EOF append. Both change the source length, so neither
 // can be served by the same-width token-invariant probe.
@@ -812,7 +798,7 @@ func admissionSpaceInsertion(t *testing.T, source []byte, atEOF bool) ([]byte, g
 	edited = append(edited, source[:offset]...)
 	edited = append(edited, ' ')
 	edited = append(edited, source[offset:]...)
-	point := admissionEOFPoint(source[:offset])
+	point := pointForOffset(source, offset)
 	return edited, gts.InputEdit{
 		StartByte: uint32(offset), OldEndByte: uint32(offset), NewEndByte: uint32(offset + 1),
 		StartPoint: point, OldEndPoint: point, NewEndPoint: gts.Point{Row: point.Row, Column: point.Column + 1},
@@ -873,7 +859,7 @@ func TestSchedRequestModesMatchCompactStarts(t *testing.T) {
 	fresh("timeout", newParser(func(p *gts.Parser) { p.SetTimeoutMicros(60_000_000) }), 0, parse)
 	fresh("cancellation flag", newParser(func(p *gts.Parser) { p.SetCancellationFlag(&cancel) }), 0, parse)
 	fresh("included ranges", newParser(func(p *gts.Parser) {
-		p.SetIncludedRanges([]gts.Range{{StartByte: 0, EndByte: uint32(len(source)), EndPoint: admissionEOFPoint(source)}})
+		p.SetIncludedRanges([]gts.Range{{StartByte: 0, EndByte: uint32(len(source)), EndPoint: pointForOffset(source, len(source))}})
 	}), 0, parse)
 	fresh("logger", newParser(func(p *gts.Parser) { p.SetLogger(func(gts.ParserLogType, string) {}) }), 0, parse)
 	fresh("ambiguity profile", newParser(func(p *gts.Parser) { p.SetAmbiguityProfile(gts.NewAmbiguityProfile()) }), 0, parse)

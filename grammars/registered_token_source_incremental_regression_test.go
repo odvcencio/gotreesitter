@@ -62,7 +62,7 @@ func TestIssue454RegisteredTokenSourcesIncrementalMatchesFresh(t *testing.T) {
 			if site < 0 {
 				t.Fatalf("fixture has no %q marker", tf.marker)
 			}
-			point := issue454PointAt(src, site)
+			point := pointAtByte(src, site)
 			newTS := func(s []byte) gotreesitter.TokenSource { return factory(s, lang) }
 
 			edits := []struct {

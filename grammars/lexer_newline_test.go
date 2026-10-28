@@ -3,6 +3,7 @@
 package grammars
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/odvcencio/gotreesitter"
@@ -21,15 +22,6 @@ func tokenNames(tokens []gotreesitter.Token, lang *gotreesitter.Language) []stri
 	return names
 }
 
-func containsTokenName(names []string, target string) bool {
-	for _, n := range names {
-		if n == target {
-			return true
-		}
-	}
-	return false
-}
-
 func TestCNewlinePreprocToken(t *testing.T) {
 	lang := CLanguage()
 	src := []byte("#include <stdio.h>\nint x;\n")
@@ -40,7 +32,7 @@ func TestCNewlinePreprocToken(t *testing.T) {
 	tokens := collectAllTokens(ts, 100)
 	names := tokenNames(tokens, lang)
 
-	if !containsTokenName(names, "preproc_include_token2") {
+	if !slices.Contains(names, "preproc_include_token2") {
 		t.Errorf("expected preproc_include_token2 for preprocessor newline, got tokens: %v", names)
 	}
 }
@@ -74,7 +66,7 @@ func TestAuthzedNewlineTokens(t *testing.T) {
 	tokens := collectAllTokens(ts, 100)
 	names := tokenNames(tokens, lang)
 
-	if !containsTokenName(names, "\n") {
+	if !slices.Contains(names, "\n") {
 		t.Errorf("expected newline tokens for Authzed, got tokens: %v", names)
 	}
 }
