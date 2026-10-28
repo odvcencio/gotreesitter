@@ -242,9 +242,9 @@ func TestAdmissionSwitchScannerFallbackDoesNotCountFullCandidate(t *testing.T) {
 // caller-supplied token source is never eligible: the seam declines before any
 // candidate attempt, so no counter moves.
 func TestAdmissionSwitchCustomTokenSourceNeverConsultsCandidate(t *testing.T) {
-	// Find any registered token-source-backed language (json is one).
+	// Find any registered token-source-backed language (java is one).
 	var entry *grammars.LangEntry
-	for _, name := range []string{"json", "go", "typescript", "tsx", "javascript"} {
+	for _, name := range []string{"java", "go", "typescript", "tsx", "javascript"} {
 		e := grammars.DetectLanguageByName(name)
 		if e != nil && e.TokenSourceFactory != nil {
 			entry = e
@@ -872,7 +872,7 @@ func TestSchedRequestModesMatchCompactStarts(t *testing.T) {
 	fresh("ParseNoResultCompatibilityBenchmarkOnly", newParser(nil), sched.Measurement, func(p *gts.Parser) (*gts.Tree, error) {
 		return p.ParseNoResultCompatibilityBenchmarkOnly(source)
 	})
-	for _, name := range []string{"json", "go", "typescript", "tsx", "javascript"} {
+	for _, name := range []string{"java", "go", "typescript", "tsx", "javascript"} {
 		entry := grammars.DetectLanguageByName(name)
 		if entry == nil || entry.TokenSourceFactory == nil {
 			continue

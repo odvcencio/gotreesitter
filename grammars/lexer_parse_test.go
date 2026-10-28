@@ -118,24 +118,6 @@ public class Main {
 			minNodes: 1,
 		},
 		{
-			name: "json_nested",
-			src: []byte(`{
-  "users": [
-    {"name": "Alice", "age": 30, "active": true},
-    {"name": "Bob", "age": null, "active": false}
-  ],
-  "config": {
-    "debug": true,
-    "version": "1.0.0",
-    "limits": [100, 200, 300]
-  }
-}
-`),
-			factory:  NewJSONTokenSourceOrEOF,
-			lang:     JsonLanguage,
-			minNodes: 1,
-		},
-		{
 			name: "lua_functions_and_tables",
 			src: []byte(`local function fibonacci(n)
     if n <= 1 then

@@ -224,29 +224,3 @@ func TestKDLRecoveryMemoEpochPreservesExactTreesAcrossReusedParses(t *testing.T)
 		t.Fatalf("post-clean error tree drift:\n got:  %s\n want: %s", gotErrorAgain, wantError)
 	}
 }
-
-// BenchmarkJSONParseRecurringTinyTokenSourceFactory measures the recurring
-// floor when callers use the public factory route instead of Parser.Parse.
-func BenchmarkJSONParseRecurringTinyTokenSourceFactory(b *testing.B) {
-	lang := grammars.JsonLanguage()
-	parser := gotreesitter.NewParser(lang)
-	src := []byte("{}")
-	factory := func(source []byte) (gotreesitter.TokenSource, error) {
-		return grammars.NewJSONTokenSource(source, lang)
-	}
-
-	warm, err := parser.ParseWithTokenSourceFactory(src, factory)
-	requireRecurringBenchmarkTree(b, warm, err, false)
-	warm.Release()
-
-	b.ReportAllocs()
-	b.SetBytes(int64(len(src)))
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		tree, err := parser.ParseWithTokenSourceFactory(src, factory)
-		if err != nil {
-			b.Fatalf("parse error: %v", err)
-		}
-		tree.Release()
-	}
-}

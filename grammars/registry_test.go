@@ -174,10 +174,20 @@ func TestAuditParseSupportIncludesCppCustomTokenSource(t *testing.T) {
 	}
 }
 
-func TestAuditParseSupportIncludesJSONCustomTokenSource(t *testing.T) {
+// JSON parses through the blob's DFA lexer. Its hand-written token source was
+// deleted after the DFA path matched the locked C parser on every corpus file
+// the token source matched, and on more besides.
+func TestAuditParseSupportJSONUsesDFA(t *testing.T) {
 	report := parseSupportForLang(t, "json")
-	if report.Backend != ParseBackendTokenSource {
-		t.Fatalf("expected json backend %q, got %q", ParseBackendTokenSource, report.Backend)
+	if report.Backend != ParseBackendDFA {
+		t.Fatalf("expected json backend %q, got %q", ParseBackendDFA, report.Backend)
+	}
+	entry := lookupByName("json")
+	if entry == nil {
+		t.Fatal("missing registry entry for json")
+	}
+	if entry.TokenSourceFactory != nil {
+		t.Fatal("json should not register a token source factory")
 	}
 }
 

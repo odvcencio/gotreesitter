@@ -15,7 +15,6 @@ var admissionTokenSourceShadowLanguages = map[string]struct{}{
 	"c":       {},
 	"cpp":     {},
 	"java":    {},
-	"json":    {},
 }
 
 func TestAdmissionCandidateTokenSourceEntriesExposeDFASmoke(t *testing.T) {
