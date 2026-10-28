@@ -217,6 +217,29 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 	for {
 		// EOF check.
 		if l.atLogicalEOF() {
+			// C runs the lex function at end of input too, so a state that
+			// accepts a zero-width token before the end token still wins.
+			// Included ranges keep the plain end token, and a state whose
+			// end-of-input path reaches no token needs no scan.
+			if len(l.includedRanges) == 0 && l.eofMayYieldToken(startState) {
+				var eofTok Token
+				ok := l.scanInto(startState, l.pos, l.row, l.col, &eofTok)
+				lookaheadEndByte = maxUint32(lookaheadEndByte, eofTok.lexerLookaheadEndByte)
+				if ok && eofTok.Symbol != 0 {
+					// Like the end token, a token taken at EOF carries no
+					// DFA provenance: no input byte backs it.
+					eofTok.setLexFlag(tokenFlagInternalDFALexed, false)
+					if prefixState&prefixSkipped != 0 {
+						eofTok.setLexFlag(tokenFlagSkippedPrefix, true)
+						eofTok.lexerSkippedPrefixStart = uint32(callStartPos)
+					}
+					eofTok.lexerLookaheadEndByte = lookaheadEndByte
+					if prefixState&prefixFailed != 0 {
+						eofTok.missingStackRef = ^uint32(0)
+					}
+					return eofTok
+				}
+			}
 			lookaheadEndByte = maxUint32(lookaheadEndByte, l.lookaheadEndByteAt(l.pos, false))
 			recordTokenInvariantReadSpan(l.tokenInvariantReadSpanMax, l.pos, l.lookaheadEndByteAt(l.pos, false))
 			tok := Token{
@@ -460,6 +483,7 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 	acceptPriorityBest := int16(32767) // max int16; any real priority beats this
 
 	eofHops := 0
+	nulHops := 0
 	// Walk the DFA in the same style as tree-sitter START_LEXER/ADVANCE/SKIP.
 	for {
 		if curState < 0 || int(curState) >= len(l.states) {
@@ -491,13 +515,25 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 
 		if scanPos >= len(l.source) {
 			if st.EOF >= 0 && eofHops <= len(l.states) {
+				if acceptPos == tokenStartPos {
+					// The generated lex function accepts again at the target of
+					// its end-of-input edge, which replaces a zero-width token
+					// accepted before the edge.
+					acceptPos, acceptSymbol, acceptSkip = -1, 0, false
+				}
 				curState = int32(st.EOF)
 				eofHops++
+				continue
+			}
+			if next, ok := lexStateNulAtEOF(st); ok && nulHops <= len(l.states) {
+				curState = next
+				nulHops++
 				continue
 			}
 			break
 		}
 		eofHops = 0
+		nulHops = 0
 
 		b := l.source[scanPos]
 		var r rune
@@ -628,6 +664,78 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 		lexerLookaheadEndByte:   lookaheadEndByte,
 	}
 	return true
+}
+
+// eofMayYieldToken reports whether scanning from startState at end of input can
+// reach a state that accepts a token. The end token itself is not one: it is
+// returned by the caller when this scan finds nothing. A state with an
+// end-of-input edge hands the decision to the edge target.
+func (l *Lexer) eofMayYieldToken(startState uint32) bool {
+	cur := int32(startState)
+	for hops := 0; hops <= len(l.states); hops++ {
+		if cur < 0 || int(cur) >= len(l.states) {
+			return false
+		}
+		st := &l.states[cur]
+		if st.EOF >= 0 {
+			cur = int32(st.EOF)
+			continue
+		}
+		if st.AcceptToken > 0 {
+			return true
+		}
+		next, ok := lexStateNulAtEOF(st)
+		if !ok {
+			return false
+		}
+		cur = next
+	}
+	return false
+}
+
+// lexStateNulAtEOF reports the state a generated C lex function enters on a NUL
+// transition at end of input. C reads NUL as the lookahead there and its
+// advance call does nothing, so the scan moves without consuming a byte. The
+// generator guards a lone NUL condition with !eof, but it renders single
+// character targets as an unguarded ADVANCE_MAP once a state has eight of
+// them, and the lex table keeps no trace of that choice. The count below
+// follows the generator's rule.
+func lexStateNulAtEOF(st *LexState) (int32, bool) {
+	nulTarget := int32(-1)
+	for i := range st.Transitions {
+		tr := &st.Transitions[i]
+		if tr.Lo == 0 && tr.Hi == 0 {
+			nulTarget = int32(tr.NextState)
+			break
+		}
+	}
+	if nulTarget < 0 {
+		return -1, false
+	}
+	const advanceMapMinEntries = 8
+	entries := 0
+	for i := range st.Transitions {
+		target := st.Transitions[i].NextState
+		single := true
+		for j := range st.Transitions {
+			if st.Transitions[j].NextState == target && st.Transitions[j].Lo != st.Transitions[j].Hi {
+				single = false
+				break
+			}
+		}
+		if single {
+			entries++
+		}
+	}
+	if entries < advanceMapMinEntries {
+		return -1, false
+	}
+	for j := range st.Transitions {
+		if int32(st.Transitions[j].NextState) == nulTarget && st.Transitions[j].Lo != st.Transitions[j].Hi {
+			return -1, false
+		}
+	}
+	return nulTarget, true
 }
 
 func tokenLookaheadEndByte(token Token) uint32 {

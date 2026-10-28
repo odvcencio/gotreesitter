@@ -100,8 +100,11 @@ do_deploy:append() {
 	}
 	defer tree.Release()
 
+	// The source has no final newline. As in C, the zero-width NUL line
+	// terminator that the grammar accepts at the end of input is the third
+	// root child.
 	root := tree.RootNode()
-	if got, want := root.ChildCount(), 2; got != want {
+	if got, want := root.ChildCount(), 3; got != want {
 		t.Fatalf("root child count = %d, want %d; tree=%s", got, want, root.SExpr(lang))
 	}
 	for i := 0; i < 2; i++ {
