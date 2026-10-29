@@ -3,8 +3,8 @@ package incr
 
 import (
 	"math/bits"
-	"slices"
 	"sort"
+	"unsafe"
 )
 
 // Reads records examined byte ends, including failed lexer/scanner attempts.
@@ -13,16 +13,22 @@ import (
 // earlier and boundary probes is conservative: no dependency can disappear in a projection
 // that hides a token or collapses a production.
 type Reads struct {
-	ends             []uint32
-	sourceBytes      uint32
-	sealed           bool
-	valid            bool
-	forestAttributes bool
-	committedDropped bool
-	packedBits       uint8
-	allocated        *int64
-	budget, baseline int64
+	ends                    readWords
+	allocated               *int64
+	budget, baseline        int64
+	sourceBytes             uint32
+	packedBits              uint8
+	flags                   uint8
+	defaultProducerSchedule uint16
 }
+
+const (
+	readsSealed uint8 = 1 << iota
+	readsValid
+	readsForestAttributes
+	readsCommittedDropped
+	readsDisordered
+)
 
 type read struct{ start, end uint32 }
 
@@ -38,28 +44,53 @@ func NewReads(sourceBytes int) *Reads {
 // Reset starts an independent parse after the owning arena is released.
 // The integer-only backing array can be retained under the arena's cap.
 func (r *Reads) Reset(sourceBytes int) bool {
-	r.ends = r.ends[:0]
+	r.ends.reset()
 	r.sourceBytes = 0
-	r.sealed = false
-	r.valid = sourceBytes >= 0 && uint64(sourceBytes) < uint64(^uint32(0))
-	r.forestAttributes = false
-	r.committedDropped = false
+	r.flags = 0
+	r.defaultProducerSchedule = 0
 	r.allocated = nil
 	r.budget, r.baseline = 0, 0
 	r.packedBits = 0
-	if r.valid {
+	if sourceBytes >= 0 && uint64(sourceBytes) < uint64(^uint32(0)) {
+		r.flags = readsValid
 		r.sourceBytes = uint32(sourceBytes)
 		r.packedBits = uint8(min(31, 32-bits.Len32(r.sourceBytes)))
 	}
-	return r.valid
+	return r.flags&readsValid != 0
 }
 
-func (r *Reads) Recording() bool { return r != nil && r.valid && !r.sealed }
+func (r *Reads) Recording() bool {
+	return r != nil && r.flags&readsValid != 0 && r.flags&readsSealed == 0
+}
 
 // ValidForSource includes sealed histories. Sealing closes a completed
 // producer's history; abstention still makes it unavailable.
 func (r *Reads) ValidForSource(sourceBytes int) bool {
-	return r != nil && r.valid && !r.committedDropped && sourceBytes >= 0 && uint64(sourceBytes) == uint64(r.sourceBytes)
+	return r != nil && r.flags&readsValid != 0 && r.flags&readsCommittedDropped == 0 && sourceBytes >= 0 && uint64(sourceBytes) == uint64(r.sourceBytes)
+}
+
+// CertifyDefaultProducer records the parser-owned producer context. Invalid or
+// incomplete read history can never authorize the schedule.
+func (r *Reads) CertifyDefaultProducer(schedule uint16) {
+	if r == nil {
+		return
+	}
+	r.defaultProducerSchedule = 0
+	if schedule != 0 && r.ValidForSource(int(r.sourceBytes)) {
+		r.defaultProducerSchedule = schedule
+	}
+}
+
+func (r *Reads) DefaultProducerSchedule(sourceBytes int) uint16 {
+	if !r.ValidForSource(sourceBytes) {
+		return 0
+	}
+	return r.defaultProducerSchedule
+}
+
+func (r *Reads) invalidate() {
+	r.flags &^= readsValid
+	r.defaultProducerSchedule = 0
 }
 
 func (r *Reads) SourceBytes() uint32 {
@@ -74,26 +105,27 @@ func (r *Reads) SourceBytes() uint32 {
 // unsupported scan invalidates the complete receipt through Abstain.
 func (r *Reads) CertifyForestAttributes() {
 	if r.Recording() {
-		r.forestAttributes = true
+		r.flags |= readsForestAttributes
 	}
 }
 
 func (r *Reads) CertifiedForestAttributes() bool {
-	return r != nil && r.valid && !r.committedDropped && r.sealed && r.forestAttributes
+	return r != nil && r.flags&(readsValid|readsCommittedDropped|readsSealed|readsForestAttributes) == readsValid|readsSealed|readsForestAttributes
 }
 
 // TrimCapacity bounds retained storage to the bytes of limit wide records.
 // It never runs while any tree still owns the arena.
 func (r *Reads) TrimCapacity(limit int) {
-	if r != nil && int64(cap(r.ends))*4 > int64(limit)*8 {
-		r.ends = nil
+	if r != nil && r.ends.bytes() > int64(limit)*8 {
+		r.ends = readWords{}
+		r.defaultProducerSchedule = 0
 	}
 }
 
 // Abstain prevents a new ancestor from authenticating incomplete history.
 func (r *Reads) Abstain() {
 	if r != nil {
-		r.valid = false
+		r.invalidate()
 	}
 }
 
@@ -104,7 +136,8 @@ func (r *Reads) CommitDroppedInput(dropped bool) {
 	if r != nil && dropped {
 		// Preserve ordinary read metadata; it still serves the legacy frontier.
 		// The completed history cannot certify a result that omitted input.
-		r.committedDropped = true
+		r.flags |= readsCommittedDropped
+		r.defaultProducerSchedule = 0
 	}
 }
 
@@ -118,7 +151,7 @@ func (r *Reads) Bytes() int64 {
 	if r == nil {
 		return 0
 	}
-	return 64 + int64(cap(r.ends))*4
+	return ReadsHeaderBytes() + r.ends.bytes()
 }
 
 // Records use one word when the source origin and probe width fit together.
@@ -133,40 +166,44 @@ func (r *Reads) wordCount() int {
 }
 func (r *Reads) count() int {
 	if r.packedBits == 0 {
-		return len(r.ends) / 2
+		return r.ends.len() / 2
 	}
-	return len(r.ends)
+	return r.ends.len()
 }
 func (r *Reads) at(i int) read {
 	if r.packedBits == 0 {
-		return read{r.ends[2*i], r.ends[2*i+1]}
+		return read{r.ends.at(2 * i), r.ends.at(2*i + 1)}
 	}
-	word := r.ends[i]
+	word := r.ends.at(i)
 	start := word >> r.packedBits
 	return read{start, start + (word & ((uint32(1) << r.packedBits) - 1))}
 }
 func (r *Reads) put(i int, start, end uint32) {
 	if r.packedBits == 0 {
-		r.ends[2*i], r.ends[2*i+1] = start, end
+		r.ends.put(2*i, start)
+		r.ends.put(2*i+1, end)
 		return
 	}
-	r.ends[i] = start<<r.packedBits | (end - start)
+	r.ends.put(i, start<<r.packedBits|(end-start))
 }
 
 // wideReadSort orders pairs without another allocation or slice cast.
 type wideReadSort Reads
 
-func (r *wideReadSort) Len() int           { return len(r.ends) / 2 }
-func (r *wideReadSort) Less(i, j int) bool { return r.ends[2*i] < r.ends[2*j] }
+func (r *wideReadSort) Len() int           { return r.ends.len() / 2 }
+func (r *wideReadSort) Less(i, j int) bool { return r.ends.at(2*i) < r.ends.at(2*j) }
 func (r *wideReadSort) Swap(i, j int) {
-	r.ends[2*i], r.ends[2*j] = r.ends[2*j], r.ends[2*i]
-	r.ends[2*i+1], r.ends[2*j+1] = r.ends[2*j+1], r.ends[2*i+1]
+	a, b := r.ends.at(2*i), r.ends.at(2*j)
+	r.ends.put(2*i, b)
+	r.ends.put(2*j, a)
+	a, b = r.ends.at(2*i+1), r.ends.at(2*j+1)
+	r.ends.put(2*i+1, b)
+	r.ends.put(2*j+1, a)
 }
 func (r *Reads) charge(cost int64) bool {
 	if r.allocated != nil {
 		used := max(int64(0), *r.allocated-r.baseline)
 		if r.budget > 0 && (used >= r.budget || cost > r.budget-used) {
-			r.valid = false
 			return false
 		}
 		*r.allocated += cost
@@ -174,24 +211,27 @@ func (r *Reads) charge(cost int64) bool {
 	return true
 }
 func (r *Reads) promoteWide() bool {
-	if !r.charge(int64(cap(r.ends)) * 4) {
+	n := r.count()
+	if r.ends.capacity() > int(^uint(0)>>1)/2 || !r.ends.reserve(2*r.ends.capacity(), r.charge) {
+		r.invalidate()
 		return false
 	}
-	next := make([]uint32, len(r.ends)*2, cap(r.ends)*2)
-	for i := range r.ends {
+	r.ends.resize(2 * n)
+	for i := n - 1; i >= 0; i-- {
 		e := r.at(i)
-		next[2*i], next[2*i+1] = e.start, e.end
+		r.ends.put(2*i, e.start)
+		r.ends.put(2*i+1, e.end)
 	}
-	r.ends = next
 	r.packedBits = 0
 	return true
 }
+
 func (r *Reads) Record(start int, end uint32) {
-	if r == nil || !r.valid {
+	if r == nil || r.flags&readsValid == 0 {
 		return
 	}
-	if r.sealed || start < 0 || uint64(start) > uint64(r.sourceBytes) || uint64(start) > uint64(end) {
-		r.valid = false
+	if r.flags&readsSealed != 0 || start < 0 || uint64(start) > uint64(r.sourceBytes) || uint64(start) > uint64(end) {
+		r.invalidate()
 		return
 	}
 	origin := uint32(start)
@@ -220,28 +260,35 @@ func (r *Reads) Record(start int, end uint32) {
 			}
 		}
 	}
+	if n := r.count(); n != 0 && origin < r.at(n-1).start {
+		r.flags |= readsDisordered
+	}
 	words := r.wordCount()
-	if len(r.ends) == cap(r.ends) {
-		capacity := max(128*words, cap(r.ends)*2)
-		if !r.charge(int64(capacity-cap(r.ends)) * 4) {
+	want := r.ends.len() + words
+	if want > r.ends.capacity() {
+		capacity := max(128*words, r.ends.capacity()*2)
+		if r.ends.capacity() >= readWordPageSize {
+			capacity = want
+		}
+		if !r.ends.reserve(capacity, r.charge) {
+			r.invalidate()
 			return
 		}
-		next := make([]uint32, len(r.ends), capacity)
-		copy(next, r.ends)
-		r.ends = next
 	}
 	index := r.count()
-	r.ends = r.ends[:len(r.ends)+words]
+	r.ends.resize(want)
 	r.put(index, origin, end)
 }
 func (r *Reads) Seal() {
-	if r == nil || r.sealed {
+	if r == nil || r.flags&readsSealed != 0 {
 		return
 	}
-	if r.packedBits == 0 {
-		sort.Sort((*wideReadSort)(r))
-	} else {
-		slices.Sort(r.ends)
+	if r.flags&readsDisordered != 0 {
+		if r.packedBits == 0 {
+			sort.Sort((*wideReadSort)(r))
+		} else {
+			sort.Sort((*packedReadWordSort)(&r.ends))
+		}
 	}
 	var end uint32
 	count := 0
@@ -255,8 +302,8 @@ func (r *Reads) Seal() {
 			count++
 		}
 	}
-	r.ends = r.ends[:count*r.wordCount()]
-	r.sealed = true
+	r.ends.resize(count * r.wordCount())
+	r.flags |= readsSealed
 	r.allocated = nil
 }
 func (r *Reads) Lookahead(end uint32) (uint32, bool) { return r.lookahead(end, true) }
@@ -278,7 +325,7 @@ func (r *Reads) search(end uint32, includeBoundary bool) int {
 	return low
 }
 func (r *Reads) lookahead(end uint32, includeBoundary bool) (uint32, bool) {
-	if r == nil || !r.valid || !r.sealed || end == 0 || end > r.sourceBytes {
+	if r == nil || r.flags&readsValid == 0 || r.flags&readsSealed == 0 || end == 0 || end > r.sourceBytes {
 		return 0, false
 	}
 	i := r.search(end, includeBoundary)
@@ -306,7 +353,7 @@ func (r *Reads) Cursor(includeBoundary bool) LookaheadCursor {
 }
 func (c *LookaheadCursor) Lookahead(end uint32) (uint32, bool) {
 	r := c.reads
-	if r == nil || !r.valid || !r.sealed || end == 0 || end > r.sourceBytes {
+	if r == nil || r.flags&readsValid == 0 || r.flags&readsSealed == 0 || end == 0 || end > r.sourceBytes {
 		return 0, false
 	}
 	if end < c.end {
@@ -402,3 +449,6 @@ func RecoveryEditChangesTerminal(oldStart, newStart, newEnd, editStart, editOldE
 	return !sameSymbol || (editStart == editOldEnd && editNewEnd > editStart &&
 		newStart == editStart && newEnd == editNewEnd && oldStart >= editNewEnd)
 }
+
+// ReadsHeaderBytes charges the full header while preserving the conservative floor.
+func ReadsHeaderBytes() int64 { return max(64, int64(unsafe.Sizeof(Reads{}))) }

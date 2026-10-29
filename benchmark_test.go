@@ -14,6 +14,24 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
+func TestExistingGoBlobRequiresProfileForReuseAuthority(t *testing.T) {
+	blob := grammars.BlobByName("go")
+	decoded, err := gotreesitter.LoadLanguage(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded.SmallSourceReuseAuthority != nil {
+		t.Fatal("fresh blob load unexpectedly granted authority")
+	}
+	profiled, err := grammars.LoadLanguage("go", blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profiled.SmallSourceReuseAuthority == nil || !profiled.SmallSourceReuseAuthority.Matches(profiled) {
+		t.Fatal("certified Go profile did not grant authority")
+	}
+}
+
 // Run pure-Go benchmarks from this package.
 // C baseline benchmarks live in the cgo_harness module:
 //   cd cgo_harness
@@ -706,4 +724,27 @@ func BenchmarkGoParseIncrementalRandomSingleByteEdit(b *testing.B) {
 		src, scratch = next, src
 	}
 	tree.Release()
+}
+
+func TestLanguageCopyDoesNotAuthenticate(t *testing.T) {
+	gotreesitter.RunLanguageCopyDoesNotAuthenticate(t, grammars.GoLanguage())
+}
+
+func TestScannerAdaptationRevokesProducer(t *testing.T) {
+	language, err := grammars.LoadLanguage("go", grammars.BlobByName("go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if language.SmallSourceReuseAuthority == nil {
+		t.Fatal("decoded Go is missing its grant")
+	}
+	gotreesitter.AssertLanguageProducerKey(t, language, true)
+	if !grammars.AdaptScannerForLanguage("go", language) {
+		t.Fatal("Go scanner adaptation failed")
+	}
+	gotreesitter.AssertLanguageProducerKey(t, language, false)
+}
+
+func TestAuthenticatedNativeReuseWitness(t *testing.T) {
+	gotreesitter.RunAuthenticatedNativeReuseWitness(t, grammars.GoLanguage())
 }

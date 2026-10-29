@@ -5325,6 +5325,13 @@ func (t *Tree) Edit(edit InputEdit) {
 	t.ensureDependsOnColumnPropagated()
 	t.prepareLegacyReuseDependencies()
 	t.editCompactReuseDependencies(edit)
+	// Only a possible identifier edit needs the stronger small-source read
+	// invalidation. Admission checks this same necessary condition again with
+	// the new source and authenticates the actual token before selecting it.
+	smallIdentifierEdit := false
+	if len(t.edits) == 0 && t.arena != nil && t.arena.legacyReuseReads.DefaultProducerSchedule(len(t.source)) != 0 {
+		_, _, smallIdentifierEdit = incr.IdentifierEditOldToken(t.source, incr.TokenEdit{Start: edit.StartByte, OldEnd: edit.OldEndByte, NewEnd: edit.NewEndByte, Row: edit.StartPoint.Row})
+	}
 	if perfCountersEnabled {
 		perfRecordNodeEditCall()
 		if inputEditIsNoop(edit) {
@@ -5343,7 +5350,7 @@ func (t *Tree) Edit(edit InputEdit) {
 		rowDelta := int64(edit.NewEndPoint.Row) - int64(edit.OldEndPoint.Row)
 		hasTailShift := byteDelta != 0 || edit.NewEndPoint != edit.OldEndPoint
 		var shiftScratch []*Node
-		editNodeWithDelta(t.root, edit, byteDelta, rowDelta, hasTailShift, &shiftScratch, &t.lastEditedLeaf)
+		editNodeWithDeltaPolicy(t.root, edit, byteDelta, rowDelta, hasTailShift, &shiftScratch, &t.lastEditedLeaf, smallIdentifierEdit)
 	}
 }
 
@@ -5741,7 +5748,11 @@ func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
 }
 
 func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTailShift bool, shiftScratch *[]*Node, leafHint **Node) {
-	if editLegacyLookaheadOnly(n, edit) {
+	editNodeWithDeltaPolicy(n, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint, false)
+}
+
+func editNodeWithDeltaPolicy(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTailShift bool, shiftScratch *[]*Node, leafHint **Node, smallIdentifierEdit bool) {
+	if editLegacyLookaheadOnlyPolicy(n, edit, smallIdentifierEdit) {
 		return
 	}
 	if editMissingNodeDependency(n, edit, byteDelta, rowDelta) {
@@ -5845,7 +5856,7 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 				continue
 			}
 			descended = true
-			editNodeWithDelta(c, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint)
+			editNodeWithDeltaPolicy(c, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint, smallIdentifierEdit)
 		}
 	} else {
 		for i := 0; i < childCount; i++ {
@@ -5878,7 +5889,7 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 				continue
 			}
 			descended = true
-			editStackEntryWithDelta(n.ownerArena, entry, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint)
+			editStackEntryWithDeltaPolicy(n.ownerArena, entry, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint, smallIdentifierEdit)
 		}
 	}
 	if leafHint != nil && !descended && childCount == 0 {
@@ -5887,8 +5898,12 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 }
 
 func editStackEntryWithDelta(arena *nodeArena, entry stackEntry, edit InputEdit, byteDelta, rowDelta int64, hasTailShift bool, shiftScratch *[]*Node, leafHint **Node) {
+	editStackEntryWithDeltaPolicy(arena, entry, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint, false)
+}
+
+func editStackEntryWithDeltaPolicy(arena *nodeArena, entry stackEntry, edit InputEdit, byteDelta, rowDelta int64, hasTailShift bool, shiftScratch *[]*Node, leafHint **Node, smallIdentifierEdit bool) {
 	if node := stackEntryNode(entry); node != nil {
-		editNodeWithDelta(node, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint)
+		editNodeWithDeltaPolicy(node, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint, smallIdentifierEdit)
 		return
 	}
 	if !stackEntryHasNode(entry) || stackEntryEndsBeforeEditDependency(arena, entry, edit.StartByte) {
@@ -5953,7 +5968,7 @@ func editStackEntryWithDelta(arena *nodeArena, entry stackEntry, edit InputEdit,
 		if perfCountersEnabled {
 			perfRecordNodeEditCompactRef()
 		}
-		editStackEntryWithDelta(arena, child, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint)
+		editStackEntryWithDeltaPolicy(arena, child, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint, smallIdentifierEdit)
 	}
 }
 

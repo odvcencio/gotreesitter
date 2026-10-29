@@ -4912,8 +4912,11 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		}
 		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(scanStart), examinedEnd)
 		if d.lexer != nil && d.lexer.reuseReads != nil {
-			if !incr.RequiresFreshResult(len(source)) {
-				// Preserve the established small-edit frontier and fresh proof.
+			// Shadow-authorized producers require the normalized frontier; ordinary
+			// small sources retain their legacy frontier except for a proved
+			// stateless failed scanner call that performed no input observation.
+			shadowArtifact := d.language != nil && d.language.SmallSourceReuseShadowArtifact != ([32]byte{})
+			if !incr.RequiresFreshResult(len(source)) && !shadowArtifact {
 				scanner, stateless := d.language.ExternalScanner.(StatelessExternalScanner)
 				noReadFailure := probeCompleted && !probeAccepted && stateless && scanner.ExternalScannerIsStateless() && d.externalLexer.readFrontier != nil && d.externalLexer.readFrontier.examined == 0 && !d.externalLexer.readFrontier.nonlocal && !d.externalLexer.didGetColumn
 				if !noReadFailure {

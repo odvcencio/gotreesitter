@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "unsafe"
+import (
+	"github.com/odvcencio/gotreesitter/internal/incr"
+	"unsafe"
+)
 
 type transientParentScratch struct {
 	slabs             []transientParentSlab
@@ -8,7 +11,7 @@ type transientParentScratch struct {
 	allocatedBytes    int64
 	nodesAllocated    uint64
 	nodesMaterialized uint64
-	seen              map[*Node]*Node
+	seen              incr.IdentitySet[Node]
 	frames            []transientParentFrame
 }
 
@@ -162,8 +165,8 @@ func (s *transientParentScratch) materializeEntriesModeUntil(entries []stackEntr
 			setStackEntryNode(&entries[i], replacement)
 			continue
 		}
-		if replacement, ok := s.seen[node]; ok {
-			setStackEntryNode(&entries[i], replacement)
+		if s.seen.Contains(node) {
+			setStackEntryNode(&entries[i], node)
 		}
 	}
 	return ParseStopNone
@@ -187,9 +190,7 @@ func (s *transientParentScratch) materializeNodeSliceUntil(nodes []*Node, arena 
 			nodes[i] = replacement
 			continue
 		}
-		if replacement, ok := s.seen[nodes[i]]; ok {
-			nodes[i] = replacement
-		}
+
 	}
 	return ParseStopNone
 }
@@ -246,10 +247,7 @@ func (s *transientParentScratch) materializeNodesUntil(nodes []*Node, arena *nod
 			if len(n.children) == 0 && len(rawChildren) == 0 {
 				continue
 			}
-			if s.seen == nil {
-				s.seen = make(map[*Node]*Node)
-			}
-			if _, ok := s.seen[n]; ok {
+			if s.seen.Contains(n) {
 				continue
 			}
 		}
@@ -296,11 +294,8 @@ func (s *transientParentScratch) materializeVisitedNodeUntil(n *Node, arena *nod
 				out[i] = replacement
 				continue
 			}
-			if replacement, ok := s.seen[child]; ok {
-				if replacement == n {
-					return ParseStopInvariantViolation
-				}
-				out[i] = replacement
+			if s.seen.Contains(child) && child == n {
+				return ParseStopInvariantViolation
 			}
 		}
 		n.children = out
@@ -324,16 +319,13 @@ func (s *transientParentScratch) materializeVisitedNodeUntil(n *Node, arena *nod
 				rawChildren[i].retargetNodePreservingShapeRef(replacement)
 				continue
 			}
-			if replacement, ok := s.seen[child]; ok && replacement != child {
-				if replacement == n {
-					return ParseStopInvariantViolation
-				}
-				rawChildren[i].retargetNodePreservingShapeRef(replacement)
-			}
+
 		}
 	}
 	if !s.owns(n) {
-		s.seen[n] = n
+		if !s.addSeenNode(n, p) {
+			return p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceScratch)
+		}
 		return ParseStopNone
 	}
 
@@ -420,6 +412,11 @@ func transientParentRetainedCapForSource(sourceLen int) int {
 // for this source. The slabs are already reset, so no live node points into
 // them. The next parse that needs more simply allocates.
 func (s *transientParentScratch) trimForSource(sourceLen int) {
+	// Bound retained membership storage by the existing full-scratch limit
+	// and by the source-derived node estimate used for transient slabs.
+	if s != nil && s.seen.Capacity() > max(128, min(maxRetainedFullSliceCap, 4*parseFullArenaInitialNodeCapacity(sourceLen))) {
+		s.seen.Drop()
+	}
 	if s == nil || len(s.slabs) == 0 {
 		return
 	}
@@ -443,6 +440,9 @@ func (s *transientParentScratch) resetForRelease() {
 		return
 	}
 	s.reset()
+	if s.seen.Capacity() > maxRetainedFullSliceCap {
+		s.seen.Drop()
+	}
 	totalCap := 0
 	for i := range s.slabs {
 		totalCap += len(s.slabs[i].data)
@@ -456,15 +456,37 @@ func (s *transientParentScratch) resetForRelease() {
 	}
 }
 
+// The identity set stores only pointer membership and is private to this
+// materialization. Charge peak overlap before replacing its backing array.
+func (s *transientParentScratch) addSeenNode(n *Node, p *Parser) bool {
+	if s.seen.Contains(n) {
+		return true
+	}
+	growth := s.seen.GrowthBytes()
+	if growth < 0 {
+		return false
+	}
+	if growth > 0 {
+		if p != nil && p.budgetScratch != nil {
+			scratch := p.budgetScratch
+			used := max(int64(0), scratch.allocatedBytes()-scratch.budgetBaselineBytes)
+			if scratch.budgetBytes > 0 && (used >= scratch.budgetBytes || growth > scratch.budgetBytes-used) {
+				return false
+			}
+		}
+		if !s.seen.Grow() {
+			return false
+		}
+	}
+	s.seen.AddKnownAbsent(n)
+	return true
+}
+
 func (s *transientParentScratch) clearMaterializeScratch() {
 	if s == nil {
 		return
 	}
-	if s.seen != nil {
-		for node := range s.seen {
-			delete(s.seen, node)
-		}
-	}
+	s.seen.Clear()
 	if cap(s.frames) > 0 {
 		clear(s.frames[:cap(s.frames)])
 		s.frames = s.frames[:0]
