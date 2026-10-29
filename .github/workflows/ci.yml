@@ -1213,7 +1213,7 @@ jobs:
           fi
           git fetch --no-tags origin "$BASE_SHA"
           w5_options=()
-          if [ "$PR_NUMBER" = 1512 ] && [ "$BASE_SHA" = 9d14415d0a8d11632292310c578446b31554217b ]; then
+          if [ "${PR_NUMBER:-}" = 1512 ] && [ "$BASE_SHA" = 9d14415d0a8d11632292310c578446b31554217b ]; then
             decision="$RUNNER_TEMP/w5-1512-owner-decision.json"
             curl --fail --silent --show-error --location --output "$decision" \
               https://github.com/odvcencio/gotreesitter/releases/download/evidence/owner-decision-1512-58ce.json
