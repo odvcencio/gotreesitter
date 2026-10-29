@@ -76,6 +76,7 @@ func TestAWKDispatchBlockerRoutes(t *testing.T) {
 	for _, witness := range witnesses {
 		witness := witness
 		t.Run(witness.name, func(t *testing.T) {
+			skipKnownCOracleDifference(t)
 			cTree := receiptCTree(t, cLanguage, witness.source)
 			defer cTree.Close()
 			cDigest, err := COracleDeepDigest(cTree)

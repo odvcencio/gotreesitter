@@ -140,7 +140,7 @@ func TestSwiftUnsafeWitnessRemainsKnownCStructuralMismatch(t *testing.T) {
 	if goInspection.SHA256 != wantGoDigest {
 		t.Fatalf("Go Swift witness digest = %s, want %s", goInspection.SHA256, wantGoDigest)
 	}
-	const wantCDigest = "dd81933bab64e72135317be11daf77ffd6e15531819f82e8dc15dea1aba1b8be"
+	const wantCDigest = "1afaa887219c1e00d9deb3735f91c7a0d12cda7d57457a4853c081d48d9bec81"
 	if cDigest != wantCDigest {
 		t.Fatalf("locked C Swift witness digest = %s, want %s", cDigest, wantCDigest)
 	}
@@ -162,8 +162,8 @@ func TestSwiftUnsafeMinimalWitnessMatchesLockedC(t *testing.T) {
 	const wantGoDigest = "c64b894edc4a20e15f2b4127bad4223f698c8996dba091c06c34aa89386d3c68"
 	const wantCDigest = "c64b894edc4a20e15f2b4127bad4223f698c8996dba091c06c34aa89386d3c68"
 	const wantSwiftGrammarCommit = "00bbb0a2550f8bc0023a2a4992922d51ae045626"
-	const wantCRuntimeVersion = "0.25.1"
-	const wantCRuntimeCommit = "f5afe475deb7c0bae6407fb776c76824f717bb61"
+	const wantCRuntimeVersion = "0.27.1"
+	const wantCRuntimeCommit = "10eb5ac119eec9cb4267a8e035066473983f5f3a"
 	const wantCGrammarRepo = "https://github.com/alex-pinkus/tree-sitter-swift"
 	const wantCArtifactSHA256 = "d063a1ee8f82ee99c7a5ff8121ab0139760cc0d8e1a13ce48d1821872a6f730c"
 	source := []byte(sourceText)
@@ -302,7 +302,7 @@ func TestSwiftUnsafeMinimalWitnessMatchesLockedCAfterPooledRecoveryControl(t *te
 
 func TestSwiftUnsafeLargeWitnessKeepsDigestAfterPooledRecoveryControl(t *testing.T) {
 	const wantGoDigest = "414e25c9232c5b7e6a659515ff546232eca51d84452f1be06c03b57a933329d4"
-	const wantCDigest = "dd81933bab64e72135317be11daf77ffd6e15531819f82e8dc15dea1aba1b8be"
+	const wantCDigest = "1afaa887219c1e00d9deb3735f91c7a0d12cda7d57457a4853c081d48d9bec81"
 	control := []byte("func f(n: Int) -> Int {\n" +
 		"  var total = 0\n" +
 		"  for i in 0..<n { total += i }\n" +

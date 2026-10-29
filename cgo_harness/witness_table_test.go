@@ -57,6 +57,7 @@ func runWitnessSet(t *testing.T, s witnessSet) {
 		label := cmp.Or(s.label, name)
 		lang := cmp.Or(row.lang, s.lang)
 		t.Run(name, func(t *testing.T) {
+			skipKnownCOracleDifference(t)
 			if s.scavenge {
 				scheduleParityMemoryScavenge(t)
 			}

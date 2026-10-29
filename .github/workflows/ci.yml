@@ -17,9 +17,9 @@ on:
   workflow_dispatch:
   # One nightly, off-peak UTC run of the full 206-language exhaustive CGo
   # parity sweep (parity-cgo-exhaustive), which otherwise only runs on
-  # workflow_dispatch or a PR that touches a narrow parser-result/C-recovery
-  # path filter. exhaustive_parity_scope below turns run_exhaustive on for
-  # this event.
+  # workflow_dispatch or a PR that touches a narrow parser-result, C-recovery,
+  # or C-oracle path filter. exhaustive_parity_scope below turns run_exhaustive
+  # on for this event.
   schedule:
     - cron: '17 3 * * *'
 
@@ -967,15 +967,12 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: cgo_harness/go.mod
 
-      # The correct toolchain alone was not enough: `go -C cgo_harness list
-      # -m -f {{.Dir}}` (language_version_stamp_test.go) printed nothing on
-      # a runner where nothing had populated cgo_harness's own module
-      # cache yet, because no earlier step in this job runs `go build`/`go
-      # test` inside cgo_harness the way the (unrelated) cgo-tagged jobs
-      # do. Downloading the exact dependency explicitly, once, up front
-      # removes that ordering dependency instead of relying on `go list -m`
-      # to fetch it lazily on first use.
-      - name: Warm cgo_harness's locked tree-sitter dependency
+      # The locked tree-sitter binding is a local replace
+      # (cgo_harness/internal/coracle), so no module download is needed
+      # and the cold-cache failure described in language_version_stamp_test.go
+      # cannot happen. This step stays as a cheap check that the replace
+      # directory resolves before the grammargen tests rely on it.
+      - name: Check cgo_harness's locked tree-sitter binding resolves
         working-directory: cgo_harness
         run: go mod download github.com/tree-sitter/go-tree-sitter
 
@@ -1315,13 +1312,16 @@ jobs:
               exit 0
             fi
 
-            exhaustive_pattern='^(parser_result_.*\.go|parser_recover_c.*\.go|parser_result_test/.*\.go|cgo_harness/(parity_cgo_test|parity_gate_ratchet_test)\.go)$'
+            # Every exhaustive test compares against the locked C oracle, so a
+            # change to its pin (cgo_harness/go.mod) or its vendored runtime
+            # runs the sweep too.
+            exhaustive_pattern='^(parser_result_.*\.go|parser_recover_c.*\.go|parser_result_test/.*\.go|cgo_harness/(parity_cgo_test|parity_gate_ratchet_test)\.go|cgo_harness/go\.mod|cgo_harness/internal/coracle/.*)$'
             if grep -Eq "$exhaustive_pattern" /tmp/changed-files.txt; then
               run_exhaustive=true
               {
                 echo "### Exhaustive parity trigger"
                 echo
-                echo "Running exhaustive CGo parity because this PR touches parser-result, C-recovery, or parity-degradation gate files:"
+                echo "Running exhaustive CGo parity because this PR touches parser-result, C-recovery, C-oracle, or parity-degradation gate files:"
                 echo
                 grep -E "$exhaustive_pattern" /tmp/changed-files.txt | sed 's/^/- `/' | sed 's/$/`/'
               } >> "$GITHUB_STEP_SUMMARY"
@@ -1329,7 +1329,7 @@ jobs:
               {
                 echo "### Exhaustive parity trigger"
                 echo
-                echo "No parser-result, C-recovery, or parity-degradation gate files changed; exhaustive CGo parity is skipped."
+                echo "No parser-result, C-recovery, C-oracle, or parity-degradation gate files changed; exhaustive CGo parity is skipped."
               } >> "$GITHUB_STEP_SUMMARY"
             fi
           fi

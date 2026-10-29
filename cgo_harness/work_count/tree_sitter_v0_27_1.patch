@@ -1,16 +1,14 @@
-diff --git a/lib/src/language.c b/lib/src/language.c
-index b341a67..07ac815 100644
 --- a/lib/src/language.c
 +++ b/lib/src/language.c
-@@ -1,6 +1,7 @@
- #include "./language.h"
+@@ -3,6 +3,7 @@
  #include "./wasm_store.h"
  #include "tree_sitter/api.h"
+ #include <stddef.h>
 +#include "./work_count.h"
  #include <string.h>
-
- const TSLanguage *ts_language_copy(const TSLanguage *self) {
-@@ -75,6 +76,7 @@ void ts_language_table_entry(
+ 
+ #ifdef __wasm__
+@@ -165,6 +166,7 @@
    TSSymbol symbol,
    TableEntry *result
  ) {
@@ -18,7 +16,7 @@ index b341a67..07ac815 100644
    if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
      result->action_count = 0;
      result->is_reusable = false;
-@@ -87,6 +89,10 @@ void ts_language_table_entry(
+@@ -177,6 +179,10 @@
      result->is_reusable = entry->entry.reusable;
      result->actions = (const TSParseAction *)(entry + 1);
    }
@@ -27,13 +25,11 @@ index b341a67..07ac815 100644
 +    result->action_count
 +  );
  }
-
+ 
  TSLexerMode ts_language_lex_mode_for_state(
-diff --git a/lib/src/parser.c b/lib/src/parser.c
-index 41a349d..c944b7a 100644
 --- a/lib/src/parser.c
 +++ b/lib/src/parser.c
-@@ -20,6 +20,228 @@
+@@ -17,6 +17,228 @@
  #include "./tree.h"
  #include "./ts_assert.h"
  #include "./wasm_store.h"
@@ -259,13 +255,13 @@ index 41a349d..c944b7a 100644
 +    count.raw_selected_internal_leaf_occurrences == 1 &&
 +    !count.overflow;
 +}
-
+ 
  #define LOG(...)                                                                            \
    if (self->lexer.logger.log || self->dot_graph_file) {                                     \
-@@ -119,6 +341,29 @@ struct TSParser {
+@@ -113,6 +335,29 @@
    bool has_error;
  };
-
+ 
 +static uint64_t gts_topology_begin_parser_action(
 +  TSParser *self,
 +  StackVersion version,
@@ -292,15 +288,15 @@ index 41a349d..c944b7a 100644
  typedef struct {
    unsigned cost;
    unsigned node_count;
-@@ -345,6 +590,7 @@ static bool ts_parser__better_version_exists(
+@@ -339,6 +584,7 @@
  }
-
+ 
  static bool ts_parser__call_main_lex_fn(TSParser *self, TSLexerMode lex_mode) {
 +  gts_work_count_add(&gts_work_count_current.raw_main_lexer_invocations, 1);
    if (ts_language_is_wasm(self->language)) {
      return ts_wasm_store_call_lex_main(self->wasm_store, lex_mode.lex_state);
    } else {
-@@ -509,6 +755,8 @@ static Subtree ts_parser__lex(
+@@ -507,6 +753,8 @@
    StackVersion version,
    TSStateId parse_state
  ) {
@@ -309,7 +305,7 @@ index 41a349d..c944b7a 100644
    TSLexerMode lex_mode = ts_language_lex_mode_for_state(self->language, parse_state);
    if (lex_mode.lex_state == (uint16_t)-1) {
      LOG("no_lookahead_after_non_terminal_extra");
-@@ -912,6 +1160,7 @@ static void ts_parser__shift(
+@@ -918,6 +1166,7 @@
    Subtree lookahead,
    bool extra
  ) {
@@ -317,26 +313,26 @@ index 41a349d..c944b7a 100644
    bool is_leaf = ts_subtree_child_count(lookahead) == 0;
    Subtree subtree_to_push = lookahead;
    if (extra != ts_subtree_extra(lookahead) && is_leaf) {
-@@ -938,6 +1187,7 @@ static StackVersion ts_parser__reduce(
+@@ -944,6 +1193,7 @@
    bool is_fragile,
    bool end_of_non_terminal_extra
  ) {
 +  gts_work_count_add(&gts_work_count_current.reductions, 1);
    uint32_t initial_version_count = ts_stack_version_count(self->stack);
-
+ 
    // Pop the given number of nodes from the given version of the parse stack.
-@@ -977,6 +1227,7 @@ static StackVersion ts_parser__reduce(
+@@ -985,6 +1235,7 @@
      MutableSubtree parent = ts_subtree_new_node(
        symbol, &children, production_id, self->language
      );
 +    uint64_t parent_candidate_id = gts_topology_next_candidate_id();
-
+ 
      // This pop operation may have caused multiple stack versions to collapse
      // into one, because they all diverged from a common state. In that case,
-@@ -990,17 +1241,33 @@ static StackVersion ts_parser__reduce(
+@@ -998,17 +1249,33 @@
        SubtreeArray next_slice_children = next_slice.subtrees;
        ts_subtree_array_remove_trailing_extras(&next_slice_children, &self->trailing_extras2);
-
+ 
 -      if (ts_parser__select_children(
 +      uint64_t candidate_id = gts_topology_next_candidate_id();
 +      uint64_t election_id = gts_topology_next_election_id();
@@ -369,21 +365,21 @@ index 41a349d..c944b7a 100644
        } else {
          array_clear(&self->trailing_extras2);
          ts_subtree_array_delete(&self->tree_pool, &next_slice.subtrees);
-@@ -1048,6 +1315,7 @@ static void ts_parser__accept(
+@@ -1056,6 +1323,7 @@
    StackVersion version,
    Subtree lookahead
  ) {
 +  gts_work_count_add(&gts_work_count_current.accept_actions, 1);
    ts_assert(ts_subtree_is_eof(lookahead));
    ts_stack_push(self->stack, version, lookahead, false, 1);
-
-@@ -1079,16 +1347,43 @@ static void ts_parser__accept(
-
+ 
+@@ -1087,16 +1355,43 @@
+ 
      ts_assert(root.ptr);
      self->accept_count++;
 +    uint64_t candidate_id = gts_topology_next_candidate_id();
 +    uint64_t election_id = gts_topology_next_election_id();
-
+ 
      if (self->finished_tree.ptr) {
 -      if (ts_parser__select_tree(self, self->finished_tree, root)) {
 +      uint64_t incumbent_id = gts_topology_current.finished_candidate_id;
@@ -421,11 +417,11 @@ index 41a349d..c944b7a 100644
 +      gts_topology_current.finished_candidate_id = candidate_id;
      }
    }
-
-@@ -1160,11 +1455,15 @@ static bool ts_parser__do_all_potential_reductions(
+ 
+@@ -1193,11 +1488,15 @@
      for (uint32_t j = 0; j < self->reduce_actions.size; j++) {
-       ReduceAction action = self->reduce_actions.contents[j];
-
+       ReduceAction action = *array_get(&self->reduce_actions, j);
+ 
 +      gts_topology_begin_parser_action(
 +        self, version, state, NULL_SUBTREE, -1, GTSTopologyActionReduce
 +      );
@@ -436,12 +432,12 @@ index 41a349d..c944b7a 100644
        );
 +      gts_topology_action_end();
      }
-
+ 
      if (has_shift_action) {
-@@ -1616,13 +1915,22 @@ static bool ts_parser__advance(
-     // an ambiguous state. REDUCE actions always create a new stack
+@@ -1657,13 +1956,22 @@
      // version, whereas SHIFT actions update the existing stack version
      // and terminate this loop.
+     bool did_reduce = false;
 +    gts_work_count_add(&gts_work_count_current.resolved_action_cells_examined, 1);
 +    if (table_entry.action_count > 1) {
 +      gts_work_count_add(&gts_work_count_current.raw_action_entries_beyond_first, table_entry.action_count - 1);
@@ -450,7 +446,7 @@ index 41a349d..c944b7a 100644
 +    uint32_t admitted_action_arms = 0;
      for (uint32_t i = 0; i < table_entry.action_count; i++) {
        TSParseAction action = table_entry.actions[i];
-
+ 
        switch (action.type) {
          case TSParseActionTypeShift: {
            if (action.shift.repetition) break;
@@ -461,14 +457,14 @@ index 41a349d..c944b7a 100644
            TSStateId next_state;
            if (action.shift.extra) {
              next_state = state;
-@@ -1639,10 +1947,15 @@ static bool ts_parser__advance(
-
+@@ -1680,10 +1988,15 @@
+ 
            ts_parser__shift(self, version, next_state, lookahead, action.shift.extra);
            if (did_reuse) reusable_node_advance(&self->reusable_node);
 +          gts_topology_action_end();
            return true;
          }
-
+ 
          case TSParseActionTypeReduce: {
 +          gts_topology_begin_parser_action(
 +            self, version, state, lookahead, i, GTSTopologyActionReduce
@@ -477,14 +473,14 @@ index 41a349d..c944b7a 100644
            bool is_fragile = table_entry.action_count > 1;
            bool end_of_non_terminal_extra = lookahead.ptr == NULL;
            LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.reduce.symbol), action.reduce.child_count);
-@@ -1654,22 +1967,34 @@ static bool ts_parser__advance(
+@@ -1696,22 +2009,34 @@
            if (reduction_version != STACK_VERSION_NONE) {
              last_reduction_version = reduction_version;
            }
 +          gts_topology_action_end();
            break;
          }
-
+ 
          case TSParseActionTypeAccept: {
 +          gts_topology_begin_parser_action(
 +            self, version, state, lookahead, i, GTSTopologyActionAccept
@@ -495,7 +491,7 @@ index 41a349d..c944b7a 100644
 +          gts_topology_action_end();
            return true;
          }
-
+ 
          case TSParseActionTypeRecover: {
 +          gts_topology_begin_parser_action(
 +            self, version, state, lookahead, i, GTSTopologyActionRecover
@@ -505,39 +501,37 @@ index 41a349d..c944b7a 100644
            if (ts_subtree_child_count(lookahead) > 0) {
              ts_parser__breakdown_lookahead(self, &lookahead, ERROR_STATE, &self->reusable_node);
            }
-
+ 
            ts_parser__recover(self, version, lookahead);
            if (did_reuse) reusable_node_advance(&self->reusable_node);
 +          gts_topology_action_end();
            return true;
          }
        }
-@@ -2137,6 +2462,7 @@ TSTree *ts_parser_parse(
+@@ -2172,6 +2497,7 @@
    }
-
+ 
    uint32_t position = 0, last_position = 0, version_count = 0;
 +  ts_stack_topology_begin(self->stack);
    do {
      for (
        StackVersion version = 0;
-@@ -2202,6 +2528,7 @@ balance:
+@@ -2237,6 +2563,7 @@
    self->canceled_balancing = false;
    LOG("done");
    LOG_TREE(self->finished_tree);
 +  gts_work_count_raw_selected_subtree(self->finished_tree);
-
+ 
    result = ts_tree_new(
      self->finished_tree,
-@@ -2212,6 +2539,7 @@ balance:
+@@ -2247,6 +2574,7 @@
    self->finished_tree = NULL_SUBTREE;
-
+ 
  exit:
 +  gts_topology_finish_parse();
    ts_parser_reset(self);
    return result;
  }
-diff --git a/lib/src/stack.c b/lib/src/stack.c
-index f0d5710..d5bf3b7 100644
 --- a/lib/src/stack.c
 +++ b/lib/src/stack.c
 @@ -4,6 +4,7 @@
@@ -548,37 +542,38 @@ index f0d5710..d5bf3b7 100644
  #include <assert.h>
  #include <inttypes.h>
  #include <stdio.h>
-@@ -24,6 +25,8 @@ typedef struct {
+@@ -24,6 +25,8 @@
    StackNode *node;
    Subtree subtree;
    bool is_pending;
 +  uint64_t topology_generation;
 +  uint64_t topology_id;
  } StackLink;
-
+ 
  struct StackNode {
-@@ -35,6 +38,8 @@ struct StackNode {
+@@ -35,6 +38,8 @@
    unsigned error_cost;
    unsigned node_count;
    int dynamic_precedence;
 +  uint64_t topology_generation;
 +  uint64_t topology_id;
  };
-
+ 
  typedef struct {
-@@ -59,6 +64,8 @@ typedef struct {
+@@ -59,6 +64,8 @@
    Subtree last_external_token;
    Subtree lookahead_when_paused;
    StackStatus status;
 +  uint64_t topology_generation;
 +  uint64_t topology_id;
  } StackHead;
-
+ 
  struct Stack {
-@@ -79,6 +86,34 @@ enum {
-
+@@ -78,6 +85,34 @@
+ };
+ 
  typedef StackAction (*StackCallback)(void *, const StackIterator *);
-
++
 +static uint64_t stack_node_topology_id(StackNode *node) {
 +  uint64_t generation = gts_topology_generation();
 +  if (!node || generation == 0) return 0;
@@ -606,19 +601,18 @@ index f0d5710..d5bf3b7 100644
 +    .flags = primary ? GTSTopologyFlagPrimaryLink : 0,
 +  });
 +}
-+
+ 
  static void stack_node_retain(StackNode *self) {
    if (!self)
-     return;
-@@ -150,6 +185,7 @@ static StackNode *stack_node_new(
+@@ -150,6 +185,7 @@
      .link_count = 0,
      .state = state
    };
 +  stack_node_topology_id(node);
-
+ 
    if (previous_node) {
      node->link_count = 1;
-@@ -158,6 +194,16 @@ static StackNode *stack_node_new(
+@@ -158,6 +194,16 @@
        .subtree = subtree,
        .is_pending = is_pending,
      };
@@ -632,13 +626,13 @@ index f0d5710..d5bf3b7 100644
 +      true
 +    );
 +    gts_work_count_add(&gts_work_count_current.graph_link_additions_proxy, 1);
-
+ 
      node->position = previous_node->position;
      node->error_cost = previous_node->error_cost;
-@@ -197,12 +243,29 @@ static bool stack__subtree_is_equivalent(Subtree left, Subtree right) {
+@@ -197,12 +243,29 @@
    );
  }
-
+ 
 -static void stack_node_add_link(
 +typedef enum {
 +  GTSLinkUnionInvalid,
@@ -664,10 +658,10 @@ index f0d5710..d5bf3b7 100644
 +  if (union_attempt) {
 +    gts_work_count_add(&gts_work_count_current.predecessor_link_union_attempts, 1);
 +  }
-
+ 
    for (int i = 0; i < self->link_count; i++) {
      StackLink *existing_link = &self->links[i];
-@@ -221,8 +284,15 @@ static void stack_node_add_link(
+@@ -221,8 +284,15 @@
            existing_link->subtree = link.subtree;
            self->dynamic_precedence =
              link.node->dynamic_precedence + ts_subtree_dynamic_precedence(link.subtree);
@@ -675,16 +669,16 @@ index f0d5710..d5bf3b7 100644
 +            gts_work_count_add(&gts_work_count_current.predecessor_link_union_precedence_replaced, 1);
 +          }
 +          return GTSLinkUnionPrecedenceReplaced;
-+        }
-+        if (union_attempt) {
-+          gts_work_count_add(&gts_work_count_current.predecessor_link_union_duplicate_noop, 1);
          }
 -        return;
++        if (union_attempt) {
++          gts_work_count_add(&gts_work_count_current.predecessor_link_union_duplicate_noop, 1);
++        }
 +        return GTSLinkUnionDuplicate;
        }
-
+ 
        // If the previous nodes are mergeable, merge them recursively.
-@@ -231,8 +301,17 @@ static void stack_node_add_link(
+@@ -231,8 +301,17 @@
          existing_link->node->position.bytes == link.node->position.bytes &&
          existing_link->node->error_cost == link.node->error_cost
        ) {
@@ -703,7 +697,7 @@ index f0d5710..d5bf3b7 100644
          }
          int32_t dynamic_precedence = link.node->dynamic_precedence;
          if (link.subtree.ptr) {
-@@ -241,17 +320,42 @@ static void stack_node_add_link(
+@@ -241,17 +320,42 @@
          if (dynamic_precedence > self->dynamic_precedence) {
            self->dynamic_precedence = dynamic_precedence;
          }
@@ -723,7 +717,7 @@ index f0d5710..d5bf3b7 100644
        }
      }
    }
-
+ 
 -  if (self->link_count == MAX_LINK_COUNT) return;
 +  if (self->link_count == MAX_LINK_COUNT) {
 +    if (union_attempt) {
@@ -731,7 +725,7 @@ index f0d5710..d5bf3b7 100644
 +    }
 +    return GTSLinkUnionRejected;
 +  }
-
+ 
    stack_node_retain(link.node);
    unsigned node_count = link.node->node_count;
    int dynamic_precedence = link.node->dynamic_precedence;
@@ -745,11 +739,11 @@ index f0d5710..d5bf3b7 100644
 +    gts_work_count_add(&gts_work_count_current.predecessor_link_union_alternate_appended, 1);
 +    gts_work_count_add(&gts_work_count_current.alternate_predecessor_links_appended, 1);
 +  }
-
+ 
    if (link.subtree.ptr) {
      ts_subtree_retain(link.subtree);
-@@ -261,6 +365,132 @@ static void stack_node_add_link(
-
+@@ -261,6 +365,132 @@
+ 
    if (node_count > self->node_count) self->node_count = node_count;
    if (dynamic_precedence > self->dynamic_precedence) self->dynamic_precedence = dynamic_precedence;
 +  return union_attempt ? GTSLinkUnionAlternateAppended : GTSLinkUnionInvalid;
@@ -879,9 +873,9 @@ index f0d5710..d5bf3b7 100644
 +
 +  return true;
  }
-
+ 
  static void stack_head_delete(
-@@ -296,12 +526,26 @@ static StackVersion ts_stack__add_version(
+@@ -296,12 +526,26 @@
      .lookahead_when_paused = NULL_SUBTREE,
    };
    array_push(&self->heads, head);
@@ -902,33 +896,35 @@ index f0d5710..d5bf3b7 100644
    stack_node_retain(node);
    if (head.last_external_token.ptr) ts_subtree_retain(head.last_external_token);
 -  return (StackVersion)(self->heads.size - 1);
-+  return version;
- }
-
+-}
+-
 -static void ts_stack__add_slice(
++  return version;
++}
++
 +static StackVersion ts_stack__add_slice(
    Stack *self,
    StackVersion original_version,
    StackNode *node,
-@@ -312,13 +556,14 @@ static void ts_stack__add_slice(
-     if (self->heads.contents[version].node == node) {
+@@ -312,13 +556,14 @@
+     if (array_get(&self->heads, version)->node == node) {
        StackSlice slice = {*subtrees, version};
        array_insert(&self->slices, i + 1, slice);
 -      return;
 +      return version;
      }
    }
-
+ 
    StackVersion version = ts_stack__add_version(self, original_version, node);
    StackSlice slice = { *subtrees, version };
    array_push(&self->slices, slice);
 +  return version;
  }
-
+ 
  static StackSliceArray stack__iter(
-@@ -332,6 +577,9 @@ static StackSliceArray stack__iter(
+@@ -332,6 +577,9 @@
    array_clear(&self->iterators);
-
+ 
    StackHead *head = array_get(&self->heads, version);
 +  uint64_t source_version_id = head->topology_id;
 +  uint64_t pop_id = goal_subtree_count >= 0 ? gts_topology_next_pop_id() : 0;
@@ -936,7 +932,7 @@ index f0d5710..d5bf3b7 100644
    StackIterator new_iterator = {
      .node = head->node,
      .subtrees = array_new(),
-@@ -362,12 +610,25 @@ static StackSliceArray stack__iter(
+@@ -362,12 +610,25 @@
            ts_subtree_array_copy(subtrees, &subtrees);
          }
          ts_subtree_array_reverse(&subtrees);
@@ -961,12 +957,12 @@ index f0d5710..d5bf3b7 100644
 +          .payload_count = subtrees.size,
 +        });
        }
-
+ 
        if (should_stop) {
-@@ -460,6 +721,63 @@ uint32_t ts_stack_version_count(const Stack *self) {
-   return self->heads.size;
+@@ -471,6 +732,63 @@
+   return count;
  }
-
+ 
 +void ts_stack_topology_begin(Stack *self) {
 +  uint64_t generation = gts_topology_generation();
 +  if (generation == 0) return;
@@ -1027,9 +1023,9 @@ index f0d5710..d5bf3b7 100644
  TSStateId ts_stack_state(const Stack *self, StackVersion version) {
    return array_get(&self->heads, version)->node->state;
  }
-@@ -521,7 +839,16 @@ forceinline StackAction pop_count_callback(void *payload, const StackIterator *i
+@@ -532,7 +850,16 @@
  }
-
+ 
  StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t count) {
 -  return stack__iter(self, version, pop_count_callback, &count, (int)count);
 +  gts_work_count_add(&gts_work_count_current.reduction_pop_requests, 1);
@@ -1043,12 +1039,12 @@ index f0d5710..d5bf3b7 100644
 +  }
 +  return result;
  }
-
- forceinline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {
-@@ -656,7 +983,28 @@ bool ts_stack_has_advanced_since_error(const Stack *self, StackVersion version) {
+ 
+ 
+@@ -668,7 +995,28 @@
    return false;
  }
-
+ 
 +static void ts_stack__record_version_shift(Stack *self, StackVersion source_index) {
 +  if (gts_topology_generation() == 0) return;
 +  ts_assert(source_index > 0 && source_index < self->heads.size);
@@ -1074,10 +1070,10 @@ index f0d5710..d5bf3b7 100644
    stack_head_delete(array_get(&self->heads, version), &self->node_pool, self->subtree_pool);
    array_erase(&self->heads, version);
  }
-@@ -667,6 +1015,20 @@ void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
+@@ -679,6 +1027,20 @@
    ts_assert((uint32_t)v1 < self->heads.size);
-   StackHead *source_head = &self->heads.contents[v1];
-   StackHead *target_head = &self->heads.contents[v2];
+   StackHead *source_head = array_get(&self->heads, v1);
+   StackHead *target_head = array_get(&self->heads, v2);
 +  gts_topology_record((GTSTopologyEvent) {
 +    .kind = GTSTopologyEventVersionRenumber,
 +    .version_id = source_head->topology_id,
@@ -1095,10 +1091,10 @@ index f0d5710..d5bf3b7 100644
    if (target_head->summary && !source_head->summary) {
      source_head->summary = target_head->summary;
      target_head->summary = NULL;
-@@ -685,17 +1047,46 @@ void ts_stack_swap_versions(Stack *self, StackVersion v1, StackVersion v2) {
- StackVersion ts_stack_copy_version(Stack *self, StackVersion version) {
+@@ -698,17 +1060,46 @@
    ts_assert(version < self->heads.size);
-   array_push(&self->heads, self->heads.contents[version]);
+   StackHead version_head = *array_get(&self->heads, version);
+   array_push(&self->heads, version_head);
 +  gts_work_count_add(&gts_work_count_current.stack_version_creations_proxy, 1);
    StackHead *head = array_back(&self->heads);
 +  StackHead *source = &self->heads.contents[version];
@@ -1119,12 +1115,12 @@ index f0d5710..d5bf3b7 100644
 -  return self->heads.size - 1;
 +  return copy;
  }
-
+ 
  bool ts_stack_merge(Stack *self, StackVersion version1, StackVersion version2) {
 -  if (!ts_stack_can_merge(self, version1, version2)) return false;
 +  gts_work_count_add(&gts_work_count_current.merge_attempts_proxy, 1);
-   StackHead *head1 = &self->heads.contents[version1];
-   StackHead *head2 = &self->heads.contents[version2];
+   StackHead *head1 = array_get(&self->heads, version1);
+   StackHead *head2 = array_get(&self->heads, version2);
 +  bool can_merge = ts_stack_can_merge(self, version1, version2);
 +  gts_topology_record((GTSTopologyEvent) {
 +    .kind = GTSTopologyEventMerge,
@@ -1144,39 +1140,34 @@ index f0d5710..d5bf3b7 100644
    for (uint32_t i = 0; i < head2->node->link_count; i++) {
      stack_node_add_link(head1->node, head2->node->links[i], self->subtree_pool);
    }
-@@ -703,6 +1094,7 @@ bool ts_stack_merge(Stack *self, StackVersion version1, StackVersion version2) {
+@@ -716,6 +1107,7 @@
      head1->node_count_at_last_error = head1->node->node_count;
    }
    ts_stack_remove_version(self, version2);
 +  gts_work_count_add(&gts_work_count_current.merge_successes_proxy, 1);
    return true;
  }
-
-@@ -762,6 +1154,7 @@ void ts_stack_clear(Stack *self) {
+ 
+@@ -775,6 +1167,7 @@
      .last_external_token = NULL_SUBTREE,
      .lookahead_when_paused = NULL_SUBTREE,
    }));
 +  gts_work_count_add(&gts_work_count_current.stack_version_creations_proxy, 1);
  }
-
+ 
  bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) {
-diff --git a/lib/src/stack.h b/lib/src/stack.h
-index ac32234..190f3ac 100644
 --- a/lib/src/stack.h
 +++ b/lib/src/stack.h
-@@ -36,6 +36,10 @@ void ts_stack_delete(Stack *self);
- // Get the stack's current number of versions.
- uint32_t ts_stack_version_count(const Stack *self);
-
+@@ -38,6 +38,9 @@
+ 
+ // Get the stack's current number of halted versions.
+ uint32_t ts_stack_halted_version_count(Stack *self);
 +void ts_stack_topology_begin(Stack *self);
 +
 +uint64_t ts_stack_topology_version_id(const Stack *self, StackVersion version);
-+
+ 
  // Get the state at the top of the given version of the stack. If the stack is
- // empty, this returns the initial state, 0.
- TSStateId ts_stack_state(const Stack *self, StackVersion version);
-diff --git a/lib/src/subtree.c b/lib/src/subtree.c
-index 42794de..c814693 100644
+ // empty, this returns the initial state, 1.
 --- a/lib/src/subtree.c
 +++ b/lib/src/subtree.c
 @@ -10,6 +10,7 @@
@@ -1186,26 +1177,23 @@ index 42794de..c814693 100644
 +#include "./work_count.h"
  #include "./ts_assert.h"
  #include <stddef.h>
-
-@@ -169,6 +170,7 @@ Subtree ts_subtree_new_leaf(
+ 
+@@ -169,6 +170,7 @@
    bool has_external_tokens, bool depends_on_column,
    bool is_keyword, const TSLanguage *language
  ) {
 +  gts_work_count_add(&gts_work_count_current.leaf_constructions_proxy, 1);
    TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
    bool extra = symbol == ts_builtin_sym_end;
-
-@@ -478,6 +480,7 @@ MutableSubtree ts_subtree_new_node(
+ 
+@@ -495,6 +497,7 @@
    unsigned production_id,
    const TSLanguage *language
  ) {
 +  gts_work_count_add(&gts_work_count_current.parent_constructions_proxy, 1);
    TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
    bool fragile = symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat;
-
-diff --git a/lib/src/work_count.h b/lib/src/work_count.h
-new file mode 100644
-index 0000000..e41e849
+ 
 --- /dev/null
 +++ b/lib/src/work_count.h
 @@ -0,0 +1,172 @@

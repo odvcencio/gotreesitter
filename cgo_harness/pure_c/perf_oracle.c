@@ -19,6 +19,40 @@ static uint64_t now_ns(void) {
   return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
 }
 
+// Keep the per-attempt timeout through the upstream progress callback.
+// The runtime no longer exposes ts_parser_set_timeout_micros.
+typedef struct {
+  const char *source;
+  uint32_t length;
+  uint64_t start_ns;
+  uint64_t timeout_us;
+} ParseInput;
+
+static const char *parse_read(void *payload, uint32_t offset,
+                              TSPoint point, uint32_t *length) {
+  (void)point;
+  ParseInput *input = payload;
+  *length = offset < input->length ? input->length - offset : 0;
+  return input->source + (offset < input->length ? offset : input->length);
+}
+
+static bool parse_progress(TSParseState *state) {
+  ParseInput *input = state->payload;
+  return (now_ns() - input->start_ns) / 1000 >= input->timeout_us;
+}
+
+static TSTree *parse_with_timeout(TSParser *parser, const char *source,
+                                 uint32_t length, uint64_t timeout_us) {
+  if (timeout_us == 0) return ts_parser_parse_string(parser, NULL, source, length);
+  ParseInput payload = {.source = source, .length = length,
+                        .start_ns = now_ns(), .timeout_us = timeout_us};
+  TSInput input = {.payload = &payload, .read = parse_read,
+                   .encoding = TSInputEncodingUTF8};
+  TSParseOptions options = {.payload = &payload,
+                           .progress_callback = parse_progress};
+  return ts_parser_parse_with_options(parser, NULL, input, options);
+}
+
 static char *read_source(const char *path, size_t *out_len) {
   FILE *file = fopen(path, "rb");
   if (!file || fseek(file, 0, SEEK_END) != 0) {
@@ -116,8 +150,7 @@ static int dump_tree(const char *source, uint32_t source_len,
     if (parser) ts_parser_delete(parser);
     return 2;
   }
-  ts_parser_set_timeout_micros(parser, timeout_us);
-  TSTree *tree = ts_parser_parse_string(parser, NULL, source, source_len);
+  TSTree *tree = parse_with_timeout(parser, source, source_len, timeout_us);
   if (!tree) {
     fputs("status=c_timeout\n", stderr);
     ts_parser_delete(parser);
@@ -151,9 +184,9 @@ static int parse_int(const char *raw, int fallback) {
 }
 
 static int measure_full(TSParser *parser, const char *source, uint32_t len,
-                        int warmup, int reps) {
+                        int warmup, int reps, uint64_t timeout_us) {
   for (int i = 0; i < warmup; i++) {
-    TSTree *tree = ts_parser_parse_string(parser, NULL, source, len);
+    TSTree *tree = parse_with_timeout(parser, source, len, timeout_us);
     if (!tree) {
       puts("status=c_timeout");
       return 0;
@@ -167,7 +200,7 @@ static int measure_full(TSParser *parser, const char *source, uint32_t len,
   }
   for (int i = 0; i < reps; i++) {
     uint64_t start = now_ns();
-    TSTree *tree = ts_parser_parse_string(parser, NULL, source, len);
+    TSTree *tree = parse_with_timeout(parser, source, len, timeout_us);
     uint64_t elapsed = now_ns() - start;
     if (!tree) {
       puts("status=c_timeout");
@@ -243,11 +276,11 @@ int main(int argc, char **argv) {
     free(source);
     return 2;
   }
-  ts_parser_set_timeout_micros(parser, (uint64_t)timeout_us);
   printf("schema=gts-static-c-perf/v2\naxis=%s\n", axis);
   int status = 2;
   if (strcmp(axis, "full") == 0) {
-    status = measure_full(parser, source, (uint32_t)source_len, warmup, reps);
+    status = measure_full(parser, source, (uint32_t)source_len, warmup, reps,
+                          (uint64_t)timeout_us);
   } else {
     fputs("status=c_protocol_error\n", stderr);
     fprintf(stderr, "unsupported axis: %s\n", axis);
