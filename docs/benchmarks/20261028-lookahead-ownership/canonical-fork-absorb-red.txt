@@ -1,6 +1,0 @@
-=== RUN   TestScratchRecoveryForkAbsorbDoesNotMutateSibling
-    recovery_fork_absorb_scratch_test.go:8: sibling mutated: end=11 children=1
---- FAIL: TestScratchRecoveryForkAbsorbDoesNotMutateSibling (0.00s)
-FAIL
-FAIL	github.com/odvcencio/gotreesitter	0.010s
-FAIL

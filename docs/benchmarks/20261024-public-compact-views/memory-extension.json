@@ -1,7 +1,0 @@
-{
-  "decision": "Extend the existing two alternating pairs to the required 20 before deciding RSS. Preserve seeds 1 and 2; add only 3..20. No discarded samples or relaxed thresholds.",
-  "reason": "The final cold reserve reduces backing by 8.7 MB, but the small RSS screen disagrees across root/walk modes. Use the full pre-specified sample count.",
-  "gate": "candidate/baseline median <=1.10 and <=400 bytes/source byte",
-  "initial": "qualified/memory-screen/analysis.json",
-  "final": "qualified/memory-screen/analysis-full.json"
-}

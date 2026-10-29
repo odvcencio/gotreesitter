@@ -1,7 +1,0 @@
-{
-  "Replace": {
-    "/workspace/internal/parsercorephase0/native_projection_stream.go": "/controls/precedence-fleet/baseline-sources/native_projection_stream.go",
-    "/workspace/internal/parsercorephase0/native_projection_walk.go": "/controls/precedence-fleet/baseline-sources/native_projection_walk.go",
-    "/workspace/parsercore_phase0_driver.go": "/controls/precedence-fleet/baseline-sources/parsercore_phase0_driver.go"
-  }
-}

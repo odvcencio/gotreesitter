@@ -1,3 +1,0 @@
-f74eba9e9aa68137db2d63a0b6c5c6fd17e5feb2e39b6c21879a120f6aced2e2  root.test
-7e93767db911dcbddfc40f0c236ce73ce22da074a4e899129ce348bac75ed9e9  baseline-ledger
-91731d16270efcc7e25b915440557044b60ce2b0ac2eb43c1fd186a967cf5fde  candidate-ledger

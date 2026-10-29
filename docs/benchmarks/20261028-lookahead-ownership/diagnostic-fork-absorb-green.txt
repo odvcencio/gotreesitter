@@ -1,4 +1,0 @@
-=== RUN   TestScratchRecoveryForkAbsorbDoesNotMutateSibling
---- PASS: TestScratchRecoveryForkAbsorbDoesNotMutateSibling (0.00s)
-PASS
-ok  	github.com/odvcencio/gotreesitter	0.007s
