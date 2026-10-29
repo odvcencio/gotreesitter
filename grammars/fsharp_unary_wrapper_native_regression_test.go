@@ -103,7 +103,7 @@ func TestFSharpUnaryWrapperRoutesStayExactOrFailClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(oldTree.Release)
-	endPoint := retiredDispatchPointAtByte(oldSource, len(oldSource))
+	endPoint := pointAtByte(oldSource, len(oldSource))
 	oldTree.Edit(gotreesitter.InputEdit{
 		StartByte:   uint32(len(oldSource)),
 		OldEndByte:  uint32(len(oldSource)),

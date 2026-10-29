@@ -1,7 +1,0 @@
-{
-  "Replace": {
-    "/reference/internal/parsercorephase0/core.go": "/evidence/core-overlay-formatted.go.txt",
-    "/reference/zz_link_metadata_small_census_test.go": "/evidence/small_census_test.go.txt",
-    "/reference/zz_link_metadata_large_census_test.go": "/evidence/rss_root_test.go.txt"
-  }
-}

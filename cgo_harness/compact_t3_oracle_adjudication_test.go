@@ -228,6 +228,13 @@ func TestCompactT3OracleAdjudication(t *testing.T) {
 					switch {
 					case len(divergences) == 0:
 						t.Logf("witness %q: compact matches the C oracle structurally", witness.ID)
+					case compactT3RecoveryCertifiedWitnesses[witness.ID] && knownCOracleDifference(t) != "":
+						// The 0.27.1 oracle changed this witness's error
+						// recovery. Root HasError is still asserted above.
+						t.Logf(
+							"witness %q: known difference from the C oracle 0.27.1 (%s): %s; compact diverges at %d node(s); first: %s",
+							witness.ID, knownCOracleDifferencesIssue, knownCOracleDifference(t), len(divergences), compactT3FormatDivergence(divergences[0]),
+						)
 					case compactT3RecoveryCertifiedWitnesses[witness.ID]:
 						t.Fatalf(
 							"witness %q: compact recovery certification requires C parity, but compact diverges at %d node(s); first: %s",

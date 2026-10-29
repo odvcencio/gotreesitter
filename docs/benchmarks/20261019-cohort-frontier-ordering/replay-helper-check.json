@@ -1,7 +1,0 @@
-{
-  "variants_prepared_with_hash_checks": 7,
-  "production_negative_control_prepared": true,
-  "paired_private_overlays_prepared": true,
-  "go_tests_run_by_helper_check": false,
-  "checkout_changed": false
-}

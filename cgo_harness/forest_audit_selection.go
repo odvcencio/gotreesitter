@@ -3,11 +3,14 @@ package cgoharness
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/odvcencio/gotreesitter/cgo_harness/internal/realcorpus"
@@ -211,7 +214,8 @@ func verifyForestCorpusCheckout(root string, entry forestCorpusLockEntry) error 
 	if err != nil {
 		return fmt.Errorf("verify %s corpus checkout cleanliness: %w", entry.Language, err)
 	}
-	if err := verifyForestCorpusCheckoutStatus(entry, status); err != nil {
+	gitLFSObjectCurrent := func(rel string) bool { return forestGitLFSObjectCurrent(checkout, rel, git) }
+	if err := verifyForestCorpusCheckoutStatus(entry, status, gitLFSObjectCurrent); err != nil {
 		return err
 	}
 	remote, err := git("remote", "get-url", "origin")
@@ -224,7 +228,7 @@ func verifyForestCorpusCheckout(root string, entry forestCorpusLockEntry) error 
 	return nil
 }
 
-func verifyForestCorpusCheckoutStatus(entry forestCorpusLockEntry, status []byte) error {
+func verifyForestCorpusCheckoutStatus(entry forestCorpusLockEntry, status []byte, gitLFSObjectCurrent func(rel string) bool) error {
 	for len(status) > 0 {
 		end := bytes.IndexByte(status, 0)
 		if end < 0 {
@@ -237,6 +241,9 @@ func verifyForestCorpusCheckoutStatus(entry forestCorpusLockEntry, status []byte
 		}
 		state, rel := string(record[:2]), string(record[3:])
 		if state == "??" && forestCorpusGeneratedPathAllowed(entry, rel) {
+			continue
+		}
+		if state == " M" && gitLFSObjectCurrent(rel) {
 			continue
 		}
 		return fmt.Errorf("%s corpus checkout is dirty (%s %s)", entry.Language, state, rel)
@@ -257,6 +264,85 @@ func forestCorpusGeneratedPathAllowed(entry forestCorpusLockEntry, rel string) b
 	}
 	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(rel)))
 	return clean == rel && strings.HasPrefix(rel, generatedSubdir+"/")
+}
+
+// forestGitLFSObjectCurrent reports whether the file at rel holds the Git LFS
+// object that the pointer committed at HEAD names.
+//
+// A checkout made with git-lfs replaces each pointer with its object. A git
+// without git-lfs, such as the one in the harness image, cannot run the clean
+// filter that maps the object back to the pointer. It hashes the object, finds
+// a blob that differs from the pointer, and reports the file as modified. The
+// Odin corpus stores its vendored Windows libraries this way. Matching the file
+// against the size and SHA-256 in the pointer makes the content check that git
+// status cannot make here, so it forgives no change to the bytes.
+func forestGitLFSObjectCurrent(checkout, rel string, git func(args ...string) ([]byte, error)) bool {
+	attribute, err := git("check-attr", "-z", "filter", "--", rel)
+	if err != nil {
+		return false
+	}
+	// The -z form is "<path> NUL <attribute> NUL <value> NUL".
+	if fields := bytes.Split(attribute, []byte{0}); len(fields) < 3 || string(fields[2]) != "lfs" {
+		return false
+	}
+	blob := "HEAD:" + rel
+	blobSize, err := git("cat-file", "-s", blob)
+	if err != nil {
+		return false
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(string(blobSize))); err != nil || n >= forestGitLFSPointerSizeLimit {
+		return false
+	}
+	pointer, err := git("cat-file", "blob", blob)
+	if err != nil {
+		return false
+	}
+	oid, size, ok := parseForestGitLFSPointer(pointer)
+	if !ok {
+		return false
+	}
+	filePath, err := forestManifestPath(checkout, "git LFS object", rel)
+	if err != nil {
+		return false
+	}
+	return forestVerifyManifestFile(filePath, size, oid, rel) == nil
+}
+
+// forestGitLFSPointerSizeLimit is the size at which a blob stops being a Git
+// LFS pointer: the specification (docs/spec.md in git-lfs/git-lfs) says pointer
+// files "must be less than 1024 bytes in size". The check reads no blob of this
+// size or larger.
+const forestGitLFSPointerSizeLimit = 1024
+
+// parseForestGitLFSPointer reads a Git LFS version 1 pointer: the lines
+// "version https://git-lfs.github.com/spec/v1", "oid sha256:<lowercase hex>"
+// and "size <bytes>", in that order. It rejects every other form, so a file
+// that only resembles a pointer never names an object.
+func parseForestGitLFSPointer(data []byte) (oid string, size int64, ok bool) {
+	text, found := strings.CutSuffix(string(data), "\n")
+	if !found {
+		return "", 0, false
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) != 3 || lines[0] != "version https://git-lfs.github.com/spec/v1" {
+		return "", 0, false
+	}
+	oid, found = strings.CutPrefix(lines[1], "oid sha256:")
+	if !found {
+		return "", 0, false
+	}
+	if decoded, err := hex.DecodeString(oid); err != nil || len(decoded) != sha256.Size || hex.EncodeToString(decoded) != oid {
+		return "", 0, false
+	}
+	sizeText, found := strings.CutPrefix(lines[2], "size ")
+	if !found {
+		return "", 0, false
+	}
+	size, err := strconv.ParseInt(sizeText, 10, 64)
+	if err != nil || size < 0 || strconv.FormatInt(size, 10) != sizeText {
+		return "", 0, false
+	}
+	return oid, size, true
 }
 
 func forestSameRepository(left, right string) bool {

@@ -1174,8 +1174,13 @@ func cssN(n int) string {
 	return string(b[i:])
 }
 
+// pointForOffset returns the row and byte column of offset in src. An offset
+// past the end of src clamps to the end.
 func pointForOffset(src []byte, offset int) gts.Point {
 	var pt gts.Point
+	if offset > len(src) {
+		offset = len(src)
+	}
 	for _, b := range src[:offset] {
 		if b == '\n' {
 			pt.Row++

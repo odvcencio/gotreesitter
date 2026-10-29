@@ -21,8 +21,8 @@ const (
 	doxygenNextCGrammarRepo    = "https://github.com/amaanq/tree-sitter-doxygen"
 	doxygenNextCArtifactSHA256 = "1fe84dfe69da98a5860f2261fc8deb2cf250aa4ae07c2ecf3bace5dfe396d11e"
 	doxygenNextCContract       = "tree-sitter-c-v1"
-	doxygenNextCRuntimeVersion = "0.25.1"
-	doxygenNextCRuntimeCommit  = "f5afe475deb7c0bae6407fb776c76824f717bb61"
+	doxygenNextCRuntimeVersion = "0.27.1"
+	doxygenNextCRuntimeCommit  = "10eb5ac119eec9cb4267a8e035066473983f5f3a"
 )
 
 type doxygenNextWitness struct {
@@ -189,8 +189,8 @@ func TestDoxygenNextLiveArmProbe(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(oldTree.Release)
-			sourceEnd := doxygenNextPoint(source)
-			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(source)), StartPoint: sourceEnd, OldEndPoint: doxygenNextPoint(base), NewEndPoint: sourceEnd})
+			sourceEnd := endPoint(source)
+			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(source)), StartPoint: sourceEnd, OldEndPoint: endPoint(base), NewEndPoint: sourceEnd})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(source, oldTree)
 			if err != nil {
 				t.Fatal(err)
@@ -258,19 +258,6 @@ func doxygenNextFileSHA(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return fmt.Sprintf("%x", sha256.Sum256(data))
-}
-
-func doxygenNextPoint(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }
 
 // TestDoxygenNextLiveArmReceiptDocument guards the current blocker receipt.

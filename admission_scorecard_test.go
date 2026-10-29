@@ -79,7 +79,7 @@ var admissionScorecardRequiredCompactPasses = map[string]struct{}{
 	"glsl": {}, "gn": {}, "go": {}, "godot_resource": {}, "gomod": {}, "graphql": {},
 	"groovy": {}, "hack": {}, "hare": {}, "haskell": {}, "haxe": {}, "hcl": {}, "heex": {},
 	"hlsl": {}, "html": {}, "http": {}, "hurl": {}, "hyprlang": {}, "ini": {}, "janet": {}, "javascript": {}, "jinja2": {}, "jq": {}, "jsdoc": {},
-	"json5": {}, "jsonnet": {}, "julia": {}, "just": {}, "kconfig": {}, "kdl": {}, "kotlin": {},
+	"json": {}, "json5": {}, "jsonnet": {}, "julia": {}, "just": {}, "kconfig": {}, "kdl": {}, "kotlin": {},
 	"ledger": {}, "less": {}, "linkerscript": {}, "liquid": {}, "llvm": {}, "lua": {},
 	"luau": {}, "make": {}, "markdown": {}, "markdown_inline": {}, "matlab": {}, "mermaid": {}, "meson": {}, "mojo": {},
 	"move": {}, "nginx": {}, "nickel": {}, "nim": {}, "ninja": {}, "nix": {}, "norg": {}, "nushell": {},
@@ -147,8 +147,13 @@ func TestAdmissionCandidateScorecard206(t *testing.T) {
 		// registry drift, or surrendered route coverage require an explicit
 		// review and ratchet update.
 		//
-		// The 201/0/5 ratchet includes Markdown inline's exact compact conflict
+		// The 202/0/4 ratchet includes Markdown inline's exact compact conflict
 		// policies. Its smoke route now reaches authenticated EOF.
+		//
+		// JSON joined on 2026-10-27. Its hand-written token source was
+		// deleted, so the registry parses it with the DFA lexer and its smoke
+		// sample reaches the compact route. Authzed, C, C++ and Java keep a
+		// token source and still SKIP.
 		//
 		// Scala rejoined the ratchet on 2026-09-20 under the end-of-file
 		// scanner quiescence proof. tree-sitter-scala db390f312a54
@@ -173,9 +178,9 @@ func TestAdmissionCandidateScorecard206(t *testing.T) {
 		// still declines.
 		const (
 			wantTotal   = 206
-			minPass     = 201
+			minPass     = 202
 			maxFallback = 0
-			wantSkip    = 5
+			wantSkip    = 4
 		)
 		if got := len(admissionScorecardRequiredCompactPasses); got != minPass {
 			t.Fatalf("compact admission manifest has %d entries, want %d", got, minPass)

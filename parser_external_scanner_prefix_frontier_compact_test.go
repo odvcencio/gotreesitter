@@ -38,9 +38,9 @@ func TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk(t *
 				StartByte:   uint32(offset),
 				OldEndByte:  uint32(offset),
 				NewEndByte:  uint32(offset + 4),
-				StartPoint:  compactPrefixPythonPointAt(source, offset),
-				OldEndPoint: compactPrefixPythonPointAt(source, offset),
-				NewEndPoint: compactPrefixPythonPointAt(edited, offset+4),
+				StartPoint:  pointForOffset(source, offset),
+				OldEndPoint: pointForOffset(source, offset),
+				NewEndPoint: pointForOffset(edited, offset+4),
 			}
 
 			gts.ResetAdmissionCandidateCountersForTest()
@@ -102,17 +102,4 @@ func compactPrefixPythonSource(targetBytes int) []byte {
 		fmt.Fprintf(&source, "def f%d(a):\n    if a:\n        return 0\n    return 0\n\n", index)
 	}
 	return []byte(source.String())
-}
-
-func compactPrefixPythonPointAt(source []byte, offset int) gts.Point {
-	point := gts.Point{}
-	for _, b := range source[:offset] {
-		if b == '\n' {
-			point.Row++
-			point.Column = 0
-			continue
-		}
-		point.Column++
-	}
-	return point
 }

@@ -1,1 +1,0 @@
-ok  	github.com/odvcencio/gotreesitter/internal/parsercorephase0	0.194s

@@ -45,6 +45,7 @@ func TestParityQueryExactTop50Generated(t *testing.T) {
 			for _, qc := range queries {
 				qc := qc
 				t.Run(qc.name, func(t *testing.T) {
+					skipKnownCOracleDifference(t)
 					assertExactQueryParity(t, exactQueryCase{
 						name:   qc.name,
 						lang:   tc.name,

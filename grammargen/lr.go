@@ -3351,10 +3351,6 @@ func resolveConflictsWithTrace(ctx context.Context, tables *LRTables, ng *Normal
 	return stats, nil
 }
 
-func augmentAdjacentRepeatElementReduceLookaheads(ctx context.Context, tables *LRTables, ng *NormalizedGrammar) (conflictResolutionStats, error) {
-	return augmentAdjacentRepeatElementReduceLookaheadsWithTrace(ctx, tables, ng, phaseTrace{})
-}
-
 func augmentAdjacentRepeatElementReduceLookaheadsWithTrace(ctx context.Context, tables *LRTables, ng *NormalizedGrammar, trace phaseTrace) (conflictResolutionStats, error) {
 	if ctx == nil {
 		ctx = context.Background()

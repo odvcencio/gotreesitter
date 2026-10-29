@@ -8,14 +8,14 @@
 // merge-adjacent log line is "condense", which parser.c:1855 emits when
 // made_changes is set by any of removal, merge, or swap, so it cannot be
 // counted as a merge. The census therefore uses the instrumented build, which
-// the repository already carries: cgo_harness/work_count/tree_sitter_v0_25_1.patch
+// the repository already carries: the patch selected by COracleWorkCountPatch
 // adds merge_attempts_proxy and merge_successes_proxy directly around
 // ts_stack_merge (stack.c) and the six GTSLinkUnionOutcome counters around
 // stack_node_add_link.
 //
 // This driver is compiled against the SAME runtime source the pinned C oracle
-// uses (github.com/tree-sitter/go-tree-sitter@v0.25.0/src, resolved from the
-// module cache and patched into a private snapshot) and it dlopens the SAME
+// uses (the harness-local binding's pinned src directory, resolved through
+// go.mod and patched into a private snapshot) and it dlopens the SAME
 // grammar shared object the parity C-reference loader built. Both sides of
 // the census therefore run one runtime and one grammar table.
 //
@@ -29,11 +29,51 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "api.h"
 #include "work_count.h"
 
 typedef const TSLanguage *(*gts_lang_fn)(void);
+
+// Runtime 0.26 removed the parser timeout setter. Keep the diagnostic wall
+// budget through the upstream progress callback, without patching the parser.
+typedef struct {
+  const char *source;
+  uint32_t length;
+  struct timespec start;
+  uint64_t timeout_us;
+} GTSParseInput;
+
+static const char *gts_parse_read(void *payload, uint32_t offset,
+                                TSPoint point, uint32_t *length) {
+  (void)point;
+  GTSParseInput *input = payload;
+  *length = offset < input->length ? input->length - offset : 0;
+  return input->source + (offset < input->length ? offset : input->length);
+}
+
+static bool gts_parse_progress(TSParseState *state) {
+  GTSParseInput *input = state->payload;
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return true;
+  int64_t elapsed_ns = (int64_t)(now.tv_sec - input->start.tv_sec) * 1000000000 +
+                       now.tv_nsec - input->start.tv_nsec;
+  return elapsed_ns >= 0 && (uint64_t)elapsed_ns / 1000 >= input->timeout_us;
+}
+
+static TSTree *gts_parse_with_timeout(TSParser *parser, const char *source,
+                                    uint32_t length, uint64_t timeout_us) {
+  if (timeout_us == 0) return ts_parser_parse_string(parser, NULL, source, length);
+  GTSParseInput payload = {.source = source, .length = length,
+                          .timeout_us = timeout_us};
+  if (clock_gettime(CLOCK_MONOTONIC, &payload.start) != 0) return NULL;
+  TSInput input = {.payload = &payload, .read = gts_parse_read,
+                   .encoding = TSInputEncodingUTF8};
+  TSParseOptions options = {.payload = &payload,
+                           .progress_callback = gts_parse_progress};
+  return ts_parser_parse_with_options(parser, NULL, input, options);
+}
 
 static char *read_file(const char *path, size_t *out_len) {
   FILE *file = fopen(path, "rb");
@@ -295,12 +335,11 @@ int main(int argc, char **argv) {
       }
       continue;
     }
-    ts_parser_set_timeout_micros(parser, timeout_us);
 
     gts_work_count_reset();
     gts_topology_enable(topology_mode);
     TSTree *tree =
-        ts_parser_parse_string(parser, NULL, source, (uint32_t)source_len);
+        gts_parse_with_timeout(parser, source, (uint32_t)source_len, timeout_us);
     gts_topology_finish_parse();
     GTSWorkCount counts = gts_work_count_snapshot();
     const GTSTopologyReceipt *receipt = gts_topology_snapshot();

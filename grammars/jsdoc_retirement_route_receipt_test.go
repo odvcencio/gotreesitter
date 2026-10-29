@@ -230,8 +230,8 @@ func jsdocIncrementalRoute(t *testing.T, language *gotreesitter.Language, source
 		t.Fatalf("incremental variant base parse: %v", err)
 	}
 	t.Cleanup(oldTree.Release)
-	startPoint := jsdocPointAtByte(source, len(source))
-	oldEndPoint := jsdocPointAtByte(variant, len(variant))
+	startPoint := pointAtByte(source, len(source))
+	oldEndPoint := pointAtByte(variant, len(variant))
 	oldTree.Edit(gotreesitter.InputEdit{
 		StartByte:   uint32(len(source)),
 		OldEndByte:  uint32(len(variant)),
@@ -261,20 +261,4 @@ func jsdocIncrementalRoute(t *testing.T, language *gotreesitter.Language, source
 		t.Fatalf("incremental route did not reuse the old tree: %+v", profile)
 	}
 	return fmt.Sprintf("reuse:%d:%d", profile.ReusedSubtrees, profile.ReusedBytes), digest
-}
-
-func jsdocPointAtByte(source []byte, offset int) gotreesitter.Point {
-	var point gotreesitter.Point
-	for index, value := range source {
-		if index == offset {
-			break
-		}
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-			continue
-		}
-		point.Column++
-	}
-	return point
 }

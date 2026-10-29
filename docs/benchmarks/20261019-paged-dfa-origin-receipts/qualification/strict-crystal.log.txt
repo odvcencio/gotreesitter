@@ -1,4 +1,0 @@
-=== RUN   TestCompactR4StructuralLockedC
-    compact_r4_parity_test.go:26: R4 language=crystal bytes=2047 compact=0 fallback=1 reason="compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token"
---- PASS: TestCompactR4StructuralLockedC (0.13s)
-PASS

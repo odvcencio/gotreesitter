@@ -222,14 +222,14 @@ func TestFIDLVersionedLayoutModifiersRoutesStayExactOrFailClosed(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(oldTree.Release)
-			startPoint := retiredDispatchPointAtByte(oldSource, len(oldSource))
+			startPoint := pointAtByte(oldSource, len(oldSource))
 			oldTree.Edit(gotreesitter.InputEdit{
 				StartByte:   uint32(len(oldSource)),
 				OldEndByte:  uint32(len(oldSource)),
 				NewEndByte:  uint32(len(source)),
 				StartPoint:  startPoint,
 				OldEndPoint: startPoint,
-				NewEndPoint: retiredDispatchPointAtByte(source, len(source)),
+				NewEndPoint: pointAtByte(source, len(source)),
 			})
 			incremental, _, err := incrementalParser.ParseIncrementalProfiled(source, oldTree)
 			if err != nil {

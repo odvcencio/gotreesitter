@@ -442,7 +442,7 @@ func TestInjectionParserEmptySource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Empty source — parser returns nil root, no injections.
+	// Empty source — the parser returns an empty ERROR root, no injections.
 	result, err := ip.Parse([]byte(""), "container")
 	if err != nil {
 		t.Fatal(err)

@@ -147,6 +147,7 @@ func Register(entry LangEntry) {
 		entry.GrammarSource = GrammarSourceUnknown
 	}
 	applyGrammarOwnership(&entry)
+	applyHighlightQueryFile(&entry)
 	if entry.TokenSourceFactory == nil {
 		entry.TokenSourceFactory = defaultTokenSourceFactory(entry.Name)
 	}
@@ -258,34 +259,32 @@ func RegisterExtension(ext ExtensionEntry) {
 var extensionAliases = map[string]string{}
 
 // defaultHighlightInherits records the upstream tree-sitter highlight
-// inheritance convention for grammars whose generated registry entries do
-// not populate InheritHighlights: their bundled highlights.scm contains only
-// language-specific additions and expects the parent's query ahead of it.
-// An entry's explicit InheritHighlights always takes priority.
+// inheritance convention for grammars whose queries carry no "; inherits:"
+// directive: their bundled highlights.scm contains only language-specific
+// additions and expects the parent's query ahead of it. A directive on the
+// first line of a query, or an entry's explicit InheritHighlights, takes
+// priority (see highlightParents).
 var defaultHighlightInherits = map[string]string{
-	"blade":      "html",
 	"cpp":        "c",
-	"cuda":       "cpp",
-	"glsl":       "c",
-	"objc":       "c",
-	"svelte":     "html",
-	"templ":      "go",
-	"typescript": "javascript",
 	"tsx":        "typescript",
+	"typescript": "javascript",
 }
 
-// blockedDefaultHighlightInherits keeps upstream inheritance metadata visible
-// when the locked child grammar cannot compile the current parent's query.
-// The edge remains fail-closed until the grammar/query revisions are aligned.
-var blockedDefaultHighlightInherits = map[string]string{
-	"cuda": "the locked CUDA grammar lacks C++'s module_name node",
+// highlightInheritDropNodes lists, per child language, node types that the
+// child's locked grammar lacks but the parent's query uses. Composition drops
+// the parent content that names them (see dropQueryPatterns). The locked CUDA
+// grammar lacks the C++20 module syntax: the module_name node, which stops the
+// C++ "(module_name ...)" pattern from compiling, and the "import", "export"
+// and "module" tokens, which the C reference compiler rejects.
+var highlightInheritDropNodes = map[string][]string{
+	"cuda": {"module_name", `"import"`, `"export"`, `"module"`},
 }
 
 // resolveHighlightInheritance composes highlight queries for languages that
 // inherit from a parent, walking multi-level chains (tsx -> typescript ->
 // javascript) regardless of registration order and guarding against cycles.
-// The parent is the entry's InheritHighlights, falling back to the upstream
-// convention in defaultHighlightInherits. MUST be called with registryMu
+// Parents come from highlightParents. A parent with no registry entry (for
+// example nvim's html_tags) is skipped. MUST be called with registryMu
 // .Lock() held. Callers are responsible for ensuring builtins are registered
 // first.
 func resolveHighlightInheritance() {
@@ -324,26 +323,27 @@ func resolveHighlightInheritance() {
 		}
 		state[name] = resolveVisiting
 		query := registry[i].rawHighlightQuery
-		parent := registry[i].InheritHighlights
-		blocked := false
-		if parent == "" {
-			parent = defaultHighlightInherits[name]
-			_, blocked = blockedDefaultHighlightInherits[name]
-		}
-		if parent != "" && !blocked {
+		var layers []string
+		for _, parent := range highlightParents(name, registry[i].InheritHighlights, query) {
 			parentQuery, parentCyclic := resolve(parent)
 			if parentCyclic {
 				// Fail closed for the entire invalid inheritance chain. Every
 				// affected language keeps exactly its own raw query.
 				cyclic[name] = true
-			} else if strings.TrimSpace(parentQuery) != "" {
-				if strings.TrimSpace(query) == "" {
-					// Prepend parent query so child overrides win (last match wins in tree-sitter).
-					query = parentQuery
-				} else {
-					query = parentQuery + "\n" + query
-				}
+				layers = nil
+				break
 			}
+			parentQuery = dropQueryPatterns(parentQuery, highlightInheritDropNodes[name])
+			if strings.TrimSpace(parentQuery) != "" {
+				layers = append(layers, parentQuery)
+			}
+		}
+		if len(layers) > 0 {
+			// Parents go first so child overrides win (last match wins in tree-sitter).
+			if strings.TrimSpace(query) != "" {
+				layers = append(layers, query)
+			}
+			query = strings.Join(layers, "\n")
 		}
 		composed[name] = query
 		state[name] = resolveDone

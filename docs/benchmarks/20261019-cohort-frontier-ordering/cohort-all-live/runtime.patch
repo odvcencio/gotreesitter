@@ -1,6 +1,0 @@
-diff --git a/parsercore_phase0_driver.go b/parsercore_phase0_driver.go
---- a/parsercore_phase0_driver.go
-+++ b/parsercore_phase0_driver.go
-@@ -13574 +13574 @@
--		heads, err := s.compact.ShiftOrdinaryClassifiedCohortWithLiveCondenseCandidatesOwned(owner, nil, s.classifiedBoundaries, core.Token{
-+		heads, err := s.compact.ShiftOrdinaryClassifiedCohortWithLiveCondenseCandidatesOwned(owner, s.collectCondenseCandidates(-1), s.classifiedBoundaries, core.Token{

@@ -1233,16 +1233,9 @@ func (b *resultRootBuild) finishTree(root *Node, wireParentLinks, extendTrailing
 // grammars is a no-op on a childless root, so skipping the pass loses
 // nothing there. Of the 20 receipted grammars (corn, cpon, dhall, dot, dtd,
 // doxygen, ebnf, facility, fidl, graphql, jsdoc, json5, mermaid, nickel,
-// powershell, promql, regex, ron, textproto, vhdl), only four are
+// powershell, promql, regex, ron, textproto, vhdl), only two are
 // registered in runLanguageResultCompatibility's dispatch
 // (parser_result_compat.go), checked directly:
-//   - corn (normalizeCornCompatibility): normalizeCornExtraErrorLeafFlags
-//     no-ops on a childless root because its child loop has nothing to
-//     iterate (it also requires an "extra" leaf first, an independent,
-//     second reason); normalizeCornQuotedWholePathSeg requires a 3-child
-//     "path" node, which a childless root cannot be.
-//   - dtd (normalizeDTDCompatibility): only rewrites an "elementdecl" node
-//     with at least one child.
 //   - doxygen (normalizeDoxygenCompatibility ->
 //     normalizeDoxygenWholeBlockCommentError): its own guard explicitly
 //     returns when resultChildCount(root) == 0.
@@ -1253,18 +1246,15 @@ func (b *resultRootBuild) finishTree(root *Node, wireParentLinks, extendTrailing
 //     callback only ever matches a "path_command_name" or "enum_statement"
 //     node, neither of which a childless ERROR root can be or contain.
 //
-// corn and dtd's normalizers also return immediately on len(source) == 0,
-// which does not apply to the childless root case itself (a childless
-// published root can span a non-empty source, and "" is one of many
-// receipted inputs, not the only one) but is worth noting because "" is a
-// receipted input for 17 of the 20 grammars here.
+// The corn and dtd dispatcher arms were retired, so they no longer need this
+// check.
 //
 // c_sharp and earthfile are deliberately not receipted (see
 // CRecoverEOFBareRootReceipted's doc comment: c_sharp's route diverges from
 // C outright, earthfile's is mixed), so neither reaches this analysis;
 // c_sharp does have a registered normalizer (normalizeCSharpCompatibility),
 // but it is out of scope here because tryPublishCRecoverEOFRoot never
-// selects c_sharp's root for publication. The remaining 16 receipted
+// selects c_sharp's root for publication. The remaining 18 receipted
 // grammars have no registered
 // normalizer at all. This analysis covers only the childless subcase
 // tryPublishCRecoverEOFRoot publishes; a with-children recover_eof root is

@@ -56,51 +56,6 @@ const (
 	rstTokenCount = 41
 )
 
-// Concrete grammar symbols emitted via SetResultSymbol.
-const (
-	rstSymNewline             gotreesitter.Symbol = 11
-	rstSymBlankline           gotreesitter.Symbol = 12
-	rstSymIndent              gotreesitter.Symbol = 13
-	rstSymNewlineIndent       gotreesitter.Symbol = 14
-	rstSymDedent              gotreesitter.Symbol = 15
-	rstSymOverline            gotreesitter.Symbol = 16
-	rstSymUnderline           gotreesitter.Symbol = 17
-	rstSymTransition          gotreesitter.Symbol = 18
-	rstSymCharBullet          gotreesitter.Symbol = 19
-	rstSymNumericBullet       gotreesitter.Symbol = 20
-	rstSymFieldMark           gotreesitter.Symbol = 21
-	rstSymFieldMarkEnd        gotreesitter.Symbol = 22
-	rstSymLiteralIndented     gotreesitter.Symbol = 23
-	rstSymLiteralQuoted       gotreesitter.Symbol = 24
-	rstSymQuotedLiteralBlock  gotreesitter.Symbol = 25
-	rstSymLineBlockMark       gotreesitter.Symbol = 26
-	rstSymAttributionMark     gotreesitter.Symbol = 27
-	rstSymDoctestBlockMark    gotreesitter.Symbol = 28
-	rstSymText                gotreesitter.Symbol = 29
-	rstSymEmphasis            gotreesitter.Symbol = 30
-	rstSymStrong              gotreesitter.Symbol = 31
-	rstSymInterpretedText     gotreesitter.Symbol = 32
-	rstSymInterpretedTextPfx  gotreesitter.Symbol = 33
-	rstSymRoleNamePrefix      gotreesitter.Symbol = 34
-	rstSymRoleNameSuffix      gotreesitter.Symbol = 35
-	rstSymLiteral             gotreesitter.Symbol = 36
-	rstSymSubstitutionRef     gotreesitter.Symbol = 37
-	rstSymInlineTarget        gotreesitter.Symbol = 38
-	rstSymFootnoteRef         gotreesitter.Symbol = 39
-	rstSymCitationRef         gotreesitter.Symbol = 40
-	rstSymReference           gotreesitter.Symbol = 41
-	rstSymStandaloneHyperlink gotreesitter.Symbol = 42
-	rstSymExplicitMarkup      gotreesitter.Symbol = 43
-	rstSymFootnoteLabel       gotreesitter.Symbol = 44
-	rstSymCitationLabel       gotreesitter.Symbol = 45
-	rstSymTargetName          gotreesitter.Symbol = 46
-	rstSymAnonymousTarget     gotreesitter.Symbol = 47
-	rstSymDirectiveName       gotreesitter.Symbol = 48
-	rstSymSubstitutionMark    gotreesitter.Symbol = 49
-	rstSymEmptyComment        gotreesitter.Symbol = 50
-	rstSymInvalidToken        gotreesitter.Symbol = 51
-)
-
 // rstDefaultSymTable records the concrete gotreesitter.Symbol IDs the
 // currently shipped rst.bin assigns to each external, in external index
 // order. It exists only as a pre-bind fallback (and as an independent value

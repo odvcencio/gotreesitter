@@ -1,9 +1,0 @@
-{
-  "passed": true,
-  "base": "356c980d58fc5c5e3fb8478d8eda50fa4f6ece58",
-  "qualified_runtime": "e91e0322f1b094c0995684449f9b90a1a08f4783",
-  "qualified_receipt": "abe6c7396b6d7ef45770487808cf6211a05e326f",
-  "Go_source_pins_exact": 3541,
-  "non_docs_tree_exact": true,
-  "reason": "Carry qualified D64 onto merged C; main changes outside C were receipt-only"
-}

@@ -1,7 +1,0 @@
-{
-  "parent_source_reference_sha256": "a06e291953647874a9a596df48294e956cc0e94c045f30a0593fdfff575c19f4",
-  "extra_probe": "cached_control_test.go.txt",
-  "purpose": "Unchanged cancel/timeout/memory assertions with explicit private work pins; original tests remain negative controls",
-  "extra_probe_sha256": "cb3dfdee1c3dcffa5c23f41d9bc6d3dd05a4d232c6aba3976f4552036c18acd5",
-  "corrected_attempt": "attempt1 missing strings import; compiler output retained"
-}

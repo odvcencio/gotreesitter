@@ -22,22 +22,27 @@ func spliceTestEdit(before, after []byte) gotreesitter.InputEdit {
 	oldEnd, newEnd := len(before)-suffix, len(after)-suffix
 	return gotreesitter.InputEdit{
 		StartByte: uint32(start), OldEndByte: uint32(oldEnd), NewEndByte: uint32(newEnd),
-		StartPoint: spliceTestPoint(before, start), OldEndPoint: spliceTestPoint(before, oldEnd),
-		NewEndPoint: spliceTestPoint(after, newEnd),
+		StartPoint: pointAtByte(before, start), OldEndPoint: pointAtByte(before, oldEnd),
+		NewEndPoint: pointAtByte(after, newEnd),
 	}
 }
 
-func spliceTestPoint(src []byte, offset int) gotreesitter.Point {
-	var pt gotreesitter.Point
-	for _, b := range src[:offset] {
-		if b == '\n' {
-			pt.Row++
-			pt.Column = 0
-		} else {
-			pt.Column++
+// pointAtByte returns the row and byte column of offset in source. An offset
+// past the end of source clamps to the end.
+func pointAtByte(source []byte, offset int) gotreesitter.Point {
+	var point gotreesitter.Point
+	for index, value := range source {
+		if index == offset {
+			break
 		}
+		if value == '\n' {
+			point.Row++
+			point.Column = 0
+			continue
+		}
+		point.Column++
 	}
-	return pt
+	return point
 }
 
 // spliceTreeDiff compares node type, byte span, error and missing flags,

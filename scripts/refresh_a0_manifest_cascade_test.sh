@@ -51,16 +51,13 @@ a0_files=(
 	julia_dispatch_blocker_receipt_test.go
 	perl_n31s_dispatcher_blocker_receipt_test.go
 	solidity_next_live_probe_test.go
-	templ_n31q_dispatcher_blocker_receipt_test.go
 	wgsl_n31r_dispatcher_blocker_receipt_test.go
-	wolfram_next_live_probe_test.go
 )
 tracked_files=(
 	julia_dispatch_blocker_receipt_test.go
 	perl_n31s_dispatcher_blocker_receipt_test.go
 	solidity_next_live_probe_test.go
 	wgsl_n31r_dispatcher_blocker_receipt_test.go
-	wolfram_next_live_probe_test.go
 )
 
 copy_fixture grammars/languages.lock
@@ -94,7 +91,7 @@ fi
 [[ "$julia_before" == "$(sha_of "$test_root/cgo_harness/julia_dispatch_blocker_receipt_test.go")" ]] ||
 	fail "--check edited a receipt"
 
-# 3. The refresh rewrites the lock field and all six A0 constants.
+# 3. The refresh rewrites the lock field and all four A0 constants.
 bash "$refresher" --repo-root "$test_root" >/dev/null
 want_lock=$(sha_of "$test_root/grammars/languages.lock")
 [[ "$(lock_field "$test_root/testdata/dispatcher_census_a0_manifest_v1.json")" == "$want_lock" ]] ||
@@ -126,9 +123,11 @@ for f in "${tracked_files[@]}"; do
 	[[ "$(tracked_constant "$test_root/cgo_harness/$f")" == "$want_tracked" ]] ||
 		fail "tracked constant not refreshed in $f"
 done
-# The templ receipt has no tracked constant and keeps its A0 value.
-[[ "$(a0_constant "$test_root/cgo_harness/templ_n31q_dispatcher_blocker_receipt_test.go")" == "$want_a0" ]] ||
-	fail "templ A0 constant changed during a tracked refresh"
+# A tracked refresh leaves the A0 constants at their A0 value.
+for f in "${a0_files[@]}"; do
+	[[ "$(a0_constant "$test_root/cgo_harness/$f")" == "$want_a0" ]] ||
+		fail "A0 constant changed during a tracked refresh in $f"
+done
 
 # 6. The historical log is untouched.
 [[ "$log_before" == "$(sha_of "$test_root/docs/root-normalization-retirement.md")" ]] ||

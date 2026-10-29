@@ -1,0 +1,150 @@
+{
+  "$schema_note": "License audit for the upstream repositories that the embedded highlight queries in grammars/highlight_queries/ were copied from. Each source is one repository at one commit and carries the same license facts as an entry in licenses/grammars.json. Every .scm file in that directory must be listed under at least one source. Its header comment must agree with this file: one '; Source:' line per source, and a '; Change:' line that starts with 'none' exactly when no source marks the file modified. 'modified' means the embedded query text differs from the upstream file; the header comment itself does not count. Regenerate THIRD_PARTY_NOTICES from this file via `go run ./cmd/gen_license_notices`.",
+  "generated_from": "grammars/highlight_queries",
+  "source_count": 5,
+  "sources": [
+    {
+      "name": "nvim-treesitter",
+      "repo": "https://github.com/nvim-treesitter/nvim-treesitter",
+      "ref": "a2f694478be07f89c2d03cc17858a8745a400c4b",
+      "spdx": "Apache-2.0",
+      "license_name": "Apache License 2.0",
+      "copyright_holders": [],
+      "license_file_url": "https://github.com/nvim-treesitter/nvim-treesitter/blob/a2f694478be07f89c2d03cc17858a8745a400c4b/LICENSE",
+      "method": "github_license_api",
+      "copyleft": false,
+      "note": "The LICENSE at the pinned commit is the standard Apache-2.0 text with its appendix unfilled (\"Copyright [yyyy] [name of copyright owner]\"). The README and CONTRIBUTING.md name no copyright holder, and the repository has no NOTICE file at that commit, so no copyright statement is asserted here; the repository owner is recorded for reference only, not as a confirmed copyright holder. None of the nine copied files carries a copyright or license comment. commonlisp.scm keeps its upstream \"Generated via\" pointer to the script that produced its symbol list. Checked with gh api at the pinned commit on 2026-10-27.",
+      "repository_owner": "nvim-treesitter",
+      "files": [
+        {
+          "file": "astro.scm",
+          "upstream": "runtime/queries/astro/highlights.scm",
+          "modified": true
+        },
+        {
+          "file": "commonlisp.scm",
+          "upstream": "runtime/queries/commonlisp/highlights.scm",
+          "modified": false
+        },
+        {
+          "file": "fennel.scm",
+          "upstream": "runtime/queries/fennel/highlights.scm",
+          "modified": false
+        },
+        {
+          "file": "godot_resource.scm",
+          "upstream": "runtime/queries/godot_resource/highlights.scm",
+          "modified": false
+        },
+        {
+          "file": "hlsl.scm",
+          "upstream": "runtime/queries/hlsl/highlights.scm",
+          "modified": false
+        },
+        {
+          "file": "html.scm",
+          "upstream": "runtime/queries/html_tags/highlights.scm",
+          "modified": true
+        },
+        {
+          "file": "jsdoc.scm",
+          "upstream": "runtime/queries/jsdoc/highlights.scm",
+          "modified": false
+        },
+        {
+          "file": "rst.scm",
+          "upstream": "runtime/queries/rst/highlights.scm",
+          "modified": false
+        },
+        {
+          "file": "typst.scm",
+          "upstream": "runtime/queries/typst/highlights.scm",
+          "modified": true
+        }
+      ]
+    },
+    {
+      "name": "tree-sitter-html",
+      "repo": "https://github.com/tree-sitter/tree-sitter-html",
+      "ref": "73a3947324f6efddf9e17c0ea58d454843590cc0",
+      "spdx": "MIT",
+      "license_name": "MIT License",
+      "copyright_holders": [
+        "Copyright (c) 2014 Max Brunsfeld"
+      ],
+      "license_file_url": "https://github.com/tree-sitter/tree-sitter-html/blob/73a3947324f6efddf9e17c0ea58d454843590cc0/LICENSE",
+      "method": "license_file_content",
+      "copyleft": false,
+      "note": "html.scm opens with this repository's queries/highlights.scm, unchanged. The registry used that query alone before nvim-treesitter's html_tags patterns were added.",
+      "files": [
+        {
+          "file": "html.scm",
+          "upstream": "queries/highlights.scm",
+          "modified": true
+        }
+      ]
+    },
+    {
+      "name": "tree-sitter-sfapex",
+      "repo": "https://github.com/aheber/tree-sitter-sfapex",
+      "ref": "da568eee10ce4724a40f368b2b7e795dacb4f1ba",
+      "spdx": "MIT",
+      "license_name": "MIT License",
+      "copyright_holders": [
+        "Copyright (c) 2012 Anthony Heber"
+      ],
+      "license_file_url": "https://github.com/aheber/tree-sitter-sfapex/blob/da568eee10ce4724a40f368b2b7e795dacb4f1ba/LICENSE",
+      "method": "license_file_content",
+      "copyleft": false,
+      "files": [
+        {
+          "file": "apex.scm",
+          "upstream": "apex/queries/highlights.scm",
+          "modified": false
+        }
+      ]
+    },
+    {
+      "name": "tree-sitter-vue",
+      "repo": "https://github.com/tree-sitter-grammars/tree-sitter-vue",
+      "ref": "ce8011a414fdf8091f4e4071752efc376f4afb08",
+      "spdx": "MIT",
+      "license_name": "MIT License",
+      "copyright_holders": [
+        "Copyright (c) 2024 Amaan Qureshi <amaanq12@gmail.com>"
+      ],
+      "license_file_url": "https://github.com/tree-sitter-grammars/tree-sitter-vue/blob/ce8011a414fdf8091f4e4071752efc376f4afb08/LICENSE",
+      "method": "license_file_content",
+      "copyleft": false,
+      "files": [
+        {
+          "file": "vue.scm",
+          "upstream": "queries/vue/highlights.scm",
+          "modified": true
+        }
+      ]
+    },
+    {
+      "name": "v-analyzer",
+      "repo": "https://github.com/vlang/v-analyzer",
+      "ref": "9cf6a37689f06b17d170dec644ace81eb8eab280",
+      "spdx": "MIT",
+      "license_name": "MIT License",
+      "copyright_holders": [
+        "Copyright (c) 2021 Ned Palacios",
+        "Copyright (c) 2023 V Open Source Community Association (VOSCA)"
+      ],
+      "license_file_url": "https://github.com/vlang/v-analyzer/blob/9cf6a37689f06b17d170dec644ace81eb8eab280/tree_sitter_v/LICENSE",
+      "method": "license_file_content_subdir",
+      "copyleft": false,
+      "note": "The query file sits under tree_sitter_v/, which has its own MIT LICENSE naming both copyright holders. The repository's root LICENSE names only VOSCA.",
+      "files": [
+        {
+          "file": "v.scm",
+          "upstream": "tree_sitter_v/queries/highlights.scm",
+          "modified": false
+        }
+      ]
+    }
+  ]
+}

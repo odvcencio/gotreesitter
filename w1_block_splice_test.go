@@ -170,7 +170,7 @@ func TestW1BlockSpliceConfinesUntypedParamAmbiguity(t *testing.T) {
 	edited = append(edited, src[bOff+2:]...)
 	edit := gts.InputEdit{
 		StartByte: uint32(bOff), OldEndByte: uint32(bOff + 2), NewEndByte: uint32(bOff),
-		StartPoint: w1bPointAt(src, bOff), OldEndPoint: w1bPointAt(src, bOff+2), NewEndPoint: w1bPointAt(src, bOff),
+		StartPoint: pointForOffset(src, bOff), OldEndPoint: pointForOffset(src, bOff+2), NewEndPoint: pointForOffset(src, bOff),
 	}
 
 	parser := w1BlockLegacyParser(lang)

@@ -519,7 +519,7 @@ func compactExecutionEdit(source []byte, start, end int, replacement string) ([]
 	edited := append([]byte(nil), source[:start]...)
 	edited = append(edited, replacement...)
 	edited = append(edited, source[end:]...)
-	return edited, InputEdit{StartByte: uint32(start), OldEndByte: uint32(end), NewEndByte: uint32(start + len(replacement)), StartPoint: admissionTestPointAtByte(source, start), OldEndPoint: admissionTestPointAtByte(source, end), NewEndPoint: admissionTestPointAtByte(edited, start+len(replacement))}
+	return edited, InputEdit{StartByte: uint32(start), OldEndByte: uint32(end), NewEndByte: uint32(start + len(replacement)), StartPoint: pointForByte(source, uint32(start)), OldEndPoint: pointForByte(source, uint32(end)), NewEndPoint: pointForByte(edited, uint32(start+len(replacement)))}
 }
 
 func compactExecutionNode(node *Node, language *Language, kind string, start uint32) *Node {

@@ -51,7 +51,7 @@ const (
 	solidityNextGrammarRepo           = "https://github.com/JoranHonig/tree-sitter-solidity"
 	solidityNextGrammarCommit         = "048fe686cb1fde267243739b8bdbec8fc3a55272"
 	solidityNextCArtifactSHA256       = "5bafc32251964c20e5a61f74ec32d001fcc5776e7ed3b7ed8621fd7fd96d6a2a"
-	solidityNextA0ManifestSHA256      = "2cd715128d3d254b33c9a32056990d24be8b15fec38af45c226f56effdd29bcb"
+	solidityNextA0ManifestSHA256      = "850d1560059c011e497214973d6559162f92b3275a78b074471a385400c54eb9"
 	solidityNextTrackedManifestSHA256 = "4ca49760dd5b53470f831a8bf4773f54728158607ae049e3792302285c67c874"
 	solidityNextCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 )
@@ -292,7 +292,7 @@ func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
 				t.Fatalf("incremental base parse: %v", err)
 			}
 			t.Cleanup(oldTree.Release)
-			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(witness.source)), StartPoint: solidityNextPointAtByte(base), OldEndPoint: solidityNextPointAtByte(base), NewEndPoint: solidityNextPointAtByte(witness.source)})
+			oldTree.Edit(gotreesitter.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(witness.source)), StartPoint: endPoint(base), OldEndPoint: endPoint(base), NewEndPoint: endPoint(witness.source)})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(witness.source, oldTree)
 			if err != nil {
 				t.Fatalf("incremental parse: %v", err)
@@ -412,17 +412,4 @@ func solidityNextDispatchReceipt(tree *gotreesitter.Tree) string {
 		}
 	}
 	return "none"
-}
-
-func solidityNextPointAtByte(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

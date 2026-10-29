@@ -705,7 +705,7 @@
       "scope": "harness",
       "default": "unset",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityRepoCacheDir", "line": 762}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityRepoCacheDir", "line": 780}
       ]
     },
     {
@@ -715,7 +715,7 @@
       "scope": "harness",
       "default": "unset",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityLocalRepoDir", "line": 629}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityLocalRepoDir", "line": 647}
       ]
     },
     {
@@ -725,7 +725,7 @@
       "scope": "harness",
       "default": "automatic cache path",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityDefaultCBuildCacheDir", "line": 475}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityDefaultCBuildCacheDir", "line": 493}
       ]
     },
     {
@@ -735,7 +735,7 @@
       "scope": "harness",
       "default": "1",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityCBuildJobs", "line": 463}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityCBuildJobs", "line": 481}
       ]
     },
     {
@@ -831,7 +831,7 @@
         {"name": "Scala locked-C oracle", "command": "go test . -tags 'cgo treesitter_c_parity gts_parsercorephase0' -run '^TestCompactPerVersionLexerScalaCOracle$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
       ],
       "corpus": [
-        {"id": "scala-owned-width", "kind": "locked_fixture", "path": "cgo_harness/parity_compact_per_version_lexer_scala_test.go", "source": "(y)->", "source_sha256": "59b8f8c8f7f235973d07ac90f3089939e92da41ee23dcb496bc5c880f9577068", "tree_sha256": "81dc569b1ad3d567ed158aea75fd30a388ec1f4d3e1cbdd08c29a6535bd456d3", "lock_or_digest": "grammar db390f312a54b04b13790e1767bfac32665c17ac; runtime f5afe475deb7c0bae6407fb776c76824f717bb61; artifact 972d2e0cd4d8f074b48e52662f782cafed0e0460384741c5a87a23da58bb014c"}
+        {"id": "scala-owned-width", "kind": "locked_fixture", "path": "cgo_harness/parity_compact_per_version_lexer_scala_test.go", "source": "(y)->", "source_sha256": "59b8f8c8f7f235973d07ac90f3089939e92da41ee23dcb496bc5c880f9577068", "tree_sha256": "81dc569b1ad3d567ed158aea75fd30a388ec1f4d3e1cbdd08c29a6535bd456d3", "lock_or_digest": "grammar db390f312a54b04b13790e1767bfac32665c17ac; runtime 10eb5ac119eec9cb4267a8e035066473983f5f3a; artifact 972d2e0cd4d8f074b48e52662f782cafed0e0460384741c5a87a23da58bb014c"}
       ],
       "gates": ["different token widths select the C-equivalent tree", "exact root range and zero error flags", "owned lexer telemetry records two versions and accepted ragged spans", "no shared-cursor decline"],
       "telemetry": ["PerVersionLexRequests", "PerVersionLexAcceptedRaggedSpans", "PerVersionLexViabilityDrops", "accepted C-equivalent tree"],
@@ -1264,7 +1264,7 @@
         {"name": "authenticated work-count board", "command": "GTS_WORK_COUNT_BOARD=1 GTS_WORK_COUNT_BOARD_RECEIPT=harness_out/work-count-board.json go test . -tags 'treesitter_c_parity treesitter_c_perfscan' -run '^TestAuthenticatedFourFixtureWorkCountBoard$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
       ],
       "corpus": [
-        {"id": "canonical-four-fixture-board", "kind": "locked_fixture_set", "path": "cgo_harness/work_count/reference_atlas_event_schema_v1.json", "source": "rewrite, query_compile, language, grammargen_lr", "lock_or_digest": "reference runtime tree-sitter-c 0.25.1 at f5afe475deb7c0bae6407fb776c76824f717bb61"},
+        {"id": "canonical-four-fixture-board", "kind": "locked_fixture_set", "path": "cgo_harness/work_count/reference_atlas_event_schema_v1.json", "source": "rewrite, query_compile, language, grammargen_lr", "lock_or_digest": "reference runtime tree-sitter-c 0.27.1 at 10eb5ac119eec9cb4267a8e035066473983f5f3a"},
         {"id": "full-fleet-source-lock", "kind": "authenticated_external_lock", "path": "cgo_harness/corpus_real/corpus_sources.lock", "source": "External source lock is not present in this worktree.", "availability": "unavailable", "lock_status": "unlocked", "plan": "Provision the authenticated 206-language source lock on the isolated performance worker before Stage 7.", "lock_or_digest": ""}
       ],
       "gates": ["no crash, out-of-memory, or runaway retention", "memory-budget contracts remain intact", "race suite passes in an isolated container", "fallback telemetry stays within the agreed limit", "benchmark trio meets release safety targets", "clean source and reproducible receipt identity"],

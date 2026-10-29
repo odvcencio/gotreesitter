@@ -51,8 +51,8 @@ type goNextDivergenceExpectation struct {
 
 const (
 	goNextCContract       = "tree-sitter-c-v1"
-	goNextCRuntimeVersion = "0.25.1"
-	goNextCRuntimeCommit  = "f5afe475deb7c0bae6407fb776c76824f717bb61"
+	goNextCRuntimeVersion = "0.27.1"
+	goNextCRuntimeCommit  = "10eb5ac119eec9cb4267a8e035066473983f5f3a"
 	goNextCGrammarRepo    = "https://github.com/tree-sitter/tree-sitter-go"
 	goNextCGrammarCommit  = "2346a3ab1bb3857b48b29d779a1ef9799a248cd7"
 	goNextCArtifactSHA256 = "f17d674be6e3e7a0edb521defa31d3174c877b01414fd758a4988673423573f7"

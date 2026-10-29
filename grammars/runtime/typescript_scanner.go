@@ -63,24 +63,40 @@ var tsDefaultSymTable = [tsTokenCount]gotreesitter.Symbol{
 	tsTokErrorRecovery:   tsSymErrorRecovery,
 }
 
-// tsExternalSymbolNames lists the typescript grammar's external tokens in
+// tsExternalScannerSpec records the upstream scanner-source contract for this
+// port. Externals lists the typescript grammar's external tokens in
 // declaration order (matching the tsTok* indexes above and the language's
-// ExternalSymbols order). Used by ExternalScannerForLanguage to bind this
-// scanner's token slots to a Language's external symbols positionally, the
+// ExternalSymbols order). ExternalScannerForLanguage binds this scanner's
+// token slots to a Language's external symbols positionally through it, the
 // same pattern used by the javascript/kotlin/python/swift/dart/rust/hcl
 // scanners. See bindExternalScannerSymbolNames for why positional (not
-// absolute-ID or by-name) binding is required.
-var tsExternalSymbolNames = []string{
-	"_automatic_semicolon",
-	"_template_chars",
-	"_ternary_qmark",
-	"html_comment",
-	"||",
-	"escape_sequence",
-	"regex_pattern",
-	"jsx_text",
-	"_function_signature_automatic_semicolon",
-	"__error_recovery",
+// absolute-ID or by-name) binding is required. The per-grammar scanner.c is
+// a thin shim; common/scanner.h holds the scanner logic.
+var tsExternalScannerSpec = ExternalScannerSpec{
+	Language:       "typescript",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-typescript",
+	UpstreamCommit: "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "typescript/src/grammar.json", SHA256: "99dc4b95424dff47c89acb50d5d3f25b081b07eaff43994b7881dccd4186b214"},
+		{Path: "typescript/src/scanner.c", SHA256: "9125013b42cb888379d9be909f1d73dfb75a37626c2cdbf4122718a2b431a6d3"},
+		{Path: "common/scanner.h", SHA256: "da66ef2bd14a3f7ea743e25ba068c6c9aae2c3509db200ff80c4a0e6116e564c"},
+	},
+	Externals: []string{
+		"_automatic_semicolon",
+		"_template_chars",
+		"_ternary_qmark",
+		"html_comment",
+		"||",
+		"escape_sequence",
+		"regex_pattern",
+		"jsx_text",
+		"_function_signature_automatic_semicolon",
+		"__error_recovery",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(tsExternalScannerSpec)
 }
 
 // TypeScriptExternalScanner handles automatic semicolons, template strings,
@@ -99,7 +115,7 @@ type TypeScriptExternalScanner struct {
 // numbering) -- see bindExternalScannerSymbolNames.
 func (TypeScriptExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
 	s := TypeScriptExternalScanner{symbols: tsDefaultSymTable}
-	s.externalToToken = bindExternalScannerSymbolNames(lang, tsExternalSymbolNames, func(tokenIdx int, sym gotreesitter.Symbol) {
+	s.externalToToken = bindExternalScannerSpec(lang, tsExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
 		s.symbols[tokenIdx] = sym
 	})
 	return s
@@ -136,10 +152,10 @@ func (s TypeScriptExternalScanner) symbolTable() *[tsTokenCount]gotreesitter.Sym
 
 // remapValidSymbols translates a Language-external-indexed validSymbols
 // slice into scanner-token-indexed space via s.externalToToken. When the
-// Language's external count and order agree with tsExternalSymbolNames (the
+// Language's external count and order agree with tsExternalScannerSpec.Externals (the
 // common case), externalToToken is the identity permutation and this is a
 // copy; it only diverges when a future grammar version adds, removes, or
-// reorders an external token relative to tsExternalSymbolNames.
+// reorders an external token relative to tsExternalScannerSpec.Externals.
 func (s TypeScriptExternalScanner) remapValidSymbols(validSymbols []bool, semanticValid *[tsTokenCount]bool) []bool {
 	if len(s.externalToToken) == 0 {
 		return validSymbols

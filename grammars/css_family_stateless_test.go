@@ -8,6 +8,7 @@ import (
 	_ "unsafe"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
 )
 
 func TestCSSFamilyScannerStatelessContract(t *testing.T) {
@@ -16,8 +17,8 @@ func TestCSSFamilyScannerStatelessContract(t *testing.T) {
 		scanner gotreesitter.StatelessExternalScanner
 		count   int
 	}{
-		{"css", CssExternalScanner{}, 3},
-		{"scss", ScssExternalScanner{}, 4},
+		{"css", grammarruntime.CssExternalScanner{}, 3},
+		{"scss", grammarruntime.ScssExternalScanner{}, 4},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if !test.scanner.ExternalScannerIsStateless() {

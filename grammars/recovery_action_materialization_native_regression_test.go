@@ -248,8 +248,8 @@ func TestForthIncrementalTerminatorDeletionMaterializesMissingEnd(t *testing.T) 
 	}
 	t.Cleanup(oldTree.Release)
 
-	deletePoint := retiredDispatchPointAtByte(oldSource, semicolon)
-	afterPoint := retiredDispatchPointAtByte(oldSource, semicolon+1)
+	deletePoint := pointAtByte(oldSource, semicolon)
+	afterPoint := pointAtByte(oldSource, semicolon+1)
 	oldTree.Edit(gotreesitter.InputEdit{
 		StartByte:   uint32(semicolon),
 		OldEndByte:  uint32(semicolon + 1),
@@ -300,14 +300,14 @@ func assertRecoveryActionMaterializationIncremental(
 		t.Fatal(err)
 	}
 	t.Cleanup(oldTree.Release)
-	startPoint := retiredDispatchPointAtByte(oldSource, len(oldSource))
+	startPoint := pointAtByte(oldSource, len(oldSource))
 	oldTree.Edit(gotreesitter.InputEdit{
 		StartByte:   uint32(len(oldSource)),
 		OldEndByte:  uint32(len(oldSource)),
 		NewEndByte:  uint32(len(source)),
 		StartPoint:  startPoint,
 		OldEndPoint: startPoint,
-		NewEndPoint: retiredDispatchPointAtByte(source, len(source)),
+		NewEndPoint: pointAtByte(source, len(source)),
 	})
 	incremental, _, err := parser.ParseIncrementalProfiled(source, oldTree)
 	if err != nil {

@@ -1,7 +1,0 @@
-{
-  "original_runner_sha256": "84950412b97dd12e8c17d5dc22137f6eab459d61394ad09f43c24a9d01fd1892",
-  "offline_runner_sha256": "a1d79c8542d5dbc4cc402bfeeba0386d88f21d445df39c7695f55f814a65dec2",
-  "change": "Add --network none to main and ownership-fixup containers only",
-  "reason": "Default bridge failed to allocate a veth interface: no buffer space available; no parser test started",
-  "production_runner_modified": false
-}

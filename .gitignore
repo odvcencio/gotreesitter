@@ -28,6 +28,7 @@ cgo_harness/bench/runs/
 /cgo_harness/perf_scan/out/
 /docs/perf/
 /docs/performance/
+/docs/benchmarks/
 /cgo_harness/perf_scan/evidence/
 /docs/perf-attribution-receipt.json
 /cgo_harness/perf_scan/wave3_sweep_status.json

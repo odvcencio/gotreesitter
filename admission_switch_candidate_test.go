@@ -255,7 +255,7 @@ func TestAdmissionSwitchParseIncrementalDoesNotCountFullRoute(t *testing.T) {
 		edited := append([]byte(nil), fixture.Source[:offset]...)
 		edited = append(edited, ' ')
 		edited = append(edited, fixture.Source[offset:]...)
-		point := admissionTestPointAtByte(fixture.Source, offset)
+		point := pointForByte(fixture.Source, uint32(offset))
 		edit := InputEdit{
 			StartByte:   uint32(offset),
 			OldEndByte:  uint32(offset),
@@ -310,21 +310,4 @@ func TestAdmissionSwitchRecoveryDoesNotLeakCompactTree(t *testing.T) {
 	if root := tree.RootNode(); root == nil || !root.HasError() {
 		t.Fatal("malformed input should recover into an error-bearing production tree")
 	}
-}
-
-// admissionTestPointAtByte returns the row/column point for a byte offset.
-func admissionTestPointAtByte(source []byte, offset int) Point {
-	var row, col uint32
-	if offset > len(source) {
-		offset = len(source)
-	}
-	for i := 0; i < offset; i++ {
-		if source[i] == '\n' {
-			row++
-			col = 0
-			continue
-		}
-		col++
-	}
-	return Point{Row: row, Column: col}
 }

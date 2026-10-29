@@ -1,6 +1,0 @@
-=== RUN   TestCompactR4StructuralLockedC
-    compact_r4_parity_test.go:26: R4 language=markdown_inline bytes=2033 compact=0 fallback=1 reason="compact route declined at unsupported_route [mechanism=repetition-shift-class]: did not accept EOF: generic scheduler does not support repetition shifts"
-    compact_r4_parity_test.go:26: /inline: child_count go="199" c="190"
-    compact_r4_parity_test.go:26: 1 structural differences
---- FAIL: TestCompactR4StructuralLockedC (0.02s)
-FAIL

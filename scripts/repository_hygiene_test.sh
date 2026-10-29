@@ -21,10 +21,13 @@ pass() {
 }
 
 # Inspect the index so this check also rejects forced additions.
-if [[ -n "$(git -C "$repo_root" ls-files -- docs/perf/ docs/performance/ cgo_harness/perf_scan/evidence/ cgo_harness/perf_scan/out/ harness_out/)" ]]; then
+if [[ -n "$(git -C "$repo_root" ls-files -- docs/benchmarks/ docs/perf/ docs/performance/ cgo_harness/perf_scan/evidence/ cgo_harness/perf_scan/out/ harness_out/)" ]]; then
 	fail 'performance evidence archives must remain outside the repository'
 fi
 pass 'the index excludes performance evidence archives'
+
+bash "$script_dir/check_evidence_paths.sh" >/dev/null || fail 'the tracked tree holds evidence paths'
+pass 'the tracked tree holds no evidence paths'
 
 snapshot_paths=(
 	docs/perf-attribution-receipt.json
@@ -225,3 +228,78 @@ bash -n "$repo_root/scripts/refresh_canopy_index.sh"
 bash -n "$repo_root/cgo_harness/docker/run_parity_in_docker.sh"
 bash -n "$repo_root/cgo_harness/docker/run_parity_experiments.sh"
 pass 'the changed shell entry points pass syntax checks'
+
+# Evidence guard: build a small repository and check both modes.
+guard_repo="$test_root/guard-fixture"
+mkdir -p -- "$guard_repo/scripts" "$guard_repo/docs/changelog"
+cp -- "$script_dir/check_evidence_paths.sh" "$guard_repo/scripts/check_evidence_paths.sh"
+printf '# Guide\n' >"$guard_repo/docs/guide.md"
+printf '# Maintenance\n' >"$guard_repo/docs/compact-parser-maintenance.md"
+git -C "$guard_repo" init -q
+git -C "$guard_repo" config user.email test@example.invalid
+git -C "$guard_repo" config user.name 'Hygiene Test'
+git -C "$guard_repo" add -A
+git -C "$guard_repo" commit -qm base
+guard_base=$(git -C "$guard_repo" rev-parse HEAD)
+guard="$guard_repo/scripts/check_evidence_paths.sh"
+
+bash "$guard" >/dev/null || fail 'the evidence guard rejected a clean tree'
+bash "$guard" "$guard_base" >/dev/null || fail 'the evidence guard rejected a clean diff'
+pass 'the evidence guard accepts a tree with user-facing docs'
+
+# guard_rejects NAME PATH [BYTES]: add one tracked file, then expect both modes to fail.
+guard_rejects() {
+	local name=$1 path=$2 bytes=${3:-16}
+	mkdir -p -- "$guard_repo/$(dirname -- "$path")"
+	head -c "$bytes" /dev/zero | tr '\0' 'x' >"$guard_repo/$path"
+	git -C "$guard_repo" add -f -- "$path"
+	if bash "$guard" >"$test_root/guard.out" 2>&1; then
+		fail "the evidence guard accepted $name in tree mode"
+	fi
+	assert_contains "$path" "$test_root/guard.out"
+	git -C "$guard_repo" commit -qm "add $name"
+	if bash "$guard" "$guard_base" >"$test_root/guard.out" 2>&1; then
+		fail "the evidence guard accepted $name in base mode"
+	fi
+	assert_contains "$path" "$test_root/guard.out"
+	git -C "$guard_repo" reset -q --hard "$guard_base"
+	pass "the evidence guard rejects $name"
+}
+guard_rejects 'a benchmarks folder file' docs/benchmarks/zz-probe/x.txt
+guard_rejects 'a receipt-named doc with a date' docs/zz-probe-receipt-20261027.md
+guard_rejects 'a certificate-named doc' docs/zz-probe-certificate-v1.md
+guard_rejects 'a dated doc' docs/zz-probe-20261027.md
+guard_rejects 'a compact- prefixed doc' docs/compact-zz-probe.md
+guard_rejects 'an archive under docs' docs/zz-probe.tar.gz
+guard_rejects 'a raw log under docs' docs/zz-probe.log
+guard_rejects 'a docs file over 200,000 bytes' docs/zz-big.md 200001
+
+mkdir -p -- "$guard_repo/docs/changelog"
+head -c 300000 /dev/zero | tr '\0' 'x' >"$guard_repo/docs/changelog/archive-9.md"
+git -C "$guard_repo" add -f -- docs/changelog/archive-9.md
+bash "$guard" >/dev/null || fail 'the evidence guard rejected a large changelog archive'
+git -C "$guard_repo" reset -q --hard "$guard_base"
+git -C "$guard_repo" clean -fdq
+pass 'the evidence guard allows large changelog archives'
+
+# Allowlist: it spares a named file, must name a tracked file, and may not grow.
+printf 'x\n' >"$guard_repo/docs/old-receipt-20260101.md"
+printf 'docs/old-receipt-20260101.md # kept until retirement\n' >"$guard_repo/scripts/evidence_paths_allowlist.txt"
+git -C "$guard_repo" add -f -- docs/old-receipt-20260101.md scripts/evidence_paths_allowlist.txt
+git -C "$guard_repo" commit -qm 'allowlist one file'
+allow_base=$(git -C "$guard_repo" rev-parse HEAD)
+bash "$guard" >/dev/null || fail 'the evidence guard rejected an allowlisted file'
+bash "$guard" "$allow_base" >/dev/null || fail 'the evidence guard rejected an unchanged allowlist'
+printf 'docs/old-receipt-20260101.md # kept\ndocs/guide.md # new entry\n' >"$guard_repo/scripts/evidence_paths_allowlist.txt"
+git -C "$guard_repo" commit -qam 'grow allowlist'
+if bash "$guard" "$allow_base" >"$test_root/guard.out" 2>&1; then
+	fail 'the evidence guard accepted a new allowlist entry'
+fi
+assert_contains 'may only shrink' "$test_root/guard.out"
+git -C "$guard_repo" reset -q --hard "$allow_base"
+git -C "$guard_repo" rm -q -f -- docs/old-receipt-20260101.md
+if bash "$guard" >"$test_root/guard.out" 2>&1; then
+	fail 'the evidence guard accepted a stale allowlist entry'
+fi
+assert_contains 'names no tracked file' "$test_root/guard.out"
+pass 'the evidence guard honors a shrink-only allowlist'

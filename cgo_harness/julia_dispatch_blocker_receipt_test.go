@@ -49,7 +49,7 @@ const (
 	juliaGrammarRepo           = "https://github.com/tree-sitter/tree-sitter-julia"
 	juliaGrammarCommit         = "e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3"
 	juliaCArtifactSHA256       = "ac44385e88e2f5dc8c78dafef4eaf28f89bd2f922cc6a68e282b1b7b21f7eb8c"
-	juliaA0ManifestSHA256      = "2cd715128d3d254b33c9a32056990d24be8b15fec38af45c226f56effdd29bcb"
+	juliaA0ManifestSHA256      = "850d1560059c011e497214973d6559162f92b3275a78b074471a385400c54eb9"
 	juliaTrackedManifestSHA256 = "4ca49760dd5b53470f831a8bf4773f54728158607ae049e3792302285c67c874"
 	juliaCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 )
@@ -205,7 +205,7 @@ func TestJuliaDispatchBlockerReceiptRoutes(t *testing.T) {
 				if route.name == "raw" {
 					wantDiff = witness.want.rawDiff
 				}
-				juliaDispatchAssertDivergence(t, route.name, diff, wantDiff)
+				requireSameDivergence(t, route.name, diff, wantDiff)
 				if route.name == "raw" && juliaDispatchSummary(route.tree) != "none" {
 					t.Fatalf("raw dispatch=%s, want none", juliaDispatchSummary(route.tree))
 				}
@@ -233,7 +233,7 @@ func TestJuliaDispatchBlockerReceiptRoutes(t *testing.T) {
 				if !witness.want.forestAccepted || inspection.SHA256 != witness.want.forestDigest {
 					t.Fatalf("forest digest=%s, want %s", inspection.SHA256, witness.want.forestDigest)
 				}
-				juliaDispatchAssertDivergence(t, "forest", FirstDivergenceDumpV1(forest.RootNode(), goLanguage, cTree.RootNode()), witness.want.forestDiff)
+				requireSameDivergence(t, "forest", FirstDivergenceDumpV1(forest.RootNode(), goLanguage, cTree.RootNode()), witness.want.forestDiff)
 				if juliaDispatchSummary(forest) != witness.want.forestDispatch {
 					t.Fatalf("forest dispatch=%s, want %s", juliaDispatchSummary(forest), witness.want.forestDispatch)
 				}
@@ -322,19 +322,6 @@ func juliaDispatchCheckStaticEvidence(t *testing.T, identity COracleBuildIdentit
 	}
 	if got := fmt.Sprintf("%x", sha256.Sum256(grammars.BlobByName("julia"))); got != juliaGrammarBlobSHA256 {
 		t.Fatalf("embedded Julia blob SHA-256=%s, want %s", got, juliaGrammarBlobSHA256)
-	}
-}
-
-func juliaDispatchAssertDivergence(t *testing.T, route string, got, want *DumpV1Divergence) {
-	t.Helper()
-	if got == nil || want == nil {
-		if got != want {
-			t.Fatalf("%s divergence=%+v, want %+v", route, got, want)
-		}
-		return
-	}
-	if *got != *want {
-		t.Fatalf("%s divergence=%+v, want %+v", route, got, want)
 	}
 }
 

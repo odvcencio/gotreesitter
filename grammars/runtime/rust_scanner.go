@@ -58,18 +58,35 @@ var rustDefaultSymTable = [rustTokenCount]gotreesitter.Symbol{
 	rustTokErrorSentinel:       rustSymErrorSentinel,
 }
 
-var rustExternalSymbolNames = []string{
-	"string_content",
-	"\"",
-	"_raw_string_literal_start",
-	"string_content",
-	"_raw_string_literal_end",
-	"float_literal",
-	"outer_doc_comment_marker",
-	"inner_doc_comment_marker",
-	"_block_comment_content",
-	"doc_comment",
-	"_error_sentinel",
+// rustExternalScannerSpec records the upstream scanner-source contract for
+// this port. Externals uses the rule names from grammar.json, in order. The
+// blob shows display names for some of them (such as `"`), so binding logs
+// drift for those; the positional binding is unaffected.
+var rustExternalScannerSpec = ExternalScannerSpec{
+	Language:       "rust",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-rust",
+	UpstreamCommit: "77a3747266f4d621d0757825e6b11edcbf991ca5",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "src/grammar.json", SHA256: "b0f58f41f5461fa141bb98d81fe8abece3056cff979c4068a2e6cddee5aa0663"},
+		{Path: "src/scanner.c", SHA256: "9609a2f92dbb7c32bc056fd8fb94e5478428f04496696aa08b048a9b66caf283"},
+	},
+	Externals: []string{
+		"string_content",
+		"string_close",
+		"_raw_string_literal_start",
+		"raw_string_literal_content",
+		"_raw_string_literal_end",
+		"float_literal",
+		"_outer_block_doc_comment_marker",
+		"_inner_block_doc_comment_marker",
+		"_block_comment_content",
+		"_line_doc_content",
+		"_error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(rustExternalScannerSpec)
 }
 
 // rustScannerState holds the opening hash count for raw string literals.
@@ -95,7 +112,7 @@ type RustExternalScanner struct {
 
 func (RustExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
 	s := RustExternalScanner{symbols: rustDefaultSymTable}
-	s.externalToToken = bindExternalScannerSymbolNames(lang, rustExternalSymbolNames, func(tokenIdx int, sym gotreesitter.Symbol) {
+	s.externalToToken = bindExternalScannerSpec(lang, rustExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
 		s.symbols[tokenIdx] = sym
 	})
 	return s

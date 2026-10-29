@@ -217,12 +217,12 @@ func TestAdmissionCandidateRealCorpusMatrix(t *testing.T) {
 		const (
 			// Pinned Rust has ast.rs at 66,281 bytes and weird-exprs.rs at 6,436 bytes.
 			// This gate excludes ast.rs, so the canonical manifest has 109 rows.
-			// The recursive-precedence graduation moved the canonical scope to
-			// 69 PASS / 30 FALLBACK; the floors pin those totals.
+			// The JSON token-source deletion moved the 3 JSON rows from SKIP to
+			// PASS: 73 PASS / 29 FALLBACK / 7 SKIP. The floors pin those totals.
 			minRows     = 109
-			minPass     = 69
+			minPass     = 72
 			maxFallback = 30
-			wantSkip    = 10
+			wantSkip    = 7
 		)
 		if len(rows) < minRows ||
 			counts[scorecardPass] < minPass ||

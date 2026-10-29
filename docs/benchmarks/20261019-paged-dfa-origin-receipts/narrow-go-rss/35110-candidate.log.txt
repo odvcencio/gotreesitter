@@ -1,7 +1,0 @@
--test.shuffle 35110
-=== RUN   TestCompactLineageRSS
-=== RUN   TestCompactLineageRSS/go
-    zz_compact_lineage_rss_test.go:75: bytes=1048591 sha256=76c70b62127085d3c791ba98a24cba9f22bd343e40afb43522bbb5041cede524 compact=1 fallback=0 runtime=truncated=false stopReason=accepted forestFastPath=false tokenEOFEarly=false tokens=425742 lastTokenEnd=1048591 expectedEOF=1048591 lastTokenSymbol=0 lastTokenEOF=true iterations=0/0 nodes=903086/0 arena=0/0 scratch=0(entry=0 gss=0)/0 peakDepth=0/0 maxStacks=0
---- PASS: TestCompactLineageRSS (0.95s)
-    --- PASS: TestCompactLineageRSS/go (0.95s)
-PASS

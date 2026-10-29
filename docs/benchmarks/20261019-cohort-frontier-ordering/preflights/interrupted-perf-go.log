@@ -1,5 +1,0 @@
-randomized benchmark output: /evidence/go-after.txt
-seeds: 34501..34520
-benchtime: 750ms
-randomized baseline output: /evidence/go-before.txt
-running baseline shuffle seed 34501

@@ -141,11 +141,16 @@ func forestVerifyManifestFile(filePath string, wantBytes int64, wantDigest, labe
 }
 
 func forestFileSHA256(filePath string) (string, error) {
-	data, err := os.ReadFile(filePath)
+	file, err := os.Open(filePath)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%x", sha256.Sum256(data)), nil
+	defer file.Close()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 func validateForestCorpusManifestMetadata(manifest ForestCorpusManifest) error {

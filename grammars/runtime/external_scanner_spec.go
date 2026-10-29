@@ -1,7 +1,6 @@
 package grammarruntime
 
 import (
-	"sort"
 	"strings"
 	"sync"
 )
@@ -56,20 +55,6 @@ func LookupExternalScannerSpec(name string) (ExternalScannerSpec, bool) {
 		return ExternalScannerSpec{}, false
 	}
 	return cloneExternalScannerSpec(spec), true
-}
-
-// ExternalScannerSpecs returns all registered scanner-source specs, sorted by language.
-func ExternalScannerSpecs() []ExternalScannerSpec {
-	externalScannerSpecRegistry.RLock()
-	defer externalScannerSpecRegistry.RUnlock()
-	out := make([]ExternalScannerSpec, 0, len(externalScannerSpecRegistry.byName))
-	for _, spec := range externalScannerSpecRegistry.byName {
-		out = append(out, cloneExternalScannerSpec(spec))
-	}
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].Language < out[j].Language
-	})
-	return out
 }
 
 func cloneExternalScannerSpec(spec ExternalScannerSpec) ExternalScannerSpec {

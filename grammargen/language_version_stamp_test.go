@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -260,8 +261,13 @@ int main(void) {
 		t.Fatalf("write C runtime probe: %v", err)
 	}
 	artifact := filepath.Join(tmp, "supertype-probe")
+	// GNU ld and Apple ld spell dead-code stripping differently.
+	gcFlag := "-Wl,--gc-sections"
+	if runtime.GOOS == "darwin" {
+		gcFlag = "-Wl,-dead_strip"
+	}
 	args := []string{
-		"-std=c11", "-O0", "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections",
+		"-std=c11", "-O0", "-ffunction-sections", "-fdata-sections", gcFlag,
 		"-I" + filepath.Join(tmp, "include"),
 		"-I" + filepath.Join(runtimeDir, "include"),
 		"-I" + filepath.Join(runtimeDir, "src"),

@@ -1,5 +1,0 @@
-ok - actual Go paired trio stays ordered with different registered tests, quoted paths, source identity and temporary cleanup
-ok - primary suite rejects conflicting selectors, packages and partial required sets
-ok - primary suite preserves an existing Go overlay by refusing composition
-ok - primary suite preserves existing suite source and refuses symlink anchors
-ok - missing workloads and actual Go benchmark failures remain fatal and leave both outputs incomplete
