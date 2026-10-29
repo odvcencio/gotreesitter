@@ -1,1 +1,0 @@
-gofmt rejected an instrumentation statement placed before an else-if. The final preparation instruments that branch inside its body and logs the second standalone comparison before it. No Docker test ran and production files were untouched.

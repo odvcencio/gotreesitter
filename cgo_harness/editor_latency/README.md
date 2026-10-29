@@ -48,7 +48,7 @@ ns/op and included in its small Go binding allocation metrics. The timer
 includes `Tree.Edit`, the public reparse route, and previous-tree release.
 It includes registry token-source construction where that route requires it.
 Go and C use identical source bytes and edits. C uses the locked in-process
-v0.25.1 runtime and grammar loader, including the Go binding's overhead.
+v0.27.1 runtime and grammar loader, including the Go binding's overhead.
 Go allocations measure parser work; C allocation metrics measure the binding,
 not native malloc. No absolute Go/C target is introduced by this job.
 

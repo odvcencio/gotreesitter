@@ -20,6 +20,8 @@ import sys
 import tempfile
 import urllib.request
 
+from w5_private_oracle import check_env, digest, identity_fields, source_fingerprints
+
 
 WORKLOADS = {"BenchmarkW5OneByte": "one_byte", "BenchmarkW5HundredByte": "hundred_byte", "BenchmarkW5Typing": "typing"}
 BACKENDS = ("GoA", "CA", "CB", "GoB")
@@ -30,31 +32,46 @@ EDIT_LIMIT = 1.05
 LEDGER_LIMIT = 1.02
 RUNS = 20
 BENCHSTAT_MODULE = "golang.org/x/perf/cmd/benchstat@v0.0.0-20260929162123-406019bb8b68"
-GO_UNDO_EXCEPTION = "go-one-byte-undo-reuse-20261026"
-GO_UNDO_BASE = "e079b642fa1c11a3c9bd939d367e05598fc8162f"
-GO_UNDO_REVIEWED = "462341df680f55944e1a747e4ea36014f063ae99"
-GO_UNDO_CONTROL_SNAPSHOT = "5a30fe0e1a1d9ca3fbd5a9fcc2a0ff218aba91a6"
-GO_UNDO_FIXTURE = "ff2f811d29a56303bad96c3c7cff1a83814a974503a51cee918a314a96eb476e"
-GO_UNDO_TREE = "a675b5e8c8e688c21f45cad8c5217c06802c3fa5061fb2555ba346b4769f4c55"
-GO_UNDO_RECEIPT = "docs/benchmarks/20261026-combined-authenticated-reuse-ci-repair/w5-go-undo-review.md"
-GO_UNDO_RECEIPT_SHA = "bca5e00e915ef74068038877e9c9386c5e9d6a5acbf85dd9adc13fe5a88ce753"
-GO_UNDO_SUCCESSOR_PATHS = frozenset([
-    "scripts/editor_latency_gate.py", "scripts/test_editor_latency_gate.py", ".github/workflows/ci.yml",
-])
+
+# Owner approval applies only to this source-bound counter row. Strict mode
+# remains the default, and every opt-in requires the pinned decision receipt.
+GO_1512_UNDO_EXCEPTION = "go-one-byte-undo-1512-20261029"
+GO_1512_BASE = "9d14415d0a8d11632292310c578446b31554217b"
+GO_1512_REVIEWED = "58ce5c00050815d361ec72723d68b87209b59ed4"
+GO_1512_FIXTURE = "ff2f811d29a56303bad96c3c7cff1a83814a974503a51cee918a314a96eb476e"
+GO_1512_TREE = "a675b5e8c8e688c21f45cad8c5217c06802c3fa5061fb2555ba346b4769f4c55"
+GO_1512_BASE_ADMISSION = "4af75c271fee19a18a09caca22dba5fc3b0bb56142af480917f41f09ff69ef6a"
+GO_1512_HEAD_ADMISSION = "4d7ae9309efb29d9a339d179f447aee788caee701d7d4c839ddbbcde53a863f0"
+GO_1512_APPROVAL_SHA256 = "6c660fb0e91aeb3b515de27f263d12a30135ed1466b9f960f2778e6739a9e5b8"  # Owner-approved, single source-bound W5 row.
+GO_1512_SUCCESSOR_PATHS = frozenset(("scripts/editor_latency_gate.py", "scripts/test_editor_latency_gate.py", ".github/workflows/ci.yml"))
 
 
-def validate_go_undo_exception(root, base_revision, head_revision):
-    require(base_revision == GO_UNDO_BASE, "W5 exception base mismatch")
+def canonical_go_admission(admission):
+    # Revision and ephemeral cache filename do not change the parsed content.
+    # Compiler-specific fields are compared across the paired run; source,
+    # tree, counter, oracle version, grammar pin, and flags remain bound.
+    data = json.loads(json.dumps(admission))
+    data.pop("revision", None)
+    for key in ("grammar_artifact_path", "grammar_artifact_sha256", "compiler_path", "compiler_version"):
+        data["oracle"].pop(key, None)
+    return sha(json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode())
+
+
+def validate_1512_undo_exception(root, base_revision, head_revision, decision_path):
+    require(GO_1512_APPROVAL_SHA256 != "", "W5 exception has no approved receipt")
+    require(base_revision == GO_1512_BASE, "W5 exception base mismatch")
     require(re.fullmatch(r"[0-9a-f]{40}", head_revision) is not None, "W5 exception head must be a commit")
     require(git(root, "rev-parse", "HEAD") == head_revision, "W5 exception checkout mismatch")
     require(not subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--ignored"]), "W5 exception requires a clean checkout, including ignored files")
-    subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", GO_UNDO_CONTROL_SNAPSHOT, head_revision], check=True)
-    diff = subprocess.check_output(["git", "-C", str(root), "diff", "--no-renames", "--name-only", "-z", GO_UNDO_CONTROL_SNAPSHOT, head_revision])
+    subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", GO_1512_REVIEWED, head_revision], check=True)
+    diff = subprocess.check_output(["git", "-C", str(root), "diff", "--no-renames", "--name-only", "-z", GO_1512_REVIEWED, head_revision])
     changed = set(diff.decode().split("\0")) - {""}
-    require(changed <= GO_UNDO_SUCCESSOR_PATHS, "W5 exception production inputs changed")
-    receipt = subprocess.check_output(["git", "-C", str(root), "show", f"{head_revision}:{GO_UNDO_RECEIPT}"])
-    require(sha(receipt) == GO_UNDO_RECEIPT_SHA, "W5 exception review receipt changed")
-    return GO_UNDO_EXCEPTION
+    require(changed <= GO_1512_SUCCESSOR_PATHS, "W5 exception production inputs changed")
+    decision_bytes = Path(decision_path).read_bytes()
+    require(sha(decision_bytes) == GO_1512_APPROVAL_SHA256, "W5 approval receipt hash mismatch")
+    decision = read_json(decision_path)
+    require(decision.get("owner_approved") is True and decision.get("base") == GO_1512_BASE and decision.get("reviewed_source") == GO_1512_REVIEWED and decision.get("exception") == GO_1512_UNDO_EXCEPTION, "W5 owner decision mismatch")
+    return GO_1512_UNDO_EXCEPTION
 
 
 def require(ok, message):
@@ -132,7 +149,7 @@ def admission(out, role, f, manifest_sha, revision):
     oracle = a["oracle"]
     require(oracle["language"] == f["language"] and oracle["contract"] == "tree-sitter-c-v1", "wrong C oracle contract/language")
     require(oracle["binding_module"] == "github.com/tree-sitter/go-tree-sitter" and oracle["binding_version"] == "v0.25.0" and oracle["binding_commit"] == "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3", "C binding is not locked")
-    require(oracle["runtime_version"] == "0.25.1" and oracle["runtime_commit"] == "f5afe475deb7c0bae6407fb776c76824f717bb61", "C runtime is not locked")
+    require(oracle["runtime_version"] == "0.27.1" and oracle["runtime_commit"] == "10eb5ac119eec9cb4267a8e035066473983f5f3a", "C runtime is not locked")
     require(re.fullmatch(r"[0-9a-f]{40}", oracle["grammar_commit"]) and re.fullmatch(r"[0-9a-f]{64}", oracle["grammar_artifact_sha256"]), "C grammar/artifact identity is missing")
     require(oracle["grammar_compile_flags"] == "-std=c11 -fPIC -O2 -I .", "C grammar flags differ from the locked oracle")
     require([c["workload"] for c in a["cells"]] == list(WORKLOADS.values()), "missing or duplicate admission cell")
@@ -166,6 +183,9 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
         base = admission(out, "base", f, manifest_sha, base_revision)
         head = admission(out, "head", f, manifest_sha, head_revision)
         require(oracle_identity(base["oracle"]) == oracle_identity(head["oracle"]), f"{f['language']}: C oracle differs between revisions")
+        if exception is not None and f["language"] == "go":
+            require(exception == GO_1512_UNDO_EXCEPTION, "unknown W5 exception")
+            require(canonical_go_admission(base) == GO_1512_BASE_ADMISSION and canonical_go_admission(head) == GO_1512_HEAD_ADMISSION, "W5 approved source/tree/oracle/counter receipt changed")
         require(base["initial_tree_sha256"] == head["initial_tree_sha256"], "initial tree digest differs")
         identities.append({"language": f["language"], "oracle": head["oracle"]})
         for bc, hc in zip(base["cells"], head["cells"]):
@@ -180,12 +200,12 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
                     row = {"language": f["language"], "workload": bc["workload"], "step": index, "counter": key, "before": before, "after": after}
                     changes.append(row)
                     if bad:
-                        if exception == GO_UNDO_EXCEPTION and f["sha256"] == GO_UNDO_FIXTURE and (bs["source_sha256"], bs["tree_sha256"], bs["has_error"]) == (GO_UNDO_FIXTURE, GO_UNDO_TREE, False) and row == {"language": "go", "workload": "one_byte", "step": 1, "counter": "reused_subtrees", "before": 39, "after": 35}:
-                            applied.append({"name": exception, "row": row, "receipt": GO_UNDO_RECEIPT})
+                        if exception == GO_1512_UNDO_EXCEPTION and f["sha256"] == GO_1512_FIXTURE and (bs["source_sha256"], bs["tree_sha256"], bs["has_error"]) == (GO_1512_FIXTURE, GO_1512_TREE, False) and row == {"language":"go", "workload":"one_byte", "step":1, "counter":"reused_subtrees", "before":39, "after":35}:
+                            applied.append({"name":exception, "row":row})
                         else:
                             failures.append(row)
-    require(exception is None or len(applied) == 1, "approved W5 exception did not match exactly once")
-    result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "applied_exceptions": applied, "oracles": identities}
+    require(exception is None or len(applied) == 1, "W5 approved row did not match exactly once")
+    result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "applied_exceptions":applied, "oracles": identities}
     write_json(out / "counters.json", result)
     require(not failures, f"deterministic counter gate failed: {failures[:8]}")
     return result
@@ -298,8 +318,6 @@ def compare_timing(out, manifest_path, base_revision, head_revision, exception=N
     write_json(out / "receipt.json", result)
     lines = [f"W5 editor latency: **{result['status']}**", "", f"Base `{base_revision}`; head `{head_revision}`. Twenty paired shuffle seeds, 750ms, one thread. A paired median above +5% fails any cell.", "",
              "| Language | Edit | Go base → head (µs/edit) | C base → head (µs/edit) | Go/C base → head | Paired Go change |", "|---|---|---:|---:|---:|---:|"]
-    if counters["applied_exceptions"]:
-        lines.insert(3, f"Applied owner-approved counter exception: `{GO_UNDO_EXCEPTION}` (Go one-byte undo reused subtrees 39 → 35; `{GO_UNDO_RECEIPT}`).")
     for row in rows:
         lines.append(f"| {row['language']} | {row['workload']} | {row['base_go_ns']/1000:.2f} → {row['head_go_ns']/1000:.2f} | {row['base_c_ns']/1000:.2f} → {row['head_c_ns']/1000:.2f} | {row['base_go_c']:.2f}x → {row['head_go_c']:.2f}x | {(row['paired_ratio']-1)*100:+.2f}% {'PASS' if row['passed'] else '**FAIL**'} |")
     lines += ["", "C timing and the range of paired Go samples are recorded in receipt.json. C drift is reported; it does not excuse a Go regression. Tree.Edit, reparse, and previous-tree release are timed. Go fresh resets and C snapshot restoration are excluded from edit timing. C typing allocations include the small snapshot clone; C allocations cover the Go binding only; Go allocations include parser work.", ""]
@@ -389,11 +407,6 @@ def campaign_go_environment():
                      if os.environ.get(variable)) or "true"
 
 
-def campaign_edit_environment(language):
-    require(re.fullmatch(r"[a-z_]+", language) is not None, "unsafe language")
-    return ["export GOWORK=off GOMAXPROCS=1 GTS_PARITY_C_REF_BUILD_CACHE=/campaign/c-cache GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]
-
-
 def check_work_exemptions_shrink(before, after):
     def keyed(entries):
         rows = {(e["fixture_sha256"], e["cell"], e["class"]): e for e in entries}
@@ -411,12 +424,86 @@ def check_work_exemptions_history(root, base_revision):
         check_work_exemptions_shrink(json.loads(previous.stdout), read_json(root / path))
 
 
-def campaign(root, base_revision, out, approved_exception=False):
+# Private cache is an optional optimization. Strict source and counter checks
+# remain unchanged; all compiler/source/artifact checks fail closed.
+def clean_private_inputs(root):
+    status = subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--ignored"])
+    require(not status, "private oracle cache requires clean tracked, untracked and ignored source inputs")
+
+
+def oracle_inputs(root):
+    paths = subprocess.check_output(["git", "-C", str(root), "ls-files", "-z", "--", "cgo_harness/internal/coracle", "cgo_harness/parity_c_loader_cgo.go", "cgo_harness/editor_latency/editor_latency_test.go", "grammars/languages.lock", "internal/grammarpatch", "grammars/patches"]).decode().split("\0")
+    require(any(paths), "missing tracked oracle inputs")
+    return [root / p for p in paths if p]
+
+
+def prepare_private_oracle(root, common, directory, language, inputs, image, image_id):
+    check_env(os.environ)
+    directory.mkdir(); (directory / "cache").mkdir()
+    require(not list((directory / "cache").iterdir()), "private cache must start empty")
+    before = source_fingerprints(inputs)
+    command = "\n".join(["set -euo pipefail", campaign_go_environment(),
+        "unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK GTS_W5_PRIVATE_ORACLE_IDENTITY GTS_W5_PRIVATE_ORACLE_SHA256 GTS_W5_CC_PATH GTS_W5_CC_SHA256 GTS_W5_CXX_PATH GTS_W5_CXX_SHA256",
+        "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_PARITY_C_REF_BUILD_CACHE=/private/cache GTS_W5_PRIVATE_ORACLE_PREPARE=/private/cold.json",
+        f"export GTS_EDIT_LANGUAGE={shlex.quote(language)}", "cd /campaign/modules/head",
+        'compiler_receipt() { for name in cc c++; do path=$(command -v "$name"); printf \'%s %s\\n\' "$path" "$(sha256sum "$path" | cut -d\' \' -f1)"; done; }',
+        "compiler_receipt > /private/compiler.before",
+        "read -r GTS_W5_CC_PATH GTS_W5_CC_SHA256 < <(sed -n '1p' /private/compiler.before); read -r GTS_W5_CXX_PATH GTS_W5_CXX_SHA256 < <(sed -n '2p' /private/compiler.before); export GTS_W5_CC_PATH GTS_W5_CC_SHA256 GTS_W5_CXX_PATH GTS_W5_CXX_SHA256",
+        "go test -tags treesitter_c_parity . -run '^$' -count=1 -timeout 15m",
+        "compiler_receipt > /private/compiler.after; cmp /private/compiler.before /private/compiler.after; cmp /private/environment.before /private/environment.after"])
+    run_checked(common + ["--mount", f"{directory}:/private", "--label", "w5-oracle-" + language, "--wall-timeout", "20m", "--", command])
+    require(source_fingerprints(inputs) == before, "oracle inputs changed during fresh build")
+    require(subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", image], text=True).strip() == image_id, "oracle Docker image changed")
+    cold = read_json(directory / "cold.json"); identity_fields(cold)
+    require(cold["language"] == language and cold["contract"] == "tree-sitter-c-v1", "cold identity mismatch")
+    artifacts = list((directory / "cache").iterdir())
+    require(len(artifacts) == 1 and digest(artifacts[0]) == cold["grammar_artifact_sha256"], "cold artifact mismatch")
+    compiler_bytes = (directory / "compiler.before").read_bytes()
+    require(compiler_bytes == (directory / "compiler.after").read_bytes(), "compiler changed during build")
+    compilers = [line.split() for line in compiler_bytes.decode().splitlines()]
+    require(len(compilers) == 2 and all(len(row) == 2 and Path(row[0]).is_absolute() and re.fullmatch(r"[0-9a-f]{64}", row[1]) for row in compilers), "compiler identity missing")
+    require(compilers[0][0] == cold["compiler_path"], "cold C compiler path mismatch")
+    build_env = (directory / "environment.before").read_text().strip()
+    require(re.fullmatch(r"[0-9a-f]{64}", build_env) and (directory / "environment.after").read_text().strip() == build_env, "compiler environment changed during build")
+    cold["grammar_artifact_path"] = "/private/cache/" + artifacts[0].name
+    write_json(directory / "identity.json", cold)
+    expected = {"sources":before, "artifact":digest(artifacts[0]), "identity":digest(directory / "identity.json"), "compilers":compilers, "build_env":build_env, "filename":artifacts[0].name, "image":image, "image_id":image_id}
+    verify_private_oracle(directory, inputs, expected)
+    return expected
+
+
+def verify_private_oracle(directory, inputs, expected):
+    check_env(os.environ)
+    require(subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", expected["image"]], text=True).strip() == expected["image_id"], "oracle Docker image changed")
+    require(source_fingerprints(inputs) == expected["sources"], "oracle source inputs changed")
+    artifacts = list((directory / "cache").iterdir())
+    require(len(artifacts) == 1 and artifacts[0].name == expected["filename"] and digest(artifacts[0]) == expected["artifact"], "private oracle cache changed")
+    require(digest(directory / "identity.json") == expected["identity"], "private oracle identity changed")
+    compiler_lines = [line.split() for line in (directory / "compiler.before").read_text().splitlines()]
+    require(compiler_lines == expected["compilers"] and (directory / "compiler.before").read_bytes() == (directory / "compiler.after").read_bytes(), "compiler receipt changed")
+    require((directory / "environment.before").read_text().strip() == expected["build_env"] and (directory / "environment.after").read_text().strip() == expected["build_env"], "compiler environment receipt changed")
+
+
+def private_worker_environment(expected):
+    return ("unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK GTS_W5_PRIVATE_ORACLE_PREPARE; "
+            "export GTS_PARITY_C_REF_BUILD_CACHE=/private/cache GTS_W5_PRIVATE_ORACLE_IDENTITY=/private/identity.json "
+            f"GTS_W5_PRIVATE_ORACLE_SHA256={expected['identity']} "
+            f"GTS_W5_CC_PATH={shlex.quote(expected['compilers'][0][0])} GTS_W5_CC_SHA256={expected['compilers'][0][1]} "
+            f"GTS_W5_CXX_PATH={shlex.quote(expected['compilers'][1][0])} GTS_W5_CXX_SHA256={expected['compilers'][1][1]} "
+            f"GTS_W5_BUILD_ENV_SHA256={expected['build_env']}")
+
+
+def campaign(root, base_revision, out, approved_receipt=None):
     root = root.resolve(); out = out.resolve()
+    private_setting = os.environ.get("GTS_W5_PRIVATE_C_CACHE", "")
+    require(private_setting in ("", "1"), "invalid private C cache setting")
+    if private_setting:
+        check_env(os.environ)
+        clean_private_inputs(root)
     head_revision = git(root, "rev-parse", "HEAD")
     base_revision = git(root, "rev-parse", base_revision + "^{commit}")
     clean_revision(root, head_revision)
-    exception = validate_go_undo_exception(root, base_revision, head_revision) if approved_exception else None
+    exception = validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) if approved_receipt else None
     check_work_exemptions_history(root, base_revision)
     require(not out.exists(), "campaign output already exists; do not overwrite receipts")
     out.mkdir(parents=True)
@@ -455,7 +542,7 @@ require (
 )
 replace github.com/odvcencio/gotreesitter => {source}
 replace github.com/odvcencio/gotreesitter/cgo_harness => /workspace/cgo_harness
-replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-sitter v0.25.0
+replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal/coracle
 """)
     (out / "timing").mkdir()
     (out / "tools").mkdir()
@@ -468,26 +555,52 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
     env["image_id"] = subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", env["image"]], text=True).strip()
     env["go_version"] = subprocess.check_output(["docker", "run", "--rm", env["image"], "go", "version"], text=True).strip()
     write_json(out / "environment.json", env)
-    with tempfile.TemporaryDirectory(prefix="gts-w5-base-") as scratch:
+    with tempfile.TemporaryDirectory(prefix="gts-w5-base-") as scratch, tempfile.TemporaryDirectory(prefix="gts-w5-oracle-") as private_scratch:
         base = Path(scratch) / "source"
         run_checked(["git", "-C", root, "worktree", "add", "--detach", base, base_revision])
         try:
+            if private_setting: clean_private_inputs(base)
             common = campaign_docker_command(root, base, out, cpu)
             env["docker_memory_limit"] = common[common.index("--memory") + 1]
             env["go_memory_limit"] = common[common.index("--gomemlimit") + 1]
             write_json(out / "environment.json", env)
+            private_receipts = {}
+            if private_setting:
+                setup = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1", "cd /campaign/modules/base; go mod tidy", "cd /campaign/modules/head; go mod tidy"])
+                run_checked(common + ["--label", "w5-oracle-setup", "--wall-timeout", "20m", "--", setup])
             for f in m["fixtures"]:
                 language = f["language"]
-                commands = ["set -euo pipefail", campaign_go_environment(), *campaign_edit_environment(language)]
+                private_dir = Path(private_scratch) / language
+                private_inputs = oracle_inputs(root) + [out / "modules" / role / file for role in ("base", "head") for file in ("editor_latency_test.go", "go.mod", "go.sum")]
+                expected = prepare_private_oracle(root, common, private_dir, language, private_inputs, env["image"], env["image_id"]) if private_setting else None
+                if expected:
+                    private_receipts[language] = expected
+                    env.setdefault("private_oracles", {})[language] = expected
+                    write_json(out / "environment.json", env)
+                worker_common = common + (["--mount", f"{private_dir}:/private:ro"] if expected else [])
+                commands = ["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]
+                if exception and not expected:
+                    # Fresh pinned clone/build: do not trust a shared .so or a
+                    # caller-provided source directory/extra grammar lock.
+                    commands.append("unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK; export GTS_PARITY_C_REF_BUILD_CACHE=off")
+                if expected: commands.append(private_worker_environment(expected))
                 for role, revision in (("base", base_revision), ("head", head_revision)):
                     commands += [f"cd /campaign/modules/{role}", "go mod tidy", f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json go test -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m"]
                 with (out / ("correctness-" + language + ".log")).open("w") as log:
-                    run_checked(common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
+                    run_checked(worker_common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
+                if expected: verify_private_oracle(private_dir, private_inputs, expected)
                 print("W5 four-way correctness passed:", language, flush=True)
             compare_counters(out, manifest_path, base_revision, head_revision, exception)
             print("W5 deterministic counter gate passed before timing", flush=True)
             for f in m["fixtures"]:
                 language = f["language"]
+                private_dir = Path(private_scratch) / language
+                if private_setting:
+                    # Reload only identity from an in-memory parent receipt; never trust a worker-written manifest.
+                    expected = private_receipts[language]
+                    verify_private_oracle(private_dir, private_inputs, expected)
+                else: expected = None
+                worker_common = common + (["--mount", f"{private_dir}:/private:ro"] if expected else [])
                 env["samples"].append({"language": language, "before": load_sample()})
                 fragments = {role: [] for role in ("base", "head")}
                 rss_samples = []
@@ -495,10 +608,15 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
                     prefix = f"{language}-seed-{seed}"
                     for role in fragments:
                         fragments[role].append(out / "timing" / f"{prefix}-{role}.txt")
-                    command = "\n".join(["set -euo pipefail", campaign_go_environment(), *campaign_edit_environment(language), "cd /campaign/modules/head", "/usr/bin/time -v bash /workspace/scripts/run_randomized_benchmarks.sh " + " ".join(shlex.quote(x) for x in ["--runs", "1", "--seed-start", str(seed), "--baseline-root", "/campaign/modules/base", "--baseline-output", f"/campaign/timing/{prefix}-base.txt", "--output", f"/campaign/timing/{prefix}-head.txt", "--tags", "treesitter_c_parity", "--bench-regex", "^BenchmarkW5(OneByte|HundredByte|Typing)$", "--require-benchmarks", ",".join(NAMES)])])
+                    command = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}", "cd /campaign/modules/head", "/usr/bin/time -v bash /workspace/scripts/run_randomized_benchmarks.sh " + " ".join(shlex.quote(x) for x in ["--runs", "1", "--seed-start", str(seed), "--baseline-root", "/campaign/modules/base", "--baseline-output", f"/campaign/timing/{prefix}-base.txt", "--output", f"/campaign/timing/{prefix}-head.txt", "--tags", "treesitter_c_parity", "--bench-regex", "^BenchmarkW5(OneByte|HundredByte|Typing)$", "--require-benchmarks", ",".join(NAMES)])])
+                    if expected:
+                        command = private_worker_environment(expected) + "\n" + command
+                    elif exception:
+                        command = "unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK; export GTS_PARITY_C_REF_BUILD_CACHE=off\n" + command
                     log_path = out / f"timing-{prefix}.log"
                     with log_path.open("w") as log:
-                        run_checked(common + ["--label", "w5-timing-" + prefix, "--wall-timeout", "90m", "--", command], stdout=log, stderr=subprocess.STDOUT)
+                        run_checked(worker_common + ["--label", "w5-timing-" + prefix, "--wall-timeout", "90m", "--", command], stdout=log, stderr=subprocess.STDOUT)
+                    if expected: verify_private_oracle(private_dir, private_inputs, expected)
                     rss = re.search(r"Maximum resident set size \(kbytes\): (\d+)", log_path.read_text())
                     require(rss is not None, "timing campaign omitted maximum RSS")
                     rss_samples.append(int(rss.group(1)))
@@ -511,11 +629,13 @@ replace github.com/tree-sitter/go-tree-sitter => github.com/tree-sitter/go-tree-
                     run_checked([out / "tools/benchstat", out / "timing" / (language + "-base-per-edit.txt"), out / "timing" / (language + "-head-per-edit.txt")], stdout=comparison)
                 print("W5 paired 20-seed timing complete:", language, flush=True)
             clean_revision(base, base_revision)
+            if private_setting: clean_private_inputs(base)
         finally:
             run_checked(["git", "-C", root, "worktree", "remove", "--force", base])
     clean_revision(root, head_revision)
-    if approved_exception:
-        require(validate_go_undo_exception(root, base_revision, head_revision) == exception, "W5 exception identity changed during campaign")
+    if private_setting: clean_private_inputs(root)
+    if approved_receipt:
+        require(validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) == exception, "W5 exception identity changed")
     env["finished"] = load_sample()
     write_json(out / "environment.json", env)
     result = compare_timing(out, manifest_path, base_revision, head_revision, exception)
@@ -528,7 +648,7 @@ def main():
     run = sub.add_parser("run")
     run.add_argument("--base", required=True)
     run.add_argument("--output", type=Path, required=True)
-    run.add_argument("--approved-go-undo-exception", action="store_true")
+    run.add_argument("--approved-go-undo-receipt", type=Path)
     compare = sub.add_parser("compare")
     compare.add_argument("--output", type=Path, required=True)
     compare.add_argument("--manifest", type=Path, required=True)
@@ -539,7 +659,7 @@ def main():
         if args.command == "run":
             root = Path(__file__).resolve().parents[1]
             with campaign_lock():
-                campaign(root, args.base, args.output, args.approved_go_undo_exception)
+                campaign(root, args.base, args.output, args.approved_go_undo_receipt)
         else:
             result = compare_timing(args.output, args.manifest, args.base, args.head)
             require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")

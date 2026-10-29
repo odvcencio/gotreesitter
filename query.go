@@ -629,11 +629,17 @@ func (q *Query) executeNode(root *Node, lang *Language, source []byte) []QueryMa
 	return q.executeNodeIntoBuffer(root, lang, source, &buf)
 }
 
+// queryNodeViewBacking is separate from nodeViewBacking so parsers that do
+// not use queries need not retain the query implementation through its type.
+type queryNodeViewBacking interface {
+	executeQuery(*Query, *Node, *Language, []byte, []QueryMatch) ([]QueryMatch, bool)
+}
+
 func (q *Query) executeNodeInto(root *Node, lang *Language, source []byte, dst []QueryMatch) []QueryMatch {
 	if root == nil || lang == nil {
 		return dst
 	}
-	if views := nodeViews(root); views != nil {
+	if views, ok := nodeViews(root).(queryNodeViewBacking); ok {
 		if result, ok := views.executeQuery(q, root, lang, source, dst); ok {
 			return result
 		}
@@ -655,7 +661,7 @@ func (q *Query) executeNodeIntoBuffer(root *Node, lang *Language, source []byte,
 		return q.executeNode(root, lang, source)
 	}
 	buf.matches = buf.matches[:0]
-	if views := nodeViews(root); views != nil {
+	if views, ok := nodeViews(root).(queryNodeViewBacking); ok {
 		if result, ok := views.executeQuery(q, root, lang, source, buf.matches); ok {
 			buf.matches = result
 			return result

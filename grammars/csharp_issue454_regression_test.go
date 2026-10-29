@@ -74,7 +74,7 @@ func TestIssue454CSharpFreshAndIncrementalConverge(t *testing.T) {
 				t.Fatalf("old Parse: %v", err)
 			}
 			defer oldTree.Release()
-			point := issue454PointAt(source, site)
+			point := pointAtByte(source, site)
 			oldTree.Edit(gotreesitter.InputEdit{
 				StartByte:   uint32(site),
 				OldEndByte:  uint32(test.oldEnd),
@@ -233,17 +233,4 @@ func issue454CSharpNodeCount(node *gotreesitter.Node) int {
 		count += issue454CSharpNodeCount(node.Child(i))
 	}
 	return count
-}
-
-func issue454PointAt(source []byte, offset int) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, b := range source[:offset] {
-		if b == '\n' {
-			point.Row++
-			point.Column = 0
-			continue
-		}
-		point.Column++
-	}
-	return point
 }

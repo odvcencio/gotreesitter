@@ -88,7 +88,7 @@ Track at minimum:
 Release-blocking performance safety requirements:
 - Do not permit a crash, an out-of-memory failure, or runaway memory retention.
 - Preserve the parser memory-budget contracts.
-- Complete the benchmark suite and publish reproducible evidence.
+- Complete the benchmark suite and publish reproducible evidence (in the PR body and the `evidence` release; see Commit Discipline).
 
 Use the [v1 performance gate](docs/v1-design.md#performance-gate-one-language)
 for hard failures and per-language ratchets.
@@ -121,6 +121,21 @@ Use profiled runs to decide whether the next win comes from:
   - `git add ...`
   - `buckley commit --yes --minimal-output`
 
+#### Evidence stays out of the repository
+Do not commit receipts, screens, censuses, certificates, raw logs, profiles, or benchmark archives.
+
+1. Put the numbers and the verdict in the pull request (PR) body.
+2. Attach raw files to the GitHub release named `evidence`:
+   `gh release upload evidence <file> --repo odvcencio/gotreesitter`.
+   Pack a folder of files into one `.tar.gz` first.
+3. Store written receipts in the Hyphae space `hypha://m31labs/gotreesitter` under `reports/receipts/`.
+4. Link to a release asset or a pinned commit instead of copying its content into a doc.
+
+The repository keeps user-facing docs, test inputs, and generated files that a test checks.
+CI (`.github/workflows/repository-hygiene.yml`) runs `scripts/check_evidence_paths.sh`.
+It rejects new `docs/benchmarks/` files, dated or receipt-named docs, archives and raw logs under `docs/`, and `docs/` files over 200,000 bytes (except `docs/changelog/`).
+`scripts/evidence_paths_allowlist.txt` lists the few existing files that wait for retirement. It may only shrink.
+
 ### 7) Gate Presets
 Correctness preset:
 - `bash cgo_harness/docker/run_parity_in_docker.sh -- "cd /workspace && go test ./grammargen -run '^TestName$' -count=1"` for the smallest regression that covers the change
@@ -144,4 +159,4 @@ Full-parse non-truncation probe:
 
 Write plainly: lead with the point, use common words and the active voice, keep each term consistent, back claims with evidence (numbers, links, test output), and say what you did not verify. M31 agents: see decision 0012 and the `writing-plainly` skill in hypha://m31labs/hyphae.
 
-Use numbers from pinned benchmarks or CI runs as receipts.
+Use numbers from pinned benchmarks or CI runs as receipts. Cite them in the PR body; do not commit them.

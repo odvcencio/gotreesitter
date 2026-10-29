@@ -1,5 +1,0 @@
-docker parity run complete
-artifacts: /home/draco/.local/state/gotreesitter-evidence/20261018-go-legacy-candidates/offline-runner/harness_out/docker/20261019T154402Z-correctness-protocol-projection-baseline
-exit_code: 1
-oom_killed: false
-wall_timed_out: false

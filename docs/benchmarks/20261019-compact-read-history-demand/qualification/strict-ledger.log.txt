@@ -1,4 +1,0 @@
-=== RUN   TestCompactR4StructuralLockedC
-    compact_r4_parity_test.go:26: R4 language=ledger bytes=932 compact=0 fallback=1 reason="compact route error: parser-core phase zero: accepted compact root is incomplete or erroneous: span=0..932 expected=1..932 error=false allowErrorRoot=false"
---- PASS: TestCompactR4StructuralLockedC (0.02s)
-PASS

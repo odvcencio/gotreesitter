@@ -156,7 +156,7 @@ func retiredDispatchRouteReceiptsWithCompactPolicyAndRoutes(
 		t.Fatalf("incremental base parse failed: %v", err)
 	}
 	t.Cleanup(oldTree.Release)
-	endPoint := retiredDispatchPointAtByte(baseSource, len(baseSource))
+	endPoint := pointAtByte(baseSource, len(baseSource))
 	edit := gotreesitter.InputEdit{
 		StartByte:   uint32(len(baseSource)),
 		OldEndByte:  uint32(len(baseSource)),
@@ -198,7 +198,7 @@ func retiredDispatchRouteReceiptsWithCompactPolicyAndRoutes(
 	return receipts
 }
 
-func retiredDispatchPointAtByte(source []byte, offset int) gotreesitter.Point {
+func pointAtByte(source []byte, offset int) gotreesitter.Point {
 	var point gotreesitter.Point
 	for index, value := range source {
 		if index == offset {

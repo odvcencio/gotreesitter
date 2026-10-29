@@ -161,9 +161,12 @@ func TestParseNilSource(t *testing.T) {
 	tree := mustParse(t, parser, nil)
 
 	root := tree.RootNode()
-	if root != nil {
-		t.Errorf("expected nil root for nil source, got symbol %d with %d children",
-			root.Symbol(), root.ChildCount())
+	if root == nil {
+		t.Fatal("expected a root for nil source, got nil")
+	}
+	if !root.IsError() || root.ChildCount() != 0 || root.EndByte() != 0 {
+		t.Errorf("expected empty ERROR root for nil source, got symbol %d with %d children, end %d",
+			root.Symbol(), root.ChildCount(), root.EndByte())
 	}
 }
 
@@ -174,8 +177,11 @@ func TestParseEmptySource(t *testing.T) {
 	tree := mustParse(t, parser, []byte{})
 
 	root := tree.RootNode()
-	if root != nil {
-		t.Errorf("expected nil root for empty source, got symbol %d with %d children",
-			root.Symbol(), root.ChildCount())
+	if root == nil {
+		t.Fatal("expected a root for empty source, got nil")
+	}
+	if !root.IsError() || root.ChildCount() != 0 || root.EndByte() != 0 {
+		t.Errorf("expected empty ERROR root for empty source, got symbol %d with %d children, end %d",
+			root.Symbol(), root.ChildCount(), root.EndByte())
 	}
 }

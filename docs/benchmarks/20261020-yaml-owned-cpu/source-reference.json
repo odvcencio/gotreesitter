@@ -1,8 +1,0 @@
-{
-  "runtime": "b876c5b5a4ce9569a47dbfdf6adc7cff139ebefb",
-  "source": "/home/draco/.local/state/gotreesitter-evidence/20261020-stable-benchmark-order/public-v3-source",
-  "harness": "public explicit-seed helper from 20261020-stable-benchmark-order",
-  "purpose": "CPU attribution only. Normal memory profiling rate and pools. One YAML mode per process. No before/after timing or graduation claim. Diagnostic-owned mode is asserted compact=1/fallback=0; ordinary mode is checked separately.",
-  "source_manifest_sha256": "4c9f22cc170be565d91af5ef5d21c505d7b4af7d92ebdecdfa295bdb84540021",
-  "initial_run": "The earlier v2 run exited before profiling because its public-check prerequisite failed; raw runner.log is retained."
-}

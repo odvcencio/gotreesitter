@@ -184,9 +184,9 @@ func TestHLSLNextLiveArmLockedCRoutes(t *testing.T) {
 				StartByte:   uint32(len(base)),
 				OldEndByte:  uint32(len(base)),
 				NewEndByte:  uint32(len(witness.source)),
-				StartPoint:  hlslPointAtByte(base),
-				OldEndPoint: hlslPointAtByte(base),
-				NewEndPoint: hlslPointAtByte(witness.source),
+				StartPoint:  endPoint(base),
+				OldEndPoint: endPoint(base),
+				NewEndPoint: endPoint(witness.source),
 			})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(witness.source, oldTree)
 			if err != nil {
@@ -311,17 +311,4 @@ func hlslDispatchReceipt(tree *gotreesitter.Tree) string {
 		}
 	}
 	return "none"
-}
-
-func hlslPointAtByte(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

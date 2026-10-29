@@ -31,10 +31,6 @@ var tsScopes = [][]string{
 	{"ambient_declaration", "export_statement", "program"},
 }
 
-func tsPrefixed(prefix string, scope []string) []string {
-	return append([]string{prefix}, scope...)
-}
-
 // tsOwners are the named bodies whose members receive a Container.
 var tsOwners = []struct{ node, name string }{
 	{"class_declaration", "type_identifier"},

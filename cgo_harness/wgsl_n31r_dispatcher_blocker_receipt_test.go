@@ -19,7 +19,7 @@ import (
 
 const (
 	wgslN31rGrammarBlobSHA256     = "bed4620b51ac8e6dde6ea1ed0d14465f8b17ab11c2487a190650ef15abe392eb"
-	wgslN31rA0ManifestSHA256      = "2cd715128d3d254b33c9a32056990d24be8b15fec38af45c226f56effdd29bcb"
+	wgslN31rA0ManifestSHA256      = "850d1560059c011e497214973d6559162f92b3275a78b074471a385400c54eb9"
 	wgslN31rTrackedManifestSHA256 = "4ca49760dd5b53470f831a8bf4773f54728158607ae049e3792302285c67c874"
 	wgslN31rCorpusLockSHA256      = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 	wgslN31rGrammarRepo           = "https://github.com/szebniok/tree-sitter-wgsl"
@@ -210,7 +210,7 @@ func TestWGSLN31rDispatcherBlockerReceipt(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(oldTree.Release)
-			oldTree.Edit(gots.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(witness.source)), StartPoint: wgslN31rPoint(base), OldEndPoint: wgslN31rPoint(base), NewEndPoint: wgslN31rPoint(witness.source)})
+			oldTree.Edit(gots.InputEdit{StartByte: uint32(len(base)), OldEndByte: uint32(len(base)), NewEndByte: uint32(len(witness.source)), StartPoint: endPoint(base), OldEndPoint: endPoint(base), NewEndPoint: endPoint(witness.source)})
 			inc, profile, err := incParser.ParseIncrementalProfiled(witness.source, oldTree)
 			if err != nil {
 				t.Fatal(err)
@@ -281,17 +281,4 @@ func wgslN31rDispatch(tree *gots.Tree, name string) string {
 		}
 	}
 	return "none"
-}
-
-func wgslN31rPoint(source []byte) gots.Point {
-	var point gots.Point
-	for _, b := range source {
-		if b == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

@@ -5276,7 +5276,11 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 		zeroWidthTokens: lang.ZeroWidthTokens,
 	}
 	relexed, ok := probe.scan(uint32(lexState), probe.pos, probe.row, probe.col)
-	recordTokenInvariantReadSpan(&s.tokenSource.tokenInvariantMaxReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+	examinedEnd := tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte)
+	recordTokenInvariantReadSpan(&s.tokenSource.tokenInvariantMaxReadSpan, int(tok.StartByte), examinedEnd)
+	if reads := s.tokenSource.lexer.reuseReads; reads != nil {
+		reads.Record(int(tok.StartByte), examinedEnd)
+	}
 	if !ok || relexed.Symbol == 0 {
 		return tok, false
 	}

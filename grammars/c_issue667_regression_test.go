@@ -280,21 +280,8 @@ func issue667ApplyEdit(t *testing.T, tree *gotreesitter.Tree, before, after []by
 		StartByte:   uint32(start),
 		OldEndByte:  uint32(oldEnd),
 		NewEndByte:  uint32(newEnd),
-		StartPoint:  issue667PointAt(before, start),
-		OldEndPoint: issue667PointAt(before, oldEnd),
-		NewEndPoint: issue667PointAt(after, newEnd),
+		StartPoint:  pointAtByte(before, start),
+		OldEndPoint: pointAtByte(before, oldEnd),
+		NewEndPoint: pointAtByte(after, newEnd),
 	})
-}
-
-func issue667PointAt(source []byte, offset int) gotreesitter.Point {
-	point := gotreesitter.Point{}
-	for _, b := range source[:offset] {
-		if b == '\n' {
-			point.Row++
-			point.Column = 0
-			continue
-		}
-		point.Column++
-	}
-	return point
 }

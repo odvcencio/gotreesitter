@@ -7,6 +7,120 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Changed
+
+- Make the highlighter return only captures that name a color. It no longer
+  returns private captures (a leading underscore), `@spell`, `@nospell`,
+  `@conceal`, or the directives of a locals query (`@local.scope`,
+  `@local.reference`, `@local.definition`, `@local.definition-value` and
+  `@local.definition.*`); predicates and directives still read them. `@none`
+  clears the colors of its own priority beneath it, including the color of an
+  enclosing capture of that priority, and is not returned. It does not clear a
+  capture of a lower priority, so the reset that the Markdown query puts on a
+  fence leaves the injected language's own colors, such as zig's strings at
+  priority 95. This follows the convention nvim-treesitter documents for
+  `@none`; tree-sitter-highlight and Neovim's own highlighter keep the enclosing
+  color under an inner `@none` node. `(#set! priority N)` sets the priority of a
+  pattern's captures, with a default of 100. Injected child queries follow the
+  same rules, and at equal priority an injected capture wins over the host's
+  capture on the same span. A VHDL comment keeps its `@comment` color, and a
+  private capture such as `@_key` no longer hides the color of its node
+  ([#454](https://github.com/odvcencio/gotreesitter/issues/454)).
+- Remove the BitBake, Corn, DTD, Templ, and Wolfram result-compatibility
+  arms. None of them rewrote a node on any registered witness, and the trees
+  on the production, compact, forest, and incremental routes are the same with
+  the arms removed. `ParseRuntime().NormalizationPasses` and the
+  `GTS_DISPATCHER_CENSUS` output no longer list a `dispatch.<language>` pass
+  for these five languages. The five languages are now eligible for
+  compact-tail elision. The Perl arm stays: it still regroups `push @a => ...`
+  arguments the way locked C does.
+
+- Reduce YAML parse time and allocation. The YAML scanner caches the current
+  rune within each request ([#1486](https://github.com/odvcencio/gotreesitter/pull/1486)), prepares its scanner bindings once
+  ([#1491](https://github.com/odvcencio/gotreesitter/pull/1491)) and keeps indentation type and width in one frame stack ([#1514](https://github.com/odvcencio/gotreesitter/pull/1514)).
+  The cached-rune change cut legacy YAML parse time by 5.39% (p=.004, 20 pairs);
+  the prepared bindings cut ordinary YAML parse time by 2.60% (p=.028).
+
+- Reduce memory on the compact parse route. Allocated bytes for a fresh 1 MiB
+  Go parse fall 17.52% (453,602,488 to 374,143,160 B/op, p<.001) because public
+  subtrees now live in 64K-record blocks ([#1504](https://github.com/odvcencio/gotreesitter/pull/1504)). Graph nodes shrink from 24
+  to 16 bytes ([#1500](https://github.com/odvcencio/gotreesitter/pull/1500)) and no longer copy the whole arena when it grows
+  ([#1502](https://github.com/odvcencio/gotreesitter/pull/1502)). Dependency and lexer-history allocations also shrink ([#1480](https://github.com/odvcencio/gotreesitter/pull/1480));
+  allocation for a 20 KB query compile falls from 140,563 to 10,512 B. Timing
+  differences were inconclusive. The compact route is not the default for every
+  language.
+
+- Parse JSON with the grammar's own DFA lexer, and delete its hand-written token
+  source (`grammars/runtime/json_lexer.go`). Both paths were compared with the
+  locked C parser on 303 JSON files: the DFA path matched C on 303 files, and the
+  token source on 297. No file matched C only through the token source.
+  `LangEntry.TokenSourceFactory` is now nil for JSON, so `ParseFile`,
+  `ParseFilePooled` and the other registry helpers use `Parser.Parse`. The Java
+  token source stays: it is the only implementation of the end-of-file comment
+  append proof, and without it typing at the end of a trailing comment in a
+  Java file runs a hidden fresh parse on every keystroke. C, C++ and authzed
+  also keep their token sources: C matched C on 4 corpus files where the DFA path
+  did not, and the C++ token source matches C on a malformed class body that the
+  DFA path parses without an error.
+
+### Added
+
+- Add `cmd/scannercert`, a report-only tool that replays external scanner calls
+  from saved state and reports any difference from the live result. It grants no
+  incremental-reuse approval and changes no scanner capability flag
+  ([#1518](https://github.com/odvcencio/gotreesitter/pull/1518)).
+
+### Fixed
+
+- Go: make compact recovery return `(source_file (ERROR))` for `,`, as the C
+  parser does. Reuse completed Scala snippet roots, which removes about 17 MB of
+  allocation for malformed 24-30 byte Scala inputs ([#1452](https://github.com/odvcencio/gotreesitter/pull/1452)).
+- TypeScript and TSX: parse an async generic arrow such as
+  `async <T>(v: T): Promise<T> => v` correctly instead of as a
+  `binary_expression` ([#1483](https://github.com/odvcencio/gotreesitter/pull/1483)).
+- TypeScript and TSX: parse generic tagged template calls such as
+  ``tag<string[]>`text` `` instead of reading them as comparisons or failing
+  ([#1515](https://github.com/odvcencio/gotreesitter/pull/1515)). This regenerates `typescript.bin` and `tsx.bin`.
+- Generated grammars: keep the span of a consumed hidden newline when a
+  newline-or-NUL terminator follows ([#1513](https://github.com/odvcencio/gotreesitter/pull/1513)). None of the 206 shipped grammars
+  takes the changed branch.
+- 32-bit builds: fix a panic when a parser state with the high bit set became a
+  negative `int` in a bounds check ([#1485](https://github.com/odvcencio/gotreesitter/pull/1485)).
+- Compact projection: publish hidden-supertype ancestry and synthetic-root
+  metadata exactly. The Go supertype query failed before this fix ([#1484](https://github.com/odvcencio/gotreesitter/pull/1484)).
+
+### Breaking Changes
+
+- `grammars.JSONTokenSource`, `NewJSONTokenSource` and `NewJSONTokenSourceOrEOF`
+  are removed, and the registry no longer routes `json` through a token source.
+  To upgrade, call `parser.Parse(src)` where you called
+  `ParseWithTokenSource(src, grammars.NewJSONTokenSourceOrEOF(src, lang))`, and
+  `parser.ParseIncremental(src, old)` for incremental parses. Drop
+  `WithTokenSourceFactory` from highlighters and taggers for JSON. Code that
+  calls `entry.TokenSourceFactory(...)` without a nil check must check for nil
+  and fall back to `Parse`. Trees differ from the old ones on 6 JSON files in the
+  test corpus, and in each of them only the DFA tree matched C.
+
+- `Highlight` and its incremental and UTF-16 variants no longer return a range
+  for a `spell`, `nospell`, `conceal`, `none`, underscore-prefixed or
+  locals-directive capture. Code that reads a `spell`, `none` or underscore
+  capture from `Highlight` no longer receives it.
+- Injected child layers keep their own pattern order on identical spans, as a
+  standalone file does. Before, a layer lost its pattern indexes and the order of
+  the matches decided. In a Markdown fence of starlark, `{` changes from
+  `punctuation.bracket` to `punctuation.special`.
+- On a span that an injected language and its host both capture, the injected
+  capture now wins. Before, the host's capture won unless it came from the first
+  pattern of the host's query.
+- Queries that set `(#set! priority N)` now resolve overlaps by priority. Before,
+  the directive had no effect and the narrower capture won. Sixteen shipped
+  queries set a priority. In the diff query, the `---`, `+++`, `-` and `+`
+  markers now take `diff.minus` or `diff.plus` instead of `punctuation.special`.
+  In hare, `:outer` in `break :outer;` is one `label` range where it was a
+  `punctuation.delimiter` range and a `variable` range, and in tablegen, `!add` is
+  one `function` range where it was a `punctuation.special` range and a
+  `function` range.
+
 ## [0.56.0] - 2026-10-13
 
 ### Added
@@ -122,7 +236,7 @@ for tags and release notes while still in `0.x`.
 On 2026-10-04, the owner authorized the v0.56.0-only tag-creation exception.
 The exception permits publication without a workflow-only tag-creation actor rule.
 All other gates remain mandatory under
-[the release process](docs/releasing.md#v0560-only-tag-creation-exception).
+[the release process](docs/releasing.md#tag-creation-rule-gap).
 This standard minor release still requires full CI and performance evidence for
 the exact candidate, a signed receipt, and protected release environment approval.
 
@@ -175,7 +289,7 @@ C corpus results remain 23/25 clean files and 20/25 deep matches.
 
 On 2026-09-26, the owner authorized the v0.55.1-only tag-creation exception.
 The exception permits publication without a workflow-only tag-creation actor rule.
-All other gates remain mandatory under [the release process](docs/releasing.md#v0551-only-tag-creation-exception).
+All other gates remain mandatory under [the release process](docs/releasing.md#tag-creation-rule-gap).
 This urgent patch addresses the Python regression and false C errors reported in [#454](https://github.com/odvcencio/gotreesitter/issues/454).
 Waiting prolongs Python keystroke delays and false errors in valid C documents.
 
@@ -289,7 +403,7 @@ Its primary allocation counts remained 8, 5, and 0.
 
 On 2026-09-24, the owner approved a one-time tag-creation exception for v0.55.0.
 The exception permits publication without a workflow-only tag-creation actor rule.
-All other gates remain mandatory under [the release process](docs/releasing.md#v0550-only-tag-creation-exception).
+All other gates remain mandatory under [the release process](docs/releasing.md#tag-creation-rule-gap).
 
 ### Known gaps
 
@@ -910,7 +1024,7 @@ The attempted flag correction changed AWK recovery selection and remains deferre
 
 The owner authorized a v0.52.0-only exception for an unsupported tag-creation
 actor rule. All other publication gates remain mandatory. See
-[the dated exception](docs/releasing.md#v0520-only-tag-creation-exception).
+[the dated exception](docs/releasing.md#tag-creation-rule-gap).
 
 ### Performance
 

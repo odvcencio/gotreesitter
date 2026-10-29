@@ -119,7 +119,7 @@ func testIssue454CIncrementalDeleteMatchesFresh(t *testing.T, lang *gotreesitter
 				oldTree = issue454CLegacyOldTree(t, oldTree, source, lang)
 			}
 			defer oldTree.Release()
-			point := issue454PointAt(source, site)
+			point := pointAtByte(source, site)
 			oldTree.Edit(gotreesitter.InputEdit{
 				StartByte:   uint32(site),
 				OldEndByte:  uint32(test.oldEnd),
@@ -196,7 +196,7 @@ func testIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T,
 		t.Fatal("C edit marker is absent")
 	}
 	edited := append(append([]byte(nil), source[:site]...), source[site+1:]...)
-	point := issue454PointAt(source, site)
+	point := pointAtByte(source, site)
 	edit := gotreesitter.InputEdit{
 		StartByte:   uint32(site),
 		OldEndByte:  uint32(site + 1),

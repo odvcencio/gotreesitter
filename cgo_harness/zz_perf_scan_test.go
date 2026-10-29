@@ -22,6 +22,13 @@ package cgoharness
 // active-attempt attribution. In hard-gate mode they fail closed instead of
 // being hidden behind language aggregates.
 //
+// C timings here come from the in-process cgo binding. Since runtime 0.27.1
+// the binding enforces the budget with the upstream progress callback, which
+// crosses from C into Go about every 100 parser operations and calls
+// time.Now() each time. Cgo-binding C wall times therefore include that
+// overhead and are not authoritative C timings. Static-C timings from the
+// pure C drivers use a C callback and do not carry it.
+//
 // Build/run discipline mirrors the parity suites: requires the build tags
 // "treesitter_c_parity treesitter_c_perfscan", the container-or-
 // GTS_PARITY_ALLOW_HOST=1 TestMain guard, and the GTS_PERF_SCAN=1 env gate,

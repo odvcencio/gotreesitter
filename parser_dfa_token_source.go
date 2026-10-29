@@ -4889,6 +4889,7 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	// TestProbeZeroWidthExternalTokenForLexStateAllocations pins the
 	// measured costs.
 	dispatchPayload := d.captureExternalScannerStateInto(&d.externalSnapshot)
+	probeCompleted, probeAccepted := false, false
 	savedExternalLexer := d.externalLexer
 	defer func() {
 		// R1: the scan this probe just ran did read bytes, and those reads
@@ -4911,12 +4912,16 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		}
 		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, int(scanStart), examinedEnd)
 		if d.lexer != nil && d.lexer.reuseReads != nil {
-			// A scanner may emit or decline a zero-width marker without reading
-			// lookahead. Use the normalized cursor frontier above so the receipt
-			// never ends before its own origin. Nonlocal reads still abstain.
+			// Shadow-authorized producers require the normalized frontier; ordinary
+			// small sources retain their legacy frontier except for a proved
+			// stateless failed scanner call that performed no input observation.
 			shadowArtifact := d.language != nil && d.language.SmallSourceReuseShadowArtifact != ([32]byte{})
 			if !incr.RequiresFreshResult(len(source)) && !shadowArtifact {
-				d.lexer.reuseReads.Record(int(scanStart), legacyExaminedEnd)
+				scanner, stateless := d.language.ExternalScanner.(StatelessExternalScanner)
+				noReadFailure := probeCompleted && !probeAccepted && stateless && scanner.ExternalScannerIsStateless() && d.externalLexer.readFrontier != nil && d.externalLexer.readFrontier.examined == 0 && !d.externalLexer.readFrontier.nonlocal && !d.externalLexer.didGetColumn
+				if !noReadFailure {
+					d.lexer.reuseReads.Record(int(scanStart), legacyExaminedEnd)
+				}
 			} else if d.externalLexer.readFrontier != nil && d.externalLexer.readFrontier.nonlocal {
 				d.lexer.reuseReads.Abstain()
 			} else {
@@ -4956,7 +4961,9 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 
 	el := &d.externalLexer
 	el.reset(source, int(scanStart), scanPoint.Row, scanPoint.Column)
-	if !RunExternalScanner(d.language, d.externalPayload, el, row) {
+	probeAccepted = RunExternalScanner(d.language, d.externalPayload, el, row)
+	probeCompleted = true
+	if !probeAccepted {
 		return Token{}, externalScannerCheckpoint{}, false
 	}
 	probed, ok := el.token()

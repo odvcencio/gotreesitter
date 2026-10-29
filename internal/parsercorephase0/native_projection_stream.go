@@ -198,7 +198,8 @@ func (c *Core) StreamNativeProjection(roots []SubtreeID, source []byte, sink Nat
 		rawChildren += uint64(r.childCount)
 		stack = append(stack, nativeProjectionFrame{
 			id: uint32(id), logicalStart: uint32(len(logical)), lastEnd: r.startByte,
-			pre: pre, cursor: pre, state: state, stateKnown: known, preKnown: known && !r.extra,
+			rawPrecedence: int32(r.dynamicPrecedence),
+			pre:           pre, cursor: pre, state: state, stateKnown: known, preKnown: known && !r.extra,
 			alias: alias, field: field,
 			root: replay.Tiling != nil && replay.Tiling.HasRootSymbol && r.symbol == replay.Tiling.RootSymbol,
 		})
@@ -374,10 +375,7 @@ func (c *Core) StreamNativeProjection(roots []SubtreeID, source []byte, sink Nat
 					child.Flags = child.Flags&^(nativeProjectionPreKnown|nativeProjectionStateKnown) | replayFlags
 					child.ProductionID = raw.productionID
 					child.Source = payload
-					child.DynamicPrecedence, err = checkedSelectedPrecedence(child.DynamicPrecedence, int32(raw.dynamicPrecedence))
-					if err != nil {
-						return nil, err
-					}
+					child.DynamicPrecedence = rf.rawPrecedence
 					if raw.fragile {
 						child.Flags |= nativeProjectionFragile
 					}
@@ -415,7 +413,7 @@ func (c *Core) StreamNativeProjection(roots []SubtreeID, source []byte, sink Nat
 				if len(children) > math.MaxInt32 {
 					return nil, errors.New("parser-core phase zero: native projected child count exceeds int32")
 				}
-				r := NativeProjectionRecord{Source: payload, Symbol: symbol, Field: field, ProductionID: raw.productionID, StartByte: raw.startByte, EndByte: raw.endByte, DynamicPrecedence: int32(raw.dynamicPrecedence), ChildCount: uint32(len(children)), Flags: uint16(selectedFlags(meta, raw.extra, raw.external, raw.terminal, false, false))}
+				r := NativeProjectionRecord{Source: payload, Symbol: symbol, Field: field, ProductionID: raw.productionID, StartByte: raw.startByte, EndByte: raw.endByte, DynamicPrecedence: rf.rawPrecedence, ChildCount: uint32(len(children)), Flags: uint16(selectedFlags(meta, raw.extra, raw.external, raw.terminal, false, false))}
 				r.ReplayPre, r.ReplayState = rf.pre, rf.state
 				r.Flags |= replayFlags
 				if retain {
@@ -438,10 +436,7 @@ func (c *Core) StreamNativeProjection(roots []SubtreeID, source []byte, sink Nat
 					if child.EndByte > r.EndByte {
 						r.EndByte = child.EndByte
 					}
-					r.DynamicPrecedence, err = checkedSelectedPrecedence(r.DynamicPrecedence, child.DynamicPrecedence)
-					if err != nil {
-						return nil, err
-					}
+
 				}
 				id, err := emit(r, children)
 				if err != nil {
@@ -466,6 +461,13 @@ func (c *Core) StreamNativeProjection(roots []SubtreeID, source []byte, sink Nat
 			colors[payload] = 2
 			if folded {
 				colors[payload] |= rawNodeIsProjected
+			}
+			if index > 0 {
+				parent := &stack[index-1]
+				parent.rawPrecedence, err = checkedSelectedPrecedence(parent.rawPrecedence, rf.rawPrecedence)
+				if err != nil {
+					return nil, err
+				}
 			}
 			stack = stack[:index]
 		}

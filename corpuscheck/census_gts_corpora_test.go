@@ -55,8 +55,8 @@ func languageCorpusDir(root, name string) (string, bool) {
 // TestCorpusFormat_RealWorld runs a small, bounded upstream sample when
 // gts-corpora is available. It checks the format parser and renderer against
 // unchanged upstream fixtures.
-// Use cmd/corpuscheck for the full sweep. Run that command explicitly on a
-// shared machine. Do not run the full sweep through `go test`.
+// Use `gotreesitter test` (cmd/gotreesitter) for the full sweep. Run that
+// command explicitly on a shared machine. Do not run the full sweep through `go test`.
 func TestCorpusFormat_RealWorld(t *testing.T) {
 	root := gtsCorporaRoot(t)
 

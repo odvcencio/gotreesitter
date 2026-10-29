@@ -12,6 +12,9 @@
 - [ ] Affected parity validation ran in Docker, one language or grammar at a time
 - [ ] If grammargen or parity logic changed, ran the smallest relevant focus target in Docker
 - [ ] Documented anything intentionally left unvalidated in this PR
+- [ ] Engine PR: before-and-after deterministic counters are in the PR body (work counters did not rise, reuse counters did not fall)
+- [ ] Invariant gate ran for each language the PR can affect (incremental equals fresh, ERROR root implies HasError, root covers input, no-edit reparse allocates nothing)
+- [ ] No language-name comparison in engine files (D6); one v1 lane only
 
 <!-- Keep correctness gating separate from performance gating. -->
 <!-- Do not use host-side repo-wide sweeps. -->
@@ -24,7 +27,7 @@
 
 ## Performance
 
-- [ ] If perf-relevant, used the stable bench settings (`GOMAXPROCS=1`, `-count=10`, `-benchtime=750ms`, `-benchmem`)
+- [ ] If perf-relevant, compared before and after with `scripts/run_randomized_benchmarks.sh` (`GOMAXPROCS=1`, `-count=1` per process, 20 shuffle seeds, `-benchtime=750ms`, `-benchmem`); a fixed-order run is not evidence
 - [ ] Included before and after numbers, or explicitly said perf is not the goal of this PR
 - [ ] If large-grammar behavior changed, checked bounded RSS, timeout, or OOM behavior under Docker
 

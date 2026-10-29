@@ -71,7 +71,7 @@ func TestSwiftEOFRecoveryPrefixBoundAndKnownCGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const wantCDigest = "b91fecb142dd879bfaba7ed9dca4b0bdb13deeb4426a08ffb6981f4a3445edb7"
+	const wantCDigest = "810fcd21eeb7b2c4afccf3e96de9c074d18b870e9d3ae3b90ad01165f532838f"
 	if cDigest != wantCDigest {
 		t.Fatalf("Swift prefix locked C digest = %s, want %s", cDigest, wantCDigest)
 	}

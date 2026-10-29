@@ -9,10 +9,11 @@ import (
 	_ "unsafe"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
 )
 
 func TestJuliaScannerASCIIEquivalence(t *testing.T) {
-	scanner := JuliaExternalScanner{}
+	scanner := grammarruntime.JuliaExternalScanner{}
 	var _ gotreesitter.ASCIIEquivalenceExternalScanner = scanner
 	for b := 0; b < 256; b++ {
 		want := uint8(0)

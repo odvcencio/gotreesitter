@@ -1,0 +1,77 @@
+name: cross-platform-smoke
+
+# Nightly focused checks on platforms that ci.yml does not cover: macOS
+# arm64, Windows, Linux arm64, and wasip1 under a WASI runtime. The set is
+# small on purpose (vet and short tests for grammars, internal, and grep).
+# It does not run the root package or grammargen.
+
+on:
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: cross-platform-smoke
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  GOWORK: 'off'
+
+jobs:
+  native:
+    name: native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest, ubuntu-24.04-arm]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Vet
+        shell: bash
+        run: go vet ./grammars/... ./internal/... ./grep
+
+      - name: Test
+        shell: bash
+        run: go test -short -count=1 -p 2 ./grammars/... ./internal/... ./grep
+
+  wasip1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Go's wasip1 exec wrapper reads GOWASIRUNTIME and runs `wazero`.
+      GOWASIRUNTIME: wazero
+      WAZERO_VERSION: v1.9.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build every package
+        env:
+          GOOS: wasip1
+          GOARCH: wasm
+        run: go build ./...
+
+      - name: Install wazero
+        run: go install "github.com/tetratelabs/wazero/cmd/wazero@${WAZERO_VERSION}"
+
+      - name: Test small packages under wazero
+        env:
+          GOOS: wasip1
+          GOARCH: wasm
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          go test -short -count=1 -exec "$(go env GOROOT)/lib/wasm/go_wasip1_wasm_exec" \
+            ./internal/luapattern ./internal/syntaxfacts ./internal/benchorder

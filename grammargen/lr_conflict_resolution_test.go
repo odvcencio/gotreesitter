@@ -2617,162 +2617,79 @@ func TestResolveShiftReduceStructInitializerAmbiguityRequiresExpressionReduce(t 
 	}
 }
 
-func TestResolveReduceReduceKeepsSameRHSExplicitNegativeAmbiguity(t *testing.T) {
-	ng := &NormalizedGrammar{
-		Symbols: []SymbolInfo{
-			{Name: "{", Kind: SymbolTerminal},
-			{Name: "identifier", Kind: SymbolNonterminal},
-			{Name: "::", Kind: SymbolTerminal},
-			{Name: "scoped_identifier", Kind: SymbolNonterminal},
-			{Name: "scoped_type_identifier_in_expression_position", Kind: SymbolNonterminal},
+func TestResolveReduceReduceSameRHSExplicitNegative(t *testing.T) {
+	tests := []struct {
+		name       string
+		wrapperA   string // LHS symbol 3
+		wrapperB   string // LHS symbol 4
+		rhsA, rhsB []int
+		precB      int
+		wantLen    int
+		wantMsg    string
+	}{
+		{
+			name:     "KeepsSameRHSExplicitNegativeAmbiguity",
+			wrapperA: "scoped_identifier", wrapperB: "scoped_type_identifier_in_expression_position",
+			rhsA: []int{1, 2, 1}, rhsB: []int{1, 2, 1}, precB: -2, wantLen: 2,
+			wantMsg: "both same-RHS wrapper reductions kept",
 		},
-		Productions: []Production{
-			{LHS: 3, RHS: []int{1, 2, 1}},
-			{
-				LHS:             4,
-				RHS:             []int{1, 2, 1},
-				Prec:            -2,
-				HasExplicitPrec: true,
-			},
+		{
+			name:     "KeepsNestedScopedSameRHSExplicitNegativeAmbiguity",
+			wrapperA: "scoped_identifier", wrapperB: "scoped_type_identifier_in_expression_position",
+			rhsA: []int{3, 2, 1}, rhsB: []int{3, 2, 1}, precB: -2, wantLen: 2,
+			wantMsg: "nested same-RHS wrapper reductions kept",
+		},
+		{
+			name:     "RequiresScopedWrappers",
+			wrapperA: "wrapper_a", wrapperB: "wrapper_b",
+			rhsA: []int{1, 2, 1}, rhsB: []int{1, 2, 1}, precB: -2, wantLen: 1,
+			wantMsg: "normal reduce/reduce precedence resolution",
+		},
+		{
+			name:     "RequiresEqualRHS",
+			wrapperA: "scoped_identifier", wrapperB: "scoped_type_identifier_in_expression_position",
+			rhsA: []int{3, 2, 1}, rhsB: []int{1, 2, 1}, precB: -2, wantLen: 1,
+			wantMsg: "normal reduce/reduce precedence resolution",
+		},
+		{
+			name:     "RequiresNegativeScopedTypePrec",
+			wrapperA: "scoped_identifier", wrapperB: "scoped_type_identifier_in_expression_position",
+			rhsA: []int{3, 2, 1}, rhsB: []int{3, 2, 1}, precB: 0, wantLen: 1,
+			wantMsg: "normal reduce/reduce precedence resolution",
 		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ng := &NormalizedGrammar{
+				Symbols: []SymbolInfo{
+					{Name: "{", Kind: SymbolTerminal},
+					{Name: "identifier", Kind: SymbolNonterminal},
+					{Name: "::", Kind: SymbolTerminal},
+					{Name: tt.wrapperA, Kind: SymbolNonterminal},
+					{Name: tt.wrapperB, Kind: SymbolNonterminal},
+				},
+				Productions: []Production{
+					{LHS: 3, RHS: tt.rhsA},
+					{
+						LHS:             4,
+						RHS:             tt.rhsB,
+						Prec:            tt.precB,
+						HasExplicitPrec: true,
+					},
+				},
+			}
 
-	got, err := resolveActionConflict(0, []lrAction{
-		{kind: lrReduce, prodIdx: 0, lhsSym: 3},
-		{kind: lrReduce, prodIdx: 1, lhsSym: 4},
-	}, ng)
-	if err != nil {
-		t.Fatalf("resolveActionConflict: %v", err)
-	}
-	if len(got) != 2 {
-		t.Fatalf("resolved actions = %+v, want both same-RHS wrapper reductions kept", got)
-	}
-}
-
-func TestResolveReduceReduceKeepsNestedScopedSameRHSExplicitNegativeAmbiguity(t *testing.T) {
-	ng := &NormalizedGrammar{
-		Symbols: []SymbolInfo{
-			{Name: "{", Kind: SymbolTerminal},
-			{Name: "identifier", Kind: SymbolNonterminal},
-			{Name: "::", Kind: SymbolTerminal},
-			{Name: "scoped_identifier", Kind: SymbolNonterminal},
-			{Name: "scoped_type_identifier_in_expression_position", Kind: SymbolNonterminal},
-		},
-		Productions: []Production{
-			{LHS: 3, RHS: []int{3, 2, 1}},
-			{
-				LHS:             4,
-				RHS:             []int{3, 2, 1},
-				Prec:            -2,
-				HasExplicitPrec: true,
-			},
-		},
-	}
-
-	got, err := resolveActionConflict(0, []lrAction{
-		{kind: lrReduce, prodIdx: 0, lhsSym: 3},
-		{kind: lrReduce, prodIdx: 1, lhsSym: 4},
-	}, ng)
-	if err != nil {
-		t.Fatalf("resolveActionConflict: %v", err)
-	}
-	if len(got) != 2 {
-		t.Fatalf("resolved actions = %+v, want nested same-RHS wrapper reductions kept", got)
-	}
-}
-
-func TestResolveReduceReduceSameRHSExplicitNegativeRequiresScopedWrappers(t *testing.T) {
-	ng := &NormalizedGrammar{
-		Symbols: []SymbolInfo{
-			{Name: "{", Kind: SymbolTerminal},
-			{Name: "identifier", Kind: SymbolNonterminal},
-			{Name: "::", Kind: SymbolTerminal},
-			{Name: "wrapper_a", Kind: SymbolNonterminal},
-			{Name: "wrapper_b", Kind: SymbolNonterminal},
-		},
-		Productions: []Production{
-			{LHS: 3, RHS: []int{1, 2, 1}},
-			{
-				LHS:             4,
-				RHS:             []int{1, 2, 1},
-				Prec:            -2,
-				HasExplicitPrec: true,
-			},
-		},
-	}
-
-	got, err := resolveActionConflict(0, []lrAction{
-		{kind: lrReduce, prodIdx: 0, lhsSym: 3},
-		{kind: lrReduce, prodIdx: 1, lhsSym: 4},
-	}, ng)
-	if err != nil {
-		t.Fatalf("resolveActionConflict: %v", err)
-	}
-	if len(got) != 1 {
-		t.Fatalf("resolved actions = %+v, want normal reduce/reduce precedence resolution", got)
-	}
-}
-
-func TestResolveReduceReduceSameRHSExplicitNegativeRequiresEqualRHS(t *testing.T) {
-	ng := &NormalizedGrammar{
-		Symbols: []SymbolInfo{
-			{Name: "{", Kind: SymbolTerminal},
-			{Name: "identifier", Kind: SymbolNonterminal},
-			{Name: "::", Kind: SymbolTerminal},
-			{Name: "scoped_identifier", Kind: SymbolNonterminal},
-			{Name: "scoped_type_identifier_in_expression_position", Kind: SymbolNonterminal},
-		},
-		Productions: []Production{
-			{LHS: 3, RHS: []int{3, 2, 1}},
-			{
-				LHS:             4,
-				RHS:             []int{1, 2, 1},
-				Prec:            -2,
-				HasExplicitPrec: true,
-			},
-		},
-	}
-
-	got, err := resolveActionConflict(0, []lrAction{
-		{kind: lrReduce, prodIdx: 0, lhsSym: 3},
-		{kind: lrReduce, prodIdx: 1, lhsSym: 4},
-	}, ng)
-	if err != nil {
-		t.Fatalf("resolveActionConflict: %v", err)
-	}
-	if len(got) != 1 {
-		t.Fatalf("resolved actions = %+v, want normal reduce/reduce precedence resolution", got)
-	}
-}
-
-func TestResolveReduceReduceSameRHSExplicitNegativeRequiresNegativeScopedTypePrec(t *testing.T) {
-	ng := &NormalizedGrammar{
-		Symbols: []SymbolInfo{
-			{Name: "{", Kind: SymbolTerminal},
-			{Name: "identifier", Kind: SymbolNonterminal},
-			{Name: "::", Kind: SymbolTerminal},
-			{Name: "scoped_identifier", Kind: SymbolNonterminal},
-			{Name: "scoped_type_identifier_in_expression_position", Kind: SymbolNonterminal},
-		},
-		Productions: []Production{
-			{LHS: 3, RHS: []int{3, 2, 1}},
-			{
-				LHS:             4,
-				RHS:             []int{3, 2, 1},
-				HasExplicitPrec: true,
-			},
-		},
-	}
-
-	got, err := resolveActionConflict(0, []lrAction{
-		{kind: lrReduce, prodIdx: 0, lhsSym: 3},
-		{kind: lrReduce, prodIdx: 1, lhsSym: 4},
-	}, ng)
-	if err != nil {
-		t.Fatalf("resolveActionConflict: %v", err)
-	}
-	if len(got) != 1 {
-		t.Fatalf("resolved actions = %+v, want normal reduce/reduce precedence resolution", got)
+			got, err := resolveActionConflict(0, []lrAction{
+				{kind: lrReduce, prodIdx: 0, lhsSym: 3},
+				{kind: lrReduce, prodIdx: 1, lhsSym: 4},
+			}, ng)
+			if err != nil {
+				t.Fatalf("resolveActionConflict: %v", err)
+			}
+			if len(got) != tt.wantLen {
+				t.Fatalf("resolved actions = %+v, want %s", got, tt.wantMsg)
+			}
+		})
 	}
 }
 

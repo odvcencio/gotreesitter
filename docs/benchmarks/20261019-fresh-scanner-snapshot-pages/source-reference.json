@@ -1,7 +1,0 @@
-{
-  "baseline_runtime": "54863cf280722c720bda81c2a8480f2398255730",
-  "baseline_go_files": 3514,
-  "candidate_go_files": 3516,
-  "runtime_files": 5,
-  "runtime_patch_sha256": "bff41d5be9df5ef354faf6cc8aaf9d3b0605ec55459ef4b9db8a80e7e581e650"
-}

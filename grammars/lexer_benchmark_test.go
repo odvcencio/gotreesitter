@@ -111,17 +111,6 @@ func BenchmarkParse_HTML(b *testing.B) {
 	benchmarkParse(b, src, NewHTMLTokenSourceOrEOF, HtmlLanguage)
 }
 
-// --- JSON ---
-func BenchmarkTokenize_JSON(b *testing.B) {
-	src := []byte(`{"key": "value", "num": 42, "arr": [1, true, null, "str"]}`)
-	benchmarkTokenize(b, src, NewJSONTokenSourceOrEOF, JsonLanguage)
-}
-
-func BenchmarkParse_JSON(b *testing.B) {
-	src := []byte(`{"key": "value", "num": 42, "arr": [1, true, null, "str"]}`)
-	benchmarkParse(b, src, NewJSONTokenSourceOrEOF, JsonLanguage)
-}
-
 // --- Lua ---
 func BenchmarkTokenize_Lua(b *testing.B) {
 	src := []byte("local x = 1\nfunction foo(a, b)\n  return a + b\nend\nprint(foo(1, 2))\n")

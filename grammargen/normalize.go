@@ -5629,3 +5629,25 @@ func unwrapPrec(r *Rule) (prec int, assoc Assoc, dynPrec int, hasPrec bool, inne
 	}
 	return prec, assoc, dynPrec, hasPrec, r
 }
+
+// rulesEqual recursively compares two rule trees.
+func rulesEqual(a, b *Rule) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	if a.Kind != b.Kind || a.Value != b.Value || a.Prec != b.Prec || a.Named != b.Named {
+		return false
+	}
+	if len(a.Children) != len(b.Children) {
+		return false
+	}
+	for i := range a.Children {
+		if !rulesEqual(a.Children[i], b.Children[i]) {
+			return false
+		}
+	}
+	return true
+}

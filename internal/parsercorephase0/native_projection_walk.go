@@ -18,6 +18,7 @@ type NativeProjectionTiling struct {
 // No frame pointer survives a push, which may grow the backing array.
 type nativeProjectionFrame struct {
 	id, next, logicalStart, lastEnd uint32
+	rawPrecedence                   int32
 	cursor, pre, state              StateID
 	alias                           Symbol
 	field                           FieldID

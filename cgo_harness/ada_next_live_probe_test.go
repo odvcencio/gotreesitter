@@ -195,9 +195,9 @@ func TestAdaNextLiveArmProbe(t *testing.T) {
 				StartByte:   uint32(len(base)),
 				OldEndByte:  uint32(len(base)),
 				NewEndByte:  uint32(len(target)),
-				StartPoint:  adaProbePointAtByte(base, len(base)),
-				OldEndPoint: adaProbePointAtByte(base, len(base)),
-				NewEndPoint: adaProbePointAtByte(target, len(target)),
+				StartPoint:  pointAtByteOffset(base, len(base)),
+				OldEndPoint: pointAtByteOffset(base, len(base)),
+				NewEndPoint: pointAtByteOffset(target, len(target)),
 			})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(target, oldTree)
 			if err != nil {
@@ -232,20 +232,4 @@ func adaProbePasses(tree *gotreesitter.Tree) string {
 		parts = append(parts, fmt.Sprintf("%s:%d", pass.Name, pass.NodesRewritten))
 	}
 	return fmt.Sprintf("%v", parts)
-}
-
-func adaProbePointAtByte(source []byte, offset int) gotreesitter.Point {
-	var point gotreesitter.Point
-	for index, value := range source {
-		if index >= offset {
-			break
-		}
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

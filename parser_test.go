@@ -196,11 +196,19 @@ func TestParserEmptyInput(t *testing.T) {
 
 	tree := mustParse(t, parser, []byte(""))
 
-	// Empty input should produce a tree with nil root (nothing to parse).
+	// Empty input still produces a root, as in tree-sitter C. This grammar has
+	// no action for EOF in its start state, so the root is an empty ERROR node.
 	root := tree.RootNode()
-	if root != nil {
-		t.Errorf("expected nil root for empty input, got symbol %d with %d children",
-			root.Symbol(), root.ChildCount())
+	if root == nil {
+		t.Fatal("expected a root for empty input, got nil")
+	}
+	if !root.IsError() || !root.HasError() {
+		t.Errorf("expected ERROR root with HasError for empty input, got symbol %d hasError=%t",
+			root.Symbol(), root.HasError())
+	}
+	if root.ChildCount() != 0 || root.StartByte() != 0 || root.EndByte() != 0 {
+		t.Errorf("expected empty root span [0,0) with no children, got [%d,%d) with %d children",
+			root.StartByte(), root.EndByte(), root.ChildCount())
 	}
 }
 
@@ -684,11 +692,20 @@ func TestParserOnlyWhitespace(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	parser := NewParser(lang)
 
-	// Only whitespace — should produce empty tree like empty input.
+	// Only whitespace — should produce a root like empty input, ending at the end of the input.
 	tree := mustParse(t, parser, []byte("   "))
 	root := tree.RootNode()
-	if root != nil {
-		t.Errorf("expected nil root for whitespace-only input, got symbol %d", root.Symbol())
+	if root == nil {
+		t.Fatal("expected a root for whitespace-only input, got nil")
+	}
+	if !root.IsError() || !root.HasError() {
+		t.Errorf("expected ERROR root with HasError for whitespace-only input, got symbol %d hasError=%t",
+			root.Symbol(), root.HasError())
+	}
+	// Like C's recover_eof root, it is zero-width at the end of the input.
+	if root.ChildCount() != 0 || root.StartByte() != 3 || root.EndByte() != 3 {
+		t.Errorf("expected empty root span [3,3), got [%d,%d) with %d children",
+			root.StartByte(), root.EndByte(), root.ChildCount())
 	}
 }
 

@@ -17,9 +17,9 @@ on:
   workflow_dispatch:
   # One nightly, off-peak UTC run of the full 206-language exhaustive CGo
   # parity sweep (parity-cgo-exhaustive), which otherwise only runs on
-  # workflow_dispatch or a PR that touches a narrow parser-result/C-recovery
-  # path filter. exhaustive_parity_scope below turns run_exhaustive on for
-  # this event.
+  # workflow_dispatch or a PR that touches a narrow parser-result, C-recovery,
+  # or C-oracle path filter. exhaustive_parity_scope below turns run_exhaustive
+  # on for this event.
   schedule:
     - cron: '17 3 * * *'
 
@@ -336,8 +336,6 @@ jobs:
           TestD2SpanUnlockedSameSpanRelexOnRealJavaScriptDivisionRegexWitness
           TestD2SpanUnlockedSameSpanRelexStillShiftsRealBashInstallWitness
           TestD2SpanUnlockedSchedulerActivatesOwnedLexerRequests
-          TestDiagnosticParserCoreB4bShadowCensusCanonicalReport
-          TestDiagnosticParserCoreB4bShadowCensusSmokeCorpusReport
           TestDiagnosticParserCoreBoundaryIndexCensus
           TestDiagnosticParserCoreCanonicalAdmissions
           TestDiagnosticParserCoreCanonicalClearsDiscardedVersionStateTail
@@ -448,6 +446,8 @@ jobs:
           TestDiagnosticParserCoreReductionUnchangedDistinctLexerSnapshotIsRetained
           TestDiagnosticParserCoreReplacementClearsDiscardedVersionStateTail
           TestDiagnosticParserCoreRollbackClearsDiscardedVersionStateTail
+          TestCompactRelexRecordsGlobalReads
+          TestCompactNegativeMemoKeepsRecordedHistory
           TestDiagnosticParserCoreSameSpanRelexReconstructsExactToken
           TestDiagnosticParserCoreSameSpanRelexRejectsTokenFieldChanges
           TestDiagnosticParserCoreSchedulerFootprintCountsWideSharedVersionStates
@@ -969,15 +969,12 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: cgo_harness/go.mod
 
-      # The correct toolchain alone was not enough: `go -C cgo_harness list
-      # -m -f {{.Dir}}` (language_version_stamp_test.go) printed nothing on
-      # a runner where nothing had populated cgo_harness's own module
-      # cache yet, because no earlier step in this job runs `go build`/`go
-      # test` inside cgo_harness the way the (unrelated) cgo-tagged jobs
-      # do. Downloading the exact dependency explicitly, once, up front
-      # removes that ordering dependency instead of relying on `go list -m`
-      # to fetch it lazily on first use.
-      - name: Warm cgo_harness's locked tree-sitter dependency
+      # The locked tree-sitter binding is a local replace
+      # (cgo_harness/internal/coracle), so no module download is needed
+      # and the cold-cache failure described in language_version_stamp_test.go
+      # cannot happen. This step stays as a cheap check that the replace
+      # directory resolves before the grammargen tests rely on it.
+      - name: Check cgo_harness's locked tree-sitter binding resolves
         working-directory: cgo_harness
         run: go mod download github.com/tree-sitter/go-tree-sitter
 
@@ -1172,12 +1169,12 @@ jobs:
   # regression all block a code PR. The old generated-fixture W5 tests above
   # remain separate correctness/counter gates.
   editor_latency:
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 180
-    env:
-      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -1196,14 +1193,20 @@ jobs:
       - name: Test editor-latency evidence and failure paths
         run: python3 scripts/test_editor_latency_gate.py
 
+      - name: Test private C-oracle cache
+        run: |
+          python3 scripts/test_w5_private_oracle.py
+          python3 scripts/test_w5_private_oracle_parent.py
+
       - name: Paired real-code editor latency
         env:
+          GTS_W5_PRIVATE_C_CACHE: "1"
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           # Forks cannot read the variable. Fetch the same public, pinned lock;
           # fetch_grammar_receipt_lock.sh still verifies its committed digest.
           GTS_CORPUS_LOCK_URL: ${{ vars.GTS_CORPUS_LOCK_URL || 'https://gist.githubusercontent.com/odvcencio/b5d19a2fcb80420c751b5bb7ab3129bb/raw/63e633db3cb7229c6495095c8ab34576bbd0525d/corpus_sources.lock' }}
           RUNNER_KIND: ${{ runner.environment }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           # Fork heads stay on disposable hosted runners. Run the same paired
@@ -1215,12 +1218,15 @@ jobs:
             BASE_SHA=$(git rev-parse HEAD^)
           fi
           git fetch --no-tags origin "$BASE_SHA"
-          exception=()
-          if [ "${PR_NUMBER:-}" = 1509 ]; then
-            exception=(--approved-go-undo-exception)
+          w5_options=()
+          if [ "${PR_NUMBER:-}" = 1512 ] && [ "$BASE_SHA" = 9d14415d0a8d11632292310c578446b31554217b ]; then
+            decision="$RUNNER_TEMP/w5-1512-owner-decision.json"
+            curl --fail --silent --show-error --location --output "$decision" \
+              https://github.com/odvcencio/gotreesitter/releases/download/evidence/owner-decision-1512-58ce.json
+            w5_options+=(--approved-go-undo-receipt "$decision")
           fi
           bash scripts/run_editor_latency_gate.sh \
-            --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency" "${exception[@]}"
+            --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency" "${w5_options[@]}"
 
       - name: Publish W5 job summary
         if: always()
@@ -1231,15 +1237,6 @@ jobs:
           else
             echo 'W5 failed before it could seal a complete receipt.' >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      - name: Upload W5 receipt and raw evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: w5-editor-latency-${{ github.run_id }}
-          path: ${{ runner.temp }}/w5-editor-latency
-          if-no-files-found: error
-          retention-days: 90
 
   counter_ledger:
     needs: exhaustive_parity_scope
@@ -1383,13 +1380,16 @@ jobs:
               exit 0
             fi
 
-            exhaustive_pattern='^(parser_result_.*\.go|parser_recover_c.*\.go|parser_result_test/.*\.go|cgo_harness/(parity_cgo_test|parity_gate_ratchet_test)\.go)$'
+            # Every exhaustive test compares against the locked C oracle, so a
+            # change to its pin (cgo_harness/go.mod) or its vendored runtime
+            # runs the sweep too.
+            exhaustive_pattern='^(parser_result_.*\.go|parser_recover_c.*\.go|parser_result_test/.*\.go|cgo_harness/(parity_cgo_test|parity_gate_ratchet_test)\.go|cgo_harness/go\.mod|cgo_harness/internal/coracle/.*)$'
             if grep -Eq "$exhaustive_pattern" /tmp/changed-files.txt; then
               run_exhaustive=true
               {
                 echo "### Exhaustive parity trigger"
                 echo
-                echo "Running exhaustive CGo parity because this PR touches parser-result, C-recovery, or parity-degradation gate files:"
+                echo "Running exhaustive CGo parity because this PR touches parser-result, C-recovery, C-oracle, or parity-degradation gate files:"
                 echo
                 grep -E "$exhaustive_pattern" /tmp/changed-files.txt | sed 's/^/- `/' | sed 's/$/`/'
               } >> "$GITHUB_STEP_SUMMARY"
@@ -1397,7 +1397,7 @@ jobs:
               {
                 echo "### Exhaustive parity trigger"
                 echo
-                echo "No parser-result, C-recovery, or parity-degradation gate files changed; exhaustive CGo parity is skipped."
+                echo "No parser-result, C-recovery, C-oracle, or parity-degradation gate files changed; exhaustive CGo parity is skipped."
               } >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
@@ -1888,8 +1888,32 @@ jobs:
 
           incompatible="${RUNNER_TEMP}/apidiff-incompatible.txt"
           apidiff_run -incompatible "${OLD_EXPORT}" "${NEW_EXPORT}" | tee "${incompatible}"
-          if [ -s "${incompatible}" ]; then
-            echo "::error::incompatible public API change(s) in package gotreesitter against ${APIDIFF_BASELINE_TAG}; see the job log or step summary above"
+
+          # The owner accepts breaks for the next release in
+          # .github/apidiff-accepted-breaks.txt: one entry per line, three
+          # tab-separated fields (the exact apidiff line, the PR, the upgrade
+          # note). Only whole-line matches count. Every other break fails.
+          accepted="${RUNNER_TEMP}/apidiff-accepted.txt"
+          awk -F'\t' '
+            /^[[:space:]]*(#|$)/ { next }
+            NF < 3 || $1 == "" || $2 == "" || $3 == "" { printf "::error file=.github/apidiff-accepted-breaks.txt,line=%d::entry needs <apidiff line><TAB><PR><TAB><upgrade note>\n", FNR > "/dev/stderr"; bad = 1; next }
+            seen[$1]++ { printf "::error file=.github/apidiff-accepted-breaks.txt,line=%d::duplicate entry: %s\n", FNR, $1 > "/dev/stderr"; bad = 1; next }
+            { print $1 }
+            END { exit bad }
+          ' .github/apidiff-accepted-breaks.txt > "${accepted}"
+
+          unexpected="${RUNNER_TEMP}/apidiff-unexpected.txt"
+          stale="${RUNNER_TEMP}/apidiff-stale.txt"
+          grep -Fxv -f "${accepted}" "${incompatible}" > "${unexpected}" || true
+          grep -Fxv -f "${incompatible}" "${accepted}" > "${stale}" || true
+          if [ -s "${stale}" ]; then
+            while IFS= read -r line; do
+              echo "::warning file=.github/apidiff-accepted-breaks.txt::stale accepted break (no longer reported by apidiff): ${line}"
+            done < "${stale}"
+          fi
+          if [ -s "${unexpected}" ]; then
+            echo "::error::incompatible public API change(s) in package gotreesitter against ${APIDIFF_BASELINE_TAG} that .github/apidiff-accepted-breaks.txt does not list; see the job log or step summary above"
+            cat "${unexpected}"
             exit 1
           fi
 
@@ -2111,8 +2135,17 @@ jobs:
             --memory 4g \
             --cpus 2 \
             --gomemlimit 3GiB \
-            --wall-timeout 10m \
-            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestGoCompactIncrementalExecution.*Parity|TestGoCompactNestedReuse.*LockedC|TestGoCompactDeclineProfileReportsSelectedTreeReuse|TestStage6GoCompactCertification|TestGoTokenInvariantLookaheadNumeric(Repair|Reuse)LockedC)$' -count=1 -parallel 1 -timeout 5m -v"
+            --wall-timeout 12m \
+            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestGoCompactIncrementalExecution.*Parity|TestGoCompactNestedReuse.*LockedC|TestGoCompactDeclineProfileReportsSelectedTreeReuse|TestStage6GoCompactCertification|TestGoTokenInvariantLookaheadNumeric(Repair|Reuse)LockedC|TestGoHiddenMissingSemicolonEditsMatchLockedC|TestGoMalformedDeclarationPrefixLockedC|TestGoAssignmentTargetEdits16SitesLockedC)$' -count=1 -parallel 1 -timeout 8m -v"
+
+      - name: C and EDS hidden missing parity
+        run: |
+          for grammar in C EDS; do
+            bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build --label "ci-hidden-missing-${grammar,,}" \
+              --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 5m \
+              -- "cd /workspace/cgo_harness && go test . -tags treesitter_c_parity -run '^Test${grammar}HiddenMissingCorpus(Fresh|FirstEdit)LockedC$' -count=1 -parallel 1 -timeout 3m -v"
+          done
 
       - name: Nightly fuzz route witnesses against locked C
         run: |
@@ -2318,7 +2351,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            --run '^TestIncrementalCReuseCommentTrailingNewline$|^TestIncrementalCReuseReceiptEOFMatchesFresh$|^TestCooklangNextLiveArmLockedCRoutes$|^TestWolframNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$|^TestJuliaDispatchBlockerReceiptRoutes$|^TestWGSLN31rDispatcherBlockerReceipt$|^TestTemplN31qLiveArmLockedCRoutes$|^TestGoNextLiveArmProbe$'
+            --run '^TestIncrementalCReuseCommentTrailingNewline$|^TestIncrementalCReuseReceiptEOFMatchesFresh$|^TestCooklangNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$|^TestJuliaDispatchBlockerReceiptRoutes$|^TestWGSLN31rDispatcherBlockerReceipt$|^TestGoNextLiveArmProbe$'
 
   parity-cgo:
     needs: exhaustive_parity_scope
@@ -2384,7 +2417,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 20m \
-            --run '^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandKnownDivergenceFromLockedC$'
+            --run '^TestCOracleVendoredSources$|^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandKnownDivergenceFromLockedC$'
 
       - name: JavaScript and TypeScript contextual lookahead against locked C
         run: |
@@ -2396,7 +2429,7 @@ jobs:
             if [ "$lang" = javascript ]; then
               pattern='^TestComputedSetterLookaheadCParity/javascript$'
             else
-              pattern="^(TestTypeScriptIssue1429CParity|TestTypeScriptContextualFollowupsCParity|TestComputedSetterLookaheadCParity|TestTypeScriptAsyncGenericArrowLockedC)/${lang}$"
+              pattern="^(TestTypeScriptIssue1429CParity|TestTypeScriptContextualFollowupsCParity|TestComputedSetterLookaheadCParity|TestTypeScriptAsyncGenericArrowLockedC|TestTypeScriptGenericTaggedTemplateCParity)/${lang}$"
             fi
             bash cgo_harness/docker/run_parity_in_docker.sh \
               "${contextual_args[@]}" --label "ci-contextual-lookahead-${lang}" \
@@ -2531,18 +2564,18 @@ jobs:
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestCobolCGOErrorOracleParity$' -count=1 -timeout=8m -v"
 
-      - name: DTD dispatch retirement parity against locked C
+      - name: Retired inert dispatch arm parity against locked C
         run: |
-          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/dtd-retirement-reference" --langs dtd
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/retired-inert-arms-reference" --langs bitbake,corn,dtd,templ,wolfram
           GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
-            --no-build --label ci-dtd-retirement-parity \
-            --mount "${RUNNER_TEMP}/dtd-retirement-reference:/tmp/grammar_parity:ro" \
+            --no-build --label ci-retired-inert-arms-parity \
+            --mount "${RUNNER_TEMP}/retired-inert-arms-reference:/tmp/grammar_parity:ro" \
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
-            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'cgo treesitter_c_parity' -run '^TestDTDDispatchRetirementLockedCParity$' -count=1 -timeout=8m -v"
+            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'cgo treesitter_c_parity' -run '^TestRetiredInertArmsLockedCParity$' -count=1 -timeout=8m -v"
 
       - name: Seed pinned-digest parity corpora
         run: |
-          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/pinned-digest-reference" --langs angular,apex,authzed,awk,bash,bibtex,bitbake,c,c_sharp,chatito,cooklang,corn,crystal,css,dart,doxygen,eds,elixir,enforce,erlang,fidl,forth,go,haskell,hlsl,html,http,hurl,ini,javascript,jsdoc,julia,kotlin,ledger,luau,markdown_inline,meson,ninja,python,robot,scheme,scss,sql,swift,typescript,typst,yaml
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/pinned-digest-reference" --langs angular,apex,authzed,awk,bash,bibtex,bitbake,c,c_sharp,chatito,cooklang,corn,crystal,css,dart,doxygen,eds,elixir,enforce,erlang,fidl,forth,go,haskell,hlsl,html,http,hurl,ini,javascript,jsdoc,julia,kotlin,ledger,luau,markdown_inline,meson,ninja,python,ql,robot,scheme,scss,sql,swift,typescript,typst,yaml
 
       - name: Pinned-digest parity batch A (measured 2.4s test time, ~7s container wall time, task #94)
         run: |
@@ -2558,7 +2591,7 @@ jobs:
             --no-build --label ci-pinned-digest-parity-batch-b \
             --mount "${RUNNER_TEMP}/pinned-digest-reference:/tmp/grammar_parity" \
             --memory 4g --gomemlimit 3GiB --cpus 2 --wall-timeout 10m \
-            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'cgo gts_derivation_set_census gts_eof_history_census gts_eof_recovery_admission_contract gts_eof_recovery_shadow gts_merge_census gts_parsercorephase0 treesitter_c_parity' -run '^(TestAuthzedNextLiveArmProbe|TestAuthzedNextLiveArmReceiptDocument|TestBashSkippedEscapeLockedCParity|TestBitbakeNextLiveArmReceiptDocument|TestCSSForestScannerWidthLockedC|TestCSharpDispatchBlockerReceiptDocument|TestCSharpDispatchBlockerRoutes|TestCTopologyReceiptErlangIssue984|TestCTopologyReceiptErlangOneBytePhysicalMerge|TestCornNextLiveArmReceiptDocument|TestDartInheritedFieldProjectionLockedCParity|TestDoxygenNextLiveArmReceiptDocument|TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree|TestElixirExtrasAndPairsRetirementLockedCParity|TestElixirInheritedFieldProjectionLockedCParity|TestErlangLeadingSkippedPrefixLockedCParity|TestForestExperimentalCleanControlLockedC|TestGoCompactRecoveryVersionTurnsLockedC|TestHLSLSubscriptAssignmentLockedCParity|TestHaskellSmallAdmissionLockedCParity|TestJavaScriptRetiredRecoveryAliasWithoutArtifactGrantLockedC|TestJsdocLexerSkipProvenanceLockedCParity|TestJsdocLexerSkippedPrefixMutationsLockedCParity|TestJuliaDispatchBlockerReceiptDocument|TestKotlinInterpolatedCallRetirementLockedCRoutes|TestLedgerForestExperimentalErrorRootFallbackLockedC|TestMesonAcceptanceElectionLockedCParity|TestNinjaDispatchRetirementLockedCParity|TestPythonRootHasErrorAgreementCReceipts|TestPythonRootHasErrorLockedCParityByteDrop|TestReleaseTokenInvariantGoNumericLookaheadLockedC|TestRobotSkippedErrorLockedCParity|TestSCSSForestScannerWidthLockedC|TestSchemeQuoteFamilySkippedErrorLockedCParity|TestSwiftDirectiveNewlinesMatchLockedC|TestSwiftTernaryRetirementMatchesLockedC|TestSwiftUnsafeMinimalWitnessMatchesLockedC|TestSwiftUnsafeMinimalWitnessMatchesLockedCAfterPooledRecoveryControl|TestTypeScriptTokenInvariantNumericLockedC|TestTypeScriptTokenInvariantSyntaxLockedC|TestYAMLOneBytePrintableEOFAdmissionMatchesLockedC)$' -count=1 -timeout=8m -v"
+            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'cgo gts_derivation_set_census gts_eof_history_census gts_eof_recovery_admission_contract gts_eof_recovery_shadow gts_merge_census gts_parsercorephase0 treesitter_c_parity' -run '^(TestAuthzedNextLiveArmProbe|TestAuthzedNextLiveArmReceiptDocument|TestBashSkippedEscapeLockedCParity|TestCSSForestScannerWidthLockedC|TestCSharpDispatchBlockerReceiptDocument|TestCSharpDispatchBlockerRoutes|TestCTopologyReceiptErlangIssue984|TestCTopologyReceiptErlangOneBytePhysicalMerge|TestDartInheritedFieldProjectionLockedCParity|TestDoxygenNextLiveArmReceiptDocument|TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree|TestElixirExtrasAndPairsRetirementLockedCParity|TestElixirInheritedFieldProjectionLockedCParity|TestErlangLeadingSkippedPrefixLockedCParity|TestForestExperimentalCleanControlLockedC|TestGoCompactRecoveryVersionTurnsLockedC|TestHLSLSubscriptAssignmentLockedCParity|TestHaskellSmallAdmissionLockedCParity|TestJavaScriptRetiredRecoveryAliasWithoutArtifactGrantLockedC|TestJsdocLexerSkipProvenanceLockedCParity|TestJsdocLexerSkippedPrefixMutationsLockedCParity|TestJuliaDispatchBlockerReceiptDocument|TestKotlinInterpolatedCallRetirementLockedCRoutes|TestLedgerForestExperimentalErrorRootFallbackLockedC|TestMesonAcceptanceElectionLockedCParity|TestNinjaDispatchRetirementLockedCParity|TestPythonRootHasErrorAgreementCReceipts|TestPythonRootHasErrorLockedCParityByteDrop|TestQLLoneIdentifierLockedCParity|TestReleaseTokenInvariantGoNumericLookaheadLockedC|TestRobotSkippedErrorLockedCParity|TestSCSSForestScannerWidthLockedC|TestSchemeQuoteFamilySkippedErrorLockedCParity|TestSwiftDirectiveNewlinesMatchLockedC|TestSwiftTernaryRetirementMatchesLockedC|TestSwiftUnsafeMinimalWitnessMatchesLockedC|TestSwiftUnsafeMinimalWitnessMatchesLockedCAfterPooledRecoveryControl|TestTypeScriptTokenInvariantNumericLockedC|TestTypeScriptTokenInvariantSyntaxLockedC|TestYAMLOneBytePrintableEOFAdmissionMatchesLockedC)$' -count=1 -timeout=8m -v"
 
       - name: HLSL next-live-arm parity against locked C
         run: |

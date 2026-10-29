@@ -1,6 +1,0 @@
-=== RUN   TestParserCoreFreshFullRunnerRepeatedCanonicalLifecycle
-    parsercore_phase0_fresh_full_runner_internal_test.go:45: pass 0 fixture rewrite compact work={Shifts:1348 Reductions:1493 ReductionPopRequests:1493 EmittedPopPaths:1636 EmittedPopPayloads:2985 PhysicalHeadMergeAttempts:0 PhysicalHeadMergeSuccesses:0 PhysicalHeadMergeInputLinks:0 PredecessorLinkUnionAttempts:175 PredecessorLinkUnionDuplicateNoop:29 PredecessorLinkUnionPrecedenceReplaced:0 PredecessorLinkUnionRecursiveChanged:0 PredecessorLinkUnionAlternateAppended:146 PredecessorLinkUnionRejected:0 GraphLinkAdditionsProxy:2971 LeafConstructionsProxy:1109 ParentConstructionsProxy:1505 Overflow:false} want={Shifts:1348 Reductions:1493 ReductionPopRequests:1493 EmittedPopPaths:1635 EmittedPopPayloads:2982 PhysicalHeadMergeAttempts:0 PhysicalHeadMergeSuccesses:0 PhysicalHeadMergeInputLinks:0 PredecessorLinkUnionAttempts:174 PredecessorLinkUnionDuplicateNoop:4 PredecessorLinkUnionPrecedenceReplaced:25 PredecessorLinkUnionRecursiveChanged:0 PredecessorLinkUnionAlternateAppended:145 PredecessorLinkUnionRejected:0 GraphLinkAdditionsProxy:2995 LeafConstructionsProxy:1109 ParentConstructionsProxy:1504 Overflow:false}
---- FAIL: TestParserCoreFreshFullRunnerRepeatedCanonicalLifecycle (0.02s)
-FAIL
-FAIL	github.com/odvcencio/gotreesitter	0.024s
-FAIL

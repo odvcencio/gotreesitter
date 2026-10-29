@@ -194,7 +194,7 @@ func TestRobotSchemeSkippedErrorRoutesStayExactOrFailClosed(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(oldTree.Release)
-			endPoint := retiredDispatchPointAtByte(baseSource, len(baseSource))
+			endPoint := pointAtByte(baseSource, len(baseSource))
 			oldTree.Edit(gotreesitter.InputEdit{
 				StartByte:   uint32(len(baseSource)),
 				OldEndByte:  uint32(len(baseSource)),

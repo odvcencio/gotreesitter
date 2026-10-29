@@ -1,6 +1,0 @@
-goos: linux
-goarch: amd64
-pkg: github.com/odvcencio/gotreesitter
-cpu: Intel(R) Core(TM) Ultra 9 285
-BenchmarkAdmissionYAMLDocumentStreamOwned 	     500	   3919535 ns/op	   2.04 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	   44314 B/op	     336 allocs/op
-PASS

@@ -99,7 +99,7 @@ func TestKotlinInterpolatedCallRetirementRoutes(t *testing.T) {
 	if start < 0 {
 		t.Fatal("incremental base has no Moments token")
 	}
-	point := kotlinInterpolatedCallPointAtByte(baseSource, start)
+	point := pointAtByte(baseSource, start)
 	oldEnd, newEnd := point, point
 	oldEnd.Column += uint32(len("Moments"))
 	newEnd.Column += uint32(len("Instant"))
@@ -226,20 +226,4 @@ func requireNoKotlinInterpolatedCallRewrite(t *testing.T, route string, tree *go
 		return
 	}
 	t.Fatalf("%s has no dispatch.kotlin census row", route)
-}
-
-func kotlinInterpolatedCallPointAtByte(source []byte, offset int) gotreesitter.Point {
-	var point gotreesitter.Point
-	for index, value := range source {
-		if index == offset {
-			break
-		}
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-			continue
-		}
-		point.Column++
-	}
-	return point
 }

@@ -22,22 +22,6 @@ const DiagnosticParserCoreRecovery DiagnosticParserCoreBoundaryKind = "recovery"
 const DiagnosticParserCoreRoute DiagnosticParserCoreBoundaryKind = "unsupported_route"
 const ExternalScannerFullParseRetryDefault ExternalScannerFullParseRetryPolicy = iota
 const ExternalScannerFullParseRetrySkipRepeat
-const ExternalVMOpAdvance
-const ExternalVMOpEmit
-const ExternalVMOpFail ExternalVMOp = iota
-const ExternalVMOpIfRuneClass
-const ExternalVMOpIfRuneEq
-const ExternalVMOpIfRuneInRange
-const ExternalVMOpJump
-const ExternalVMOpMarkEnd
-const ExternalVMOpRequireStateEq
-const ExternalVMOpRequireValid
-const ExternalVMOpSetState
-const ExternalVMRuneClassDigit
-const ExternalVMRuneClassLetter
-const ExternalVMRuneClassNewline
-const ExternalVMRuneClassWhitespace ExternalVMRuneClass = iota
-const ExternalVMRuneClassWord
 const FactAll = FactDefinitions | FactCalls | FactHeritage | FactImports
 const FactCallArguments
 const FactCalls
@@ -136,11 +120,6 @@ func *ExternalLexer.SetResultSymbol(sym Symbol)
 func *ExternalSymbolResolver.ByIndex(idx int) (Symbol, bool)
 func *ExternalSymbolResolver.ByName(name string) (Symbol, bool)
 func *ExternalSymbolResolver.Count() int
-func *ExternalVMScanner.Create() any
-func *ExternalVMScanner.Deserialize(payload any, buf []byte)
-func *ExternalVMScanner.Destroy(payload any)
-func *ExternalVMScanner.Scan(payload any, lexer *ExternalLexer, validSymbols []bool) bool
-func *ExternalVMScanner.Serialize(payload any, buf []byte) int
 func *FactProgram.Extract(tree *Tree) FactSet
 func *FactProgram.ExtractBound(tree *BoundTree) FactSet
 func *FactProgram.ExtractInto(tree *Tree, dst *FactSet)
@@ -527,10 +506,8 @@ func LexMode.AfterWhitespaceLexStateIndex() uint32
 func LexMode.LexStateIndex() uint32
 func LoadLanguage(data []byte) (*Language, error)
 func MergeEventCensusBuilt() bool
-func MustNewExternalVMScanner(program ExternalVMProgram) *ExternalVMScanner
 func NewAmbiguityProfile() *AmbiguityProfile
 func NewExternalSymbolResolver(lang *Language) *ExternalSymbolResolver
-func NewExternalVMScanner(program ExternalVMProgram) (*ExternalVMScanner, error)
 func NewFactProgram(lang *Language, kinds FactKind) (*FactProgram, error)
 func NewFactProgramWithOptions(lang *Language, kinds FactKind, opts ...FactProgramOption) (*FactProgram, error)
 func NewHighlighter(lang *Language, highlightQuery string, opts ...HighlighterOption) (*Highlighter, error)
@@ -584,17 +561,6 @@ func SetRawShapeElisionDisabledForDiagnostics(disabled bool)
 func UTF16ByteOrder.String() string
 func UnwrapLanguageBlobEnvelope(data []byte) (compressed []byte, expectsTrailer bool, err error)
 func UnwrapLanguageBlobVersionHeader(data []byte) (payload []byte, info LanguageBlobInfo, err error)
-func VMAdvance(skip bool) ExternalVMInstr
-func VMEmit(sym Symbol) ExternalVMInstr
-func VMFail() ExternalVMInstr
-func VMIfRuneClass(class ExternalVMRuneClass, alt int) ExternalVMInstr
-func VMIfRuneEq(r rune, alt int) ExternalVMInstr
-func VMIfRuneInRange(start, end rune, alt int) ExternalVMInstr
-func VMJump(target int) ExternalVMInstr
-func VMMarkEnd() ExternalVMInstr
-func VMRequireStateEq(state uint32, alt int) ExternalVMInstr
-func VMRequireValid(validSymbolIndex, alt int) ExternalVMInstr
-func VMSetState(state uint32) ExternalVMInstr
 func ValidateQueryPatterns(lang *Language, q *Query) []PatternIssue
 func Walk(node *Node, fn func(node *Node, depth int) WalkAction)
 func WithCallArgumentRules(rules []CallArgumentRule) FactProgramOption
@@ -746,11 +712,6 @@ type ExternalScannerCheckpointIdentityProvider interface { CheckpointedExternalS
 type ExternalScannerFullParseRetryPolicy uint8
 type ExternalScannerState struct { Data []byte }
 type ExternalSymbolResolver struct { byName map[string]Symbol byIndex []Symbol }
-type ExternalVMInstr struct { Op ExternalVMOp A int32 B int32 Alt int32 }
-type ExternalVMOp uint8
-type ExternalVMProgram struct { Code []ExternalVMInstr MaxSteps int }
-type ExternalVMRuneClass uint8
-type ExternalVMScanner struct { program ExternalVMProgram }
 type FactKind uint8
 type FactProgram struct { language *Language kinds FactKind code []factInstruction fields factProgramFields importer factImporter hasOperations bool declarations *declarationfacts.Program[*Node] signatures *syntaxfacts.Signatures[*Node] arguments *syntaxfacts.Arguments[*Node] }
 type FactProgramOption func(*FactProgram)

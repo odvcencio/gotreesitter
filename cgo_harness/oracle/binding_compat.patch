@@ -1,0 +1,364 @@
+--- a/allocator.go
++++ b/allocator.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+--- a/dup_unix.go
++++ b/dup_unix.go
+@@ -1,4 +1,4 @@
+-//go:build linux || darwin
++//go:build cgo && (linux || darwin)
+ 
+ package tree_sitter
+ 
+--- a/dup_windows.go
++++ b/dup_windows.go
+@@ -1,4 +1,4 @@
+-//go:build windows
++//go:build cgo && windows
+ 
+ package tree_sitter
+ 
+--- a/edit.go
++++ b/edit.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+--- a/language.go
++++ b/language.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+@@ -48,7 +50,7 @@
+ // Get the ABI version number that indicates which version of the
+ // Tree-sitter CLI that was used to generate this [Language].
+ func (l *Language) Version() uint32 {
+-	return uint32(C.ts_language_version(l.Inner))
++	return l.AbiVersion()
+ }
+ 
+ // Get the ABI version number that indicates which version of the
+--- a/logger.go
++++ b/logger.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ type LogType int
+--- a/lookahead_iterator.go
++++ b/lookahead_iterator.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+--- a/node.go
++++ b/node.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+--- a/parser.go
++++ b/parser.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+@@ -18,6 +20,7 @@
+ 	"context"
+ 	"os"
+ 	"sync/atomic"
++	"time"
+ 	"unsafe"
+ 
+ 	"github.com/mattn/go-pointer"
+@@ -26,7 +29,9 @@
+ // A stateful object that this is used to produce a [Tree] based on some
+ // source code.
+ type Parser struct {
+-	_inner *C.TSParser
++	_inner           *C.TSParser
++	timeoutMicros    uint64
++	cancellationFlag *uintptr
+ }
+ 
+ // A stateful object that is passed into the progress callback [ParseOptions.ProgressCallback]
+@@ -77,8 +82,9 @@
+ func (p *Parser) SetLanguage(l *Language) error {
+ 	version := l.AbiVersion()
+ 	if version >= MIN_COMPATIBLE_LANGUAGE_VERSION && version <= LANGUAGE_VERSION {
+-		C.ts_parser_set_language(p._inner, l.Inner)
+-		return nil
++		if bool(C.ts_parser_set_language(p._inner, l.Inner)) {
++			return nil
++		}
+ 	}
+ 	return &LanguageError{version}
+ }
+@@ -114,10 +120,7 @@
+ 	prevLogger := C.ts_parser_logger(p._inner)
+ 	if prevLogger.payload != nil {
+ 		// Clean up the old logger
+-		oldLogger := (*Logger)(prevLogger.payload)
+-		if oldLogger != nil {
+-			oldLogger = nil
+-		}
++		pointer.Unref(prevLogger.payload)
+ 	}
+ 
+ 	// Prepare the new logger
+@@ -145,7 +148,11 @@
+ // Get the parser's current logger.
+ func (p *Parser) Logger() *Logger {
+ 	logger := C.ts_parser_logger(p._inner)
+-	return (*Logger)(logger.payload)
++	if logger.payload == nil {
++		return nil
++	}
++	value := pointer.Restore(logger.payload).(Logger)
++	return &value
+ }
+ 
+ // Set the destination to which the parser should write debugging graphs
+@@ -189,23 +196,15 @@
+ //     document has changed since `old_tree` was created, then you must edit `old_tree` to match
+ //     the new text using [Tree.Edit].
+ func (p *Parser) ParseCtx(ctx context.Context, text []byte, oldTree *Tree) *Tree {
+-	finish := make(chan struct{})
+-
+-	if ctx.Done() != nil {
+-		go func() {
+-			select {
+-			case <-ctx.Done():
+-				atomic.StoreUintptr(p.CancellationFlag(), 1)
+-			case <-finish:
+-				return
+-			}
+-		}()
+-	}
+-
+-	tree := p.Parse(text, oldTree)
+-	close(finish)
+-
+-	return tree
++	if ctx.Err() != nil {
++		return nil
++	}
++	return p.ParseWithOptions(func(i int, _ Point) []byte {
++		if i < len(text) {
++			return text[i:]
++		}
++		return nil
++	}, oldTree, &ParseOptions{ProgressCallback: func(ParseState) bool { return ctx.Err() != nil }})
+ }
+ 
+ // Deprecated: Use [Parser.ParseUTF16LE] or [Parser.ParseUTF16BE] instead.
+@@ -343,12 +342,14 @@
+ 		cOldTree = oldTree._inner
+ 	}
+ 
++	options = p.progressOptions(options)
+ 	var cOptions C.TSParseOptions
+ 	if options != nil {
+ 		cOptions = C.TSParseOptions{
+ 			progress_callback: (*[0]byte)(C.parserProgressCallback),
+ 			payload:           pointer.Save(options),
+ 		}
++		defer pointer.Unref(cOptions.payload)
+ 	}
+ 
+ 	cNewTree := C.ts_parser_parse_with_options(p._inner, cOldTree, cInput, cOptions)
+@@ -470,12 +471,14 @@
+ 		cOldTree = oldTree._inner
+ 	}
+ 
++	options = p.progressOptions(options)
+ 	var cOptions C.TSParseOptions
+ 	if options != nil {
+ 		cOptions = C.TSParseOptions{
+ 			progress_callback: (*[0]byte)(C.parserProgressCallback),
+ 			payload:           pointer.Save(options),
+ 		}
++		defer pointer.Unref(cOptions.payload)
+ 	}
+ 
+ 	cNewTree := C.ts_parser_parse_with_options(p._inner, cOldTree, cInput, cOptions)
+@@ -541,12 +544,14 @@
+ 		cOldTree = oldTree._inner
+ 	}
+ 
++	options = p.progressOptions(options)
+ 	var cOptions C.TSParseOptions
+ 	if options != nil {
+ 		cOptions = C.TSParseOptions{
+ 			progress_callback: (*[0]byte)(C.parserProgressCallback),
+ 			payload:           pointer.Save(options),
+ 		}
++		defer pointer.Unref(cOptions.payload)
+ 	}
+ 
+ 	cNewTree := C.ts_parser_parse_with_options(p._inner, cOldTree, cInput, cOptions)
+@@ -624,12 +629,14 @@
+ 		cOldTree = oldTree._inner
+ 	}
+ 
++	options = p.progressOptions(options)
+ 	var cOptions C.TSParseOptions
+ 	if options != nil {
+ 		cOptions = C.TSParseOptions{
+ 			progress_callback: (*[0]byte)(C.parserProgressCallback),
+ 			payload:           pointer.Save(options),
+ 		}
++		defer pointer.Unref(cOptions.payload)
+ 	}
+ 
+ 	cNewTree := C.ts_parser_parse_with_options(p._inner, cOldTree, cInput, cOptions)
+@@ -658,7 +665,7 @@
+ //
+ // This is set via [Parser.SetTimeoutMicros].
+ func (p *Parser) TimeoutMicros() uint64 {
+-	return uint64(C.ts_parser_timeout_micros(p._inner))
++	return p.timeoutMicros
+ }
+ 
+ // Deprecated: Use [Parser.ParseWithOptions] and pass in a callback instead, this will be removed in 0.26.
+@@ -669,7 +676,7 @@
+ // If parsing takes longer than this, it will halt early, returning `nil`.
+ // See [Parser.Parse] for more information.
+ func (p *Parser) SetTimeoutMicros(timeoutMicros uint64) {
+-	C.ts_parser_set_timeout_micros(p._inner, C.uint64_t(timeoutMicros))
++	p.timeoutMicros = timeoutMicros
+ }
+ 
+ // Get the ranges of text that the parser will include when parsing.
+@@ -738,7 +745,7 @@
+ //
+ // Get the parser's current cancellation flag pointer.
+ func (p *Parser) CancellationFlag() *uintptr {
+-	return (*uintptr)(unsafe.Pointer(C.ts_parser_cancellation_flag(p._inner)))
++	return p.cancellationFlag
+ }
+ 
+ // Deprecated: Use [Parser.ParseWithOptions] and pass in a callback instead, this will be removed in 0.26.
+@@ -750,5 +757,34 @@
+ // early, returning `nil`. See [Parser.Parse] for more
+ // information.
+ func (p *Parser) SetCancellationFlag(flag *uintptr) {
+-	C.ts_parser_set_cancellation_flag(p._inner, (*C.size_t)(unsafe.Pointer(flag)))
+-}
++	p.cancellationFlag = flag
++}
++
++// progressOptions preserves the harness timeout and cancellation API using
++// the upstream progress callback available in both oracle runtimes.
++func (p *Parser) progressOptions(options *ParseOptions) *ParseOptions {
++	var callback func(ParseState) bool
++	if options != nil {
++		callback = options.ProgressCallback
++	}
++	if p.timeoutMicros == 0 && p.cancellationFlag == nil {
++		if callback == nil {
++			return nil
++		}
++		return options
++	}
++	var deadline time.Time
++	if p.timeoutMicros != 0 {
++		micros := p.timeoutMicros
++		if micros > uint64((1<<63-1)/1000) {
++			micros = uint64((1<<63 - 1) / 1000)
++		}
++		deadline = time.Now().Add(time.Duration(micros) * time.Microsecond)
++	}
++	flag := p.cancellationFlag
++	return &ParseOptions{ProgressCallback: func(state ParseState) bool {
++		return (!deadline.IsZero() && !time.Now().Before(deadline)) ||
++			(flag != nil && atomic.LoadUintptr(flag) != 0) ||
++			(callback != nil && callback(state))
++	}}
++}
+--- a/point.go
++++ b/point.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+--- a/query.go
++++ b/query.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+@@ -721,21 +723,6 @@
+ 	C.ts_query_cursor_set_match_limit(qc._inner, C.uint32_t(limit))
+ }
+ 
+-// Set the maximum duration in microseconds that query execution should be allowed to
+-// take before halting.
+-//
+-// If query execution takes longer than this, it will halt early, returning None.
+-func (qc *QueryCursor) SetTimeoutMicros(timeoutMicros uint64) {
+-	C.ts_query_cursor_set_timeout_micros(qc._inner, C.uint64_t(timeoutMicros))
+-}
+-
+-// Get the duration in microseconds that query execution is allowed to take.
+-//
+-// This is set via [QueryCursor.SetTimeoutMicros]
+-func (qc *QueryCursor) TimeoutMicros() uint64 {
+-	return uint64(C.ts_query_cursor_timeout_micros(qc._inner))
+-}
+-
+ // Check if, on its last execution, this cursor exceeded its maximum number
+ // of in-progress matches.
+ func (qc *QueryCursor) DidExceedMatchLimit() bool {
+--- a/ranges.go
++++ b/ranges.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+--- a/tree.go
++++ b/tree.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+--- a/tree_cursor.go
++++ b/tree_cursor.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*
+--- a/tree_sitter.go
++++ b/tree_sitter.go
+@@ -1,3 +1,5 @@
++//go:build cgo
++
+ package tree_sitter
+ 
+ /*

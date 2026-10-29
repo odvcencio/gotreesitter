@@ -1,7 +1,0 @@
-{
-  "baseline_hashes_verified": 3512,
-  "candidate_runtime_files_replayed": 15,
-  "candidate_and_control_modes_prepared": true,
-  "primary_changed": false,
-  "go_tests_run_by_helper_check": false
-}

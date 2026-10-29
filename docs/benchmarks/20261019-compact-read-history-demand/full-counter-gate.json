@@ -1,7 +1,0 @@
-{
-  "production_reference": "b17ca367a85d419514554e88f4477a339fd3ecba",
-  "all_work_and_reuse_rows_equal": true,
-  "exact_rows": 414,
-  "source": "Fresh candidate collector versus previously qualified identical production source; collector runs one language per child process.",
-  "broader_invariants_c_and_rss_not_yet_complete": true
-}

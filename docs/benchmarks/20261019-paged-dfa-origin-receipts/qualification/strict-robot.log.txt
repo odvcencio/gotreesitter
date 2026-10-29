@@ -1,7 +1,0 @@
-=== RUN   TestCompactR4StructuralLockedC
-    compact_r4_parity_test.go:26: R4 language=robot bytes=2054 compact=0 fallback=1 reason="compact route error: parser-core phase zero: persist header 6 head=125 owner=10 lexer_owned=true recovery_region=false: parser-core phase zero: compact head has multiple scheduler owners"
-    compact_r4_parity_test.go:26: /source_file/section[1]/test_cases_section[0]/test_case_definition[3]/body[1]: child_count go="2" c="3"
-    compact_r4_parity_test.go:26: /source_file/section[1]/test_cases_section[0]/test_case_definition[4]/body[1]: child_count go="2" c="3"
-    compact_r4_parity_test.go:26: 2 structural differences
---- FAIL: TestCompactR4StructuralLockedC (0.01s)
-FAIL

@@ -52,7 +52,15 @@ var nonTerminalAliasMapExpectedNonEmptyLanguages = map[string]bool{
 // These shipped maps have known grammargen parity divergences.
 // Keep this list separate from the certified set above.
 var nonTerminalAliasMapKnownUncertifiedLanguages = map[string]bool{
-	"dhall": true,
+	// These six shipped blobs carry a non-empty map but have no grammargen
+	// parity test yet. Move each to the certified set when its test lands.
+	"blade":      true,
+	"dart":       true,
+	"dhall":      true,
+	"markdown":   true,
+	"purescript": true,
+	"scala":      true,
+	"teal":       true,
 	// The locked Liquid C artifact aliases four hidden repeat wrappers to
 	// block; grammargen currently promotes those wrappers and omits the rows.
 	// Runtime parity is covered by TestCompactLiquidBlockTextLockedC.

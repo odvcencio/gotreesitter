@@ -1,6 +1,0 @@
-{
-  "restore_pair_bench_test.go.txt": "f958553d845022302afdf690fb05d75b6cb765c861a97f99f148d9cc6cc49adc",
-  "baseline_variant": "private token-start with closure",
-  "candidate_variant": "identical token-start with value restoration",
-  "qualification_scope": "20 paired shuffled seeds within private protocol; production work-direction exception remains unresolved"
-}

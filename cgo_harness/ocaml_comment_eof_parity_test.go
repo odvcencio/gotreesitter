@@ -9,20 +9,6 @@ import (
 	"testing"
 )
 
-func TestOCamlCommentEOFLockedCParity(t *testing.T) {
-	for _, source := range []string{
-		"(**)", "(**)\n", "(**)\t", " (* outer (* inner *) *) \n",
-		"(**) (**)\n", "(**)\n(**)\n", "\n(**)\n",
-		"let x = 1\n(**)\n", "(* a *)\nlet x = 1\n(* b *)\n",
-	} {
-		t.Run(source, func(t *testing.T) {
-			for _, candidate := range []bool{false, true} {
-				runParityCase(t, parityCase{name: "ocaml", candidateRoute: &candidate}, "comment-eof", []byte(source))
-			}
-		})
-	}
-}
-
 func TestOCamlCommentEOFErrorVerdictMatchesLockedC(t *testing.T) {
 	lang := grammars.DetectLanguageByName("ocaml").Language()
 	cLang, err := COracleLanguage("ocaml")

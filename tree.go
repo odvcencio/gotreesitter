@@ -2214,9 +2214,11 @@ func (n *Node) ParseState() StateID {
 }
 
 // PreGotoState returns the parser state that was on top of the stack before
-// this node was pushed (i.e., the state exposed after popping children during
-// reduce). For non-leaf nodes: lookupGoto(PreGotoState, Symbol) == ParseState.
-// Returns 0 for a nil node.
+// this node was originally pushed (i.e., the state exposed after popping
+// children during reduce). A reused node retains that historical state, which
+// can differ from the state in a fresh parse of the edited source. For
+// non-leaf nodes: lookupGoto(PreGotoState, Symbol) == ParseState. Returns 0
+// for a nil node.
 func (n *Node) PreGotoState() StateID {
 	if n == nil {
 		return 0
@@ -6379,7 +6381,6 @@ type nodeViewBacking interface {
 	children(*Node) []*Node
 	parent(*Node) (*Node, int, bool)
 	supertype(*Node) uint32
-	executeQuery(*Query, *Node, *Language, []byte, []QueryMatch) ([]QueryMatch, bool)
 	equalTree(*Node, *Node, *Language) bool
 	copyTree(*Tree) *Tree
 	retainedBytes() uint64

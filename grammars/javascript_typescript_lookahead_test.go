@@ -119,7 +119,7 @@ func TestJavaScriptTypeScriptComputedSetterLookahead(t *testing.T) {
 					edited := []byte(c.source[:offset] + " " + c.source[offset:])
 					tree.Edit(gotreesitter.InputEdit{
 						StartByte: uint32(offset), OldEndByte: uint32(offset), NewEndByte: uint32(offset + 1),
-						StartPoint: computedSetterPoint(source, offset), OldEndPoint: computedSetterPoint(source, offset), NewEndPoint: computedSetterPoint(edited, offset+1),
+						StartPoint: pointAtByte(source, offset), OldEndPoint: pointAtByte(source, offset), NewEndPoint: pointAtByte(edited, offset+1),
 					})
 					incremental, err := parser.ParseIncremental(edited, tree)
 					if err != nil {
@@ -160,17 +160,4 @@ func assertCleanComputedSetterTree(t *testing.T, tree *gotreesitter.Tree, lang *
 	if root.HasErrorOrMissing() || tree.ParseStoppedEarly() || root.StartByte() != 0 || root.EndByte() != uint32(length) {
 		t.Fatalf("invalid tree: %s", root.SExpr(lang))
 	}
-}
-
-func computedSetterPoint(source []byte, offset int) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, ch := range source[:offset] {
-		if ch == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

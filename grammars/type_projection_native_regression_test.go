@@ -103,7 +103,7 @@ func TestTypeProjectionRoutes(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(oldTree.Release)
-			endPoint := retiredDispatchPointAtByte(test.source, len(test.source))
+			endPoint := pointAtByte(test.source, len(test.source))
 			oldTree.Edit(gotreesitter.InputEdit{
 				StartByte:   uint32(len(test.source)),
 				OldEndByte:  uint32(len(test.source)),

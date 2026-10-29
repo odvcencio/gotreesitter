@@ -30,18 +30,18 @@ import (
 //
 // C side. The vendored C source stays unpatched. ts_parser_set_logger gives
 // the parse event stream, and ts_parser__accept
-// (go-tree-sitter@v0.25.0/src/parser.c:1046-1097) folds every popped root
-// into finished_tree through ts_parser__select_tree (parser.c:836-879). The
+// (cgo_harness/internal/coracle/src/parser.c:1054-1105, runtime 0.27.1) folds every popped root
+// into finished_tree through ts_parser__select_tree (parser.c:842-885). The
 // first root sets finished_tree with no log line; every later root logs
 // exactly one select_* line. |V| is therefore
 //
 //	1 + (number of select_* lines that immediately follow an accept line)
 //
 // counted over the whole parse. ts_parser__select_tree is also reached from
-// ts_parser__select_children inside a reduce (parser.c:901), so only the
+// ts_parser__select_children inside a reduce (parser.c:907), so only the
 // contiguous run of select_* lines directly after an accept line belongs to
 // an accept fold; every other select_* line is preceded by at least a
-// "reduce" line. recover_eof (parser.c:1346) also calls ts_parser__accept,
+// "reduce" line. recover_eof (parser.c:1371-1375) also calls ts_parser__accept,
 // so it counts as an accept event too.
 //
 // What the logger gives and what it withholds is stated exactly in

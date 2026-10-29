@@ -2213,7 +2213,7 @@ Its three registered witnesses are:
 
 - `cgo_harness/parity_cgo_test.go`;
 - `grammars/hlsl_subscript_assignment_native_regression_test.go`;
-- `cgo_harness/hlsl_subscript_assignment_parity_cgo_test.go`.
+- `cgo_harness/witness_table_test.go` (`TestHLSLSubscriptAssignmentLockedCParity`).
 
 The A0 (authenticated dispatcher census) manifest has 14 languages, 42 files,
 and 14 receipts. A0 has three HLSL files, three checked, three run, and zero

@@ -2,6 +2,11 @@ name: cliff-report
 
 on:
   pull_request:
+    paths-ignore:
+      - '*.md'
+      - 'LICENSE'
+      - 'docs/**'
+      - '.github/*.md'
   workflow_dispatch:
 
 permissions:

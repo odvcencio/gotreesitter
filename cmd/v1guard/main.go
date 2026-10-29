@@ -12,25 +12,35 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 )
 
-// Engine files are root parser, GLR, lexer, and scanner dispatch files, plus
-// internal engine packages. New internal packages are engine code unless listed
-// here as support packages. Tests are excluded from the R6 language rule.
-var rootEnginePrefixes = []string{"parser", "glr", "lexer", "lex_", "scanner", "external_scanner"}
+// Engine files are root parser, GLR, lexer, scanner dispatch, incremental,
+// conflict, token-invariant, and result-compat files, plus internal engine
+// packages. New internal packages are engine code unless listed here as support
+// packages. Tests are excluded from the R6 language rule. A registry records
+// the prefixes it was written under, so a PR that widens this list is compared
+// with the base only inside the base's scope.
+var rootEnginePrefixes = []string{"parser", "glr", "lexer", "lex_", "scanner", "external_scanner", "incremental", "conflict", "token_invariant", "result_compat"}
+
+// legacyEnginePrefixes is the scope of a registry that has no prefixes header.
+var legacyEnginePrefixes = []string{"parser", "glr", "lexer", "lex_", "scanner", "external_scanner"}
+
 var internalSupportPackages = map[string]bool{
 	"benchfixtures": true, "grammarpatch": true, "grammarsubsettest": true, "luapattern": true,
 }
 
-func engineFile(path string) bool {
+func engineFile(path string) bool { return engineFileIn(path, rootEnginePrefixes) }
+
+func engineFileIn(path string, prefixes []string) bool {
 	if strings.HasSuffix(path, "_test.go") {
 		return false
 	}
 	if !strings.Contains(path, "/") {
-		for _, prefix := range rootEnginePrefixes {
+		for _, prefix := range prefixes {
 			if strings.HasPrefix(path, prefix) {
 				return true
 			}
@@ -108,13 +118,21 @@ func isName(e ast.Expr) bool {
 	return ok && s.Sel.Name == "Name"
 }
 
+// isTrackedName reports whether e is a language name: a .Name selector, a
+// tracked local, or a call to a helper listed in aliases as "helper()".
 func isTrackedName(e ast.Expr, aliases map[string]bool) bool {
 	e = unparen(e)
 	if isName(e) {
 		return true
 	}
-	id, ok := e.(*ast.Ident)
-	return ok && aliases[id.Name]
+	switch x := e.(type) {
+	case *ast.Ident:
+		return aliases[x.Name]
+	case *ast.CallExpr:
+		id, ok := x.Fun.(*ast.Ident)
+		return ok && aliases[id.Name+"()"]
+	}
+	return false
 }
 
 func containsTrackedName(e ast.Expr, aliases map[string]bool) bool {
@@ -215,22 +233,98 @@ func loadGrammarNames(root string) (map[string]bool, error) {
 	return names, nil
 }
 
-func scan(root string) ([]finding, []finding, error) {
+type source struct {
+	path string
+	fset *token.FileSet
+	file *ast.File
+}
+
+type project struct {
+	sources  []source
+	grammars map[string]bool
+	funcs    map[string]bool // "directory|name" of every package-level function
+}
+
+func loadProject(root string) (*project, error) {
 	paths, err := sourceFiles(root)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	grammars, err := loadGrammarNames(root)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	var language, env []finding
+	p := &project{grammars: grammars, funcs: map[string]bool{}}
 	for _, path := range paths {
 		fset := token.NewFileSet()
 		file, err := parser.ParseFile(fset, filepath.Join(root, path), nil, 0)
 		if err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", path, err)
+			return nil, fmt.Errorf("%s: %w", path, err)
 		}
+		p.sources = append(p.sources, source{path, fset, file})
+		for _, decl := range file.Decls {
+			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Recv == nil {
+				p.funcs[pkgDir(path)+"|"+fn.Name.Name] = true
+			}
+		}
+	}
+	return p, nil
+}
+
+// paramTaints maps "directory|function" to the parameter positions that an
+// engine-file caller feeds with a language name.
+type paramTaints map[string]map[int]bool
+
+func (t paramTaints) add(key string, position int) bool {
+	if t[key][position] {
+		return false
+	}
+	if t[key] == nil {
+		t[key] = map[int]bool{}
+	}
+	t[key][position] = true
+	return true
+}
+
+func pkgDir(path string) string {
+	if i := strings.LastIndex(path, "/"); i >= 0 {
+		return path[:i]
+	}
+	return "."
+}
+
+// seedParams marks the string parameters of fn that receive a language name.
+func seedParams(names map[string]bool, fn *ast.FuncDecl, positions map[int]bool) {
+	i := 0
+	for _, field := range fn.Type.Params.List {
+		if len(field.Names) == 0 {
+			i++
+			continue
+		}
+		typ, ok := field.Type.(*ast.Ident)
+		isString := ok && typ.Name == "string"
+		for _, id := range field.Names {
+			if isString && positions[i] && id.Name != "_" {
+				names[id.Name] = true
+			}
+			i++
+		}
+	}
+}
+
+// scan finds language-name branches and environment reads. With flow == nil it
+// tracks .Name selectors and their local copies. With flow set it also follows
+// a name into same-package functions that receive it, unchanged, as an
+// argument from an engine file (and treats languageName(...) as a name), and
+// it returns the calls that pass a name, for the caller to merge into flow.
+// Method calls, wrapped names, and chains through non-engine callers are not
+// followed, so the result is a lower bound.
+func (p *project) scan(flow paramTaints) (language, env []finding, calls paramTaints) {
+	grammars := p.grammars
+	calls = paramTaints{}
+	for _, src := range p.sources {
+		path, fset, file := src.path, src.fset, src.file
+		dir := pkgDir(path)
 		osImports := map[string]bool{}
 		dotOS := false
 		for _, imp := range file.Imports {
@@ -265,6 +359,9 @@ func scan(root string) ([]finding, []finding, error) {
 			return isEnvFunction(e, aliases, osImports, dotOS)
 		}
 		globalNames := map[string]bool{}
+		if flow != nil {
+			globalNames["languageName()"] = true
+		}
 		globalEnvFuncs := map[string]bool{}
 		globalCompareFuncs := map[string]bool{}
 		var aliasScopes []aliasScope
@@ -276,7 +373,8 @@ func scan(root string) ([]finding, []finding, error) {
 			}
 		}
 		for _, decl := range file.Decls {
-			if fn, ok := decl.(*ast.FuncDecl); ok {
+			// A go:linkname declaration has no body, so it has no local aliases.
+			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Body != nil {
 				names := make(map[string]bool, len(globalNames))
 				for name := range globalNames {
 					names[name] = true
@@ -288,6 +386,9 @@ func scan(root string) ([]finding, []finding, error) {
 				compareFuncs := make(map[string]bool, len(globalCompareFuncs))
 				for name := range globalCompareFuncs {
 					compareFuncs[name] = true
+				}
+				if flow != nil && fn.Recv == nil {
+					seedParams(names, fn, flow[dir+"|"+fn.Name.Name])
 				}
 				collectAliases(fn.Body, names, containsTrackedName)
 				collectAliases(fn.Body, envFuncs, envSource)
@@ -323,6 +424,13 @@ func scan(root string) ([]finding, []finding, error) {
 								add(&language, x, "compare-call", v)
 							} else if !containsTrackedName(other, aliases.names) {
 								add(&language, x, "compare-call-dynamic", "language.Name")
+							}
+						}
+					}
+					if id, ok := x.Fun.(*ast.Ident); ok && flow != nil && p.funcs[dir+"|"+id.Name] {
+						for i, arg := range x.Args {
+							if isTrackedName(arg, aliases.names) {
+								calls.add(dir+"|"+id.Name, i)
 							}
 						}
 					}
@@ -415,7 +523,36 @@ func scan(root string) ([]finding, []finding, error) {
 			return true
 		})
 	}
-	return language, env, nil
+	return language, env, calls
+}
+
+// flowFindings returns the language-name uses that exist only because a name
+// reaches a function through a parameter. Each is a plain scan finding plus
+// the ones the plain scan cannot see, so the plain registry stays stable.
+func (p *project) flowFindings(plain []finding) []finding {
+	taints := paramTaints{}
+	for changed := true; changed; {
+		changed = false
+		_, _, calls := p.scan(taints)
+		for key, positions := range calls {
+			for position := range positions {
+				if taints.add(key, position) {
+					changed = true
+				}
+			}
+		}
+	}
+	all, _, _ := p.scan(taints)
+	skip := countFindings(plain)
+	var out []finding
+	for _, item := range all {
+		if skip[item.key] > 0 {
+			skip[item.key]--
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 func parseCounts(data []byte, path string) (map[string]int, error) {
@@ -439,10 +576,27 @@ func parseCounts(data []byte, path string) (map[string]int, error) {
 	return counts, s.Err()
 }
 
-func readCounts(path string) (map[string]int, error) {
+const prefixesHeader = "# prefixes: "
+
+// registryPrefixes returns the engine prefixes a registry was written under.
+func registryPrefixes(data []byte) []string {
+	for _, line := range strings.Split(string(data), "\n") {
+		if rest, ok := strings.CutPrefix(line, prefixesHeader); ok {
+			return strings.Split(strings.TrimSpace(rest), ",")
+		}
+	}
+	return legacyEnginePrefixes
+}
+
+// readRegistry reads a registry. A scoped registry (one keyed by engine file)
+// must carry the current engine prefixes, so a prefix change forces a rewrite.
+func readRegistry(path string, scoped bool) (map[string]int, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
+	}
+	if scoped && !slices.Equal(registryPrefixes(data), rootEnginePrefixes) {
+		return nil, fmt.Errorf("%s: engine prefixes differ from the guard's; run go run ./cmd/v1guard -init", path)
 	}
 	return parseCounts(data, path)
 }
@@ -456,7 +610,29 @@ func checkNoGrowth(label string, old, current map[string]int) error {
 	return nil
 }
 
-func checkBaseRegistry(root, base, registry string, current map[string]int) error {
+// checkScopedGrowth fails when current exceeds the base registry. A scoped
+// registry written under narrower engine prefixes is compared only for files
+// inside that narrower scope, so widening the scope adds rows without
+// loosening any existing ceiling.
+func checkScopedGrowth(registry string, baseData []byte, scoped bool, current map[string]int) error {
+	old, err := parseCounts(baseData, registry)
+	if err != nil {
+		return err
+	}
+	if basePrefixes := registryPrefixes(baseData); scoped && !slices.Equal(basePrefixes, rootEnginePrefixes) {
+		inScope := map[string]int{}
+		for key, n := range current {
+			file, _, _ := strings.Cut(key, "|")
+			if engineFileIn(file, basePrefixes) {
+				inScope[key] = n
+			}
+		}
+		current = inScope
+	}
+	return checkNoGrowth(registry, old, current)
+}
+
+func checkBaseRegistry(root, base, registry string, scoped bool, current map[string]int) error {
 	verify := exec.Command("git", "-C", root, "rev-parse", "--verify", base+"^{commit}")
 	if out, err := verify.CombinedOutput(); err != nil {
 		return fmt.Errorf("verify base %q: %w: %s", base, err, out)
@@ -470,11 +646,7 @@ func checkBaseRegistry(root, base, registry string, current map[string]int) erro
 	if err != nil {
 		return fmt.Errorf("read %s: %w", object, err)
 	}
-	old, err := parseCounts(data, object)
-	if err != nil {
-		return err
-	}
-	return checkNoGrowth(registry, old, current)
+	return checkScopedGrowth(registry, data, scoped, current)
 }
 
 func countFindings(items []finding) map[string]int {
@@ -505,7 +677,7 @@ func checkAllowlist(label string, items []finding, allowed map[string]int) error
 	return nil
 }
 
-func writeCounts(path string, counts map[string]int) error {
+func writeCounts(path string, counts map[string]int, scoped bool) error {
 	keys := make([]string, 0, len(counts))
 	for key := range counts {
 		keys = append(keys, key)
@@ -513,6 +685,9 @@ func writeCounts(path string, counts map[string]int) error {
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	buf.WriteString("# R6 baseline. Counts may only shrink; remove a row when its last use leaves.\n")
+	if scoped {
+		buf.WriteString(prefixesHeader + strings.Join(rootEnginePrefixes, ",") + "\n")
+	}
 	for _, key := range keys {
 		fmt.Fprintf(&buf, "%d\t%s\n", counts[key], key)
 	}
@@ -520,41 +695,57 @@ func writeCounts(path string, counts map[string]int) error {
 }
 
 func run(root string, init bool, base string) error {
-	language, env, err := scan(root)
+	p, err := loadProject(root)
 	if err != nil {
 		return err
 	}
+	language, env, _ := p.scan(nil)
+	flow := p.flowFindings(language)
 	langPath := filepath.Join(root, "cmd/v1guard/language_allowlist.txt")
+	flowPath := filepath.Join(root, "cmd/v1guard/language_flow_allowlist.txt")
 	envPath := filepath.Join(root, "cmd/v1guard/env_registry.txt")
 	if init {
-		if err := writeCounts(langPath, countFindings(language)); err != nil {
+		if err := writeCounts(langPath, countFindings(language), true); err != nil {
 			return err
 		}
-		return writeCounts(envPath, countFindings(env))
+		if err := writeCounts(flowPath, countFindings(flow), true); err != nil {
+			return err
+		}
+		return writeCounts(envPath, countFindings(env), false)
 	}
-	langAllowed, err := readCounts(langPath)
+	langAllowed, err := readRegistry(langPath, true)
 	if err != nil {
 		return err
 	}
-	envAllowed, err := readCounts(envPath)
+	flowAllowed, err := readRegistry(flowPath, true)
+	if err != nil {
+		return err
+	}
+	envAllowed, err := readRegistry(envPath, false)
 	if err != nil {
 		return err
 	}
 	if base != "" {
-		if err := checkBaseRegistry(root, base, "language_allowlist.txt", langAllowed); err != nil {
+		if err := checkBaseRegistry(root, base, "language_allowlist.txt", true, langAllowed); err != nil {
 			return err
 		}
-		if err := checkBaseRegistry(root, base, "env_registry.txt", envAllowed); err != nil {
+		if err := checkBaseRegistry(root, base, "language_flow_allowlist.txt", true, flowAllowed); err != nil {
+			return err
+		}
+		if err := checkBaseRegistry(root, base, "env_registry.txt", false, envAllowed); err != nil {
 			return err
 		}
 	}
 	if err := checkAllowlist("language names", language, langAllowed); err != nil {
 		return err
 	}
+	if err := checkAllowlist("language names through parameters", flow, flowAllowed); err != nil {
+		return err
+	}
 	if err := checkAllowlist("environment", env, envAllowed); err != nil {
 		return err
 	}
-	fmt.Printf("R6 guardrails: %d language-name uses and %d environment reads match their checked-in baselines\n", len(language), len(env))
+	fmt.Printf("R6 guardrails: %d language-name uses (%d more through parameters) and %d environment reads match their checked-in baselines\n", len(language), len(flow), len(env))
 	return nil
 }
 

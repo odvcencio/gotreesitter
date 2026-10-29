@@ -433,6 +433,13 @@ const schSttFrz int8 = -1
 // Section 2: Types
 // ---------------------------------------------------------------------------
 
+// yamlIndent keeps the type and width of one indentation level together.
+// One backing array owns each history, so push/pop cannot separate the pair.
+type yamlIndent struct {
+	typ    int16
+	length int16
+}
+
 // yamlState holds the persistent scanner state (serialized between parses).
 type yamlState struct {
 	row       int16
@@ -440,8 +447,7 @@ type yamlState struct {
 	blkImpRow int16
 	blkImpCol int16
 	blkImpTab int16
-	indTypStk []int16
-	indLenStk []int16
+	indents   []yamlIndent
 }
 
 // yamlEnv holds transient per-Scan state.
@@ -560,8 +566,7 @@ func (YamlExternalScanner) Create() any {
 	p := &yamlPayload{}
 	p.state.blkImpRow = -1
 	p.state.blkImpCol = -1
-	p.state.indTypStk = []int16{yIndRot}
-	p.state.indLenStk = []int16{-1}
+	p.state.indents = []yamlIndent{{typ: yIndRot, length: -1}}
 	return p
 }
 
@@ -586,10 +591,10 @@ func (YamlExternalScanner) Serialize(payload any, buf []byte) int {
 	binary.LittleEndian.PutUint16(buf[size:], uint16(s.blkImpTab))
 	size += 2
 	// Stack entries (skip index 0 = root sentinel)
-	for i := 1; i < len(s.indTypStk) && size+4 <= len(buf); i++ {
-		binary.LittleEndian.PutUint16(buf[size:], uint16(s.indTypStk[i]))
+	for i := 1; i < len(s.indents) && size+4 <= len(buf); i++ {
+		binary.LittleEndian.PutUint16(buf[size:], uint16(s.indents[i].typ))
 		size += 2
-		binary.LittleEndian.PutUint16(buf[size:], uint16(s.indLenStk[i]))
+		binary.LittleEndian.PutUint16(buf[size:], uint16(s.indents[i].length))
 		size += 2
 	}
 	return size
@@ -606,8 +611,7 @@ func (YamlExternalScanner) Deserialize(payload any, buf []byte) {
 	// A restore replaces the current cursor's indentation history. Snapshots
 	// own serialized bytes, so retaining these private buffers cannot alias
 	// another version's history.
-	s.indTypStk = append(s.indTypStk[:0], yIndRot)
-	s.indLenStk = append(s.indLenStk[:0], -1)
+	s.indents = append(s.indents[:0], yamlIndent{typ: yIndRot, length: -1})
 	if len(buf) >= 10 {
 		off := 0
 		s.row = int16(binary.LittleEndian.Uint16(buf[off:]))
@@ -625,8 +629,7 @@ func (YamlExternalScanner) Deserialize(payload any, buf []byte) {
 			off += 2
 			ln := int16(binary.LittleEndian.Uint16(buf[off:]))
 			off += 2
-			s.indTypStk = append(s.indTypStk, typ)
-			s.indLenStk = append(s.indLenStk, ln)
+			s.indents = append(s.indents, yamlIndent{typ: typ, length: ln})
 		}
 	}
 }
@@ -709,32 +712,30 @@ func (e *yamlEnv) retSym(tok int) bool {
 }
 
 func (e *yamlEnv) popInd() bool {
-	if len(e.st.indTypStk) == 1 {
+	if len(e.st.indents) == 1 {
 		return false // incorrect status caused by error recovering
 	}
-	e.st.indTypStk = e.st.indTypStk[:len(e.st.indTypStk)-1]
-	e.st.indLenStk = e.st.indLenStk[:len(e.st.indLenStk)-1]
+	e.st.indents = e.st.indents[:len(e.st.indents)-1]
 	return true
 }
 
 func (e *yamlEnv) pushInd(typ, length int16) {
-	e.st.indTypStk = append(e.st.indTypStk, typ)
-	e.st.indLenStk = append(e.st.indLenStk, length)
+	e.st.indents = append(e.st.indents, yamlIndent{typ: typ, length: length})
 }
 
 func (e *yamlEnv) curInd() int16 {
-	return e.st.indLenStk[len(e.st.indLenStk)-1]
+	return e.st.indents[len(e.st.indents)-1].length
 }
 
 func (e *yamlEnv) curIndTyp() int16 {
-	return e.st.indTypStk[len(e.st.indTypStk)-1]
+	return e.st.indents[len(e.st.indents)-1].typ
 }
 
 func (e *yamlEnv) prtInd() int16 {
-	if len(e.st.indLenStk) < 2 {
+	if len(e.st.indents) < 2 {
 		return -1
 	}
-	return e.st.indLenStk[len(e.st.indLenStk)-2]
+	return e.st.indents[len(e.st.indents)-2].length
 }
 
 // Lookahead is stable until one of the four cursor-advance helpers runs.

@@ -32,7 +32,7 @@ func TestYAMLCheckpointRestorePreservesIndependentHistories(t *testing.T) {
 		if !reflect.DeepEqual(payload.state, fresh.state) {
 			t.Fatalf("restore after another history differs for %d-byte checkpoint: got %+v want %+v", len(checkpoint), payload.state, fresh.state)
 		}
-		if payload.state.indTypStk[0] != yIndRot || payload.state.indLenStk[0] != -1 {
+		if payload.state.indents[0] != (yamlIndent{typ: yIndRot, length: -1}) {
 			t.Fatal("restore lost the root indentation sentinel")
 		}
 	}
@@ -160,5 +160,57 @@ func TestYAMLPreparedValidityPreservesGeneralMapping(t *testing.T) {
 				t.Fatalf("validity mapping allocated %g times", n)
 			}
 		})
+	}
+}
+
+func TestYAMLIndentFramesKeepPairsAcrossGrowthAndRestore(t *testing.T) {
+	scanner := YamlExternalScanner{}
+	first := scanner.Create().(*yamlPayload)
+	env := yamlEnv{st: &first.state}
+	if env.popInd() || env.curInd() != -1 || env.curIndTyp() != yIndRot || env.prtInd() != -1 {
+		t.Fatal("root sentinel changed")
+	}
+	// These signed values exercise every bit, independent of valid indentation kinds.
+	for i := 0; i < 257; i++ {
+		env.pushInd(int16(32767-i*251), int16(-32768+i*137))
+	}
+	checkpoint := make([]byte, 10+4*257)
+	if scanner.Serialize(first, checkpoint) != len(checkpoint) {
+		t.Fatal("deep history truncated")
+	}
+	saved := append([]byte(nil), checkpoint...)
+	second := scanner.Create().(*yamlPayload)
+	scanner.Deserialize(second, checkpoint)
+	clear(checkpoint)
+	for i := 256; i >= 0; i-- {
+		if env.curIndTyp() != int16(32767-i*251) || env.curInd() != int16(-32768+i*137) {
+			t.Fatal("indentation type and width separated")
+		}
+		parent := int16(-1)
+		if i > 0 {
+			parent = int16(-32768 + (i-1)*137)
+		}
+		if env.prtInd() != parent || !env.popInd() {
+			t.Fatal("parent history changed during pop")
+		}
+	}
+	if env.popInd() {
+		t.Fatal("popped root sentinel")
+	}
+	check := make([]byte, len(saved))
+	if scanner.Serialize(second, check) != len(saved) || !bytes.Equal(check, saved) {
+		t.Fatal("another payload or input mutation changed the restored history")
+	}
+	// Preserve the existing wire format, including a complete-entry boundary.
+	for n := 0; n <= len(saved); n++ {
+		buffer := make([]byte, n)
+		written := scanner.Serialize(second, buffer)
+		want := 0
+		if n >= 10 {
+			want = 10 + 4*((n-10)/4)
+		}
+		if written != want || !bytes.Equal(buffer[:written], saved[:written]) {
+			t.Fatalf("checkpoint prefix changed at capacity %d", n)
+		}
 	}
 }

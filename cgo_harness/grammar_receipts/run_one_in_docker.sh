@@ -50,6 +50,11 @@ EXTRA_MOUNTS=(
   --mount "$CORPUS_LOCK:/input/corpus_sources.lock:ro"
   --mount "$OUTPUT_DIR:/receipts"
 )
+# Persist an explicitly configured C reference cache across containers.
+if [[ -n "${GTS_PARITY_C_REF_BUILD_CACHE:-}" ]]; then
+  mkdir -p "$GTS_PARITY_C_REF_BUILD_CACHE"
+  EXTRA_MOUNTS+=(--mount "$GTS_PARITY_C_REF_BUILD_CACHE:$GTS_PARITY_C_REF_BUILD_CACHE")
+fi
 INNER_ARGS=(
   -grammar "$GRAMMAR"
   -repo-root /workspace
@@ -92,6 +97,34 @@ fi
 if [[ "${GTS_GRAMMAR_RECEIPT_ALLOW_CONCURRENT:-0}" != "1" ]] && docker ps --format '{{.Names}}' | grep -Eq '^gts-parity-'; then
   echo "another gts parity container is running; refusing grammar receipt run" >&2
   exit 1
+fi
+
+# The injection grammars (comment, doxygen, gitcommit, jsdoc, markdown_inline)
+# take their samples from .gts-extracted/<grammar>. real_corpus_sources does not
+# create that tree, so build it from the pinned checkout before the receipt run.
+# The receipt container mounts the corpus read-only, so this one can write it.
+# gitcommit fetches the checkout's full commit history (without file contents),
+# so it needs the network. The lock row says which grammars use a generated tree.
+# A failed extraction does not end the job: a warning names it, the partial tree
+# is removed, and the receipt run records the missing corpus.
+if [[ "$(awk -v g="$GRAMMAR" '!/^#/ && $1 == g {print $4; exit}' "$CORPUS_LOCK")" == ".gts-extracted/$GRAMMAR" ]]; then
+  EXTRACT_CMD="cd /workspace/cgo_harness && export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0='/corpus_sources/$GRAMMAR'"
+  EXTRACT_CMD+=" && GOWORK=off go run ./cmd/real_corpus_extract -root /corpus_sources -langs '$GRAMMAR' > /dev/null"
+  set +e
+  "$DOCKER_RUNNER" "${BUILD_ARGS[@]}" \
+    --out-root "$OUTPUT_DIR/.docker" \
+    --label "grammar-receipt-$GRAMMAR-extract" \
+    --cpus 1 --memory 3g \
+    --wall-timeout 20m \
+    --mount "$CORPUS_ROOT/$GRAMMAR:/corpus_sources/$GRAMMAR" \
+    -- "$EXTRACT_CMD"
+  EXTRACT_STATUS=$?
+  set -e
+  BUILD_ARGS=(--no-build)
+  if [[ "$EXTRACT_STATUS" != "0" ]]; then
+    echo "::warning title=Corpus extraction failed::$GRAMMAR: the extraction run failed (status $EXTRACT_STATUS); the receipt records the missing corpus."
+    rm -rf -- "$CORPUS_ROOT/$GRAMMAR/.gts-extracted/$GRAMMAR"
+  fi
 fi
 
 RUN_ARGS=(

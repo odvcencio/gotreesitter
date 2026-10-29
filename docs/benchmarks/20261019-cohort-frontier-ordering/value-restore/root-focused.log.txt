@@ -1,8 +1,0 @@
-=== RUN   TestOrdinaryShiftCohortPreservesAlreadyShiftedSibling
---- PASS: TestOrdinaryShiftCohortPreservesAlreadyShiftedSibling (0.00s)
-=== RUN   TestPrototypeDFATerminalSourceRejectsChangedOrigin
---- PASS: TestPrototypeDFATerminalSourceRejectsChangedOrigin (0.01s)
-=== RUN   TestPrototypeDFADispatchRestoresNestedPanicWithoutAllocating
---- PASS: TestPrototypeDFADispatchRestoresNestedPanicWithoutAllocating (0.00s)
-PASS
-ok  	github.com/odvcencio/gotreesitter	0.021s

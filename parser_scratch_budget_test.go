@@ -1,6 +1,7 @@
 package gotreesitter
 
 import (
+	"sync"
 	"testing"
 	"unsafe"
 )
@@ -212,5 +213,142 @@ func TestGoCompatFramesReleasedAboveRetentionCap(t *testing.T) {
 
 	if scratch.goCompatFrames != nil {
 		t.Fatalf("goCompatFrames capacity = %d, want released", cap(scratch.goCompatFrames))
+	}
+}
+
+func TestHeavySmallScratchReusesRetainedCapacity(t *testing.T) {
+	s := &parserScratch{}
+	s.sourceBytes = 4096
+	s.gss.slabs = []gssNodeSlab{{data: make([]gssNode, maxRetainedGSSNodes), reachMarks: make([]uint32, maxRetainedGSSNodes)}}
+	s.gss.recomputeAllocatedBytes()
+	lang := &Language{grammarBlobSHA256Valid: true, grammarBlobSHA256: [32]byte{1}}
+	p := &Parser{language: lang}
+	s.heavyGrammar, _ = scratchKeyForLanguage(lang)
+	fresh := &Parser{language: lang}
+	if !parserHeavySmallScratchFits(s, fresh, 4096) {
+		t.Fatal("heavy small scratch was not classified for reuse")
+	}
+	if parserHeavySmallScratchFits(s, fresh, 100) {
+		t.Fatal("strongly shrunken input inherited heavy scratch")
+	}
+	other := &Parser{language: &Language{grammarBlobSHA256Valid: true, grammarBlobSHA256: [32]byte{2}}}
+	if parserHeavySmallScratchFits(s, other, 4096) {
+		t.Fatal("different language inherited heavy scratch")
+	}
+	releaseParserScratchForParser(s, false, p)
+	reused := acquireParserScratchForSource(4096, fresh)
+	defer releaseParserScratchForParser(reused, false, fresh)
+	if reused != s {
+		t.Skip("sync.Pool did not return the retained scratch")
+	}
+	if reused.gss.capacityNodes() != maxRetainedGSSNodes {
+		t.Fatalf("heavy scratch lost its reusable GSS: %d nodes", reused.gss.capacityNodes())
+	}
+}
+
+func TestUnknownHeavyScratchMatchesGrammarGeometry(t *testing.T) {
+	lang := &Language{StateCount: 10, SymbolCount: 5, TokenCount: 3}
+	p := &Parser{language: lang}
+	s := &parserScratch{sourceBytes: 4096}
+	s.gss.slabs = []gssNodeSlab{{data: make([]gssNode, maxRetainedGSSNodes), reachMarks: make([]uint32, maxRetainedGSSNodes)}}
+	s.gss.recomputeAllocatedBytes()
+	s.heavyGrammar, _ = scratchKeyForLanguage(lang)
+	fresh := &Parser{language: &Language{StateCount: 10, SymbolCount: 5, TokenCount: 3}}
+	if !parserHeavySmallScratchFits(s, fresh, 4096) {
+		t.Fatal("matching custom grammar cannot reuse heavy scratch")
+	}
+	if parserHeavySmallScratchFits(s, &Parser{language: &Language{StateCount: 11, SymbolCount: 5, TokenCount: 3}}, 4096) {
+		t.Fatal("different grammar geometry inherited scratch")
+	}
+	if parserHeavySmallScratchFits(s, fresh, 100) {
+		t.Fatal("strongly shrunken input inherited heavy scratch")
+	}
+	releaseParserScratchForParser(s, false, p)
+	if got := acquireParserScratchForSource(4096, fresh); got != s {
+		releaseParserScratchForParser(got, false, fresh)
+		t.Skip("sync.Pool did not return the retained scratch")
+	} else {
+		releaseParserScratchForParser(got, false, fresh)
+	}
+}
+
+func TestFreshCustomParsersReuseHeavyScratchWithoutRegrowth(t *testing.T) {
+	lang := &Language{StateCount: 13, SymbolCount: 7, TokenCount: 4}
+	seed := &parserScratch{sourceBytes: 4096}
+	seed.gss.slabs = []gssNodeSlab{{data: make([]gssNode, maxRetainedGSSNodes), reachMarks: make([]uint32, maxRetainedGSSNodes)}}
+	seed.gss.recomputeAllocatedBytes()
+	releaseParserScratchForParser(seed, false, &Parser{language: lang})
+	allocs := testing.AllocsPerRun(10, func() {
+		parser := &Parser{language: lang}
+		s := acquireParserScratchForSource(4096, parser)
+		if s.gss.capacityNodes() != maxRetainedGSSNodes {
+			t.Skip("sync.Pool did not retain the seeded heavy scratch")
+		}
+		releaseParserScratchForParser(s, false, parser)
+	})
+	if allocs > 1 {
+		t.Fatalf("fresh custom parser scratch acquisition allocated %.2f times per run", allocs)
+	}
+}
+
+func TestLargeScratchReusesRetainedCapacity(t *testing.T) {
+	s := &parserScratch{largePool: true}
+	s.gss.slabs = []gssNodeSlab{{data: make([]gssNode, maxRetainedGSSNodes)}}
+	s.gss.recomputeAllocatedBytes()
+	releaseParserScratch(s, false)
+	reused := acquireParserScratchForSource(320<<10, &Parser{})
+	defer releaseParserScratch(reused, false)
+	if reused != s {
+		t.Skip("sync.Pool did not return the retained scratch")
+	}
+	if reused.gss.capacityNodes() != maxRetainedGSSNodes {
+		t.Fatalf("large scratch lost its reusable GSS: %d nodes", reused.gss.capacityNodes())
+	}
+}
+
+func TestSmallParseReclaimsIdleLargeTransientScratch(t *testing.T) {
+	s := &parserScratch{}
+	s.gss.slabs = []gssNodeSlab{{data: make([]gssNode, 128)}}
+	s.gss.recomputeAllocatedBytes()
+	s.transientParents.allocatedBytes = 33 << 20
+	s.transientChildren.allocatedBytes = 1 << 20
+	reclaimLargeScratchForSmallParse(s)
+	if s.transientParents.allocatedBytes != 0 || s.transientChildren.allocatedBytes != 0 {
+		t.Fatal("large transient scratch was retained")
+	}
+	if s.gss.capacityNodes() != 128 {
+		t.Fatal("reclamation dropped the reusable GSS")
+	}
+}
+
+func TestParserScratchSizeClassesConcurrent(t *testing.T) {
+	const workers = 8
+	var wg sync.WaitGroup
+	errs := make(chan string, workers)
+	for worker := 0; worker < workers; worker++ {
+		wg.Add(1)
+		go func(worker int) {
+			defer wg.Done()
+			parser := &Parser{language: &Language{}}
+			for i := 0; i < 100; i++ {
+				large := (worker+i)%2 == 0
+				size := 4096
+				if large {
+					size = 320 << 10
+				}
+				s := acquireParserScratchForSource(size, parser)
+				if s.largePool != large {
+					errs <- "scratch returned from wrong size class"
+					releaseParserScratchForParser(s, false, parser)
+					return
+				}
+				releaseParserScratchForParser(s, false, parser)
+			}
+		}(worker)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
 	}
 }

@@ -805,6 +805,39 @@ func TestLeafReuseRejectsMismatchedNodeState(t *testing.T) {
 	}
 }
 
+// A reused leaf keeps the state recorded when it was first parsed. Reuse must
+// still authenticate the action from the live state, including extra shifts.
+func TestLeafReuseAuthenticatesLiveStateWithHistoricalPreGoto(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	ordinary := uint16(len(lang.ParseActions))
+	lang.ParseActions = append(lang.ParseActions, ParseActionEntry{Actions: []ParseAction{{Type: ParseActionShift, State: 4}}})
+	incompatible := uint16(len(lang.ParseActions))
+	lang.ParseActions = append(lang.ParseActions, ParseActionEntry{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}})
+	extra := uint16(len(lang.ParseActions))
+	lang.ParseActions = append(lang.ParseActions, ParseActionEntry{Actions: []ParseAction{{Type: ParseActionShift, Extra: true}}})
+	lang.ParseTable[1][1], lang.ParseTable[2][1], lang.ParseTable[3][1] = ordinary, incompatible, extra
+	p := NewParser(lang)
+	leaf := &Node{symbol: 1, preGotoState: 0, parseState: 4}
+	tok := Token{Symbol: 1}
+	if state, ok := p.reuseTargetState(1, leaf, tok); !ok || state != 4 {
+		t.Fatalf("matching live shift = %d, %t", state, ok)
+	}
+	if _, ok := p.reuseTargetState(2, leaf, tok); ok {
+		t.Fatal("accepted live shift to a different state")
+	}
+	leaf.parseState = 3
+	if state, ok := p.reuseTargetState(3, leaf, tok); !ok || state != 3 {
+		t.Fatalf("matching extra shift = %d, %t", state, ok)
+	}
+	leaf.parseState = 4
+	if _, ok := p.reuseTargetState(3, leaf, tok); ok {
+		t.Fatal("accepted extra shift with a different stored state")
+	}
+	if leaf.PreGotoState() != 0 {
+		t.Fatal("reuse check changed historical state")
+	}
+}
+
 func TestConfigureIncrementalParseCapsPreservesConfiguredWidth(t *testing.T) {
 	t.Setenv("GOT_GLR_MAX_STACKS", "18")
 	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "16")

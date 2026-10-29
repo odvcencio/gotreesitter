@@ -16,19 +16,6 @@ type incrementalEditStep struct {
 	text          string
 }
 
-func incrementalEditPoint(source []byte, offset uint32) gts.Point {
-	var point gts.Point
-	for _, b := range source[:offset] {
-		if b == '\n' {
-			point.Row++
-			point.Column = 0
-			continue
-		}
-		point.Column++
-	}
-	return point
-}
-
 // applyIncrementalEditSteps records each step on tree and returns the final
 // source. Each step uses the coordinates of the source before that step.
 func applyIncrementalEditSteps(tree *gts.Tree, source []byte, steps []incrementalEditStep) []byte {
@@ -43,9 +30,9 @@ func applyIncrementalEditSteps(tree *gts.Tree, source []byte, steps []incrementa
 			StartByte:   step.start,
 			OldEndByte:  step.oldEnd,
 			NewEndByte:  newEnd,
-			StartPoint:  incrementalEditPoint(current, step.start),
-			OldEndPoint: incrementalEditPoint(current, step.oldEnd),
-			NewEndPoint: incrementalEditPoint(next, newEnd),
+			StartPoint:  pointForOffset(current, int(step.start)),
+			OldEndPoint: pointForOffset(current, int(step.oldEnd)),
+			NewEndPoint: pointForOffset(next, int(newEnd)),
 		})
 		current = next
 	}

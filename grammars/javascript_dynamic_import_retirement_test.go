@@ -147,8 +147,8 @@ func TestJavaScriptDynamicImportRetirementRoutes(t *testing.T) {
 			if start < 0 {
 				t.Fatal("incremental base has no fetch token")
 			}
-			startPoint := javaScriptDynamicImportPointAtByte(test.baseSource, start)
-			oldEndPoint := javaScriptDynamicImportPointAtByte(test.baseSource, start+len("fetch"))
+			startPoint := pointAtByte(test.baseSource, start)
+			oldEndPoint := pointAtByte(test.baseSource, start+len("fetch"))
 			newEndPoint := startPoint
 			newEndPoint.Column += uint32(len("import"))
 			oldTree.Edit(gotreesitter.InputEdit{
@@ -247,22 +247,6 @@ func requireJavaScriptDynamicImportRetirementTree(t *testing.T, route string, tr
 		}
 	}
 	return inspection.SHA256
-}
-
-func javaScriptDynamicImportPointAtByte(source []byte, offset int) gotreesitter.Point {
-	var point gotreesitter.Point
-	for index, value := range source {
-		if index == offset {
-			break
-		}
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-			continue
-		}
-		point.Column++
-	}
-	return point
 }
 
 func javaScriptDynamicImportNodes(root *gotreesitter.Node, language *gotreesitter.Language) []*gotreesitter.Node {

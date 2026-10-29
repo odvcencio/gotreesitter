@@ -1311,3 +1311,7 @@ func repeatElementCanStartAdjacentRepeatOnLookaheadSlow(elemLHS, lookaheadSym in
 	}
 	return false
 }
+
+func augmentAdjacentRepeatElementReduceLookaheads(ctx context.Context, tables *LRTables, ng *NormalizedGrammar) (conflictResolutionStats, error) {
+	return augmentAdjacentRepeatElementReduceLookaheadsWithTrace(ctx, tables, ng, phaseTrace{})
+}
