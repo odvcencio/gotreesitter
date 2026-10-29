@@ -15,7 +15,10 @@ def load(path):
         if not line:
             continue
         r = json.loads(line)
-        rows[(r["grammar"], r["class"], r["id"])] = r
+        key = (r["grammar"], r["class"], r["id"])
+        if key in rows:
+            raise ValueError(f"duplicate input key in {path}: {key}")
+        rows[key] = r
     return rows
 
 
@@ -29,13 +32,13 @@ def main():
     keys = sorted(set(a) | set(b))
     cols = [
         "grammar", "class", "id", "input_bytes",
-        "a_c_digest", "b_c_digest", "c_digest_changed",
+        "a_c_digest", "b_c_digest", "c_comparable", "c_digest_changed",
         "a_c_has_error", "b_c_has_error", "c_has_error_flipped",
         "a_c_sexp_sha", "b_c_sexp_sha", "c_shape_changed", "c_span_or_flag_only_change",
         "a_c_root_type", "b_c_root_type", "c_root_type_changed",
         "a_c_nodes", "b_c_nodes", "a_c_err_nodes", "b_c_err_nodes", "a_c_missing", "b_c_missing",
         "a_c_error", "b_c_error",
-        "go_digest_a", "go_digest_b", "go_changed_between_runs", "go_has_error", "go_error",
+        "go_digest_a", "go_digest_b", "go_comparable", "go_changed_between_runs", "go_has_error", "go_error",
         "a_go_equals_c", "b_go_equals_c", "parity_change",
         "a_div", "b_div",
     ]
@@ -67,6 +70,8 @@ def main():
         if rb is None:
             summary["missing_in_b"] += 1
             continue
+        if not ra.get("input_sha256") or ra.get("input_sha256") != rb.get("input_sha256"):
+            raise ValueError(f"input identity mismatch for {k}")
         summary["rows_joined"] += 1
         grammar, cls, rid = k
         summary["rows_by_class"][cls] += 1
@@ -77,15 +82,19 @@ def main():
         errc_a, errc_b = g(ra, "c_error"), g(rb, "c_error")
         if errc_a or errc_b:
             summary["c_errors"][(errc_a[:60], errc_b[:60])] += 1
-        digest_changed = da != db
-        flipped = ea != eb
-        shape = sa != sb
-        rootchg = ta != tb
-        spanflag = digest_changed and not shape
+        c_valid = bool(da and db and not errc_a and not errc_b)
+        digest_changed = c_valid and da != db
+        flipped = c_valid and ea != eb
+        shape = c_valid and bool(sa and sb) and sa != sb
+        rootchg = c_valid and ta != tb
+        spanflag = digest_changed and bool(sa and sb) and not shape
         gda, gdb = g(ra, "go_digest"), g(rb, "go_digest")
-        gochg = gda != gdb
-        eqa, eqb = g(ra, "go_equals_c", False), g(rb, "go_equals_c", False)
-        if eqa and eqb:
+        go_valid = bool(gda and gdb and not g(ra, "go_error") and not g(rb, "go_error"))
+        gochg = go_valid and gda != gdb
+        eqa, eqb = bool(da and gda and da == gda), bool(db and gdb and db == gdb)
+        if not c_valid or not go_valid:
+            pc = "unavailable"
+        elif eqa and eqb:
             pc = "still_matching"
         elif eqa and not eqb:
             pc = "newly_differing"
@@ -121,14 +130,14 @@ def main():
 
         vals = [
             grammar, cls, rid, g(ra, "input_bytes"),
-            da, db, digest_changed,
+            da, db, c_valid, digest_changed,
             ea, eb, flipped,
             sa, sb, shape, spanflag,
             ta, tb, rootchg,
             g(ra, "c_nodes", 0), g(rb, "c_nodes", 0), g(ra, "c_error_nodes", 0), g(rb, "c_error_nodes", 0),
             g(ra, "c_missing_nodes", 0), g(rb, "c_missing_nodes", 0),
             errc_a, errc_b,
-            gda, gdb, gochg, g(ra, "go_has_error", False), g(ra, "go_error"),
+            gda, gdb, go_valid, gochg, g(ra, "go_has_error", False), g(ra, "go_error"),
             eqa, eqb, pc, div(ra), div(rb),
         ]
         out.write("\t".join(str(v).replace("\t", " ").replace("\n", " ") for v in vals) + "\n")

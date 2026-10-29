@@ -40,6 +40,7 @@ package cgoharness
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -133,10 +134,13 @@ type oracleDiffRow struct {
 }
 
 type oracleDiffMeta struct {
+	RunID                string                 `json:"run_id"`
+	Inputs               map[string]string      `json:"inputs"`
 	OracleRuntimeVersion string                 `json:"oracle_runtime_version"`
 	OracleRuntimeCommit  string                 `json:"oracle_runtime_commit"`
 	BindingCommit        string                 `json:"binding_commit"`
 	TimeoutMillis        int64                  `json:"parse_timeout_ms"`
+	HardLimitMillis      int64                  `json:"hard_limit_ms"`
 	Grammars             map[string]interface{} `json:"grammar_identity"`
 	LoadErrors           map[string]string      `json:"load_errors,omitempty"`
 }
@@ -500,6 +504,9 @@ func oracleDiffRun(in oracleDiffInput, cLang *sitter.Language, cLoadErr error, t
 		row.GoRootType = goRoot.Type(goLang)
 		row.GoRootEnd = goRoot.EndByte()
 		row.GoStop = string(goTree.ParseStopReason())
+		if goTree.ParseStoppedEarly() {
+			row.GoError = "parse stopped early: " + row.GoStop
+		}
 		sexp := goRoot.SExpr(goLang)
 		row.GoSexpSHA256 = oracleDiffSHA([]byte(sexp))
 		row.GoSexp, row.GoSexpTrunc = oracleDiffCap(sexp)
@@ -518,30 +525,58 @@ func oracleDiffRun(in oracleDiffInput, cLang *sitter.Language, cLoadErr error, t
 			}
 		}
 	}
-	row.GoEqualsC = row.CDigest != "" && row.CDigest == row.GoDigest
+	row.GoEqualsC = row.CError == "" && row.GoError == "" && row.CDigest != "" && row.CDigest == row.GoDigest
 	return row
 }
 
-func oracleDiffDoneKeys(path string) map[string]bool {
+func oracleDiffDoneKeys(path string, inputs map[string]string) (map[string]bool, error) {
 	done := map[string]bool{}
 	f, err := os.Open(path)
 	if err != nil {
-		return done
+		return nil, err
 	}
 	defer f.Close()
+	if info, err := f.Stat(); err != nil {
+		return nil, err
+	} else if info.Size() > 0 {
+		var last [1]byte
+		if _, err := f.ReadAt(last[:], info.Size()-1); err != nil || last[0] != '\n' {
+			return nil, fmt.Errorf("incomplete final row")
+		}
+	}
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 1<<20), 64<<20)
 	for sc.Scan() {
-		var head struct {
-			Grammar string `json:"grammar"`
-			Class   string `json:"class"`
-			ID      string `json:"id"`
+		var row oracleDiffRow
+		if err := json.Unmarshal(sc.Bytes(), &row); err != nil {
+			return nil, fmt.Errorf("invalid existing row: %w", err)
 		}
-		if json.Unmarshal(sc.Bytes(), &head) == nil && head.Grammar != "" {
-			done[oracleDiffKey(head.Grammar, head.Class, head.ID)] = true
+		key := oracleDiffKey(row.Grammar, row.Class, row.ID)
+		if done[key] || inputs[key] == "" || row.InputSHA256 != inputs[key] {
+			return nil, fmt.Errorf("duplicate or changed input: %s", key)
 		}
+		done[key] = true
 	}
-	return done
+	return done, sc.Err()
+}
+
+func oracleDiffHangSides(raw []byte) (map[string]map[string]bool, error) {
+	hangs := map[string]map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) != 4 || (parts[3] != "c" && parts[3] != "go") {
+			return nil, fmt.Errorf("invalid hang entry: %q", line)
+		}
+		key := oracleDiffKey(parts[0], parts[1], parts[2])
+		if hangs[key] == nil {
+			hangs[key] = map[string]bool{}
+		}
+		hangs[key][parts[3]] = true
+	}
+	return hangs, nil
 }
 
 func TestCOracleDiff(t *testing.T) {
@@ -577,37 +612,6 @@ func TestCOracleDiff(t *testing.T) {
 		}
 	}
 
-	resume := parityEnvBool("GTS_ORACLE_DIFF_RESUME", false)
-	done := map[string]bool{}
-	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
-	if resume {
-		done = oracleDiffDoneKeys(out)
-		flags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
-	}
-	f, err := os.OpenFile(out, flags, 0o644)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	w := bufio.NewWriterSize(f, 1<<20)
-	defer w.Flush()
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false)
-
-	hangPath := out + ".hangs"
-	hangs := map[string]string{} // key -> side that hung earlier
-	if resume {
-		if raw, err := os.ReadFile(hangPath); err == nil {
-			for _, line := range strings.Split(string(raw), "\n") {
-				if parts := strings.Split(line, "\t"); len(parts) == 4 {
-					hangs[oracleDiffKey(parts[0], parts[1], parts[2])] = parts[3]
-				}
-			}
-		}
-	} else {
-		_ = os.Remove(hangPath)
-	}
-
 	hardLimit := 4 * timeout
 	if raw := strings.TrimSpace(os.Getenv("GTS_ORACLE_DIFF_HANG")); raw != "" {
 		d, err := time.ParseDuration(raw)
@@ -616,6 +620,79 @@ func TestCOracleDiff(t *testing.T) {
 		}
 		hardLimit = d
 	}
+	runID := strings.TrimSpace(os.Getenv("GTS_ORACLE_DIFF_RUN_ID"))
+	if runID == "" {
+		t.Fatal("GTS_ORACLE_DIFF_RUN_ID must identify the exact Go source/build revision")
+	}
+	inputs := oracleDiffBuildInputs(t, langs, classes)
+	meta := oracleDiffMeta{RunID: runID, Inputs: map[string]string{}, OracleRuntimeVersion: COracleRuntimeVersion, OracleRuntimeCommit: COracleRuntimeCommit, BindingCommit: COracleBindingCommit, TimeoutMillis: timeout.Milliseconds(), HardLimitMillis: hardLimit.Milliseconds(), Grammars: map[string]interface{}{}, LoadErrors: map[string]string{}}
+	for _, in := range inputs {
+		key := oracleDiffKey(in.grammar, in.class, in.id)
+		if _, exists := meta.Inputs[key]; exists {
+			t.Fatalf("duplicate input %s", key)
+		}
+		meta.Inputs[key] = oracleDiffSHA(in.source)
+	}
+	for _, lang := range langs {
+		if id, err := COracleIdentity(lang); err == nil {
+			meta.Grammars[lang] = id
+		} else {
+			meta.LoadErrors[lang] = err.Error()
+		}
+	}
+	rawMeta, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	metaPath := strings.TrimSuffix(out, filepath.Ext(out)) + ".meta.json"
+	hangPath := out + ".hangs"
+	resume := parityEnvBool("GTS_ORACLE_DIFF_RESUME", false)
+	done := map[string]bool{}
+	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+	if resume {
+		prev, err := os.ReadFile(metaPath)
+		if err != nil || !bytes.Equal(bytes.TrimSpace(prev), rawMeta) {
+			t.Fatalf("resume identity missing or changed: %v", err)
+		}
+		done, err = oracleDiffDoneKeys(out, meta.Inputs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		flags = os.O_WRONLY | os.O_APPEND
+	} else {
+		if err := os.Remove(metaPath); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		if err := os.Remove(hangPath); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+	f, err := os.OpenFile(out, flags, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if !resume {
+		if err := os.WriteFile(metaPath, append(rawMeta, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := bufio.NewWriterSize(f, 1<<20)
+	defer w.Flush()
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	hangs := map[string]map[string]bool{}
+	if resume {
+		if raw, err := os.ReadFile(hangPath); err == nil {
+			hangs, err = oracleDiffHangSides(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+
 	var mu sync.Mutex
 	stop := make(chan struct{})
 	defer close(stop)
@@ -644,16 +721,6 @@ func TestCOracleDiff(t *testing.T) {
 		}
 	}()
 
-	meta := oracleDiffMeta{
-		OracleRuntimeVersion: COracleRuntimeVersion,
-		OracleRuntimeCommit:  COracleRuntimeCommit,
-		BindingCommit:        COracleBindingCommit,
-		TimeoutMillis:        timeout.Milliseconds(),
-		Grammars:             map[string]interface{}{},
-		LoadErrors:           map[string]string{},
-	}
-
-	inputs := oracleDiffBuildInputs(t, langs, classes)
 	byGrammar := map[string][]oracleDiffInput{}
 	for _, in := range inputs {
 		byGrammar[in.grammar] = append(byGrammar[in.grammar], in)
@@ -670,15 +737,10 @@ func TestCOracleDiff(t *testing.T) {
 			continue
 		}
 		cLang, cErr := ParityCLanguage(lang)
-		if cErr != nil {
-			meta.LoadErrors[lang] = cErr.Error()
-		} else if id, err := COracleIdentity(lang); err == nil {
-			meta.Grammars[lang] = id
-		}
 		start := time.Now()
 		for _, in := range todo {
-			side := hangs[oracleDiffKey(in.grammar, in.class, in.id)]
-			row := oracleDiffRun(in, cLang, cErr, timeout, side == "c", side == "go")
+			sides := hangs[oracleDiffKey(in.grammar, in.class, in.id)]
+			row := oracleDiffRun(in, cLang, cErr, timeout, sides["c"], sides["go"])
 			mu.Lock()
 			err := enc.Encode(row)
 			mu.Unlock()
@@ -702,28 +764,54 @@ func TestCOracleDiff(t *testing.T) {
 	}
 	t.Logf("oracle %s: %d rows, %d Go==C", COracleRuntimeVersion, total, equal)
 
-	metaPath := strings.TrimSuffix(out, filepath.Ext(out)) + ".meta.json"
-	if resume {
-		// Merge identity from earlier segments.
-		var prev oracleDiffMeta
-		if raw, err := os.ReadFile(metaPath); err == nil && json.Unmarshal(raw, &prev) == nil {
-			for k, v := range prev.Grammars {
-				if _, ok := meta.Grammars[k]; !ok {
-					meta.Grammars[k] = v
-				}
-			}
-			for k, v := range prev.LoadErrors {
-				if _, ok := meta.LoadErrors[k]; !ok {
-					meta.LoadErrors[k] = v
-				}
-			}
-		}
-	}
-	raw, err := json.MarshalIndent(meta, "", "  ")
+}
+
+func TestOracleDiffResumeValidation(t *testing.T) {
+	key := oracleDiffKey("go", "smoke", "x")
+	inputs := map[string]string{key: "abc"}
+	path := filepath.Join(t.TempDir(), "rows.jsonl")
+	row := oracleDiffRow{Grammar: "go", Class: "smoke", ID: "x", InputSHA256: "abc"}
+	raw, err := json.Marshal(row)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(metaPath, append(raw, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(path, append(raw, '\n'), 0600); err != nil {
 		t.Fatal(err)
+	}
+	done, err := oracleDiffDoneKeys(path, inputs)
+	if err != nil || !done[key] {
+		t.Fatalf("valid row: %v %v", done, err)
+	}
+	if err := os.WriteFile(path, append(append(append([]byte{}, raw...), '\n'), append(raw, '\n')...), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := oracleDiffDoneKeys(path, inputs); err == nil {
+		t.Fatal("duplicate accepted")
+	}
+	if err := os.WriteFile(path, append(raw, '\n'), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := oracleDiffDoneKeys(path, map[string]string{key: "changed"}); err == nil {
+		t.Fatal("changed source accepted")
+	}
+	if err := os.WriteFile(path, []byte("{\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := oracleDiffDoneKeys(path, inputs); err == nil {
+		t.Fatal("partial row accepted")
+	}
+}
+
+func TestOracleDiffHangSides(t *testing.T) {
+	hangs, err := oracleDiffHangSides([]byte("go\tsmoke\tx\tc\ngo\tsmoke\tx\tgo\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sides := hangs[oracleDiffKey("go", "smoke", "x")]
+	if !sides["c"] || !sides["go"] {
+		t.Fatalf("lost a side: %v", sides)
+	}
+	if _, err := oracleDiffHangSides([]byte("go\tsmoke\tx\tunknown\n")); err == nil {
+		t.Fatal("invalid side accepted")
 	}
 }

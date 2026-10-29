@@ -13,7 +13,7 @@ two files:
 
 ```sh
 bash cgo_harness/docker/run_parity_in_docker.sh -- \
-  "cd /workspace/cgo_harness && GTS_ORACLE_DIFF_OUT=/workspace/harness_out/oracle-a.jsonl \
+  "cd /workspace/cgo_harness && GTS_ORACLE_DIFF_RUN_ID=replace-with-exact-go-source-build-id GTS_ORACLE_DIFF_OUT=/workspace/harness_out/oracle-a.jsonl \
    go test . -tags 'treesitter_c_parity gts_oracle_diff' -run '^TestCOracleDiff\$' -count=1 -timeout 3h"
 python3 cgo_harness/oracle/diff_join.py harness_out/oracle-a.jsonl harness_out/oracle-b.jsonl \
   harness_out/joined.tsv harness_out/summary.json
@@ -22,7 +22,7 @@ python3 cgo_harness/oracle/diff_join.py harness_out/oracle-a.jsonl harness_out/o
 The test header lists the environment variables, including the per-parse
 timeout and the watchdog that records a parser that never returns. The
 watchdog exits with status 75. Rerun with `GTS_ORACLE_DIFF_RESUME=1` to
-continue; the stuck input is retried with the hung side skipped.
+continue; every previously hung side is skipped. Set `GTS_ORACLE_DIFF_RUN_ID` to an exact identifier for the Go source and build (including local changes), and keep it identical when resuming. The metadata is written before parsing and resume refuses changed identities, inputs, or malformed existing rows. Start a new output for a changed build. The join rejects duplicate keys and input-hash mismatches; failed or missing digests are reported as unavailable rather than parity transitions.
 
 ## Unified Harness Gate
 
