@@ -1238,15 +1238,6 @@ jobs:
             echo 'W5 failed before it could seal a complete receipt.' >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Upload W5 receipt and raw evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: w5-editor-latency-${{ github.run_id }}
-          path: ${{ runner.temp }}/w5-editor-latency
-          if-no-files-found: error
-          retention-days: 90
-
   counter_ledger:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
