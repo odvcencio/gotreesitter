@@ -1,4 +1,0 @@
-=== RUN   TestV1InvariantGateR4EditSession
-    incremental_invariant_gate_test.go:715: language=sparql fixture=r4 sample_bytes=2281 session_steps=72 no_edit_allocs=0
---- PASS: TestV1InvariantGateR4EditSession (0.43s)
-PASS

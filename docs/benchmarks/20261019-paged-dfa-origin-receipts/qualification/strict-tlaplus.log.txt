@@ -1,7 +1,0 @@
-=== RUN   TestCompactR4StructuralLockedC
-    compact_r4_parity_test.go:26: R4 language=tlaplus bytes=2085 compact=0 fallback=1 reason="compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop lacks alternative-set coverage by one non-blended survivor"
-    compact_r4_parity_test.go:26: /source_file/module[0]/operator_definition[11]/bounded_quantification[2]/bound_prefix_op[3]/bound_nonfix_op[1]: type go="bound_nonfix_op" c="bound_prefix_op"
-    compact_r4_parity_test.go:26: /source_file/module[0]/operator_definition[11]/bounded_quantification[2]/bound_prefix_op[3]/bound_nonfix_op[1]: child_count go="4" c="2"
-    compact_r4_parity_test.go:26: 2 structural differences
---- FAIL: TestCompactR4StructuralLockedC (0.14s)
-FAIL

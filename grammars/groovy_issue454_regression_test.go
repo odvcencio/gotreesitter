@@ -79,7 +79,7 @@ func TestIssue454GroovyIncrementalMatchesFresh(t *testing.T) {
 	if site < 0 {
 		t.Fatal("fixture has no \"x0\" marker")
 	}
-	point := issue454PointAt(src, site)
+	point := pointAtByte(src, site)
 
 	edits := []struct {
 		name   string

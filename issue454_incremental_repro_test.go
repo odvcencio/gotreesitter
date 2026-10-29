@@ -45,7 +45,7 @@ func issue454InputEdit(before, after []byte) gts.InputEdit {
 		suffix++
 	}
 	endOld, endNew := len(before)-suffix, len(after)-suffix
-	return gts.InputEdit{StartByte: uint32(start), OldEndByte: uint32(endOld), NewEndByte: uint32(endNew), StartPoint: incrementalEditPoint(before, uint32(start)), OldEndPoint: incrementalEditPoint(before, uint32(endOld)), NewEndPoint: incrementalEditPoint(after, uint32(endNew))}
+	return gts.InputEdit{StartByte: uint32(start), OldEndByte: uint32(endOld), NewEndByte: uint32(endNew), StartPoint: pointForOffset(before, start), OldEndPoint: pointForOffset(before, endOld), NewEndPoint: pointForOffset(after, endNew)}
 }
 
 func issue454Step(t *testing.T, p *gts.Parser, lang *gts.Language, old *gts.Tree, before, after []byte) *gts.Tree {

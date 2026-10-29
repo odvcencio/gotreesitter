@@ -14,6 +14,3 @@ type GenericTokenSource = grammarruntime.GenericTokenSource
 func NewGenericTokenSource(src []byte, lang *gotreesitter.Language) (*GenericTokenSource, error) {
 	return grammarruntime.NewGenericTokenSource(src, lang)
 }
-func NewGenericTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
-	return grammarruntime.NewGenericTokenSourceOrEOF(src, lang)
-}

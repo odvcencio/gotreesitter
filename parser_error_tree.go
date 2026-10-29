@@ -27,6 +27,21 @@ func parseErrorTreeWithArena(source []byte, lang *Language, arena *nodeArena) *T
 	return NewTree(root, source, lang)
 }
 
+// parseEOFErrorTreeWithArena returns the childless ERROR root that
+// tree-sitter C publishes when recovery reaches end of input with nothing on
+// the stack: ts_parser__recover pushes an empty ERROR parent at the EOF
+// position and accepts it. The root is zero-width and sits at the end of the
+// source, after any leading whitespace that the parse skipped.
+func parseEOFErrorTreeWithArena(source []byte, lang *Language, arena *nodeArena) *Tree {
+	end := advancePointByBytes(Point{}, source)
+	root := NewLeafNode(errorSymbol, true, uint32(len(source)), uint32(len(source)), end, end)
+	root.setHasError(true)
+	if arena != nil {
+		return newTreeWithArenas(root, source, lang, arena, nil)
+	}
+	return NewTree(root, source, lang)
+}
+
 func isWhitespaceOnlySource(source []byte) bool {
 	for i := 0; i < len(source); i++ {
 		switch source[i] {

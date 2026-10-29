@@ -1,6 +1,0 @@
-=== RUN   TestPrototypeDFATerminalSourceRejectsChangedOrigin
---- PASS: TestPrototypeDFATerminalSourceRejectsChangedOrigin (0.13s)
-=== RUN   TestPrototypeDFADispatchRestoresNestedPanicWithoutAllocating
---- PASS: TestPrototypeDFADispatchRestoresNestedPanicWithoutAllocating (0.00s)
-PASS
-ok  	github.com/odvcencio/gotreesitter	1.176s

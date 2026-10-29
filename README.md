@@ -2,12 +2,16 @@
 
 Pure-Go [tree-sitter](https://tree-sitter.github.io/) runtime. No CGo, no C toolchain. It cross-compiles to any `GOOS`/`GOARCH` target Go supports, including `wasip1`.
 
-Every Go tree-sitter binding in the ecosystem depends on CGo, which needs a
-C cross-toolchain per target, breaks `go install` for downstream users
-without a C compiler, and hides bugs from `go test -race`. gotreesitter
-removes the C dependency entirely: the parser, lexer, query engine,
-incremental reparsing, arena allocator, external scanners, and tree cursor
-are all implemented in Go. The grammar blob is the only input.
+The widely used Go bindings (`smacker/go-tree-sitter` and
+`tree-sitter/go-tree-sitter`) wrap the C runtime through CGo. That needs a C
+cross-toolchain per target, breaks `go install` for downstream users without a
+C compiler, and hides bugs from `go test -race`. gotreesitter has no C
+dependency: the parser, lexer, query engine, incremental reparsing, arena
+allocator, external scanners, and tree cursor are all implemented in Go. The
+grammar blob is the only input.
+
+Docs site: <https://gotreesitter.m31labs.dev>. Try it in the browser:
+<https://gotreesitter.m31labs.dev/playground>.
 
 ## Install
 
@@ -21,7 +25,7 @@ The current release is **v0.56.0**. It includes YAML syntax-error fixes,
 recovery fixes, bounded scanner checkpoint memory, certified incremental
 reuse for large edits, and opt-in declaration, signature and call-argument
 facts for Go, Python, JavaScript, TypeScript and TSX. See [CHANGELOG.md](CHANGELOG.md) for the release scope
-and [docs/roadmap.md](docs/roadmap.md) for history.
+for shipped history and [docs/v1-design.md](docs/v1-design.md) for the v1 plan.
 
 ## Quick start
 
@@ -49,6 +53,26 @@ catalog. For automatic language detection, import `grammars` and use
 `grammars.DetectLanguage("main.go")` to resolve a filename to a `LangEntry`.
 See [build tags](docs/build-tags.md) for other ways to select grammars.
 
+To detect the language and parse in one call, use `grammars.ParseFile`. The
+caller must release the returned tree:
+
+```go
+bt, err := grammars.ParseFile("main.go", src)
+if err != nil {
+    return err
+}
+defer bt.Release()
+```
+
+Each grammar is also a standalone package, so a binary that needs one language
+does not import the whole catalog:
+
+```go
+import "github.com/odvcencio/gotreesitter/grammars/typescript"
+
+lang := typescript.Language()
+```
+
 ## Features
 
 - **206 grammars**, all producing error-free trees on smoke samples; 119 ship a hand-written Go external scanner.
@@ -74,9 +98,10 @@ Agents working with gotreesitter should use the [using-gotreesitter](https://git
 | Runtime architecture (parser, lexer, scanners, arena, query engine, grammar loading) | [docs/architecture.md](docs/architecture.md) |
 | Build tags and environment variables | [docs/build-tags.md](docs/build-tags.md) |
 | Supported languages, query feature matrix, adding a language | [docs/languages.md](docs/languages.md) |
-| Running tests and correctness/parity gates | [docs/testing-guide.md](docs/testing-guide.md) |
-| Benchmarks and methodology | [BENCH.md](BENCH.md), [docs/benchmark-notes.md](docs/benchmark-notes.md) |
-| Current release scope and roadmap | [docs/roadmap.md](docs/roadmap.md) |
+| Building, testing, and sending a pull request | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Benchmarks and methodology | [BENCH.md](BENCH.md) |
+| v1 plan | [docs/v1-design.md](docs/v1-design.md), [docs/roadmap.md](docs/roadmap.md) |
+| Docs site and playground | <https://gotreesitter.m31labs.dev>, <https://gotreesitter.m31labs.dev/playground> |
 | Root package file map and ownership | [docs/repository-map.md](docs/repository-map.md) |
 | Root-package file group map by subsystem | [docs/package-layout.md](docs/package-layout.md) |
 | Result-compatibility tier (`parser_result_*.go`) | [docs/compat-tier.md](docs/compat-tier.md) |
@@ -87,4 +112,7 @@ Agents working with gotreesitter should use the [using-gotreesitter](https://git
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The default `grammars` import currently includes four
+copyleft grammars: caddy, disassembly and jq (GPL-3.0) and nim (MPL-2.0). Build
+with `-tags gotreesitter_no_copyleft` to leave them out. See
+[docs/licensing.md](docs/licensing.md).

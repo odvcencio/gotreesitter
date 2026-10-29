@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -287,10 +288,10 @@ func TestWalkAndParseShouldSkipDir(t *testing.T) {
 	if stats.FilesFound != 2 {
 		t.Fatalf("FilesFound = %d, want 2; files: %v", stats.FilesFound, bases)
 	}
-	if !containsString(bases, "root.go") || !containsString(bases, "kept.go") {
+	if !slices.Contains(bases, "root.go") || !slices.Contains(bases, "kept.go") {
 		t.Fatalf("expected root.go and kept.go, got %v", bases)
 	}
-	if containsString(bases, "ignored.go") {
+	if slices.Contains(bases, "ignored.go") {
 		t.Fatalf("expected ignored.go to be pruned, got %v", bases)
 	}
 }
@@ -873,13 +874,4 @@ func writeFile(t *testing.T, path, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func containsString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
 }

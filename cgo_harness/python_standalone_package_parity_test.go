@@ -74,9 +74,9 @@ func TestStandalonePythonPackageLockedCRoutes(t *testing.T) {
 				StartByte:   uint32(len(base)),
 				OldEndByte:  uint32(len(base)),
 				NewEndByte:  uint32(len(source)),
-				StartPoint:  pythonDispatchPoint(base),
-				OldEndPoint: pythonDispatchPoint(base),
-				NewEndPoint: pythonDispatchPoint(source),
+				StartPoint:  endPoint(base),
+				OldEndPoint: endPoint(base),
+				NewEndPoint: endPoint(source),
 			})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(source, oldTree)
 			if err != nil {

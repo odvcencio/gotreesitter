@@ -19,7 +19,8 @@ Keep release planning and campaign notes in the private
    Unrelated open pull requests do not block publication. Do not release from
    a feature branch.
 2. Move the accumulated changelog entries from `Unreleased` into a dated
-   version section. Update the comparison links and the README release status.
+   version section. Update the comparison links and the README release status. Give the
+   section the shape in "Release section template" below.
 3. Dispatch the full hosted `ci.yml` workflow for the exact commit on `main`.
    Require its successful completion. Keep correctness, parity, race, and
    performance evidence distinct.
@@ -67,6 +68,29 @@ These facts include:
 The evidence artifacts record the CI run ID, URL, event, commit, conclusion,
 and completion time.
 
+## Release section template
+
+Write each dated version section in the changelog in this order. Drop an empty
+heading.
+
+```markdown
+## [X.Y.Z] - YYYY-MM-DD
+
+### Highlights
+- Three bullets at most, in user words, with numbers and units
+  (for example "YAML parse time -5.39% on the legacy corpus").
+
+### Upgrade notes
+- One bullet per break: what changed, who it affects, and how to fix it.
+
+### Added
+### Changed
+### Fixed
+
+### Evidence
+- Links to the CI run, benchmark receipt, and pull requests.
+```
+
 ## External activation gates
 
 Keep the release workflow inactive until repository owners confirm these
@@ -84,55 +108,28 @@ controls:
 Treat an unsupported tag actor rule as an external blocker. Do not weaken the
 local workflow to compensate for it.
 
-### v0.52.0-only tag-creation exception
+### Tag-creation rule gap
 
-On 2026-09-05, the owner authorized one exception for v0.52.0 publication.
-GitHub rejected the tag-creation rule for Actions integration `15368` with
-HTTP status `422`. No such rule was added.
+The `Protect version tags` ruleset blocks updates and deletions. It has no rule
+that restricts tag creation to the release workflow, because GitHub returned
+HTTP status `422` for the Actions integration `15368`. Five of the six
+releases since v0.52.0 ran without that actor restriction, and the owner
+authorized each one separately. v0.54.0 has no recorded exception; this file
+does not confirm whether the ruleset lacked the rule at that release. The five
+exceptions are:
 
-This exception permits v0.52.0 publication without the workflow-only tag-creation
-actor restriction. It does not permit manual publication or bypass another gate.
-Keep these requirements mandatory:
+| Version | Owner authorization date |
+| --- | --- |
+| v0.52.0 | 2026-09-05 |
+| v0.53.0 | 2026-09-19 |
+| v0.55.0 | 2026-09-24 |
+| v0.55.1 | 2026-09-26 |
+| v0.56.0 | 2026-10-04 |
 
-- Publish from the exact candidate commit on protected `main`.
-- Require successful full hosted CI for that exact commit.
-- Require the protected release environment and owner approval.
-- Require the signed release receipt and governed workflow decision.
-- Preserve immutable tags, including rules that block updates and deletions.
-- Complete and record the required correctness and performance evidence.
-
-Keep publication pending until every remaining gate passes.
-This exception grants no authority for another version or future exception.
-It changes neither the validation code nor the release policy.
-
-### v0.55.0-only tag-creation exception
-
-On 2026-09-24, the owner authorized one exception for v0.55.0 publication.
-The `Protect version tags` ruleset blocks updates and deletions.
-It has no rule that restricts tag creation to the release workflow.
-
-This exception permits v0.55.0 publication without the workflow-only tag-creation actor restriction.
-It does not permit manual publication or bypass another gate.
-Keep these requirements mandatory:
-
-- Publish from the exact candidate commit on protected `main`.
-- Require successful full hosted CI for that exact commit.
-- Require the protected release environment and owner approval.
-- Require the signed release receipt and governed workflow decision.
-- Preserve immutable tags, including rules that block updates and deletions.
-- Complete and record the required correctness and performance evidence.
-
-This exception grants no authority for another version or future exception.
-It changes neither the validation code nor the release policy.
-
-### v0.53.0-only tag-creation exception
-
-On 2026-09-19, the owner authorized one exception for v0.53.0 publication.
-The `Protect version tags` ruleset still has no rule that restricts tag
-creation to the release workflow. Its rules block deletion, update, and
-non-fast-forward changes only.
-
-This exception permits v0.53.0 publication without the workflow-only
+Five exceptions in 30 days is a standing gap, not a one-time event. Either fix
+the ruleset or record one standing owner decision. Until then, each release
+needs its own owner authorization, which grants no authority for another
+version. An exception permits publication without the workflow-only
 tag-creation actor restriction. It does not permit manual publication or bypass
 another gate. Keep these requirements mandatory:
 
@@ -143,45 +140,4 @@ another gate. Keep these requirements mandatory:
 - Preserve immutable tags, including rules that block updates and deletions.
 - Complete and record the required correctness and performance evidence.
 
-This exception grants no authority for another version or future exception.
-It changes neither the validation code nor the release policy.
-
-### v0.55.1-only tag-creation exception
-
-On 2026-09-26, the owner authorized one exception for v0.55.1 publication.
-The `Protect version tags` ruleset blocks updates and deletions.
-It has no rule that restricts tag creation to the release workflow.
-
-This exception permits v0.55.1 publication without the workflow-only tag-creation actor restriction.
-It does not permit manual publication or bypass another gate.
-Keep these requirements mandatory:
-
-- Publish from the exact candidate commit on protected `main`.
-- Require successful full hosted CI for that exact commit.
-- Require the protected release environment and owner approval.
-- Require the signed release receipt and governed workflow decision.
-- Preserve immutable tags, including rules that block updates and deletions.
-- Complete and record the required correctness and performance evidence.
-
-This exception grants no authority for another version or future exception.
-It changes neither the validation code nor the release policy.
-
-### v0.56.0-only tag-creation exception
-
-On 2026-10-04, the owner authorized one exception for v0.56.0 publication.
-The `Protect version tags` ruleset blocks updates and deletions.
-It has no rule that restricts tag creation to the release workflow.
-
-This exception permits v0.56.0 publication without the workflow-only tag-creation
-actor restriction. It does not permit manual publication or bypass another gate.
-Keep these requirements mandatory:
-
-- Publish from the exact candidate commit on protected `main`.
-- Require successful full hosted CI for that exact commit.
-- Require the protected release environment and owner approval.
-- Require the signed release receipt and governed workflow decision.
-- Preserve immutable tags, including rules that block updates and deletions.
-- Complete and record the required correctness and performance evidence.
-
-This exception grants no authority for another version or future exception.
-It changes neither the validation code nor the release policy.
+An exception changes neither the validation code nor the release policy.

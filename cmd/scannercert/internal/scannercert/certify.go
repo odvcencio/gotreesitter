@@ -22,8 +22,8 @@ var ErrNoScanner = errors.New("scannercert: language has no external scanner")
 //
 // Certify replaces lang.ExternalScanner for the length of the call and
 // restores it before returning, so lang must not be in use elsewhere. The
-// parser is pinned to the production route, as cmd/zeroreuse pins it, so
-// GTS_ADMISSION_CANDIDATE cannot change which calls the parser makes.
+// parser is pinned to the production route, so GTS_ADMISSION_CANDIDATE
+// cannot change which calls the parser makes.
 func Certify(lang *gts.Language, corpus *Corpus) (*Report, error) {
 	if lang == nil || lang.ExternalScanner == nil {
 		return nil, ErrNoScanner

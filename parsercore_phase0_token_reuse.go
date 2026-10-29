@@ -2,8 +2,9 @@ package gotreesitter
 
 // This file opens the D2 first-leaf token-cache lane
 // (spec.derivation-set-equivalence.v1, section 3) with a literal port of
-// C's ts_parser__can_reuse_first_leaf (parser.c:472-505 at the locked C
-// revision f5afe475). The predicate decides whether a token lexed under one
+// C's ts_parser__can_reuse_first_leaf (parser.c:472-505 at C revision
+// f5afe475, 0.25.1; the function is byte-identical in the locked 0.27.1
+// oracle, 10eb5ac1, where it sits at parser.c:470). The predicate decides whether a token lexed under one
 // parse state's lexer mode is reusable under another state without
 // re-lexing. Nothing consumes it yet; the per-epoch token cell and the
 // scheduler election land in later tranches of the same lane.

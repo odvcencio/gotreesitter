@@ -1,6 +1,0 @@
-goos: linux
-goarch: amd64
-pkg: github.com/odvcencio/gotreesitter
-cpu: Intel(R) Core(TM) Ultra 9 285
-BenchmarkAdmissionR4Compact 	    1000	   1318115 ns/op	   1.55 MB/s	         0 compact-fallbacks/op	         1.000 compact-routes/op	    1600 B/op	      22 allocs/op
-PASS

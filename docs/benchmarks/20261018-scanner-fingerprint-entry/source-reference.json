@@ -1,6 +1,0 @@
-{
-  "baseline_runtime": "6d5b0b07e44a8f4fd1ab66d3246a485fde303909",
-  "primary_changed": false,
-  "mechanism": "Isolate complete value encoding and 4 KiB scratch from nil/pointer scanner fingerprint entry; no identity or callback checks omitted",
-  "empty_scanner_fastpath": "not added; YAML uses a bound pointer scanner"
-}

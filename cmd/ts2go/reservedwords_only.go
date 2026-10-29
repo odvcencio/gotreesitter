@@ -1,16 +1,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
-	"sync"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // RunReservedWordsOnlyManifest clones each requested grammar repo in the
@@ -26,112 +21,23 @@ import (
 // exists but every set is empty) are skipped with a log line: reserved
 // words are an ABI 15 feature and most grammars have none.
 func RunReservedWordsOnlyManifest(manifestPath, outDir, pkg string, only []string) error {
-	entries, err := ParseManifest(manifestPath)
-	if err != nil {
-		return fmt.Errorf("parse manifest: %w", err)
-	}
-	if len(entries) == 0 {
-		return fmt.Errorf("manifest is empty: %s", manifestPath)
-	}
-
-	wanted := map[string]bool{}
-	for _, n := range only {
-		n = strings.TrimSpace(n)
-		if n != "" {
-			wanted[n] = true
-		}
-	}
-	if len(wanted) > 0 {
-		filtered := entries[:0]
-		for _, e := range entries {
-			if wanted[e.Name] {
-				filtered = append(filtered, e)
-			}
-		}
-		entries = filtered
-	}
-	if len(entries) == 0 {
-		return fmt.Errorf("no manifest entries matched -only filter")
-	}
-
-	tmpRoot, err := os.MkdirTemp("", "ts2go-reservedwords-*")
-	if err != nil {
-		return fmt.Errorf("mktemp: %w", err)
-	}
-	defer os.RemoveAll(tmpRoot)
-
-	grp, grpCtx := errgroup.WithContext(context.Background())
-	grp.SetLimit(runtime.GOMAXPROCS(-1))
-	var mu sync.Mutex
-	var written []string
-	var skippedNoWords []string
-
-	for _, entry := range entries {
-		entry := entry
-		if err := grpCtx.Err(); err != nil {
-			break
-		}
-		grp.Go(func() error {
-			if err := grpCtx.Err(); err != nil {
-				return err
-			}
-			repoDir := filepath.Join(tmpRoot, safeFileBase(entry.Name))
-			if err := cloneRepo(entry.RepoURL, entry.Commit, repoDir); err != nil {
-				return fmt.Errorf("%s: clone: %w", entry.Name, err)
-			}
-
-			parserPath := filepath.Join(repoDir, entry.Subdir, "parser.c")
-			if _, err := os.Stat(parserPath); err != nil {
-				// findParserC's fallback walk is subdir-agnostic and prefers
-				// any .../src/parser.c it finds first; in a multi-grammar
-				// repo (several parser.c files under different subdirs) it
-				// can pick the wrong one. The entry.Subdir path above is
-				// what makes selection safe today — this fallback only
-				// fires when that exact path is missing.
-				detected, derr := findParserC(repoDir)
-				if derr != nil {
-					return fmt.Errorf("%s: parser.c not found under %s", entry.Name, repoDir)
-				}
-				parserPath = detected
-			}
-			source, err := os.ReadFile(parserPath)
-			if err != nil {
-				return fmt.Errorf("%s: read %s: %w", entry.Name, parserPath, err)
-			}
-
-			grammar, err := ExtractGrammar(string(source))
-			if err != nil {
-				return fmt.Errorf("%s: extract: %w", entry.Name, err)
-			}
-			grammar.Name = entry.Name
-
-			if len(grammar.ReservedWords) == 0 || grammar.MaxReservedWordSetSize == 0 {
-				mu.Lock()
-				skippedNoWords = append(skippedNoWords, entry.Name)
-				mu.Unlock()
-				fmt.Printf("%s: no ts_reserved_words table found; skipping\n", entry.Name)
-				return nil
-			}
-
-			sourceComment := externalLexStatesSourceComment(entry)
-			if err := writeReservedWordsSidecar(outDir, pkg, entry.Name, sourceComment, grammar); err != nil {
-				return fmt.Errorf("%s: write reserved words: %w", entry.Name, err)
-			}
-
-			mu.Lock()
-			written = append(written, entry.Name)
-			mu.Unlock()
-			fmt.Printf("generated %s_reserved_words_gen.go (%d symbol slots, stride %d)\n",
-				safeFileBase(entry.Name), len(grammar.ReservedWords), grammar.MaxReservedWordSetSize)
-			return nil
-		})
-	}
-	if err := grp.Wait(); err != nil {
-		return err
-	}
-
-	fmt.Printf("reservedwords-only: wrote %d file(s), skipped %d (no reserved words)\n", len(written), len(skippedNoWords))
-	return nil
+	return runSidecarOnlyManifest(sidecarOnlyMode{
+		name:        "reservedwords-only",
+		tmpPrefix:   "ts2go-reservedwords-*",
+		skipNoun:    "reserved words",
+		skipMessage: "no ts_reserved_words table found; skipping",
+		skip: func(g *ExtractedGrammar) bool {
+			return len(g.ReservedWords) == 0 || g.MaxReservedWordSetSize == 0
+		},
+		write: func(outDir, pkg string, entry ManifestEntry, sourceComment string, g *ExtractedGrammar) error {
+			return writeReservedWordsSidecar(outDir, pkg, entry.Name, sourceComment, g)
+		},
+		writeErrLabel: "reserved words",
+		generated: func(entry ManifestEntry, g *ExtractedGrammar) string {
+			return fmt.Sprintf("generated %s_reserved_words_gen.go (%d symbol slots, stride %d)\n",
+				safeFileBase(entry.Name), len(g.ReservedWords), g.MaxReservedWordSetSize)
+		},
+	}, manifestPath, outDir, pkg, only)
 }
 
 // writeReservedWordsSidecar writes grammars/runtime/<name>_reserved_words_gen.go,

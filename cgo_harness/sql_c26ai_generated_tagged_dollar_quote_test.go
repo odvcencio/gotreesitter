@@ -16,6 +16,33 @@ import (
 )
 
 func TestSQLC26aiGeneratedTaggedDollarQuote(t *testing.T) {
+	runSQLC26Witness(t, sqlC26Witness{
+		label:             "tagged dollar-quote",
+		source:            "SELECT $tag$hey$tag$;\n",
+		sourceSHA256:      "1279d93f715690fee6c8af53fa774d0108c19846d9418d86d53edec0d743bc88",
+		firstDivergence:   `root: ChildCount go=3 c=2 (goType="source_file" cType="source_file" goBytes=[0-22] cBytes=[0-22])`,
+		generatedDigest:   "ba05964c2f2c62e56a3ee9470c76dc55098f7c2ea4f656607da30c5f8af212d4",
+		generatedChildren: 3,
+		generatedHasError: true,
+		checkedInDigest:   "824c8bdf7107be3632bd0a43d89e0324ebc0802dcd8c4dca014130224f930ef6",
+	})
+}
+
+// sqlC26Witness is one generated-SQL receipt: a source the checked-in SQL
+// blob parses like the locked C parser, and the divergence the freshly
+// generated grammar still shows against it.
+type sqlC26Witness struct {
+	label             string
+	source            string
+	sourceSHA256      string
+	firstDivergence   string
+	generatedDigest   string
+	generatedChildren int
+	generatedHasError bool
+	checkedInDigest   string
+}
+
+func runSQLC26Witness(t *testing.T, w sqlC26Witness) {
 	var grammar grammargenCGOGrammar
 	for _, candidate := range grammargenCGOGrammars {
 		if candidate.name == "sql" {
@@ -62,10 +89,10 @@ func TestSQLC26aiGeneratedTaggedDollarQuote(t *testing.T) {
 		t.Fatalf("C SetLanguage: %v", err)
 	}
 
-	source := []byte("SELECT $tag$hey$tag$;\n")
+	source := []byte(w.source)
 	sourceHash := sha256.Sum256(source)
-	if got, want := hex.EncodeToString(sourceHash[:]), "1279d93f715690fee6c8af53fa774d0108c19846d9418d86d53edec0d743bc88"; got != want {
-		t.Fatalf("tagged dollar-quote source hash=%s, want %s", got, want)
+	if got, want := hex.EncodeToString(sourceHash[:]), w.sourceSHA256; got != want {
+		t.Fatalf("%s source SHA-256=%s, want %s", w.label, got, want)
 	}
 	cTree := cParser.Parse(source, nil)
 	if cTree == nil || cTree.RootNode() == nil {
@@ -92,13 +119,13 @@ func TestSQLC26aiGeneratedTaggedDollarQuote(t *testing.T) {
 	var genVsCErrs []string
 	compareNodes(genTree.RootNode(), genLang, cTree.RootNode(), "root", &genVsCErrs)
 	if len(genVsCErrs) == 0 {
-		t.Fatal("generated SQL tagged dollar-quote witness unexpectedly matches locked C")
+		t.Fatalf("generated SQL %s witness unexpectedly matches locked C", w.label)
 	}
-	if genVsCErrs[0] != `root: ChildCount go=3 c=2 (goType="source_file" cType="source_file" goBytes=[0-22] cBytes=[0-22])` {
-		t.Fatalf("generated SQL tagged dollar-quote first divergence=%q", genVsCErrs[0])
+	if genVsCErrs[0] != w.firstDivergence {
+		t.Fatalf("generated SQL %s first divergence=%q", w.label, genVsCErrs[0])
 	}
-	if genInspection.SHA256 != "ba05964c2f2c62e56a3ee9470c76dc55098f7c2ea4f656607da30c5f8af212d4" || genTree.RootNode().ChildCount() != 3 || !genTree.RootNode().HasError() {
-		t.Fatalf("generated SQL tagged dollar-quote receipt changed: digest=%s children=%d error=%t", genInspection.SHA256, genTree.RootNode().ChildCount(), genTree.RootNode().HasError())
+	if genInspection.SHA256 != w.generatedDigest || genTree.RootNode().ChildCount() != w.generatedChildren || genTree.RootNode().HasError() != w.generatedHasError {
+		t.Fatalf("generated SQL %s receipt changed: digest=%s children=%d error=%t", w.label, genInspection.SHA256, genTree.RootNode().ChildCount(), genTree.RootNode().HasError())
 	}
 
 	blobTree, err := gotreesitter.NewParser(refLang).Parse(source)
@@ -112,7 +139,7 @@ func TestSQLC26aiGeneratedTaggedDollarQuote(t *testing.T) {
 	}
 	var blobVsCErrs []string
 	compareNodes(blobTree.RootNode(), refLang, cTree.RootNode(), "root", &blobVsCErrs)
-	if len(blobVsCErrs) != 0 || blobTree.RootNode().HasError() || blobInspection.SHA256 != cDigest || blobInspection.SHA256 != "824c8bdf7107be3632bd0a43d89e0324ebc0802dcd8c4dca014130224f930ef6" {
+	if len(blobVsCErrs) != 0 || blobTree.RootNode().HasError() || blobInspection.SHA256 != cDigest || blobInspection.SHA256 != w.checkedInDigest {
 		t.Fatalf("checked-in SQL differs from locked C: errors=%v has_error=%t blob_digest=%s c_digest=%s", blobVsCErrs, blobTree.RootNode().HasError(), blobInspection.SHA256, cDigest)
 	}
 

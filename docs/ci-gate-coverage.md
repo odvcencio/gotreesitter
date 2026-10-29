@@ -415,7 +415,7 @@ run locally against this branch):
 
 | Package | Test files | Reached by any CI lane? |
 |---|---|---|
-| `corpuscheck` | 5 (`census_test.go`, `census_gts_corpora_test.go`, `compare_test.go`, `format_test.go`, `sexpr_test.go`) | **No.** Compiled only (`go build ./...`, `go vet ./...`, `go test ./... -run '^$'` in `compile`); no lane's package filter matches `corpuscheck` (only `corpuscheck/cmd/corpuscheck` matches `/cmd/`, a different package). |
+| `corpuscheck` | 5 (`census_test.go`, `census_gts_corpora_test.go`, `compare_test.go`, `format_test.go`, `sexpr_test.go`) | **No.** Compiled only (`go build ./...`, `go vet ./...`, `go test ./... -run '^$'` in `compile`); no lane's package filter matches `corpuscheck`. |
 | `wasm/runtime` | 3 (`blob_test.go`, `bridge_test.go` [260 lines], `incremental_test.go`) | **No.** Same as above — compile-checked only. |
 | `internal/benchfixtures` | 2 (`deep_digest_test.go`, `go_fixtures_test.go`) | **No.** Notable: this package's `InspectGoTree` digest function is what dozens of *other* tests (including the ones fixed in Part 1) trust as their oracle; its own test suite is compile-checked only. |
 | `cmd/grammargen` | 2 (`commands_test.go`, `grammar_js_cli_test.go`) | **No — and this one is an accident.** `race_packages`'s `cmd` lane filter is `/cmd/`, which should match, but the same job's exclusion rule `$0 ~ /\/grammargen$/ { next }` — intended to keep the advisory top-level `grammargen` package out of the blocking suite — also matches `cmd/grammargen` on the same string suffix and drops it too. |
@@ -587,9 +587,10 @@ docker buildx imagetools inspect node:22-bookworm --format '{{json .Manifest}}' 
 ```
 
 `tree-sitter-cli` stays pinned at `0.24.7`. Neither `cgo_harness/README.md`
-nor `BENCH.md` binds this CLI version to the 0.25 runtime oracle. Those
-docs name the parity runtime only: `go-tree-sitter v0.25.0` and upstream
-runtime `v0.25.1`. The ABI negotiation in `parity_c_loader_cgo.go` targets
+nor `BENCH.md` binds this CLI version to the C runtime oracle. Those
+docs name the parity runtime only: `go-tree-sitter v0.25.0` sources
+(vendored in `cgo_harness/internal/coracle`) and upstream runtime `v0.27.1`
+(the oracle was `v0.25.1` before 2026-10-28). The ABI negotiation in `parity_c_loader_cgo.go` targets
 ABI 15 first. It falls back through lower ABI values when the installed
 CLI cannot emit ABI 15. `tree-sitter-cli` 0.24.7 works inside that
 fallback range today. A CLI version bump needs its own parity validation

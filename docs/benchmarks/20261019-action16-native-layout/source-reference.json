@@ -1,9 +1,0 @@
-{
-  "baseline_runtime": "b5133ae07d1b1cd274c119cdef0a2625ff3d1a37",
-  "mechanism": "16-byte native Action field layout; no packed decoder",
-  "candidate_go_files": 3519,
-  "measured_files": 2,
-  "private_go_correctness_repair": false,
-  "stable_request_window": false,
-  "runtime_patch_sha256": "a74a1ab7bba3b17263166afac606cf4de32e4e1e5cc516cae40f3b4c6a253923"
-}

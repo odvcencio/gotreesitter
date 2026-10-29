@@ -139,7 +139,7 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 				t.Fatalf("source SHA-256=%s, want %s", sourceSHA, witness.wantSourceSHA)
 			}
 
-			cTree := pythonDispatchCTree(t, cLanguage, source)
+			cTree := receiptCTree(t, cLanguage, source)
 			defer cTree.Close()
 			cDigest, err := COracleDeepDigest(cTree)
 			if err != nil {
@@ -161,7 +161,7 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 			defer raw.Release()
 			rawDiff := pythonDispatchAssertReceipt(t, "raw", raw, language, cTree, cDigest)
 			pythonDispatchCheckDigest(t, "raw", raw, language, witness.wantRawDigest)
-			pythonDispatchCheckDivergence(t, "raw", rawDiff, witness.wantRawDiff)
+			requireSameDivergence(t, "raw", rawDiff, witness.wantRawDiff)
 			pythonDispatchCheckPass(t, "raw", raw, pythonDispatchPassExpectation{})
 			pythonDispatchCheckNativeAuthority(t, "raw", raw)
 
@@ -174,7 +174,7 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 			defer production.Release()
 			productionDiff := pythonDispatchAssertReceipt(t, "production", production, language, cTree, cDigest)
 			pythonDispatchCheckDigest(t, "production", production, language, witness.wantGoDigest)
-			pythonDispatchCheckDivergence(t, "production", productionDiff, witness.wantRouteDiff)
+			requireSameDivergence(t, "production", productionDiff, witness.wantRouteDiff)
 			pythonDispatchCheckPass(t, "production", production, witness.wantProduction)
 			pythonDispatchCheckNativeAuthority(t, "production", production)
 
@@ -194,13 +194,13 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 			}
 			defer compact.Release()
 			routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
-			compactMode := pythonDispatchCompactMode(routedBefore, fallbackBefore, routedAfter, fallbackAfter)
+			compactMode := admissionCompactMode(routedBefore, fallbackBefore, routedAfter, fallbackAfter)
 			if compactMode != witness.wantCompactMode || routedAfter != wantRoutedAfter || fallbackAfter != wantFallbackAfter {
 				t.Fatalf("compact mode=%s counters=%d/%d->%d/%d, want %s %d/%d->%d/%d", compactMode, routedBefore, fallbackBefore, routedAfter, fallbackAfter, witness.wantCompactMode, wantRoutedBefore, wantFallbackBefore, wantRoutedAfter, wantFallbackAfter)
 			}
 			compactDiff := pythonDispatchAssertReceipt(t, "compact", compact, language, cTree, cDigest)
 			pythonDispatchCheckDigest(t, "compact", compact, language, witness.wantGoDigest)
-			pythonDispatchCheckDivergence(t, "compact", compactDiff, witness.wantRouteDiff)
+			requireSameDivergence(t, "compact", compactDiff, witness.wantRouteDiff)
 			pythonDispatchCheckPass(t, "compact", compact, witness.wantCompact)
 			pythonDispatchCheckNativeAuthority(t, "compact", compact)
 
@@ -212,7 +212,7 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 			defer forest.Release()
 			forestDiff := pythonDispatchAssertReceipt(t, "forest", forest, language, cTree, cDigest)
 			pythonDispatchCheckDigest(t, "forest", forest, language, witness.wantForestDigest)
-			pythonDispatchCheckDivergence(t, "forest", forestDiff, witness.wantForestDiff)
+			requireSameDivergence(t, "forest", forestDiff, witness.wantForestDiff)
 			pythonDispatchCheckPass(t, "forest", forest, witness.wantForest)
 			pythonDispatchCheckNativeAuthority(t, "forest", forest)
 
@@ -228,9 +228,9 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 				StartByte:   uint32(len(base)),
 				OldEndByte:  uint32(len(base)),
 				NewEndByte:  uint32(len(source)),
-				StartPoint:  pythonDispatchPoint(base),
-				OldEndPoint: pythonDispatchPoint(base),
-				NewEndPoint: pythonDispatchPoint(source),
+				StartPoint:  endPoint(base),
+				OldEndPoint: endPoint(base),
+				NewEndPoint: endPoint(source),
 			})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(source, oldTree)
 			if err != nil {
@@ -239,7 +239,7 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 			defer incremental.Release()
 			incrementalDiff := pythonDispatchAssertReceipt(t, "incremental", incremental, language, cTree, cDigest)
 			pythonDispatchCheckDigest(t, "incremental", incremental, language, witness.wantGoDigest)
-			pythonDispatchCheckDivergence(t, "incremental", incrementalDiff, witness.wantRouteDiff)
+			requireSameDivergence(t, "incremental", incrementalDiff, witness.wantRouteDiff)
 			pythonDispatchCheckPass(t, "incremental", incremental, witness.wantIncremental)
 			pythonDispatchCheckNativeAuthority(t, "incremental", incremental)
 			if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" {
@@ -322,20 +322,6 @@ func TestPythonDispatchBlockerReceiptDocument(t *testing.T) {
 	}
 }
 
-func pythonDispatchCTree(t *testing.T, language *sitter.Language, source []byte) *sitter.Tree {
-	t.Helper()
-	parser := sitter.NewParser()
-	t.Cleanup(parser.Close)
-	if err := parser.SetLanguage(language); err != nil {
-		t.Fatal(err)
-	}
-	tree := parser.Parse(source, nil)
-	if tree == nil || tree.RootNode() == nil {
-		t.Fatal("C parser returned no root")
-	}
-	return tree
-}
-
 func pythonDispatchAssertReceipt(t *testing.T, route string, tree *gotreesitter.Tree, language *gotreesitter.Language, cTree *sitter.Tree, cDigest string) *DumpV1Divergence {
 	t.Helper()
 	inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), language)
@@ -355,19 +341,6 @@ func pythonDispatchCheckDigest(t *testing.T, route string, tree *gotreesitter.Tr
 	}
 	if inspection.SHA256 != want {
 		t.Fatalf("%s digest=%s, want %s", route, inspection.SHA256, want)
-	}
-}
-
-func pythonDispatchCheckDivergence(t *testing.T, route string, got, want *DumpV1Divergence) {
-	t.Helper()
-	if got == nil || want == nil {
-		if got != want {
-			t.Fatalf("%s divergence=%+v, want %+v", route, got, want)
-		}
-		return
-	}
-	if *got != *want {
-		t.Fatalf("%s divergence=%+v, want %+v", route, got, want)
 	}
 }
 
@@ -414,27 +387,4 @@ func pythonDispatchPassSummary(tree *gotreesitter.Tree) string {
 		return "none"
 	}
 	return fmt.Sprintf("%d/%d/%d/%d", pass.Checked, pass.Run, pass.NodesVisited, pass.NodesRewritten)
-}
-
-func pythonDispatchCompactMode(routedBefore, fallbackBefore, routedAfter, fallbackAfter uint64) string {
-	if routedAfter == routedBefore+1 && fallbackAfter == fallbackBefore {
-		return "accepted"
-	}
-	if routedAfter == routedBefore && fallbackAfter == fallbackBefore+1 {
-		return "fallback"
-	}
-	return fmt.Sprintf("counters=%d/%d->%d/%d", routedBefore, fallbackBefore, routedAfter, fallbackAfter)
-}
-
-func pythonDispatchPoint(source []byte) gotreesitter.Point {
-	var point gotreesitter.Point
-	for _, value := range source {
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

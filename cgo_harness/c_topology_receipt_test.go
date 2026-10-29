@@ -36,9 +36,9 @@ const (
 	cTopologyActionUnknown = 255
 
 	cTopologyErlangIssue984EventCount = 280
-	cTopologyErlangIssue984SHA256     = "690026c98679a7be20dd0cbacab8f8d068d2d7cf537b33d42c84ff7c91464f0d"
-	cTopologyErlangOneByteEventCount  = 59
-	cTopologyErlangOneByteSHA256      = "888d79096b63d702b17ad8567eccd36cebfa405e79d7743bcb4d0763f956bc94"
+	cTopologyErlangIssue984SHA256     = "80967c717fa1e102a9caf8a30ffde2537eff0727a5825a8f69ed78b5532cf0c0"
+	cTopologyErlangOneByteEventCount  = 113
+	cTopologyErlangOneByteSHA256      = "869683e8f15d9da525ebf88741ab7c1b88e4001fbf986743192afaaf2547dbfb"
 )
 
 // TestCTopologyReceiptErlangOneBytePhysicalMerge locks the smallest known C
@@ -127,14 +127,14 @@ func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 			successfulMergeIDs = append(successfulMergeIDs, event.EventID)
 		}
 	}
-	if got, want := fmt.Sprint(successfulMergeIDs), "[16]"; got != want {
+	if got, want := fmt.Sprint(successfulMergeIDs), "[48 53 57 60]"; got != want {
 		t.Fatalf("successful C merge events=%s, want %s", got, want)
 	}
 	wantKinds := map[uint64]int{
-		cTopologyEventAction: 8, cTopologyEventVersionAdd: 10,
-		cTopologyEventVersionRenumber: 6, cTopologyEventMerge: 5,
-		cTopologyEventLinkInsert: 17, cTopologyEventPopPath: 10,
-		cTopologyEventAcceptElection: 3,
+		cTopologyEventAction: 11, cTopologyEventVersionAdd: 16,
+		cTopologyEventVersionRenumber: 17, cTopologyEventMerge: 19,
+		cTopologyEventLinkInsert: 25, cTopologyEventPopPath: 19,
+		cTopologyEventAcceptElection: 6,
 	}
 	if len(kindCounts) != len(wantKinds) {
 		t.Fatalf("one-byte C topology kind counts=%v, want %v", kindCounts, wantKinds)
@@ -156,10 +156,10 @@ func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 		t.Fatalf("one-byte C count rows=%d, want 1", len(counts))
 	}
 	row := counts[0]
-	if row.Status != "ok" || row.MergeAttempts != 5 || row.MergeSuccesses != 1 ||
-		row.VersionCreations != 11 || row.Shifts != 1 || row.Reductions != 5 ||
-		row.Accepts != 2 || row.ExplicitRecovers != 1 || row.LinkUnionAttempts != 1 ||
-		row.LinkUnionDuplicate != 0 || row.LinkUnionAppended != 1 || row.GraphLinkAdditions != 17 || row.Overflow {
+	if row.Status != "ok" || row.MergeAttempts != 19 || row.MergeSuccesses != 4 ||
+		row.VersionCreations != 17 || row.Shifts != 1 || row.Reductions != 8 ||
+		row.Accepts != 2 || row.ExplicitRecovers != 1 || row.LinkUnionAttempts != 4 ||
+		row.LinkUnionDuplicate != 0 || row.LinkUnionAppended != 4 || row.GraphLinkAdditions != 25 || row.Overflow {
 		t.Fatalf("one-byte C work receipt=%+v", row)
 	}
 

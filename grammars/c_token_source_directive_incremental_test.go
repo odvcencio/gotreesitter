@@ -81,22 +81,9 @@ func directiveTestEdit(before, after []byte) gotreesitter.InputEdit {
 	oldEnd, newEnd := len(before)-suffix, len(after)-suffix
 	return gotreesitter.InputEdit{
 		StartByte: uint32(start), OldEndByte: uint32(oldEnd), NewEndByte: uint32(newEnd),
-		StartPoint: directiveTestPoint(before, start), OldEndPoint: directiveTestPoint(before, oldEnd),
-		NewEndPoint: directiveTestPoint(after, newEnd),
+		StartPoint: pointAtByte(before, start), OldEndPoint: pointAtByte(before, oldEnd),
+		NewEndPoint: pointAtByte(after, newEnd),
 	}
-}
-
-func directiveTestPoint(src []byte, offset int) gotreesitter.Point {
-	var pt gotreesitter.Point
-	for _, b := range src[:offset] {
-		if b == '\n' {
-			pt.Row++
-			pt.Column = 0
-		} else {
-			pt.Column++
-		}
-	}
-	return pt
 }
 
 // directiveTreeDiff compares node type, byte span, error and missing flags,

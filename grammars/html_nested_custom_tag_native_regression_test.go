@@ -75,7 +75,7 @@ func TestHTMLNestedCustomTagReconstructionRetiredDispatchArmRoutes(t *testing.T)
 	if firstStart < 0 || secondStart < 0 || closeStart < 0 {
 		t.Fatal("test source lacks a required HTML marker")
 	}
-	wantEndPoint := retiredDispatchPointAtByte([]byte(source+"\n"), closeStart)
+	wantEndPoint := pointAtByte([]byte(source+"\n"), closeStart)
 
 	for _, receipt := range receipts {
 		root := receipt.tree.RootNode()

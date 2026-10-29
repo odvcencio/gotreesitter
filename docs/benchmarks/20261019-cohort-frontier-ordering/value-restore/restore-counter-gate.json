@@ -1,8 +1,0 @@
-{
-  "comparison": "private token-start protocol with closure versus identical protocol with value restore; not a production promotion gate",
-  "canonical_complete_vectors_equal": 4,
-  "go_yaml_owned_ledger_rows_equal": 6,
-  "C_clean_witnesses_per_role": 306,
-  "generic_edit_steps_per_role": 144,
-  "production_work_direction_gate_passed": false
-}

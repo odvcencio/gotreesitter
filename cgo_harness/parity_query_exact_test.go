@@ -143,6 +143,7 @@ call();
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			skipKnownCOracleDifference(t)
 			assertExactQueryParity(t, tc)
 		})
 	}

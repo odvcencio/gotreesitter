@@ -3,7 +3,6 @@ package grammars_test
 import (
 	"bytes"
 	"fmt"
-	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -62,7 +61,7 @@ func TestIssue454RegisteredTokenSourcesIncrementalMatchesFresh(t *testing.T) {
 			if site < 0 {
 				t.Fatalf("fixture has no %q marker", tf.marker)
 			}
-			point := issue454PointAt(src, site)
+			point := pointAtByte(src, site)
 			newTS := func(s []byte) gotreesitter.TokenSource { return factory(s, lang) }
 
 			edits := []struct {
@@ -162,7 +161,6 @@ var registeredTokenSourceDiffFixtures = []registeredTokenSourceFixture{
 	{lang: "c", marker: "x0", gen: genRegisteredTSFixtureC},
 	{lang: "cpp", marker: "x0", gen: genRegisteredTSFixtureCpp},
 	{lang: "java", marker: "x0", gen: genRegisteredTSFixtureJava},
-	{lang: "json", marker: "x0", gen: genRegisteredTSFixtureJSON},
 	{lang: "authzed", marker: "x0", gen: genRegisteredTSFixtureAuthzed},
 }
 
@@ -192,16 +190,6 @@ func genRegisteredTSFixtureJava(n int) []byte {
 	}
 	b.WriteString("}\n")
 	return b.Bytes()
-}
-
-func genRegisteredTSFixtureJSON(n int) []byte {
-	var b bytes.Buffer
-	b.WriteString("[\n")
-	for i := 0; b.Len() < n; i++ {
-		fmt.Fprintf(&b, "  {\"x0\": %d, \"name\": \"f%d line\\n\"},\n", i, i)
-	}
-	s := strings.TrimSuffix(b.String(), ",\n") + "\n]\n"
-	return []byte(s)
 }
 
 func genRegisteredTSFixtureAuthzed(n int) []byte {

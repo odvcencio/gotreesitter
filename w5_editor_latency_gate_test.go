@@ -381,7 +381,7 @@ func w5LastByteOffset(t *testing.T, src []byte, marker string) int {
 // single-byte insert/delete/replace at offset. The clean lane edits decimal
 // digits; the transient lane edits required punctuation.
 func w5ApplyEdit(src []byte, offset int, class w5EditClass) ([]byte, gts.InputEdit) {
-	startPoint := w1bPointAt(src, offset)
+	startPoint := pointForOffset(src, offset)
 	switch class {
 	case w5Insert:
 		edited := make([]byte, 0, len(src)+1)
@@ -390,7 +390,7 @@ func w5ApplyEdit(src []byte, offset int, class w5EditClass) ([]byte, gts.InputEd
 		edited = append(edited, src[offset:]...)
 		return edited, gts.InputEdit{
 			StartByte: uint32(offset), OldEndByte: uint32(offset), NewEndByte: uint32(offset + 1),
-			StartPoint: startPoint, OldEndPoint: startPoint, NewEndPoint: w1bPointAt(edited, offset+1),
+			StartPoint: startPoint, OldEndPoint: startPoint, NewEndPoint: pointForOffset(edited, offset+1),
 		}
 	case w5Delete:
 		edited := make([]byte, 0, len(src)-1)
@@ -398,7 +398,7 @@ func w5ApplyEdit(src []byte, offset int, class w5EditClass) ([]byte, gts.InputEd
 		edited = append(edited, src[offset+1:]...)
 		return edited, gts.InputEdit{
 			StartByte: uint32(offset), OldEndByte: uint32(offset + 1), NewEndByte: uint32(offset),
-			StartPoint: startPoint, OldEndPoint: w1bPointAt(src, offset+1), NewEndPoint: startPoint,
+			StartPoint: startPoint, OldEndPoint: pointForOffset(src, offset+1), NewEndPoint: startPoint,
 		}
 	case w5Replace:
 		edited := append([]byte(nil), src...)
@@ -411,7 +411,7 @@ func w5ApplyEdit(src []byte, offset int, class w5EditClass) ([]byte, gts.InputEd
 		}
 		return edited, gts.InputEdit{
 			StartByte: uint32(offset), OldEndByte: uint32(offset + 1), NewEndByte: uint32(offset + 1),
-			StartPoint: startPoint, OldEndPoint: w1bPointAt(src, offset+1), NewEndPoint: w1bPointAt(edited, offset+1),
+			StartPoint: startPoint, OldEndPoint: pointForOffset(src, offset+1), NewEndPoint: pointForOffset(edited, offset+1),
 		}
 	default:
 		panic("unreachable w5EditClass")

@@ -87,6 +87,18 @@ High-level analysis can use `WithHighlighterTimeoutMicros` or
 partial tree together with `ErrParseStoppedEarly` and skip running queries
 after an early stop.
 
+## Registered token sources
+
+`gotreesitter.NewParser(lang).Parse(src)` always lexes with the built-in DFA lexer. Five languages also register a hand-written token source in the `grammars` package: authzed, c, cpp, java and json. `grammars.ParseFile` uses it. The `LangEntry` helpers make the same choice:
+
+```go
+entry := grammars.DetectLanguageByName("json")
+tree, err := entry.Parse(src)        // token source when registered, DFA otherwise
+hl, err := entry.NewHighlighter()    // same choice for highlighting
+```
+
+`entry.NewParser()` returns a plain parser. It has no token source, so call `entry.Parse` to use the registered one. The hand-written source is not always the better lexer: on one real C file it reported a parse error that the DFA lexer did not. If you depend on exact trees for these languages, compare both on your own input.
+
 ## Tree lookup helpers
 
 Use `NodeAtByte` or `NamedNodeAtByte` to turn an editor byte offset into a

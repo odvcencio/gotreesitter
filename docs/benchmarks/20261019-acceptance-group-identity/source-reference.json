@@ -1,8 +1,0 @@
-{
-  "baseline_runtime": "b5133ae07d1b1cd274c119cdef0a2625ff3d1a37",
-  "measured_files": 3,
-  "candidate_go_files": 3518,
-  "mechanism": "preserve effective closed acceptance group during immutable version interning and owner equivalence",
-  "other_private_prototypes_included": false,
-  "runtime_patch_sha256": "bdf5eb85dfc13629adc4a17be808bd7bc714727dcbd243c39264536c21732fb5"
-}

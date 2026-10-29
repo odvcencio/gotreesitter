@@ -1,7 +1,0 @@
-{
-  "original_memory_test_file_sha256": "1d97b06bd6affee8e010416c7bc21a379d0affb638df2e89b2be298981f62f5a",
-  "original_lifecycle_test_file_sha256": "60d75fd228400e79771ff4b6da9f9477f212af20bdbb0bb245f7038df779cfb2",
-  "original_tests_unchanged": true,
-  "original_memory_gate_result": "FAIL before budget assertions: production work-pin mismatch, not a demonstrated memory-limit failure",
-  "diagnostic_scope": "Same memory-bound and two-pass lifecycle assertions, with separate private expected work and source identity checks. Not a D10 exception or a passing original production gate."
-}

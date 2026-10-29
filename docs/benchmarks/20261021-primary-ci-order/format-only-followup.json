@@ -1,6 +1,0 @@
-{
-  "file": "scripts/run_randomized_benchmarks.sh",
-  "before_sha256": "ea3188ece15b218e0a2826e12a5bf425d01944c09b7aede63c25fefba8647f55",
-  "after_sha256": "fb4ada37a45e70b854d6c67f3e3d154a008d5a4f7e25667638c19ca2fd1bf8a4",
-  "only_trailing_whitespace_removed": true
-}

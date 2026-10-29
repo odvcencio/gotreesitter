@@ -63,24 +63,40 @@ var tsxDefaultSymTable = [tsxTokenCount]gotreesitter.Symbol{
 	tsxTokErrorRecovery:   tsxSymErrorRecovery,
 }
 
-// tsxExternalSymbolNames lists the tsx grammar's external tokens in
-// declaration order (matching the tsxTok* indexes above and the language's
-// ExternalSymbols order). Used by ExternalScannerForLanguage to bind this
-// scanner's token slots to a Language's external symbols positionally, the
+// tsxExternalScannerSpec records the upstream scanner-source contract for this
+// port. Externals lists the tsx grammar's external tokens in declaration
+// order (matching the tsxTok* indexes above and the language's
+// ExternalSymbols order). ExternalScannerForLanguage binds this scanner's
+// token slots to a Language's external symbols positionally through it, the
 // same pattern used by the javascript/typescript/kotlin/python/swift/dart/
 // rust/hcl scanners. See bindExternalScannerSymbolNames for why positional
-// (not absolute-ID or by-name) binding is required.
-var tsxExternalSymbolNames = []string{
-	"_automatic_semicolon",
-	"_template_chars",
-	"_ternary_qmark",
-	"html_comment",
-	"||",
-	"escape_sequence",
-	"regex_pattern",
-	"jsx_text",
-	"_function_signature_automatic_semicolon",
-	"__error_recovery",
+// (not absolute-ID or by-name) binding is required. The per-grammar
+// scanner.c is a thin shim; common/scanner.h holds the scanner logic.
+var tsxExternalScannerSpec = ExternalScannerSpec{
+	Language:       "tsx",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-typescript",
+	UpstreamCommit: "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+	SourceFiles: []ExternalScannerSourceFile{
+		{Path: "tsx/src/grammar.json", SHA256: "f98a7830b67be266c9e9effb673a5fc154ad6aa26f87f7c6d4a9191e09d8b357"},
+		{Path: "tsx/src/scanner.c", SHA256: "d563cd30b2f39718c9ae4292795c5ce03a2ad01954ba3a86ef84c2781a736673"},
+		{Path: "common/scanner.h", SHA256: "da66ef2bd14a3f7ea743e25ba068c6c9aae2c3509db200ff80c4a0e6116e564c"},
+	},
+	Externals: []string{
+		"_automatic_semicolon",
+		"_template_chars",
+		"_ternary_qmark",
+		"html_comment",
+		"||",
+		"escape_sequence",
+		"regex_pattern",
+		"jsx_text",
+		"_function_signature_automatic_semicolon",
+		"__error_recovery",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(tsxExternalScannerSpec)
 }
 
 // TsxExternalScanner handles automatic semicolons, template strings,
@@ -99,7 +115,7 @@ type TsxExternalScanner struct {
 // numbering) -- see bindExternalScannerSymbolNames.
 func (TsxExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
 	s := TsxExternalScanner{symbols: tsxDefaultSymTable}
-	s.externalToToken = bindExternalScannerSymbolNames(lang, tsxExternalSymbolNames, func(tokenIdx int, sym gotreesitter.Symbol) {
+	s.externalToToken = bindExternalScannerSpec(lang, tsxExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
 		s.symbols[tokenIdx] = sym
 	})
 	return s
@@ -127,10 +143,10 @@ func (s TsxExternalScanner) symbolTable() *[tsxTokenCount]gotreesitter.Symbol {
 
 // remapValidSymbols translates a Language-external-indexed validSymbols
 // slice into scanner-token-indexed space via s.externalToToken. When the
-// Language's external count and order agree with tsxExternalSymbolNames (the
+// Language's external count and order agree with tsxExternalScannerSpec.Externals (the
 // common case), externalToToken is the identity permutation and this is a
 // copy; it only diverges when a future grammar version adds, removes, or
-// reorders an external token relative to tsxExternalSymbolNames.
+// reorders an external token relative to tsxExternalScannerSpec.Externals.
 func (s TsxExternalScanner) remapValidSymbols(validSymbols []bool, semanticValid *[tsxTokenCount]bool) []bool {
 	if len(s.externalToToken) == 0 {
 		return validSymbols

@@ -1,0 +1,32 @@
+# R6 baseline. Counts may only shrink; remove a row when its last use leaves.
+# prefixes: parser,glr,lexer,lex_,scanner,external_scanner,incremental,conflict,token_invariant,result_compat
+1	glr_forest.go|compare|cmake
+1	glr_forest.go|switch|agda
+1	glr_forest.go|switch|authzed
+1	glr_forest.go|switch|beancount
+1	glr_forest.go|switch|commonlisp
+1	glr_forest.go|switch|csv
+1	glr_forest.go|switch|fish
+1	glr_forest.go|switch|json5
+1	glr_forest.go|switch|ledger
+1	glr_forest.go|switch|make
+1	glr_forest.go|switch|org
+1	glr_forest.go|switch|racket
+1	glr_forest.go|switch|tlaplus
+1	glr_forest.go|switch|vimdoc
+1	glr_forest.go|switch|yuck
+1	internal/grammarreceipt/receipt.go|compare-dynamic|language.Name
+1	parser.go|compare|c_sharp
+1	parser_config.go|compare-dynamic|language.Name
+1	parser_config.go|switch|go
+1	parser_dfa_token_source.go|switch|dart
+2	parser_dfa_token_source.go|switch|java
+1	parser_dfa_token_source.go|switch|swift
+2	parser_dfa_token_source.go|switch|tsx
+2	parser_dfa_token_source.go|switch|typescript
+1	parser_recover_c.go|map-index|language.Name
+1	parser_recover_c.go|switch|cpp
+1	parser_recover_c.go|switch|doxygen
+1	parser_recover_c.go|switch|html
+1	parser_recover_c.go|switch|javascript
+1	parser_recover_c.go|switch|julia

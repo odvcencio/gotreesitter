@@ -40,19 +40,6 @@ import (
 // non-whitespace Kotlin text.
 var includedRangesKotlinSpans = [3][2]int{{0, 795}, {883, 1987}, {2019, 3094}}
 
-func includedRangesKotlinPointAt(src []byte, off int) (uint, uint) {
-	var row, col uint
-	for i := 0; i < off && i < len(src); i++ {
-		if src[i] == '\n' {
-			row++
-			col = 0
-			continue
-		}
-		col++
-	}
-	return row, col
-}
-
 // TestIncludedRangesKotlinRootParity pins the root symbol against the locked
 // Kotlin C oracle on the included-ranges route, and pins the route's one
 // remaining known divergence so a change surfaces instead of passing
@@ -88,8 +75,8 @@ func TestIncludedRangesKotlinRootParity(t *testing.T) {
 		if end > len(src) {
 			end = len(src)
 		}
-		sr, sc := includedRangesKotlinPointAt(src, start)
-		er, ec := includedRangesKotlinPointAt(src, end)
+		sr, sc := includedRangesPointAt(src, start)
+		er, ec := includedRangesPointAt(src, end)
 		cRanges = append(cRanges, sitter.Range{
 			StartByte:  uint(start),
 			EndByte:    uint(end),

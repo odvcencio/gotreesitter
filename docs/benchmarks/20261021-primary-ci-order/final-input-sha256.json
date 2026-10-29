@@ -1,6 +1,0 @@
-{
-  "scripts/run_randomized_benchmarks.sh": "fb4ada37a45e70b854d6c67f3e3d154a008d5a4f7e25667638c19ca2fd1bf8a4",
-  "scripts/run_primary_go_suite_test.sh": "9edfa67d104256f30e9ce97640371f839827eae0b78dc5a2344a3ed5b2a61196",
-  "scripts/benchmark_primary_go_suite.go.txt": "7b2e5977ff71ec61597ff54b508f1667b656edebe01d493fc25c1ec6dbeb4e61",
-  "scripts/benchmark_primary_overlay.go.txt": "d07c6d1f47e20982f26a45fdb4511112edeea74373325d8642c0e36c8091ca90"
-}

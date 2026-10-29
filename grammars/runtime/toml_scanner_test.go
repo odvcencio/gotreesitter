@@ -10,7 +10,7 @@ import (
 
 // The hardcoded external symbol ids this test guarded were removed when
 // toml_scanner.go moved to load-time symbol binding (ExternalScannerForLanguage);
-// see TestTomlExternalScannerSpecMatchesBlob in load_bound_scanner_order_test.go
+// see the toml row of TestExternalScannerSpecMatchesBlob in load_bound_scanner_order_test.go
 // for the equivalent positional-binding pin against the shipped blob.
 
 // TestTomlMultilineStrings exercises the multiline string paths end-to-end:

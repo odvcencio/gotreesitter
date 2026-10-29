@@ -26,8 +26,8 @@ requires one standard marker and a known generator command.
 
 `refresh_a0_manifest_cascade.sh` refreshes the receipt hashes that a grammar
 lock change moves. It writes the lock SHA-256 into the A0 census manifest,
-then writes the manifest SHA-256 into the six `*A0ManifestSHA256` receipt
-constants under `cgo_harness`. Pass `--tracked` to refresh the five
+then writes the manifest SHA-256 into the four `*A0ManifestSHA256` receipt
+constants under `cgo_harness`. Pass `--tracked` to refresh the four
 `*TrackedManifestSHA256` constants from the tracked census manifest. Pass
 `--check` to report drift without an edit; CI runs that mode. The script never
 edits `docs/root-normalization-retirement.md`.

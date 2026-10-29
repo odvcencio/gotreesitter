@@ -652,10 +652,14 @@ go test . -tags treesitter_c_bench \
   -run '^TestCOracleContractPreflight$' -count=1 -v
 ```
 
+The binding and runtime sources are reproduced by commit in
+`internal/coracle`, with their provenance in `upstream.json`. The harness
+module uses a local replacement, so fetching the vanished binding tag is
+unnecessary. See [oracle/README.md](oracle/README.md) for the source refresh
+and verification commands.
+
 These harnesses are intentionally kept in a separate module so the root
-`gotreesitter` module remains pure-Go in dependency metadata. Historical
-smacker-backed corpus probes remain behind the explicit
-`treesitter_c_bench_legacy` tag and are not admissible for C/Go ratio claims.
+`gotreesitter` module remains pure-Go in dependency metadata.
 
 ## Run Pure-C Runtime Matrix (No CGo)
 
@@ -682,7 +686,7 @@ This is the publication C oracle. It checks out and records these exact inputs:
 - `github.com/tree-sitter/go-tree-sitter` `v0.25.0`, binding commit
   `adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3`;
 - upstream tree-sitter runtime commit
-  `f5afe475deb7c0bae6407fb776c76824f717bb61` (`0.25.1`);
+  `10eb5ac119eec9cb4267a8e035066473983f5f3a` (`0.27.1`);
 - tree-sitter-go commit from `grammars/languages.lock`, currently
   `2346a3ab1bb3857b48b29d779a1ef9799a248cd7`.
 

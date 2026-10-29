@@ -240,9 +240,9 @@ func TestApexDispatchBlockerLockedCRoutes(t *testing.T) {
 				StartByte:   uint32(len(base)),
 				OldEndByte:  uint32(len(base)),
 				NewEndByte:  uint32(len(target)),
-				StartPoint:  apexPointAtByte(base, len(base)),
-				OldEndPoint: apexPointAtByte(base, len(base)),
-				NewEndPoint: apexPointAtByte(target, len(target)),
+				StartPoint:  pointAtByteOffset(base, len(base)),
+				OldEndPoint: pointAtByteOffset(base, len(base)),
+				NewEndPoint: pointAtByteOffset(target, len(target)),
 			})
 			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(target, oldTree)
 			if err != nil {
@@ -358,20 +358,4 @@ func apexDispatchRewriteCount(tree *gotreesitter.Tree) uint64 {
 		}
 	}
 	return 0
-}
-
-func apexPointAtByte(source []byte, offset int) gotreesitter.Point {
-	var point gotreesitter.Point
-	for index, value := range source {
-		if index >= offset {
-			break
-		}
-		if value == '\n' {
-			point.Row++
-			point.Column = 0
-		} else {
-			point.Column++
-		}
-	}
-	return point
 }

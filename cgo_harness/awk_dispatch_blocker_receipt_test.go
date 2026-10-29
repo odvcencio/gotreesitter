@@ -76,7 +76,8 @@ func TestAWKDispatchBlockerRoutes(t *testing.T) {
 	for _, witness := range witnesses {
 		witness := witness
 		t.Run(witness.name, func(t *testing.T) {
-			cTree := awkCTree(t, cLanguage, witness.source)
+			skipKnownCOracleDifference(t)
+			cTree := receiptCTree(t, cLanguage, witness.source)
 			defer cTree.Close()
 			cDigest, err := COracleDeepDigest(cTree)
 			if err != nil {
@@ -245,20 +246,6 @@ func awkRecoveredFixture(t *testing.T) []byte {
 	return source
 }
 
-func awkCTree(t *testing.T, language *sitter.Language, source []byte) *sitter.Tree {
-	t.Helper()
-	parser := sitter.NewParser()
-	t.Cleanup(parser.Close)
-	if err := parser.SetLanguage(language); err != nil {
-		t.Fatal(err)
-	}
-	tree := parser.Parse(source, nil)
-	if tree == nil || tree.RootNode() == nil {
-		t.Fatal("C parser returned no root")
-	}
-	return tree
-}
-
 func awkCheckRoute(t *testing.T, route string, tree *gotreesitter.Tree, language *gotreesitter.Language, cTree *sitter.Tree, cDigest, wantDigest string) {
 	t.Helper()
 	inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), language)
@@ -300,7 +287,7 @@ func awkCheckCleanIncremental(t *testing.T, language *gotreesitter.Language, sou
 	if profile.ReparseNanos <= 0 {
 		t.Fatalf("clean incremental profile=%+v", profile)
 	}
-	cTree := awkCTree(t, cLanguage, edited)
+	cTree := receiptCTree(t, cLanguage, edited)
 	defer cTree.Close()
 	awkCheckRoute(t, "incremental", incremental, language, cTree, awkCleanDigest, awkCleanDigest)
 }

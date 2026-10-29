@@ -1,5 +1,0 @@
-{
-  "Replace": {
-    "/reference/shared_yaml_owned_profile_bench_test.go": "/evidence/shared_bench_test.go.txt"
-  }
-}

@@ -1,9 +1,0 @@
-{
-  "baseline_runtime": "b5133ae07d1b1cd274c119cdef0a2625ff3d1a37",
-  "private_go_correctness_repairs_included": false,
-  "action_storage": "8-byte canonical / lossless 16-byte exceptional entries",
-  "root_api_unchanged": true,
-  "measured_files": 6,
-  "candidate_go_files": 3520,
-  "runtime_patch_sha256": "611f4010cbe3aafdb0ad83f203df2fc0a7f20d55d4888505a4eb64458f3a102d"
-}

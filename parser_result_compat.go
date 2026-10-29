@@ -123,8 +123,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmCensus(ctx, "dispatch.authzed", func() { normalizeAuthzedCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "awk":
 		dispatcherArmCensus(ctx, "dispatch.awk", func() { normalizeAwkCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "bitbake":
-		dispatcherArmCensus(ctx, "dispatch.bitbake", func() { normalizeBitbakeCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "c", "cpp":
 		dispatcherArmCensus(ctx, "dispatch.c_cpp", func() { normalizeCCompatibilityWithParser(ctx.root, ctx.source, ctx.parser, ctx.lang) })
 	case "c_sharp":
@@ -133,14 +131,10 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmSubpassCensus(ctx, "dispatch.cooklang", func(census materializationSubpassCensus) {
 			normalizeCooklangCompatibilityWithCensus(ctx.root, ctx.source, ctx.lang, census)
 		})
-	case "corn":
-		dispatcherArmCensus(ctx, "dispatch.corn", func() { normalizeCornCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "dart":
 		dispatcherArmCensus(ctx, "dispatch.dart", func() { normalizeDartCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "doxygen":
 		dispatcherArmCensus(ctx, "dispatch.doxygen", func() { normalizeDoxygenCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "dtd":
-		dispatcherArmCensus(ctx, "dispatch.dtd", func() { normalizeDTDCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "go":
 		var stopReason ParseStopReason
 		dispatcherArmSubpassCensus(ctx, "dispatch.go", func(census materializationSubpassCensus) {
@@ -195,12 +189,8 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmSubpassCensus(ctx, "dispatch.swift", func(census materializationSubpassCensus) {
 			normalizeSwiftCompatibilityWithCensus(ctx.root, ctx.source, ctx.parser, ctx.lang, census)
 		})
-	case "templ":
-		dispatcherArmCensus(ctx, "dispatch.templ", func() { normalizeTemplCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "wgsl":
 		dispatcherArmCensus(ctx, "dispatch.wgsl", func() { normalizeWGSLCompatibility(ctx.root, ctx.lang) })
-	case "wolfram":
-		dispatcherArmCensus(ctx, "dispatch.wolfram", func() { normalizeWolframCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "tsx", "typescript":
 		var stopReason ParseStopReason
 		dispatcherArmCensus(ctx, "dispatch.typescript", func() {

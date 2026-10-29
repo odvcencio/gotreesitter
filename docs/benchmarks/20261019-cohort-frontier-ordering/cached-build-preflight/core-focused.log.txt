@@ -1,4 +1,0 @@
-# github.com/odvcencio/gotreesitter/internal/parsercorephase0 [github.com/odvcencio/gotreesitter/internal/parsercorephase0.test]
-/evidence/runtime/internal/parsercorephase0/reduction_child_selection.go:150:5: undefined: fmt
-FAIL	github.com/odvcencio/gotreesitter/internal/parsercorephase0 [build failed]
-FAIL

@@ -129,8 +129,8 @@ end test
 				cDigest,
 			)
 
-			rawDigest := assertLedgerLockedCTreeExact(t, "raw", rawTree, language, cTree, cDigest)
-			productionDigest := assertLedgerLockedCTreeExact(t, "production", productionTree, language, cTree, cDigest)
+			rawDigest := assertLockedCTreeDigestExact(t, "raw", rawTree, language, cTree, cDigest)
+			productionDigest := assertLockedCTreeDigestExact(t, "production", productionTree, language, cTree, cDigest)
 			t.Logf(
 				"witness=%s raw_digest=%s production_digest=%s raw_rewrites=%d production_rewrites=%d",
 				test.name,
@@ -145,7 +145,10 @@ end test
 	}
 }
 
-func assertLedgerLockedCTreeExact(
+// assertLockedCTreeDigestExact checks that goTree matches the locked C tree
+// exactly (symbols, fields, spans, points, extras, missing/error flags) and that
+// its deep digest equals wantDigest. It returns the Go deep digest.
+func assertLockedCTreeDigestExact(
 	t *testing.T,
 	label string,
 	goTree *gotreesitter.Tree,
