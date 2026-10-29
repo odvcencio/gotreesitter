@@ -5,6 +5,7 @@ import contextlib
 import io
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -378,6 +379,29 @@ class GateTests(unittest.TestCase):
             gate.write_json(self.admission_path("head", "go"), a)
             with self.assertRaises(ValueError):
                 gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_1512_B7_UNDO_EXCEPTION)
+
+class DetailedArtifactPolicyTests(unittest.TestCase):
+    def test_detailed_outputs_stay_local_and_verdicts_remain(self):
+        path = os.environ.get("GTS_TEST_GATE_WORKFLOW")
+        workflow = Path(path) if path else Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml"
+        text = workflow.read_text()
+        def section(name):
+            found = re.search(r"(?ms)^  " + re.escape(name) + r":\n(.*?)(?=^  [A-Za-z_][A-Za-z0-9_-]*:\n|\Z)", text)
+            self.assertIsNotNone(found, name)
+            return found.group(1)
+        for name in ("race_root_shards", "race_root_isolated", "v1_edit_sessions", "perf-regression"):
+            with self.subTest(job=name):
+                self.assertNotIn("actions/upload-artifact@", section(name))
+        v1 = section("v1_edit_sessions")
+        self.assertIn("Last session: route=", v1)
+        self.assertIn('exit "$status"', v1)
+        self.assertIn('"$evidence/summary.json"', v1)
+        self.assertIn("GITHUB_STEP_SUMMARY", section("perf-regression"))
+        self.assertIn("actions/upload-artifact@", section("parity_report"))
+        build = section("build")
+        for gate in ("race_root", "race_packages", "v1_edit_sessions"):
+            self.assertIn("- " + gate, build)
+
 
 if __name__ == "__main__":
     unittest.main()

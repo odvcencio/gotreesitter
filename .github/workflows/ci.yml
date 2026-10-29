@@ -715,14 +715,6 @@ jobs:
           go test . -race -count=1 -timeout 15m -run "$pattern" -json |
             tee "harness_out/root-race/shard-${{ matrix.shard }}.json"
 
-      - name: Preserve completed root-race results
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: root-race-shard-${{ matrix.shard }}
-          path: harness_out/root-race/*.json
-          if-no-files-found: warn
-
   root_race_plan:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
@@ -769,14 +761,6 @@ jobs:
           mkdir -p harness_out/root-race
           go test . -race -count=1 -timeout 15m -run '^${{ matrix.target }}$' -json |
             tee "harness_out/root-race/isolated-${{ matrix.target }}.json"
-
-      - name: Preserve completed isolated root-race result
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: root-race-isolated-${{ matrix.target }}
-          path: harness_out/root-race/*.json
-          if-no-files-found: warn
 
   # Preserve the existing aggregate job ID consumed by the required `build`
   # context. The matrix result is successful only when every race shard passes.
@@ -1307,23 +1291,26 @@ jobs:
           set -e
           docker inspect "$container" > "${RUNNER_TEMP}/v1-session-container.json"
           cp "${RUNNER_TEMP}/v1-session-container.json" "$evidence/container.json"
-          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          if [ "$status" -ne 0 ]; then
+            echo "::error::v1 edit-session container failed with status $status"
+            if [ -f "$evidence/summary.json" ]; then cat "$evidence/summary.json"; fi
+            for log in root-build.log ledger-build.log counter-build.log; do
+              if [ -s "$evidence/$log" ]; then echo "--- $log (last 20 lines)"; tail -n 20 "$evidence/$log"; fi
+            done
+            if [ -s "$evidence/status.tsv" ]; then
+              IFS=$'\t' read -r route language code < <(tail -n 1 "$evidence/status.tsv")
+              printf 'Last session: route=%s language=%s exit=%s\n' "$route" "$language" "$code"
+              if [[ "$route" =~ ^[01]$ && "$language" =~ ^[a-zA-Z0-9_-]+$ && -f "$evidence/invariant-$route-$language.log" ]]; then
+                awk '/^--- FAIL:|^FAIL$|panic:|fatal error:|_test.go:[0-9]+:/ {print substr($0, 1, 500); if (++n == 20) exit}' "$evidence/invariant-$route-$language.log"
+              fi
+            fi
+            exit "$status"
+          fi
           python3 - "$evidence/container.json" <<'PYCODE'
           import json, sys
           state = json.load(open(sys.argv[1]))[0]['State']
           assert state['Status'] == 'exited' and state['ExitCode'] == 0 and not state['OOMKilled'], state
           PYCODE
-
-      - name: Preserve complete and partial edit-session evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: v1-edit-sessions
-          path: |
-            ${{ runner.temp }}/v1-edit-sessions
-            !${{ runner.temp }}/v1-edit-sessions/root.test
-            !${{ runner.temp }}/v1-edit-sessions/ledger
-          if-no-files-found: warn
 
   exhaustive_parity_scope:
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
@@ -2896,10 +2883,3 @@ jobs:
               echo "- reason: no definitive win/loss from current thresholds"
             } >> "${GITHUB_STEP_SUMMARY}"
           fi
-
-      - name: Upload Perf Artifacts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: bench-gate-artifacts
-          path: ${{ runner.temp }}/bench-gate
