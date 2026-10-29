@@ -289,5 +289,54 @@ class GateTests(unittest.TestCase):
                     self.compare()
 
 
+    def prepare_w5_undo_exception(self):
+        for role, count in (("base", 39), ("head", 35)):
+            admission = self.admissions[role, "go"]
+            step = admission["cells"][0]["steps"][1]
+            step.update(source_sha256=gate.GO_1512_FIXTURE, tree_sha256=gate.GO_1512_TREE)
+            step["counters"]["reused_subtrees"] = count
+            gate.write_json(self.admission_path(role, "go"), admission)
+        base = gate.canonical_go_admission(self.admissions["base", "go"])
+        head = gate.canonical_go_admission(self.admissions["head", "go"])
+        return base, head
+
+    def test_w5_exception_is_strict_by_default_and_exact_when_simulated(self):
+        base_hash, head_hash = self.prepare_w5_undo_exception()
+        with self.assertRaisesRegex(ValueError, "deterministic counter gate failed"):
+            gate.compare_counters(self.out, self.manifest, self.base, self.head)
+        with mock.patch.object(gate, "GO_1512_BASE_ADMISSION", base_hash), mock.patch.object(gate, "GO_1512_HEAD_ADMISSION", head_hash):
+            result = gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_1512_UNDO_EXCEPTION)
+            self.assertEqual(len(result["applied_exceptions"]), 1)
+            changed = self.admissions["head", "go"]
+            changed["cells"][0]["steps"][0]["counters"]["nodes"] = 999
+            gate.write_json(self.admission_path("head", "go"), changed)
+            with self.assertRaisesRegex(ValueError, "receipt changed"):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_1512_UNDO_EXCEPTION)
+
+    def test_w5_exception_requires_matching_actual_compiler_and_artifact(self):
+        base_hash, head_hash = self.prepare_w5_undo_exception()
+        for role in ("base", "head"):
+            a = self.admissions[role, "go"]
+            a["oracle"]["compiler_version"] = "a different paired compiler"
+            a["oracle"]["grammar_artifact_sha256"] = "1" * 64
+            gate.write_json(self.admission_path(role, "go"), a)
+        with mock.patch.object(gate, "GO_1512_BASE_ADMISSION", base_hash), mock.patch.object(gate, "GO_1512_HEAD_ADMISSION", head_hash):
+            gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_1512_UNDO_EXCEPTION)
+            a = self.admissions["head", "go"]
+            a["oracle"]["grammar_artifact_sha256"] = "2" * 64
+            gate.write_json(self.admission_path("head", "go"), a)
+            with self.assertRaisesRegex(ValueError, "C oracle differs"):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_1512_UNDO_EXCEPTION)
+
+    def test_w5_exception_requires_real_pinned_approval_and_clean_checkout(self):
+        with mock.patch.object(gate, "GO_1512_APPROVAL_SHA256", ""):
+            with self.assertRaisesRegex(ValueError, "no approved receipt"):
+                gate.validate_1512_undo_exception(self.out, gate.GO_1512_BASE, gate.GO_1512_REVIEWED, self.out / "missing")
+        path = self.out / "simulated-owner-decision.json"
+        path.write_text(json.dumps({"owner_approved": True, "base": gate.GO_1512_BASE, "reviewed_source": gate.GO_1512_REVIEWED, "exception": gate.GO_1512_UNDO_EXCEPTION}))
+        with mock.patch.object(gate, "GO_1512_APPROVAL_SHA256", gate.sha(path.read_bytes())), mock.patch.object(gate, "git", return_value=gate.GO_1512_REVIEWED), mock.patch.object(gate.subprocess, "run"), mock.patch.object(gate.subprocess, "check_output", side_effect=[b"!! ignored-user-work\n"]):
+            with self.assertRaisesRegex(ValueError, "clean checkout"):
+                gate.validate_1512_undo_exception(self.out, gate.GO_1512_BASE, gate.GO_1512_REVIEWED, path)
+
 if __name__ == "__main__":
     unittest.main()

@@ -31,6 +31,46 @@ LEDGER_LIMIT = 1.02
 RUNS = 20
 BENCHSTAT_MODULE = "golang.org/x/perf/cmd/benchstat@v0.0.0-20260929162123-406019bb8b68"
 
+# Owner approval applies only to this source-bound counter row. Strict mode
+# remains the default, and every opt-in requires the pinned decision receipt.
+GO_1512_UNDO_EXCEPTION = "go-one-byte-undo-1512-20261029"
+GO_1512_BASE = "9d14415d0a8d11632292310c578446b31554217b"
+GO_1512_REVIEWED = "58ce5c00050815d361ec72723d68b87209b59ed4"
+GO_1512_FIXTURE = "ff2f811d29a56303bad96c3c7cff1a83814a974503a51cee918a314a96eb476e"
+GO_1512_TREE = "a675b5e8c8e688c21f45cad8c5217c06802c3fa5061fb2555ba346b4769f4c55"
+GO_1512_BASE_ADMISSION = "4af75c271fee19a18a09caca22dba5fc3b0bb56142af480917f41f09ff69ef6a"
+GO_1512_HEAD_ADMISSION = "4d7ae9309efb29d9a339d179f447aee788caee701d7d4c839ddbbcde53a863f0"
+GO_1512_APPROVAL_SHA256 = "6c660fb0e91aeb3b515de27f263d12a30135ed1466b9f960f2778e6739a9e5b8"  # Owner-approved, single source-bound W5 row.
+GO_1512_SUCCESSOR_PATHS = frozenset(("scripts/editor_latency_gate.py", "scripts/test_editor_latency_gate.py", ".github/workflows/ci.yml"))
+
+
+def canonical_go_admission(admission):
+    # Revision and ephemeral cache filename do not change the parsed content.
+    # Compiler-specific fields are compared across the paired run; source,
+    # tree, counter, oracle version, grammar pin, and flags remain bound.
+    data = json.loads(json.dumps(admission))
+    data.pop("revision", None)
+    for key in ("grammar_artifact_path", "grammar_artifact_sha256", "compiler_path", "compiler_version"):
+        data["oracle"].pop(key, None)
+    return sha(json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode())
+
+
+def validate_1512_undo_exception(root, base_revision, head_revision, decision_path):
+    require(GO_1512_APPROVAL_SHA256 != "", "W5 exception has no approved receipt")
+    require(base_revision == GO_1512_BASE, "W5 exception base mismatch")
+    require(re.fullmatch(r"[0-9a-f]{40}", head_revision) is not None, "W5 exception head must be a commit")
+    require(git(root, "rev-parse", "HEAD") == head_revision, "W5 exception checkout mismatch")
+    require(not subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--ignored"]), "W5 exception requires a clean checkout, including ignored files")
+    subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", GO_1512_REVIEWED, head_revision], check=True)
+    diff = subprocess.check_output(["git", "-C", str(root), "diff", "--no-renames", "--name-only", "-z", GO_1512_REVIEWED, head_revision])
+    changed = set(diff.decode().split("\0")) - {""}
+    require(changed <= GO_1512_SUCCESSOR_PATHS, "W5 exception production inputs changed")
+    decision_bytes = Path(decision_path).read_bytes()
+    require(sha(decision_bytes) == GO_1512_APPROVAL_SHA256, "W5 approval receipt hash mismatch")
+    decision = read_json(decision_path)
+    require(decision.get("owner_approved") is True and decision.get("base") == GO_1512_BASE and decision.get("reviewed_source") == GO_1512_REVIEWED and decision.get("exception") == GO_1512_UNDO_EXCEPTION, "W5 owner decision mismatch")
+    return GO_1512_UNDO_EXCEPTION
+
 
 def require(ok, message):
     if not ok:
@@ -130,16 +170,20 @@ def oracle_identity(oracle):
     return {key: value for key, value in oracle.items() if key != "grammar_artifact_path"}
 
 
-def compare_counters(out, manifest_path, base_revision, head_revision):
+def compare_counters(out, manifest_path, base_revision, head_revision, exception=None):
     m = fixture_manifest(manifest_path)
     manifest_sha = sha(Path(manifest_path).read_bytes())
     changes = []
     identities = []
     failures = []
+    applied = []
     for f in m["fixtures"]:
         base = admission(out, "base", f, manifest_sha, base_revision)
         head = admission(out, "head", f, manifest_sha, head_revision)
         require(oracle_identity(base["oracle"]) == oracle_identity(head["oracle"]), f"{f['language']}: C oracle differs between revisions")
+        if exception is not None and f["language"] == "go":
+            require(exception == GO_1512_UNDO_EXCEPTION, "unknown W5 exception")
+            require(canonical_go_admission(base) == GO_1512_BASE_ADMISSION and canonical_go_admission(head) == GO_1512_HEAD_ADMISSION, "W5 approved source/tree/oracle/counter receipt changed")
         require(base["initial_tree_sha256"] == head["initial_tree_sha256"], "initial tree digest differs")
         identities.append({"language": f["language"], "oracle": head["oracle"]})
         for bc, hc in zip(base["cells"], head["cells"]):
@@ -154,8 +198,12 @@ def compare_counters(out, manifest_path, base_revision, head_revision):
                     row = {"language": f["language"], "workload": bc["workload"], "step": index, "counter": key, "before": before, "after": after}
                     changes.append(row)
                     if bad:
-                        failures.append(row)
-    result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "oracles": identities}
+                        if exception == GO_1512_UNDO_EXCEPTION and f["sha256"] == GO_1512_FIXTURE and (bs["source_sha256"], bs["tree_sha256"], bs["has_error"]) == (GO_1512_FIXTURE, GO_1512_TREE, False) and row == {"language":"go", "workload":"one_byte", "step":1, "counter":"reused_subtrees", "before":39, "after":35}:
+                            applied.append({"name":exception, "row":row})
+                        else:
+                            failures.append(row)
+    require(exception is None or len(applied) == 1, "W5 approved row did not match exactly once")
+    result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "applied_exceptions":applied, "oracles": identities}
     write_json(out / "counters.json", result)
     require(not failures, f"deterministic counter gate failed: {failures[:8]}")
     return result
@@ -228,8 +276,8 @@ def sample(rows, benchmark, runtime, metric):
     return statistics.mean(rows[benchmark + "/" + n][metric] / rows[benchmark + "/" + n]["edits/op"] for n in names)
 
 
-def compare_timing(out, manifest_path, base_revision, head_revision):
-    counters = compare_counters(out, manifest_path, base_revision, head_revision)
+def compare_timing(out, manifest_path, base_revision, head_revision, exception=None):
+    counters = compare_counters(out, manifest_path, base_revision, head_revision, exception)
     m = fixture_manifest(manifest_path)
     rows = []
     for f in m["fixtures"]:
@@ -264,7 +312,7 @@ def compare_timing(out, manifest_path, base_revision, head_revision):
               "base_revision": base_revision, "head_revision": head_revision, "manifest_sha256": sha(Path(manifest_path).read_bytes()),
               "threshold_percent": 5, "counter_threshold_percent": 2, "seeds": list(range(1, RUNS+1)), "benchtime": "750ms",
               "protocol": "alternating-base-head-seeds; shuffled-workloads; Go-C-C-Go; complete-sessions; ns-per-edit",
-              "environment": environment, "cells": rows, "counter_rows": counters["rows"], "oracles": counters["oracles"]}
+              "environment": environment, "cells": rows, "counter_rows": counters["rows"], "applied_exceptions": counters["applied_exceptions"], "oracles": counters["oracles"]}
     write_json(out / "receipt.json", result)
     lines = [f"W5 editor latency: **{result['status']}**", "", f"Base `{base_revision}`; head `{head_revision}`. Twenty paired shuffle seeds, 750ms, one thread. A paired median above +5% fails any cell.", "",
              "| Language | Edit | Go base → head (µs/edit) | C base → head (µs/edit) | Go/C base → head | Paired Go change |", "|---|---|---:|---:|---:|---:|"]
@@ -374,11 +422,12 @@ def check_work_exemptions_history(root, base_revision):
         check_work_exemptions_shrink(json.loads(previous.stdout), read_json(root / path))
 
 
-def campaign(root, base_revision, out):
+def campaign(root, base_revision, out, approved_receipt=None):
     root = root.resolve(); out = out.resolve()
     head_revision = git(root, "rev-parse", "HEAD")
     base_revision = git(root, "rev-parse", base_revision + "^{commit}")
     clean_revision(root, head_revision)
+    exception = validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) if approved_receipt else None
     check_work_exemptions_history(root, base_revision)
     require(not out.exists(), "campaign output already exists; do not overwrite receipts")
     out.mkdir(parents=True)
@@ -441,12 +490,16 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
             for f in m["fixtures"]:
                 language = f["language"]
                 commands = ["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]
+                if exception:
+                    # Fresh pinned clone/build: do not trust a shared .so or a
+                    # caller-provided source directory/extra grammar lock.
+                    commands.append("unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK; export GTS_PARITY_C_REF_BUILD_CACHE=off")
                 for role, revision in (("base", base_revision), ("head", head_revision)):
                     commands += [f"cd /campaign/modules/{role}", "go mod tidy", f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json go test -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m"]
                 with (out / ("correctness-" + language + ".log")).open("w") as log:
                     run_checked(common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
                 print("W5 four-way correctness passed:", language, flush=True)
-            compare_counters(out, manifest_path, base_revision, head_revision)
+            compare_counters(out, manifest_path, base_revision, head_revision, exception)
             print("W5 deterministic counter gate passed before timing", flush=True)
             for f in m["fixtures"]:
                 language = f["language"]
@@ -458,6 +511,8 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                     for role in fragments:
                         fragments[role].append(out / "timing" / f"{prefix}-{role}.txt")
                     command = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}", "cd /campaign/modules/head", "/usr/bin/time -v bash /workspace/scripts/run_randomized_benchmarks.sh " + " ".join(shlex.quote(x) for x in ["--runs", "1", "--seed-start", str(seed), "--baseline-root", "/campaign/modules/base", "--baseline-output", f"/campaign/timing/{prefix}-base.txt", "--output", f"/campaign/timing/{prefix}-head.txt", "--tags", "treesitter_c_parity", "--bench-regex", "^BenchmarkW5(OneByte|HundredByte|Typing)$", "--require-benchmarks", ",".join(NAMES)])])
+                    if exception:
+                        command = "unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK; export GTS_PARITY_C_REF_BUILD_CACHE=off\n" + command
                     log_path = out / f"timing-{prefix}.log"
                     with log_path.open("w") as log:
                         run_checked(common + ["--label", "w5-timing-" + prefix, "--wall-timeout", "90m", "--", command], stdout=log, stderr=subprocess.STDOUT)
@@ -476,9 +531,11 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
         finally:
             run_checked(["git", "-C", root, "worktree", "remove", "--force", base])
     clean_revision(root, head_revision)
+    if approved_receipt:
+        require(validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) == exception, "W5 exception identity changed")
     env["finished"] = load_sample()
     write_json(out / "environment.json", env)
-    result = compare_timing(out, manifest_path, base_revision, head_revision)
+    result = compare_timing(out, manifest_path, base_revision, head_revision, exception)
     require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")
 
 
@@ -488,6 +545,7 @@ def main():
     run = sub.add_parser("run")
     run.add_argument("--base", required=True)
     run.add_argument("--output", type=Path, required=True)
+    run.add_argument("--approved-go-undo-receipt", type=Path)
     compare = sub.add_parser("compare")
     compare.add_argument("--output", type=Path, required=True)
     compare.add_argument("--manifest", type=Path, required=True)
@@ -498,7 +556,7 @@ def main():
         if args.command == "run":
             root = Path(__file__).resolve().parents[1]
             with campaign_lock():
-                campaign(root, args.base, args.output)
+                campaign(root, args.base, args.output, args.approved_go_undo_receipt)
         else:
             result = compare_timing(args.output, args.manifest, args.base, args.head)
             require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")
