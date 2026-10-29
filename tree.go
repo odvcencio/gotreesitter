@@ -6366,7 +6366,6 @@ type nodeViewBacking interface {
 	children(*Node) []*Node
 	parent(*Node) (*Node, int, bool)
 	supertype(*Node) uint32
-	executeQuery(*Query, *Node, *Language, []byte, []QueryMatch) ([]QueryMatch, bool)
 	equalTree(*Node, *Node, *Language) bool
 	copyTree(*Tree) *Tree
 	retainedBytes() uint64
