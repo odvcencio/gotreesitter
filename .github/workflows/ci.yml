@@ -1225,6 +1225,12 @@ jobs:
               https://github.com/odvcencio/gotreesitter/releases/download/evidence/owner-decision-1512-58ce.json
             w5_options+=(--approved-go-undo-receipt "$decision")
           fi
+          # Owner approved only the source-bound Go undo row for this base.
+          if [ "${PR_NUMBER:-}" = 1512 ] && [ "$BASE_SHA" = b7f1877f72c46ac2992e865ab636edad1d545060 ]; then
+            decision="$RUNNER_TEMP/w5-b7-owner-decision.json"
+            printf '%s\n' '{"schema":"gts-w5-owner-decision-v1","owner_approved":true,"exception":"go-one-byte-undo-b7-to-278","base":"b7f1877f72c46ac2992e865ab636edad1d545060","reviewed_source":"2782879c97b4e28e9db7209ae7ddfbd6e9b69574","fixture_sha256":"ff2f811d29a56303bad96c3c7cff1a83814a974503a51cee918a314a96eb476e","tree_sha256":"a675b5e8c8e688c21f45cad8c5217c06802c3fa5061fb2555ba346b4769f4c55","base_admission_sha256":"4af75c271fee19a18a09caca22dba5fc3b0bb56142af480917f41f09ff69ef6a","head_admission_sha256":"4d7ae9309efb29d9a339d179f447aee788caee701d7d4c839ddbbcde53a863f0","oracle_runtime_commit":"10eb5ac119eec9cb4267a8e035066473983f5f3a","oracle_sources_sha256":"242c4f6b72d2d24421f84a505aa20164e43f144eb6401e876e6d24a167f06f51","oracle_go_grammar_commit":"2346a3ab1bb3857b48b29d779a1ef9799a248cd7","row":{"language":"go","workload":"one_byte","step":1,"counter":"reused_subtrees","before":39,"after":35},"context":{"reused_bytes_before":2816,"reused_bytes_after":2853,"nodes_before":109036,"nodes_after":108999},"scope":"This single counter row only; no timing, correctness, RSS, graduation or merge waiver.","owner_response_provenance":{"channel":"direct human owner reply","question_item_id":["request_user_input_async","call_3694a733fae64952bd5b34f85deeb359",0],"response":"Approve this scoped exception and minimal CI record"},"review_evidence":"https://github.com/odvcencio/gotreesitter/actions/runs/40949464539/job/123713570661"}' > "$decision"
+            w5_options+=(--approved-b7-undo-receipt "$decision")
+          fi
           bash scripts/run_editor_latency_gate.sh \
             --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency" "${w5_options[@]}"
 
