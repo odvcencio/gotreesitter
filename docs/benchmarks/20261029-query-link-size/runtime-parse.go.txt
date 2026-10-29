@@ -1,0 +1,7 @@
+package main
+import (
+ "fmt"
+ "os"
+ ts "github.com/odvcencio/gotreesitter"
+)
+func main() { if len(os.Args) > 1 { t,e:=ts.NewParser(&ts.Language{}).Parse([]byte(os.Args[1])); fmt.Println(t,e) } }

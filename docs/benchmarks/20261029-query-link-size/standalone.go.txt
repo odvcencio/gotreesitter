@@ -1,0 +1,7 @@
+package main
+import (
+ "fmt"
+ ts "github.com/odvcencio/gotreesitter"
+ golang "github.com/odvcencio/gotreesitter/grammars/go"
+)
+func main() { l:=golang.Language(); t,e:=ts.NewParser(l).Parse([]byte("package main\n")); fmt.Println(t.RootNode().HasError(),e) }
