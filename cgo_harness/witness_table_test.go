@@ -605,6 +605,15 @@ func TestLuauRecoveryActionMaterializationLockedCParity(t *testing.T) {
 	}})
 }
 
+// TestQLLoneIdentifierLockedCParity compares the error tree that a lone
+// identifier produces, with and without a trailing newline, against the C oracle.
+func TestQLLoneIdentifierLockedCParity(t *testing.T) {
+	runWitnessSet(t, witnessSet{lang: "ql", rows: []witness{
+		w("lone_identifier", "x"),
+		w("lone_identifier_newline", "x\n"),
+	}})
+}
+
 func TestRobotSkippedErrorLockedCParity(t *testing.T) {
 	runWitnessSet(t, witnessSet{lang: "robot", rows: []witness{
 		w("expression", `${tc['\${i}']}`),
