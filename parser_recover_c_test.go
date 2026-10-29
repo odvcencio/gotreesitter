@@ -1,6 +1,7 @@
 package gotreesitter
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 	"reflect"
@@ -4479,5 +4480,454 @@ func TestCReductionCandidateDoesNotDoubleCloneRecoveryState(t *testing.T) {
 	}
 	if &candidates[0].cRec.summary[0] != &start.cRec.summary[0] {
 		t.Fatal("reduction candidate did not preserve shared immutable recovery summary")
+	}
+}
+
+func hiddenMissingCreationShift(t *testing.T, p *Parser, arena *nodeArena, stack *glrStack, extra, missing bool, offset uint32) stackEntry {
+	t.Helper()
+	tok := Token{Symbol: 2, StartByte: offset, EndByte: offset, StartPoint: Point{Column: offset}, EndPoint: Point{Column: offset}, Missing: missing}
+	act := ParseAction{Type: ParseActionShift, State: 1, Extra: extra}
+	trackErrors := false
+	if extra {
+		var scratch parserScratch
+		p.applyExtraShiftAction(stack, stack.top().state, act, tok, arena, &scratch, &trackErrors)
+	} else {
+		nodeCount := 0
+		p.applyShiftAction(stack, act, tok, &nodeCount, arena, nil, nil, &trackErrors)
+	}
+	entry := stack.top()
+	if !stackEntryHasNode(entry) || stackEntryNodeIsMissing(entry) != missing {
+		t.Fatalf("shift did not publish expected payload: missing=%t entry=%+v", missing, entry)
+	}
+	if missing && (!stackEntryNodeHasError(entry) || !trackErrors || stackEntryNode(entry) == nil) {
+		t.Fatal("genuine MISSING did not take the materialized error-leaf path")
+	}
+	return entry
+}
+
+func TestHiddenMissingCreationEnablesRawErrorPropagation(t *testing.T) {
+	for _, mode := range []string{"node", "compact-full-configured", "compact-no-tree-configured"} {
+		for _, extra := range []bool{false, true} {
+			name := mode + "/ordinary"
+			if extra {
+				name = mode + "/extra"
+			}
+			t.Run(name, func(t *testing.T) {
+				arena := acquireNodeArena(arenaClassFull)
+				defer arena.Release()
+				p := testRawShapeParser()
+				p.compactFullShiftLeaves = mode == "compact-full-configured"
+				p.noTreeBenchmarkOnly = mode == "compact-no-tree-configured"
+				p.compactNoTreeShiftLeaves = p.noTreeBenchmarkOnly
+				stack := newGLRStack(0)
+				missing := hiddenMissingCreationShift(t, p, arena, &stack, extra, true, 1)
+				if !p.retainExternalFallbackMissingFlags {
+					t.Fatal("actual MISSING creation did not retain its hidden history")
+				}
+				leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+				hidden := newParentNodeInArenaNoLinksWithFieldSources(arena, 2, false, []*Node{leaf}, nil, nil, 0, false)
+				hidden.rawShape = p.captureRawShape(nil, arena, 2, 0, []stackEntry{newStackEntryNode(0, leaf), missing}, 0, 2)
+				var scratch gssScratch
+				p.pushStackNode(&stack, 1, hidden, nil, &scratch)
+				root := newParentNodeInArenaNoLinksWithFieldSources(arena, 1, true, []*Node{leaf}, nil, nil, 0, false)
+				root.rawShape = p.captureRawShape(nil, arena, 1, 0, []stackEntry{newStackEntryNode(0, hidden)}, 0, 1)
+				p.pushStackNode(&stack, 1, root, nil, &scratch)
+				if !hidden.HasError() || !root.HasError() {
+					t.Fatal("hidden MISSING did not propagate through flattened ancestors")
+				}
+				if !reconcileStaleHasErrorFlagsWithMissing(root, 0, p.retainExternalFallbackMissingFlags) || !root.HasError() {
+					t.Fatal("selected-root reconciliation erased genuine hidden MISSING")
+				}
+			})
+		}
+	}
+}
+
+func TestHiddenMissingDiscardedTrialPreservesCleanSiblingAndOldTree(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	p := NewParser(lang)
+	source := []byte("1+2")
+	oldTree := mustParse(t, p, source)
+	defer oldTree.Release()
+	oldRoot := oldTree.RootNode()
+	before := oldRoot.SExpr(lang)
+	if oldRoot.HasError() {
+		t.Fatal("clean old-tree control already has an error")
+	}
+	assertReachableRawShapeRefsCleared(t, oldRoot)
+	flags := map[*Node]nodeFlags{}
+	parents := map[*Node]*Node{}
+	var remember func(*Node)
+	remember = func(n *Node) {
+		if n == nil {
+			return
+		}
+		flags[n], parents[n] = n.flags, n.parent
+		for _, child := range n.children {
+			remember(child)
+		}
+	}
+	remember(oldRoot)
+
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	var scratch gssScratch
+	base := newGLRStack(0)
+	p.pushStackNode(&base, 1, oldRoot, nil, &scratch)
+	cleanSibling := base.clone()
+	trial := base.clone()
+	// A speculative version inserts MISSING and is then discarded. The
+	// parser latch stays on, but it must not become a tree-wide error bit.
+	hiddenMissingCreationShift(t, p, arena, &trial, false, true, oldRoot.EndByte())
+	trial = glrStack{}
+	if !p.retainExternalFallbackMissingFlags {
+		t.Fatal("discarded genuine MISSING did not exercise the retained latch")
+	}
+	clean := newParentNodeInArenaNoLinksWithFieldSources(arena, oldRoot.symbol, true, []*Node{oldRoot}, nil, nil, 0, false)
+	clean.rawShape = p.captureRawShape(nil, arena, clean.symbol, 0, []stackEntry{newStackEntryNode(1, oldRoot)}, 0, 1)
+	p.pushStackNode(&cleanSibling, 1, clean, nil, &scratch)
+	if clean.HasError() {
+		t.Fatal("discarded MISSING version contaminated the clean sibling")
+	}
+	clean.setHasError(true) // A stale recovery flag still needs to clear.
+	if reconcileStaleHasErrorFlagsWithMissing(clean, 0, p.retainExternalFallbackMissingFlags) || clean.HasError() {
+		t.Fatal("retained latch prevented clearing an unsupported error claim")
+	}
+	for node, flag := range flags {
+		if node.flags != flag || node.parent != parents[node] || node.rawShape != 0 {
+			t.Fatal("speculative MISSING/clean publication mutated the old tree")
+		}
+	}
+	if oldRoot.SExpr(lang) != before || oldRoot.HasError() {
+		t.Fatal("old tree changed after the discarded MISSING trial")
+	}
+	// parseInternal starts a fresh retention scope, including no-edit reuse.
+	reparsed := mustParseIncremental(t, p, source, oldTree)
+	defer reparsed.Release()
+	if reparsed.RootNode().HasError() || reparsed.RootNode().SExpr(lang) != before || oldRoot.SExpr(lang) != before {
+		t.Fatal("a later clean reparse inherited the speculative MISSING")
+	}
+}
+
+func TestHiddenMissingZeroWidthAutomaticTokenDoesNotLatch(t *testing.T) {
+	for _, compact := range []bool{false, true} {
+		arena := acquireNodeArena(arenaClassFull)
+		p := testRawShapeParser()
+		p.compactFullShiftLeaves = compact
+		stack := newGLRStack(0)
+		hiddenMissingCreationShift(t, p, arena, &stack, false, false, 1)
+		if p.retainExternalFallbackMissingFlags {
+			t.Fatal("ordinary zero-width automatic token was treated as MISSING")
+		}
+		arena.Release()
+	}
+}
+
+func TestHiddenMissingGoCompatProjectionAndEvidence(t *testing.T) {
+	for _, finalRefs := range []bool{false, true} {
+		for _, tc := range []struct {
+			name                   string
+			source                 string
+			symbol                 Symbol
+			missing, stale         bool
+			explicit, discarded    bool
+			wantChildren           int
+			wantError, wantRawOnly bool
+		}{
+			{name: "projected-missing-semicolon", source: "ab", symbol: 2, missing: true, wantChildren: 2, wantError: true, wantRawOnly: true},
+			{name: "ordinary-automatic-semicolon", source: "ab", symbol: 2, wantChildren: 2},
+			{name: "ordinary-newline", source: "a\nb", symbol: 2, explicit: true, wantChildren: 2},
+			{name: "explicit-semicolon", source: "a;b", symbol: 2, explicit: true, wantChildren: 3},
+			{name: "stale-error-clears", source: "ab", symbol: 2, stale: true, wantChildren: 2},
+			{name: "discarded-missing-does-not-contaminate", source: "ab", symbol: 2, discarded: true, wantChildren: 2},
+			{name: "visible-missing-nonseparator-stays-public", source: "ab", symbol: 4, missing: true, wantChildren: 3, wantError: true},
+		} {
+			layout := "children"
+			if finalRefs {
+				layout = "final-refs"
+			}
+			t.Run(layout+"/"+tc.name, func(t *testing.T) {
+				arena := acquireNodeArena(arenaClassFull)
+				defer arena.Release()
+				lang := &Language{Name: "go", SymbolNames: []string{"EOF", "source_file", ";", "\x00", "identifier", "source_file_repeat1"}, SymbolMetadata: []SymbolMetadata{
+					{}, {Visible: true, Named: true}, {Visible: true}, {Visible: true}, {Visible: true, Named: true}, {},
+				}}
+				p := &Parser{language: lang, retainExternalFallbackMissingFlags: true}
+				left := newLeafNodeInArena(arena, 4, true, 0, 1, Point{}, Point{Column: 1})
+				separatorEnd, rightStart := uint32(1), uint32(1)
+				if tc.explicit {
+					separatorEnd, rightStart = 2, 2
+				}
+				separator := newLeafNodeInArena(arena, tc.symbol, false, 1, separatorEnd, Point{Column: 1}, Point{Column: separatorEnd})
+				separator.setMissing(tc.missing)
+				separator.setHasError(tc.missing)
+				right := newLeafNodeInArena(arena, 4, true, rightStart, uint32(len(tc.source)), Point{Column: rightStart}, Point{Column: uint32(len(tc.source))})
+				entries := []stackEntry{newStackEntryNode(0, left), newStackEntryNode(0, separator), newStackEntryNode(0, right)}
+				if tc.discarded {
+					orphan := newLeafNodeInArena(arena, 2, false, 1, 1, Point{Column: 1}, Point{Column: 1})
+					orphan.setMissing(true)
+					orphan.setHasError(true)
+				}
+				var root *Node
+				if finalRefs {
+					childRange, refs := arena.allocPendingChildEntries(len(entries))
+					for i, entry := range entries {
+						refs[i] = newPendingChildEntry(entry)
+					}
+					root = newParentNodeInArenaWithFinalChildRefs(arena, 1, true, childRange, 0, false)
+					root.endByte = uint32(len(tc.source))
+					root.endPoint = Point{Column: root.endByte}
+				} else {
+					root = newParentNodeInArenaNoLinksWithFieldSources(arena, 1, true, []*Node{left, separator, right}, nil, nil, 0, false)
+				}
+				// Match the observed selected history: public children are flat,
+				// while raw history retains the missing separator under a repeat.
+				repeat := newParentNodeInArenaNoLinksWithFieldSources(arena, 5, false, []*Node{left, separator, right}, nil, nil, 0, false)
+				repeat.rawShape = p.captureRawShape(nil, arena, 5, 0, entries, 0, len(entries))
+				repeat.setHasError(tc.missing)
+				root.rawShape = p.captureRawShape(nil, arena, 1, 0, []stackEntry{newStackEntryNode(0, repeat)}, 0, 1)
+				root.setHasError(tc.missing || tc.stale)
+				syms, _ := goCompatibilitySymbolsForLanguage(lang)
+				normalizeGoSemicolonContainer(root, []byte(tc.source), syms)
+				if resultChildCount(root) != tc.wantChildren {
+					t.Fatalf("public projection children=%d want=%d", resultChildCount(root), tc.wantChildren)
+				}
+				if tc.wantRawOnly && !root.HasError() {
+					t.Fatal("projecting genuine MISSING erased its container's error")
+				}
+				rawOnly := false
+				hasError := reconcileStaleHasErrorFlagsWithMissingEvidence(root, 0, true, &rawOnly)
+				if hasError != tc.wantError || root.HasError() != tc.wantError || rawOnly != tc.wantRawOnly {
+					t.Fatalf("selected evidence error=%t root=%t raw-only=%t want=%t/%t", hasError, root.HasError(), rawOnly, tc.wantError, tc.wantRawOnly)
+				}
+				if tc.wantRawOnly && retainedHiddenMissingFlags(root, lang, arena) {
+					t.Fatal("control unexpectedly relies on broadening the hidden-only visibility filter")
+				}
+			})
+		}
+	}
+}
+
+func TestHiddenMissingRepairedVisibleTokenDoesNotCreateEvidence(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	p := testRawShapeParser()
+	missing := newLeafNodeInArena(arena, 3, true, 1, 1, Point{Column: 1}, Point{Column: 1})
+	missing.setMissing(true)
+	missing.setHasError(true)
+	clean := newLeafNodeInArena(arena, 4, true, 0, 1, Point{}, Point{Column: 1})
+	root := newParentNodeInArenaNoLinksWithFieldSources(arena, 1, true, []*Node{clean}, nil, nil, 0, false)
+	root.rawShape = p.captureRawShape(nil, arena, 1, 0, []stackEntry{newStackEntryNode(0, clean), newStackEntryNode(0, missing)}, 0, 2)
+	root.setHasError(false) // Existing visible-node repair already cleared it.
+	rawOnly := false
+	if reconcileStaleHasErrorFlagsWithMissingEvidence(root, 0, true, &rawOnly) || root.HasError() || rawOnly {
+		t.Fatal("removed visible MISSING was resurrected without a retained error claim")
+	}
+}
+
+type missingTurnRangeExclusionScanner struct {
+	deny  [32]byte
+	calls int
+}
+
+func (*missingTurnRangeExclusionScanner) Create() any                           { return nil }
+func (*missingTurnRangeExclusionScanner) Destroy(any)                           {}
+func (*missingTurnRangeExclusionScanner) Serialize(any, []byte) int             { return 0 }
+func (*missingTurnRangeExclusionScanner) Deserialize(any, []byte)               {}
+func (*missingTurnRangeExclusionScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+func (s *missingTurnRangeExclusionScanner) ExcludesMissingVersionTurnsForIncludedRanges(identity [32]byte) bool {
+	s.calls++
+	return identity == s.deny
+}
+
+func missingTurnRangeIdentity(t *testing.T, text string) [32]byte {
+	t.Helper()
+	b, err := hex.DecodeString(text)
+	if err != nil || len(b) != 32 {
+		t.Fatalf("invalid artifact identity %q", text)
+	}
+	var identity [32]byte
+	copy(identity[:], b)
+	return identity
+}
+
+func TestMissingTurnRangeExclusionPreservesModeAndArtifactBoundaries(t *testing.T) {
+	current := missingTurnRangeIdentity(t, "9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4")
+	previous := missingTurnRangeIdentity(t, "214322327c9ee7dda29febf32e415f7ed9e00a90b7690d3c32522e393211b8da")
+	scanner := &missingTurnRangeExclusionScanner{deny: current}
+	lang := &Language{RecoveryMissingVersionTurnsCertified: true, ExternalScanner: scanner, grammarBlobSHA256: current, grammarBlobSHA256Valid: true}
+	p := &Parser{language: lang}
+	if !p.recoveryMissingVersionTurnsCertified() || scanner.calls != 0 {
+		t.Fatal("ordinary parsing changed certification or invoked the range hook")
+	}
+	p.included = []Range{{StartByte: 0, EndByte: 1}}
+	if p.recoveryMissingVersionTurnsCertified() || scanner.calls != 1 {
+		t.Fatal("current artifact's included-range exclusion was not applied")
+	}
+	lang.grammarBlobSHA256 = previous
+	if !p.recoveryMissingVersionTurnsCertified() {
+		t.Fatal("the current-artifact exclusion changed an older artifact")
+	}
+	lang.grammarBlobSHA256Valid = false
+	before := scanner.calls
+	if !p.recoveryMissingVersionTurnsCertified() || scanner.calls != before {
+		t.Fatal("an unknown artifact acquired an exclusion")
+	}
+	lang.grammarBlobSHA256, lang.grammarBlobSHA256Valid = current, true
+	lang.ExternalScanner = nil
+	if !p.recoveryMissingVersionTurnsCertified() {
+		t.Fatal("a certified grammar without the optional hook changed policy (including SQL)")
+	}
+	lang.ExternalScanner = scanner
+	lang.RecoveryMissingVersionTurnsCertified = false
+	before = scanner.calls
+	if p.recoveryMissingVersionTurnsCertified() || scanner.calls != before {
+		t.Fatal("the exclusion hook granted certification or ran for an uncertified grammar")
+	}
+	lang.RecoveryMissingVersionTurnsCertified = true
+	p.included = nil
+	before = scanner.calls
+	if !p.recoveryMissingVersionTurnsCertified() || scanner.calls != before || !lang.RecoveryMissingVersionTurnsCertified {
+		t.Fatal("returning to ordinary mode changed the shared language certification")
+	}
+	var nilParser *Parser
+	if nilParser.recoveryMissingVersionTurnsCertified() || (&Parser{}).recoveryMissingVersionTurnsCertified() {
+		t.Fatal("a nil parser/language received missing-turn certification")
+	}
+}
+
+func TestMissingTurnRangeExclusionPreservesNativeAndResyncDispatch(t *testing.T) {
+	p := cRecoveryElectionTestParser()
+	identity := missingTurnRangeIdentity(t, "9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4")
+	p.language.RecoveryMissingVersionTurnsCertified = true
+	p.language.grammarBlobSHA256, p.language.grammarBlobSHA256Valid = identity, true
+	p.language.ExternalScanner = &missingTurnRangeExclusionScanner{deny: identity}
+	group := &cRecGroup{eagerMissingShiftEnd: 21}
+	absorbing, missing := newGLRStack(1), newGLRStack(2)
+	absorbing.byteOffset, missing.byteOffset = 21, 21
+	absorbing.cRec = &cRecoverState{group: group}
+	missing.cRecoverMissingGroup = group
+	missing.cRecoveryDispatchPending = recoveryturn.Missing
+	stacks := []glrStack{absorbing, missing}
+	if p.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("ordinary missing-version deferral changed")
+	}
+	p.included = []Range{{StartByte: 0, EndByte: 1}}
+	if !p.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("excluded range mode deferred missing-version competition")
+	}
+	stacks[1].cRecoveryDispatchPending = recoveryturn.Resync
+	if p.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("range containment disabled independent Resync scheduling")
+	}
+	stacks[1].cRecoveryDispatchPending = recoveryturn.Missing
+	p.language.CompactPackedGSSVersionOrderCertified = true
+	p.mergeScratch = &glrMergeScratch{packedGSSVersionOrderActive: true}
+	if p.cBetterVersionExists(stacks, 0, true, cErrCostPerSkippedTree, true) {
+		t.Fatal("range containment disabled independently certified native version order")
+	}
+}
+
+func TestGoMissingSemicolonProjectionRetainsElidedHistory(t *testing.T) {
+	for _, finalRefs := range []bool{false, true} {
+		for _, tc := range []struct {
+			name                        string
+			missing, existing, repaired bool
+			stale, discarded, visible   bool
+			wantError, wantRawOnly      bool
+		}{
+			{name: "selected-missing-elided-history", missing: true, wantError: true, wantRawOnly: true},
+			{name: "selected-missing-existing-history", missing: true, existing: true, wantError: true, wantRawOnly: true},
+			{name: "ordinary-automatic-separator"},
+			{name: "stale-error-without-missing", stale: true},
+			{name: "discarded-missing-is-not-selected", discarded: true},
+			{name: "repaired-visible-missing-stays-clean", repaired: true},
+			{name: "visible-missing-nonseparator-stays-public", missing: true, visible: true, wantError: true},
+		} {
+			layout := "children"
+			if finalRefs {
+				layout = "final-refs"
+			}
+			t.Run(layout+"/"+tc.name, func(t *testing.T) {
+				arena := acquireNodeArena(arenaClassFull)
+				defer arena.Release()
+				lang := &Language{Name: "go", SymbolNames: []string{"EOF", "source_file", "const_declaration", "const_spec", ";", "\x00", "identifier"}, SymbolMetadata: []SymbolMetadata{
+					{}, {Visible: true, Named: true}, {Visible: true, Named: true}, {Visible: true, Named: true}, {Visible: true}, {Visible: true}, {Visible: true, Named: true},
+				}}
+				p := &Parser{language: lang, retainExternalFallbackMissingFlags: true}
+				left := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+				right := newLeafNodeInArena(arena, 3, true, 1, 2, Point{Column: 1}, Point{Column: 2})
+				separatorSymbol := Symbol(4)
+				if tc.visible {
+					separatorSymbol = 6
+				}
+				separator := newLeafNodeInArena(arena, separatorSymbol, false, 1, 1, Point{Column: 1}, Point{Column: 1})
+				separator.setMissing(tc.missing)
+				separator.setHasError(tc.missing)
+				entries := []stackEntry{newStackEntryNode(0, left), newStackEntryNode(0, separator), newStackEntryNode(0, right)}
+				var decl *Node
+				if finalRefs {
+					childRange, refs := arena.allocPendingChildEntries(len(entries))
+					for i, entry := range entries {
+						refs[i] = newPendingChildEntry(entry)
+					}
+					decl = newParentNodeInArenaWithFinalChildRefs(arena, 2, true, childRange, 0, false)
+					decl.endByte, decl.endPoint = 2, Point{Column: 2}
+				} else {
+					decl = newParentNodeInArenaNoLinksWithFieldSources(arena, 2, true, []*Node{left, separator, right}, nil, nil, 0, false)
+				}
+				if tc.existing {
+					decl.rawShape = p.captureRawShape(nil, arena, 2, 0, entries, 0, len(entries))
+				}
+				if tc.discarded || tc.repaired {
+					orphan := newLeafNodeInArena(arena, 6, true, 1, 1, Point{Column: 1}, Point{Column: 1})
+					orphan.setMissing(true)
+					orphan.setHasError(true)
+					if tc.repaired {
+						old := []stackEntry{newStackEntryNode(0, left), newStackEntryNode(0, orphan), newStackEntryNode(0, right)}
+						decl.rawShape = p.captureRawShape(nil, arena, 2, 0, old, 0, len(old))
+					}
+				}
+				decl.setHasError(tc.missing || tc.stale)
+				oldShape := decl.rawShape
+				// An independent error keeps the root true, matching the real
+				// grouped var+const fixture. The const's own flag must survive.
+				other := newLeafNodeInArena(arena, 6, true, 2, 2, Point{Column: 2}, Point{Column: 2})
+				other.setMissing(true)
+				other.setHasError(true)
+				root := newParentNodeInArenaNoLinksWithFieldSources(arena, 1, true, []*Node{decl, other}, nil, nil, 0, true)
+				for pass := 0; pass < 2; pass++ {
+					if reason := normalizeGoCompatibilityWithParser(root, []byte("ab"), lang, p); resultMaterializationShouldStop(reason) {
+						t.Fatal(reason)
+					}
+					rawOnly := false
+					if !reconcileStaleHasErrorFlagsWithMissingEvidence(root, 0, true, &rawOnly) || !root.HasError() {
+						t.Fatal("independent root error disappeared")
+					}
+					if decl.HasError() != tc.wantError || rawOnly != tc.wantRawOnly {
+						t.Fatalf("pass=%d const error=%t raw-only=%t want=%t/%t raw=%d", pass, decl.HasError(), rawOnly, tc.wantError, tc.wantRawOnly, decl.rawShape)
+					}
+				}
+				wantChildren := 2
+				if tc.visible {
+					wantChildren = 3
+				}
+				if resultChildCount(decl) != wantChildren {
+					t.Fatalf("selected public children=%d want=%d", resultChildCount(decl), wantChildren)
+				}
+				if oldShape != 0 && decl.rawShape != oldShape {
+					t.Fatal("existing selected raw history was replaced")
+				}
+				if !tc.missing && oldShape == 0 && decl.rawShape != 0 {
+					t.Fatal("ordinary/stale/discarded input created missing proof")
+				}
+				if tc.wantRawOnly && !rawShapeRefIsArenaBacked(decl.rawShape) {
+					t.Fatal("actual projected missing has no selected raw proof")
+				}
+				if tc.wantRawOnly && retainedHiddenMissingFlags(decl, lang, arena) {
+					t.Fatal("projection unexpectedly relies on the hidden-only visibility filter")
+				}
+			})
+		}
 	}
 }

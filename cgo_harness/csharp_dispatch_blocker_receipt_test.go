@@ -43,7 +43,8 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 	witnesses := []csharpDispatchWitness{
 		{
 			// Native recovery now keeps the C error root and fixes the enum.
-			// The deeper preprocessor error remains a pinned structural gap.
+			// Retained MISSING flags repair the preprocessor error flag.
+			// The deeper parameter-field mismatch remains pinned.
 			name: "a0-jsontextreader", src: func(t *testing.T) []byte {
 				source, err := os.ReadFile("../testdata/parser_result/csharp/jsontextreader_excerpt.cs")
 				if err != nil {
@@ -52,11 +53,11 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 				return source
 			},
 			wantSourceSHA:     "d76fd62cfc90076c11d86cb7d7a0058df181231aa3b34f30e549f650b5294d4a",
-			wantRawDigest:     "733007c03fd8119b7758e938553d4c4b4c8efad363742b4be119ad0e68f82be9",
-			wantGoDigest:      "733007c03fd8119b7758e938553d4c4b4c8efad363742b4be119ad0e68f82be9",
+			wantRawDigest:     "232477a27dac2b4eac0ad43aa79dabad0550834825b6fa4d25b17706867b726f",
+			wantGoDigest:      "232477a27dac2b4eac0ad43aa79dabad0550834825b6fa4d25b17706867b726f",
 			wantCDigest:       "e55a76c08df5ab3cd9b5906b18ce1904e580f27712a760b4b965a3f979444978",
-			wantRawDiff:       csharpExpectedDivergence("/compilation_unit/namespace_declaration[4]/declaration_list[2]/class_declaration[5]/declaration_list[5]/method_declaration[32]/block[4]/switch_statement[2]/switch_body[4]/switch_section[6]/if_statement[2]/block[4]/preproc_if[3]", "error", "false", "true"),
-			wantRouteDiff:     csharpExpectedDivergence("/compilation_unit/namespace_declaration[4]/declaration_list[2]/class_declaration[5]/declaration_list[5]/method_declaration[32]/block[4]/switch_statement[2]/switch_body[4]/switch_section[6]/if_statement[2]/block[4]/preproc_if[3]", "error", "false", "true"),
+			wantRawDiff:       csharpExpectedDivergence("/compilation_unit/namespace_declaration[4]/declaration_list[2]/class_declaration[5]/declaration_list[5]/method_declaration[32]/block[4]/switch_statement[2]/switch_body[4]/switch_section[6]/if_statement[2]/block[4]/preproc_if[3]/local_function_statement[2]/parameter_list[2]/parameter[1]/identifier[0]", "field", "name", "type"),
+			wantRouteDiff:     csharpExpectedDivergence("/compilation_unit/namespace_declaration[4]/declaration_list[2]/class_declaration[5]/declaration_list[5]/method_declaration[32]/block[4]/switch_statement[2]/switch_body[4]/switch_section[6]/if_statement[2]/block[4]/preproc_if[3]/local_function_statement[2]/parameter_list[2]/parameter[1]/identifier[0]", "field", "name", "type"),
 			wantCompactMode:   "fallback",
 			wantCompactPass:   true,
 			wantIncremental:   true,
@@ -106,8 +107,8 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 				return []byte("class C { void M() { int x = ;\n")
 			},
 			wantSourceSHA:   "86a8c9f0a2ea38797add255cbbffcbe748af3c6f465d3db989b9dffd182d4ce8",
-			wantRawDigest:   "63b2aea96355a66a4c6dfe4a9881ed4cf10589505c0dedd2abb2b8d4040cfadc",
-			wantGoDigest:    "63b2aea96355a66a4c6dfe4a9881ed4cf10589505c0dedd2abb2b8d4040cfadc",
+			wantRawDigest:   "86f8975b78fc76a2df9300cf21d2ac705bdc530ea5ceabf99b6b27503ba8e279",
+			wantGoDigest:    "86f8975b78fc76a2df9300cf21d2ac705bdc530ea5ceabf99b6b27503ba8e279",
 			wantCDigest:     "b252b21dc16f944cda8457956f65879a0222792efd936673448083a3b678aabc",
 			wantRawDiff:     csharpExpectedDivergence("/compilation_unit/ERROR[0]", "shape", "children=8", "children=11"),
 			wantRouteDiff:   csharpExpectedDivergence("/compilation_unit/ERROR[0]", "shape", "children=8", "children=11"),
@@ -252,7 +253,7 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 				if productionPass.NodesRewritten != 0 || productionPass.NodesVisited != 2093 {
 					t.Fatalf("A0 dispatch pass = visited:%d rewritten:%d, want 2093/0", productionPass.NodesVisited, productionPass.NodesRewritten)
 				}
-				if rawDiff == nil || rawDiff.Category != "error" || productionDiff == nil || productionDiff.Category != "error" || compactMode != "fallback" || forestOK || compactPass == nil || incrementalPass == nil || compactPass.NodesVisited != 2093 || compactPass.NodesRewritten != 0 || incrementalPass.NodesVisited != 2093 || incrementalPass.NodesRewritten != 0 {
+				if rawDiff == nil || rawDiff.Category != "field" || productionDiff == nil || productionDiff.Category != "field" || compactMode != "fallback" || forestOK || compactPass == nil || incrementalPass == nil || compactPass.NodesVisited != 2093 || compactPass.NodesRewritten != 0 || incrementalPass.NodesVisited != 2093 || incrementalPass.NodesRewritten != 0 {
 					t.Fatalf("A0 evidence changed: raw=%+v production=%+v compact=%s forest=%t", rawDiff, productionDiff, compactMode, forestOK)
 				}
 			case "positive-simple":

@@ -4889,6 +4889,7 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 	// TestProbeZeroWidthExternalTokenForLexStateAllocations pins the
 	// measured costs.
 	dispatchPayload := d.captureExternalScannerStateInto(&d.externalSnapshot)
+	probeCompleted, probeAccepted := false, false
 	savedExternalLexer := d.externalLexer
 	defer func() {
 		// R1: the scan this probe just ran did read bytes, and those reads
@@ -4913,7 +4914,11 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 		if d.lexer != nil && d.lexer.reuseReads != nil {
 			if !incr.RequiresFreshResult(len(source)) {
 				// Preserve the established small-edit frontier and fresh proof.
-				d.lexer.reuseReads.Record(int(scanStart), legacyExaminedEnd)
+				scanner, stateless := d.language.ExternalScanner.(StatelessExternalScanner)
+				noReadFailure := probeCompleted && !probeAccepted && stateless && scanner.ExternalScannerIsStateless() && d.externalLexer.readFrontier != nil && d.externalLexer.readFrontier.examined == 0 && !d.externalLexer.readFrontier.nonlocal && !d.externalLexer.didGetColumn
+				if !noReadFailure {
+					d.lexer.reuseReads.Record(int(scanStart), legacyExaminedEnd)
+				}
 			} else if d.externalLexer.readFrontier != nil && d.externalLexer.readFrontier.nonlocal {
 				d.lexer.reuseReads.Abstain()
 			} else {
@@ -4953,7 +4958,9 @@ func (d *dfaTokenSource) probeZeroWidthExternalTokenForLexState(source []byte, l
 
 	el := &d.externalLexer
 	el.reset(source, int(scanStart), scanPoint.Row, scanPoint.Column)
-	if !RunExternalScanner(d.language, d.externalPayload, el, row) {
+	probeAccepted = RunExternalScanner(d.language, d.externalPayload, el, row)
+	probeCompleted = true
+	if !probeAccepted {
 		return Token{}, externalScannerCheckpoint{}, false
 	}
 	probed, ok := el.token()

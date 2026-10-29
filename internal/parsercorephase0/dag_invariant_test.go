@@ -41,10 +41,10 @@ func TestAppendNodeAuthenticatesCompleteAdjacency(t *testing.T) {
 
 	// appendNode is the single publication point, so even diagnostic callers
 	// that inject raw arena records cannot publish an upward/self edge.
-	compact.links = append(compact.links, linkRecord{prev: NodeID(compact.nodes.Len() + 1), payload: payload})
+	compact.links.AppendValues(linkRecord{prev: NodeID(compact.nodes.Len() + 1), payload: payload})
 	beforeNodes := compact.nodes.Len()
 	if _, err := compact.appendNode(nodeInput{
-		state: 2, byteOffset: 1, firstLink: uint32(len(compact.links)), linkCount: 1, pathCount: 1,
+		state: 2, byteOffset: 1, firstLink: uint32(compact.links.Len()), linkCount: 1, pathCount: 1,
 	}); err == nil || !strings.Contains(err.Error(), "invalid node id 2") {
 		t.Fatalf("raw publication error=%v", err)
 	}
@@ -63,15 +63,23 @@ func TestPopPathsRejectsCorruptedNonDecreasingEdgeWithoutVisitingMap(t *testing.
 		t.Fatal(err)
 	}
 	linkID := LinkID(node.firstLink)
-	original := compact.links[linkID-1].prev
-	compact.links[linkID-1].prev = head.Node
+	original := compact.links.At(int(linkID - 1)).prev
+	{
+		linkStorageMutation := compact.links.At(int(linkID - 1))
+		linkStorageMutation.prev = head.Node
+		compact.links.Set(int(linkID-1), linkStorageMutation)
+	}
 	if _, err := compact.popPaths(head.Node, 2); err == nil || !strings.Contains(err.Error(), "predecessor does not decrease") {
 		t.Fatalf("corrupt graph error=%v", err)
 	}
 	if compact.popScratch.busy || len(compact.popScratch.rev) != 0 || len(compact.popScratch.revScores) != 0 || len(compact.popScratch.revOrders) != 0 || len(compact.popScratch.trailing) != 0 || len(compact.popScratch.paths) != 0 {
 		t.Fatalf("failed graph traversal retained logical scratch: %+v", compact.popScratch)
 	}
-	compact.links[linkID-1].prev = original
+	{
+		linkStorageMutation := compact.links.At(int(linkID - 1))
+		linkStorageMutation.prev = original
+		compact.links.Set(int(linkID-1), linkStorageMutation)
+	}
 	if paths, err := compact.popPaths(head.Node, 2); err != nil || len(paths) != 2 {
 		t.Fatalf("clean retry paths=%+v err=%v", paths, err)
 	}

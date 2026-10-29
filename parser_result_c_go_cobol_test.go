@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -2183,5 +2184,213 @@ func TestNormalizeCobolProcedureTrailingParagraphHeader(t *testing.T) {
 				t.Fatalf("paragraph header children=%d error=%t", resultChildCount(got), got.HasError())
 			}
 		})
+	}
+}
+
+type cobolRetainedMissingFixture struct {
+	arena               *nodeArena
+	language            *Language
+	source              []byte
+	header, conjunction *Node
+	classWord, suffix   *Node
+	cicsEnd             uint32
+}
+
+func newCobolRetainedMissingFixture(t *testing.T) cobolRetainedMissingFixture {
+	t.Helper()
+	arena := acquireNodeArena(arenaClassFull)
+	t.Cleanup(arena.Release)
+	names := []string{"EOF", "if_header", "expr", "is_class", "qualified_word", "WORD", "AND", "_AND", "comment_entry"}
+	metadata := make([]SymbolMetadata, len(names))
+	for i, name := range names {
+		metadata[i] = SymbolMetadata{Name: name, Visible: i != 0 && i != 7, Named: i != 0 && i != 6 && i != 7}
+	}
+	language := &Language{Name: "cobol", SymbolNames: names, SymbolMetadata: metadata, FieldNames: []string{"", "x", "class", "condition"}}
+	source := []byte("       identification division.\n" +
+		"       program-id. a.\n" +
+		"       procedure division.\n" +
+		"      * Procedure comment\n" +
+		"           MOVE SPACES TO ABEND-REASON\n" +
+		"           COPY CABENDPO.\n" +
+		"           IF BANK-MAP-FUNCTION-GET\n" +
+		"              EXEC CICS LINK PROGRAM(X)\n")
+	conditionStart := uint32(strings.Index(string(source), "BANK-MAP-FUNCTION-GET"))
+	execStart := uint32(strings.Index(string(source), "EXEC"))
+	cicsStart := uint32(strings.Index(string(source), "CICS"))
+	cicsEnd := cicsStart + 4
+	linkStart := uint32(strings.Index(string(source), "LINK"))
+	if len(source) != 248 || conditionStart != 186 || execStart != 222 || cicsStart != 227 || linkStart != 232 {
+		t.Fatal("positive fixture no longer matches the actual failing trace")
+	}
+	leaf := func(symbol Symbol, start, end uint32) *Node {
+		return newLeafNodeInArena(arena, symbol, symbolIsNamed(language, symbol), start, end,
+			advancePointByBytes(Point{}, source[:start]), advancePointByBytes(Point{}, source[:end]))
+	}
+	condition := leaf(4, conditionStart, conditionStart+uint32(len("BANK-MAP-FUNCTION-GET")))
+	word := leaf(5, execStart, execStart+uint32(len("EXEC")))
+	class := newParentNodeInArenaNoLinksWithFieldSources(arena, 3, true, []*Node{condition, word}, nil, nil, 0, false)
+	prefix := newParentNodeInArenaNoLinksWithFieldSources(arena, 2, true, []*Node{class}, nil, nil, 0, false)
+	conjunction := leaf(6, cicsStart, cicsStart)
+	conjunction.setHasError(true)
+	hidden := leaf(7, cicsStart, cicsStart)
+	hidden.setMissing(true)
+	hidden.setHasError(true)
+	parser := &Parser{language: language}
+	conjunction.rawShape = parser.captureRawShape(nil, arena, 6, 0, []stackEntry{newStackEntryNode(0, hidden)}, 0, 1)
+	cicsWord := leaf(4, cicsStart, cicsEnd)
+	linkWord := leaf(5, linkStart, linkStart+4)
+	suffixClass := newParentNodeInArenaNoLinksWithFieldSources(arena, 3, true, []*Node{cicsWord, linkWord}, nil, nil, 0, false)
+	suffix := newParentNodeInArenaNoLinksWithFieldSources(arena, 2, true, []*Node{suffixClass}, nil, nil, 0, false)
+	expr := newParentNodeInArenaNoLinksWithFieldSources(arena, 2, true, []*Node{prefix, conjunction, suffix}, nil, nil, 0, false)
+	expr.setHasError(true)
+	header := newParentNodeInArenaNoLinksWithFieldSources(arena, 1, true, []*Node{expr}, nil, nil, 0, false)
+	header.startByte = uint32(strings.Index(string(source), "IF"))
+	header.startPoint = advancePointByBytes(Point{}, source[:header.startByte])
+	header.setHasError(true)
+	return cobolRetainedMissingFixture{arena, language, source, header, conjunction, word, suffix, cicsEnd}
+}
+
+func TestCobolRetainedMissingClassHeaderRepairAndIdempotence(t *testing.T) {
+	f := newCobolRetainedMissingFixture(t)
+	if !cobolRetainedMissingExecCICSClassHeader(f.header, f.source, f.language) {
+		t.Fatal("genuine hidden-MISSING conjunction did not certify the exact source-backed class header")
+	}
+	beforeFlags := f.header.flags
+	if !normalizeCobolIfHeaderExecCICSClassError(f.header, f.source, f.language) {
+		t.Fatal("certified class repair declined")
+	}
+	expr := resultChildAt(f.header, 0)
+	if resultChildCount(f.header) != 1 || expr.Type(f.language) != "expr" || resultChildCount(expr) != 1 {
+		t.Fatal("class repair lost the one-expression/one-class geometry")
+	}
+	class := resultChildAt(expr, 0)
+	if class.Type(f.language) != "is_class" || resultChildCount(class) != 3 || !resultChildAt(class, 1).IsError() || !resultChildAt(class, 1).IsExtra() {
+		t.Fatal("class repair did not retain the C-matching extra EXEC error")
+	}
+	if !f.header.HasError() || !expr.HasError() || !class.HasError() || f.header.endByte != f.cicsEnd {
+		t.Fatal("class repair cleared genuine error evidence or lost CICS bounds")
+	}
+	if f.header.FieldNameForChild(0, f.language) != "condition" || class.FieldNameForChild(0, f.language) != "x" || class.FieldNameForChild(2, f.language) != "class" {
+		t.Fatal("class repair lost declared field geometry")
+	}
+	if beforeFlags&nodeFlagHasError == 0 {
+		t.Fatal("positive control did not start with the retained error flag")
+	}
+	before := f.header.SExpr(f.language)
+	for repeat := 0; repeat < 3; repeat++ {
+		if normalizeCobolIfHeaderExecCICSClassError(f.header, f.source, f.language) || resultChildAt(f.header, 0) != expr || f.header.SExpr(f.language) != before || !f.header.HasError() {
+			t.Fatal("canonical public ERROR shape was rebuilt or changed")
+		}
+	}
+}
+
+func TestCobolRetainedMissingClassHeaderSurvivesTailCollapse(t *testing.T) {
+	f := newCobolRetainedMissingFixture(t)
+	tail := newParentNodeInArena(f.arena, errorSymbol, true, []*Node{f.header}, nil, 0)
+	for repeat := 0; repeat < 3; repeat++ {
+		normalizeCobolRecoveredTailErrorChildren(tail, f.source, f.language)
+		if resultChildCount(tail) != 1 || resultChildAt(tail, 0) != f.header || !f.header.HasError() || !tail.HasError() {
+			t.Fatal("certified source-backed header became a comment marker or lost its error")
+		}
+	}
+}
+
+func TestCobolRetainedMissingClassHeaderRejectsUnprovenAndRealErrors(t *testing.T) {
+	for _, name := range []string{"raw-proof-absent", "public-error", "public-missing", "unknown-header", "unknown-expr-shape", "nonzero-conjunction", "stale-conjunction-flag", "wrong-EXEC-word-span", "wrong-CICS-operand-span", "wrong-source"} {
+		t.Run(name, func(t *testing.T) {
+			f := newCobolRetainedMissingFixture(t)
+			switch name {
+			case "raw-proof-absent":
+				f.conjunction.rawShape = 0
+			case "public-error":
+				child := newLeafNodeInArena(f.arena, errorSymbol, true, f.suffix.startByte, f.cicsEnd, f.suffix.startPoint, advancePointByBytes(Point{}, f.source[:f.cicsEnd]))
+				child.setHasError(true)
+				cics := resultChildAt(resultChildAt(f.suffix, 0), 0)
+				cics.children = []*Node{child}
+				cics.setHasError(true)
+				f.suffix.setHasError(true)
+			case "public-missing":
+				child := resultChildAt(f.suffix, 0)
+				child.setMissing(true)
+				child.setHasError(true)
+			case "unknown-header":
+				f.header.symbol = 8
+			case "unknown-expr-shape":
+				expr := resultChildAt(f.header, 0)
+				expr.children = expr.children[:2]
+			case "nonzero-conjunction":
+				f.conjunction.endByte++
+			case "stale-conjunction-flag":
+				f.conjunction.setHasError(false)
+			case "wrong-EXEC-word-span":
+				f.classWord.endByte--
+			case "wrong-CICS-operand-span":
+				resultChildAt(resultChildAt(f.suffix, 0), 0).endByte--
+			case "wrong-source":
+				at := strings.Index(string(f.source), "EXEC")
+				f.source[at] = 'Z'
+			}
+			before, first := f.header.SExpr(f.language), resultChildAt(f.header, 0)
+			if cobolRetainedMissingExecCICSClassHeader(f.header, f.source, f.language) || normalizeCobolIfHeaderExecCICSClassError(f.header, f.source, f.language) {
+				t.Fatal("unknown or genuinely erroneous header was admitted")
+			}
+			if f.header.SExpr(f.language) != before || resultChildAt(f.header, 0) != first || !f.header.HasError() {
+				t.Fatal("declined header changed its public shape or retained error")
+			}
+		})
+	}
+}
+
+func TestCobolRetainedMissingClassHeaderKeepsRealErrorTailExclusion(t *testing.T) {
+	f := newCobolRetainedMissingFixture(t)
+	child := newLeafNodeInArena(f.arena, errorSymbol, true, f.suffix.startByte, f.cicsEnd, f.suffix.startPoint, advancePointByBytes(Point{}, f.source[:f.cicsEnd]))
+	child.setHasError(true)
+	cics := resultChildAt(resultChildAt(f.suffix, 0), 0)
+	cics.children = []*Node{child}
+	cics.setHasError(true)
+	f.suffix.setHasError(true)
+	tail := newParentNodeInArena(f.arena, errorSymbol, true, []*Node{f.header}, nil, 0)
+	normalizeCobolRecoveredTailErrorChildren(tail, f.source, f.language)
+	for i := 0; i < resultChildCount(tail); i++ {
+		if resultChildAt(tail, i) == f.header {
+			t.Fatal("real public ERROR escaped the existing tail collapse")
+		}
+	}
+	if !tail.HasError() || !f.header.HasError() {
+		t.Fatal("real-error exclusion erased error truth")
+	}
+}
+
+func TestCobolRetainedMissingClassHeaderAcceptsCICSOnlySuffix(t *testing.T) {
+	f := newCobolRetainedMissingFixture(t)
+	expr := resultChildAt(f.header, 0)
+	cics := resultChildAt(resultChildAt(f.suffix, 0), 0)
+	f.suffix.children = []*Node{cics}
+	f.suffix.endByte, f.suffix.endPoint = cics.endByte, cics.endPoint
+	expr.endByte, expr.endPoint = cics.endByte, cics.endPoint
+	f.header.endByte, f.header.endPoint = cics.endByte, cics.endPoint
+	if !cobolRetainedMissingExecCICSClassHeader(f.header, f.source, f.language) ||
+		!normalizeCobolIfHeaderExecCICSClassError(f.header, f.source, f.language) || !f.header.HasError() {
+		t.Fatal("observed CICS-only suffix did not preserve the class error repair")
+	}
+}
+
+func TestCobolRetainedMissingClassHeaderPrefixTrimKeepsCorrectGeometry(t *testing.T) {
+	f := newCobolRetainedMissingFixture(t)
+	if !cobolRetainedMissingExecCICSClassHeader(f.header, f.source, f.language) {
+		t.Fatal("untrimmed trace-proven header did not certify")
+	}
+	execEnd := f.classWord.endByte
+	cobolTrimNodeEndForRecovery(f.header, f.source, execEnd)
+	normalizeCobolRecoveredProcedurePrefixNode(f.header, f.source, f.language)
+	if f.header.endByte != execEnd || f.header.HasError() {
+		t.Fatal("existing prefix trim failed to remove the out-of-span missing conjunction")
+	}
+	if normalizeCobolIfHeaderExecCICSClassError(f.header, f.source, f.language) {
+		t.Fatal("class repair crossed the trimmed header boundary into the CICS error tail")
+	}
+	expr := resultChildAt(f.header, 0)
+	if resultChildCount(expr) != 1 || resultChildAt(expr, 0).Type(f.language) != "is_class" || resultChildCount(resultChildAt(expr, 0)) != 2 {
+		t.Fatal("prefix trim changed the retained condition/EXEC class geometry")
 	}
 }

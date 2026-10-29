@@ -1787,7 +1787,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 	if cleanSource && sourceNodePaths > uint64(c.limits.MaxLinksPerBoundary) {
 		scratch.pressureSeen = true
 	}
-	scratch.selectCleanChildren = len(paths) > 1 && cleanSource && (scratch.pressureSeen || ExternalLexerOwnershipProbeEnabled())
+	scratch.selectCleanChildren = len(paths) > 1 && cleanSource && (scratch.pressureSeen || c.schedulerFrame.ownedLexerRequestsActive || ExternalLexerOwnershipProbeEnabled())
 	for index := range paths {
 		if paths[index].recoveryDiscontinuity {
 			scratch.selectCleanChildren = false
@@ -1824,7 +1824,12 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 		if err != nil {
 			return nil, err
 		}
-		gotoState, err := c.tables.Goto(prev.state, act.Symbol)
+		prepared := c.preparedReductionGoto
+		c.preparedReductionGoto = preparedReductionGoto{}
+		gotoState := prepared.state
+		if prepared.previous != path.prev || prepared.boundary != boundary {
+			gotoState, err = c.tables.Goto(prev.state, act.Symbol)
+		}
 		if err != nil {
 			return nil, err
 		}

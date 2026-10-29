@@ -523,7 +523,7 @@ func TestSelectedStoreRejectsNonExtraSiblingRootAndRecoversLifecycle(t *testing.
 	if store, err := compact.BuildSelectedStore([]SubtreeID{other, root}, policy, []byte("x"), nil); err == nil || store != nil || !strings.Contains(err.Error(), "non-extra sibling root") {
 		t.Fatalf("non-extra sibling store=%v err=%v", store, err)
 	}
-	if got := selectedStoreRetainedBytes(cap(compact.selectedPool.records), cap(compact.selectedPool.children)); got > compact.limits.MaxSelectedBytes {
+	if got := selectedStoreRetainedBytes(cap(compact.selectedStoreOwner().backing.records), cap(compact.selectedStoreOwner().backing.children)); got > compact.limits.MaxSelectedBytes {
 		t.Fatalf("failed sibling lifecycle pooled=%d cap=%d", got, compact.limits.MaxSelectedBytes)
 	}
 	store, err := compact.BuildSelectedStore([]SubtreeID{root}, policy, []byte("x"), nil)
@@ -556,12 +556,12 @@ func TestSelectedStorePoolKeepsAtomicCappedBackingPair(t *testing.T) {
 				t.Fatal(err)
 			}
 			makeStore := func(c capacities) *SelectedStore {
-				return &SelectedStore{owner: compact, records: make([]SelectedNodeRecord, 0, c.records), children: make([]SelectedNodeID, 0, c.children)}
+				return &SelectedStore{owner: compact.selectedStoreOwner(), records: make([]SelectedNodeRecord, 0, c.records), children: make([]SelectedNodeID, 0, c.children)}
 			}
 			first, last := makeStore(order.first), makeStore(order.last)
 			first.Release()
 			last.Release()
-			pooled := compact.selectedPool
+			pooled := compact.selectedStoreOwner().backing
 			if got := selectedStoreRetainedBytes(cap(pooled.records), cap(pooled.children)); got > limit {
 				t.Fatalf("pooled pair retained=%d cap=%d", got, limit)
 			}
@@ -578,16 +578,16 @@ func TestSelectedStoreSiblingReleasesAreSynchronized(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	left := &SelectedStore{owner: compact, records: make([]SelectedNodeRecord, 0, 8), children: make([]SelectedNodeID, 0, 8)}
-	right := &SelectedStore{owner: compact, records: make([]SelectedNodeRecord, 0, 4), children: make([]SelectedNodeID, 0, 4)}
+	left := &SelectedStore{owner: compact.selectedStoreOwner(), records: make([]SelectedNodeRecord, 0, 8), children: make([]SelectedNodeID, 0, 8)}
+	right := &SelectedStore{owner: compact.selectedStoreOwner(), records: make([]SelectedNodeRecord, 0, 4), children: make([]SelectedNodeID, 0, 4)}
 	var wait sync.WaitGroup
 	wait.Add(2)
 	go func() { defer wait.Done(); left.Release() }()
 	go func() { defer wait.Done(); right.Release() }()
 	wait.Wait()
-	compact.selectedPoolMu.Lock()
-	retained := selectedStoreRetainedBytes(cap(compact.selectedPool.records), cap(compact.selectedPool.children))
-	compact.selectedPoolMu.Unlock()
+	compact.selectedStoreOwner().mu.Lock()
+	retained := selectedStoreRetainedBytes(cap(compact.selectedStoreOwner().backing.records), cap(compact.selectedStoreOwner().backing.children))
+	compact.selectedStoreOwner().mu.Unlock()
 	if retained > compact.limits.MaxSelectedBytes {
 		t.Fatalf("concurrent releases retained=%d cap=%d", retained, compact.limits.MaxSelectedBytes)
 	}
@@ -652,9 +652,9 @@ func TestSelectedStoreRealSnapshotsSurviveResetAndReleaseOrders(t *testing.T) {
 			if first.Root() != 0 || second.Root() != 0 || first.RetainedBytes() != 0 || second.RetainedBytes() != 0 {
 				t.Fatalf("released snapshots remained readable: first=%d/%d second=%d/%d", first.Root(), first.RetainedBytes(), second.Root(), second.RetainedBytes())
 			}
-			compact.selectedPoolMu.Lock()
-			retained := selectedStoreRetainedBytes(cap(compact.selectedPool.records), cap(compact.selectedPool.children))
-			compact.selectedPoolMu.Unlock()
+			compact.selectedStoreOwner().mu.Lock()
+			retained := selectedStoreRetainedBytes(cap(compact.selectedStoreOwner().backing.records), cap(compact.selectedStoreOwner().backing.children))
+			compact.selectedStoreOwner().mu.Unlock()
 			if retained > compact.limits.MaxSelectedBytes {
 				t.Fatalf("pooled real snapshot backing=%d cap=%d", retained, compact.limits.MaxSelectedBytes)
 			}
@@ -676,7 +676,7 @@ func TestSelectedStoreRootGrowthCopyPollsCancellation(t *testing.T) {
 	}
 	realID := SelectedNodeID(len(records))
 	records[realID-1] = SelectedNodeRecord{Symbol: 2, ChildCount: childCount}
-	store := &SelectedStore{owner: compact, records: records, children: children}
+	store := &SelectedStore{owner: compact.selectedStoreOwner(), records: records, children: children}
 	defer store.Release()
 	roots := make([]SelectedNodeID, 0, childCount+1)
 	for index := 0; index < childCount; index++ {

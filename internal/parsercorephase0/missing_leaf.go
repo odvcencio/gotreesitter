@@ -249,10 +249,10 @@ func (c *Core) UniqueStateSpine(head Head, maxDepth int) ([]StateID, bool, error
 			return nil, false, nil
 		}
 		linkID := LinkID(node.firstLink)
-		if linkID == 0 || uint64(linkID) > uint64(len(c.links)) {
+		if linkID == 0 || uint64(linkID) > uint64(c.links.Len()) {
 			return nil, false, errors.New("parser-core phase zero: state spine adjacency is out of range")
 		}
-		link := c.links[linkID-1]
+		link := c.links.At(int(linkID - 1))
 		if err := link.validateShape(); err != nil {
 			return nil, false, err
 		}

@@ -2,10 +2,18 @@
 
 package grammarruntime
 
-func init() {
-	registerTokenSourceFactory("authzed", NewAuthzedTokenSourceOrEOF)
-	registerTokenSourceFactory("c", NewCTokenSourceOrEOF)
-	registerTokenSourceFactory("cpp", NewCTokenSourceOrEOF)
+import "sync"
+
+var builtinTokenSourceFactoriesOnce sync.Once
+
+func ensureBuiltinTokenSourceFactories() {
+	builtinTokenSourceFactoriesOnce.Do(registerBuiltinTokenSourceFactories)
+}
+
+func registerBuiltinTokenSourceFactories() {
+	registerBuiltinTokenSourceFactory("authzed", NewAuthzedTokenSourceOrEOF)
+	registerBuiltinTokenSourceFactory("c", NewCTokenSourceOrEOF)
+	registerBuiltinTokenSourceFactory("cpp", NewCTokenSourceOrEOF)
 	// Go ships as a grammargen-compiled blob and parses via its baked-in DFA
 	// lexer by default. GoTokenSource (wrapping go/scanner) was evaluated as
 	// the default here to fix the DFA lexer's context-free ASI approximation
@@ -46,7 +54,7 @@ func init() {
 	// sort_slices_benchmark_test.go) — see the "go" case comment in
 	// parser_retry.go for the full ledger and the measured perf cost of the
 	// unconditional cap=8 on large real files.
-	registerTokenSourceFactory("java", NewJavaTokenSourceOrEOF)
+	registerBuiltinTokenSourceFactory("java", NewJavaTokenSourceOrEOF)
 	// Lua now parses via the blob's DFA lexer plus LuaExternalScanner (a
 	// line-faithful port of upstream scanner.c), which matches the C oracle
 	// where the hand-tuned LuaTokenSource diverged (7/40 corpus parity).

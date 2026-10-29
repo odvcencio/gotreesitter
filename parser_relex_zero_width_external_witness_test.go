@@ -1294,3 +1294,145 @@ func TestPaddingProbePreservesPointsAcrossNewlines(t *testing.T) {
 		t.Fatalf("probe=%+v valid=%t, want padding 6..10 at 0:6..1:2", got, ok)
 	}
 }
+
+type statelessFailedNoReadScanner struct {
+	perlNonassocZeroWidthExternalScanner
+}
+
+func (statelessFailedNoReadScanner) ExternalScannerIsStateless() bool      { return true }
+func (statelessFailedNoReadScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+
+func TestProbeFailedStatelessNoReadPreservesReadHistory(t *testing.T) {
+	lang := perlNonassocWitnessLanguage()
+	lang.ExternalScanner = statelessFailedNoReadScanner{}
+	p := NewParser(lang)
+	source := []byte("ax")
+	d := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+	defer d.Close()
+	d.lexer.reuseReads = incr.NewReads(len(source))
+	d.lexer.reuseReads.Record(0, 1)
+	tok := Token{Symbol: 1, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+	if _, _, ok := d.probeZeroWidthExternalTokenForLexState(source, 0, tok); ok {
+		t.Fatal("failed scanner accepted")
+	}
+	d.lexer.reuseReads.Seal()
+	if count, known := d.lexer.reuseReads.LeafLookahead(1); !known || count != 0 {
+		t.Fatalf("history=(%d,%t), want (0,true)", count, known)
+	}
+}
+
+type uncertifiedFailedNoReadScanner struct {
+	perlNonassocZeroWidthExternalScanner
+}
+
+func (uncertifiedFailedNoReadScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+
+type statelessFailedReadScanner struct{ statelessFailedNoReadScanner }
+
+func (statelessFailedReadScanner) Scan(_ any, l *ExternalLexer, _ []bool) bool {
+	_ = l.Lookahead()
+	return false
+}
+
+type statelessFailedColumnScanner struct{ statelessFailedNoReadScanner }
+
+func (statelessFailedColumnScanner) Scan(_ any, l *ExternalLexer, _ []bool) bool {
+	_ = l.Column()
+	return false
+}
+
+type statelessFailedPreviousScanner struct{ statelessFailedNoReadScanner }
+
+func (statelessFailedPreviousScanner) Scan(_ any, l *ExternalLexer, _ []bool) bool {
+	_ = l.Previous()
+	return false
+}
+
+func TestProbeFailedNoReadCapabilityBoundaries(t *testing.T) {
+	cases := []struct {
+		name    string
+		scanner ExternalScanner
+		valid   bool
+	}{
+		{"certified", statelessFailedNoReadScanner{}, true},
+		{"uncertified", uncertifiedFailedNoReadScanner{}, false},
+		{"read", statelessFailedReadScanner{}, true},
+		{"column", statelessFailedColumnScanner{}, false},
+		{"previous", statelessFailedPreviousScanner{}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := perlNonassocWitnessLanguage()
+			lang.ExternalScanner = tc.scanner
+			p := NewParser(lang)
+			source := []byte("ax")
+			d := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+			defer d.Close()
+			d.lexer.reuseReads = incr.NewReads(len(source))
+			d.lexer.reuseReads.Record(0, 1)
+			tok := Token{Symbol: 1, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+			if _, _, ok := d.probeZeroWidthExternalTokenForLexState(source, 0, tok); ok {
+				t.Fatal("failed scanner accepted")
+			}
+			d.lexer.reuseReads.Seal()
+			if got := d.lexer.reuseReads.ValidForSource(len(source)); got != tc.valid {
+				t.Fatalf("valid=%t want=%t", got, tc.valid)
+			}
+		})
+	}
+}
+
+type statelessFailedNoObserverScanner struct{ statelessFailedNoReadScanner }
+
+func (statelessFailedNoObserverScanner) Scan(_ any, l *ExternalLexer, _ []bool) bool {
+	l.readFrontier = nil
+	return false
+}
+
+type statefulFailedMutatingScanner struct {
+	perlNonassocZeroWidthExternalScanner
+}
+
+func (statefulFailedMutatingScanner) Scan(payload any, _ *ExternalLexer, _ []bool) bool {
+	if n, ok := payload.(*int); ok {
+		*n++
+	}
+	return false
+}
+
+func TestProbeFailedNoReadUnknownObserverAndState(t *testing.T) {
+	cases := []struct {
+		name     string
+		scanner  ExternalScanner
+		stateful bool
+	}{
+		{"missing observer", statelessFailedNoObserverScanner{}, false},
+		{"uncertified state mutation", statefulFailedMutatingScanner{}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := perlNonassocWitnessLanguage()
+			lang.ExternalScanner = tc.scanner
+			p := NewParser(lang)
+			source := []byte("ax")
+			d := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+			defer d.Close()
+			d.lexer.reuseReads = incr.NewReads(len(source))
+			d.lexer.reuseReads.Record(0, 1)
+			if tc.stateful {
+				*d.externalPayload.(*int) = 7
+			}
+			tok := Token{Symbol: 1, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+			if _, _, ok := d.probeZeroWidthExternalTokenForLexState(source, 0, tok); ok {
+				t.Fatal("failed scanner accepted")
+			}
+			if tc.stateful && *d.externalPayload.(*int) != 7 {
+				t.Fatal("scanner state was not restored")
+			}
+			d.lexer.reuseReads.Seal()
+			if d.lexer.reuseReads.ValidForSource(len(source)) {
+				t.Fatal("unknown no-read proof admitted")
+			}
+		})
+	}
+}

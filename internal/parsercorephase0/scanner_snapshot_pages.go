@@ -28,8 +28,10 @@ type scannerSnapshotPage32[T any] struct {
 // pointers keep older pages alive; obsolete pages can be collected immediately.
 // Reset drops the current pages, so stale pointers always retain their old data.
 type ScannerSnapshotPages[T any] struct {
-	small     *scannerSnapshotPage32[T]
-	smallNext uint8
+	small      *scannerSnapshotPage32[T]
+	smallNext  uint8
+	packed     *scannerSnapshotPackedPage32[T]
+	packedNext uint8
 }
 
 func (p *ScannerSnapshotPages[T]) Reset() {
@@ -47,6 +49,9 @@ func (p *ScannerSnapshotPages[T]) CurrentStorage() (*ScannerSnapshotStorage, *Sc
 	var small, wide *ScannerSnapshotStorage
 	if p.small != nil {
 		small = &p.small.storage
+	}
+	if p.packed != nil {
+		wide = &p.packed.storage
 	}
 	return small, wide
 }

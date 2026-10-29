@@ -29,7 +29,35 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 	}
 
 	defer c.finishSelectedBuildScratch()
-	store := c.acquireSelectedStore(0, 0)
+	var reserve int
+	if policy.transientProjection {
+		reserve = policy.projectionCapacityHint
+		if reserve == 0 {
+			// Estimate potential public records from existing raw headers. This
+			// avoids a replay walk merely to size the temporary construction plan.
+			for index := range c.subtrees.Len() {
+				record := c.subtrees.At(index)
+				meta, ok := policy.symbol(record.symbol)
+				if record.terminal || record.extra || ok && meta.Visible {
+					reserve++
+				}
+				if index&255 == 0 {
+					if err := poll(); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if uint64(reserve) > uint64(c.limits.MaxSelectedOccurrences) {
+			reserve = int(c.limits.MaxSelectedOccurrences)
+		}
+		// This is a capacity hint, not a bound on expanded occurrences. Shared
+		// payloads and retained aliases still use the checked growth path.
+		if selectedStoreRetainedBytesWithSources(reserve, reserve, reserve) > c.limits.MaxSelectedBytes {
+			reserve = 0
+		}
+	}
+	store := c.acquireSelectedStoreWithSources(reserve, reserve, policy.transientProjection)
 	sealed := false
 	defer func() {
 		if !sealed {
@@ -149,6 +177,10 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 				child := &store.records[childID-1]
 				rule := policy.unary(record.symbol, child.Symbol)
 				if !child.Extra() && (rule == SelectedUnaryPass || rule == SelectedUnaryRenameLeaf && child.ChildCount == 0) {
+					store.setPayloadSource(childID, SubtreeID(payloads[frameIndex]))
+					if record.fragile {
+						child.flags |= selectedNodeFlagFragile
+					}
 					if rule == SelectedUnaryPass && record.symbol != child.Symbol {
 						child.SupertypeMask |= policy.supertypeMask(record.symbol)
 					}
@@ -157,11 +189,11 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 					}
 					if rule == SelectedUnaryRenameLeaf {
 						child.Symbol = record.symbol
-						child.flags = selectedFlags(policy.Symbols[record.symbol], child.Extra(), child.External(), child.Terminal(), child.Missing(), child.HasError())
+						child.flags = selectedFlags(policy.Symbols[record.symbol], child.Extra(), child.External(), child.Terminal(), child.Missing(), child.HasError()) | child.flags&selectedNodeFlagFragile
 					}
 					if alias != 0 && !retainAliasChild {
 						child.Symbol = alias
-						child.flags = selectedFlags(meta, child.Extra(), child.External(), child.Terminal(), child.Missing(), child.HasError())
+						child.flags = selectedFlags(meta, child.Extra(), child.External(), child.Terminal(), child.Missing(), child.HasError()) | child.flags&selectedNodeFlagFragile
 					}
 					child.ProductionID = record.productionID
 					delta, err := checkedSelectedPrecedence(precedenceDeltas[childID-1], int32(record.dynamicPrecedence))
@@ -210,6 +242,9 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 				children := logical[logicalStart:]
 				store.children = append(store.children, children...)
 				flags := selectedFlags(meta, record.extra, record.external, record.terminal, record.missing, hasError)
+				if record.fragile {
+					flags |= selectedNodeFlagFragile
+				}
 				startByte, endByte := record.startByte, record.endByte
 				if len(children) != 0 {
 					firstChild := store.records[children[0]-1]
@@ -232,6 +267,7 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 					ChildCount: uint16(len(children)), flags: flags,
 				})
 				precedenceDeltas = append(precedenceDeltas, int32(record.dynamicPrecedence))
+				store.appendPayloadSource(SubtreeID(payloads[frameIndex]))
 				for childIndex, childID := range children {
 					store.records[childID-1].Parent = id
 					store.records[childID-1].ChildIndex = uint16(childIndex)
@@ -268,8 +304,10 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 	// charged to logical nodes, not hidden/collapsed raw occurrences. Keep the
 	// already-admitted child reserve until the final seal to avoid copying the
 	// edge arena twice when compatibility normalization removes children.
-	if err := rightSizeSelectedOnePassStore(store, len(store.records), cap(store.children), c.limits.MaxSelectedBytes, poll); err != nil {
-		return nil, err
+	if !policy.transientProjection {
+		if err := rightSizeSelectedOnePassStore(store, len(store.records), cap(store.children), c.limits.MaxSelectedBytes, poll); err != nil {
+			return nil, err
+		}
 	}
 	if err := store.finishRoots(rootIDs, policy, precedenceDeltas, c.limits.MaxSelectedBytes, poll); err != nil {
 		return nil, err
@@ -283,8 +321,10 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 	if err := store.recomputePrecedence(precedenceDeltas); err != nil {
 		return nil, err
 	}
-	if err := rightSizeSelectedOnePassStore(store, len(store.records), len(store.children), c.limits.MaxSelectedBytes, poll); err != nil {
-		return nil, err
+	if !policy.transientProjection {
+		if err := rightSizeSelectedOnePassStore(store, len(store.records), len(store.children), c.limits.MaxSelectedBytes, poll); err != nil {
+			return nil, err
+		}
 	}
 	if err := poll(); err != nil {
 		return nil, err
@@ -302,11 +342,11 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 func ensureSelectedOnePassCapacity(store *SelectedStore, recordNeed, childNeed int, retainedCap uint64, poll func() error) error {
 	recordCapacity := selectedOnePassGrowth(cap(store.records), recordNeed)
 	childCapacity := selectedOnePassGrowth(cap(store.children), childNeed)
-	if selectedStoreRetainedBytes(recordCapacity, childCapacity) > retainedCap {
+	if store.retainedBytesForCapacity(recordCapacity, childCapacity) > retainedCap {
 		// Tight test/application caps may not admit the normal geometric reserve.
 		// Fall back to exactly the currently required pair before declining.
 		recordCapacity, childCapacity = max(cap(store.records), recordNeed), max(cap(store.children), childNeed)
-		if selectedStoreRetainedBytes(recordCapacity, childCapacity) > retainedCap {
+		if store.retainedBytesForCapacity(recordCapacity, childCapacity) > retainedCap {
 			return errors.New("parser-core phase zero: selected store retained-byte cap")
 		}
 	}
@@ -316,6 +356,13 @@ func ensureSelectedOnePassCapacity(store *SelectedStore, recordNeed, childNeed i
 			return err
 		}
 		store.records = records
+		if store.payloadSources != nil {
+			sources := make([]SubtreeID, len(store.payloadSources), recordCapacity)
+			if err := copySelectedStoreChunks(sources, store.payloadSources, poll); err != nil {
+				return err
+			}
+			store.payloadSources = sources
+		}
 	}
 	if childCapacity != cap(store.children) {
 		children := make([]SelectedNodeID, len(store.children), childCapacity)
@@ -343,7 +390,7 @@ func selectedOnePassGrowth(capacity, need int) int {
 
 func rightSizeSelectedOnePassStore(store *SelectedStore, recordCapacity, childCapacity int, retainedCap uint64, poll func() error) error {
 	if recordCapacity < len(store.records) || childCapacity < len(store.children) ||
-		selectedStoreRetainedBytes(recordCapacity, childCapacity) > retainedCap {
+		store.retainedBytesForCapacity(recordCapacity, childCapacity) > retainedCap {
 		return errors.New("parser-core phase zero: selected store retained-byte cap")
 	}
 	if cap(store.records) != recordCapacity {
@@ -352,6 +399,13 @@ func rightSizeSelectedOnePassStore(store *SelectedStore, recordCapacity, childCa
 			return err
 		}
 		store.records = records
+		if store.payloadSources != nil {
+			sources := make([]SubtreeID, len(store.payloadSources), recordCapacity)
+			if err := copySelectedStoreChunks(sources, store.payloadSources, poll); err != nil {
+				return err
+			}
+			store.payloadSources = sources
+		}
 	}
 	if cap(store.children) != childCapacity {
 		children := make([]SelectedNodeID, len(store.children), childCapacity)
