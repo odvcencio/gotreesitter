@@ -20,6 +20,8 @@ import sys
 import tempfile
 import urllib.request
 
+from w5_private_oracle import check_env, digest, identity_fields, source_fingerprints
+
 
 WORKLOADS = {"BenchmarkW5OneByte": "one_byte", "BenchmarkW5HundredByte": "hundred_byte", "BenchmarkW5Typing": "typing"}
 BACKENDS = ("GoA", "CA", "CB", "GoB")
@@ -422,8 +424,82 @@ def check_work_exemptions_history(root, base_revision):
         check_work_exemptions_shrink(json.loads(previous.stdout), read_json(root / path))
 
 
+# Private cache is an optional optimization. Strict source and counter checks
+# remain unchanged; all compiler/source/artifact checks fail closed.
+def clean_private_inputs(root):
+    status = subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--ignored"])
+    require(not status, "private oracle cache requires clean tracked, untracked and ignored source inputs")
+
+
+def oracle_inputs(root):
+    paths = subprocess.check_output(["git", "-C", str(root), "ls-files", "-z", "--", "cgo_harness/internal/coracle", "cgo_harness/parity_c_loader_cgo.go", "cgo_harness/editor_latency/editor_latency_test.go", "grammars/languages.lock", "internal/grammarpatch", "grammars/patches"]).decode().split("\0")
+    require(any(paths), "missing tracked oracle inputs")
+    return [root / p for p in paths if p]
+
+
+def prepare_private_oracle(root, common, directory, language, inputs, image, image_id):
+    check_env(os.environ)
+    directory.mkdir(); (directory / "cache").mkdir()
+    require(not list((directory / "cache").iterdir()), "private cache must start empty")
+    before = source_fingerprints(inputs)
+    command = "\n".join(["set -euo pipefail", campaign_go_environment(),
+        "unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK GTS_W5_PRIVATE_ORACLE_IDENTITY GTS_W5_PRIVATE_ORACLE_SHA256 GTS_W5_CC_PATH GTS_W5_CC_SHA256 GTS_W5_CXX_PATH GTS_W5_CXX_SHA256",
+        "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_PARITY_C_REF_BUILD_CACHE=/private/cache GTS_W5_PRIVATE_ORACLE_PREPARE=/private/cold.json",
+        f"export GTS_EDIT_LANGUAGE={shlex.quote(language)}", "cd /campaign/modules/head",
+        'compiler_receipt() { for name in cc c++; do path=$(command -v "$name"); printf \'%s %s\\n\' "$path" "$(sha256sum "$path" | cut -d\' \' -f1)"; done; }',
+        "compiler_receipt > /private/compiler.before",
+        "read -r GTS_W5_CC_PATH GTS_W5_CC_SHA256 < <(sed -n '1p' /private/compiler.before); read -r GTS_W5_CXX_PATH GTS_W5_CXX_SHA256 < <(sed -n '2p' /private/compiler.before); export GTS_W5_CC_PATH GTS_W5_CC_SHA256 GTS_W5_CXX_PATH GTS_W5_CXX_SHA256",
+        "go test -tags treesitter_c_parity . -run '^$' -count=1 -timeout 15m",
+        "compiler_receipt > /private/compiler.after; cmp /private/compiler.before /private/compiler.after; cmp /private/environment.before /private/environment.after"])
+    run_checked(common + ["--mount", f"{directory}:/private", "--label", "w5-oracle-" + language, "--wall-timeout", "20m", "--", command])
+    require(source_fingerprints(inputs) == before, "oracle inputs changed during fresh build")
+    require(subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", image], text=True).strip() == image_id, "oracle Docker image changed")
+    cold = read_json(directory / "cold.json"); identity_fields(cold)
+    require(cold["language"] == language and cold["contract"] == "tree-sitter-c-v1", "cold identity mismatch")
+    artifacts = list((directory / "cache").iterdir())
+    require(len(artifacts) == 1 and digest(artifacts[0]) == cold["grammar_artifact_sha256"], "cold artifact mismatch")
+    compiler_bytes = (directory / "compiler.before").read_bytes()
+    require(compiler_bytes == (directory / "compiler.after").read_bytes(), "compiler changed during build")
+    compilers = [line.split() for line in compiler_bytes.decode().splitlines()]
+    require(len(compilers) == 2 and all(len(row) == 2 and Path(row[0]).is_absolute() and re.fullmatch(r"[0-9a-f]{64}", row[1]) for row in compilers), "compiler identity missing")
+    require(compilers[0][0] == cold["compiler_path"], "cold C compiler path mismatch")
+    build_env = (directory / "environment.before").read_text().strip()
+    require(re.fullmatch(r"[0-9a-f]{64}", build_env) and (directory / "environment.after").read_text().strip() == build_env, "compiler environment changed during build")
+    cold["grammar_artifact_path"] = "/private/cache/" + artifacts[0].name
+    write_json(directory / "identity.json", cold)
+    expected = {"sources":before, "artifact":digest(artifacts[0]), "identity":digest(directory / "identity.json"), "compilers":compilers, "build_env":build_env, "filename":artifacts[0].name, "image":image, "image_id":image_id}
+    verify_private_oracle(directory, inputs, expected)
+    return expected
+
+
+def verify_private_oracle(directory, inputs, expected):
+    check_env(os.environ)
+    require(subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", expected["image"]], text=True).strip() == expected["image_id"], "oracle Docker image changed")
+    require(source_fingerprints(inputs) == expected["sources"], "oracle source inputs changed")
+    artifacts = list((directory / "cache").iterdir())
+    require(len(artifacts) == 1 and artifacts[0].name == expected["filename"] and digest(artifacts[0]) == expected["artifact"], "private oracle cache changed")
+    require(digest(directory / "identity.json") == expected["identity"], "private oracle identity changed")
+    compiler_lines = [line.split() for line in (directory / "compiler.before").read_text().splitlines()]
+    require(compiler_lines == expected["compilers"] and (directory / "compiler.before").read_bytes() == (directory / "compiler.after").read_bytes(), "compiler receipt changed")
+    require((directory / "environment.before").read_text().strip() == expected["build_env"] and (directory / "environment.after").read_text().strip() == expected["build_env"], "compiler environment receipt changed")
+
+
+def private_worker_environment(expected):
+    return ("unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK GTS_W5_PRIVATE_ORACLE_PREPARE; "
+            "export GTS_PARITY_C_REF_BUILD_CACHE=/private/cache GTS_W5_PRIVATE_ORACLE_IDENTITY=/private/identity.json "
+            f"GTS_W5_PRIVATE_ORACLE_SHA256={expected['identity']} "
+            f"GTS_W5_CC_PATH={shlex.quote(expected['compilers'][0][0])} GTS_W5_CC_SHA256={expected['compilers'][0][1]} "
+            f"GTS_W5_CXX_PATH={shlex.quote(expected['compilers'][1][0])} GTS_W5_CXX_SHA256={expected['compilers'][1][1]} "
+            f"GTS_W5_BUILD_ENV_SHA256={expected['build_env']}")
+
+
 def campaign(root, base_revision, out, approved_receipt=None):
     root = root.resolve(); out = out.resolve()
+    private_setting = os.environ.get("GTS_W5_PRIVATE_C_CACHE", "")
+    require(private_setting in ("", "1"), "invalid private C cache setting")
+    if private_setting:
+        check_env(os.environ)
+        clean_private_inputs(root)
     head_revision = git(root, "rev-parse", "HEAD")
     base_revision = git(root, "rev-parse", base_revision + "^{commit}")
     clean_revision(root, head_revision)
@@ -479,30 +555,52 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
     env["image_id"] = subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", env["image"]], text=True).strip()
     env["go_version"] = subprocess.check_output(["docker", "run", "--rm", env["image"], "go", "version"], text=True).strip()
     write_json(out / "environment.json", env)
-    with tempfile.TemporaryDirectory(prefix="gts-w5-base-") as scratch:
+    with tempfile.TemporaryDirectory(prefix="gts-w5-base-") as scratch, tempfile.TemporaryDirectory(prefix="gts-w5-oracle-") as private_scratch:
         base = Path(scratch) / "source"
         run_checked(["git", "-C", root, "worktree", "add", "--detach", base, base_revision])
         try:
+            if private_setting: clean_private_inputs(base)
             common = campaign_docker_command(root, base, out, cpu)
             env["docker_memory_limit"] = common[common.index("--memory") + 1]
             env["go_memory_limit"] = common[common.index("--gomemlimit") + 1]
             write_json(out / "environment.json", env)
+            private_receipts = {}
+            if private_setting:
+                setup = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1", "cd /campaign/modules/base; go mod tidy", "cd /campaign/modules/head; go mod tidy"])
+                run_checked(common + ["--label", "w5-oracle-setup", "--wall-timeout", "20m", "--", setup])
             for f in m["fixtures"]:
                 language = f["language"]
+                private_dir = Path(private_scratch) / language
+                private_inputs = oracle_inputs(root) + [out / "modules" / role / file for role in ("base", "head") for file in ("editor_latency_test.go", "go.mod", "go.sum")]
+                expected = prepare_private_oracle(root, common, private_dir, language, private_inputs, env["image"], env["image_id"]) if private_setting else None
+                if expected:
+                    private_receipts[language] = expected
+                    env.setdefault("private_oracles", {})[language] = expected
+                    write_json(out / "environment.json", env)
+                worker_common = common + (["--mount", f"{private_dir}:/private:ro"] if expected else [])
                 commands = ["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]
-                if exception:
+                if exception and not expected:
                     # Fresh pinned clone/build: do not trust a shared .so or a
                     # caller-provided source directory/extra grammar lock.
                     commands.append("unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK; export GTS_PARITY_C_REF_BUILD_CACHE=off")
+                if expected: commands.append(private_worker_environment(expected))
                 for role, revision in (("base", base_revision), ("head", head_revision)):
                     commands += [f"cd /campaign/modules/{role}", "go mod tidy", f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json go test -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m"]
                 with (out / ("correctness-" + language + ".log")).open("w") as log:
-                    run_checked(common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
+                    run_checked(worker_common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
+                if expected: verify_private_oracle(private_dir, private_inputs, expected)
                 print("W5 four-way correctness passed:", language, flush=True)
             compare_counters(out, manifest_path, base_revision, head_revision, exception)
             print("W5 deterministic counter gate passed before timing", flush=True)
             for f in m["fixtures"]:
                 language = f["language"]
+                private_dir = Path(private_scratch) / language
+                if private_setting:
+                    # Reload only identity from an in-memory parent receipt; never trust a worker-written manifest.
+                    expected = private_receipts[language]
+                    verify_private_oracle(private_dir, private_inputs, expected)
+                else: expected = None
+                worker_common = common + (["--mount", f"{private_dir}:/private:ro"] if expected else [])
                 env["samples"].append({"language": language, "before": load_sample()})
                 fragments = {role: [] for role in ("base", "head")}
                 rss_samples = []
@@ -511,11 +609,14 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                     for role in fragments:
                         fragments[role].append(out / "timing" / f"{prefix}-{role}.txt")
                     command = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}", "cd /campaign/modules/head", "/usr/bin/time -v bash /workspace/scripts/run_randomized_benchmarks.sh " + " ".join(shlex.quote(x) for x in ["--runs", "1", "--seed-start", str(seed), "--baseline-root", "/campaign/modules/base", "--baseline-output", f"/campaign/timing/{prefix}-base.txt", "--output", f"/campaign/timing/{prefix}-head.txt", "--tags", "treesitter_c_parity", "--bench-regex", "^BenchmarkW5(OneByte|HundredByte|Typing)$", "--require-benchmarks", ",".join(NAMES)])])
-                    if exception:
+                    if expected:
+                        command = private_worker_environment(expected) + "\n" + command
+                    elif exception:
                         command = "unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK; export GTS_PARITY_C_REF_BUILD_CACHE=off\n" + command
                     log_path = out / f"timing-{prefix}.log"
                     with log_path.open("w") as log:
-                        run_checked(common + ["--label", "w5-timing-" + prefix, "--wall-timeout", "90m", "--", command], stdout=log, stderr=subprocess.STDOUT)
+                        run_checked(worker_common + ["--label", "w5-timing-" + prefix, "--wall-timeout", "90m", "--", command], stdout=log, stderr=subprocess.STDOUT)
+                    if expected: verify_private_oracle(private_dir, private_inputs, expected)
                     rss = re.search(r"Maximum resident set size \(kbytes\): (\d+)", log_path.read_text())
                     require(rss is not None, "timing campaign omitted maximum RSS")
                     rss_samples.append(int(rss.group(1)))
@@ -528,9 +629,11 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                     run_checked([out / "tools/benchstat", out / "timing" / (language + "-base-per-edit.txt"), out / "timing" / (language + "-head-per-edit.txt")], stdout=comparison)
                 print("W5 paired 20-seed timing complete:", language, flush=True)
             clean_revision(base, base_revision)
+            if private_setting: clean_private_inputs(base)
         finally:
             run_checked(["git", "-C", root, "worktree", "remove", "--force", base])
     clean_revision(root, head_revision)
+    if private_setting: clean_private_inputs(root)
     if approved_receipt:
         require(validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) == exception, "W5 exception identity changed")
     env["finished"] = load_sample()

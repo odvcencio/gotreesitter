@@ -1193,8 +1193,14 @@ jobs:
       - name: Test editor-latency evidence and failure paths
         run: python3 scripts/test_editor_latency_gate.py
 
+      - name: Test private C-oracle cache
+        run: |
+          python3 scripts/test_w5_private_oracle.py
+          python3 scripts/test_w5_private_oracle_parent.py
+
       - name: Paired real-code editor latency
         env:
+          GTS_W5_PRIVATE_C_CACHE: "1"
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           # Forks cannot read the variable. Fetch the same public, pinned lock;
