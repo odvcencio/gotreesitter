@@ -28,18 +28,18 @@ const (
 
 // TestNightlyFuzzRouteWitnessesLockedC adjudicates the FuzzAdmissionRouteEquality
 // and FuzzJavaScriptAdmissionRouteEquality witnesses from the fuzz-nightly runs
-// of 2026-10-08 to 2026-10-13 against the locked C oracle.
+// of 2026-10-08 to 2026-10-13 and 2026-10-30 against the locked C oracle.
 //
 // Go "," (seed 0d6dbe8c80002ec6) finishes two compact recovery trees at the
 // same error cost. C keeps the earlier finished tree as the incumbent and takes
 // the later one on a tie, so it publishes (source_file (ERROR)). Both routes
 // must match C exactly. The second Go witness already matched C on both routes.
 //
-// On the two Haskell witnesses, the compact route matches C and production
+// On the three Haskell witnesses, the compact route matches C and production
 // does not: production's one-survivor merge drops the pattern-signature reading
 // that C keeps as a second link. Changing that needs a per-grammar merge
 // admission grant, so this test pins only the compact route for them and logs
-// the production difference.
+// the production difference. "a::0()0=0" is the 2026-10-30 witness (#1550).
 //
 // On the two JavaScript witnesses, locked C reports an error and production
 // reports none (#1519). When the lookahead cannot continue the stack but
@@ -59,6 +59,7 @@ func TestNightlyFuzzRouteWitnessesLockedC(t *testing.T) {
 		{"go_lone_comma", "go", ",", nightlyRouteExact, nightlyRouteExact},
 		{"go_unterminated_string", "go", "package main\n\nfunc main() {\"00000000000\n,", nightlyRouteExact, nightlyRouteExact},
 		{"haskell_signature_pattern", "haskell", "a::()0=0", nightlyRouteExact, nightlyRouteOpen},
+		{"haskell_signature_pattern_literal_apply", "haskell", "a::0()0=0", nightlyRouteExact, nightlyRouteOpen},
 		{"haskell_infix_pattern", "haskell", "m!0000000000000()00000000A00000000000000! 000000000000=0000000000\"00000\"", nightlyRouteExact, nightlyRouteOpen},
 		{"javascript_jsx_before_number", "javascript", "<A><A>AAAAA</A></A>0", nightlyRouteHasError, nightlyRouteOpen},
 		{"javascript_stray_unary_operator", "javascript", ";! ;A0", nightlyRouteExact, nightlyRouteOpen},
