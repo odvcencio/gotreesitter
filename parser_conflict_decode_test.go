@@ -209,7 +209,11 @@ func loadBlobForDecode(t *testing.T, name string) *Language {
 	if err != nil {
 		t.Skipf("blob %s not present: %v", name, err)
 	}
-	compressed, expectsTrailer, err := UnwrapLanguageBlobEnvelope(data)
+	enveloped, _, err := UnwrapLanguageBlobVersionHeader(data)
+	if err != nil {
+		t.Fatalf("%s: version header: %v", name, err)
+	}
+	compressed, expectsTrailer, err := UnwrapLanguageBlobEnvelope(enveloped)
 	if err != nil {
 		t.Fatalf("%s: envelope: %v", name, err)
 	}

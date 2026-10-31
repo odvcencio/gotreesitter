@@ -2692,8 +2692,8 @@ func TestReductionReturnsEveryDistinctGotoBoundary(t *testing.T) {
 }
 
 func TestCompactArenaRecordsRemainPointerFree(t *testing.T) {
-	if got := unsafe.Sizeof(ClassifiedBoundary{}); got > 56 {
-		t.Fatalf("ClassifiedBoundary size = %d, want <= 56", got)
+	if got := unsafe.Sizeof(ClassifiedBoundary{}); got > 48 {
+		t.Fatalf("ClassifiedBoundary size = %d, want <= 48", got)
 	}
 	for name, typ := range map[string]reflect.Type{
 		"node":                   reflect.TypeFor[nodeRecord](),
@@ -3065,7 +3065,11 @@ func TestCycleAndOverflowDeclineFailClosed(t *testing.T) {
 			t.Fatal(err)
 		}
 		n, _ := core.node(head.Node)
-		core.links[n.firstLink-1].prev = head.Node // adversarial arena corruption
+		{
+			linkStorageMutation := core.links.At(int(n.firstLink - 1))
+			linkStorageMutation.prev = head.Node
+			core.links.Set(int(n.firstLink-1), linkStorageMutation) // adversarial arena corruption
+		}
 		if _, err := core.Derivations(head); err == nil || !strings.Contains(err.Error(), "cycle") {
 			t.Fatalf("Derivations cycle error = %v", err)
 		}
@@ -3133,25 +3137,53 @@ func TestDerivationsDeepSinglePath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	core.links = make([]linkRecord, depth)
+	core.links = makeLinkRecordStorage(depth, depth)
 	core.subtrees = subtreeBlocksFromSliceForTest(make([]subtreeRecord, depth))
 	core.nodes.appendSliceForTest(make([]nodeRecord, depth))
 	core.nodeLineages = append(core.nodeLineages, make([]nodeLineageHot, depth)...)
 	for index := 0; index < depth; index++ {
 		linkID := LinkID(index + 1)
-		core.links[index] = linkRecord{
+		core.links.Set(int(index), linkRecord{
 			prev: NodeID(index + 1), payload: SubtreeID(index + 1),
-		}
+		})
 		*core.nodes.At(int(index + 1)) = nodeRecord{firstLink: uint32(linkID), linkCount: 1}
 		core.nodeLineages[index+1].flags = 1 << nodePathCountShift
 	}
-	core.links[0].scoreDelta = 2
-	core.links[depth/2].scoreDelta = -3
-	core.links[depth-1].scoreDelta = 5
-	core.links[0].flags = linkFlagHasOrder
-	core.links[0].order = 7
-	core.links[depth/2].flags = linkFlagHasOrder
-	core.links[depth/2].order = 9
+	{
+		linkStorageMutation := core.links.At(int(0))
+		linkStorageMutation.scoreDelta = 2
+		core.links.Set(int(0), linkStorageMutation)
+	}
+	{
+		linkStorageMutation := core.links.At(int(depth / 2))
+		linkStorageMutation.scoreDelta = -3
+		core.links.Set(int(depth/2), linkStorageMutation)
+	}
+	{
+		linkStorageMutation := core.links.At(int(depth - 1))
+		linkStorageMutation.scoreDelta = 5
+		core.links.Set(int(depth-1), linkStorageMutation)
+	}
+	{
+		linkStorageMutation := core.links.At(int(0))
+		linkStorageMutation.flags = linkFlagHasOrder
+		core.links.Set(int(0), linkStorageMutation)
+	}
+	{
+		linkStorageMutation := core.links.At(int(0))
+		linkStorageMutation.order = 7
+		core.links.Set(int(0), linkStorageMutation)
+	}
+	{
+		linkStorageMutation := core.links.At(int(depth / 2))
+		linkStorageMutation.flags = linkFlagHasOrder
+		core.links.Set(int(depth/2), linkStorageMutation)
+	}
+	{
+		linkStorageMutation := core.links.At(int(depth / 2))
+		linkStorageMutation.order = 9
+		core.links.Set(int(depth/2), linkStorageMutation)
+	}
 
 	paths, err := core.Derivations(Head{Node: seed.Node + depth})
 	if err != nil {

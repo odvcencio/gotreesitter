@@ -85,7 +85,7 @@ func TestRecoverEOFAcceptOwnedPublishesExactNonExtraRoot(t *testing.T) {
 		t.Fatalf("materialization order=%v, want %v", visited, wantVisited)
 	}
 	wantStorageDelta := coreSubtreeRecordBytes + uint64(len(fixture.payload))*coreChildRecordBytes +
-		2*coreNodeRecordBytes + coreLinkRecordBytes + coreSubtreeIDBytes
+		2*coreNodeRecordBytes + packedLinkRecordBytes + coreSubtreeIDBytes
 	if got := fixture.core.StorageBytes() - storageBefore; got != wantStorageDelta {
 		t.Fatalf("recover_eof storage delta=%d, want %d", got, wantStorageDelta)
 	}

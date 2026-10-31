@@ -76,6 +76,22 @@ func TestEditorLatencyHostedForkRunsPairedGate(t *testing.T) {
 	}
 }
 
+func TestEditorLatencyKeepsRawEvidenceLocal(t *testing.T) {
+	job := readGateWorkflow(t).Jobs["editor_latency"]
+	summary := false
+	for _, step := range job.Steps {
+		if strings.HasPrefix(step.Uses, "actions/upload-artifact@") {
+			t.Fatal("editor latency job must not upload raw evidence")
+		}
+		if strings.Contains(step.Run, "GITHUB_STEP_SUMMARY") {
+			summary = true
+		}
+	}
+	if !summary {
+		t.Fatal("editor latency job must retain its concise summary")
+	}
+}
+
 func TestSharedSkippedGapRequiredDockerSelectors(t *testing.T) {
 	wf := readGateWorkflow(t)
 	if !containsGate(wf.Jobs["build"].Needs, "parity-cgo") {

@@ -108,6 +108,7 @@ func assemble(
 	lexModeMapping []int,
 	lexModeOffsets []int,
 	afterWSModes []afterWSModeEntry,
+	errorModeIndex int,
 ) (*gotreesitter.Language, error) {
 	tokenCount := ng.TokenCount()
 	symbolCount := len(ng.Symbols)
@@ -194,6 +195,10 @@ func assemble(
 	err := buildParseTables(lang, tables, ng, tokenCount)
 	if err != nil {
 		return nil, fmt.Errorf("build parse tables: %w", err)
+	}
+	if errorModeIndex >= 0 && errorModeIndex < len(lexModeOffsets) {
+		lang.LexModes[0].SetLexStateIndex(uint32(lexModeOffsets[errorModeIndex]))
+		lang.LexModes[0].SetAfterWhitespaceLexStateIndex(0)
 	}
 	lang.ConflictPolicies = buildConflictPolicies(tables, ng)
 
@@ -410,13 +415,10 @@ func buildReservedWordTables(lang *gotreesitter.Language, ng *NormalizedGrammar)
 
 	serializedSets := map[string]uint16{"": 0}
 	uniqueSets := [][]gotreesitter.Symbol{{}}
-	wordSym := gotreesitter.Symbol(ng.WordSymbolID)
-
+	// State zero keeps C's special error-mode reservation policy. Every other
+	// state needs the explicit global set even when ordinary word/keyword
+	// actions are absent: error-mode fallback can still return the word token.
 	for state := 1; state < len(lang.LexModes); state++ {
-		if !stateNeedsReservedWords(lang, gotreesitter.StateID(state), wordSym, ng.KeywordSymbols) {
-			continue
-		}
-
 		reserved := make([]gotreesitter.Symbol, 0, len(base))
 		for _, sym := range base {
 			if lookupActionIndexForLanguage(lang, gotreesitter.StateID(state), sym) == 0 {
@@ -464,18 +466,6 @@ func buildReservedWordTables(lang *gotreesitter.Language, ng *NormalizedGrammar)
 	// ABI-15 surface (reserved words, supertype map, grammar metadata) has
 	// had a chance to populate — see stampABI15LanguageVersionIfNeeded.
 	return nil
-}
-
-func stateNeedsReservedWords(lang *gotreesitter.Language, state gotreesitter.StateID, wordSym gotreesitter.Symbol, keywordSymbols []int) bool {
-	if lookupActionIndexForLanguage(lang, state, wordSym) != 0 {
-		return true
-	}
-	for _, symID := range keywordSymbols {
-		if lookupActionIndexForLanguage(lang, state, gotreesitter.Symbol(symID)) != 0 {
-			return true
-		}
-	}
-	return false
 }
 
 func lookupActionIndexForLanguage(lang *gotreesitter.Language, state gotreesitter.StateID, sym gotreesitter.Symbol) uint16 {

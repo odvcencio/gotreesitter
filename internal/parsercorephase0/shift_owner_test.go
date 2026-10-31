@@ -40,7 +40,7 @@ func TestShiftOwnerMatchesSeparateOperations(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
-			if oldHead != newHead || !reflect.DeepEqual(before.nodes.snapshotForTest(), after.nodes.snapshotForTest()) || !reflect.DeepEqual(before.links, after.links) || !reflect.DeepEqual(before.subtrees.snapshotForTest(), after.subtrees.snapshotForTest()) || !reflect.DeepEqual(before.nodeLineages, after.nodeLineages) || !reflect.DeepEqual(captureSchedulerTransactionState(before), captureSchedulerTransactionState(after)) {
+			if oldHead != newHead || !reflect.DeepEqual(before.nodes.snapshotForTest(), after.nodes.snapshotForTest()) || !reflect.DeepEqual(before.links.Values(), after.links.Values()) || !reflect.DeepEqual(before.subtrees.snapshotForTest(), after.subtrees.snapshotForTest()) || !reflect.DeepEqual(before.nodeLineages, after.nodeLineages) || !reflect.DeepEqual(captureSchedulerTransactionState(before), captureSchedulerTransactionState(after)) {
 				t.Fatalf("fused shift changed state or work: old=%+v new=%+v oldwork=%+v newwork=%+v", oldHead, newHead, before.Work(), after.Work())
 			}
 			if after.nodeLineages[newHead.Node-1].owner != 7 {
@@ -197,7 +197,7 @@ func TestShiftOwnerScalarLineageMatchesSeparatePublication(t *testing.T) {
 				}
 				return err
 			})
-			if (oldErr == nil) != (newErr == nil) || oldHead != newHead || !reflect.DeepEqual(before.nodes.snapshotForTest(), after.nodes.snapshotForTest()) || !reflect.DeepEqual(before.links, after.links) || !reflect.DeepEqual(before.nodeLineages, after.nodeLineages) || !reflect.DeepEqual(before.nodeLineageRecovery, after.nodeLineageRecovery) || !reflect.DeepEqual(before.alternativeSpillArena, after.alternativeSpillArena) || !reflect.DeepEqual(captureSchedulerTransactionState(before), captureSchedulerTransactionState(after)) {
+			if (oldErr == nil) != (newErr == nil) || oldHead != newHead || !reflect.DeepEqual(before.nodes.snapshotForTest(), after.nodes.snapshotForTest()) || !reflect.DeepEqual(before.links.Values(), after.links.Values()) || !reflect.DeepEqual(before.nodeLineages, after.nodeLineages) || !reflect.DeepEqual(before.nodeLineageRecovery, after.nodeLineageRecovery) || !reflect.DeepEqual(before.alternativeSpillArena, after.alternativeSpillArena) || !reflect.DeepEqual(captureSchedulerTransactionState(before), captureSchedulerTransactionState(after)) {
 				t.Fatalf("case=%d fresh=%t olderr=%v newerr=%v oldwork=%+v newwork=%+v", i, fresh, oldErr, newErr, before.Work(), after.Work())
 			}
 		}

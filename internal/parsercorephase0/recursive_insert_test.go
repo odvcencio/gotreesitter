@@ -939,7 +939,7 @@ func TestRecursiveInsertCertifiedExternalRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	core.limits.MaxLinks = uint32(len(core.links) + 2)
+	core.limits.MaxLinks = uint32(core.links.Len() + 2)
 	if _, err := core.condense(fixture.key, linkInput{
 		prev: fixture.rightPrev.Node, payload: fixture.top,
 	}); err == nil || !strings.Contains(err.Error(), "link arena cap") {
@@ -969,7 +969,7 @@ func TestRecursiveInsertExactExternalRollback(t *testing.T) {
 	before, _ := core.Stats(fixture.oldTop)
 	beforeWork := core.Work()
 	beforePaths, _ := core.Derivations(fixture.oldTop)
-	core.limits.MaxLinks = uint32(len(core.links) + 2)
+	core.limits.MaxLinks = uint32(core.links.Len() + 2)
 	if _, err := core.condense(fixture.key, linkInput{
 		prev: fixture.rightPrev.Node, payload: fixture.top,
 	}); err == nil || !strings.Contains(err.Error(), "link arena cap") {
@@ -1012,7 +1012,7 @@ func TestRecursiveInsertDirectAndNestedRollback(t *testing.T) {
 		core := fixture.core
 		before, _ := core.Stats(fixture.oldTop)
 		beforeWork := core.Work()
-		core.limits.MaxLinks = uint32(len(core.links) + 2)
+		core.limits.MaxLinks = uint32(core.links.Len() + 2)
 		if _, err := core.condense(core.boundaryKey(8, 11), linkInput{prev: fixture.rightPrev.Node, payload: fixture.topPayload}); err == nil || !strings.Contains(err.Error(), "link arena cap") {
 			t.Fatalf("direct cap error=%v", err)
 		}

@@ -76,10 +76,10 @@ func (s *derivationSummaryScratch) appendNodeLinks(n nodeRecord) (int, int, erro
 				return 0, 0, errors.New("parser-core phase zero: adjacency cycle")
 			}
 		}
-		if uint64(id) > uint64(len(s.core.links)) {
+		if uint64(id) > uint64(s.core.links.Len()) {
 			return 0, 0, errors.New("parser-core phase zero: link adjacency out of range")
 		}
-		link := s.core.links[id-1]
+		link := s.core.links.At(int(id - 1))
 		if err := link.validateShape(); err != nil {
 			return 0, 0, err
 		}

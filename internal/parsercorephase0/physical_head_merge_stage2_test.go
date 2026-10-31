@@ -372,7 +372,7 @@ func TestStage2PhysicalHeadMergeNormalizesLiveScope(t *testing.T) {
 func TestStage2PhysicalHeadMergeRollsBackCapacityFailure(t *testing.T) {
 	compact, left, right, _, _ := newStage2PhysicalHeadPair(t)
 	compact.limits.MaxLinksPerBoundary = 1
-	beforeNodes, beforeLinks := compact.nodes.Len(), len(compact.links)
+	beforeNodes, beforeLinks := compact.nodes.Len(), compact.links.Len()
 	beforeBoundaries := compact.BoundaryIndexStats()
 	beforeWork := compact.Work()
 	err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
@@ -382,9 +382,9 @@ func TestStage2PhysicalHeadMergeRollsBackCapacityFailure(t *testing.T) {
 	if !errors.As(err, &capacityErr) {
 		t.Fatalf("physical-head merge error=%v, want LiveLinkCapacityError", err)
 	}
-	if compact.nodes.Len() != beforeNodes || len(compact.links) != beforeLinks || compact.BoundaryIndexStats() != beforeBoundaries {
+	if compact.nodes.Len() != beforeNodes || compact.links.Len() != beforeLinks || compact.BoundaryIndexStats() != beforeBoundaries {
 		t.Fatalf("failed physical-head merge changed storage: nodes=%d/%d links=%d/%d boundaries=%+v/%+v",
-			compact.nodes.Len(), beforeNodes, len(compact.links), beforeLinks, compact.BoundaryIndexStats(), beforeBoundaries)
+			compact.nodes.Len(), beforeNodes, compact.links.Len(), beforeLinks, compact.BoundaryIndexStats(), beforeBoundaries)
 	}
 	if after := compact.Work(); after != beforeWork {
 		t.Fatalf("failed physical-head merge changed telemetry: before=%+v after=%+v", beforeWork, after)
@@ -395,7 +395,7 @@ func TestStage2PhysicalHeadMergeRejectsRecoveryCost(t *testing.T) {
 	compact, left, right, _, _ := newStage2PhysicalHeadPair(t)
 	compact.mutateTestLineage(int(left.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 610 })
 	compact.mutateTestLineage(int(right.Node-1), func(r *nodeLineageRecord) { r.storedErrorCost = 610 })
-	beforeNodes, beforeLinks := compact.nodes.Len(), len(compact.links)
+	beforeNodes, beforeLinks := compact.nodes.Len(), compact.links.Len()
 	beforeBoundaries := compact.BoundaryIndexStats()
 	beforeWork := compact.Work()
 	err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
@@ -406,7 +406,7 @@ func TestStage2PhysicalHeadMergeRejectsRecoveryCost(t *testing.T) {
 	if err == nil || err.Error() != "parser-core phase zero: physical head merge requires zero error cost" {
 		t.Fatalf("recovery-cost merge error=%v", err)
 	}
-	if compact.nodes.Len() != beforeNodes || len(compact.links) != beforeLinks ||
+	if compact.nodes.Len() != beforeNodes || compact.links.Len() != beforeLinks ||
 		compact.BoundaryIndexStats() != beforeBoundaries || compact.Work() != beforeWork {
 		t.Fatal("recovery-cost rejection changed compact state")
 	}
@@ -489,14 +489,14 @@ func TestStage2PhysicalHeadMergePreservesCandidateOwnership(t *testing.T) {
 
 func TestStage2PhysicalHeadMergeRequiresSchedulerTransaction(t *testing.T) {
 	compact, left, right, _, _ := newStage2PhysicalHeadPair(t)
-	beforeNodes, beforeLinks := compact.nodes.Len(), len(compact.links)
+	beforeNodes, beforeLinks := compact.nodes.Len(), compact.links.Len()
 	beforeBoundaries := compact.BoundaryIndexStats()
 	beforeWork := compact.Work()
 	err := compact.enterLiveCondenseCandidates([]CondenseCandidate{{Head: left}, {Head: right}})
 	if err == nil || err.Error() != "parser-core phase zero: live condense candidate scope requires a scheduler transaction" {
 		t.Fatalf("unowned live merge error=%v", err)
 	}
-	if compact.nodes.Len() != beforeNodes || len(compact.links) != beforeLinks ||
+	if compact.nodes.Len() != beforeNodes || compact.links.Len() != beforeLinks ||
 		compact.BoundaryIndexStats() != beforeBoundaries || compact.Work() != beforeWork ||
 		compact.condenseScopeActive || len(compact.condenseCandidates) != 0 {
 		t.Fatal("unowned live merge changed compact state")

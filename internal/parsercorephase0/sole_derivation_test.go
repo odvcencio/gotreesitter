@@ -21,8 +21,8 @@ func appendSoleDerivationNode(c *Core, count uint64, links ...linkRecord) Head {
 	var first LinkID
 	for _, link := range links {
 		link.next = first
-		c.links = append(c.links, link)
-		first = LinkID(len(c.links))
+		c.links.AppendValues(link)
+		first = LinkID(c.links.Len())
 	}
 	c.nodes.Append(nodeRecord{firstLink: uint32(first), linkCount: uint32(len(links))}, math.MaxUint32)
 	c.nodeLineages = append(c.nodeLineages, nodeLineageHot{flags: c.appendNodePathCount(NodeID(c.nodes.Len()), count)})
@@ -210,7 +210,11 @@ func TestSoleDerivationValidControls(t *testing.T) {
 					setNodePathCountForTest(c, NodeID((head.Node-1)+1), math.MaxUint64)
 				}
 				if name == "ambiguous_payload_id_is_not_dereferenced" {
-					c.links[(*c.nodes.At(int(head.Node - 1))).firstLink-1].payload = math.MaxUint32
+					{
+						linkStorageMutation := c.links.At(int((*c.nodes.At(int(head.Node - 1))).firstLink - 1))
+						linkStorageMutation.payload = math.MaxUint32
+						c.links.Set(int((*c.nodes.At(int(head.Node - 1))).firstLink-1), linkStorageMutation)
+					}
 				}
 			}
 			_, sole, err := compareSoleDerivation(t, c, head)
@@ -229,16 +233,28 @@ func TestSoleDerivationPreservesValidationErrors(t *testing.T) {
 	}{
 		{"invalid_head", func(c *Core, head Head) Head { return Head{} }, "invalid node id 0"},
 		{"invalid_predecessor", func(c *Core, head Head) Head {
-			c.links[(*c.nodes.At(int(head.Node - 1))).firstLink-1].prev = 999
+			{
+				linkStorageMutation := c.links.At(int((*c.nodes.At(int(head.Node - 1))).firstLink - 1))
+				linkStorageMutation.prev = 999
+				c.links.Set(int((*c.nodes.At(int(head.Node - 1))).firstLink-1), linkStorageMutation)
+			}
 			return head
 		}, "invalid node id 999"},
 		{"graph_cycle", func(c *Core, head Head) Head {
-			c.links[(*c.nodes.At(int(2))).firstLink-1].prev = 3
+			{
+				linkStorageMutation := c.links.At(int((*c.nodes.At(int(2))).firstLink - 1))
+				linkStorageMutation.prev = 3
+				c.links.Set(int((*c.nodes.At(int(2))).firstLink-1), linkStorageMutation)
+			}
 			return head
 		}, "graph cycle"},
 		{"adjacency_cycle", func(c *Core, head Head) Head {
 			first := (*c.nodes.At(int(head.Node - 1))).firstLink
-			c.links[first-1].next = LinkID(first)
+			{
+				linkStorageMutation := c.links.At(int(first - 1))
+				linkStorageMutation.next = LinkID(first)
+				c.links.Set(int(first-1), linkStorageMutation)
+			}
 			return head
 		}, "adjacency cycle"},
 		{"adjacency_out_of_range", func(c *Core, head Head) Head {
@@ -254,15 +270,27 @@ func TestSoleDerivationPreservesValidationErrors(t *testing.T) {
 			return head
 		}, "adjacency exceeds recorded link count"},
 		{"unknown_flags", func(c *Core, head Head) Head {
-			c.links[(*c.nodes.At(int(head.Node - 1))).firstLink-1].flags = math.MaxUint32
+			{
+				linkStorageMutation := c.links.At(int((*c.nodes.At(int(head.Node - 1))).firstLink - 1))
+				linkStorageMutation.flags = math.MaxUint32
+				c.links.Set(int((*c.nodes.At(int(head.Node - 1))).firstLink-1), linkStorageMutation)
+			}
 			return head
 		}, "link has unknown flags"},
 		{"ordinary_link_without_payload", func(c *Core, head Head) Head {
-			c.links[(*c.nodes.At(int(head.Node - 1))).firstLink-1].payload = 0
+			{
+				linkStorageMutation := c.links.At(int((*c.nodes.At(int(head.Node - 1))).firstLink - 1))
+				linkStorageMutation.payload = 0
+				c.links.Set(int((*c.nodes.At(int(head.Node - 1))).firstLink-1), linkStorageMutation)
+			}
 			return head
 		}, "ordinary link has no payload"},
 		{"malformed_discontinuity", func(c *Core, head Head) Head {
-			c.links[(*c.nodes.At(int(head.Node - 1))).firstLink-1].flags = linkFlagRecoveryDiscontinuity
+			{
+				linkStorageMutation := c.links.At(int((*c.nodes.At(int(head.Node - 1))).firstLink - 1))
+				linkStorageMutation.flags = linkFlagRecoveryDiscontinuity
+				c.links.Set(int((*c.nodes.At(int(head.Node - 1))).firstLink-1), linkStorageMutation)
+			}
 			return head
 		}, "recovery discontinuity has a payload"},
 		{"malformed_seed", func(c *Core, head Head) Head {
@@ -303,10 +331,22 @@ func TestSoleDerivationPreservesCapAndErrorOrder(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c, head := newSoleDerivationBranches()
 			c.limits.MaxDerivations = tc.cap
-			c.links[(*c.nodes.At(int(2))).firstLink-1].scoreDelta = math.MaxInt64
-			c.links[(*c.nodes.At(int(head.Node - 1))).firstLink-1].scoreDelta = 1
+			{
+				linkStorageMutation := c.links.At(int((*c.nodes.At(int(2))).firstLink - 1))
+				linkStorageMutation.scoreDelta = math.MaxInt64
+				c.links.Set(int((*c.nodes.At(int(2))).firstLink-1), linkStorageMutation)
+			}
+			{
+				linkStorageMutation := c.links.At(int((*c.nodes.At(int(head.Node - 1))).firstLink - 1))
+				linkStorageMutation.scoreDelta = 1
+				c.links.Set(int((*c.nodes.At(int(head.Node - 1))).firstLink-1), linkStorageMutation)
+			}
 			if tc.name == "later_child_cycle_before_parent_cap" {
-				c.links[(*c.nodes.At(int(2))).firstLink-1].prev = 3
+				{
+					linkStorageMutation := c.links.At(int((*c.nodes.At(int(2))).firstLink - 1))
+					linkStorageMutation.prev = 3
+					c.links.Set(int((*c.nodes.At(int(2))).firstLink-1), linkStorageMutation)
+				}
 			}
 			if tc.name == "nested_cap_before_parent_score" {
 				head = appendSoleDerivationNode(c, 2, linkRecord{prev: head.Node, payload: 55, scoreDelta: math.MaxInt64})

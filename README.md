@@ -30,15 +30,17 @@ for shipped history and [docs/v1-design.md](docs/v1-design.md) for the v1 plan.
 ## Quick start
 
 ```go
+package main
+
 import (
     "fmt"
 
     "github.com/odvcencio/gotreesitter"
-    "github.com/odvcencio/gotreesitter/grammars"
+    golang "github.com/odvcencio/gotreesitter/grammars/go"
 )
 
 func main() {
-    lang := grammars.GoLanguage()
+    lang := golang.Language()
     parser := gotreesitter.NewParser(lang)
 
     tree, _ := parser.Parse([]byte("package main\n\nfunc main() {}\n"))
@@ -46,7 +48,10 @@ func main() {
 }
 ```
 
-`grammars.DetectLanguage("main.go")` resolves a filename to the matching `LangEntry`.
+The standalone grammar package links the selected grammar without the full
+catalog. For automatic language detection, import `grammars` and use
+`grammars.DetectLanguage("main.go")` to resolve a filename to a `LangEntry`.
+See [build tags](docs/build-tags.md) for other ways to select grammars.
 
 To detect the language and parse in one call, use `grammars.ParseFile`. The
 caller must release the returned tree:

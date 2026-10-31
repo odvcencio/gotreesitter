@@ -10,10 +10,10 @@ func (c *Core) PushedFrontier(head Head) (payload SubtreeID, pre StateID, ok boo
 		return 0, 0, false
 	}
 	n := c.nodes.At(int(head.Node - 1))
-	if n.linkCount != 1 || n.firstLink == 0 || uint64(n.firstLink) > uint64(len(c.links)) {
+	if n.linkCount != 1 || n.firstLink == 0 || uint64(n.firstLink) > uint64(c.links.Len()) {
 		return 0, 0, false
 	}
-	link := &c.links[n.firstLink-1]
+	link := c.links.At(int(n.firstLink - 1))
 	if link.next != 0 || link.prev == 0 || uint64(link.prev) > uint64(c.nodes.Len()) ||
 		link.payload == 0 || uint64(link.payload) > uint64(c.subtrees.Len()) {
 		return 0, 0, false

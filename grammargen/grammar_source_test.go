@@ -124,6 +124,8 @@ func TestEmitGrammarGoIncludesImportMetadata(t *testing.T) {
 	g.Precedences = [][]PrecEntry{
 		{{Name: "call"}, {IsSymbol: true, Name: "program"}},
 	}
+	g.SeparateErrorLexMode = true
+	g.RecoveryLookaheadTokens = []string{":"}
 	g.EnableLRSplitting = true
 	g.BinaryRepeatMode = true
 	g.FlattenGeneratedRepeatAux = true
@@ -149,6 +151,8 @@ func TestEmitGrammarGoIncludesImportMetadata(t *testing.T) {
 		"g.ReservedWordSets = []ReservedWordSet{",
 		"g.Precedences = [][]PrecEntry{",
 		"{IsSymbol: true, Name: \"program\"}",
+		"g.SeparateErrorLexMode = true",
+		"g.RecoveryLookaheadTokens = []string{",
 		"g.EnableLRSplitting = true",
 		"g.BinaryRepeatMode = true",
 		"g.FlattenGeneratedRepeatAux = true",

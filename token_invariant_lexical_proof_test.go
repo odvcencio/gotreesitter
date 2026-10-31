@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 	"unicode/utf8"
+	"unsafe"
 )
 
 func TestTokenInvariantPrimitiveProofSharesEqualKeywordSlicesAcrossModes(t *testing.T) {
@@ -276,5 +277,93 @@ func TestTokenInvariantPrimitiveProofDigitControlAndBudget(t *testing.T) {
 	budget := tokenInvariantPrimitiveBudget{bytes: 1, scans: 1}
 	if _, _, _, ok := d.tokenInvariantProbeDFA([]byte("111"), 0, Point{}, 0, &budget); ok {
 		t.Fatal("artificial EOF certified an incomplete scan")
+	}
+}
+
+func TestTokenInvariantPrimitiveProbeStateContract(t *testing.T) {
+	for _, source := range [][]byte{[]byte(" \n12x"), []byte(" \nz"), []byte(" \n1é"), {' ', '\n', 0xff}, []byte(" \n")} {
+		lang := primitiveProofDigitLanguage()
+		lang.LexStates[0].Transitions = append([]LexTransition{{Lo: ' ', Hi: ' ', NextState: 0, Skip: true}, {Lo: '\n', Hi: '\n', NextState: 0, Skip: true}}, lang.LexStates[0].Transitions...)
+		d := newDFATokenSourceDirectWithCRecovery(NewLexer(lang.LexStates, source), lang, nil, nil, nil, nil, false)
+		func() {
+			defer d.Close()
+			d.lexer.pos, d.lexer.row, d.lexer.col = 1, 99, 88
+			point := Point{Row: 7, Column: 9}
+			reference := *d.lexer
+			reference.source = source
+			reference.pos, reference.row, reference.col = 0, point.Row, point.Column
+			reference.tokenInvariantReadSpanMax = nil
+			reference.failTokenStartPos, reference.failTokenStartRow, reference.failTokenStartCol, reference.failTokenStartRangeIdx = 0, 0, 0, 0
+			reference.failTokenEnd = includedLexerCursor{}
+			var want Token
+			wantAccepted := reference.scanInto(0, 0, point.Row, point.Column, &want)
+			budget := tokenInvariantPrimitiveBudget{bytes: 128, scans: 8}
+			got, state, accepted, complete := d.tokenInvariantProbeDFA(source, 0, point, 0, &budget)
+			if !complete || accepted != wantAccepted || got.Text != want.Text || !tokenInvariantPrimitiveTokensEqual(got, want) {
+				t.Fatalf("%x token/acceptance differs", source)
+			}
+			if state.Position != reference.pos || state.Row != reference.row || state.Column != reference.col || state.FailurePosition != reference.failTokenStartPos || state.FailureRow != reference.failTokenStartRow || state.FailureColumn != reference.failTokenStartCol {
+				t.Fatalf("%x cursor=%+v differs from full lexer", source, state)
+			}
+			frontier := tokenInvariantExaminedEnd(source, want.lexerLookaheadEndByte)
+			if got.lexerLookaheadEndByte != frontier || budget.bytes != 128-frontier || budget.scans != 7 {
+				t.Fatalf("%x proof bound or charge differs", source)
+			}
+			if d.lexer.pos != 1 || d.lexer.row != 99 || d.lexer.col != 88 {
+				t.Fatal("probe changed the active lexer")
+			}
+			wantSize := uintptr(32)
+			if unsafe.Sizeof(uintptr(0)) == 4 {
+				wantSize = 24
+			}
+			if unsafe.Sizeof(state) != wantSize || unsafe.Sizeof(state) >= unsafe.Sizeof(reference) {
+				t.Fatalf("snapshot/full bytes=%d/%d", unsafe.Sizeof(state), unsafe.Sizeof(reference))
+			}
+			t.Logf("source=%x accepted=%t state_bytes=%d lexer_bytes=%d", source, accepted, unsafe.Sizeof(state), unsafe.Sizeof(reference))
+		}()
+	}
+}
+
+func TestPrimitiveProofModeSetRetainsBounds(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		states, rows   int
+		invalid, after bool
+		want           bool
+	}{
+		{"ordered-limit", 1024, 1024, false, false, true},
+		{"above-limit", 1025, 1025, false, false, false},
+		{"duplicate-rows", 2, 32768, false, false, true},
+		{"too-many-rows", 2, 32769, false, false, false},
+		{"invalid-primary", 2, 1, true, false, false},
+		{"invalid-after-whitespace", 2, 1, true, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := primitiveProofDigitLanguage()
+			first := lang.LexStates[0]
+			lang.LexStates = make([]LexState, tc.states)
+			for i := range lang.LexStates {
+				lang.LexStates[i] = first
+			}
+			lang.LexStates[1] = LexState{AcceptToken: 1, Default: -1, EOF: -1}
+			lang.LexModes = make([]LexMode, tc.rows)
+			for i := range lang.LexModes {
+				lang.LexModes[i].SetLexStateIndex(uint32(i % tc.states))
+			}
+			if tc.invalid {
+				if tc.after {
+					lang.LexModes[0].SetAfterWhitespaceLexStateIndex(uint32(tc.states))
+				} else {
+					lang.LexModes[0].SetLexStateIndex(uint32(tc.states))
+				}
+			}
+			old, new := []byte("1 "), []byte("2 ")
+			d := newDFATokenSourceDirectWithCRecovery(NewLexer(lang.LexStates, old), lang, nil, nil, nil, nil, false)
+			defer d.Close()
+			edit := InputEdit{OldEndByte: 1, NewEndByte: 1, OldEndPoint: Point{Column: 1}, NewEndPoint: Point{Column: 1}}
+			if _, got := d.tokenInvariantPrimitiveEditsEquivalent(old, new, edit, 2); got != tc.want {
+				t.Fatalf("proof %t want %t", got, tc.want)
+			}
+		})
 	}
 }

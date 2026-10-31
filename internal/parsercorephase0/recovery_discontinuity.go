@@ -118,7 +118,7 @@ func (c *Core) recoveryDiscontinuityHeadLinks(head Head) (nodeRecord, []linkReco
 	if err != nil {
 		return nodeRecord{}, nil, err
 	}
-	if node.linkCount == 0 || node.firstLink == 0 || uint64(node.firstLink) > uint64(len(c.links)) {
+	if node.linkCount == 0 || node.firstLink == 0 || uint64(node.firstLink) > uint64(c.links.Len()) {
 		return nodeRecord{}, nil, errors.New("parser-core phase zero: recovery discontinuity head has no edges")
 	}
 	var inline [inlineAdjacencyCapacity]linkRecord

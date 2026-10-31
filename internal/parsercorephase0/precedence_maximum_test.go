@@ -370,14 +370,14 @@ func TestPrecedenceMaximumOverflowRollsBackCondense(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	beforeNodes, beforeLinks, beforeWork := core.nodes.Len(), len(core.links), core.Work()
+	beforeNodes, beforeLinks, beforeWork := core.nodes.Len(), core.links.Len(), core.Work()
 	if _, err := core.condense(core.boundaryKey(3, 2), linkInput{
 		prev: first.Node, payload: payload, scoreDelta: 1,
 	}); err == nil || !strings.Contains(err.Error(), "precedence maximum overflow") {
 		t.Fatalf("rollback overflow error=%v", err)
 	}
-	if core.nodes.Len() != beforeNodes || len(core.links) != beforeLinks || core.Work() != beforeWork {
-		t.Fatalf("overflow rollback changed graph: nodes=%d/%d links=%d/%d work=%+v/%+v", core.nodes.Len(), beforeNodes, len(core.links), beforeLinks, core.Work(), beforeWork)
+	if core.nodes.Len() != beforeNodes || core.links.Len() != beforeLinks || core.Work() != beforeWork {
+		t.Fatalf("overflow rollback changed graph: nodes=%d/%d links=%d/%d work=%+v/%+v", core.nodes.Len(), beforeNodes, core.links.Len(), beforeLinks, core.Work(), beforeWork)
 	}
 }
 

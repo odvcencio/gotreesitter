@@ -93,7 +93,11 @@ func TestRecoverToAncestorOpenRegionPopsPriorError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c.links[node.firstLink-1].scoreDelta = 7
+	{
+		linkStorageMutation := c.links.At(int(node.firstLink - 1))
+		linkStorageMutation.scoreDelta = 7
+		c.links.Set(int(node.firstLink-1), linkStorageMutation)
+	}
 	var recovered Head
 	err = c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
 		var err error

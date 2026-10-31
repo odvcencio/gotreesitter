@@ -18,7 +18,7 @@ const (
 	parserCoreWorkCountContract    = "gts-work-count/v2"
 	parserCoreWorkCountDigest      = "gts-deep-tree-v1"
 	parserCoreWorkCountGrammar     = "2346a3ab1bb3857b48b29d779a1ef9799a248cd7"
-	parserCoreWorkCountBlob        = "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"
+	parserCoreWorkCountBlob        = "9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4"
 )
 
 type parserCoreWorkCountCoreWork struct {
