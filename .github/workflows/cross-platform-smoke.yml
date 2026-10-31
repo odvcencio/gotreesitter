@@ -73,5 +73,9 @@ jobs:
           GOARCH: wasm
         run: |
           export PATH="$PATH:$(go env GOPATH)/bin"
-          go test -short -count=1 -exec "$(go env GOROOT)/lib/wasm/go_wasip1_wasm_exec" \
+          # Go 1.24 moved the exec wrapper from misc/wasm to lib/wasm; go.mod
+          # pins Go 1.22, so use whichever path this toolchain has.
+          wasm_exec="$(go env GOROOT)/lib/wasm/go_wasip1_wasm_exec"
+          [ -x "$wasm_exec" ] || wasm_exec="$(go env GOROOT)/misc/wasm/go_wasip1_wasm_exec"
+          go test -short -count=1 -exec "$wasm_exec" \
             ./internal/luapattern ./internal/syntaxfacts ./internal/benchorder
