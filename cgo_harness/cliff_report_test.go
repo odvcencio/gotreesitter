@@ -41,11 +41,15 @@ var cliffFixtures = []cliffFixture{
 	{"html", "html", "html_go_mem.html.gz", "561b50bca58e07455e993d68cf49281ed80df2150d09a38c77c906eabee36b7a"},
 }
 
+// cliffRoute is one Go route on one fixture. Forest marks a row that the GSS
+// forest fast path produced. That path does not fill the work counters, so the
+// row's Tokens, NewNodes, and Frontier carry no measurement.
 type cliffRoute struct {
 	Route         string                      `json:"route"`
 	TreeSource    string                      `json:"tree_source"`
 	Accepted      bool                        `json:"accepted"`
 	Decline       string                      `json:"decline,omitempty"`
+	Forest        bool                        `json:"forest_fast_path,omitempty"`
 	Stop          gts.ParseStopReason         `json:"stop"`
 	HasError      bool                        `json:"has_error"`
 	RootEnd       uint32                      `json:"root_end"`
@@ -72,20 +76,32 @@ type cliffC struct {
 	BPerOp      uint64                      `json:"b_per_op"`
 }
 
+// cliffReport is the JSON row for one fixture. SourceKind and Source name where
+// the bytes come from (see cliffInput). Revision is the commit that
+// actions/checkout measured: the main commit for a scheduled run, the merge
+// commit for a pull request. Event is the workflow trigger. OnDefaultBranch
+// says whether the run measured the default branch, which a manual run can
+// choose. The workflow passes all three, so a copied report says whether it
+// describes main. A local run passes none of them, and the report omits them.
 type cliffReport struct {
-	Fixture       string       `json:"fixture"`
-	Grammar       string       `json:"grammar"`
-	SHA256        string       `json:"sha256"`
-	Bytes         int          `json:"bytes"`
-	COracleCommit string       `json:"c_oracle_commit"`
-	Seeds         int          `json:"seeds"`
-	MaxRSSKiB     int64        `json:"max_rss_kib"`
-	C             cliffC       `json:"c"`
-	Routes        []cliffRoute `json:"routes"`
+	Fixture         string       `json:"fixture"`
+	Grammar         string       `json:"grammar"`
+	SourceKind      string       `json:"source_kind"`
+	Source          string       `json:"source"`
+	SHA256          string       `json:"sha256"`
+	Bytes           int          `json:"bytes"`
+	Revision        string       `json:"revision,omitempty"`
+	Event           string       `json:"event,omitempty"`
+	OnDefaultBranch *bool        `json:"on_default_branch,omitempty"`
+	COracleCommit   string       `json:"c_oracle_commit"`
+	Seeds           int          `json:"seeds"`
+	MaxRSSKiB       int64        `json:"max_rss_kib"`
+	C               cliffC       `json:"c"`
+	Routes          []cliffRoute `json:"routes"`
 }
 
 // TestCliffReport is the report-only detector from the v1 design, R7 and P3.
-// Run one grammar per process in the locked C-oracle Docker harness.
+// Run one fixture per process in the locked C-oracle Docker harness.
 func TestCliffReport(t *testing.T) {
 	if os.Getenv("GTS_ADMISSION_CANDIDATE") != "1" {
 		t.Fatal("set GTS_ADMISSION_CANDIDATE=1 for the compact route")
@@ -102,11 +118,19 @@ func TestCliffReport(t *testing.T) {
 			t.Fatalf("invalid GTS_CLIFF_SEEDS %q", raw)
 		}
 	}
-	for _, fixture := range cliffFixtures {
+	var onDefaultBranch *bool
+	if raw := os.Getenv("GTS_CLIFF_ON_DEFAULT_BRANCH"); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			t.Fatalf("invalid GTS_CLIFF_ON_DEFAULT_BRANCH %q", raw)
+		}
+		onDefaultBranch = &value
+	}
+	for _, fixture := range cliffInputs() {
 		if fixture.Name != selected {
 			continue
 		}
-		source := loadCliffSource(t, fixture)
+		source := loadCliffInput(t, fixture)
 		goEntry := grammars.DetectLanguageByName(fixture.Grammar)
 		if goEntry == nil || goEntry.Language() == nil {
 			t.Fatalf("Go grammar %q unavailable", fixture.Grammar)
@@ -116,8 +140,9 @@ func TestCliffReport(t *testing.T) {
 			t.Fatalf("locked C grammar %q: %v", fixture.Grammar, err)
 		}
 		c := measureCliffC(t, cLanguage, source)
-		row := cliffReport{Fixture: fixture.Name, Grammar: fixture.Grammar, SHA256: fixture.SHA256,
-			Bytes: len(source), COracleCommit: COracleRuntimeCommit, Seeds: seeds, C: c}
+		row := cliffReport{Fixture: fixture.Name, Grammar: fixture.Grammar, SourceKind: string(fixture.Kind), Source: fixture.Source,
+			SHA256: fixture.SHA256, Bytes: len(source), Revision: os.Getenv("GTS_CLIFF_REVISION"), Event: os.Getenv("GTS_CLIFF_EVENT"),
+			OnDefaultBranch: onDefaultBranch, COracleCommit: COracleRuntimeCommit, Seeds: seeds, C: c}
 		for _, candidate := range []bool{false, true} {
 			route := measureCliffGo(t, goEntry.Language(), source, candidate)
 			route.Failures = benchfixtures.CliffFailures(route.Frontier, c.Frontier)
@@ -251,7 +276,7 @@ func measureCliffGo(t *testing.T, language *gts.Language, source []byte, candida
 	}
 	row := cliffRoute{Route: "legacy", TreeSource: "legacy", Accepted: runtime.StopReason == gts.ParseStopAccepted,
 		Stop: runtime.StopReason, HasError: root.HasError(), RootEnd: root.EndByte(), TreeSHA256: inspection.SHA256,
-		Tokens: runtime.TokensConsumed, NewNodes: uint64(runtime.NodesAllocated)}
+		Tokens: runtime.TokensConsumed, NewNodes: uint64(runtime.NodesAllocated), Forest: runtime.ForestFastPath}
 	if candidate {
 		row.Route = "compact"
 		row.TreeSource = "compact"
@@ -276,7 +301,7 @@ func measureCliffGo(t *testing.T, language *gts.Language, source []byte, candida
 			row.Frontier.MultiShare = float64(runtime.CompactMultiHeaderTokens) / float64(row.Tokens)
 		}
 	} else {
-		row.Frontier = benchfixtures.CliffFrontier{MaxLive: uint64(runtime.MaxStacksSeen), Measured: true}
+		row.Frontier = benchfixtures.CliffFrontier{MaxLive: uint64(runtime.MaxStacksSeen), Measured: !runtime.ForestFastPath}
 		if row.Tokens > 0 {
 			row.Frontier.MultiShare = float64(runtime.MultiStackTokens) / float64(row.Tokens)
 		}

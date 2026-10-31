@@ -7,6 +7,13 @@ on:
       - 'LICENSE'
       - 'docs/**'
       - '.github/*.md'
+  # A nightly run measures main, so each engine pull request has a "before"
+  # column from main. A scheduled run checks out the default branch head. A
+  # pull request run measures the PR merged into its base: never quote it as
+  # main. 01:53 UTC avoids the top of the hour and the other nightly runs
+  # (ci 03:17, fuzz-nightly 04:41, cross-platform-smoke 05:23).
+  schedule:
+    - cron: '53 1 * * *'
   workflow_dispatch:
 
 permissions:
@@ -35,15 +42,70 @@ jobs:
       - name: Measure the cliff and apply the report-only rule
         continue-on-error: true
         shell: bash
+        env:
+          # A scheduled run always measures the default branch, so it does not
+          # depend on the event payload naming that branch.
+          GTS_CLIFF_ON_DEFAULT_BRANCH: ${{ github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
         run: |
           set -euo pipefail
+          # The commit is hex, the event name is a fixed word, and the branch
+          # flag is true or false, so all three are safe in the command string.
+          # They land in every report row. Never add a branch name here: it can
+          # hold shell metacharacters.
           flock /tmp/gts-docker.lock bash cgo_harness/docker/run_parity_in_docker.sh \
-            --wall-timeout 140m -- "bash /workspace/scripts/run_cliff_report_in_docker.sh"
+            --wall-timeout 140m -- "GTS_CLIFF_REVISION=$GITHUB_SHA GTS_CLIFF_EVENT=$GITHUB_EVENT_NAME GTS_CLIFF_ON_DEFAULT_BRANCH=$GTS_CLIFF_ON_DEFAULT_BRANCH bash /workspace/scripts/run_cliff_report_in_docker.sh"
+
+      # A cliff-rule failure stays report-only, so the measure step cannot turn
+      # the run red. A missing report is different: the run did not measure what
+      # it should have. A nightly fails on it, so a partial nightly cannot pass
+      # for a good one. A pull request run or a manual run only warns.
+      - name: Check that every expected report exists
+        if: always()
+        shell: bash
+        env:
+          GTS_CLIFF_EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          dir=harness_out/cliffs
+          problems=()
+          if [[ ! -s "$dir/expected.txt" ]]; then
+            problems+=("$dir/expected.txt is missing or empty, so the run never reached the measurement.")
+          else
+            # The second test keeps a last line that has no newline.
+            while IFS= read -r fixture || [[ -n "$fixture" ]]; do
+              if [[ ! -s "$dir/$fixture.json" ]]; then
+                problems+=("Missing cliff report: $fixture")
+              fi
+            done < "$dir/expected.txt"
+          fi
+          if [[ -e "$dir/fixture-table.FAILED" ]]; then
+            problems+=("TestCliffFixtureTable failed. The measure step log has its output.")
+          fi
+          if [[ ${#problems[@]} -eq 0 ]]; then
+            echo "Every expected cliff report exists."
+            exit 0
+          fi
+          level=warning
+          if [[ "$GTS_CLIFF_EVENT" == schedule ]]; then
+            level=error
+          fi
+          for problem in "${problems[@]}"; do
+            echo "::$level::$problem"
+          done
+          if [[ "$level" == error ]]; then
+            exit 1
+          fi
 
       - name: Upload the cliff report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: cliff-report
+          # The name carries the trigger and the measured commit, so a nightly
+          # report on main cannot pass for a pull request report, or the
+          # reverse. A manual run also says whether it measured the default
+          # branch. It repeats the test from the measure step, because a step
+          # env value is not visible here. For a pull request the commit is the
+          # merge commit.
+          name: cliff-report-${{ github.event_name == 'schedule' && 'nightly' || github.event_name == 'pull_request' && 'pr' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && 'manual-main' || 'manual-branch' }}-${{ github.sha }}-${{ github.run_attempt }}
           path: harness_out/cliffs/*.json
           if-no-files-found: warn
