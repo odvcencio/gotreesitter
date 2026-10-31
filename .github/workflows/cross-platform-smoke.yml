@@ -28,7 +28,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, windows-latest, ubuntu-24.04-arm]
+        # macos-14 images retire on 2026-11-02 (actions/runner-images#13518).
+        os: [macos-15, windows-latest, ubuntu-24.04-arm]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
