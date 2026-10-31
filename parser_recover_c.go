@@ -1283,13 +1283,18 @@ type cStackSummaryEntry struct {
 //
 // stateStamp is a per-depth set: beginDepth advances epoch, making every old
 // stamp stale in O(1). The wrap path clears the stamps before reusing epoch 1.
-// All fields are pointer-free slices, so retaining this scratch cannot retain
-// parse trees or GSS nodes between parser-scratch pool uses.
+// Every field except errTails is pointer-free. errTails holds node pointers and
+// resetForRelease clears it, so retaining this scratch cannot retain parse trees
+// or GSS nodes between parser-scratch pool uses.
 type cRecoverElectionScratch struct {
 	members    []int
 	cursors    []int
 	stateStamp []uint32
 	epoch      uint32
+	// errTails holds the ERROR child lists that cMergeErrorChildren extends in
+	// place. errTailNext picks the slot a new chain replaces.
+	errTails    [cErrChildTailSlots]cErrChildTail
+	errTailNext int
 }
 
 func (s *cRecoverElectionScratch) prepare(stackCount, stateCount int) {
@@ -1339,6 +1344,8 @@ func (s *cRecoverElectionScratch) beginDepth(depth int) cRecoverElectionDepthIte
 }
 
 func (s *cRecoverElectionScratch) resetForRelease() {
+	s.errTails = [cErrChildTailSlots]cErrChildTail{}
+	s.errTailNext = 0
 	const (
 		maxRetainedMembers = maxStacksPerMergeKeyCeiling
 		maxRetainedStates  = 64 * 1024
@@ -5056,8 +5063,15 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 	if top := stackEntryNode(fork.top()); top != nil && top.symbol == errorSymbol && !top.isMissing() && fork.depth() > 1 {
 		prev := top
 		if fork.truncate(fork.depth() - 1) {
-			children = append(append(make([]*Node, 0, len(prev.children)+len(children)), prev.children...), children...)
-			fields = append(appendZeroFields(nil, len(prev.children)), fields...)
+			nPrev := len(prev.children)
+			children = cMergeErrorChildren(gssScratch, prev, children)
+			// Prev's children add zero fields, and setRecoveryFieldMetadata drops
+			// an all-zero list, so build one only when a spliced child has a field.
+			if cFieldsHaveNonZero(fields) {
+				fields = append(appendZeroFields(make([]FieldID, 0, nPrev+len(fields)), nPrev), fields...)
+			} else {
+				fields = nil
+			}
 			if rawFirst == nil {
 				rawLast = prev
 			}
@@ -6466,6 +6480,121 @@ func (p *Parser) cAppendVisibleSpliceWithFields(dst []*Node, fields []FieldID, n
 		dst, fields = p.cAppendVisibleSpliceWithFields(dst, fields, c, field)
 	}
 	return dst, fields
+}
+
+// cFieldsHaveNonZero reports whether any spliced child carries a field. A
+// recovery ERROR node only keeps field metadata when one does, so an all-zero
+// list never needs to be built.
+func cFieldsHaveNonZero(fields []FieldID) bool {
+	for _, f := range fields {
+		if f != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+const (
+	// cErrChildTailSlots bounds how many recovery ERROR chains can extend in
+	// place at once. A chain that loses its slot is copied into a new chain on
+	// its next merge.
+	cErrChildTailSlots = 4
+	// cErrChildTailMinChildren is the size below which a merged ERROR keeps the
+	// exact-size array it always had; headroom only pays for long chains.
+	cErrChildTailMinChildren = 16
+)
+
+// cErrChildTail is one recovery ERROR chain whose backing array has headroom.
+// full[:used] is claimed by ERROR nodes, each of which holds a prefix view with
+// cap == len; full[used:] is written only through this table.
+type cErrChildTail struct {
+	full []*Node
+	used int
+}
+
+// cMergeErrorChildren returns prev.children followed by add: the child list of
+// the ERROR node that recover_to_state builds over prev.
+//
+// C before 0.27 spliced the previous ERROR's children flat, as this does. C 0.27
+// nests them in an error_repeat node (upstream f30ee2b30), which is O(1) per
+// merge. This function keeps the flat result and removes the per-token copy.
+//
+// A run of invalid tokens recovers to the same state for every token, and each
+// recovery absorbs the previous ERROR. A plain copy costs O(len(prev.children))
+// per token, and the arena keeps every superseded ERROR node, so the copies add
+// up to about n^2/2 pointers. Instead the newest list of a chain owns a backing
+// array with spare room, and the next list extends that array in place. Sibling
+// forks of one election add different trailing children after the same prev. A
+// fork whose children match what the chain already holds shares the array. A
+// fork that differs gets its own copy.
+//
+// Every returned list has cap == len, so an append on a node's own list
+// reallocates instead of writing into the spare room. This function never
+// rewrites an element a chain has claimed (below its used count). Lists of one
+// chain share their leading elements. They belong to superseded or sibling
+// ERROR nodes, which never appear in the same tree.
+//
+// Sharing is safe only while no code writes a returned list's elements in place
+// during the parse, because a later merge can still extend the chain. Passes
+// that run after result selection may write in place: the table takes no
+// further merges and is cleared at release. The transient checkpoint, the one
+// mid-parse in-place writer, stays off once recovery has entered the error
+// state.
+func cMergeErrorChildren(g *gssScratch, prev *Node, add []*Node) []*Node {
+	pc := prev.children
+	k := len(pc)
+	need := k + len(add)
+	var tails *[cErrChildTailSlots]cErrChildTail
+	var next *int
+	if g != nil {
+		tails = &g.recoveryElection.errTails
+		next = &g.recoveryElection.errTailNext
+	}
+	if tails != nil && k > 0 && len(add) > 0 {
+		for i := range tails {
+			t := &tails[i]
+			if t.used < k || len(t.full) == 0 || &t.full[0] != &pc[0] {
+				continue
+			}
+			claimed := min(t.used-k, len(add))
+			if !cSameNodes(t.full[k:k+claimed], add[:claimed]) {
+				break // a diverging sibling owns the headroom; copy below
+			}
+			if need <= t.used {
+				return t.full[:need:need]
+			}
+			if need > len(t.full) {
+				grown := make([]*Node, need+need/2+8)
+				copy(grown, t.full[:t.used])
+				t.full = grown
+			}
+			copy(t.full[t.used:need], add[claimed:])
+			t.used = need
+			return t.full[:need:need]
+		}
+	}
+	if tails == nil || need < cErrChildTailMinChildren {
+		merged := make([]*Node, need)
+		copy(merged, pc)
+		copy(merged[k:], add)
+		return merged
+	}
+	full := make([]*Node, need+need/2+8)
+	copy(full, pc)
+	copy(full[k:], add)
+	slot := *next % cErrChildTailSlots
+	*next = *next + 1
+	tails[slot] = cErrChildTail{full: full, used: need}
+	return full[:need:need]
+}
+
+func cSameNodes(a, b []*Node) bool {
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // appendZeroFields pads a field list for children that carry no field.
