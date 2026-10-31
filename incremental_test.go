@@ -1,13 +1,34 @@
 package gotreesitter
 
 import (
+	"bytes"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/incr"
 )
+
+func TestLanguageBlobRoundTripDoesNotTransferAuthority(t *testing.T) {
+	language := buildArithmeticLanguage()
+	language.SmallSourceReuseAuthority = incr.NewReuseAuthorityGrant(language)
+	blob, err := EncodeLanguageBlob(language)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := LoadLanguage(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.SmallSourceReuseAuthority != nil && loaded.SmallSourceReuseAuthority.Matches(loaded) {
+		t.Fatal("decoded language acquired the original authority")
+	}
+	if !language.SmallSourceReuseAuthority.Matches(language) {
+		t.Fatal("encoding revoked the original authority")
+	}
+}
 
 func TestParseIncrementalNilTreeMatchesFresh(t *testing.T) {
 	lang := buildArithmeticLanguage()
@@ -1384,7 +1405,7 @@ func TestPruningCertificateDiscards(t *testing.T) {
 				tree.ensureParseRuntime().StopReason = ParseStopAccepted
 				parser := NewParser(buildArithmeticLanguage())
 				tree.ensureParseRuntime().MaxStacksSeen = fullParseInitialMaxStacks(parser.language, parser.maxConflictWidth, source)
-				cursor := reuseCursor{cEquivalentReuse: true, oldRecoveryCertified: true, oldRuntimeNoPolicyPruning: true}
+				cursor := reuseCursor{cEquivalentReuse: true, freshScheduleReuse: true, oldRecoveryCertified: true, oldRuntimeNoPolicyPruning: true}
 				if cursor.certifiesIncrementalResult(tree, parser, source, 0) {
 					t.Error("pruned recovery result bypassed fresh verification")
 				}
@@ -1437,5 +1458,139 @@ func TestPruningCertificatePreservingMergesAndReset(t *testing.T) {
 			scratch.merge.reset()
 			assertCertificate(true)
 		})
+	}
+}
+
+// RunLanguageCopyDoesNotAuthenticate checks the producer boundary, before
+// any tree edit: copies and caller-constructed metadata are not the artifact.
+func RunLanguageCopyDoesNotAuthenticate(t *testing.T, original *Language) {
+	AssertLanguageProducerKey(t, original, true)
+	for _, variant := range []string{"copy", "modified-symbol-table", "forged-receipt"} {
+		t.Run(variant, func(t *testing.T) {
+			// Copy the public language configuration, including the grant pointer,
+			// without copying the source's private synchronization and caches.
+			clone := new(Language)
+			src, dst := reflect.ValueOf(original).Elem(), reflect.ValueOf(clone).Elem()
+			for i := 0; i < src.NumField(); i++ {
+				if src.Type().Field(i).IsExported() {
+					dst.Field(i).Set(src.Field(i))
+				}
+			}
+			if clone.SmallSourceReuseAuthority == nil || !clone.SmallSourceReuseAuthority.Matches(original) || clone.SmallSourceReuseAuthority.Matches(clone) {
+				t.Fatal("copied grant must remain bound to the original language")
+			}
+			switch variant {
+			case "modified-symbol-table":
+				clone.SymbolNames = append([]string(nil), original.SymbolNames...)
+				clone.SymbolNames[0] += "_modified"
+			case "forged-receipt":
+				clone.SmallSourceReuseShadowArtifact = [32]byte{1}
+			}
+			parser := NewParser(clone)
+			tree, err := parser.Parse([]byte("package p\nvar value = 1\n"))
+			if err != nil || tree == nil {
+				t.Fatalf("parse: %v", err)
+			}
+			defer tree.Release()
+			if key := tree.arena.legacyReuseReads.DefaultProducerSchedule(len(tree.source)); key != 0 {
+				t.Fatalf("untrusted %s acquired producer key %d", variant, key)
+			}
+		})
+	}
+}
+
+func AssertLanguageProducerKey(t *testing.T, language *Language, want bool) {
+	t.Helper()
+	tree, err := NewParser(language).Parse([]byte("package p\nvar value = 1\n"))
+	if err != nil || tree == nil {
+		t.Fatalf("parse: %v", err)
+	}
+	defer tree.Release()
+	if key := tree.arena.legacyReuseReads.DefaultProducerSchedule(len(tree.source)); (key != 0) != want {
+		t.Fatalf("producer key %d, expected present=%t", key, want)
+	}
+}
+
+// RunAuthenticatedNativeReuseWitness exercises the real default Go producer,
+// then compares the bypassed tree with a separate fresh parse.
+func RunAuthenticatedNativeReuseWitness(t *testing.T, language *Language) {
+	if !incr.ReuseObserverEnabled {
+		t.Skip("reuse observer disabled")
+	}
+	var b bytes.Buffer
+	b.WriteString("package main\n\nimport \"fmt\"\n\n")
+	for i := 0; b.Len() < 137*1024; i++ {
+		fmt.Fprintf(&b, "func f%d(a int, b int) int {\n\tx := a + b\n\tfmt.Println(\"f%d\", x)\n\treturn x\n}\n\n", i, i)
+	}
+	source := b.Bytes()
+	at := bytes.Index(source, []byte("x := a + b"))
+	if at < 0 {
+		t.Fatal("identifier fixture missing")
+	}
+	point := Point{}
+	for _, c := range source[:at] {
+		if c == '\n' {
+			point.Row++
+			point.Column = 0
+		} else {
+			point.Column++
+		}
+	}
+	after := append(append(append([]byte(nil), source[:at]...), 'x'), source[at:]...)
+	parser := NewParser(language)
+	old, err := parser.Parse(source)
+	if err != nil || old == nil || old.RootNode().HasError() {
+		t.Fatalf("initial parse: %v", err)
+	}
+	defer old.Release()
+	key := old.arena.legacyReuseReads.DefaultProducerSchedule(len(source))
+	if key == 0 {
+		t.Fatal("default Go producer lacks authority")
+	}
+	old.Edit(InputEdit{StartByte: uint32(at), OldEndByte: uint32(at), NewEndByte: uint32(at + 1), StartPoint: point, OldEndPoint: point, NewEndPoint: Point{Row: point.Row, Column: point.Column + 1}})
+	bypasses, verifiers := 0, 0
+	incr.ReuseObserver.Lock()
+	incr.ReuseObserver.Call = func(event incr.ReuseObservation) {
+		if event.Parser == parser {
+			if event.Bypassed {
+				bypasses++
+			} else {
+				verifiers++
+			}
+		}
+	}
+	incr.ReuseObserver.Unlock()
+	defer func() {
+		incr.ReuseObserver.Lock()
+		incr.ReuseObserver.Call = nil
+		incr.ReuseObserver.Unlock()
+	}()
+	result, err := parser.ParseIncremental(after, old)
+	if err != nil || result == nil {
+		t.Fatalf("incremental parse: %v", err)
+	}
+	defer result.Release()
+	if bypasses != 1 || verifiers != 0 || !result.hasCertifiedIncrementalReuse() || result.incrementalFreshVerified() {
+		t.Fatalf("bypasses=%d verifiers=%d certified=%t fresh=%t", bypasses, verifiers, result.hasCertifiedIncrementalReuse(), result.incrementalFreshVerified())
+	}
+	fresh, err := NewParser(language).Parse(after)
+	if err != nil || fresh == nil {
+		t.Fatalf("fresh parse: %v", err)
+	}
+	defer fresh.Release()
+	if !incrementalTreesStructurallyEqual(result, fresh, language) {
+		t.Fatal("bypassed tree differs from fresh parse")
+	}
+	type pair struct{ a, b *Node }
+	stack := []pair{{result.RootNode(), fresh.RootNode()}}
+	for len(stack) > 0 {
+		q := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if q.a.ParseState() != q.b.ParseState() || q.a.PreGotoState() != q.b.PreGotoState() || q.a.dynamicPrecedence != q.b.dynamicPrecedence {
+			t.Fatalf("state mismatch at %d", q.a.StartByte())
+		}
+		for i := 0; i < q.a.ChildCount(); i++ {
+			stack = append(stack, pair{q.a.Child(i), q.b.Child(i)})
+		}
 	}
 }

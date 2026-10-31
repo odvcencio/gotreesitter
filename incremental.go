@@ -16,13 +16,20 @@ type reuseFrame struct {
 // reuseCursor incrementally walks reusable nodes from an old tree in
 // pre-order, caching candidates for the current token start byte.
 type reuseCursor struct {
-	cEquivalentReuse      bool
-	sharedFrontierReuse   bool
-	unprovenStateMismatch bool
-	unprovenReuse         bool
-	sourceLen             uint32
-	oldSource             []byte
-	newSource             []byte
+	cEquivalentReuse bool
+	// Selecting the fresh schedule does not itself certify publication.
+	freshScheduleReuse       bool
+	smallFreshReuse          bool
+	smallFreshReuseAllowed   bool
+	smallFreshShadowArtifact bool
+	shadowWouldCertify       bool
+	firstLeafActions         incr.ReuseActionMemo
+	sharedFrontierReuse      bool
+	unprovenStateMismatch    bool
+	unprovenReuse            bool
+	sourceLen                uint32
+	oldSource                []byte
+	newSource                []byte
 	// wholeSourceIdentical is computed once at reset. Dirty-candidate checks can
 	// be numerous, so they must not rescan the complete buffer per candidate.
 	wholeSourceIdentical bool
@@ -115,7 +122,7 @@ type reuseScratch struct {
 	cache []*Node
 }
 
-func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch) *reuseCursor {
+func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch, producerSchedule ...uint16) *reuseCursor {
 	if oldTree == nil || oldTree.RootNode() == nil {
 		return nil
 	}
@@ -123,8 +130,34 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 		scratch = &reuseScratch{}
 	}
 
+	currentProducerSchedule := uint16(0)
+	if len(producerSchedule) != 0 {
+		currentProducerSchedule = producerSchedule[0]
+	}
+	trustedOldProducer := oldTree.arena != nil && !oldTree.arena.legacyReuseSourceChanged && currentProducerSchedule != 0 &&
+		oldTree.arena.legacyReuseReads.DefaultProducerSchedule(len(oldTree.source)) == currentProducerSchedule
+	oldProofRuntime := oldTree.rawParseRuntime()
+	completeOldReads := oldTree.arena != nil && !oldTree.arena.legacyReuseSourceChanged &&
+		oldTree.arena.legacyReuseReads.ValidForSource(len(oldTree.source))
+	completeOldStates := (!oldTree.forestFastPath || (oldTree.arena != nil && oldTree.arena.legacyReuseReads.CertifiedForestAttributes())) &&
+		(!oldTree.compactMaterialized || compactNodeStateProofAvailable(oldTree.root))
+	basis := incr.FreshReuseBasis{
+		DefaultOperation:     c.smallFreshReuseAllowed && oldTree.sourceEncoding == InputEncodingUTF8 && len(oldTree.includedRanges) == 0,
+		SupportedTokenSource: c.cEquivalentReuse,
+		AcceptedCleanOldResult: !oldTree.compactMaterialized && !oldTree.forestFastPath && oldTree.tokenInvariantReadSpanResultEligible() && oldTree.resultErrorSummary == resultErrorSummaryClean &&
+			oldProofRuntime.SourceLen == uint32(len(oldTree.source)) && !oldProofRuntime.Truncated && !oldProofRuntime.TokenSourceEOFEarly && !oldProofRuntime.CRecoveryDroppedErrorForClean,
+		CompleteOldReads:           completeOldReads,
+		TrustedOldProducer:         trustedOldProducer,
+		CompleteOldStateProjection: completeOldStates,
+	}
+	c.smallFreshReuse = !incr.RequiresFreshResult(len(source)) && basis.ScheduleEligible()
+	c.freshScheduleReuse = incr.RequiresFreshResult(len(source)) || c.smallFreshReuse
+	c.firstLeafActions = incr.ReuseActionMemo{}
 	c.unprovenStateMismatch = false
-	c.unprovenReuse = false
+	// A complete primitive history does not authenticate another producer's
+	// transformed token stream or dispatch context. Keep the fresh net even
+	// for a same-width edit after the new small mode correctly abstains.
+	c.unprovenReuse = c.smallFreshShadowArtifact && !incr.RequiresFreshResult(len(source)) && c.cEquivalentReuse && !trustedOldProducer
 	c.sourceLen = uint32(len(source))
 	c.oldSource = oldTree.source
 	c.newSource = source
@@ -135,7 +168,7 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.spanChangingEdit = false
 	for _, edit := range c.edits {
 		c.spanChangingEdit = c.spanChangingEdit || edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint
-		if c.spanChangingEdit && !incr.RequiresFreshResult(len(source)) {
+		if c.spanChangingEdit && !c.freshScheduleReuse {
 			c.cEquivalentReuse = false
 		}
 		if edit.OldEndByte != edit.NewEndByte && int(edit.StartByte) == len(oldTree.source) {
@@ -179,18 +212,18 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	oldRuntime := oldTree.rawParseRuntime()
 	c.oldRuntimeNoPolicyPruning = oldTree.hasCertifiedUnprunedPolicy()
 	c.oldRecoveryCertified = !oldRuntime.CRecoveryDroppedErrorForClean && incrementalRecoveryShapeCertified(oldTree.root)
-	if incr.RequiresFreshResult(len(source)) {
+	if c.freshScheduleReuse {
 		c.oldRecoveryCertified = c.oldRecoveryCertified && oldTree.arena != nil && oldTree.arena.legacyReuseReads.ValidForSource(len(oldTree.source))
 	}
 	if !c.oldRecoveryCertified {
 		// Retain the established small-edit frontier, but still require a fresh
 		// proof for unvalidated recovery, including clean public error flags.
 		c.unprovenReuse = true
-		if incr.RequiresFreshResult(len(source)) {
+		if c.freshScheduleReuse {
 			c.cEquivalentReuse = false
 		}
 	}
-	if incr.RequiresFreshResult(len(source)) {
+	if c.freshScheduleReuse {
 		c.cEquivalentReuse = c.cEquivalentReuse && (!c.forestFastPath || certifiedForest) && (!compactMaterialized || (compactNodeStateProofAvailable(oldTree.root) && (!oldTree.root.HasError() || completeReads))) &&
 			oldRuntime.StopReason == ParseStopAccepted && !oldRuntime.Truncated && !oldRuntime.TokenSourceEOFEarly
 	} else {
@@ -204,7 +237,7 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	// Every forest node records the GSS state that owned its original reduce.
 	// A compatible goto alone cannot transfer that ownership after an edit, so
 	// forest-built top-level candidates always require an exact pre-goto match.
-	c.strictTopLevelOwnership = c.forestFastPath || c.compactRecovery || (c.cEquivalentReuse && c.spanChangingEdit && incr.RequiresFreshResult(len(source)))
+	c.strictTopLevelOwnership = c.smallFreshReuse || c.forestFastPath || c.compactRecovery || (c.cEquivalentReuse && c.spanChangingEdit && c.freshScheduleReuse)
 	if oldTree.language != nil {
 		c.languageName = oldTree.language.Name
 		if stateless, ok := oldTree.language.ExternalScanner.(StatelessExternalScanner); ok {
@@ -315,7 +348,7 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	}
 	// Do not walk every token through the group adapter when the old tree has
 	// no independent top-level production with complete read dependencies.
-	if c.cEquivalentReuse && (!compactMaterialized || !incr.RequiresFreshResult(len(source))) && completeReads && c.topLevelParent != nil {
+	if c.cEquivalentReuse && (!compactMaterialized || !c.freshScheduleReuse) && completeReads && c.topLevelParent != nil {
 		for i := 0; i < childCount; i++ {
 			n := nodeChildAtForReason(root, i, materializeForEdit)
 			// Parent hints are deferred after an incremental result. Authenticate
@@ -345,7 +378,7 @@ func (c *reuseCursor) commitScratch(scratch *reuseScratch) {
 // reuseNode preserves their dynamic precedence and each live stack's cost.
 // New recovery must run under the fresh merge policy before it can qualify.
 func (c *reuseCursor) certifiesIncrementalResult(tree *Tree, p *Parser, source []byte, mergeOverride int) bool {
-	if !incr.RequiresFreshResult(len(source)) {
+	if c == nil || !c.freshScheduleReuse {
 		return false
 	}
 	if c == nil || !c.cEquivalentReuse || !c.oldRecoveryCertified || c.unprovenReuse || c.unprovenStateMismatch || tree == nil || tree.root == nil {
@@ -358,6 +391,9 @@ func (c *reuseCursor) certifiesIncrementalResult(tree *Tree, p *Parser, source [
 	}
 	rt := tree.rawParseRuntime()
 	if rt.StopReason != ParseStopAccepted || rt.Truncated || rt.TokenSourceEOFEarly || (tree.root.IsError() && !tree.root.HasError()) || (rt.CRecoveryDroppedErrorForClean && (!tree.root.HasError() || !c.recoveryEditChangesToken(tree, p.language))) {
+		return false
+	}
+	if c.smallFreshReuse && !incr.SmallFreshReusePublicationEligible(!tree.root.HasError(), rt.CRecoveryEnteredErrorState, rt.CRecoveryDroppedErrorForClean) {
 		return false
 	}
 	if tree.root.HasError() {
@@ -397,6 +433,9 @@ func (c *reuseCursor) releaseNodeRefs() {
 	c.newSource = nil
 	c.edits = nil
 	c.forestFastPath = false
+	c.freshScheduleReuse, c.smallFreshReuse, c.smallFreshReuseAllowed = false, false, false
+	c.smallFreshShadowArtifact, c.shadowWouldCertify = false, false
+	c.firstLeafActions = incr.ReuseActionMemo{}
 	c.compactRecovery = false
 	c.compactCheckpointedScanner = false
 	c.languageName = ""
@@ -864,7 +903,7 @@ func reuseStackByteOffsetAfterTruncate(s *glrStack, depth int, entryScratch *glr
 // On success it appends the reused node to the stack and returns the first
 // lookahead token that begins at or after the node's end byte.
 func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, idx *reuseCursor, entryScratch *glrEntryScratch, gssScratch *gssScratch) (Token, uint32, bool) {
-	if idx.cEquivalentReuse && incr.RequiresFreshResult(len(idx.newSource)) && (s.cPaused || (s.cRec != nil && s.top().state == cErrorState)) {
+	if idx.cEquivalentReuse && idx.freshScheduleReuse && (s.cPaused || (s.cRec != nil && s.top().state == cErrorState)) {
 		return lookahead, 0, false
 	}
 	continuationEscape := p.lineContinuationEscapeByte()
@@ -885,7 +924,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 	scannerNeedsLeafReuse := dts != nil && languageUsesExternalScannerCheckpoints(dts.language) &&
 		!languageSupportsCheckpointedNonLeafReuse(dts.language)
 	for _, n := range candidates {
-		if idx.cEquivalentReuse && incr.RequiresFreshResult(len(idx.newSource)) && s.cEverErrored && (!idx.topLevelSiblingBlockSpliceEligible(n) || (idx.spanChangingEdit && n.PreGotoState() != state)) {
+		if idx.cEquivalentReuse && idx.freshScheduleReuse && s.cEverErrored && (!idx.topLevelSiblingBlockSpliceEligible(n) || (idx.spanChangingEdit && n.PreGotoState() != state)) {
 			continue
 		}
 		structuralReuse := false
@@ -927,12 +966,12 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 			if !fullRootUndo && !topLevelCandidateOwnsCurrentFrontier(n, state) {
 				idx.observedPreGotoStateMismatch++
 				stateMismatch = true
-				if ((idx.spanChangingEdit && incr.RequiresFreshResult(len(idx.newSource))) || !structuralReuse) && (idx.strictTopLevelOwnership || idx.topLevelSpliceLeading) {
+				if ((idx.spanChangingEdit && idx.freshScheduleReuse) || !structuralReuse) && (idx.strictTopLevelOwnership || idx.topLevelSpliceLeading) {
 					continue
 				}
 			}
 		}
-		if structuralReuse && (!incr.RequiresFreshResult(len(idx.newSource)) || !p.legacyCanReuseFreshLeaf(state, n, lookahead, ts)) && (n.isFragile() || !p.legacyCanReuseFirstLeaf(state, n) || !legacyReuseMatchesLookahead(n, lookahead)) {
+		if structuralReuse && (!idx.freshScheduleReuse || !p.legacyCanReuseFreshLeaf(state, n, lookahead, ts)) && (n.isFragile() || !p.legacyCanReuseFirstLeaf(state, n) || !legacyReuseMatchesLookahead(n, lookahead)) {
 			continue
 		}
 		nextState, ok := p.reuseTargetState(state, n, lookahead)
@@ -1235,12 +1274,12 @@ func blockSpliceScannerSkipEligible(dts *dfaTokenSource) bool {
 }
 
 func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState StateID, lookahead Token, ts TokenSource, idx *reuseCursor, entryScratch *glrEntryScratch, gssScratch *gssScratch, checkpoint externalScannerCheckpointRef) (Token, uint32, bool) {
-	freshLeaf := idx.cEquivalentReuse && incr.RequiresFreshResult(len(idx.newSource)) && p.legacyCanReuseFreshLeaf(startState, n, lookahead, ts)
+	freshLeaf := idx.cEquivalentReuse && idx.freshScheduleReuse && p.legacyCanReuseFreshLeaf(startState, n, lookahead, ts)
 	if idx.cEquivalentReuse {
 		_, known := legacyReuseLookahead(n)
 		if s.cPaused || (s.cRec != nil && startState == cErrorState) ||
 			(s.cEverErrored && (!idx.topLevelSiblingBlockSpliceEligible(n) || (idx.spanChangingEdit && n.PreGotoState() != startState))) || n.IsError() || n.HasError() || n.IsMissing() || (!freshLeaf && (!known || n.isFragile() || !p.legacyCanReuseFirstLeaf(startState, n) || !legacyReuseMatchesLookahead(n, lookahead))) {
-			if incr.RequiresFreshResult(len(idx.newSource)) {
+			if idx.freshScheduleReuse {
 				return lookahead, 0, false
 			}
 			idx.unprovenReuse = true
@@ -1482,7 +1521,7 @@ func (p *Parser) tryReuseSharedFrontier(stacks []glrStack, tok Token, ts TokenSo
 			return known
 		},
 		func(s *glrStack, n *Node) bool {
-			if s.dead || s.accepted || s.shifted || (incr.RequiresFreshResult(len(idx.newSource)) && (s.cPaused || (s.cRec != nil && s.top().state == cErrorState) ||
+			if s.dead || s.accepted || s.shifted || (idx.freshScheduleReuse && (s.cPaused || (s.cRec != nil && s.top().state == cErrorState) ||
 				(s.cEverErrored && idx.spanChangingEdit && n.PreGotoState() != s.top().state))) || !p.legacyCanReuseFirstLeaf(s.top().state, n) || !reuseSubtreeGapIsParserPadding(idx.newSource, s.byteOffset, n.StartByte(), p.lineContinuationEscapeByte()) {
 				return false
 			}
@@ -1873,8 +1912,12 @@ func (t *Tree) prepareLegacyReuseDependencies() {
 // ends before the edit. Preserve that text's coordinates and propagate changes
 // down to every child whose recorded scan touched the edit.
 func editLegacyLookaheadOnly(n *Node, edit InputEdit) bool {
+	return editLegacyLookaheadOnlyPolicy(n, edit, false)
+}
+
+func editLegacyLookaheadOnlyPolicy(n *Node, edit InputEdit, smallIdentifierEdit bool) bool {
 	if (edit.OldEndByte != edit.NewEndByte || edit.OldEndPoint != edit.NewEndPoint) &&
-		(n == nil || n.ownerArena == nil || n.ownerArena.legacyReuseReads == nil || !incr.RequiresFreshResult(int(n.ownerArena.legacyReuseReads.SourceBytes()))) {
+		(n == nil || n.ownerArena == nil || n.ownerArena.legacyReuseReads == nil || (!incr.RequiresFreshResult(int(n.ownerArena.legacyReuseReads.SourceBytes())) && (!smallIdentifierEdit || n.ownerArena.legacyReuseReads.DefaultProducerSchedule(int(n.ownerArena.legacyReuseReads.SourceBytes())) == 0))) {
 		// Small edits retain the established padding projection and fresh check.
 		return false
 	}
@@ -1904,7 +1947,7 @@ func editLegacyLookaheadOnly(n *Node, edit InputEdit) bool {
 	}
 	for i := 0; i < nodeChildCountNoMaterialize(n); i++ {
 		child := nodeChildAtForReason(n, i, materializeForEdit)
-		editLegacyLookaheadOnly(child, edit)
+		editLegacyLookaheadOnlyPolicy(child, edit, smallIdentifierEdit)
 	}
 	return true
 }
@@ -1921,8 +1964,17 @@ func (p *Parser) legacyCanReuseFirstLeaf(state StateID, n *Node) bool {
 		keyword = word == nil || *word&legacyReuseLeafKnown == 0 || *word&legacyReuseKeyword != 0
 	}
 	rawSymbol := legacyReuseDispatchSymbol(leaf)
-	entry := p.lookupAction(state, rawSymbol)
-	hasActions, reusable := entry != nil && len(entry.Actions) != 0, entry != nil && entry.Reusable
+	hasActions, reusable, cached := false, false, false
+	if p.reuseCursor.smallFreshReuse {
+		hasActions, reusable, cached = p.reuseCursor.firstLeafActions.Lookup(uint32(state), uint16(rawSymbol))
+	}
+	if !cached {
+		entry := p.lookupAction(state, rawSymbol)
+		hasActions, reusable = entry != nil && len(entry.Actions) != 0, entry != nil && entry.Reusable
+		if p.reuseCursor.smallFreshReuse {
+			p.reuseCursor.firstLeafActions.Store(uint32(state), uint16(rawSymbol), hasActions, reusable)
+		}
+	}
 	return incr.FirstLeaf(current.LexStateIndex() == noLookaheadLexState, hasActions,
 		current == original, rawSymbol == p.language.KeywordCaptureToken,
 		keyword, n.preGotoState == state,

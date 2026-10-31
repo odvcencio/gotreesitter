@@ -45,7 +45,7 @@ func (d *compactReuseDependencies) reset() compactReuseDependencies {
 	if reads != nil {
 		reads.Reset(-1)
 		remaining := int64(compactReuseDependencyRetainedEntries-cap(ends)-cap(leafWords)) * 4
-		const readHeaderBytes = 64
+		readHeaderBytes := incr.ReadsHeaderBytes()
 		if remaining < readHeaderBytes {
 			reads = nil
 		} else {
@@ -330,17 +330,83 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependenciesFr
 			}
 		}
 	}
+	// A small publication moves at most 64 KiB in a fresh sparse store.
+	// Preserve its direct path instead of scanning the entire arena.
+	if len(candidates) <= 64 {
+		for node, candidate := range candidates {
+			// A collapsed outer projection must not inherit an inner proof when
+			// its own dependency is unknown. Unmatched alias clones also abstain.
+			if !candidate.seen || candidate.unknown || !setCompactReuseDependency(node, candidate.end-node.EndByte()) {
+				clearCompactReuseDependency(node)
+			}
+			visited++
+			if visited&255 == 0 {
+				if err := check(); err != nil {
+					return err
+				}
+			}
+		}
+		return check()
+	}
+	// Publish the highest slot first, then scan the arena in slot order. The
+	// sparse store then moves only that final entry for each new receipt.
+	// Seeding the full range also keeps early dense promotion from using a
+	// misleadingly narrow prefix of this publication.
+	var last *Node
+	lastIndex := -1
 	for node, candidate := range candidates {
 		// A collapsed outer projection must not inherit an inner proof when
 		// its own dependency is unknown. Unmatched alias clones also abstain.
-		if !candidate.seen || candidate.unknown || !setCompactReuseDependency(node, candidate.end-node.EndByte()) {
+		if !candidate.seen || candidate.unknown {
 			clearCompactReuseDependency(node)
+			delete(candidates, node)
+		} else if _, index, ok := arena.denseDependencyStore(node); !ok {
+			clearCompactReuseDependency(node)
+			delete(candidates, node)
+		} else if index > lastIndex {
+			last, lastIndex = node, index
 		}
 		visited++
 		if visited&255 == 0 {
 			if err := check(); err != nil {
 				return err
 			}
+		}
+	}
+	if last == nil {
+		return check()
+	}
+	if candidate := candidates[last]; !setCompactReuseDependency(last, candidate.end-last.EndByte()) {
+		clearCompactReuseDependency(last)
+	}
+	delete(candidates, last)
+	if len(candidates) == 0 {
+		return check()
+	}
+	publish := func(nodes []Node, used int) error {
+		for i := 0; i < used; i++ {
+			node := &nodes[i]
+			if candidate, ok := candidates[node]; ok {
+				if !setCompactReuseDependency(node, candidate.end-node.EndByte()) {
+					clearCompactReuseDependency(node)
+				}
+			}
+			visited++
+			if visited&255 == 0 {
+				if err := check(); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	if err := publish(arena.nodes, min(arena.used, len(arena.nodes))); err != nil {
+		return err
+	}
+	for i := range arena.nodeSlabs {
+		slab := &arena.nodeSlabs[i]
+		if err := publish(slab.data, slab.used); err != nil {
+			return err
 		}
 	}
 	return check()
