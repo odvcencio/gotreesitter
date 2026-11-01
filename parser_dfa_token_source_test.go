@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"unsafe"
 )
 
 func TestDFATokenSourceSkipToByteClampsBeforeNarrowing(t *testing.T) {
@@ -196,6 +197,25 @@ func (s errorModeFallbackExternalScanner) Scan(payload any, lexer *ExternalLexer
 	return true
 }
 
+// errorModeFallbackLanguage returns a language whose external symbol 1 is valid
+// only in error mode (LexModes[0]). In parser state 1 the DFA has no
+// transition for '#', so a '#' there takes the error-mode retry in Next.
+func errorModeFallbackLanguage(scanner errorModeFallbackExternalScanner) *Language {
+	return &Language{
+		SymbolNames: []string{"end", "external", "other_external", "internal"},
+		LexStates: []LexState{
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 2}, {Lo: ' ', Hi: ' ', NextState: 3}}},
+			{Default: -1, EOF: -1},
+			{Default: -1, EOF: -1, AcceptToken: 3},
+			{Default: -1, EOF: -1, Skip: true},
+		},
+		LexModes:          []LexMode{{LexState: 0, ExternalLexState: 1}, {LexState: 1, ExternalLexState: 2}},
+		ExternalSymbols:   []Symbol{1, 2},
+		ExternalLexStates: [][]bool{nil, {true, true}, {false, true}},
+		ExternalScanner:   scanner,
+	}
+}
+
 func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -217,21 +237,9 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 		{name: "ordinary internal token keeps normal mode", normalDFA: true, wantSymbol: 3, wantEnd: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			lang := &Language{
-				SymbolNames: []string{"end", "external", "other_external", "internal"},
-				LexStates: []LexState{
-					{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 2}, {Lo: ' ', Hi: ' ', NextState: 3}}},
-					{Default: -1, EOF: -1},
-					{Default: -1, EOF: -1, AcceptToken: 3},
-					{Default: -1, EOF: -1, Skip: true},
-				},
-				LexModes:          []LexMode{{LexState: 0, ExternalLexState: 1}, {LexState: 1, ExternalLexState: 2}},
-				ExternalSymbols:   []Symbol{1, 2},
-				ExternalLexStates: [][]bool{nil, {true, true}, {false, true}},
-				ExternalScanner: errorModeFallbackExternalScanner{
-					zeroWidth: tc.zeroWidth, changeState: tc.changeState,
-				},
-			}
+			lang := errorModeFallbackLanguage(errorModeFallbackExternalScanner{
+				zeroWidth: tc.zeroWidth, changeState: tc.changeState,
+			})
 			if tc.normalDFA {
 				lang.LexModes[1].LexState = 0
 			}
@@ -270,6 +278,50 @@ func TestNextTokenRetriesExternalScannerBeforeInternalErrorModeFallback(t *testi
 				}
 			}
 		})
+	}
+}
+
+// TestNextErrorModeRetryReusesSnapshotBuffer pins the snapshot that Next takes
+// before the error-mode external retry. A run of error tokens must reuse one
+// serialization buffer, not allocate a 4 KiB buffer for each token.
+func TestNextErrorModeRetryReusesSnapshotBuffer(t *testing.T) {
+	const tokens = 100
+	lang := errorModeFallbackLanguage(errorModeFallbackExternalScanner{})
+	d := acquireDFATokenSourceWithCRecovery(NewLexer(lang.LexStates, bytes.Repeat([]byte("#"), tokens+1)), lang,
+		func(StateID, Symbol) uint16 { return 1 }, nil, nil, nil, true)
+	defer d.Close()
+	d.state = 1
+	next := func() {
+		t.Helper()
+		if tok := d.Next(); tok.lexFlags&tokenFlagExternalErrorFallback == 0 {
+			t.Fatalf("token = %+v, want an external error-mode fallback token", tok)
+		}
+	}
+	next() // takes the pooled buffer for the first time
+
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	for i := 0; i < tokens; i++ {
+		next()
+	}
+	runtime.ReadMemStats(&after)
+	// A fresh buffer per token would allocate at least 4 KiB each. The limit
+	// leaves room for the pool to drop a buffer now and then, which it does for
+	// one Put in four under -race.
+	if got, limit := after.TotalAlloc-before.TotalAlloc, uint64(tokens)*3072; got > limit {
+		t.Fatalf("%d error-mode retries allocated %d bytes, want at most %d", tokens, got, limit)
+	}
+}
+
+// TestDFATokenSourceSizeBudget keeps dfaTokenSource in the allocation class it
+// fills today. Go adds an 8-byte header to a pointer-holding object over 512
+// bytes, so the 1,536-byte class holds a struct of at most 1,528 bytes. One more
+// byte moves every token source into the 1,792-byte class. Keep new scratch out
+// of the struct, as dfaRelexRetryScratchPool does.
+func TestDFATokenSourceSizeBudget(t *testing.T) {
+	const maxSize = 1536 - 8
+	if got := unsafe.Sizeof(dfaTokenSource{}); got > maxSize {
+		t.Fatalf("dfaTokenSource size = %d, exceeds %d", got, maxSize)
 	}
 }
 

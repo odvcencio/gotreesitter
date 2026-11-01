@@ -4481,3 +4481,808 @@ func TestCReductionCandidateDoesNotDoubleCloneRecoveryState(t *testing.T) {
 		t.Fatal("reduction candidate did not preserve shared immutable recovery summary")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// cMergeErrorChildren (issue #1551)
+//
+// A run of invalid tokens makes every token recover to the same state and
+// absorb the previous ERROR. cMergeErrorChildren builds each new ERROR's child
+// list by extending the previous list's backing array in place instead of
+// copying it. These tests pin the aliasing rules that make that safe.
+// ---------------------------------------------------------------------------
+
+// cMergeErrLeaf returns a leaf with a pointer of its own. The tests compare
+// children by pointer, so equal-looking leaves must never be reused by accident.
+func cMergeErrLeaf(at uint32) *Node {
+	return newLeafNodeInArena(nil, 1, true, at, at+1, Point{Column: at}, Point{Column: at + 1})
+}
+
+func cMergeErrLeaves(count int, at uint32) []*Node {
+	leaves := make([]*Node, count)
+	for i := range leaves {
+		leaves[i] = cMergeErrLeaf(at + uint32(i))
+	}
+	return leaves
+}
+
+// cMergeErrNode wraps a child list in an ERROR node without copying it, the way
+// cRecoverToState hands a merged list to the node it builds.
+func cMergeErrNode(children []*Node) *Node {
+	return &Node{symbol: errorSymbol, children: children}
+}
+
+// cMergeErrExact returns an ERROR node over an exact-size copy of children: the
+// shape an early recovery builds before any chain exists.
+func cMergeErrExact(children []*Node) *Node {
+	owned := make([]*Node, len(children))
+	copy(owned, children)
+	return cMergeErrNode(owned)
+}
+
+func cMergeErrConcat(parts ...[]*Node) []*Node {
+	var out []*Node
+	for _, part := range parts {
+		out = append(out, part...)
+	}
+	return out
+}
+
+func cMergeErrEqual(a, b []*Node) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func cMergeErrSharesArray(a, b []*Node) bool {
+	return len(a) > 0 && len(b) > 0 && &a[0] == &b[0]
+}
+
+// cMergeErrXorshift is a small deterministic generator, so the randomized test
+// replays the same operations on every run and Go version.
+type cMergeErrXorshift uint64
+
+func (r *cMergeErrXorshift) next(n int) int {
+	x := uint64(*r)
+	x ^= x << 13
+	x ^= x >> 7
+	x ^= x << 17
+	*r = cMergeErrXorshift(x)
+	return int(x % uint64(n))
+}
+
+func TestCMergeErrorChildrenExtendsLongChainInPlace(t *testing.T) {
+	var g gssScratch
+	const merges = 600
+	model := cMergeErrLeaves(cErrChildTailMinChildren-1, 0)
+	prev := cMergeErrExact(model)
+	published := make([][]*Node, 0, merges)
+	arrays := make(map[**Node]struct{})
+	for i := 0; i < merges; i++ {
+		leaf := cMergeErrLeaf(uint32(1000 + i))
+		got := cMergeErrorChildren(&g, prev, []*Node{leaf})
+		model = append(model, leaf)
+		if !cMergeErrEqual(got, model) {
+			t.Fatalf("merge %d: list has %d children, want the %d of the plain-copy model, in the same order", i, len(got), len(model))
+		}
+		if cap(got) != len(got) {
+			t.Fatalf("merge %d: cap = %d, want cap == len == %d", i, cap(got), len(got))
+		}
+		arrays[&got[0]] = struct{}{}
+		published = append(published, got)
+		prev = cMergeErrNode(got)
+	}
+	// A later merge only writes past the elements an earlier list claimed.
+	for i, list := range published {
+		if !cMergeErrEqual(list, model[:len(list)]) {
+			t.Fatalf("list %d changed after later merges", i)
+		}
+	}
+	// A plain copy would use one array per merge. Growth reallocates only when
+	// the spare room runs out, so the count stays logarithmic.
+	if n := len(arrays); n < 2 || n > 10 {
+		t.Fatalf("%d merges used %d backing arrays, want a few geometric growth steps (2 to 10)", merges, n)
+	}
+}
+
+func TestCMergeErrorChildrenAppendOnReturnedListReallocates(t *testing.T) {
+	var g gssScratch
+	prev := cMergeErrExact(cMergeErrLeaves(20, 0))
+	first := cMergeErrorChildren(&g, prev, []*Node{cMergeErrLeaf(100)})
+	chain := &g.recoveryElection.errTails[0]
+	if len(chain.full) <= len(first) || &chain.full[0] != &first[0] || chain.used != len(first) {
+		t.Fatalf("setup: chain full=%d used=%d for a list of %d, want spare room behind the list", len(chain.full), chain.used, len(first))
+	}
+	snapshot := cMergeErrConcat(first)
+
+	// parser_reduce.go appends absorbed tokens to an ERROR node's own list.
+	foreign := cMergeErrLeaf(200)
+	appended := append(first, foreign)
+	if cMergeErrSharesArray(appended, first) {
+		t.Fatal("append on a returned list wrote into the shared array, want a reallocation")
+	}
+	if chain.full[len(first)] != nil {
+		t.Fatal("append on a returned list wrote into the chain's spare room")
+	}
+
+	// The chain still extends past first, with its own child and not the
+	// appended one.
+	own := cMergeErrLeaf(300)
+	next := cMergeErrorChildren(&g, cMergeErrNode(first), []*Node{own})
+	if len(next) != len(first)+1 || next[len(first)] != own {
+		t.Fatalf("next list = %d children ending in the wrong node, want %d ending in the chain's own child", len(next), len(first)+1)
+	}
+	if !cMergeErrSharesArray(next, first) {
+		t.Fatal("chain did not extend in place after a consumer appended to an earlier list")
+	}
+	if !cMergeErrEqual(first, snapshot) {
+		t.Fatal("first list changed")
+	}
+	if len(appended) != len(first)+1 || appended[len(first)] != foreign {
+		t.Fatal("the consumer's appended list changed")
+	}
+}
+
+func TestCMergeErrorChildrenSiblingForksStayIndependent(t *testing.T) {
+	var g gssScratch
+	base := cMergeErrLeaves(cErrChildTailMinChildren, 0)
+	prevList := cMergeErrorChildren(&g, cMergeErrExact(base[:len(base)-1]), base[len(base)-1:])
+	if !cMergeErrEqual(prevList, base) || cap(prevList) != len(prevList) {
+		t.Fatalf("setup: prev list has %d children with cap %d", len(prevList), cap(prevList))
+	}
+	prev := cMergeErrNode(prevList)
+	a, b, c := cMergeErrLeaf(100), cMergeErrLeaf(101), cMergeErrLeaf(102)
+	want := func(add ...*Node) []*Node { return cMergeErrConcat(prevList, add) }
+	check := func(name string, got, wantList []*Node) {
+		t.Helper()
+		if !cMergeErrEqual(got, wantList) {
+			t.Fatalf("%s: list has %d children, want %d, with the same nodes in order", name, len(got), len(wantList))
+		}
+		if cap(got) != len(got) {
+			t.Fatalf("%s: cap = %d, want cap == len == %d", name, cap(got), len(got))
+		}
+	}
+
+	first := cMergeErrorChildren(&g, prev, []*Node{a})
+	check("first", first, want(a))
+	if !cMergeErrSharesArray(first, prevList) {
+		t.Fatal("first sibling did not extend the chain in place")
+	}
+
+	// The second sibling adds a different child after the same prev. The chain
+	// already holds a at that position, so it must copy.
+	second := cMergeErrorChildren(&g, prev, []*Node{b})
+	check("second", second, want(b))
+	check("first after second", first, want(a))
+	if cMergeErrSharesArray(second, first) {
+		t.Fatal("diverging sibling shares the first sibling's array")
+	}
+
+	// A sibling that repeats the first one's children shares its array.
+	third := cMergeErrorChildren(&g, prev, []*Node{a})
+	check("third", third, want(a))
+	if !cMergeErrSharesArray(third, first) {
+		t.Fatal("matching sibling did not reuse the chain")
+	}
+
+	// A sibling that adds more after the same prefix extends the chain.
+	fourth := cMergeErrorChildren(&g, prev, []*Node{a, c})
+	check("fourth", fourth, want(a, c))
+	if !cMergeErrSharesArray(fourth, first) {
+		t.Fatal("longer sibling did not extend the chain in place")
+	}
+	check("first after fourth", first, want(a))
+	check("third after fourth", third, want(a))
+
+	// Diverging again copies again, and never onto the second sibling's array.
+	fifth := cMergeErrorChildren(&g, prev, []*Node{b})
+	check("fifth", fifth, want(b))
+	if cMergeErrSharesArray(fifth, second) || cMergeErrSharesArray(fifth, first) {
+		t.Fatal("second diverging sibling shares an array with an earlier sibling")
+	}
+
+	// The second sibling's copy is a chain of its own and extends in place.
+	d := cMergeErrLeaf(103)
+	secondNext := cMergeErrorChildren(&g, cMergeErrNode(second), []*Node{d})
+	check("second's child", secondNext, want(b, d))
+	if !cMergeErrSharesArray(secondNext, second) {
+		t.Fatal("the diverging sibling's copy did not become a chain")
+	}
+	check("first after second's child", first, want(a))
+	check("fourth after second's child", fourth, want(a, c))
+}
+
+func TestCMergeErrorChildrenGrowthKeepsEarlierListsIntact(t *testing.T) {
+	var g gssScratch
+	model := cMergeErrLeaves(cErrChildTailMinChildren-1, 0)
+	prev := cMergeErrExact(model)
+	var lists, snapshots [][]*Node
+	var beforeGrowth []*Node
+	for i := 0; i < 200 && beforeGrowth == nil; i++ {
+		leaf := cMergeErrLeaf(uint32(500 + i))
+		got := cMergeErrorChildren(&g, prev, []*Node{leaf})
+		model = append(model, leaf)
+		if n := len(lists); n > 0 && !cMergeErrSharesArray(got, lists[n-1]) {
+			beforeGrowth = lists[n-1] // the last list that lives in the old array
+		}
+		lists = append(lists, got)
+		snapshots = append(snapshots, cMergeErrConcat(got))
+		prev = cMergeErrNode(got)
+	}
+	if beforeGrowth == nil {
+		t.Fatal("no growth step within 200 merges")
+	}
+	for i := range lists {
+		if !cMergeErrEqual(lists[i], snapshots[i]) {
+			t.Fatalf("list %d changed when the chain grew", i)
+		}
+	}
+	newest := lists[len(lists)-1]
+	if !cMergeErrEqual(newest, model) || cap(newest) != len(newest) {
+		t.Fatalf("grown list has %d children with cap %d, want the %d of the model with cap == len", len(newest), cap(newest), len(model))
+	}
+
+	// The chain left the old array behind. A sibling built on a list that
+	// still views the old array must copy, and must not touch either array.
+	z := cMergeErrLeaf(9000)
+	sibling := cMergeErrorChildren(&g, cMergeErrNode(beforeGrowth), []*Node{z})
+	if !cMergeErrEqual(sibling, cMergeErrConcat(beforeGrowth, []*Node{z})) {
+		t.Fatal("sibling of a pre-growth list has the wrong children")
+	}
+	if cMergeErrSharesArray(sibling, beforeGrowth) || cMergeErrSharesArray(sibling, newest) {
+		t.Fatal("sibling of a pre-growth list shares an array with the chain")
+	}
+	if !cMergeErrEqual(newest, snapshots[len(snapshots)-1]) || !cMergeErrEqual(beforeGrowth, snapshots[len(snapshots)-2]) {
+		t.Fatal("a sibling of a pre-growth list changed an existing list")
+	}
+}
+
+func TestCMergeErrorChildrenGrowthCarriesElementsClaimedBehindSibling(t *testing.T) {
+	var g gssScratch
+	first := cMergeErrorChildren(&g, cMergeErrExact(cMergeErrLeaves(cErrChildTailMinChildren-1, 0)), []*Node{cMergeErrLeaf(100)})
+	chain := &g.recoveryElection.errTails[0]
+	if len(chain.full) <= len(first) || chain.used != len(first) {
+		t.Fatalf("setup: chain full=%d used=%d for a list of %d, want spare room behind the list", len(chain.full), chain.used, len(first))
+	}
+	// Extend the chain one child at a time until its array is exactly full.
+	var extra []*Node
+	newest := first
+	for len(newest) < len(chain.full) {
+		leaf := cMergeErrLeaf(uint32(200 + len(newest)))
+		extra = append(extra, leaf)
+		newest = cMergeErrorChildren(&g, cMergeErrNode(newest), []*Node{leaf})
+	}
+	if chain.used != len(chain.full) {
+		t.Fatalf("setup: used=%d, want the array exactly full (%d)", chain.used, len(chain.full))
+	}
+	snapshot := cMergeErrConcat(newest)
+
+	// A sibling of the shortest list repeats every child the chain claimed
+	// behind it and adds one more. The array has to grow while used is past the
+	// sibling's prefix, so the grown array must carry the claimed children over.
+	add := cMergeErrConcat(extra, []*Node{cMergeErrLeaf(9999)})
+	got := cMergeErrorChildren(&g, cMergeErrNode(first), add)
+	if want := cMergeErrConcat(first, add); !cMergeErrEqual(got, want) {
+		nils := 0
+		for _, n := range got {
+			if n == nil {
+				nils++
+			}
+		}
+		t.Fatalf("grown sibling list is not first's children followed by add: %d children (%d nil), want %d", len(got), nils, len(want))
+	}
+	if cap(got) != len(got) {
+		t.Fatalf("cap = %d, want cap == len == %d", cap(got), len(got))
+	}
+	if !cMergeErrEqual(newest, snapshot) {
+		t.Fatal("the longest list changed when the sibling grew the chain")
+	}
+}
+
+func TestCMergeErrorChildrenSiblingRepeatingPartOfClaimedChildren(t *testing.T) {
+	var g gssScratch
+	base := cMergeErrLeaves(cErrChildTailMinChildren, 0)
+	prevList := cMergeErrorChildren(&g, cMergeErrExact(base[:len(base)-1]), base[len(base)-1:])
+	prev := cMergeErrNode(prevList)
+	a, b, c := cMergeErrLeaf(100), cMergeErrLeaf(101), cMergeErrLeaf(102)
+	want := func(add ...*Node) []*Node { return cMergeErrConcat(prevList, add) }
+
+	longest := cMergeErrorChildren(&g, prev, []*Node{a, b, c})
+	chain := &g.recoveryElection.errTails[0]
+	if !cMergeErrSharesArray(longest, prevList) || chain.used != len(longest) {
+		t.Fatalf("setup: chain used=%d for a list of %d, want the chain to end at the longest list", chain.used, len(longest))
+	}
+
+	// A sibling that repeats only the first children of the longest list needs
+	// less than the chain already holds. It gets a view of the chain, and the
+	// chain keeps its length.
+	shorter := cMergeErrorChildren(&g, prev, []*Node{a, b})
+	if !cMergeErrEqual(shorter, want(a, b)) {
+		t.Fatalf("shorter sibling list has %d children, want %d, with the same nodes in order", len(shorter), len(want(a, b)))
+	}
+	if cap(shorter) != len(shorter) {
+		t.Fatalf("cap = %d, want cap == len == %d", cap(shorter), len(shorter))
+	}
+	if !cMergeErrSharesArray(shorter, longest) {
+		t.Fatal("sibling repeating claimed children did not reuse the chain")
+	}
+	if chain.used != len(longest) || !cMergeErrEqual(longest, want(a, b, c)) {
+		t.Fatalf("chain used=%d after the shorter sibling, want %d with the longest list unchanged", chain.used, len(longest))
+	}
+
+	// The chain still extends past its longest list.
+	d := cMergeErrLeaf(103)
+	next := cMergeErrorChildren(&g, cMergeErrNode(longest), []*Node{d})
+	if !cMergeErrEqual(next, cMergeErrConcat(longest, []*Node{d})) || !cMergeErrSharesArray(next, longest) {
+		t.Fatal("chain did not extend in place after a shorter sibling")
+	}
+	if !cMergeErrEqual(shorter, want(a, b)) {
+		t.Fatal("the shorter sibling's list changed when the chain extended")
+	}
+}
+
+func TestCMergeErrorChildrenEmptyPrevWithRegisteredChain(t *testing.T) {
+	var g gssScratch
+	cMergeErrorChildren(&g, cMergeErrExact(cMergeErrLeaves(cErrChildTailMinChildren, 0)), []*Node{cMergeErrLeaf(100)})
+	if g.recoveryElection.errTails[0].full == nil {
+		t.Fatal("setup: merge did not register a chain")
+	}
+
+	// A childless prev has no first element to match against a chain's array.
+	leaf := cMergeErrLeaf(300)
+	got := cMergeErrorChildren(&g, cMergeErrNode(nil), []*Node{leaf})
+	if len(got) != 1 || got[0] != leaf || cap(got) != 1 {
+		t.Fatalf("empty prev merge returned %d children (cap %d), want exactly the added leaf", len(got), cap(got))
+	}
+}
+
+func TestCMergeErrorChildrenNilScratchCopiesExactSize(t *testing.T) {
+	prevKids := cMergeErrLeaves(40, 0) // well past cErrChildTailMinChildren
+	prev := cMergeErrExact(prevKids)
+	add := cMergeErrLeaves(3, 100)
+
+	got := cMergeErrorChildren(nil, prev, add)
+	if !cMergeErrEqual(got, cMergeErrConcat(prevKids, add)) {
+		t.Fatalf("list has %d children, want %d, with prev's children first", len(got), len(prevKids)+len(add))
+	}
+	if cap(got) != len(got) {
+		t.Fatalf("cap = %d, want an exact-size copy of %d", cap(got), len(got))
+	}
+	if cMergeErrSharesArray(got, prev.children) || cMergeErrSharesArray(got, add) {
+		t.Fatal("copy shares an array with prev or add")
+	}
+	got[0] = nil
+	if prev.children[0] == nil {
+		t.Fatal("writing to the copy changed prev's children")
+	}
+
+	// Without a scratch no chain can form: a second merge copies again.
+	again := cMergeErrorChildren(nil, cMergeErrNode(got), []*Node{cMergeErrLeaf(200)})
+	if cap(again) != len(again) || cMergeErrSharesArray(again, got) {
+		t.Fatalf("second merge without a scratch: cap %d for %d children, shares array %v", cap(again), len(again), cMergeErrSharesArray(again, got))
+	}
+
+	// An empty add still returns an independent, exact-size list.
+	same := cMergeErrorChildren(nil, prev, nil)
+	if !cMergeErrEqual(same, prevKids) || cap(same) != len(same) || cMergeErrSharesArray(same, prev.children) {
+		t.Fatal("empty add did not return an independent exact-size copy")
+	}
+}
+
+func TestCMergeErrorChildrenShortListsAreExactSizeCopies(t *testing.T) {
+	// Every need below cErrChildTailMinChildren keeps the exact-size array the
+	// merge always had, and never registers a chain.
+	for prevCount := 0; prevCount < cErrChildTailMinChildren-1; prevCount++ {
+		var g gssScratch
+		prevKids := cMergeErrLeaves(prevCount, 0)
+		add := cMergeErrLeaves(1, 100)
+		got := cMergeErrorChildren(&g, cMergeErrExact(prevKids), add)
+		if !cMergeErrEqual(got, cMergeErrConcat(prevKids, add)) {
+			t.Fatalf("prev %d: wrong children", prevCount)
+		}
+		if cap(got) != len(got) {
+			t.Fatalf("prev %d: cap = %d, want exact size %d", prevCount, cap(got), len(got))
+		}
+		for i, tail := range g.recoveryElection.errTails {
+			if tail.full != nil || tail.used != 0 {
+				t.Fatalf("prev %d: short list registered a chain in slot %d", prevCount, i)
+			}
+		}
+		if g.recoveryElection.errTailNext != 0 {
+			t.Fatalf("prev %d: errTailNext = %d, want 0", prevCount, g.recoveryElection.errTailNext)
+		}
+	}
+
+	// Several children added to an empty prev, and an empty add, stay short too.
+	var g gssScratch
+	many := cMergeErrLeaves(cErrChildTailMinChildren-1, 0)
+	if got := cMergeErrorChildren(&g, cMergeErrNode(nil), many); !cMergeErrEqual(got, many) || cap(got) != len(got) || cMergeErrSharesArray(got, many) {
+		t.Fatal("empty prev with a short add did not return an exact-size copy")
+	}
+	if got := cMergeErrorChildren(&g, cMergeErrExact(many), nil); !cMergeErrEqual(got, many) || cap(got) != len(got) {
+		t.Fatal("short prev with an empty add did not return an exact-size copy")
+	}
+	if g.recoveryElection.errTails[0].full != nil {
+		t.Fatal("short lists registered a chain")
+	}
+
+	// At the threshold the list becomes a chain: still cap == len, with spare
+	// room behind it.
+	got := cMergeErrorChildren(&g, cMergeErrExact(many), []*Node{cMergeErrLeaf(100)})
+	chain := g.recoveryElection.errTails[0]
+	if len(got) != cErrChildTailMinChildren || cap(got) != len(got) {
+		t.Fatalf("threshold list has %d children with cap %d", len(got), cap(got))
+	}
+	if len(chain.full) <= len(got) || chain.used != len(got) || &chain.full[0] != &got[0] {
+		t.Fatalf("threshold list is not a chain: full=%d used=%d", len(chain.full), chain.used)
+	}
+}
+
+func TestCRecoverElectionScratchReleaseClearsErrorTails(t *testing.T) {
+	var g gssScratch
+	prev := cMergeErrExact(cMergeErrLeaves(cErrChildTailMinChildren, 0))
+	list := cMergeErrorChildren(&g, prev, []*Node{cMergeErrLeaf(100)})
+	if g.recoveryElection.errTails[0].full == nil || g.recoveryElection.errTailNext != 1 {
+		t.Fatal("setup: merge did not register a chain")
+	}
+
+	// gssScratch.reset is the path the parser-scratch pool takes on release.
+	g.reset()
+	for i, tail := range g.recoveryElection.errTails {
+		if tail.full != nil || tail.used != 0 {
+			t.Fatalf("slot %d kept its child list after release", i)
+		}
+	}
+	if g.recoveryElection.errTailNext != 0 {
+		t.Fatalf("errTailNext = %d after release, want 0", g.recoveryElection.errTailNext)
+	}
+
+	// A list built before the release is not a chain after it: merging copies.
+	next := cMergeErrorChildren(&g, cMergeErrNode(list), []*Node{cMergeErrLeaf(101)})
+	if len(next) != len(list)+1 || !cMergeErrEqual(next[:len(list)], list) {
+		t.Fatal("merge after release lost children")
+	}
+	if cMergeErrSharesArray(next, list) {
+		t.Fatal("merge after release extended an array the scratch no longer tracks")
+	}
+}
+
+// TestCMergeErrorChildrenMatchesPlainCopyModel runs random merges, sibling
+// forks, consumer appends, and scratch releases, and checks every list against
+// a plain-copy model: each result has the right children, every list ever
+// returned keeps its children, and appending to a list never writes into
+// another one.
+func TestCMergeErrorChildrenMatchesPlainCopyModel(t *testing.T) {
+	for _, pooled := range []bool{true, false} {
+		name := "nil scratch"
+		if pooled {
+			name = "pooled scratch"
+		}
+		t.Run(name, func(t *testing.T) {
+			var g gssScratch
+			var scratch *gssScratch
+			if pooled {
+				scratch = &g
+			}
+			type listed struct {
+				node *Node
+				want []*Node // plain copy the list must keep for good
+			}
+			shared := cMergeErrLeaves(48, 0) // children that sibling forks can both add
+			fresh := uint32(1000)
+			newLeaf := func() *Node {
+				fresh++
+				return cMergeErrLeaf(fresh)
+			}
+			rng := cMergeErrXorshift(0x9e3779b97f4a7c15)
+			randomAdd := func() []*Node {
+				add := make([]*Node, rng.next(4))
+				for i := range add {
+					if rng.next(2) == 0 {
+						add[i] = shared[rng.next(len(shared))]
+					} else {
+						add[i] = newLeaf()
+					}
+				}
+				return add
+			}
+			entries := []listed{{node: cMergeErrExact(shared[:3]), want: cMergeErrConcat(shared[:3])}}
+			check := func(step int, what string, got, want []*Node) {
+				t.Helper()
+				if !cMergeErrEqual(got, want) {
+					t.Fatalf("step %d %s: list has %d children, want %d, in the model's order", step, what, len(got), len(want))
+				}
+			}
+			var lastBase int
+			var lastAdd []*Node
+			inPlace := 0
+			for step := 0; step < 700; step++ {
+				base := len(entries) - 1
+				var add []*Node
+				switch kind := rng.next(12); {
+				case kind < 2: // fork from an earlier list
+					base = rng.next(len(entries))
+					add = randomAdd()
+				case kind < 4: // sibling of the previous merge: same children, maybe more
+					base = lastBase
+					add = cMergeErrConcat(lastAdd)
+					if rng.next(2) == 0 {
+						add = append(add, newLeaf())
+					}
+				case kind == 4: // consumer append, as the absorb paths do
+					// Only a returned list has cap == len. A consumer's own list
+					// can have spare room, and appending to it twice from the same
+					// length would overwrite itself; that is not a merge bug.
+					children := entries[base].node.children
+					if cap(children) != len(children) {
+						continue
+					}
+					leaf := newLeaf()
+					list := append(children, leaf)
+					if cMergeErrSharesArray(list, children) {
+						t.Fatalf("step %d: append wrote into a returned list's array", step)
+					}
+					want := cMergeErrConcat(entries[base].want, []*Node{leaf})
+					check(step, "append", list, want)
+					entries = append(entries, listed{node: cMergeErrNode(list), want: want})
+					continue
+				case kind == 5 && step%3 == 0: // the scratch goes back to the pool
+					g.recoveryElection.resetForRelease()
+					continue
+				default: // extend the newest list
+					add = randomAdd()
+				}
+				prevNode := entries[base].node
+				got := cMergeErrorChildren(scratch, prevNode, add)
+				want := cMergeErrConcat(entries[base].want, add)
+				check(step, "merge", got, want)
+				if cap(got) != len(got) {
+					t.Fatalf("step %d merge: cap = %d, want cap == len == %d", step, cap(got), len(got))
+				}
+				if cMergeErrSharesArray(got, prevNode.children) {
+					if !pooled {
+						t.Fatalf("step %d: merge without a scratch shared prev's array", step)
+					}
+					inPlace++
+				}
+				lastBase, lastAdd = base, add
+				entries = append(entries, listed{node: cMergeErrNode(got), want: want})
+				if step%50 == 0 {
+					for i := range entries {
+						check(step, "earlier list", entries[i].node.children, entries[i].want)
+					}
+				}
+			}
+			for i := range entries {
+				check(-1, "final list", entries[i].node.children, entries[i].want)
+			}
+			if pooled && inPlace < 50 {
+				t.Fatalf("only %d of the merges extended an array in place, want many; the test is not reaching the chain path", inPlace)
+			}
+		})
+	}
+}
+
+// TestCRecoverToStateErrorRunReusesChildStorage drives cRecoverToState the way a
+// run of invalid tokens does: every call absorbs the previous ERROR and one new
+// popped token. The ERROR nodes must keep every child in order, and their lists
+// must share a few arrays instead of one copy per token.
+func TestCRecoverToStateErrorRunReusesChildStorage(t *testing.T) {
+	const (
+		goal   = StateID(2)
+		popped = StateID(3)
+		tokens = 300
+	)
+	parser := cMergeErrRecoveryParser()
+	for _, pooled := range []bool{true, false} {
+		name := "nil scratch"
+		if pooled {
+			name = "pooled scratch"
+		}
+		t.Run(name, func(t *testing.T) {
+			arena := acquireNodeArena(arenaClassFull)
+			defer arena.Release()
+			var g gssScratch
+			var scratch *gssScratch
+			if pooled {
+				scratch = &g
+			}
+			stack := newGLRStack(1)
+			first := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+			stack.pushEntry(newStackEntryNode(goal, newParentNodeInArena(arena, errorSymbol, true, []*Node{first}, nil, 0)), nil, nil)
+
+			want := []*Node{first}
+			arrays := make(map[**Node]struct{})
+			longLists := 0
+			for i := 0; i < tokens; i++ {
+				at := uint32(i + 1)
+				leaf := newLeafNodeInArena(arena, 1, true, at, at+1, Point{Column: at}, Point{Column: at + 1})
+				parser.pushStackNode(&stack, popped, leaf, nil, scratch)
+				fork, ok := parser.cRecoverToState(&stack, 1, goal, arena, nil, scratch, nil)
+				if !ok {
+					t.Fatalf("token %d: cRecoverToState failed", i)
+				}
+				errNode := stackEntryNode(fork.top())
+				if errNode == nil || errNode.symbol != errorSymbol {
+					t.Fatalf("token %d: top of the recovered stack is not an ERROR node", i)
+				}
+				want = append(want, leaf)
+				if !cMergeErrEqual(errNode.children, want) {
+					t.Fatalf("token %d: ERROR has %d children, want %d, in token order", i, len(errNode.children), len(want))
+				}
+				if errNode.fieldMetadata != nil {
+					t.Fatalf("token %d: ERROR over children without fields has field metadata", i)
+				}
+				if len(errNode.children) >= cErrChildTailMinChildren {
+					arrays[&errNode.children[0]] = struct{}{}
+					longLists++
+				}
+				stack = fork
+			}
+			// Lists below cErrChildTailMinChildren are exact-size copies either way.
+			// Past it, a nil scratch still copies once per token, and a pooled
+			// scratch shares a few arrays.
+			if pooled {
+				if n := len(arrays); n < 1 || n > 10 {
+					t.Fatalf("%d tokens used %d backing arrays for %d long lists, want a few growth steps (1 to 10)", tokens, n, longLists)
+				}
+			} else if n := len(arrays); n != longLists {
+				t.Fatalf("nil scratch used %d backing arrays for %d long lists, want one exact-size copy per token", n, longLists)
+			}
+		})
+	}
+}
+
+// cMergeErrRecoveryParser returns a parser whose language has one visible token
+// symbol (1) and one hidden parent symbol (2), enough for cRecoverToState to
+// splice popped nodes and read their fields.
+func cMergeErrRecoveryParser() *Parser {
+	lang := &Language{
+		StateCount: 4,
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end"},
+			{Name: "tok", Visible: true, Named: true},
+			{Name: "_pair", Visible: false, Named: true},
+		},
+	}
+	return &Parser{language: lang}
+}
+
+// TestCRecoverToStateErrorMergeKeepsFieldMetadata pins the field metadata of the
+// ERROR node that cRecoverToState builds when it absorbs a previous ERROR. The
+// previous ERROR's children contribute zero fields, and the node keeps field
+// metadata only when a newly spliced child carries a field. The expected values
+// are what the code built before cMergeErrorChildren existed: a zero list for
+// prev's children followed by the spliced fields.
+func TestCRecoverToStateErrorMergeKeepsFieldMetadata(t *testing.T) {
+	const (
+		hiddenSym = Symbol(2)
+		goal      = StateID(2)
+		popped    = StateID(3)
+	)
+	parser := cMergeErrRecoveryParser()
+	cases := []struct {
+		name       string
+		prevKids   int
+		prevFields FieldID // non-zero: prev carries field metadata of its own
+		pairFields []FieldID
+		wantFields []FieldID // nil: the ERROR node has no field metadata
+	}{
+		{name: "no fields", prevKids: 3},
+		{name: "no fields, long prev", prevKids: 20},
+		{name: "no fields, empty prev"},
+		{name: "field on second child", prevKids: 3, pairFields: []FieldID{0, 5}, wantFields: []FieldID{0, 0, 0, 0, 5}},
+		{name: "field on first child, empty prev", pairFields: []FieldID{7, 0}, wantFields: []FieldID{7, 0}},
+		{name: "fields on both children, long prev", prevKids: 20, pairFields: []FieldID{7, 5}, wantFields: append(make([]FieldID, 20), 7, 5)},
+		// The merge has never carried prev's own fields into the new node.
+		{name: "prev fields are not carried over", prevKids: 3, prevFields: 9},
+		{name: "prev fields are not carried over, new fields", prevKids: 3, prevFields: 9, pairFields: []FieldID{0, 5}, wantFields: []FieldID{0, 0, 0, 0, 5}},
+	}
+	for _, tc := range cases {
+		for _, pooled := range []bool{true, false} {
+			name := tc.name + "/nil scratch"
+			if pooled {
+				name = tc.name + "/pooled scratch"
+			}
+			t.Run(name, func(t *testing.T) {
+				arena := acquireNodeArena(arenaClassFull)
+				defer arena.Release()
+				var g gssScratch
+				var scratch *gssScratch
+				if pooled {
+					scratch = &g
+				}
+				leaf := func(at uint32) *Node {
+					return newLeafNodeInArena(arena, 1, true, at, at+1, Point{Column: at}, Point{Column: at + 1})
+				}
+				prevKids := make([]*Node, tc.prevKids)
+				for i := range prevKids {
+					prevKids[i] = leaf(uint32(i))
+				}
+				var prevFieldIDs []FieldID
+				if tc.prevFields != 0 {
+					prevFieldIDs = make([]FieldID, len(prevKids))
+					for i := range prevFieldIDs {
+						prevFieldIDs[i] = tc.prevFields
+					}
+				}
+				prev := newParentNodeInArena(arena, errorSymbol, true, prevKids, prevFieldIDs, 0)
+				pairKids := []*Node{leaf(100), leaf(101)}
+				pair := newParentNodeInArena(arena, hiddenSym, true, pairKids, tc.pairFields, 0)
+
+				stack := newGLRStack(1)
+				stack.pushEntry(newStackEntryNode(goal, prev), nil, nil)
+				stack.pushEntry(newStackEntryNode(popped, pair), nil, nil)
+				fork, ok := parser.cRecoverToState(&stack, 1, goal, arena, nil, scratch, nil)
+				if !ok {
+					t.Fatal("cRecoverToState failed")
+				}
+				errNode := stackEntryNode(fork.top())
+				if errNode == nil || errNode.symbol != errorSymbol {
+					t.Fatal("top of the recovered stack is not an ERROR node")
+				}
+				if want := cMergeErrConcat(prevKids, pairKids); !cMergeErrEqual(errNode.children, want) {
+					t.Fatalf("ERROR has %d children, want prev's %d followed by the pair's two", len(errNode.children), len(prevKids))
+				}
+				if tc.wantFields == nil {
+					if errNode.fieldMetadata != nil {
+						t.Fatalf("ERROR has field metadata %v, want none", errNode.fieldIDs())
+					}
+					return
+				}
+				if errNode.fieldMetadata == nil || !equalFieldIDSlices(errNode.fieldIDs(), tc.wantFields) {
+					t.Fatalf("ERROR fields = %v, want %v", errNode.fieldIDs(), tc.wantFields)
+				}
+			})
+		}
+	}
+}
+
+// TestCSetRecoveryFieldMetadataTreatsNilAndZeroListsAlike pins the equivalence
+// cRecoverToState relies on: a nil field list and an all-zero list of the right
+// length both leave a recovery ERROR node without field metadata, so building
+// the zero list is wasted work.
+func TestCSetRecoveryFieldMetadataTreatsNilAndZeroListsAlike(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	for _, count := range []int{0, 1, 4, 20} {
+		kids := cMergeErrLeaves(count, 0)
+		withField := make([]FieldID, count)
+		if count > 0 {
+			withField[count-1] = 5
+		}
+		cases := []struct {
+			name    string
+			fields  []FieldID
+			wantSet bool
+		}{
+			{"nil", nil, false},
+			{"all zero", make([]FieldID, count), false},
+			{"field, wrong length", append(append([]FieldID(nil), withField...), 5), false},
+			{"field", withField, count > 0},
+		}
+		for _, tc := range cases {
+			node := newParentNodeInArena(arena, errorSymbol, true, kids, nil, 0)
+			setRecoveryFieldMetadata(node, tc.fields)
+			if got := node.fieldMetadata != nil; got != tc.wantSet {
+				t.Fatalf("%d children, %s list: field metadata set = %v, want %v", count, tc.name, got, tc.wantSet)
+			}
+			if tc.wantSet && !equalFieldIDSlices(node.fieldIDs(), tc.fields) {
+				t.Fatalf("%d children, %s list: fields = %v, want %v", count, tc.name, node.fieldIDs(), tc.fields)
+			}
+		}
+	}
+	if cFieldsHaveNonZero(nil) || cFieldsHaveNonZero([]FieldID{}) || cFieldsHaveNonZero([]FieldID{0, 0, 0}) {
+		t.Fatal("cFieldsHaveNonZero reported a field in a nil or all-zero list")
+	}
+	for _, fields := range [][]FieldID{{3}, {0, 3}, {3, 0}, {0, 0, 3, 0}} {
+		if !cFieldsHaveNonZero(fields) {
+			t.Fatalf("cFieldsHaveNonZero(%v) = false, want true", fields)
+		}
+	}
+}

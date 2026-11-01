@@ -8368,6 +8368,9 @@ func (p *Parser) checkpointTransientScratch(stacks []glrStack, scratch *parserSc
 		len(stacks) != 1 || stacks[0].dead || stacks[0].gss.head != nil || len(stacks[0].entries) == 0 ||
 		len(p.pendingForkStacks) != 0 || len(p.pendingFrontierForkStacks) != 0 ||
 		scratch.reduce.transientParents == nil || scratch.reduce.transientChildren == nil ||
+		// cMergeErrorChildren shares recovery ERROR child arrays across a chain,
+		// so this pass's in-place writes must stay off once recovery has entered
+		// the error state.
 		scratch.audit.enabled || scratch.audit.equivEnabled || p.crecoveryEnteredErrorState {
 		return ParseStopNone
 	}
