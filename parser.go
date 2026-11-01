@@ -5241,7 +5241,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	var pendingTraceActionCount int
 	var pendingTraceAction ParseAction
 	drainPendingForkStacks := func() {
-		if len(p.pendingForkStacks) == 0 || (!faithfulCapOneMergeEnabled(p.mergeScratch) && !(p.crecoveryEnteredErrorState && p.emptyExternalRecoveryEnabled())) {
+		// A packed reduction can queue distinct predecessor paths on a clean
+		// parse too. Publish all of them before selecting the next token.
+		if len(p.pendingForkStacks) == 0 {
 			return
 		}
 		pendingCount := len(p.pendingForkStacks)
