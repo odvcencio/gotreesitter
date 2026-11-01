@@ -1,6 +1,10 @@
 package gotreesitter
 
-import "testing"
+import (
+	"fmt"
+	"math/rand"
+	"testing"
+)
 
 func buildTwoWindowFullGSSReduceCase(t *testing.T, scratch *gssScratch, arena *nodeArena) (*Parser, glrStack, ParseAction) {
 	t.Helper()
@@ -2434,5 +2438,819 @@ func TestCollapsibleRawUnarySelfReductionEntryCollapsesPendingParentInvisibleWra
 	}
 	if stackEntryPendingParent(got) != parent {
 		t.Fatal("collapsed wrapper did not preserve pending parent payload")
+	}
+}
+
+// The tests below compare the scratch-backed C-wave enumeration and the in-place
+// fork selection with the code they replaced. The two originals are kept here as
+// test-only oracles. Do not edit them to follow the engine.
+
+// cWaveOriginalIterator is the iterator of the allocating enumeration: every
+// iterator owns its popped path.
+type cWaveOriginalIterator struct {
+	node         *gssNode
+	revPath      []stackEntry
+	subtreeCount int
+}
+
+// cWaveReduceWindowsOriginal is cWaveReduceWindowsFromGSS as it read before it
+// became a wrapper around cWaveReduceWindowsFromGSSInto. It allocates one
+// window per fork and one path per cloned iterator.
+func cWaveReduceWindowsOriginal(s *glrStack, childCount int) []reduceFork {
+	if s == nil || s.gss.head == nil || childCount < -1 {
+		return nil
+	}
+
+	iterators := []cWaveOriginalIterator{{node: s.gss.head}}
+	var forks []reduceFork
+	for len(iterators) > 0 {
+		for i, waveSize := 0, len(iterators); i < waveSize; {
+			iterator := iterators[i]
+			node := iterator.node
+			complete := node != nil && (iterator.subtreeCount == childCount || (childCount == -1 && node.prev == nil && node.extraLinkCount == 0))
+			if complete {
+				window := make([]stackEntry, len(iterator.revPath))
+				for j := range iterator.revPath {
+					window[j] = iterator.revPath[len(iterator.revPath)-1-j]
+				}
+				forks = appendCStackSliceOrderReduceFork(forks, reduceFork{
+					window:   window,
+					topState: node.entry.state,
+					popTo:    node,
+				})
+			}
+
+			linkCount := 0
+			if node != nil && !complete {
+				linkCount = node.linkCount()
+				if node.prev == nil && node.extraLinkCount == 0 {
+					linkCount = 0
+				}
+			}
+			if linkCount == 0 {
+				copy(iterators[i:], iterators[i+1:])
+				iterators[len(iterators)-1] = cWaveOriginalIterator{}
+				iterators = iterators[:len(iterators)-1]
+				waveSize--
+				continue
+			}
+
+			for linkIndex := 1; linkIndex < linkCount; linkIndex++ {
+				if len(iterators) >= cStackMaxIteratorCount {
+					continue
+				}
+				prev, entry := node.link(linkIndex)
+				clonePath := make([]stackEntry, len(iterator.revPath), len(iterator.revPath)+1)
+				copy(clonePath, iterator.revPath)
+				clonePath = append(clonePath, entry)
+				clone := cWaveOriginalIterator{
+					node:         prev,
+					revPath:      clonePath,
+					subtreeCount: iterator.subtreeCount,
+				}
+				if cStackLinkCountsAsSubtree(entry) {
+					clone.subtreeCount++
+				}
+				iterators = append(iterators, clone)
+			}
+
+			prev, entry := node.link(0)
+			iterator.node = prev
+			iterator.revPath = append(iterator.revPath, entry)
+			if cStackLinkCountsAsSubtree(entry) {
+				iterator.subtreeCount++
+			}
+			iterators[i] = iterator
+			i++
+		}
+	}
+	return forks
+}
+
+// cWaveSelectOriginal is the selection loop of applyReduceActionForked as it
+// read before selectCWaveReduceForks. It builds new slices and leaves allForks
+// alone; groups holds the runs themselves, the way work-count builds read them.
+func cWaveSelectOriginal(allForks []reduceFork, prefer func(candidate, incumbent reduceFork) int) (forks []reduceFork, groups [][]reduceFork, ambiguous bool) {
+	for start := 0; start < len(allForks); {
+		end := start + 1
+		for end < len(allForks) && reduceForksSameChildSelectionGroup(allForks[start], allForks[end]) {
+			end++
+		}
+		group := allForks[start:end]
+		if len(group) > 1 {
+			ambiguous = true
+		}
+		selected := 0
+		for i := 1; i < len(group); i++ {
+			if prefer(group[i], group[selected]) < 0 {
+				selected = i
+			}
+		}
+		groups = append(groups, group)
+		forks = append(forks, group[selected])
+		start = end
+	}
+	return forks, groups, ambiguous
+}
+
+// cWaveGraphGen draws random packed GSS graphs. A node's primary and alternate
+// links point at any earlier node, so paths converge on shared pop targets and
+// the live iterator set can reach the C limit. A few nodes have no primary
+// predecessor, which ends the paths that reach them.
+type cWaveGraphGen struct {
+	rng    *rand.Rand
+	symbol Symbol
+}
+
+func (g *cWaveGraphGen) entry() stackEntry {
+	switch g.rng.Intn(6) {
+	case 0: // a state-only entry: C's null subtree
+		return stackEntry{state: StateID(g.rng.Intn(50))}
+	case 1: // an extra node: not counted as a popped subtree
+		g.symbol++
+		return newStackEntryNode(StateID(g.rng.Intn(50)), &Node{symbol: g.symbol, flags: nodeFlagExtra})
+	default:
+		g.symbol++
+		return newStackEntryNode(StateID(g.rng.Intn(50)), &Node{symbol: g.symbol, flags: nodeFlagNamed})
+	}
+}
+
+func (g *cWaveGraphGen) graph() *gssNode {
+	var all []*gssNode
+	for i, n := 0, 1+g.rng.Intn(3); i < n; i++ {
+		all = append(all, &gssNode{entry: stackEntry{state: StateID(100 + i)}, depth: 1})
+	}
+	for d, layers := 0, 1+g.rng.Intn(9); d < layers; d++ {
+		var layer []*gssNode
+		for i, n := 0, 1+g.rng.Intn(4); i < n; i++ {
+			node := &gssNode{entry: g.entry(), prev: all[g.rng.Intn(len(all))], depth: uint32(d + 2)}
+			if g.rng.Intn(20) == 0 {
+				node.prev = nil
+			}
+			for l, k := 0, g.rng.Intn(5); l < k && int(node.extraLinkCount) < maxCMainLinkCount-1; l++ {
+				node.appendExtraLinkWithLimitAndOwner(gssMainLink{prev: all[g.rng.Intn(len(all))], entry: g.entry()}, maxCMainLinkCount, nil)
+			}
+			layer = append(layer, node)
+		}
+		all = append(all, layer...)
+	}
+	return all[len(all)-1]
+}
+
+// cWaveForksDiff describes the first difference between two fork lists, or
+// returns "" when they are equal. It also checks that each window's capacity
+// equals its length, so an append to one window cannot write into the next.
+func cWaveForksDiff(want, got []reduceFork) string {
+	if len(want) != len(got) {
+		return fmt.Sprintf("%d forks, want %d", len(got), len(want))
+	}
+	for i := range want {
+		w, g := want[i], got[i]
+		switch {
+		case w.topState != g.topState:
+			return fmt.Sprintf("fork %d: top state %d, want %d", i, g.topState, w.topState)
+		case w.popTo != g.popTo:
+			return fmt.Sprintf("fork %d: pop target %p, want %p", i, g.popTo, w.popTo)
+		case len(w.window) != len(g.window):
+			return fmt.Sprintf("fork %d: window length %d, want %d", i, len(g.window), len(w.window))
+		case (w.window == nil) != (g.window == nil):
+			return fmt.Sprintf("fork %d: window nil=%t, want nil=%t", i, g.window == nil, w.window == nil)
+		case cap(g.window) != len(g.window):
+			return fmt.Sprintf("fork %d: window capacity %d, length %d", i, cap(g.window), len(g.window))
+		}
+		for j := range w.window {
+			if w.window[j] != g.window[j] {
+				return fmt.Sprintf("fork %d: window entry %d differs", i, j)
+			}
+		}
+	}
+	return ""
+}
+
+// cWaveForkRank orders forks by their content, so a preference built on it is a
+// pure function of the two forks. The modulus makes ties common.
+func cWaveForkRank(f reduceFork) uint64 {
+	h := uint64(14695981039346656037)
+	mix := func(v uint64) {
+		h ^= v
+		h *= 1099511628211
+	}
+	mix(uint64(f.topState))
+	for _, e := range f.window {
+		mix(uint64(e.state))
+		mix(uint64(stackEntryNodeSymbol(e)))
+	}
+	return h % 5
+}
+
+type cWavePreferCall struct{ candidate, incumbent uint64 }
+
+// cWavePreferLogging returns a preference over cWaveForkRank that records each
+// call. It answers -1, 0 or 1, so the selection's tie rule shows.
+func cWavePreferLogging(log *[]cWavePreferCall) func(candidate, incumbent reduceFork) int {
+	return func(candidate, incumbent reduceFork) int {
+		c, i := cWaveForkRank(candidate), cWaveForkRank(incumbent)
+		*log = append(*log, cWavePreferCall{c, i})
+		switch {
+		case c < i:
+			return -1
+		case c > i:
+			return 1
+		}
+		return 0
+	}
+}
+
+// cWaveScribble fills every buffer of w, to its full capacity, with plausible
+// leftovers from an earlier use. A call must not depend on its scratch being
+// clear.
+func cWaveScribble(w *cWaveScratch) {
+	junkNode := &gssNode{entry: stackEntry{state: 9999}, depth: 1}
+	junkEntry := newStackEntryNode(9999, &Node{symbol: 9999, flags: nodeFlagNamed})
+	w.iterators = w.iterators[:cap(w.iterators)]
+	for i := range w.iterators {
+		w.iterators[i] = cWaveIterator{node: junkNode, link: 7, popped: 99, subtreeCount: 5}
+	}
+	w.links = w.links[:cap(w.links)]
+	for i := range w.links {
+		w.links[i] = cWaveLink{entry: junkEntry, prev: 3}
+	}
+	w.windows = w.windows[:cap(w.windows)]
+	for i := range w.windows {
+		w.windows[i] = junkEntry
+	}
+	w.forks = w.forks[:cap(w.forks)]
+	for i := range w.forks {
+		w.forks[i] = reduceFork{window: []stackEntry{junkEntry}, topState: 9999, popTo: junkNode}
+	}
+	w.iterators, w.links, w.windows, w.forks = w.iterators[:0], w.links[:0], w.windows[:0], w.forks[:0]
+}
+
+// TestCWaveScratchMatchesOriginalOnRandomPackedGraphs compares the scratch-backed
+// enumeration, its allocating wrapper, and the in-place fork selection with the
+// code they replaced, on 30,000 random packed graphs. One scratch serves every
+// trial, and it is filled with leftovers before each call, so state carried over
+// from an earlier call would show. The selection must make the same preference
+// calls, in the same order, and keep the same forks.
+func TestCWaveScratchMatchesOriginalOnRandomPackedGraphs(t *testing.T) {
+	const trials = 30000
+	// The seed is fixed, so -count=N replays the same 30,000 graphs.
+	gen := cWaveGraphGen{rng: rand.New(rand.NewSource(20261101))}
+	var scratch cWaveScratch
+	cover := map[string]int{}
+	for trial := 0; trial < trials; trial++ {
+		head := gen.graph()
+		childCount := gen.rng.Intn(10) - 1
+		s := glrStack{gss: gssStack{head: head}}
+		desc := fmt.Sprintf("trial %d, child count %d", trial, childCount)
+
+		want := cWaveReduceWindowsOriginal(&s, childCount)
+		cWaveScribble(&scratch)
+		scratch.usedIterators = 0 // read below as this trial's peak
+		got := cWaveReduceWindowsFromGSSInto(&s, childCount, &scratch)
+		if msg := cWaveForksDiff(want, got); msg != "" {
+			t.Fatalf("%s: scratch enumeration: %s", desc, msg)
+		}
+		if msg := cWaveForksDiff(want, cWaveReduceWindowsFromGSS(&s, childCount)); msg != "" {
+			t.Fatalf("%s: wrapper enumeration: %s", desc, msg)
+		}
+
+		var wantLog, gotLog []cWavePreferCall
+		wantKept, wantGroups, wantAmbiguous := cWaveSelectOriginal(want, cWavePreferLogging(&wantLog))
+		var gotGroups [][]reduceFork
+		gotKept, gotAmbiguous := selectCWaveReduceForks(got, cWavePreferLogging(&gotLog), &gotGroups)
+		if msg := cWaveForksDiff(wantKept, gotKept); msg != "" {
+			t.Fatalf("%s: selected forks: %s", desc, msg)
+		}
+		if wantAmbiguous != gotAmbiguous {
+			t.Fatalf("%s: ambiguous = %t, want %t", desc, gotAmbiguous, wantAmbiguous)
+		}
+		if len(wantLog) != len(gotLog) {
+			t.Fatalf("%s: %d preference calls, want %d", desc, len(gotLog), len(wantLog))
+		}
+		for i := range wantLog {
+			if wantLog[i] != gotLog[i] {
+				t.Fatalf("%s: preference call %d = %+v, want %+v", desc, i, gotLog[i], wantLog[i])
+			}
+		}
+		if workCountInstrumentationEnabled {
+			// Work-count receipts read every run after the selection has
+			// overwritten the front of the enumeration.
+			if len(wantGroups) != len(gotGroups) {
+				t.Fatalf("%s: %d groups, want %d", desc, len(gotGroups), len(wantGroups))
+			}
+			for i := range wantGroups {
+				if msg := cWaveForksDiff(wantGroups[i], gotGroups[i]); msg != "" {
+					t.Fatalf("%s: group %d: %s", desc, i, msg)
+				}
+			}
+		} else if gotGroups != nil {
+			t.Fatalf("%s: production build copied %d groups", desc, len(gotGroups))
+		}
+
+		if len(want) > 0 {
+			cover["trials with forks"]++
+		}
+		if childCount == -1 && len(want) > 0 {
+			cover["pop-all trials with forks"]++
+		}
+		if wantAmbiguous {
+			cover["trials with a multi-fork run"]++
+		}
+		for _, call := range wantLog {
+			switch {
+			case call.candidate < call.incumbent:
+				cover["preference calls where the candidate won"]++
+			case call.candidate == call.incumbent:
+				cover["preference calls that tied"]++
+			default:
+				cover["preference calls where the incumbent won"]++
+			}
+		}
+		if scratch.usedIterators == cStackMaxIteratorCount {
+			cover["trials at the iterator cap"]++
+		}
+	}
+	// The comparison is only worth something if the trials reach these paths.
+	t.Logf("coverage over %d trials: %v", trials, cover)
+	for _, name := range []string{
+		"trials with forks", "pop-all trials with forks", "trials with a multi-fork run",
+		"preference calls where the candidate won", "preference calls that tied",
+		"preference calls where the incumbent won", "trials at the iterator cap",
+	} {
+		if cover[name] < trials/200 {
+			t.Errorf("only %d of %d trials covered: %s", cover[name], trials, name)
+		}
+	}
+}
+
+// TestCWaveReduceWindowsFromGSSResultsBelongToTheCaller pins the contract that
+// the recovery callers rely on: they hold the forks across further reductions,
+// so a later call of the allocating form must not change an earlier result.
+func TestCWaveReduceWindowsFromGSSResultsBelongToTheCaller(t *testing.T) {
+	gen := cWaveGraphGen{rng: rand.New(rand.NewSource(7))}
+	for trial := 0; trial < 200; trial++ {
+		first := glrStack{gss: gssStack{head: gen.graph()}}
+		second := glrStack{gss: gssStack{head: gen.graph()}}
+		childCount := 1 + gen.rng.Intn(4)
+		firstForks := cWaveReduceWindowsFromGSS(&first, childCount)
+		wantFirst := cWaveReduceWindowsOriginal(&first, childCount)
+
+		secondForks := cWaveReduceWindowsFromGSS(&second, childCount)
+		for _, fork := range secondForks {
+			for j := range fork.window {
+				fork.window[j] = stackEntry{state: 4242}
+			}
+		}
+		if msg := cWaveForksDiff(wantFirst, firstForks); msg != "" {
+			t.Fatalf("trial %d: first result changed after a later call: %s", trial, msg)
+		}
+	}
+}
+
+// TestCWaveScratchWindowsDoNotOverlap checks that the windows of one call are
+// disjoint slices of the scratch: writing to a window, or appending to one,
+// leaves every other window as it was.
+func TestCWaveScratchWindowsDoNotOverlap(t *testing.T) {
+	gen := cWaveGraphGen{rng: rand.New(rand.NewSource(11))}
+	var scratch cWaveScratch
+	checked := 0
+	for trial := 0; trial < 5000 && checked < 200; trial++ {
+		s := glrStack{gss: gssStack{head: gen.graph()}}
+		forks := cWaveReduceWindowsFromGSSInto(&s, 2+gen.rng.Intn(3), &scratch)
+		if len(forks) < 3 {
+			continue
+		}
+		checked++
+		snapshot := make([][]stackEntry, len(forks))
+		for i, fork := range forks {
+			snapshot[i] = append([]stackEntry(nil), fork.window...)
+		}
+		unchanged := func(except int, action string) {
+			t.Helper()
+			for k, fork := range forks {
+				if k == except {
+					continue
+				}
+				for j, e := range fork.window {
+					if e != snapshot[k][j] {
+						t.Fatalf("trial %d: %s window %d changed window %d entry %d", trial, action, except, k, j)
+					}
+				}
+			}
+		}
+		for i, fork := range forks {
+			grown := append(fork.window, stackEntry{state: 6666})
+			grown[len(grown)-1].state = 6667
+			unchanged(i, "appending to")
+			for j := range fork.window {
+				fork.window[j] = stackEntry{state: StateID(7000 + i)}
+			}
+			unchanged(i, "writing")
+			copy(fork.window, snapshot[i])
+		}
+	}
+	if checked < 200 {
+		t.Fatalf("only %d trials produced three or more windows", checked)
+	}
+}
+
+// TestCWaveScratchResetDropsReferences checks that reset leaves no pointer in a
+// buffer, that a gssScratch reset reaches the wave scratch, and that a buffer
+// which outgrew the retention limit is released instead of pooled.
+func TestCWaveScratchResetDropsReferences(t *testing.T) {
+	assertClear := func(t *testing.T, w *cWaveScratch, when string) {
+		t.Helper()
+		for i, it := range w.iterators[:cap(w.iterators)] {
+			if it != (cWaveIterator{}) {
+				t.Fatalf("%s: iterator slot %d kept %+v", when, i, it)
+			}
+		}
+		for i, l := range w.links[:cap(w.links)] {
+			if l != (cWaveLink{}) {
+				t.Fatalf("%s: link slot %d kept %+v", when, i, l)
+			}
+		}
+		for i, e := range w.windows[:cap(w.windows)] {
+			if e != (stackEntry{}) {
+				t.Fatalf("%s: window slot %d kept %+v", when, i, e)
+			}
+		}
+		for i, f := range w.forks[:cap(w.forks)] {
+			if f.window != nil || f.popTo != nil || f.topState != 0 {
+				t.Fatalf("%s: fork slot %d kept %+v", when, i, f)
+			}
+		}
+		if len(w.iterators)+len(w.links)+len(w.windows)+len(w.forks) != 0 {
+			t.Fatalf("%s: buffers not emptied", when)
+		}
+	}
+
+	gen := cWaveGraphGen{rng: rand.New(rand.NewSource(13))}
+	var scratch cWaveScratch
+	for trial := 0; trial < 300; trial++ {
+		s := glrStack{gss: gssStack{head: gen.graph()}}
+		forks := cWaveReduceWindowsFromGSSInto(&s, gen.rng.Intn(6), &scratch)
+		// A caller that has consumed the forks may reorder them in place.
+		kept, _ := selectCWaveReduceForks(forks, func(candidate, incumbent reduceFork) int { return -1 }, nil)
+		_ = kept
+		scratch.reset()
+		assertClear(t, &scratch, fmt.Sprintf("trial %d after cWaveScratch.reset", trial))
+	}
+
+	var owner gssScratch
+	s := glrStack{gss: gssStack{head: gen.graph()}}
+	cWaveReduceWindowsFromGSSInto(&s, 2, &owner.cWave)
+	owner.reset()
+	assertClear(t, &owner.cWave, "after gssScratch.reset")
+
+	// A pop-all of a chain deeper than the retention limit grows every buffer
+	// past it. The buffer is released, not kept.
+	var long gssScratch
+	var chain gssStack
+	for i := 0; i < 3*maxRetainedCWaveScratch; i++ {
+		chain.pushEntry(newStackEntryNode(StateID(i%40), &Node{symbol: Symbol(i + 1), flags: nodeFlagNamed}), &long)
+	}
+	deep := glrStack{gss: chain}
+	want := cWaveReduceWindowsOriginal(&deep, -1)
+	got := cWaveReduceWindowsFromGSSInto(&deep, -1, &long.cWave)
+	if msg := cWaveForksDiff(want, got); msg != "" {
+		t.Fatalf("deep pop-all: %s", msg)
+	}
+	if len(got) != 1 || len(got[0].window) <= maxRetainedCWaveScratch {
+		t.Fatalf("deep pop-all: %d forks, want one window longer than the retention limit %d", len(got), maxRetainedCWaveScratch)
+	}
+	long.reset()
+	if long.cWave.windows != nil || long.cWave.links != nil {
+		t.Fatalf("reset kept an oversized buffer: windows cap %d, links cap %d", cap(long.cWave.windows), cap(long.cWave.links))
+	}
+	assertClear(t, &long.cWave, "after the deep pop-all")
+}
+
+// TestSelectCWaveReduceForksKeepsOneForkPerRun walks the selection rules on
+// small inputs: runs are split by pop target, the first fork wins ties, a later
+// fork wins only when the preference is negative, and the kept forks are
+// written over the front of the input in run order.
+func TestSelectCWaveReduceForksKeepsOneForkPerRun(t *testing.T) {
+	a, b, c := &gssNode{entry: stackEntry{state: 1}}, &gssNode{entry: stackEntry{state: 2}}, &gssNode{entry: stackEntry{state: 3}}
+	fork := func(popTo *gssNode, id StateID) reduceFork {
+		return reduceFork{window: []stackEntry{{state: id}}, topState: popTo.entry.state, popTo: popTo}
+	}
+	// score(id) is the preference rank: the lower id wins.
+	prefer := func(candidate, incumbent reduceFork) int {
+		return int(candidate.window[0].state) - int(incumbent.window[0].state)
+	}
+	ids := func(forks []reduceFork) []StateID {
+		var out []StateID
+		for _, f := range forks {
+			out = append(out, f.window[0].state)
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		name          string
+		in            []reduceFork
+		want          []StateID
+		wantAmbiguous bool
+	}{
+		{"empty", nil, nil, false},
+		{"one fork", []reduceFork{fork(a, 10)}, []StateID{10}, false},
+		{"each pop target alone", []reduceFork{fork(a, 10), fork(b, 11), fork(c, 12)}, []StateID{10, 11, 12}, false},
+		{"first of a run stays when later forks lose", []reduceFork{fork(a, 10), fork(a, 11), fork(a, 12)}, []StateID{10}, true},
+		{"a later fork wins when preferred", []reduceFork{fork(a, 12), fork(a, 11), fork(a, 13)}, []StateID{11}, true},
+		{"the last fork can win", []reduceFork{fork(a, 15), fork(a, 14), fork(a, 13)}, []StateID{13}, true},
+		{"runs are chosen independently", []reduceFork{fork(a, 12), fork(a, 10), fork(b, 11), fork(c, 14), fork(c, 13)}, []StateID{10, 11, 13}, true},
+		{"an equal fork does not replace the first", []reduceFork{fork(a, 10), fork(a, 10)}, []StateID{10}, true},
+		{"a repeated pop target after another one starts a new run", []reduceFork{fork(a, 10), fork(b, 11), fork(a, 9)}, []StateID{10, 11, 9}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := append([]reduceFork(nil), tc.in...)
+			kept, ambiguous := selectCWaveReduceForks(in, prefer, nil)
+			got := ids(kept)
+			if fmt.Sprint(got) != fmt.Sprint(tc.want) {
+				t.Fatalf("kept %v, want %v", got, tc.want)
+			}
+			if ambiguous != tc.wantAmbiguous {
+				t.Fatalf("ambiguous = %t, want %t", ambiguous, tc.wantAmbiguous)
+			}
+			if len(kept) > 0 && &kept[0] != &in[0] {
+				t.Fatal("the kept forks do not start at the front of the input")
+			}
+		})
+	}
+}
+
+// TestSelectCWaveReduceForksCopiesGroupsForWorkCountBuilds pins the work-count
+// path of the selection: the runs it reports are copies, so the in-place writes
+// that follow do not change them. Production builds copy nothing.
+func TestSelectCWaveReduceForksCopiesGroupsForWorkCountBuilds(t *testing.T) {
+	a, b := &gssNode{entry: stackEntry{state: 1}}, &gssNode{entry: stackEntry{state: 2}}
+	fork := func(popTo *gssNode, id StateID) reduceFork {
+		return reduceFork{window: []stackEntry{{state: id}}, topState: popTo.entry.state, popTo: popTo}
+	}
+	in := []reduceFork{fork(a, 13), fork(a, 11), fork(a, 12), fork(b, 21), fork(b, 20)}
+	orig := append([]reduceFork(nil), in...)
+	var groups [][]reduceFork
+	kept, _ := selectCWaveReduceForks(in, func(candidate, incumbent reduceFork) int {
+		return int(candidate.window[0].state) - int(incumbent.window[0].state)
+	}, &groups)
+	if len(kept) != 2 || kept[0].window[0].state != 11 || kept[1].window[0].state != 20 {
+		t.Fatalf("kept %+v, want the forks with ids 11 and 20", kept)
+	}
+	if !workCountInstrumentationEnabled {
+		if groups != nil {
+			t.Fatalf("a production build copied %d groups", len(groups))
+		}
+		return
+	}
+	if len(groups) != 2 || len(groups[0]) != 3 || len(groups[1]) != 2 {
+		t.Fatalf("groups = %+v, want runs of 3 and 2", groups)
+	}
+	for i, start := range []int{0, 3} {
+		if msg := cWaveForksDiff(orig[start:start+len(groups[i])], groups[i]); msg != "" {
+			t.Fatalf("group %d changed after the selection: %s", i, msg)
+		}
+	}
+}
+
+// cWavePackedReduceFixture builds a packed GSS for a two-child reduce with three
+// pop paths. Two paths end at the same pop target and so form one run: the
+// alternate right child wins that run when altPrecedence is higher than the
+// primary's (zero). The third path ends at a pop target of its own.
+func cWavePackedReduceFixture(arena *nodeArena, scratch *gssScratch, altPrecedence int32) (*Parser, glrStack, ParseAction) {
+	leaf := func(symbol Symbol, start, end uint32) *Node {
+		return newLeafNodeInArena(arena, symbol, true, start, end, Point{Column: start}, Point{Column: end})
+	}
+	base := scratch.allocNode(stackEntry{state: 1}, nil, 1)
+	otherBase := scratch.allocNode(stackEntry{state: 11}, nil, 1)
+	left := scratch.allocNode(newStackEntryNode(2, leaf(1, 0, 1)), base, 2)
+	otherLeft := scratch.allocNode(newStackEntryNode(2, leaf(1, 0, 1)), otherBase, 2)
+	head := scratch.allocNode(newStackEntryNode(3, leaf(2, 1, 2)), left, 3)
+	alt := leaf(2, 1, 2)
+	alt.dynamicPrecedence = altPrecedence
+	head.appendExtraLink(gssMainLink{prev: left, entry: newStackEntryNode(3, alt)})
+	head.appendExtraLink(gssMainLink{prev: otherLeft, entry: newStackEntryNode(3, leaf(2, 1, 2))})
+
+	parser := &Parser{language: &Language{
+		CompactPackedGSSVersionOrderCertified: true,
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "eof", Visible: true, Named: true},
+			{Name: "left", Visible: true, Named: true},
+			{Name: "right", Visible: true, Named: true},
+			{Name: "parent", Visible: true, Named: true},
+		},
+	}}
+	activateCompactPackedGSSVersionOrderForTest(parser, arena)
+	parser.disablePostReduceForkMerge = true
+	stack := glrStack{gss: gssStack{head: head}, byteOffset: 2}
+	return parser, stack, ParseAction{Type: ParseActionReduce, Symbol: 3, ChildCount: 2, DynamicPrecedence: 4}
+}
+
+// cWaveDescribeReduceResult writes down what a reduction left behind: for the
+// reduced stack and every queued fork, the new top node, its children, its
+// precedence and its raw-shape header.
+func cWaveDescribeReduceResult(arena *nodeArena, parser *Parser, s *glrStack) string {
+	describe := func(label string, g *glrStack) string {
+		if g.gss.head == nil {
+			return label + ": no head\n"
+		}
+		parent := stackEntryNode(g.gss.head.entry)
+		if parent == nil {
+			return fmt.Sprintf("%s: head %p without a node\n", label, g.gss.head)
+		}
+		shape, _ := arena.rawShapeForRef(parent.rawShape)
+		return fmt.Sprintf("%s: head=%p prev=%p symbol=%d state=%d prec=%d children=%v shape=%+v dead=%t\n",
+			label, g.gss.head, g.gss.head.prev, parent.symbol, g.gss.head.entry.state, parent.dynamicPrecedence, parent.children, shape, g.dead)
+	}
+	out := describe("primary", s)
+	for i := range parser.pendingForkStacks {
+		out += describe(fmt.Sprintf("pending %d", i), &parser.pendingForkStacks[i])
+	}
+	return out
+}
+
+// TestApplyReduceActionForkedScratchReuseKeepsEarlierResults reduces two packed
+// stacks one after the other through one gssScratch. The second reduction
+// overwrites the wave buffers the first one used. The first one's results must
+// still read the same, and match a reduction that had a scratch of its own.
+func TestApplyReduceActionForkedScratchReuseKeepsEarlierResults(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	reduce := func(scratch *gssScratch, altPrecedence int32) (*Parser, *glrStack) {
+		parser, stack, act := cWavePackedReduceFixture(arena, scratch, altPrecedence)
+		var anyReduced bool
+		nodeCount := 0
+		parser.applyReduceActionForked(nil, &stack, act, Token{}, &anyReduced, &nodeCount, arena, nil, scratch, nil, nil, false, false)
+		if stack.dead || !anyReduced {
+			t.Fatalf("reduction failed: dead=%t reduced=%t", stack.dead, anyReduced)
+		}
+		// The run of two paths has more than one fork, so the reduction must
+		// flag the choice as policy-pruned. Nothing else in this fixture sets it.
+		if !parser.mergeScratch.policyPruned {
+			t.Fatal("a pop run with two forks did not set policyPruned")
+		}
+		// The reduction must have taken its buffers from the parse's scratch
+		// and not from a call-local one.
+		if scratch.cWave.usedWindows == 0 || scratch.cWave.usedForks == 0 {
+			t.Fatalf("the reduction did not use the gssScratch wave buffers: %+v", scratch.cWave)
+		}
+		return parser, &stack
+	}
+	// strip makes two descriptions comparable across separate fixtures: node
+	// and GSS addresses differ, the shape of the result must not.
+	strip := func(parser *Parser, arena *nodeArena, s *glrStack) string {
+		var out string
+		for _, g := range append([]*glrStack{s}, pendingStackPointers(parser)...) {
+			parent := stackEntryNode(g.gss.head.entry)
+			var children []string
+			for _, c := range parent.children {
+				children = append(children, fmt.Sprintf("%d[%d,%d)p%d", c.symbol, c.startByte, c.endByte, c.dynamicPrecedence))
+			}
+			shape, _ := arena.rawShapeForRef(parent.rawShape)
+			out += fmt.Sprintf("symbol=%d state=%d prec=%d children=%v shape=%d/%d\n", parent.symbol, g.gss.head.entry.state, parent.dynamicPrecedence, children, shape.symbol, shape.childCount())
+		}
+		return out
+	}
+
+	for _, altPrecedence := range []int32{0, 3} {
+		var shared gssScratch
+		firstParser, first := reduce(&shared, altPrecedence)
+		before := cWaveDescribeReduceResult(arena, firstParser, first)
+		stripped := strip(firstParser, arena, first)
+		// The fixture must do what its comment says: the run of two paths yields
+		// one winner, and the lone path becomes a queued fork.
+		if len(firstParser.pendingForkStacks) != 1 {
+			t.Fatalf("altPrecedence %d: %d queued forks, want 1", altPrecedence, len(firstParser.pendingForkStacks))
+		}
+		primaryRight := stackEntryNode(first.gss.head.entry).children[1]
+		if primaryRight.dynamicPrecedence != altPrecedence {
+			t.Fatalf("altPrecedence %d: the primary reduced right child %d, want the one with precedence %d", altPrecedence, primaryRight.dynamicPrecedence, altPrecedence)
+		}
+
+		// Reuse the scratch for a different reduction: the wave buffers are overwritten.
+		reduce(&shared, 7-altPrecedence)
+
+		if after := cWaveDescribeReduceResult(arena, firstParser, first); after != before {
+			t.Fatalf("altPrecedence %d: the first result changed when the scratch was reused\nbefore:\n%safter:\n%s", altPrecedence, before, after)
+		}
+		var own gssScratch
+		ownParser, ownStack := reduce(&own, altPrecedence)
+		if got := strip(ownParser, arena, ownStack); got != stripped {
+			t.Fatalf("altPrecedence %d: a reduction with a reused scratch differs from one with its own\nreused:\n%sown:\n%s", altPrecedence, stripped, got)
+		}
+	}
+}
+
+func pendingStackPointers(parser *Parser) []*glrStack {
+	out := make([]*glrStack, len(parser.pendingForkStacks))
+	for i := range parser.pendingForkStacks {
+		out[i] = &parser.pendingForkStacks[i]
+	}
+	return out
+}
+
+// cWaveBenchStack builds a packed GSS for a five-child pop whose two lowest
+// layers each carry an alternate link, so the pop yields several windows. With
+// wide set, three layers of C-limit width give the pop 64 windows instead.
+func cWaveBenchStack(scratch *gssScratch, wide bool) (glrStack, int) {
+	node := func(state StateID, prev *gssNode, symbol Symbol) *gssNode {
+		depth := uint32(1)
+		if prev != nil {
+			depth = prev.depth + 1
+		}
+		return scratch.allocNode(newStackEntryNode(state, &Node{symbol: symbol, flags: nodeFlagNamed}), prev, depth)
+	}
+	base := scratch.allocNode(stackEntry{state: 1}, nil, 1)
+	if wide {
+		lowest := node(10, base, 1)
+		for i := 1; i < maxCMainLinkCount; i++ {
+			lowest.appendExtraLinkWithLimitAndOwner(gssMainLink{prev: base, entry: newStackEntryNode(StateID(10+i), &Node{symbol: Symbol(1 + i), flags: nodeFlagNamed})}, maxCMainLinkCount, nil)
+		}
+		middle := node(30, lowest, 20)
+		for i := 1; i < maxCMainLinkCount; i++ {
+			middle.appendExtraLinkWithLimitAndOwner(gssMainLink{prev: lowest, entry: newStackEntryNode(StateID(30+i), &Node{symbol: Symbol(20 + i), flags: nodeFlagNamed})}, maxCMainLinkCount, nil)
+		}
+		head := node(50, middle, 40)
+		for i := 1; i < maxCMainLinkCount; i++ {
+			head.appendExtraLinkWithLimitAndOwner(gssMainLink{prev: middle, entry: newStackEntryNode(StateID(50+i), &Node{symbol: Symbol(40 + i), flags: nodeFlagNamed})}, maxCMainLinkCount, nil)
+		}
+		return glrStack{gss: gssStack{head: head}}, 3
+	}
+	a := node(2, base, 2)
+	a2 := node(3, base, 3)
+	b := node(4, a, 4)
+	b.appendExtraLinkWithLimitAndOwner(gssMainLink{prev: a2, entry: newStackEntryNode(4, &Node{symbol: 5, flags: nodeFlagNamed})}, maxCMainLinkCount, nil)
+	c := node(5, b, 6)
+	d := node(6, c, 7)
+	e := node(7, d, 8)
+	return glrStack{gss: gssStack{head: e}}, 5
+}
+
+// BenchmarkCWaveReduceWindows measures one wave enumeration three ways: the
+// allocating original, the allocating wrapper the recovery callers use, and the
+// scratch-backed call that applyReduceActionForked makes on a warm scratch.
+func BenchmarkCWaveReduceWindows(b *testing.B) {
+	for _, shape := range []struct {
+		name string
+		wide bool
+	}{{"narrow", false}, {"wide", true}} {
+		var scratch gssScratch
+		s, childCount := cWaveBenchStack(&scratch, shape.wide)
+		want := len(cWaveReduceWindowsOriginal(&s, childCount))
+		b.Run(shape.name+"/original", func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				if len(cWaveReduceWindowsOriginal(&s, childCount)) != want {
+					b.Fatal("wrong fork count")
+				}
+			}
+		})
+		b.Run(shape.name+"/wrapper", func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				if len(cWaveReduceWindowsFromGSS(&s, childCount)) != want {
+					b.Fatal("wrong fork count")
+				}
+			}
+		})
+		b.Run(shape.name+"/scratch", func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				if len(cWaveReduceWindowsFromGSSInto(&s, childCount, &scratch.cWave)) != want {
+					b.Fatal("wrong fork count")
+				}
+			}
+		})
+	}
+}
+
+// TestCWaveEnumerationAndSelectionAllocateNothingOnAWarmScratch pins the point
+// of the scratch: once the buffers have grown, one enumeration and one fork
+// selection make no heap allocation. The selection gets no groups slice, as in
+// production builds.
+func TestCWaveEnumerationAndSelectionAllocateNothingOnAWarmScratch(t *testing.T) {
+	prefer := func(candidate, incumbent reduceFork) int { return 0 }
+	for _, shape := range []struct {
+		name string
+		wide bool
+	}{{"narrow", false}, {"wide", true}} {
+		var scratch gssScratch
+		s, childCount := cWaveBenchStack(&scratch, shape.wide)
+		run := func() int {
+			all := cWaveReduceWindowsFromGSSInto(&s, childCount, &scratch.cWave)
+			kept, _ := selectCWaveReduceForks(all, prefer, nil)
+			return len(kept)
+		}
+		want := run() // grows the buffers
+		if want == 0 {
+			t.Fatalf("%s: no forks", shape.name)
+		}
+		if got := testing.AllocsPerRun(50, func() {
+			if run() != want {
+				panic("fork count changed")
+			}
+		}); got != 0 {
+			t.Errorf("%s: %v allocations per warm enumeration and selection, want 0", shape.name, got)
+		}
 	}
 }
