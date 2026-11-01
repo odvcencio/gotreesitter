@@ -19,7 +19,7 @@ That file is absent from `golang/website` at commit `f2661d967b28530da480f0a1da9
 The file is present in `golang/go` at tag `go1.25.1`, so this fixture uses that source.
 
 The generated fixtures reach or exceed 32 KiB because the generator writes complete records.
-The copied files have no changes. Read the upstream [Go license](https://github.com/golang/go/blob/go1.25.1/LICENSE), [PHP license](https://github.com/php/php-src/blob/d26068059e83fe40de3430a512471d194119bee0/LICENSE), and [Kubernetes license](https://github.com/kubernetes/website/blob/a746bbd76e9504ecdedafbda7f7abfdbdee5642e/LICENSE).
+The copied files have no changes. Their license texts are in `licenses/` (see "License texts" below).
 
 ## Top-20 coverage fixtures
 
@@ -60,11 +60,31 @@ The copied files have no changes. Each archive is gzip level 9 with no file name
 python3 -I -c 'import gzip, sys; sys.stdout.buffer.write(gzip.compress(sys.stdin.buffer.read(), 9, mtime=0))' < upstream-file > archive.gz
 ```
 
-Read the upstream licenses: [TypeScript](https://github.com/microsoft/TypeScript/blob/7539c04d94b5adc924efb3f8fef90e4de18d39d3/LICENSE.txt), [create-t3-app](https://github.com/t3-oss/create-t3-app/blob/4709861f7e67a15564c0460c13e7b4b6cfcae40d/LICENSE), [Node.js](https://github.com/nodejs/node/blob/45f6b8337e67d071a01336360f4905a0c6318b33/LICENSE), [CPython](https://github.com/python/cpython/blob/e5ced1f7788e77e318165b331d967156f81d6709/LICENSE), [Spring Framework](https://github.com/spring-projects/spring-framework/blob/14f4deef3a5290f38ad46f53058a26730c3c1023/LICENSE.txt), [Bicep](https://github.com/Azure/bicep/blob/1ec01291f20c9a813dfc2b112dd1d6df6c97ee16/LICENSE), [Symfony](https://github.com/symfony/symfony/blob/121cf3b402e85e26cf1f57163186fc9193c95d21/LICENSE), [Go](https://github.com/golang/go/blob/d00c67f297ef6f2cb2cd0e9aae59fa3936bb7eca/LICENSE), and [PowerShell](https://github.com/PowerShell/PowerShell/blob/c23c421068dd4967765d8d658d4ba68eb649ef4f/LICENSE.txt).
+Their license texts are in `licenses/` (see "License texts" below).
 
 This directory does not hold the editor-latency Bash file, `t/t0003-attributes.sh` from git/git at commit `9ac3f193c05c2237e2b14ebaa1149e9fc8a1abe0`.
 Its license is GPL-2.0-only, so the cliff report uses the Bash sample and a generated file instead.
 To use that file, get the owner's approval for the license, add the archive here, and add a `cliffWholeFile` row.
+
+## License texts
+
+Each copied file's license travels with it in `licenses/`, taken from the upstream repository at the pinned commit:
+
+| License file | Upstream file | Fixtures |
+| --- | --- | --- |
+| `licenses/golang-go.txt` | [golang/go `LICENSE`](https://github.com/golang/go/blob/go1.25.1/LICENSE) at `go1.25.1`; identical at `d00c67f2` | `go_parser.go.gz`, `html_go_mem.html.gz`, `go_elf.go.gz` |
+| `licenses/php-php-src.txt` | [php/php-src `LICENSE`](https://github.com/php/php-src/blob/d26068059e83fe40de3430a512471d194119bee0/LICENSE) | `php_run-tests.php.gz` |
+| `licenses/kubernetes-website.txt` | [kubernetes/website `LICENSE`](https://github.com/kubernetes/website/blob/a746bbd76e9504ecdedafbda7f7abfdbdee5642e/LICENSE) | `markdown_volumes.md.gz` |
+| `licenses/microsoft-TypeScript.txt` | [microsoft/TypeScript `LICENSE.txt`](https://github.com/microsoft/TypeScript/blob/7539c04d94b5adc924efb3f8fef90e4de18d39d3/LICENSE.txt) | `typescript_extractType.ts.gz` |
+| `licenses/t3-oss-create-t3-app.txt` | [t3-oss/create-t3-app `LICENSE`](https://github.com/t3-oss/create-t3-app/blob/4709861f7e67a15564c0460c13e7b4b6cfcae40d/LICENSE) | `tsx_openSourceAppList.tsx.gz` |
+| `licenses/nodejs-node.txt` | [nodejs/node `LICENSE`](https://github.com/nodejs/node/blob/45f6b8337e67d071a01336360f4905a0c6318b33/LICENSE), the Node.js section only (the file notes this) | `javascript_async_hooks.js.gz` |
+| `licenses/python-cpython.txt` | [python/cpython `LICENSE`](https://github.com/python/cpython/blob/e5ced1f7788e77e318165b331d967156f81d6709/LICENSE) | `python_locks.py.gz` |
+| `licenses/spring-projects-spring-framework.txt` | [spring-projects/spring-framework `LICENSE.txt`](https://github.com/spring-projects/spring-framework/blob/14f4deef3a5290f38ad46f53058a26730c3c1023/LICENSE.txt) | `java_JdbcUtils.java.gz` |
+| `licenses/Azure-bicep.txt` | [Azure/bicep `LICENSE`](https://github.com/Azure/bicep/blob/1ec01291f20c9a813dfc2b112dd1d6df6c97ee16/LICENSE) | `c_sharp_AzResourceTypeProviderTests.cs.gz` |
+| `licenses/symfony-symfony.txt` | [symfony/symfony `LICENSE`](https://github.com/symfony/symfony/blob/121cf3b402e85e26cf1f57163186fc9193c95d21/LICENSE) | `php_EditorDocument.php.gz` |
+| `licenses/PowerShell-PowerShell.txt` | [PowerShell/PowerShell `LICENSE.txt`](https://github.com/PowerShell/PowerShell/blob/c23c421068dd4967765d8d658d4ba68eb649ef4f/LICENSE.txt) | `powershell_Get-Content.Tests.ps1.gz` |
+
+The generated fixtures are gotreesitter's own output and fall under its MIT license.
 
 ## Reading a report
 
