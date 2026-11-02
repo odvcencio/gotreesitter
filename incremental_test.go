@@ -1439,3 +1439,66 @@ func TestPruningCertificatePreservingMergesAndReset(t *testing.T) {
 		})
 	}
 }
+
+// A reduction pushes its trailing extra leaves again with the goto state and
+// stores that state in them, so the stored parse state no longer names the
+// shift. Reuse of such a leaf authenticates the shift from the live state and
+// the state that was live before the first push.
+func TestReuseExtraLeafTargetState(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	addAction := func(actions ...ParseAction) uint16 {
+		lang.ParseActions = append(lang.ParseActions, ParseActionEntry{Actions: actions})
+		return uint16(len(lang.ParseActions) - 1)
+	}
+	lang.ParseTable[1][1] = addAction(ParseAction{Type: ParseActionShift, Extra: true})
+	lang.ParseTable[2][1] = addAction(ParseAction{Type: ParseActionShift, Extra: true, State: 4})
+	lang.ParseTable[3][1] = addAction(ParseAction{Type: ParseActionShift, Extra: true}, ParseAction{Type: ParseActionShift, State: 4})
+	lang.ParseTable[4][1] = addAction(ParseAction{Type: ParseActionReduce, Symbol: 3, ChildCount: 1})
+	p := NewParser(lang)
+	tok := Token{Symbol: 1, StartByte: 0, EndByte: 1}
+	newLeaf := func(preGoto, stored StateID) *Node {
+		leaf := &Node{symbol: 1, startByte: 0, endByte: 1, preGotoState: preGoto, parseState: stored}
+		leaf.setExtra(true)
+		return leaf
+	}
+
+	if state, ok := p.reuseExtraLeafTargetState(1, newLeaf(1, 9), tok); !ok || state != 1 {
+		t.Fatalf("extra shift that keeps the state = %d, %t; want 1, true", state, ok)
+	}
+	if state, ok := p.reuseExtraLeafTargetState(2, newLeaf(2, 9), tok); !ok || state != 4 {
+		t.Fatalf("extra shift with an explicit target = %d, %t; want 4, true", state, ok)
+	}
+
+	notExtra := newLeaf(1, 9)
+	notExtra.setExtra(false)
+	wrongEnd := tok
+	wrongEnd.EndByte = 2
+	wrongSymbol := tok
+	wrongSymbol.Symbol = 2
+	parent := &Node{symbol: 1, startByte: 0, endByte: 1, preGotoState: 1, children: []*Node{newLeaf(1, 9)}}
+	parent.setExtra(true)
+	for _, tc := range []struct {
+		name  string
+		state StateID
+		leaf  *Node
+		tok   Token
+	}{
+		{"other state before the push", 1, newLeaf(0, 9), tok},
+		{"not an extra leaf", 1, notExtra, tok},
+		{"token ends elsewhere", 1, newLeaf(1, 9), wrongEnd},
+		{"different symbol", 1, newLeaf(1, 9), wrongSymbol},
+		{"non-leaf node", 1, parent, tok},
+		{"more than one action", 3, newLeaf(3, 9), tok},
+		{"not a shift", 4, newLeaf(4, 9), tok},
+		{"ordinary shift", 0, newLeaf(0, 9), tok},
+	} {
+		if state, ok := p.reuseExtraLeafTargetState(tc.state, tc.leaf, tc.tok); ok {
+			t.Errorf("%s: accepted with target %d", tc.name, state)
+		}
+	}
+	leaf := newLeaf(1, 9)
+	p.reuseExtraLeafTargetState(1, leaf, tok)
+	if leaf.PreGotoState() != 1 || leaf.parseState != 9 {
+		t.Fatal("authenticating an extra leaf changed its recorded states")
+	}
+}
