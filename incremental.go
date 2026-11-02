@@ -975,6 +975,9 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 			continue
 		}
 		nextState, ok := p.reuseTargetState(state, n, lookahead)
+		if !ok && structuralReuse {
+			nextState, ok = p.reuseExtraLeafTargetState(state, n, lookahead)
+		}
 		if !ok {
 			continue
 		}
@@ -1420,6 +1423,32 @@ func advanceTokenSourceTo(ts TokenSource, lookahead Token, endByte uint32) Token
 		tok = next
 	}
 	return tok
+}
+
+// reuseExtraLeafTargetState returns the state a stored extra leaf is pushed
+// with when the live state authenticates it. reuseTargetState cannot answer
+// for an extra leaf that followed a reduction: applyReduceAction and
+// tryPushPendingNoFieldParent push such a leaf again with the goto state and
+// store that state in it, so its parse state no longer names its shift. Its
+// pre-push state still does (see incr.ExtraLeaf). The caller has already
+// checked the leaf's lexer reads and first-leaf conditions.
+func (p *Parser) reuseExtraLeafTargetState(state StateID, n *Node, lookahead Token) (StateID, bool) {
+	if n == nil {
+		return 0, false
+	}
+	var shift ParseAction
+	action := p.lookupAction(state, n.Symbol())
+	lone := action != nil && len(action.Actions) == 1
+	if lone {
+		shift = action.Actions[0]
+	}
+	if !incr.ExtraLeaf(n.ChildCount() == 0 && n.isExtra(),
+		n.Symbol() == lookahead.Symbol && n.EndByte() == lookahead.EndByte,
+		n.preGotoState == state,
+		lone && shift.Type == ParseActionShift && shift.Extra) {
+		return 0, false
+	}
+	return extraShiftTargetState(state, shift), true
 }
 
 func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (StateID, bool) {
