@@ -2,6 +2,7 @@ package python
 
 import (
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -43,6 +44,9 @@ func TestLanguageLoadsWithoutAggregateRegistry(t *testing.T) {
 }
 
 func TestWarmLanguageLookupDoesNotAllocate(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("each lookup reads the grammar override directory with os.Getenv, which allocates twice on Windows")
+	}
 	Language()
 	if allocations := testing.AllocsPerRun(100, func() { Language() }); allocations != 0 {
 		t.Fatalf("warm language lookup allocated %g times", allocations)

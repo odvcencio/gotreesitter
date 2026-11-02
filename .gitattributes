@@ -1,0 +1,5 @@
+# Check out every file exactly as committed. Tests pin SHA-256 digests of
+# testdata, read sources and docs byte for byte, and compare generated files
+# exactly. Line-ending conversion (core.autocrlf, the Windows default) rewrites
+# LF to CRLF and breaks them.
+* -text

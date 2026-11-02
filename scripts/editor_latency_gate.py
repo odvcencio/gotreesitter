@@ -46,6 +46,31 @@ GO_1512_APPROVAL_SHA256 = "6c660fb0e91aeb3b515de27f263d12a30135ed1466b9f960f2778
 GO_1512_SUCCESSOR_PATHS = frozenset(("scripts/editor_latency_gate.py", "scripts/test_editor_latency_gate.py", ".github/workflows/ci.yml"))
 
 
+# The owner approved only this exact base/source pair and row.
+GO_1512_B7_OWNER_APPROVED = True
+GO_1512_B7_APPROVAL_SHA256 = "ffb3bd9f774c899bbe1cabe07cb84cdfa61324e1b0fbc941d1938d34c840086b"
+GO_1512_B7_DECISION = {'schema': 'gts-w5-owner-decision-v1', 'owner_approved': True, 'exception': 'go-one-byte-undo-b7-to-278', 'base': 'b7f1877f72c46ac2992e865ab636edad1d545060', 'reviewed_source': '2782879c97b4e28e9db7209ae7ddfbd6e9b69574', 'fixture_sha256': 'ff2f811d29a56303bad96c3c7cff1a83814a974503a51cee918a314a96eb476e', 'tree_sha256': 'a675b5e8c8e688c21f45cad8c5217c06802c3fa5061fb2555ba346b4769f4c55', 'base_admission_sha256': '4af75c271fee19a18a09caca22dba5fc3b0bb56142af480917f41f09ff69ef6a', 'head_admission_sha256': '4d7ae9309efb29d9a339d179f447aee788caee701d7d4c839ddbbcde53a863f0', 'oracle_runtime_commit': '10eb5ac119eec9cb4267a8e035066473983f5f3a', 'oracle_sources_sha256': '242c4f6b72d2d24421f84a505aa20164e43f144eb6401e876e6d24a167f06f51', 'oracle_go_grammar_commit': '2346a3ab1bb3857b48b29d779a1ef9799a248cd7', 'row': {'language': 'go', 'workload': 'one_byte', 'step': 1, 'counter': 'reused_subtrees', 'before': 39, 'after': 35}, 'context': {'reused_bytes_before': 2816, 'reused_bytes_after': 2853, 'nodes_before': 109036, 'nodes_after': 108999}, 'scope': 'This single counter row only; no timing, correctness, RSS, graduation or merge waiver.', 'owner_response_provenance': {'channel': 'direct human owner reply', 'question_item_id': ['request_user_input_async', 'call_3694a733fae64952bd5b34f85deeb359', 0], 'response': 'Approve this scoped exception and minimal CI record'}, 'review_evidence': 'https://github.com/odvcencio/gotreesitter/actions/runs/40949464539/job/123713570661'}
+GO_1512_B7_BASE = "b7f1877f72c46ac2992e865ab636edad1d545060"
+GO_1512_B7_REVIEWED = "2782879c97b4e28e9db7209ae7ddfbd6e9b69574"
+GO_1512_B7_UNDO_EXCEPTION = "go-one-byte-undo-b7-to-278"
+GO_1512_B7_SUCCESSOR_PATHS = frozenset(("scripts/editor_latency_gate.py", "scripts/test_editor_latency_gate.py", ".github/workflows/ci.yml"))
+
+
+def validate_b7_undo_exception(root, base_revision, head_revision, decision_path):
+    require(GO_1512_B7_OWNER_APPROVED, "W5 b7 exception has no owner approval")
+    require(base_revision == GO_1512_B7_BASE, "W5 b7 exception base mismatch")
+    require(re.fullmatch(r"[0-9a-f]{40}", head_revision) is not None, "W5 b7 exception head must be a commit")
+    require(git(root, "rev-parse", "HEAD") == head_revision, "W5 b7 exception checkout mismatch")
+    require(not subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--ignored"]), "W5 b7 exception requires a clean checkout")
+    subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", GO_1512_B7_REVIEWED, head_revision], check=True)
+    diff = subprocess.check_output(["git", "-C", str(root), "diff", "--no-renames", "--name-only", "-z", GO_1512_B7_REVIEWED, head_revision])
+    require((set(diff.decode().split("\0")) - {""}) <= GO_1512_B7_SUCCESSOR_PATHS, "W5 b7 exception production inputs changed")
+    decision_bytes = Path(decision_path).read_bytes()
+    require(sha(decision_bytes) == GO_1512_B7_APPROVAL_SHA256, "W5 b7 owner decision digest mismatch")
+    require(read_json(decision_path) == GO_1512_B7_DECISION, "W5 b7 owner decision content mismatch")
+    return GO_1512_B7_UNDO_EXCEPTION
+
+
 def canonical_go_admission(admission):
     # Revision and ephemeral cache filename do not change the parsed content.
     # Compiler-specific fields are compared across the paired run; source,
@@ -184,7 +209,7 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
         head = admission(out, "head", f, manifest_sha, head_revision)
         require(oracle_identity(base["oracle"]) == oracle_identity(head["oracle"]), f"{f['language']}: C oracle differs between revisions")
         if exception is not None and f["language"] == "go":
-            require(exception == GO_1512_UNDO_EXCEPTION, "unknown W5 exception")
+            require(exception in (GO_1512_UNDO_EXCEPTION, GO_1512_B7_UNDO_EXCEPTION), "unknown W5 exception")
             require(canonical_go_admission(base) == GO_1512_BASE_ADMISSION and canonical_go_admission(head) == GO_1512_HEAD_ADMISSION, "W5 approved source/tree/oracle/counter receipt changed")
         require(base["initial_tree_sha256"] == head["initial_tree_sha256"], "initial tree digest differs")
         identities.append({"language": f["language"], "oracle": head["oracle"]})
@@ -200,7 +225,7 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
                     row = {"language": f["language"], "workload": bc["workload"], "step": index, "counter": key, "before": before, "after": after}
                     changes.append(row)
                     if bad:
-                        if exception == GO_1512_UNDO_EXCEPTION and f["sha256"] == GO_1512_FIXTURE and (bs["source_sha256"], bs["tree_sha256"], bs["has_error"]) == (GO_1512_FIXTURE, GO_1512_TREE, False) and row == {"language":"go", "workload":"one_byte", "step":1, "counter":"reused_subtrees", "before":39, "after":35}:
+                        if exception in (GO_1512_UNDO_EXCEPTION, GO_1512_B7_UNDO_EXCEPTION) and f["sha256"] == GO_1512_FIXTURE and (bs["source_sha256"], bs["tree_sha256"], bs["has_error"]) == (GO_1512_FIXTURE, GO_1512_TREE, False) and row == {"language":"go", "workload":"one_byte", "step":1, "counter":"reused_subtrees", "before":39, "after":35}:
                             applied.append({"name":exception, "row":row})
                         else:
                             failures.append(row)
@@ -493,7 +518,7 @@ def private_worker_environment(expected):
             f"GTS_W5_BUILD_ENV_SHA256={expected['build_env']}")
 
 
-def campaign(root, base_revision, out, approved_receipt=None):
+def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receipt=None):
     root = root.resolve(); out = out.resolve()
     private_setting = os.environ.get("GTS_W5_PRIVATE_C_CACHE", "")
     require(private_setting in ("", "1"), "invalid private C cache setting")
@@ -503,7 +528,9 @@ def campaign(root, base_revision, out, approved_receipt=None):
     head_revision = git(root, "rev-parse", "HEAD")
     base_revision = git(root, "rev-parse", base_revision + "^{commit}")
     clean_revision(root, head_revision)
+    require(not (approved_receipt and approved_b7_receipt), "multiple W5 exceptions are forbidden")
     exception = validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) if approved_receipt else None
+    if approved_b7_receipt: exception = validate_b7_undo_exception(root, base_revision, head_revision, approved_b7_receipt)
     check_work_exemptions_history(root, base_revision)
     require(not out.exists(), "campaign output already exists; do not overwrite receipts")
     out.mkdir(parents=True)
@@ -636,6 +663,8 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
     if private_setting: clean_private_inputs(root)
     if approved_receipt:
         require(validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) == exception, "W5 exception identity changed")
+    if approved_b7_receipt:
+        require(validate_b7_undo_exception(root, base_revision, head_revision, approved_b7_receipt) == exception, "W5 b7 exception identity changed")
     env["finished"] = load_sample()
     write_json(out / "environment.json", env)
     result = compare_timing(out, manifest_path, base_revision, head_revision, exception)
@@ -649,6 +678,7 @@ def main():
     run.add_argument("--base", required=True)
     run.add_argument("--output", type=Path, required=True)
     run.add_argument("--approved-go-undo-receipt", type=Path)
+    run.add_argument("--approved-b7-undo-receipt", type=Path)
     compare = sub.add_parser("compare")
     compare.add_argument("--output", type=Path, required=True)
     compare.add_argument("--manifest", type=Path, required=True)
@@ -659,7 +689,7 @@ def main():
         if args.command == "run":
             root = Path(__file__).resolve().parents[1]
             with campaign_lock():
-                campaign(root, args.base, args.output, args.approved_go_undo_receipt)
+                campaign(root, args.base, args.output, args.approved_go_undo_receipt, args.approved_b7_undo_receipt)
         else:
             result = compare_timing(args.output, args.manifest, args.base, args.head)
             require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")

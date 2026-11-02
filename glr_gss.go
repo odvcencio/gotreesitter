@@ -321,6 +321,10 @@ type gssScratch struct {
 	// captureRawShape's doc comment (raw_shape.go) for the full argument, and
 	// spore.2026-07-12.hazel.rawshape-elision-rca for the originating RCA.
 	everForked bool
+	// cWave backs applyReduceActionForked's iterator-wave enumeration of the
+	// pop slices (cWaveReduceWindowsFromGSSInto). Its contents live only for
+	// the length of one reduction; reset releases them.
+	cWave cWaveScratch
 }
 
 func gssSummaryBytesForCap(n int) (int64, bool) {
@@ -1094,6 +1098,7 @@ func (s *gssScratch) recycleForParse() {
 
 func (s *gssScratch) reset() {
 	s.recoveryElection.resetForRelease()
+	s.cWave.reset()
 	if cap(s.stackEntries) > maxRetainedGSSStackEntries {
 		s.stackEntries = nil
 	} else if cap(s.stackEntries) > 0 {

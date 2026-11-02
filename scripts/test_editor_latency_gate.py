@@ -5,6 +5,7 @@ import contextlib
 import io
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -337,6 +338,70 @@ class GateTests(unittest.TestCase):
         with mock.patch.object(gate, "GO_1512_APPROVAL_SHA256", gate.sha(path.read_bytes())), mock.patch.object(gate, "git", return_value=gate.GO_1512_REVIEWED), mock.patch.object(gate.subprocess, "run"), mock.patch.object(gate.subprocess, "check_output", side_effect=[b"!! ignored-user-work\n"]):
             with self.assertRaisesRegex(ValueError, "clean checkout"):
                 gate.validate_1512_undo_exception(self.out, gate.GO_1512_BASE, gate.GO_1512_REVIEWED, path)
+
+    def test_b7_exception_requires_approval_and_binds_clean_exact_source(self):
+        decision = self.out / "prospective-decision.json"
+        decision.write_text(json.dumps(gate.GO_1512_B7_DECISION, separators=(",", ":")) + "\n")
+        with mock.patch.object(gate, "GO_1512_B7_OWNER_APPROVED", False):
+            with self.assertRaisesRegex(ValueError, "no owner approval"):
+                gate.validate_b7_undo_exception(self.out, gate.GO_1512_B7_BASE, gate.GO_1512_B7_REVIEWED, decision)
+        with mock.patch.object(gate, "GO_1512_B7_OWNER_APPROVED", True), mock.patch.object(gate, "git", return_value=gate.GO_1512_B7_REVIEWED), mock.patch.object(gate.subprocess, "run"):
+            with self.assertRaisesRegex(ValueError, "base mismatch"):
+                gate.validate_b7_undo_exception(self.out, "0" * 40, gate.GO_1512_B7_REVIEWED, decision)
+            with mock.patch.object(gate.subprocess, "check_output", side_effect=[b"!! ignored\n"]):
+                with self.assertRaisesRegex(ValueError, "clean checkout"):
+                    gate.validate_b7_undo_exception(self.out, gate.GO_1512_B7_BASE, gate.GO_1512_B7_REVIEWED, decision)
+            with mock.patch.object(gate.subprocess, "check_output", side_effect=[b"", b"parser.go\0"]):
+                with self.assertRaisesRegex(ValueError, "production inputs changed"):
+                    gate.validate_b7_undo_exception(self.out, gate.GO_1512_B7_BASE, gate.GO_1512_B7_REVIEWED, decision)
+            with mock.patch.object(gate.subprocess, "check_output", side_effect=[b"", b"scripts/editor_latency_gate.py\0"]):
+                self.assertEqual(gate.validate_b7_undo_exception(self.out, gate.GO_1512_B7_BASE, gate.GO_1512_B7_REVIEWED, decision), gate.GO_1512_B7_UNDO_EXCEPTION)
+            decision.write_text("tampered")
+            with mock.patch.object(gate.subprocess, "check_output", side_effect=[b"", b""]):
+                with self.assertRaisesRegex(ValueError, "decision digest mismatch"):
+                    gate.validate_b7_undo_exception(self.out, gate.GO_1512_B7_BASE, gate.GO_1512_B7_REVIEWED, decision)
+            forged = copy.deepcopy(gate.GO_1512_B7_DECISION)
+            forged["row"]["after"] = 34
+            decision.write_text(json.dumps(forged, separators=(",", ":")) + "\n")
+            with mock.patch.object(gate, "GO_1512_B7_APPROVAL_SHA256", gate.sha(decision.read_bytes())), mock.patch.object(gate.subprocess, "check_output", side_effect=[b"", b""]):
+                with self.assertRaisesRegex(ValueError, "decision content mismatch"):
+                    gate.validate_b7_undo_exception(self.out, gate.GO_1512_B7_BASE, gate.GO_1512_B7_REVIEWED, decision)
+
+    def test_b7_exception_allows_only_reviewed_counter_row(self):
+        base_hash, head_hash = self.prepare_w5_undo_exception()
+        with mock.patch.object(gate, "GO_1512_BASE_ADMISSION", base_hash), mock.patch.object(gate, "GO_1512_HEAD_ADMISSION", head_hash):
+            with self.assertRaisesRegex(ValueError, "counter gate failed"):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head)
+            result = gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_1512_B7_UNDO_EXCEPTION)
+            self.assertEqual(len(result["applied_exceptions"]), 1)
+            a = self.admissions["head", "go"]
+            a["cells"][0]["steps"][1]["counters"]["reused_subtrees"] = 34
+            gate.write_json(self.admission_path("head", "go"), a)
+            with self.assertRaises(ValueError):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_1512_B7_UNDO_EXCEPTION)
+
+class DetailedArtifactPolicyTests(unittest.TestCase):
+    def test_detailed_outputs_stay_local_and_verdicts_remain(self):
+        path = os.environ.get("GTS_TEST_GATE_WORKFLOW")
+        workflow = Path(path) if path else Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml"
+        text = workflow.read_text()
+        def section(name):
+            found = re.search(r"(?ms)^  " + re.escape(name) + r":\n(.*?)(?=^  [A-Za-z_][A-Za-z0-9_-]*:\n|\Z)", text)
+            self.assertIsNotNone(found, name)
+            return found.group(1)
+        for name in ("race_root_shards", "race_root_isolated", "v1_edit_sessions", "perf-regression"):
+            with self.subTest(job=name):
+                self.assertNotIn("actions/upload-artifact@", section(name))
+        v1 = section("v1_edit_sessions")
+        self.assertIn("Last session: route=", v1)
+        self.assertIn('exit "$status"', v1)
+        self.assertIn('"$evidence/summary.json"', v1)
+        self.assertIn("GITHUB_STEP_SUMMARY", section("perf-regression"))
+        self.assertIn("actions/upload-artifact@", section("parity_report"))
+        build = section("build")
+        for gate in ("race_root", "race_packages", "v1_edit_sessions"):
+            self.assertIn("- " + gate, build)
+
 
 if __name__ == "__main__":
     unittest.main()

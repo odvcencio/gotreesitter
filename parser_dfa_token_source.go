@@ -221,6 +221,19 @@ var dfaTokenSourcePool = sync.Pool{
 	},
 }
 
+// dfaRelexRetryScratchPool holds the snapshot buffers that Next takes before
+// the error-mode external retry, so a run of error tokens reuses one 4 KiB
+// serialization buffer instead of allocating one per token.
+//
+// The buffers are not a dfaTokenSource field on purpose. On 64-bit platforms
+// the struct is 1,528 bytes. With the 8-byte header that Go adds to
+// pointer-holding objects over 512 bytes, it fills the 1,536-byte size class
+// exactly, so one more field moves every token source into the 1,792-byte
+// class. TestDFATokenSourceSizeBudget pins that limit.
+var dfaRelexRetryScratchPool = sync.Pool{
+	New: func() any { return new(dfaRelexSnapshotScratch) },
+}
+
 // setLexerErrorRunLexState wires the grammar's most permissive lex mode
 // (LexModes[0], the C ERROR_STATE mode) into the lexer so NextWithErrorRuns
 // can mirror C's skipped-error lexing for truly unlexable runs.
@@ -677,7 +690,8 @@ func (d *dfaTokenSource) Next() Token {
 			// C retries the external scanner as well as the DFA in ERROR_STATE
 			// before accepting an internal fallback token. The retry starts before any
 			// whitespace consumed by the unsuccessful normal-mode attempt.
-			failed := d.snapshotRelexState()
+			scratch := dfaRelexRetryScratchPool.Get().(*dfaRelexSnapshotScratch)
+			failed := d.snapshotRelexStateWithScratch(scratch)
 			state, states := d.state, d.glrStates
 			d.state, d.glrStates = cErrorState, nil
 			d.lexer.pos, d.lexer.row, d.lexer.col = scanStartPos, scanStartRow, scanStartCol
@@ -708,6 +722,8 @@ func (d *dfaTokenSource) Next() Token {
 				failed.restore(d)
 				d.externalLookaheadEndByte = maxUint32(d.externalLookaheadEndByte, frontier)
 			}
+			// failed aliases scratch and is dead from here.
+			dfaRelexRetryScratchPool.Put(scratch)
 		}
 		if !tokenFromExternal && d.hasExternalScanner &&
 			tok.Symbol != 0 && int(tok.StartByte) > scanStartPos {
