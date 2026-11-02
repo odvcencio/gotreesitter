@@ -1014,6 +1014,13 @@ func nodeHasFinalChildRefs(n *Node) bool {
 }
 
 func nodeChildEntryAtNoMaterialize(n *Node, i int) (stackEntry, bool) {
+	if n != nil && n.childIndex > finalChildSidecarIndexBase {
+		if uint(i) >= uint(len(n.children)) || n.children[i] == nil {
+			return stackEntry{}, false
+		}
+		child := n.children[i]
+		return newStackEntryNode(child.parseState, child), true
+	}
 	if views := nodeViews(n); views != nil {
 		child := views.child(n, i)
 		if child == nil {
@@ -6051,7 +6058,11 @@ func shiftSubtreeAfterEdit(roots []*Node, edit InputEdit, byteDelta, rowDelta in
 	for len(stack) > 0 {
 		n := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		dependency, hasMissingDependency := missingNodeDependencyForNode(n)
+		var dependency missingNodeDependency
+		hasMissingDependency := false
+		if n.isMissing() {
+			dependency, hasMissingDependency = missingNodeDependencyForNode(n)
+		}
 
 		n.startByte = addUint32Delta(n.startByte, byteDelta)
 		n.endByte = addUint32Delta(n.endByte, byteDelta)
