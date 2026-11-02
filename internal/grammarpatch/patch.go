@@ -7,9 +7,16 @@ import "strings"
 type Spec struct {
 	File             string
 	RegenerateParser bool
+	// GeneratorVersion uses the harness-provided CLI instead of a grammar-owned npm lockfile.
+	GeneratorVersion string
 }
 
 var byLanguage = map[string]Spec{
+	"make": {
+		File:             "tree-sitter-make-function-variables.patch",
+		RegenerateParser: true,
+		GeneratorVersion: "0.24.7",
+	},
 	"typescript": {
 		File:             "tree-sitter-typescript-import-type.patch",
 		RegenerateParser: true,
