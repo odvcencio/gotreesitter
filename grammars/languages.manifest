@@ -70,7 +70,7 @@ cpon https://github.com/amaanq/tree-sitter-cpon src
 csv https://github.com/amaanq/tree-sitter-csv csv/src
 cuda https://github.com/theHamsta/tree-sitter-cuda src
 cue https://github.com/eonpatapon/tree-sitter-cue src
-cylc https://github.com/elliotfontaine/tree-sitter-cylc src
+cylc https://github.com/seanwallawalla/ElliotFontaine_Tree-Sitter-Cylc src
 d https://github.com/gdamore/tree-sitter-d src
 dart https://github.com/UserNobody14/tree-sitter-dart src
 desktop https://github.com/ValdezFOmar/tree-sitter-desktop src
