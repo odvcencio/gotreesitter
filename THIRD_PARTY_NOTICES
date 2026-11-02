@@ -2207,9 +2207,9 @@ cue -- https://github.com/eonpatapon/tree-sitter-cue @ be0f609c73cc
   Copyright (c) 2018-2021 Jean-Philippe Braun <eon@patapon.info>, Amaan Qureshi <amaanq12@gmail.com>
   License file: https://github.com/eonpatapon/tree-sitter-cue/blob/be0f609c73cc2929811a9bce0ed90ca71ea87604/LICENSE
 
-cylc -- https://github.com/seanwallawalla/ElliotFontaine_Tree-Sitter-Cylc @ 6d1d81137112
+cylc -- https://github.com/elliotfontaine/tree-sitter-cylc @ 6d1d81137112
   Copyright (c) 2024 Elliot Fontaine <elliot.fontaine@gmail.com>
-  License file: https://github.com/seanwallawalla/ElliotFontaine_Tree-Sitter-Cylc/blob/6d1d81137112299324b526477ce1db989ab58fb8/LICENSE
+  License file: https://github.com/elliotfontaine/tree-sitter-cylc/blob/6d1d81137112299324b526477ce1db989ab58fb8/LICENSE
 
 d -- https://github.com/gdamore/tree-sitter-d @ 64f27931b4e6
   (no copyright line stated upstream; repository owner: gdamore)
