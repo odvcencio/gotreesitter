@@ -702,6 +702,9 @@ func TestWalkAndParse_ReadError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("test requires non-root to enforce file permissions")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("os.Chmod cannot make a file unreadable on Windows; it only sets the read-only attribute")
+	}
 
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "good.go"), "package main\n")
