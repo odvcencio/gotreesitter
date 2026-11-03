@@ -52,10 +52,22 @@ func init() {
 	})
 }
 
-func TestUnaryProgramGoArtifactEquivalence(t *testing.T) {
-	if _, err := gotreesitter.CheckUnaryProgramForTest(grammars.GoLanguage()); err != nil {
+// TestUnaryProgramArtifactEquivalence accepts a grammar name so fleet checks
+// can run one grammar per process; ordinary test runs check Go by default.
+func TestUnaryProgramArtifactEquivalence(t *testing.T) {
+	name := os.Getenv("GTS_UNARY_LANG")
+	if name == "" {
+		name = "go"
+	}
+	entry := grammars.DetectLanguageByName(name)
+	if entry == nil {
+		t.Fatalf("unknown grammar %q", name)
+	}
+	report, err := gotreesitter.CheckUnaryProgramForTest(entry.Language())
+	if err != nil {
 		t.Fatal(err)
 	}
+	t.Logf("unary equivalence %s: %v", name, report)
 }
 
 func BenchmarkReviewColdSelectedPolicy(b *testing.B) {
