@@ -39,7 +39,9 @@ func (s *SelectedStore) NodeSupertypeMask(id SelectedNodeID) (uint32, bool) {
 }
 
 // RetainedBytes includes the policy holder and every exclusively owned backing
-// array retained by the core, including unused capacity.
+// array retained by the core, including unused capacity. The immutable unary
+// backing is charged once here; transient policy value copies share it and
+// are not separately retained by Core.
 func (p *SelectedStorePolicy) RetainedBytes() uint64 {
 	if p == nil {
 		return 0
@@ -56,6 +58,11 @@ func (p *SelectedStorePolicy) RetainedBytes() uint64 {
 	}
 	add(cap(p.Symbols), unsafe.Sizeof(SelectedSymbolPolicy{}))
 	add(cap(p.Unary), unsafe.Sizeof(SelectedUnaryRule(0)))
+	if programBytes := p.unaryProgram.backingBytes(); programBytes > math.MaxUint64-total {
+		total = math.MaxUint64
+	} else {
+		total += programBytes
+	}
 	add(cap(p.RetainedAliasChildren), unsafe.Sizeof(SelectedAliasChildPair{}))
 	add(cap(p.SupertypeMasks), unsafe.Sizeof(uint32(0)))
 	add(cap(p.SemicolonContainers), unsafe.Sizeof(false))

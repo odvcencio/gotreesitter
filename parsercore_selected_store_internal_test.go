@@ -12,6 +12,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/incr"
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 	"hash"
+	"math"
 	"os"
 	"reflect"
 	"sync"
@@ -1540,4 +1541,214 @@ func TestNativeNodeViewsTypeArgumentsPreserveEditAndCopy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func buildParserCoreSelectedStoreDensePolicyForTest(parser *Parser) (core.SelectedStorePolicy, error) {
+	if parser == nil || parser.language == nil || !parser.hasRootSymbol {
+		return core.SelectedStorePolicy{}, errors.New("parser-core phase zero: selected-store policy requires an authenticated parser root")
+	}
+	lang := parser.language
+	symbols := parserCoreSymbolPolicy(lang)
+	width := len(symbols)
+	if width != 0 && width > math.MaxInt/width {
+		return core.SelectedStorePolicy{}, errors.New("parser-core phase zero: selected-store unary policy overflow")
+	}
+	unary := make([]core.SelectedUnaryRule, width*width)
+	for parent := 0; parent < width; parent++ {
+		for child := 0; child < width; child++ {
+			parentSymbol, childSymbol := Symbol(parent), Symbol(child)
+			rule := core.SelectedUnaryKeep
+			switch {
+			case parentSymbol == childSymbol && !parser.isSharedVisibleAnonymousToken(childSymbol):
+				rule = core.SelectedUnaryPass
+			case parser.canCollapseInvisibleUnaryWrapperSymbol(parentSymbol):
+				rule = core.SelectedUnaryPass
+			case parser.canCollapseNamedLeafWrapper(parentSymbol, childSymbol) &&
+				!parser.shouldPreserveVisibleUnaryTokenWrapper(parentSymbol) &&
+				!parser.shouldKeepVisibleAnonymousTokenChild(parentSymbol, childSymbol):
+				rule = core.SelectedUnaryRenameLeaf
+			}
+			unary[parent*width+child] = rule
+		}
+	}
+	policy, err := core.NewSelectedStorePolicy(symbols, unary, core.Symbol(parser.rootSymbol))
+	if err != nil {
+		return core.SelectedStorePolicy{}, err
+	}
+	var supertypeMasks []uint32
+	for index := 0; index < width; index++ {
+		if mask := lang.supertypeBit(Symbol(index)); mask != 0 {
+			if supertypeMasks == nil {
+				supertypeMasks = make([]uint32, width)
+			}
+			supertypeMasks[index] = mask
+		}
+	}
+	if err := policy.SetSupertypeMasks(supertypeMasks); err != nil {
+		return core.SelectedStorePolicy{}, err
+	}
+	retainedAliases := make([]core.SelectedAliasChildPair, 0, len(parser.collapsedChildOccurrencePairs))
+	for _, pair := range parser.collapsedChildOccurrencePairs {
+		retainedAliases = append(retainedAliases, core.SelectedAliasChildPair{Alias: core.Symbol(pair.parent), Child: core.Symbol(pair.child)})
+	}
+	policy.SetRetainedAliasChildren(retainedAliases)
+	policy.ProjectSyntheticSiblingRoot = true
+	syms, _ := goCompatibilitySymbolsForLanguage(lang)
+	containers := make([]bool, width)
+	for _, symbol := range syms.semiContainers[:syms.semiContainerLen] {
+		if int(symbol) < width {
+			containers[symbol] = true
+		}
+	}
+	cases := make([]bool, width)
+	for _, symbol := range [...]Symbol{syms.expressionCase, syms.defaultCase, syms.typeCase, syms.communicationCase} {
+		if symbol != 0 && int(symbol) < width {
+			cases[symbol] = true
+		}
+	}
+	statementLists := make([]bool, width)
+	for _, symbol := range [...]Symbol{syms.statementList, syms.statementListTail} {
+		if symbol != 0 && int(symbol) < width {
+			statementLists[symbol] = true
+		}
+	}
+	if err := policy.SetGoCompatibility(core.Symbol(syms.semicolon), core.Symbol(syms.semicolonSentinel), containers, cases, statementLists); err != nil {
+		return core.SelectedStorePolicy{}, err
+	}
+	return policy, nil
+}
+
+func TestUnaryProgramMetadataFallbackNames(t *testing.T) {
+	lang := &Language{
+		SymbolCount: 8,
+		SymbolNames: []string{"fallback", "fallback", "different", "different", "fallback", "fallback", "unrelated", "unrelated"},
+		SymbolMetadata: []SymbolMetadata{
+			{Visible: true, Named: true, Name: "metadata"}, {Visible: true, Name: ""},
+			{Visible: true, Named: true, Name: "metadata"}, {Visible: true, Name: "metadata"},
+			{Visible: true, Named: true, Name: ""}, {Visible: true, Name: "other"},
+			{Visible: true, Named: true, Name: "x"}, {Visible: true, Name: "y"},
+		},
+	}
+	p := &Parser{language: lang}
+	program, _, err := buildParserCoreSelectedUnaryProgram(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for parent := range lang.SymbolNames {
+		for child := range lang.SymbolNames {
+			ps, cs := Symbol(parent), Symbol(child)
+			want := core.SelectedUnaryKeep
+			switch {
+			case ps == cs && !p.isSharedVisibleAnonymousToken(cs):
+				want = core.SelectedUnaryPass
+			case p.canCollapseInvisibleUnaryWrapperSymbol(ps):
+				want = core.SelectedUnaryPass
+			case p.canCollapseNamedLeafWrapper(ps, cs) && !p.shouldPreserveVisibleUnaryTokenWrapper(ps) && !p.shouldKeepVisibleAnonymousTokenChild(ps, cs):
+				want = core.SelectedUnaryRenameLeaf
+			}
+			if got := program.Rule(core.Symbol(ps), core.Symbol(cs)); got != want {
+				t.Fatalf("fallback %d/%d got=%d want=%d", parent, child, got, want)
+			}
+		}
+	}
+}
+
+// CheckUnaryProgramForTest retains the original dense constructor as oracle.
+// Every symbol pair and both kinds of unknown-ID lookup must agree.
+func CheckUnaryProgramForTest(lang *Language) (map[string]uint64, error) {
+	p := NewParser(lang)
+	dense, err := buildParserCoreSelectedStoreDensePolicyForTest(p)
+	if err != nil {
+		return nil, err
+	}
+	program, compact, err := buildParserCoreSelectedUnaryProgram(p)
+	if err != nil {
+		return nil, err
+	}
+	candidate, err := buildParserCoreSelectedStorePolicy(p)
+	if err != nil {
+		return nil, err
+	}
+	if !compact || len(candidate.Unary) != 0 {
+		return nil, fmt.Errorf("registered artifact unexpectedly chose dense fallback")
+	}
+	width := len(dense.Symbols)
+	var pairs int
+	for parent := 0; parent < width; parent++ {
+		for child := 0; child < width; child++ {
+			want := dense.Unary[parent*width+child]
+			if parent != child && want == core.SelectedUnaryRenameLeaf {
+				pairs++
+			}
+			if got := program.Rule(core.Symbol(parent), core.Symbol(child)); got != want {
+				return nil, fmt.Errorf("unary %d/%d got=%d want=%d", parent, child, got, want)
+			}
+		}
+	}
+	if width < 1<<16 {
+		if program.Rule(core.Symbol(width), 0) != core.SelectedUnaryKeep || program.Rule(0, core.Symbol(width)) != core.SelectedUnaryKeep {
+			return nil, fmt.Errorf("unknown symbol rule changed")
+		}
+	}
+	return map[string]uint64{"symbols": uint64(width), "checked_pairs": uint64(width) * uint64(width), "rename_pairs": uint64(pairs), "dense_unary_bytes": uint64(cap(dense.Unary)), "program_bytes": program.RetainedBytes(), "dense_policy_bytes": dense.RetainedBytes(), "candidate_policy_bytes": candidate.RetainedBytes()}, nil
+}
+
+// The adapter must preserve the original decision order even when callers
+// supply unusual combinations of independently represented metadata flags.
+func TestUnaryProgramHiddenChoiceOverridesSharedDiagonal(t *testing.T) {
+	p := &Parser{language: &Language{
+		SymbolCount: 1, SymbolNames: []string{"token"},
+		SymbolMetadata:                 []SymbolMetadata{{Visible: true, Name: "token"}},
+		HiddenChoicePassthroughSymbols: []bool{true},
+	}, sharedAnonymousTokenSymbol: []bool{true}}
+	program, _, err := buildParserCoreSelectedUnaryProgram(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.canCollapseInvisibleUnaryWrapperSymbol(0) {
+		t.Fatal("fixture does not reach default-rule precedence")
+	}
+	if got := program.Rule(0, 0); got != core.SelectedUnaryPass {
+		t.Fatalf("diagonal precedence got=%d", got)
+	}
+}
+
+func TestUnaryProgramDenseSyntheticFallback(t *testing.T) {
+	const width = 64
+	lang := &Language{SymbolCount: width, SymbolNames: make([]string, width), SymbolMetadata: make([]SymbolMetadata, width)}
+	for i := range lang.SymbolNames {
+		lang.SymbolNames[i] = "same"
+		lang.SymbolMetadata[i] = SymbolMetadata{Visible: true, Named: i < width/2, Name: "same"}
+	}
+	p := &Parser{language: lang, hasRootSymbol: true, rootSymbol: 1}
+	program, compact, err := buildParserCoreSelectedUnaryProgram(p)
+	if err != nil || compact || program.Width() != 0 {
+		t.Fatalf("dense exception fallback not selected: compact=%t err=%v", compact, err)
+	}
+	candidate, err := buildParserCoreSelectedStorePolicy(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dense, err := buildParserCoreSelectedStoreDensePolicyForTest(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(candidate.Unary) != width*width {
+		t.Fatal("dense mutable matrix missing")
+	}
+	for i, want := range dense.Unary {
+		if candidate.Unary[i] != want {
+			t.Fatalf("fallback rule%d differs", i)
+		}
+	}
+}
+
+var reviewColdPolicySink core.SelectedStorePolicy
+
+func ReviewBuildColdPolicyForTest(p *Parser) error {
+	policy, err := buildParserCoreSelectedStorePolicy(p)
+	if err == nil {
+		reviewColdPolicySink = policy
+	}
+	return err
 }

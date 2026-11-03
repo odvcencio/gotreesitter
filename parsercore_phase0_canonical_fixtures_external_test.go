@@ -4,6 +4,8 @@ package gotreesitter_test
 
 import (
 	"fmt"
+	"os"
+	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -48,4 +50,29 @@ func init() {
 		}
 		return entry.HighlightQuery, nil
 	})
+}
+
+func TestUnaryProgramGoArtifactEquivalence(t *testing.T) {
+	if _, err := gotreesitter.CheckUnaryProgramForTest(grammars.GoLanguage()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func BenchmarkReviewColdSelectedPolicy(b *testing.B) {
+	name := os.Getenv("GTS_UNARY_LANG")
+	entry := grammars.DetectLanguageByName(name)
+	if entry == nil {
+		b.Fatalf("unknown grammar %q", name)
+	}
+	p := gotreesitter.NewParser(entry.Language())
+	if err := gotreesitter.ReviewBuildColdPolicyForTest(p); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := gotreesitter.ReviewBuildColdPolicyForTest(p); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
