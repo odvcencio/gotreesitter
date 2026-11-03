@@ -431,7 +431,7 @@ func recoveryCostNodeErrorCost(
 			if err != nil {
 				return 0, fmt.Errorf("parser-core phase zero: recovery cost node %d: %w", childID, err)
 			}
-			if child.Extra {
+			if child.Extra || (child.Symbol == RecoveryErrorSymbol && len(child.Children) == 0) {
 				continue
 			}
 			if RecoverySymbolVisible(symbols, child.Symbol) {
