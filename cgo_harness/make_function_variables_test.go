@@ -5,6 +5,8 @@ package cgoharness
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -55,4 +57,50 @@ func TestMakeFunctionVariablesCOracle(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The oracle harness is shared across baseline and candidate root modules.
+type parityLegacyGeneratorSpec struct{}
+type parityGeneratorProbe struct{ called *bool }
+
+func (p parityGeneratorProbe) RegenerateForHarness(repoDir, subdir string) error {
+	*p.called = true
+	return nil
+}
+
+func TestParityRegenerateMixedRevisionSpec(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fixture uses a POSIX shell")
+	}
+	t.Run("legacy", func(t *testing.T) {
+		dir := t.TempDir()
+		grammar := filepath.Join(dir, "grammar")
+		if err := os.MkdirAll(filepath.Join(dir, "node_modules", ".bin"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(grammar, 0755); err != nil {
+			t.Fatal(err)
+		}
+		for path, body := range map[string]string{
+			filepath.Join(dir, "npm"):                                 "#!/bin/sh\n[ \"$1\" = ci ] || exit 1\n",
+			filepath.Join(dir, "node_modules", ".bin", "tree-sitter"): "#!/bin/sh\n[ \"$1\" = generate ] || exit 1\nprintf yes > generated\n",
+		} {
+			if err := os.WriteFile(path, []byte(body), 0755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		t.Setenv("PATH", dir)
+		if err := regenerateParityGrammar(dir, "grammar/src", parityLegacyGeneratorSpec{}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(grammar, "generated")); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("capability", func(t *testing.T) {
+		called := false
+		if err := regenerateParityGrammar("repo", "grammar/src", parityGeneratorProbe{&called}); err != nil || !called {
+			t.Fatalf("dispatch: called=%v err=%v", called, err)
+		}
+	})
 }

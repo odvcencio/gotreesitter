@@ -584,9 +584,30 @@ func applyParityGrammarPatch(entry parityLockEntry, repoDir string) error {
 		}
 	}
 	if spec.RegenerateParser {
-		if err := grammarpatch.Regenerate(repoDir, entry.Subdir, spec); err != nil {
+		if err := regenerateParityGrammar(repoDir, entry.Subdir, spec); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// regenerateParityGrammar must also compile against older root revisions: W5
+// uses the current oracle harness with both baseline and candidate modules.
+func regenerateParityGrammar(repoDir, subdir string, spec any) error {
+	if generator, ok := spec.(interface{ RegenerateForHarness(string, string) error }); ok {
+		return generator.RegenerateForHarness(repoDir, subdir)
+	}
+	// Older baseline modules predate the shared generator and use npm ci.
+	install := exec.Command("npm", "ci")
+	install.Dir = repoDir
+	if out, err := install.CombinedOutput(); err != nil {
+		return fmt.Errorf("npm ci: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	generator := filepath.Join(repoDir, "node_modules", ".bin", "tree-sitter")
+	generate := exec.Command(generator, "generate")
+	generate.Dir = filepath.Join(repoDir, filepath.Dir(subdir))
+	if out, err := generate.CombinedOutput(); err != nil {
+		return fmt.Errorf("tree-sitter generate: %v: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }

@@ -11,6 +11,11 @@ type Spec struct {
 	GeneratorVersion string
 }
 
+// RegenerateForHarness keeps mixed-revision oracle harnesses compatible.
+func (s Spec) RegenerateForHarness(repoDir, subdir string) error {
+	return Regenerate(repoDir, subdir, s)
+}
+
 var byLanguage = map[string]Spec{
 	"make": {
 		File:             "tree-sitter-make-function-variables.patch",
