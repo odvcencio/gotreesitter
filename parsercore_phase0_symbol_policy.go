@@ -3,10 +3,8 @@
 package gotreesitter
 
 import (
-	"cmp"
 	"errors"
 	"math"
-	"slices"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
@@ -147,6 +145,17 @@ func buildParserCoreDenseUnaryRules(parser *Parser, width int) []core.SelectedUn
 // Compile the existing unary predicates into immutable symbol rows and sparse
 // exceptional pairs. Candidate names narrow the search; predicates authorize
 // every rule. Caller metadata and bounded temporary scratch are never retained.
+// These readers expose grammar symbol metadata only; neither can read a language identity.
+type parserCoreMetadataSymbolNames []SymbolMetadata
+
+func (names parserCoreMetadataSymbolNames) SelectedSymbolText(id core.Symbol) string {
+	return names[id].Name
+}
+
+type parserCorePublicSymbolNames []string
+
+func (names parserCorePublicSymbolNames) SelectedSymbolText(id core.Symbol) string { return names[id] }
+
 func buildParserCoreSelectedUnaryProgram(p *Parser) (core.SelectedUnaryProgram, bool, error) {
 	if p == nil || p.language == nil {
 		return core.SelectedUnaryProgram{}, false, errors.New("parser-core phase zero: unary program lacks language metadata")
@@ -174,12 +183,12 @@ func buildParserCoreSelectedUnaryProgram(p *Parser) (core.SelectedUnaryProgram, 
 			}
 		}
 	}
-	var inlineIndexes [256]Symbol
+	var inlineIndexes [256]core.Symbol
 	indexes := inlineIndexes[:]
 	if anonymous+public <= len(indexes) {
 		indexes = indexes[:anonymous+public]
 	} else {
-		indexes = make([]Symbol, anonymous+public)
+		indexes = make([]core.Symbol, anonymous+public)
 	}
 	byMetadata, byPublic := indexes[:anonymous], indexes[anonymous:]
 	a, b := 0, 0
@@ -187,15 +196,17 @@ func buildParserCoreSelectedUnaryProgram(p *Parser) (core.SelectedUnaryProgram, 
 		if !meta.Visible || meta.Named {
 			continue
 		}
-		byMetadata[a] = Symbol(child)
+		byMetadata[a] = core.Symbol(child)
 		a++
 		if child < len(lang.SymbolNames) {
-			byPublic[b] = Symbol(child)
+			byPublic[b] = core.Symbol(child)
 			b++
 		}
 	}
-	slices.SortFunc(byMetadata, func(a, b Symbol) int { return cmp.Compare(lang.SymbolMetadata[a].Name, lang.SymbolMetadata[b].Name) })
-	slices.SortFunc(byPublic, func(a, b Symbol) int { return cmp.Compare(lang.SymbolNames[a], lang.SymbolNames[b]) })
+	metadataNames := parserCoreMetadataSymbolNames(lang.SymbolMetadata)
+	publicNames := parserCorePublicSymbolNames(lang.SymbolNames)
+	core.SortSelectedSymbolNames(byMetadata, metadataNames)
+	core.SortSelectedSymbolNames(byPublic, publicNames)
 	var inlineOverrides [16]core.SelectedUnaryOverride
 	overrides := inlineOverrides[:0]
 	// A dense synthetic name class must not build quadratic exception scratch.
@@ -215,34 +226,40 @@ func buildParserCoreSelectedUnaryProgram(p *Parser) (core.SelectedUnaryProgram, 
 		if parent >= len(lang.SymbolMetadata) || !lang.SymbolMetadata[parent].Visible || !lang.SymbolMetadata[parent].Named || p.shouldPreserveVisibleUnaryTokenWrapper(symbol) {
 			continue
 		}
-		visit := func(candidates []Symbol, name string, metadata, emptyOnly bool) bool {
-			getName := func(s Symbol) string {
-				if metadata {
-					return lang.SymbolMetadata[s].Name
-				}
-				return lang.SymbolNames[s]
+		visit := func(candidates []core.Symbol, name string, metadata, emptyOnly bool) bool {
+			start, found := 0, false
+			if metadata {
+				start, found = core.FindSelectedSymbolName(candidates, name, metadataNames)
+			} else {
+				start, found = core.FindSelectedSymbolName(candidates, name, publicNames)
 			}
-			start, found := slices.BinarySearchFunc(candidates, name, func(s Symbol, n string) int { return cmp.Compare(getName(s), n) })
 			if !found {
 				return true
 			}
 			for _, child := range candidates[start:] {
-				if getName(child) != name {
+				var childName string
+				if metadata {
+					childName = metadataNames.SelectedSymbolText(child)
+				} else {
+					childName = publicNames.SelectedSymbolText(child)
+				}
+				if childName != name {
 					break
 				}
-				if emptyOnly && lang.SymbolMetadata[child].Name != "" {
+				if emptyOnly && metadataNames.SelectedSymbolText(child) != "" {
 					continue
 				}
-				if p.canCollapseNamedLeafWrapper(symbol, child) && !p.shouldKeepVisibleAnonymousTokenChild(symbol, child) {
+				childSymbol := Symbol(child)
+				if p.canCollapseNamedLeafWrapper(symbol, childSymbol) && !p.shouldKeepVisibleAnonymousTokenChild(symbol, childSymbol) {
 					if uint64(len(overrides)) >= maxSparse {
 						return false
 					}
-					overrides = append(overrides, core.SelectedUnaryOverride{Parent: core.Symbol(symbol), Child: core.Symbol(child), Rule: core.SelectedUnaryRenameLeaf})
+					overrides = append(overrides, core.SelectedUnaryOverride{Parent: core.Symbol(symbol), Child: child, Rule: core.SelectedUnaryRenameLeaf})
 				}
 			}
 			return true
 		}
-		metadataName := lang.SymbolMetadata[parent].Name
+		metadataName := metadataNames.SelectedSymbolText(core.Symbol(parent))
 		if metadataName != "" {
 			if !visit(byMetadata, metadataName, true, false) {
 				return core.SelectedUnaryProgram{}, false, nil
