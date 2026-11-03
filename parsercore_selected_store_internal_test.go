@@ -15,8 +15,10 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
+	"unsafe"
 )
 
 func TestDiagnosticParserCoreSelectedStoreCanonicalAdmissions(t *testing.T) {
@@ -1540,6 +1542,627 @@ func TestNativeNodeViewsTypeArgumentsPreserveEditAndCopy(t *testing.T) {
 				t.Fatal("type argument edit differs from fresh parse")
 			}
 		})
+	}
+}
+
+func reviewWideSource() []byte {
+	var s strings.Builder
+	s.WriteString("package p\nfunc f() {\n")
+	for i := 0; i < 200; i++ {
+		fmt.Fprintf(&s, "x%d := %d; _ = x%d\n", i, i, i)
+	}
+	s.WriteString("}\n")
+	return []byte(s.String())
+}
+func reviewWidePublicTree(t testing.TB) (*Tree, *Language) {
+	t.Helper()
+	lang, e := authenticatedParserCoreGoLanguage(parserCoreWarmGoScanner)
+	if e != nil {
+		t.Fatal(e)
+	}
+	p := NewParser(lang)
+	p.SetAdmissionCandidateRoute(true)
+	tree, e := p.Parse(reviewWideSource())
+	if e != nil || tree == nil {
+		t.Fatalf("parse: %v", e)
+	}
+	if tree.arena == nil || tree.arena.views == nil {
+		t.Fatal("native candidate fallback")
+	}
+	return tree, lang
+}
+func reviewWidest(n *Node) *Node {
+	best := n
+	pending := []*Node{n}
+	for len(pending) > 0 {
+		p := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if p.ChildCount() > best.ChildCount() {
+			best = p
+		}
+		for i := 0; i < p.ChildCount(); i++ {
+			if c := p.Child(i); c != nil {
+				pending = append(pending, c)
+			}
+		}
+	}
+	return best
+}
+func TestReviewNamedIndexWideAndLifecycle(t *testing.T) {
+	tree, lang := reviewWidePublicTree(t)
+	v := tree.arena.views.(*nativeNodeViews)
+	t.Logf("nativeNodeViewsSize=%d", unsafe.Sizeof(*v))
+	if v.namedIndex != nil {
+		t.Fatal("index created during parse")
+	}
+	root := tree.RootNode()
+	wide := reviewWidest(root)
+	if wide.ChildCount() < 100 {
+		t.Fatalf("wide fixture has %d children", wide.ChildCount())
+	}
+	if v.namedIndex != nil {
+		t.Fatal("index created without named traversal")
+	}
+	count := wide.NamedChildCount()
+	if count < 100 {
+		t.Fatalf("named count=%d", count)
+	}
+	if v.namedIndex != nil {
+		t.Fatal("count-only allocated index")
+	}
+	if wide.NamedChild(0) == nil || v.namedIndex != nil {
+		t.Fatal("first child allocated index")
+	}
+	if wide.NamedChild(32) == nil || v.namedIndex == nil || v.namedIndex.firstID == 0 || v.namedIndex.extraCount != 0 {
+		t.Fatal("missing one parent cache")
+	}
+	want := make([]*Node, count)
+	for i := range want {
+		want[i] = wide.NamedChild(i)
+		if want[i] == nil || want[i].Parent() != wide {
+			t.Fatalf("bad child/parent %d", i)
+		}
+	}
+	if wide.NamedChild(-1) != nil || wide.NamedChild(count) != nil {
+		t.Fatal("out of bounds")
+	}
+	var wg sync.WaitGroup
+	for g := 0; g < 4; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for n := 0; n < 10; n++ {
+				for i, w := range want {
+					if wide.NamedChild(i) != w {
+						t.Errorf("identity changed %d", i)
+						return
+					}
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	p := NewParser(lang)
+	p.SetAdmissionCandidateRoute(false)
+	legacy, e := p.Parse(reviewWideSource())
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer legacy.Release()
+	if root.SExpr(lang) != legacy.RootNode().SExpr(lang) {
+		t.Fatal("native and legacy structure differ")
+	}
+	compareNodeViewTree(t, legacy.RootNode(), root, lang)
+	materializeNodeViews(root)
+	if tree.arena.views != nil || v.namedIndex != nil {
+		t.Fatal("materialization retained index")
+	}
+	if got := wide.NamedChildCount(); got != count {
+		t.Fatalf("materialized count %d", got)
+	}
+	tree.Release()
+	again, _ := reviewWidePublicTree(t)
+	defer again.Release()
+	if a := again.arena.views.(*nativeNodeViews); a.namedIndex != nil {
+		t.Fatal("pool reused stale index")
+	}
+}
+
+var reviewNamedSink *Node
+
+func TestReviewNamedIndexBudgetAndSparseViews(t *testing.T) {
+	tree, _ := reviewWidePublicTree(t)
+	defer tree.Release()
+	v := tree.arena.views.(*nativeNodeViews)
+	store := v.snapshot.Store()
+	var id core.SelectedNodeID
+	var most uint16
+	for i := core.SelectedNodeID(1); uint64(i) <= store.NodeCount(); i++ {
+		n, _ := store.NodeChildCount(i)
+		if n > most {
+			most = n
+			id = i
+		}
+	}
+	if most < 100 {
+		t.Fatal("missing wide parent")
+	}
+	wide := v.get(id)
+	before := tree.arena.used
+	if wide.NamedChild(0) == nil {
+		t.Fatal("missing first named child")
+	}
+	if tree.arena.used > before+1 {
+		t.Fatal("index eagerly materialized children")
+	}
+	if v.namedIndex != nil {
+		t.Fatal("first child allocated index")
+	}
+	if wide.NamedChild(32) == nil || v.namedIndex == nil {
+		t.Fatal("cache missing")
+	}
+	charged := v.namedIndex.bytes
+	if charged == 0 || tree.arena.allocatedBytes < int64(charged) {
+		t.Fatal("index not accounted")
+	}
+	tree2, _ := reviewWidePublicTree(t)
+	defer tree2.Release()
+	w := tree2.arena.views.(*nativeNodeViews)
+	other := w.get(id)
+	tree2.arena.setBudget(1)
+	expected := other.NamedChildCount()
+	if expected < 100 || w.namedIndex != nil {
+		t.Fatal("budget fallback failed")
+	}
+	if other.NamedChild(32) == nil || w.namedIndex != nil {
+		t.Fatal("budget fallback lookup failed")
+	}
+}
+
+func TestReviewNamedIndexSelectedOccurrenceMetadata(t *testing.T) {
+	lang, e := authenticatedParserCoreGoLanguage(parserCoreWarmGoScanner)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var src strings.Builder
+	src.WriteString("package p\nfunc f() {\n")
+	for i := 0; i < 200; i++ {
+		fmt.Fprintf(&src, "x%d := %d; _ = x%d // repeated extra\n", i, i, i)
+	}
+	src.WriteString("}\n")
+	p := NewParser(lang)
+	p.SetAdmissionCandidateRoute(true)
+	tree, e := p.Parse([]byte(src.String()))
+	if e != nil || tree == nil {
+		t.Fatal(e)
+	}
+	defer tree.Release()
+	if tree.arena == nil || tree.arena.views == nil {
+		t.Fatal("native fallback")
+	}
+	v := tree.arena.views.(*nativeNodeViews)
+	store := v.snapshot.Store()
+	var id core.SelectedNodeID
+	var most uint16
+	for i := core.SelectedNodeID(1); uint64(i) <= store.NodeCount(); i++ {
+		count, _ := store.NodeChildCount(i)
+		if count > most {
+			id = i
+			most = count
+		}
+	}
+	if most < nativeNamedIndexThreshold {
+		t.Fatal("wide fixture absent")
+	}
+	wide := v.get(id)
+	if wide.NamedChild(32) == nil || v.namedIndex == nil {
+		t.Fatal("index trigger absent")
+	}
+	seen := map[core.SelectedNodeID]bool{}
+	var named, anonymous, extras, aliases int
+	for i := uint32(0); i < uint32(most); i++ {
+		cid, ok := store.ChildID(id, i)
+		if !ok || seen[cid] {
+			t.Fatal("duplicate occurrence ID")
+		}
+		seen[cid] = true
+		rec, original, ok := v.snapshot.Record(cid)
+		if !ok {
+			t.Fatal("missing record")
+		}
+		if rec.Extra() {
+			extras++
+		}
+		if original != rec.Symbol {
+			aliases++
+		}
+		if rec.Named() {
+			n := wide.NamedChild(named)
+			if n == nil || core.SelectedNodeID(n.rawShape) != cid {
+				t.Fatalf("occurrence order %d", named)
+			}
+			named++
+		} else {
+			anonymous++
+		}
+	}
+	if extras == 0 || named < 200 {
+		t.Fatalf("fixture missing extras or named children: extras=%d named=%d", extras, named)
+	}
+	t.Logf("named=%d anonymous=%d extra=%d aliases=%d distinct_occurrences=%d", named, anonymous, extras, aliases, len(seen))
+	// A real zero-child selected occurrence exercises the empty named result and
+	// repeated directory lookup directly; normal public threshold avoids caching it.
+	leaf := core.SelectedNodeID(0)
+	for i := core.SelectedNodeID(1); uint64(i) <= store.NodeCount(); i++ {
+		n, _ := store.NodeChildCount(i)
+		if n == 0 {
+			leaf = i
+			break
+		}
+	}
+	if leaf == 0 {
+		t.Fatal("leaf missing")
+	}
+	v.mu.Lock()
+	empty, ok := v.namedIDsLocked(leaf, 0)
+	empty2, ok2 := v.namedIDsLocked(leaf, 0)
+	v.mu.Unlock()
+	if !ok || !ok2 || len(empty) != 0 || len(empty2) != 0 {
+		t.Fatal("empty cache failed")
+	}
+	legacy := NewParser(lang)
+	legacy.SetAdmissionCandidateRoute(false)
+	ref, e := legacy.Parse([]byte(src.String()))
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer ref.Release()
+	if tree.RootNode().SExpr(lang) != ref.RootNode().SExpr(lang) {
+		t.Fatal("legacy projection differs")
+	}
+}
+
+func TestReviewNamedIndexInlinePairAndThird(t *testing.T) {
+	tree, _ := reviewWidePublicTree(t)
+	defer tree.Release()
+	v := tree.arena.views.(*nativeNodeViews)
+	store := v.snapshot.Store()
+	if store.NodeCount() < 3 {
+		t.Fatal("fixture too small")
+	}
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	for id := core.SelectedNodeID(1); id <= 3; id++ {
+		count, ok := store.NodeChildCount(id)
+		if !ok {
+			t.Fatal("missing occurrence")
+		}
+		ids, ok := v.namedIDsLocked(id, uint32(count))
+		if !ok {
+			t.Fatal("cache rejected")
+		}
+		again, ok := v.namedIDsLocked(id, uint32(count))
+		if !ok || len(ids) != len(again) {
+			t.Fatal("cache mismatch")
+		}
+	}
+	if v.namedIndex.firstID != 1 || v.namedIndex.secondID != 2 || v.namedIndex.extraCount != 1 {
+		t.Fatal("inline and map entries not independent")
+	}
+}
+
+func TestReviewNamedIndexThresholdBoundary(t *testing.T) {
+	for _, width := range []int{199, 200} {
+		t.Run(fmt.Sprint(width), func(t *testing.T) {
+			var src strings.Builder
+			src.WriteString("package p\nfunc f(){\n")
+			for i := 0; i < width; i++ {
+				fmt.Fprintf(&src, "x%d := %d; _ = x%d\n", i, i, i)
+			}
+			src.WriteString("}\n")
+			lang, e := authenticatedParserCoreGoLanguage(parserCoreWarmGoScanner)
+			if e != nil {
+				t.Fatal(e)
+			}
+			p := NewParser(lang)
+			p.SetAdmissionCandidateRoute(true)
+			tree, e := p.Parse([]byte(src.String()))
+			if e != nil || tree == nil {
+				t.Fatal(e)
+			}
+			defer tree.Release()
+			if tree.arena == nil || tree.arena.views == nil {
+				t.Fatal("native fallback")
+			}
+			v := tree.arena.views.(*nativeNodeViews)
+			store := v.snapshot.Store()
+			var widest core.SelectedNodeID
+			var max uint16
+			for id := core.SelectedNodeID(1); uint64(id) <= store.NodeCount(); id++ {
+				n, _ := store.NodeChildCount(id)
+				if n > max {
+					max = n
+					widest = id
+				}
+			}
+			if int(max) != width*3 {
+				t.Fatalf("geometry drift: %d", max)
+			}
+			n := v.get(widest)
+			if n.NamedChild(32) == nil {
+				t.Fatal("missing ordinal")
+			}
+			if (v.namedIndex != nil) != (width == 200) {
+				t.Fatalf("index threshold: width=%d children=%d cached=%t", width, max, v.namedIndex != nil)
+			}
+		})
+	}
+}
+
+func TestNativeNamedPoolExclusiveResetAndBound(t *testing.T) {
+	held := make([]*nativeNamedChildIndex, nativeNamedPoolSlots)
+	for i := range held {
+		held[i] = checkoutNativeNamedIndex()
+		for j := 0; j < i; j++ {
+			if held[i] == held[j] {
+				t.Fatal("concurrent checkout shares slot")
+			}
+		}
+		held[i].firstID = 11
+		held[i].first = make([]core.SelectedNodeID, 40, 40)
+		held[i].extra[0] = nativeNamedChildEntry{id: 7, ids: []core.SelectedNodeID{8}}
+		held[i].extraCount = 1
+	}
+	recycleNativeNamedIndex(held[0])
+	next := checkoutNativeNamedIndex()
+	if next != held[0] || next.firstID != 0 || next.extraCount != 0 || next.extra[0].id != 0 || len(next.first) != 0 || cap(next.first) != 40 {
+		t.Fatal("slot was not reset while preserving scalar capacity")
+	}
+	next.first = make([]core.SelectedNodeID, nativeNamedPoolMaxIDs+1)
+	recycleNativeNamedIndex(next)
+	next = checkoutNativeNamedIndex()
+	if cap(next.first) != 0 {
+		t.Fatal("oversize buffer retained")
+	}
+	recycleNativeNamedIndex(next)
+	for _, slot := range held[1:] {
+		recycleNativeNamedIndex(slot)
+	}
+}
+
+func TestNativeNamedPoolParentLimit(t *testing.T) {
+	tree, _ := reviewWidePublicTree(t)
+	defer tree.Release()
+	v := tree.arena.views.(*nativeNodeViews)
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	store := v.snapshot.Store()
+	if store.NodeCount() < nativeNamedMaxParents+1 {
+		t.Fatal("fixture too small")
+	}
+	for id := core.SelectedNodeID(1); id <= nativeNamedMaxParents; id++ {
+		count, ok := store.NodeChildCount(id)
+		if !ok {
+			t.Fatal("missing selected occurrence")
+		}
+		if _, ok := v.namedIDsLocked(id, uint32(count)); !ok {
+			t.Fatalf("entry %d refused too early", id)
+		}
+	}
+	count, _ := store.NodeChildCount(nativeNamedMaxParents + 1)
+	if _, ok := v.namedIDsLocked(nativeNamedMaxParents+1, uint32(count)); ok {
+		t.Fatal("parent high-water limit bypassed")
+	}
+	if v.namedIndex.extraCount != nativeNamedMaxParents-2 {
+		t.Fatal("unexpected overflow count")
+	}
+	if _, ok := v.namedIDsLocked(1, 0); !ok {
+		t.Fatal("existing entry unavailable at limit")
+	}
+}
+
+func TestNativeNamedPoolRebuildAfterRelease(t *testing.T) {
+	first, _ := reviewWidePublicTree(t)
+	fv := first.arena.views.(*nativeNodeViews)
+	wide := reviewWidest(first.RootNode())
+	if wide.NamedChild(32) == nil || fv.namedIndex == nil {
+		t.Fatal("first index not built")
+	}
+	pooled := fv.namedIndex
+	first.Release()
+	for i := range pooled.first[:cap(pooled.first)] {
+		pooled.first[:cap(pooled.first)][i] = 0
+	}
+	second, _ := reviewWidePublicTree(t)
+	defer second.Release()
+	sv := second.arena.views.(*nativeNodeViews)
+	wide = reviewWidest(second.RootNode())
+	if wide.NamedChild(32) == nil || sv.namedIndex == nil {
+		t.Fatal("second index not built")
+	}
+	if sv.namedIndex != pooled {
+		t.Fatal("did not exercise pooled slot")
+	}
+	store := sv.snapshot.Store()
+	got := sv.namedIndex.first
+	for i, j := uint32(0), 0; i < uint32(wide.ChildCount()); i++ {
+		child, ok := store.ChildID(sv.namedIndex.firstID, i)
+		if !ok {
+			t.Fatal("child missing")
+		}
+		named, ok := store.NodeNamed(child)
+		if !ok {
+			t.Fatal("name missing")
+		}
+		if named {
+			if j >= len(got) || got[j] != child {
+				t.Fatalf("index not rebuilt at %d", j)
+			}
+			j++
+		}
+	}
+}
+
+func TestNativeNamedPoolRetainedCapacityBudgetFallback(t *testing.T) {
+	tree, _ := reviewWidePublicTree(t)
+	defer tree.Release()
+	v := tree.arena.views.(*nativeNodeViews)
+	wide := reviewWidest(tree.RootNode())
+	if wide.ChildCount() < nativeNamedIndexThreshold || wide.NamedChildCount() < 33 {
+		t.Fatal("fixture not wide")
+	}
+	slot := checkoutNativeNamedIndex()
+	slot.first = make([]core.SelectedNodeID, 0, 4096)
+	slot.second = nil
+	recycleNativeNamedIndex(slot)
+	tree.arena.setBudget(5000)
+	if wide.NamedChild(32) == nil {
+		t.Fatal("budget fallback changed result")
+	}
+	if v.namedIndex != nil {
+		t.Fatal("retained capacity bypassed budget")
+	}
+}
+
+func TestNativeNamedPoolCopyAndMaterialize(t *testing.T) {
+	tree, _ := reviewWidePublicTree(t)
+	wide := reviewWidest(tree.RootNode())
+	n := wide.NamedChildCount()
+	if wide.NamedChild(32) == nil {
+		t.Fatal("missing indexed child")
+	}
+	views, ok := tree.arena.views.(*nativeNodeViews)
+	if !ok || views.namedIndex == nil {
+		t.Fatal("not native indexed route")
+	}
+	copied := tree.Copy()
+	if copied == nil {
+		t.Fatal("copy failed")
+	}
+	cw := reviewWidest(copied.RootNode())
+	if cw.NamedChildCount() != n || cw.NamedChild(32) == nil {
+		t.Fatal("copy traversal differs")
+	}
+	copied.Release()
+	if reviewWidest(tree.RootNode()).NamedChild(32) == nil {
+		t.Fatal("old tree invalid after copy release")
+	}
+	tree.Release()
+	again, _ := reviewWidePublicTree(t)
+	defer again.Release()
+	if reviewWidest(again.RootNode()).NamedChild(32) == nil {
+		t.Fatal("arena reuse lost named child")
+	}
+}
+
+func TestNativeNamedPoolMultipleLiveResults(t *testing.T) {
+	const count = 3
+	trees := make([]*Tree, count)
+	indexes := make([]*nativeNamedChildIndex, count)
+	for i := range trees {
+		trees[i], _ = reviewWidePublicTree(t)
+		wide := reviewWidest(trees[i].RootNode())
+		if wide.NamedChild(32) == nil {
+			t.Fatal("no indexed child")
+		}
+		indexes[i] = trees[i].arena.views.(*nativeNodeViews).namedIndex
+		for j := 0; j < i; j++ {
+			if indexes[i] == indexes[j] {
+				t.Fatal("live results share index")
+			}
+		}
+	}
+	trees[1].Release()
+	if reviewWidest(trees[0].RootNode()).NamedChild(32) == nil || reviewWidest(trees[2].RootNode()).NamedChild(32) == nil {
+		t.Fatal("other live result damaged")
+	}
+	trees[0].Release()
+	trees[2].Release()
+}
+
+func TestNativeNamedPoolBeyondSlotLimit(t *testing.T) {
+	held := make([]*nativeNamedChildIndex, nativeNamedPoolSlots+1)
+	for i := range held {
+		held[i] = checkoutNativeNamedIndex()
+		for j := 0; j < i; j++ {
+			if held[i] == held[j] {
+				t.Fatal("slot reused while live")
+			}
+		}
+	}
+	for _, idx := range held {
+		recycleNativeNamedIndex(idx)
+	}
+}
+
+func TestNativeNamedPoolConcurrentLiveResults(t *testing.T) {
+	const count = 3
+	trees := make([]*Tree, count)
+	nodes := make([]*Node, count)
+	for i := range trees {
+		trees[i], _ = reviewWidePublicTree(t)
+		nodes[i] = reviewWidest(trees[i].RootNode())
+	}
+	var wg sync.WaitGroup
+	for _, node := range nodes {
+		wg.Add(1)
+		go func(n *Node) {
+			defer wg.Done()
+			for j := 0; j < 25; j++ {
+				if n.NamedChild(32+j) == nil {
+					t.Error("missing child")
+				}
+			}
+		}(node)
+	}
+	wg.Wait()
+	for _, tree := range trees {
+		tree.Release()
+	}
+}
+
+func TestNativeNamedPoolConcurrentOffsetRead(t *testing.T) {
+	tree, _ := reviewWidePublicTree(t)
+	defer tree.Release()
+	original := tree.arena.views.(*nativeNodeViews)
+	if tree.resultCompatibilityFinalizer != nil {
+		t.Fatal("fixture has deferred compatibility")
+	}
+	wide := reviewWidest(tree.RootNode())
+	if wide.NamedChild(32) == nil || original.namedIndex == nil {
+		t.Fatal("no native index")
+	}
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 8; i++ {
+			if wide.NamedChild(32+i) == nil {
+				t.Error("named read failed")
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 8; i++ {
+			n := tree.RootNodeWithOffset(1, Point{Column: 1})
+			if n == nil {
+				t.Error("offset read failed")
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 8; i++ {
+			child := wide.NamedChild(32 + i)
+			if child == nil || child.Parent() != wide {
+				t.Error("parent read failed")
+			}
+		}
+	}()
+	wg.Wait()
+	if tree.arena.views != original || original.snapshot.Store() == nil || original.namedIndex == nil {
+		t.Fatal("offset read retired original native view")
 	}
 }
 
