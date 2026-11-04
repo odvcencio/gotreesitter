@@ -7,6 +7,7 @@ const ConflictPolicyNone ConflictPolicyKind = iota
 const ConflictPolicyRecoveredRepetitionReduce
 const ConflictPolicyRepetitionReduce
 const ConflictPolicyRepetitionShift
+const ConflictPolicyReuseSafeRepetitionReduce
 const ConflictPolicyShift
 const DefaultBlobGeneratorVersion = "gotreesitter"
 const DiagnosticParserCoreAccept DiagnosticParserCoreBoundaryKind = "accept_without_materialization"

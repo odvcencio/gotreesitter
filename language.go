@@ -374,6 +374,13 @@ const (
 	// ConflictPolicyDeclaredSelfReduceReduceLongest keeps the wider production
 	// in a certified same-symbol conflict with equal precedence and field maps.
 	ConflictPolicyDeclaredSelfReduceReduceLongest
+	// ConflictPolicyReuseSafeRepetitionReduce certifies an exact state and
+	// lookahead containing one plain reduce and one repetition-marked shift.
+	// It applies at both fresh and incremental redispatch, after reuse has
+	// declined the current subtree. Wildcards and compact-only gates are
+	// rejected. Existing kind values and the serialized policy layout stay
+	// unchanged.
+	ConflictPolicyReuseSafeRepetitionReduce
 )
 
 // ConflictPolicy describes one table row/lookahead conflict that can be

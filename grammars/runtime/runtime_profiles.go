@@ -869,6 +869,16 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 				Kind:          gotreesitter.ConflictPolicyRepetitionReduce,
 				ReduceSymbols: []gotreesitter.Symbol{343},
 			},
+			// The pinned C runtime reduces initializer_list_repeat1 and skips
+			// SHIFT_REPEAT at this exact comma cell. Executing the marker first
+			// creates an unnecessary continuation at each list boundary. Keep
+			// C's broader repetition-fold opt-out and all other rows unchanged.
+			{
+				State:         1597,
+				Lookahead:     7,
+				Kind:          gotreesitter.ConflictPolicyReuseSafeRepetitionReduce,
+				ReduceSymbols: []gotreesitter.Symbol{355},
+			},
 		},
 	},
 	// Gleam's declared integer self conflict has plain reduce rows 732/735:

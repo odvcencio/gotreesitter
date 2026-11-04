@@ -129,6 +129,25 @@ func (p *Parser) applyEagerDefaultReduces(source []byte, phase string, stacks []
 	if p == nil || len(stacks) == 0 || len(p.eagerDefaultReduces) == 0 {
 		return false
 	}
+	// The caller relexes after this helper completes. Only enter the eager
+	// fixed-point walk when deterministic reductions cannot fork: otherwise
+	// a partial frontier would need to return to ordinary token scheduling.
+	// Decline before mutating any stack, including when a prior continuation
+	// is already waiting for publication.
+	if p.hasPendingReductionContinuations() {
+		return false
+	}
+	for i := range stacks {
+		s := &stacks[i]
+		if !externalDefaultReduceStackEligible(s) {
+			continue
+		}
+		for node := s.gss.head; node != nil; node = node.prev {
+			if node.extraLinkCount != 0 {
+				return false
+			}
+		}
+	}
 	anyReduced := false
 	debug := parseEagerDefaultReduceDebugEnabled()
 	type seenKey struct {
@@ -353,7 +372,7 @@ func (p *Parser) settleEagerDefaultReduceChainForReuse(source []byte, s *glrStac
 			return anyReduced
 		}
 		p.applyReduceActionDispatch(source, s, act, tok, &anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
-		if len(p.pendingForkStacks) > 0 {
+		if p.hasPendingReductionContinuations() {
 			if forked != nil {
 				*forked = true
 			}
@@ -428,7 +447,7 @@ func (p *Parser) settleDeterministicReduceChainForReuse(source []byte, s *glrSta
 		if stepReduced {
 			anyReduced = true
 		}
-		if len(p.pendingForkStacks) > 0 {
+		if p.hasPendingReductionContinuations() {
 			if forked != nil {
 				*forked = true
 			}
