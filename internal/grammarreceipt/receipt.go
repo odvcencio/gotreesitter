@@ -157,6 +157,7 @@ type StepResult struct {
 	InvariantPass            bool     `json:"invariant_pass"`
 	Pass                     bool     `json:"pass"`
 	Failure                  *Failure `json:"first_failure,omitempty"`
+	CIncrementalFailure      *Failure `json:"c_incremental_failure,omitempty"`
 }
 
 type Failure struct {
