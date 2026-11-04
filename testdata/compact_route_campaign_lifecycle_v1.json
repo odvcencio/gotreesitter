@@ -705,7 +705,7 @@
       "scope": "harness",
       "default": "unset",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityRepoCacheDir", "line": 780}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityRepoCacheDir", "line": 782}
       ]
     },
     {
@@ -715,7 +715,7 @@
       "scope": "harness",
       "default": "unset",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityLocalRepoDir", "line": 647}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityLocalRepoDir", "line": 649}
       ]
     },
     {

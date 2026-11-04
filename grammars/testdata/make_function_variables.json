@@ -1,0 +1,80 @@
+[
+  {
+    "name": "parentheses",
+    "source": "X := $(subst) $(patsubst) $(strip) $(findstring) $(filter) $(filter-out) $(sort) $(word) $(words) $(wordlist) $(firstword) $(lastword) $(dir) $(notdir) $(suffix) $(basename) $(addsuffix) $(addprefix) $(join) $(wildcard) $(realpath) $(abspath) $(error) $(warning) $(info) $(origin) $(flavor) $(foreach) $(if) $(or) $(and) $(intcmp) $(let) $(call) $(eval) $(file) $(value) $(guile) $(shell)\nfmt:\n\t@echo ok\n",
+    "variables": 39,
+    "functions": 0,
+    "shells": 0
+  },
+  {
+    "name": "braces",
+    "source": "X := ${subst} ${patsubst} ${strip} ${findstring} ${filter} ${filter-out} ${sort} ${word} ${words} ${wordlist} ${firstword} ${lastword} ${dir} ${notdir} ${suffix} ${basename} ${addsuffix} ${addprefix} ${join} ${wildcard} ${realpath} ${abspath} ${error} ${warning} ${info} ${origin} ${flavor} ${foreach} ${if} ${or} ${and} ${intcmp} ${let} ${call} ${eval} ${file} ${value} ${guile} ${shell}\nfmt:\n\t@echo ok\n",
+    "variables": 39,
+    "functions": 0,
+    "shells": 0
+  },
+  {
+    "name": "escaped_parentheses",
+    "source": "X := $$(subst) $$(patsubst) $$(strip) $$(findstring) $$(filter) $$(filter-out) $$(sort) $$(word) $$(words) $$(wordlist) $$(firstword) $$(lastword) $$(dir) $$(notdir) $$(suffix) $$(basename) $$(addsuffix) $$(addprefix) $$(join) $$(wildcard) $$(realpath) $$(abspath) $$(error) $$(warning) $$(info) $$(origin) $$(flavor) $$(foreach) $$(if) $$(or) $$(and) $$(intcmp) $$(let) $$(call) $$(eval) $$(file) $$(value) $$(guile) $$(shell)\nfmt:\n\t@echo ok\n",
+    "variables": 0,
+    "functions": 0,
+    "shells": 0,
+    "escapes": 39
+  },
+  {
+    "name": "escaped_braces",
+    "source": "X := $${subst} $${patsubst} $${strip} $${findstring} $${filter} $${filter-out} $${sort} $${word} $${words} $${wordlist} $${firstword} $${lastword} $${dir} $${notdir} $${suffix} $${basename} $${addsuffix} $${addprefix} $${join} $${wildcard} $${realpath} $${abspath} $${error} $${warning} $${info} $${origin} $${flavor} $${foreach} $${if} $${or} $${and} $${intcmp} $${let} $${call} $${eval} $${file} $${value} $${guile} $${shell}\nfmt:\n\t@echo ok\n",
+    "variables": 0,
+    "functions": 0,
+    "shells": 0,
+    "escapes": 39
+  },
+  {
+    "name": "foreach",
+    "source": "X := $(foreach file,a b,$(file))\nfmt:\n\t@echo ok\n",
+    "variables": 1,
+    "functions": 1,
+    "shells": 0,
+    "error": false
+  },
+  {
+    "name": "dir_call",
+    "source": "X := $(dir src/a.go)\nfmt:\n\t@echo ok\n",
+    "variables": 0,
+    "functions": 1,
+    "shells": 0,
+    "error": false
+  },
+  {
+    "name": "shell_call",
+    "source": "X := $(shell echo hi)\nfmt:\n\t@echo ok\n",
+    "variables": 0,
+    "functions": 0,
+    "shells": 1,
+    "error": false
+  },
+  {
+    "name": "adjacent",
+    "source": "X := $(file)$(dir)$(filename)\nfmt:\n\t@echo ok\n",
+    "variables": 3,
+    "functions": 0,
+    "shells": 0,
+    "error": false
+  },
+  {
+    "name": "nested_packages",
+    "source": "X := $(if $(strip $(TEST_FILES)),$(sort $(foreach file,$(GO_TEST_FILES),./$(patsubst %/,%,$(dir $(patsubst ./%,%,$(file)))))),./...)\nfmt:\n\t@echo ok\n",
+    "variables": 3,
+    "functions": 7,
+    "shells": 0,
+    "error": false
+  },
+  {
+    "name": "missing_delimiter",
+    "source": "X := $(file\nfmt:\n\t@echo ok\n",
+    "variables": 0,
+    "functions": 0,
+    "shells": 0,
+    "error": true
+  }
+]
