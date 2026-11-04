@@ -1,0 +1,15 @@
+diff --git a/grammar.js b/grammar.js
+--- a/grammar.js
++++ b/grammar.js
+@@ -398,7 +398,10 @@
+     variable_reference: $ => seq(
+       choice('$', '$$'),
+       choice(
+-        delimitedVariable($._primary),
++        delimitedVariable(choice(
++          $._primary,
++          alias(choice(...FUNCTIONS.map(f => token.immediate(f)), 'shell'), $.word),
++        )),
+         // TODO are those legal? $) $$$
+         alias(token.immediate(/./), $.word), // match any single digit
+         // alias(token.immediate('\\\n'), $.word)

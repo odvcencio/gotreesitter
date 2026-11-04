@@ -37,3 +37,17 @@ continuation and termination after a line break. It applies to the YAML commit
 pinned in `../languages.lock`. The YAML Go DSL and Go scanner contain the same
 behavior. Keep the C oracle patch until the pinned upstream revision includes
 the correction.
+
+`tree-sitter-make-function-variables.patch` accepts bare variable references
+whose names also name builtin functions, such as `$(file)`, `${dir}` and
+`$(foreach file,files,$(file))`. It aliases the existing function-name tokens
+to `word` only inside a delimited variable reference, keeping function calls
+and their argument boundaries intact. The pinned C grammar has the same gap;
+this is a grammar overlay, not a Go runtime recovery exception.
+
+The Make repository has no npm lockfile. Regeneration requires
+`tree-sitter 0.24.7`, the version pinned by `cgo_harness/docker/Dockerfile`,
+and rejects a different version. Both blob extraction and C-oracle loading apply the same
+patch and generator. Remove the overlay after the pinned Make grammar includes
+equivalent variable-reference support, then refresh the blob and run the Make
+regression, corpus and Go/C parity tests.
