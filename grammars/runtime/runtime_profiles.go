@@ -32,6 +32,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactAcceptanceStructuralElection bool
 	compactMixedGSSMerge                bool
 	legacyMergeAdmission                gotreesitter.LegacyMergeAdmissionPolicy
+	legacyReductionContinuations        bool
 	compactLexerSkippedPrefixTiling     bool
 	exactStackNodeEquivalence           bool
 	compactPackedGSSVersionOrder        bool
@@ -425,6 +426,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		externalScannerFullParseRetry:  gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:      gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		compactPrimaryAcceptDerivation: true,
+		legacyReductionContinuations:   true,
 	},
 	// Apex's tied class-literal election matches the C oracle once the
 	// compact route selects the sole primary derivation; the compact tree is
@@ -1058,6 +1060,9 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactMixedGSSMerge && !lang.CompactMixedGSSMergeCertified {
 		lang.CompactMixedGSSMergeCertified = true
+		changed = true
+	}
+	if profile.legacyReductionContinuations && lang.CertifyLegacyReductionContinuations(blobSHA256) {
 		changed = true
 	}
 	if missing := profile.legacyMergeAdmission &^ lang.LegacyMergeAdmission; missing != 0 {

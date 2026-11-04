@@ -1670,6 +1670,7 @@ func TestPendingForkStopsPrivateReduceChain(t *testing.T) {
 	lang.ParseActions = []ParseActionEntry{{}, {Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 33, ChildCount: 1}}}, {Actions: []ParseAction{{Type: ParseActionShift, State: 4}}}}
 	lang.ParseTable[2][1] = 1
 	lang.ParseTable[2][33] = 2
+	lang.legacyReductionContinuationsCertified = true
 	p := NewParser(lang)
 	p.mergeScratch = &glrMergeScratch{language: lang}
 	s := glrStack{gss: gssStack{head: h}, byteOffset: 2}
@@ -1701,6 +1702,7 @@ func TestConflictFrontierYieldsForPendingContinuations(t *testing.T) {
 	for _, frontier := range []bool{false, true} {
 		t.Run(map[bool]string{false: "reduce", true: "frontier"}[frontier], func(t *testing.T) {
 			lang := buildConflictReduceFrontierLanguage(4, []ParseAction{{Type: ParseActionReduce, Symbol: 3, ChildCount: 1}, {Type: ParseActionShift, State: 3}})
+			lang.legacyReductionContinuationsCertified = true
 			p := NewParser(lang)
 			a := newNodeArena(arenaClassFull)
 			defer a.Release()
@@ -1756,6 +1758,7 @@ func TestEagerDefaultReducesDeclinesBranchingHistory(t *testing.T) {
 	for i := range lang.ParseTable {
 		lang.ParseTable[i] = make([]uint16, 5)
 	}
+	lang.legacyReductionContinuationsCertified = true
 	p := NewParser(lang)
 	p.eagerDefaultReduces = make([]eagerDefaultReduceAction, 10)
 	p.eagerDefaultReduces[3] = eagerDefaultReduceAction{ok: true, action: ParseAction{Type: ParseActionReduce, Symbol: 3, ChildCount: 2, ProductionID: 1}}
@@ -1792,6 +1795,7 @@ func TestEagerDefaultReducesDeclinesBranchingHistory(t *testing.T) {
 }
 func TestEagerDefaultReducesKeepsLinearFastPath(t *testing.T) {
 	lang := buildConflictReduceFrontierLanguage(4, []ParseAction{{Type: ParseActionReduce, Symbol: 3, ChildCount: 1}, {Type: ParseActionShift, State: 3}})
+	lang.legacyReductionContinuationsCertified = true
 	p := NewParser(lang)
 	p.eagerDefaultReduces = make([]eagerDefaultReduceAction, 4)
 	p.eagerDefaultReduces[1] = eagerDefaultReduceAction{ok: true, action: ParseAction{Type: ParseActionReduce, Symbol: 3, ChildCount: 1}}
@@ -1806,5 +1810,58 @@ func TestEagerDefaultReducesKeepsLinearFastPath(t *testing.T) {
 	stacks := []glrStack{stack}
 	if !p.applyEagerDefaultReduces(nil, "test", stacks, &nodes, a, &es, &gs, &tmp, false, &track) || nodes == 0 || stacks[0].top().state != 2 {
 		t.Fatalf("linear reduction did not progress: nodes=%d state=%d", nodes, stacks[0].top().state)
+	}
+}
+
+func TestUncertifiedReductionContinuationScheduling(t *testing.T) {
+	p := NewParser(&Language{})
+	p.pendingForkStacks = []glrStack{{}}
+	p.pendingFrontierForkStacks = []glrStack{{}}
+	if p.hasPendingReductionContinuations() {
+		t.Fatal("uncertified language changed legacy scheduling")
+	}
+	p.language.legacyReductionContinuationsCertified = true
+	if !p.hasPendingReductionContinuations() {
+		t.Fatal("certified queue did not request publication")
+	}
+}
+
+// A terminal fork created by this frontier has already consumed the token.
+// Publishing it must not discard the frontier's same-key cycle history.
+func TestCertifiedConflictFrontierCompletesOwnTerminalCycle(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		terminal ParseAction
+		cap      int
+	}{
+		{"shift_uncapped", ParseAction{Type: ParseActionShift, State: 3}, 0},
+		{"shift_capped", ParseAction{Type: ParseActionShift, State: 3}, 8},
+		{"recover_uncapped", ParseAction{Type: ParseActionRecover, State: 3}, 0},
+		{"recover_capped", ParseAction{Type: ParseActionRecover, State: 3}, 8},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := buildConflictReduceFrontierLanguage(6, []ParseAction{{Type: ParseActionReduce, Symbol: 3, ChildCount: 1}, tc.terminal})
+			lang.legacyReductionContinuationsCertified = true
+			parser := NewParser(lang)
+			arena := newNodeArena(arenaClassFull)
+			var entries glrEntryScratch
+			var gss gssScratch
+			var tmp []stackEntry
+			nodeCount, anyReduced, trackChildErrors := 0, false, false
+			stack := newConflictReduceFrontierStackForTest(parser, arena, &entries, &gss)
+			tok := Token{Symbol: 2, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+			seed := applyConflictFrontierReduceForTest(parser, &stack, lang.ParseActions[6].Actions[0], tok, &anyReduced, &nodeCount, arena, &entries, &gss, &tmp, &trackChildErrors)
+			parser.completeConflictReduceFrontier(nil, &stack, tok, seed, 1, tc.cap, nil, &anyReduced, &nodeCount, arena, &entries, &gss, &tmp, false, &trackChildErrors)
+			if !stack.dead {
+				t.Fatal("same-reduce cycle left the original branch live")
+			}
+			if len(parser.pendingFrontierForkStacks) != 1 || len(parser.pendingForkStacks) != 0 {
+				t.Fatalf("pending terminal/reduction forks = %d/%d, want 1/0", len(parser.pendingFrontierForkStacks), len(parser.pendingForkStacks))
+			}
+			terminal := parser.pendingFrontierForkStacks[0]
+			if !terminal.shifted || terminal.byteOffset != tok.EndByte {
+				t.Fatalf("terminal did not consume token: shifted=%t end=%d", terminal.shifted, terminal.byteOffset)
+			}
+		})
 	}
 }

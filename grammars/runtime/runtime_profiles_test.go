@@ -1743,3 +1743,29 @@ func TestBuiltinConflictActionVersionOrderRequiresExactBlobIdentity(t *testing.T
 		})
 	}
 }
+
+func TestKotlinContinuationPublicationProfileIsExact(t *testing.T) {
+	count := 0
+	for name, profile := range builtinLanguageRuntimeProfiles {
+		if profile.legacyReductionContinuations {
+			count++
+			if name != "kotlin" {
+				t.Fatalf("unexpected continuation profile %s", name)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("continuation profiles=%d, want1", count)
+	}
+	lang := KotlinLanguage()
+	identity, ok := lang.GrammarBlobSHA256()
+	if !ok || identity != builtinLanguageRuntimeProfiles["kotlin"].blobSHA256 {
+		t.Fatal("unexpected Kotlin artifact")
+	}
+	if lang.CertifyLegacyReductionContinuations(identity) {
+		t.Fatal("exact built-in load omitted continuation grant")
+	}
+	if attachBuiltinLanguageRuntimeProfile("kotlin", sha256.Sum256([]byte("uncertified")), &gotreesitter.Language{}) {
+		t.Fatal("wrong Kotlin artifact attached a profile")
+	}
+}

@@ -700,7 +700,7 @@ func (s *conflictReduceFrontierScratch) add(key frontierReduceKey, flag uint8) {
 }
 
 func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok Token, seed conflictReduceFrontierSeed, liveStacks, maxLiveStacks int, allocBranchOrder func() uint64, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool) {
-	if p == nil || p.language == nil || tok.NoLookahead || s == nil || s.dead || s.accepted || s.shifted || s.cPaused {
+	if p == nil || p.language == nil || tok.NoLookahead || s == nil || s.dead || s.accepted || s.shifted || s.cPaused || p.hasPendingReductionContinuations() {
 		return
 	}
 	// Mirror of the C runtime's version-window discipline
@@ -883,10 +883,10 @@ func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok 
 		return true
 	}
 	for step := 1; step <= maxConflictReduceFrontierActions; step++ {
-		// The current reduction has produced another continuation. Stop this
-		// primary-only walk so the caller publishes every path and the normal
-		// scheduler merges/ranks them before continuing on this same token.
-		if p.hasPendingReductionContinuations() {
+		// Unreduced alternatives need same-token publication. Terminal
+		// frontier outputs have already consumed the token; retain this
+		// frontier's cycle history while its bounded primary walk finishes.
+		if p.language.legacyReductionContinuationsCertified && len(p.pendingForkStacks) != 0 {
 			return
 		}
 
@@ -9881,8 +9881,9 @@ func (p *Parser) fieldIDScratchFor(childCount int) []FieldID {
 
 // hasPendingReductionContinuations reports whether a completed reduction must
 // return to the outer dispatcher before taking another action on its primary
-// stack. Both queues hold same-token continuations that must participate in
-// the existing frontier merge and ranking step.
+// stack for an artifact that certifies the new publication order. Terminal
+// frontier outputs already consumed the token; an owning frontier walk may
+// finish its bounded cycle checks before publishing them.
 func (p *Parser) hasPendingReductionContinuations() bool {
-	return len(p.pendingForkStacks) != 0 || len(p.pendingFrontierForkStacks) != 0
+	return p != nil && p.language != nil && p.language.legacyReductionContinuationsCertified && (len(p.pendingForkStacks) != 0 || len(p.pendingFrontierForkStacks) != 0)
 }

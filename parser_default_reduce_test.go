@@ -362,3 +362,61 @@ func countNodesWithSymbolSpan(n *Node, sym Symbol, start, end uint32) int {
 	}
 	return count
 }
+
+// Reuse requires one stack, even for artifacts without the new continuation
+// publication grant. A real packed-pop fork must stop either settling loop.
+func TestUncertifiedReuseSettlingStopsAtPackedFork(t *testing.T) {
+	for _, mode := range []string{"eager", "deterministic"} {
+		t.Run(mode, func(t *testing.T) {
+			arena := acquireNodeArena(arenaClassFull)
+			defer arena.Release()
+			var gs gssScratch
+			var es glrEntryScratch
+			var tmp []stackEntry
+			leaf := func(sym Symbol, start, end uint32) *Node {
+				return newLeafNodeInArena(arena, sym, true, start, end, Point{Column: start}, Point{Column: end})
+			}
+			base := gs.allocNode(stackEntry{state: 1}, nil, 1)
+			left := gs.allocNode(newStackEntryNode(2, leaf(10, 0, 1)), base, 2)
+			right := gs.allocNode(newStackEntryNode(2, leaf(11, 0, 1)), base, 2)
+			head := gs.allocNode(newStackEntryNode(3, leaf(12, 1, 2)), left, 3)
+			head.appendExtraLink(gssMainLink{prev: right, entry: newStackEntryNode(3, leaf(13, 1, 2))})
+			lang := &Language{StateCount: 5, SymbolCount: 40, TokenCount: 2, SymbolMetadata: make([]SymbolMetadata, 40), ParseTable: make([][]uint16, 5)}
+			for i := range lang.SymbolMetadata {
+				lang.SymbolMetadata[i] = SymbolMetadata{Visible: true, Named: true}
+			}
+			for i := range lang.ParseTable {
+				lang.ParseTable[i] = make([]uint16, 40)
+			}
+			lang.ParseActions = []ParseActionEntry{{}, {Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 32, ChildCount: 1}}}, {Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 33, ChildCount: 1}}}}
+			lang.ParseTable[3][1] = 1
+			lang.ParseTable[2][1] = 2
+			lang.ParseTable[2][32] = 2
+			lang.ParseTable[2][33] = 4
+			parser := NewParser(lang)
+			parser.mergeScratch = &glrMergeScratch{language: lang}
+			stack := glrStack{gss: gssStack{head: head}, byteOffset: 2}
+			tok := Token{Symbol: 1, StartByte: 2, EndByte: 2}
+			nodes, track, forked := 0, false, false
+			var reduced bool
+			if mode == "eager" {
+				reduced = parser.settleEagerDefaultReduceChainForReuse(nil, &stack, tok, &nodes, arena, &es, &gs, &tmp, false, &track, &forked)
+			} else {
+				var reached bool
+				reduced, reached = parser.settleDeterministicReduceChainForReuse(nil, &stack, tok, 4, 1, &reuseCursor{}, &nodes, arena, &es, &gs, &tmp, false, &track, &forked)
+				if reached {
+					t.Fatal("reuse target reached before publishing its competing continuation")
+				}
+			}
+			if !reduced || !forked || len(parser.pendingForkStacks) != 1 || len(parser.pendingFrontierForkStacks) != 0 {
+				t.Fatalf("packed reduction not reported: reduced=%t forked=%t pending=%d/%d", reduced, forked, len(parser.pendingForkStacks), len(parser.pendingFrontierForkStacks))
+			}
+			if got := stackEntryNodeSymbol(stack.top()); got != 32 {
+				t.Fatalf("primary advanced past first reduction: symbol=%d", got)
+			}
+			if got := stackEntryNodeSymbol(parser.pendingForkStacks[0].top()); got != 32 {
+				t.Fatalf("queued fork symbol=%d, want32", got)
+			}
+		})
+	}
+}

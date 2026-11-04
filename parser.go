@@ -5241,9 +5241,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	var pendingTraceActionCount int
 	var pendingTraceAction ParseAction
 	drainPendingForkStacks := func() {
-		// A packed reduction can queue distinct predecessor paths on a clean
-		// parse too. Publish all of them before selecting the next token.
-		if len(p.pendingForkStacks) == 0 {
+		// Existing faithful/recovery admission is unchanged. Other packed
+		// continuations publish only for an exact certified grammar artifact.
+		if len(p.pendingForkStacks) == 0 || (!p.language.legacyReductionContinuationsCertified && !faithfulCapOneMergeEnabled(p.mergeScratch) && !(p.crecoveryEnteredErrorState && p.emptyExternalRecoveryEnabled())) {
 			return
 		}
 		pendingCount := len(p.pendingForkStacks)
