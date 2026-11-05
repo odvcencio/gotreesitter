@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/incr"
 )
 
 // builtinLanguageRuntimeProfile contains narrow runtime decisions certified
@@ -12,6 +13,7 @@ import (
 // parser core: loading the exact certified blob attaches its profile, while
 // caller-constructed and adapted languages retain conservative zero defaults.
 type builtinLanguageRuntimeProfile struct {
+	smallSourceReuseShadow              bool
 	blobSHA256                          [32]byte
 	errorModeAllExternalSymbols         bool
 	recoveryMissingVersionTurns         bool
@@ -121,6 +123,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// against the production parser and the tree-sitter C oracle.
 	// The owned EOF bundle requires its executed recovery route before publication.
 	"go": {
+		smallSourceReuseShadow: true,
 		// Re-certified 2026-10-24 against grammars/grammar_blobs/go.bin
 		// SHA-256 9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4,
 		// regenerated with cmd/grammargen (no -lr-split; -lr-split
@@ -130,9 +133,9 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		// certifications were re-validated against this blob via the
 		// cgo_harness Go compact/recovery receipts (TestGoCompactIncrementalExecution*,
 		// TestGoCompactRecoveryVersionTurnsLockedC, TestStage6GoCompactCertification).
-		blobSHA256:                  mustRuntimeProfileSHA256("9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4"),
-		compactConvergedSplitDrops:  true,
-		compactOwnedEOFRecovery:     true,
+		blobSHA256:                 mustRuntimeProfileSHA256("9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4"),
+		compactConvergedSplitDrops: true,
+		compactOwnedEOFRecovery:    true,
 		// Let the absorbing version compete before the eagerly shifted
 		// missing-target version, matching C's assignment-error election.
 		recoveryMissingVersionTurns: true,
@@ -951,6 +954,11 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		return false
 	}
 	changed := false
+	if profile.smallSourceReuseShadow && !lang.SmallSourceReuseAuthority.Matches(lang) {
+		lang.SmallSourceReuseAuthority = incr.NewReuseAuthorityGrant(lang)
+		lang.SmallSourceReuseShadowArtifact = blobSHA256
+		changed = true
+	}
 	for _, alias := range profile.visibleTerminalAliases {
 		for symbol := 1; symbol < len(lang.SymbolNames) && uint32(symbol) < lang.TokenCount && symbol < len(lang.SymbolMetadata); symbol++ {
 			if lang.SymbolNames[symbol] != alias.internalName {

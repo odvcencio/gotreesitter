@@ -508,3 +508,29 @@ func compactThroughputSeed(b *testing.B) int64 {
 	}
 	return seed
 }
+
+func BenchmarkOrderedReceiptsGo(b *testing.B) {
+	if os.Getenv("GTS_ADMISSION_CANDIDATE") != "1" {
+		b.Fatal("requires compact route")
+	}
+	cases := []benchorder.Case{
+		{Label: "full_dfa", Run: BenchmarkGoParseFullDFA},
+		{Label: "full_dfa_3500", Run: func(b *testing.B) { b.Setenv("GOT_BENCH_FUNC_COUNT", "3500"); BenchmarkGoParseFullDFA(b) }},
+		{Label: "single_byte_edit_dfa", Run: BenchmarkGoParseIncrementalSingleByteEditDFA},
+		{Label: "no_edit_dfa", Run: BenchmarkGoParseIncrementalNoEditDFA},
+		{Label: "fresh_one_mib", Run: BenchmarkGoParseCompactFreshOneMiB},
+	}
+	for _, fixture := range benchfixtures.GoFullParseFixtures() {
+		if fixture.ID != "query_compile" && fixture.ID != "grammargen_lr" {
+			continue
+		}
+		cases = append(cases, benchorder.Case{Label: fixture.ID, Run: func(b *testing.B) {
+			source, err := fixture.Load()
+			if err != nil {
+				b.Fatal(err)
+			}
+			benchmarkCompactThroughputSource(b, grammars.GoLanguage(), source, true)
+		}})
+	}
+	benchorder.Run(b, cases, compactThroughputSeed(b))
+}

@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	"github.com/odvcencio/gotreesitter/internal/lexrun"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
@@ -568,6 +569,10 @@ type CompactRecoverEOFArtifactReceipt struct {
 // idiomatic Go types with slice-based tables instead of raw pointers.
 type Language struct {
 	Name string
+	// SmallSourceReuseShadowArtifact permits qualification of a fresh reuse
+	// schedule for this exact decoded artifact. It never authorizes bypassing
+	// the fresh verifier. The grammar registry owns this capability.
+	SmallSourceReuseShadowArtifact [32]byte
 	// GeneratedByGrammargen is true for languages assembled by grammargen at
 	// runtime rather than decoded from a checked-in ts2go blob.
 	GeneratedByGrammargen bool
@@ -799,6 +804,10 @@ type Language struct {
 	// for the same retention reason as compactTables above.
 	parserDerivedOnce sync.Once
 	parserDerived     *parserDerivedTables
+
+	// SmallSourceReuseAuthority binds the certified profile to this exact language instance.
+	// Adapted copies do not inherit producer authority.
+	SmallSourceReuseAuthority *incr.ReuseAuthorityGrant
 
 	// NonTerminalAliasMap mirrors tree-sitter C's ts_non_terminal_alias_map.
 	// Rows are indexed by nonterminal symbol and contain aliases that require
