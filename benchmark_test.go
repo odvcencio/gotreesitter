@@ -592,9 +592,17 @@ func BenchmarkGoParseIncrementalNoEdit(b *testing.B) {
 
 	tree, err := parser.ParseWithTokenSource(src, ts)
 	if err != nil {
+		if tree != nil {
+			tree.Release()
+		}
 		b.Fatalf("initial parse error: %v", err)
 	}
-	if tree.RootNode() == nil {
+	defer func() {
+		if tree != nil {
+			tree.Release()
+		}
+	}()
+	if tree == nil || tree.RootNode() == nil {
 		b.Fatal("initial parse returned nil root")
 	}
 
@@ -604,19 +612,20 @@ func BenchmarkGoParseIncrementalNoEdit(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		ts.Reset(src)
-		old := tree
-		tree, err = parser.ParseIncrementalWithTokenSource(src, tree, ts)
+		next, err := parser.ParseIncrementalWithTokenSource(src, tree, ts)
 		if err != nil {
+			if next != nil {
+				next.Release()
+			}
 			b.Fatalf("incremental parse error: %v", err)
 		}
-		if tree.RootNode() == nil {
+		old := tree
+		tree = next
+		old.Release()
+		if tree == nil || tree.RootNode() == nil {
 			b.Fatal("incremental parse returned nil root")
 		}
-		if old != tree {
-			old.Release()
-		}
 	}
-	tree.Release()
 }
 
 func BenchmarkGoParseIncrementalNoEditDFA(b *testing.B) {
@@ -626,9 +635,17 @@ func BenchmarkGoParseIncrementalNoEditDFA(b *testing.B) {
 
 	tree, err := parser.Parse(src)
 	if err != nil {
+		if tree != nil {
+			tree.Release()
+		}
 		b.Fatalf("initial parse error: %v", err)
 	}
-	if tree.RootNode() == nil {
+	defer func() {
+		if tree != nil {
+			tree.Release()
+		}
+	}()
+	if tree == nil || tree.RootNode() == nil {
 		b.Fatal("initial parse returned nil root")
 	}
 
@@ -637,19 +654,20 @@ func BenchmarkGoParseIncrementalNoEditDFA(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		old := tree
-		tree, err = parser.ParseIncremental(src, tree)
+		next, err := parser.ParseIncremental(src, tree)
 		if err != nil {
+			if next != nil {
+				next.Release()
+			}
 			b.Fatalf("incremental parse error: %v", err)
 		}
-		if tree.RootNode() == nil {
+		old := tree
+		tree = next
+		old.Release()
+		if tree == nil || tree.RootNode() == nil {
 			b.Fatal("incremental parse returned nil root")
 		}
-		if old != tree {
-			old.Release()
-		}
 	}
-	tree.Release()
 }
 
 func BenchmarkGoParseIncrementalRandomSingleByteEdit(b *testing.B) {

@@ -584,16 +584,20 @@ func applyParityGrammarPatch(entry parityLockEntry, repoDir string) error {
 		}
 	}
 	if spec.RegenerateParser {
-		if err := regeneratePatchedTypeScriptCParser(repoDir, entry.Subdir); err != nil {
+		if err := regenerateParityGrammar(repoDir, entry.Subdir, spec); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func regeneratePatchedTypeScriptCParser(repoDir, subdir string) error {
-	// tree-sitter-cli's executable is installed by its package lifecycle
-	// scripts, so this must remain a normal lockfile-pinned install.
+// regenerateParityGrammar must also compile against older root revisions: W5
+// uses the current oracle harness with both baseline and candidate modules.
+func regenerateParityGrammar(repoDir, subdir string, spec any) error {
+	if generator, ok := spec.(interface{ RegenerateForHarness(string, string) error }); ok {
+		return generator.RegenerateForHarness(repoDir, subdir)
+	}
+	// Older baseline modules predate the shared generator and use npm ci.
 	install := exec.Command("npm", "ci")
 	install.Dir = repoDir
 	if out, err := install.CombinedOutput(); err != nil {
@@ -601,8 +605,6 @@ func regeneratePatchedTypeScriptCParser(repoDir, subdir string) error {
 	}
 	generator := filepath.Join(repoDir, "node_modules", ".bin", "tree-sitter")
 	generate := exec.Command(generator, "generate")
-	// The lock points to generated parser.c under <grammar>/src, while
-	// tree-sitter generate reads grammar.js from the parent grammar directory.
 	generate.Dir = filepath.Join(repoDir, filepath.Dir(subdir))
 	if out, err := generate.CombinedOutput(); err != nil {
 		return fmt.Errorf("tree-sitter generate: %v: %s", err, strings.TrimSpace(string(out)))

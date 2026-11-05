@@ -175,28 +175,9 @@ func applyUpstreamGrammarPatch(entry ManifestEntry, repoDir, manifestDir string)
 		}
 	}
 	if spec.RegenerateParser {
-		if err := regeneratePatchedTypeScriptParser(repoDir, entry.Subdir); err != nil {
+		if err := grammarpatch.Regenerate(repoDir, entry.Subdir, spec); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func regeneratePatchedTypeScriptParser(repoDir, subdir string) error {
-	// tree-sitter-cli's executable is installed by its package lifecycle
-	// scripts, so this must remain a normal lockfile-pinned install.
-	install := exec.Command("npm", "ci")
-	install.Dir = repoDir
-	if out, err := install.CombinedOutput(); err != nil {
-		return fmt.Errorf("npm ci: %v: %s", err, strings.TrimSpace(string(out)))
-	}
-	generator := filepath.Join(repoDir, "node_modules", ".bin", "tree-sitter")
-	generate := exec.Command(generator, "generate")
-	// The manifest points to generated parser.c under <grammar>/src, while
-	// tree-sitter generate reads grammar.js from the parent grammar directory.
-	generate.Dir = filepath.Join(repoDir, filepath.Dir(subdir))
-	if out, err := generate.CombinedOutput(); err != nil {
-		return fmt.Errorf("tree-sitter generate: %v: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
