@@ -162,6 +162,23 @@ with gate.campaign_lock(Path(sys.argv[1])):
 
 
 class GateTests(unittest.TestCase):
+    def test_every_counter_failure_is_reported_before_gate_fails(self):
+        language = self.m["fixtures"][0]["language"]
+        admission = copy.deepcopy(self.admissions["head", language])
+        for cell in admission["cells"]:
+            for step in cell["steps"]:
+                step["counters"]["tokens"] = 103
+                step["counters"]["reused_subtrees"] = 97
+        gate.write_json(self.admission_path("head", language), admission)
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), self.assertRaisesRegex(ValueError, "deterministic counter gate failed"):
+            gate.compare_counters(self.out, self.manifest, self.base, self.head)
+        failures = gate.read_json(self.out / "counters.json")["failures"]
+        lines = output.getvalue().splitlines()
+        self.assertGreater(len(failures), 8)
+        self.assertEqual(lines[0], f"W5 counter failure rows: {len(failures)}")
+        self.assertEqual([json.loads(line.removeprefix("W5 counter failure: ")) for line in lines[1:]], failures)
+
     def test_authenticated_role_grammar_change_and_tampering(self):
         receipts = {}
         for f in self.m["fixtures"]:

@@ -271,6 +271,10 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
     require(exception is None or len(applied) == 1, "W5 approved row did not match exactly once")
     result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "applied_exceptions":applied, "oracles": identities, "semantic_changes": semantic_changes}
     write_json(out / "counters.json", result)
+    if failures:
+        print(f"W5 counter failure rows: {len(failures)}", flush=True)
+        for row in failures:
+            print("W5 counter failure: " + json.dumps(row, sort_keys=True, separators=(",", ":")), flush=True)
     require(not failures, f"deterministic counter gate failed: {failures[:8]}")
     return result
 
