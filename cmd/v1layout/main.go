@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-const rootBudget = 756
+const rootBudget = 689
 
 // The root has eleven build-tag atoms. Snapshot the default build and each
 // atom separately so a tag-only exported declaration cannot disappear.
