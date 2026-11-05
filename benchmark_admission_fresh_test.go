@@ -74,7 +74,8 @@ func BenchmarkGoParseCompactFreshOneMiB(b *testing.B) {
 			b.Fatalf("large Go parse: %v", err)
 		}
 		rt := tree.ParseRuntime()
-		if tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) || rt.NodesAllocated != 903086 || rt.TokensConsumed != 425742 {
+		// Native views report the number of selected occurrences, not eager arena allocations.
+		if tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) || rt.NodesAllocated != 593457 || rt.TokensConsumed != 425742 {
 			b.Fatalf("large Go work or completion changed: %s", rt.Summary())
 		}
 		tree.Release()

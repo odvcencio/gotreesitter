@@ -1241,8 +1241,80 @@ type nativeViewDependency struct {
 // nativeNodeViews owns no parser, scheduler, or callback into a producer.
 // Published scalar node headers never change during reads. The cache lock
 // protects the arena allocator; atomic slots publish fully initialized views.
+// A cold directory; only wide parents accessed through NamedChild populate it.
+type nativeNamedChildEntry struct {
+	id  core.SelectedNodeID
+	ids []core.SelectedNodeID
+}
+
+type nativeNamedChildIndex struct {
+	firstID    core.SelectedNodeID
+	first      []core.SelectedNodeID
+	secondID   core.SelectedNodeID
+	second     []core.SelectedNodeID
+	extra      [30]nativeNamedChildEntry
+	extraCount int
+	bytes      uint64
+}
+
+// Recycle only scalar occurrence IDs. Slots are checked out exclusively; the
+// bounded cache never retains a snapshot, node, arena, or source reference.
+const nativeNamedPoolSlots = 8
+const nativeNamedPoolMaxIDs = 16384
+
+// Limit active overflow entries as well as retained numeric storage.
+const nativeNamedMaxParents = 32
+
+var nativeNamedPool struct {
+	sync.Mutex
+	used  [nativeNamedPoolSlots]bool
+	slots [nativeNamedPoolSlots]nativeNamedChildIndex
+}
+
+func checkoutNativeNamedIndex() *nativeNamedChildIndex {
+	nativeNamedPool.Lock()
+	defer nativeNamedPool.Unlock()
+	for i := range nativeNamedPool.slots {
+		if !nativeNamedPool.used[i] {
+			nativeNamedPool.used[i] = true
+			return &nativeNamedPool.slots[i]
+		}
+	}
+	return &nativeNamedChildIndex{}
+}
+
+func recycleNativeNamedIndex(idx *nativeNamedChildIndex) {
+	if idx == nil {
+		return
+	}
+	nativeNamedPool.Lock()
+	defer nativeNamedPool.Unlock()
+	for i := range nativeNamedPool.slots {
+		if idx != &nativeNamedPool.slots[i] {
+			continue
+		}
+		total := cap(idx.first) + cap(idx.second)
+		for j := range idx.extra {
+			total += cap(idx.extra[j].ids)
+		}
+		if total > nativeNamedPoolMaxIDs {
+			*idx = nativeNamedChildIndex{}
+		} else {
+			idx.firstID, idx.secondID, idx.extraCount, idx.bytes = 0, 0, 0, 0
+			idx.first, idx.second = idx.first[:0], idx.second[:0]
+			for j := range idx.extra {
+				idx.extra[j].id = 0
+				idx.extra[j].ids = idx.extra[j].ids[:0]
+			}
+		}
+		nativeNamedPool.used[i] = false
+		return
+	}
+}
+
 type nativeNodeViews struct {
 	mu               sync.Mutex
+	namedIndex       *nativeNamedChildIndex
 	snapshot         core.NativeSelectedSnapshot
 	arena            *nodeArena
 	points           diagnosticParserCorePointIndex
@@ -1471,6 +1543,8 @@ func (v *nativeNodeViews) release() {
 		v.arena.allocatedBytes -= int64(v.retainedBytes())
 		v.accounted = false
 	}
+	recycleNativeNamedIndex(v.namedIndex)
+	v.namedIndex = nil
 	borrowed := v.borrowedSnapshot
 	if !borrowed {
 		v.snapshot.Release()
@@ -1500,7 +1574,11 @@ func (v *nativeNodeViews) release() {
 	recycleNodeViewBacking(v)
 }
 func (v *nativeNodeViews) retainedBytes() uint64 {
-	return uint64(unsafe.Sizeof(*v)) + v.pageBytes + v.transientBytes + v.snapshot.RetainedBytes() + uint64(cap(v.points.lineStarts))*4 +
+	var indexBytes uint64
+	if v.namedIndex != nil {
+		indexBytes = v.namedIndex.bytes
+	}
+	return indexBytes + uint64(unsafe.Sizeof(*v)) + v.pageBytes + v.transientBytes + v.snapshot.RetainedBytes() + uint64(cap(v.points.lineStarts))*4 +
 		uint64(cap(v.pages))*uint64(unsafe.Sizeof(atomic.Pointer[compactViewPage]{})) +
 		uint64(cap(v.checkpoints))*uint64(unsafe.Sizeof(externalScannerCheckpointRef{})) +
 		uint64(cap(v.lookahead))*4 + uint64(cap(v.dependencies))*uint64(unsafe.Sizeof(nativeViewDependency{}))
@@ -1730,13 +1808,133 @@ func checkedNativeNodeViews(source []byte, scratch *nativeProjectionWorkspace, s
 	return tree, nil
 }
 
+// Only wide parents merit an index. Existing selected-store records are final
+// occurrence identities, so aliases and duplicate payloads remain distinct.
+const nativeNamedIndexThreshold = 600
+const nativeNamedIndexOrdinal = 32
+
+// Caller holds v.mu. The selected occurrence store is immutable until the
+// owning view is materialized/released at the exclusive mutation boundary.
+func (v *nativeNodeViews) namedIDsLocked(id core.SelectedNodeID, count uint32) ([]core.SelectedNodeID, bool) {
+	if v.namedIndex != nil {
+		if v.namedIndex.firstID == id {
+			return v.namedIndex.first, true
+		}
+		if v.namedIndex.secondID == id {
+			return v.namedIndex.second, true
+		}
+		for i := 0; i < v.namedIndex.extraCount; i++ {
+			if e := &v.namedIndex.extra[i]; e.id == id {
+				return e.ids, true
+			}
+		}
+	}
+	if v.namedIndex != nil && v.namedIndex.secondID != 0 && v.namedIndex.extraCount >= nativeNamedMaxParents-2 {
+		return nil, false
+	}
+	store := v.snapshot.Store()
+	named := 0
+	for i := uint32(0); i < count; i++ {
+		child, _ := store.ChildID(id, i)
+		yes, _ := store.NodeNamed(child)
+		if yes {
+			named++
+		}
+	}
+	charge := uint64(named) * uint64(unsafe.Sizeof(core.SelectedNodeID(0)))
+	charge += charge/8 + 128
+	if v.namedIndex == nil {
+		charge += uint64(unsafe.Sizeof(nativeNamedChildIndex{}))
+	}
+	if v.arena.budgetBytes > 0 && v.arena.allocatedBytes-v.arena.budgetBaselineBytes+int64(charge) > v.arena.budgetBytes {
+		return nil, false
+	}
+	if v.namedIndex == nil {
+		v.namedIndex = checkoutNativeNamedIndex()
+		retainedIDs := cap(v.namedIndex.first) + cap(v.namedIndex.second)
+		for j := range v.namedIndex.extra {
+			retainedIDs += cap(v.namedIndex.extra[j].ids)
+		}
+		retained := uint64(retainedIDs) * uint64(unsafe.Sizeof(core.SelectedNodeID(0)))
+		if v.arena.budgetBytes > 0 && v.arena.allocatedBytes-v.arena.budgetBaselineBytes+int64(charge+retained) > v.arena.budgetBytes {
+			recycleNativeNamedIndex(v.namedIndex)
+			v.namedIndex = nil
+			return nil, false
+		}
+		v.namedIndex.bytes = uint64(unsafe.Sizeof(nativeNamedChildIndex{})) + retained
+		if v.accounted {
+			v.arena.allocatedBytes += int64(v.namedIndex.bytes)
+		}
+	}
+	var ids []core.SelectedNodeID
+	var reusedBytes uint64
+	if v.namedIndex.firstID == 0 && cap(v.namedIndex.first) >= named && cap(v.namedIndex.first) <= named+named/8 {
+		ids = v.namedIndex.first[:0]
+		reusedBytes = uint64(cap(ids)) * uint64(unsafe.Sizeof(core.SelectedNodeID(0)))
+	} else if v.namedIndex.firstID != 0 && v.namedIndex.secondID == 0 && cap(v.namedIndex.second) >= named && cap(v.namedIndex.second) <= named+named/8 {
+		ids = v.namedIndex.second[:0]
+		reusedBytes = uint64(cap(ids)) * uint64(unsafe.Sizeof(core.SelectedNodeID(0)))
+	} else if v.namedIndex.secondID != 0 && cap(v.namedIndex.extra[v.namedIndex.extraCount].ids) >= named && cap(v.namedIndex.extra[v.namedIndex.extraCount].ids) <= named+named/8 {
+		ids = v.namedIndex.extra[v.namedIndex.extraCount].ids[:0]
+		reusedBytes = uint64(cap(ids)) * uint64(unsafe.Sizeof(core.SelectedNodeID(0)))
+	} else {
+		ids = make([]core.SelectedNodeID, 0, named)
+	}
+	for i := uint32(0); i < count; i++ {
+		child, _ := store.ChildID(id, i)
+		yes, _ := store.NodeNamed(child)
+		if yes {
+			ids = append(ids, child)
+		}
+	}
+	added := uint64(cap(ids)) * uint64(unsafe.Sizeof(core.SelectedNodeID(0)))
+	added += added/8 + 128
+	added -= reusedBytes
+	if v.namedIndex.firstID == 0 {
+		v.namedIndex.firstID = id
+		v.namedIndex.first = ids
+	} else if v.namedIndex.firstID != id && v.namedIndex.secondID == 0 {
+		v.namedIndex.secondID = id
+		v.namedIndex.second = ids
+	} else if v.namedIndex.firstID != id {
+		v.namedIndex.extra[v.namedIndex.extraCount] = nativeNamedChildEntry{id: id, ids: ids}
+		v.namedIndex.extraCount++
+	}
+	v.namedIndex.bytes += added
+	if v.accounted {
+		v.arena.allocatedBytes += int64(added)
+	}
+	return ids, true
+}
+
 func (v *nativeNodeViews) namedChildCount(n *Node) int {
 	store := v.snapshot.Store()
 	id := core.SelectedNodeID(n.rawShape)
 	count, _ := store.NodeChildCount(id)
+	v.mu.Lock()
+	if v.namedIndex != nil {
+		if v.namedIndex.firstID == id {
+			n := len(v.namedIndex.first)
+			v.mu.Unlock()
+			return n
+		}
+		if v.namedIndex.secondID == id {
+			n := len(v.namedIndex.second)
+			v.mu.Unlock()
+			return n
+		}
+		for i := 0; i < v.namedIndex.extraCount; i++ {
+			if e := &v.namedIndex.extra[i]; e.id == id {
+				n := len(e.ids)
+				v.mu.Unlock()
+				return n
+			}
+		}
+	}
+	v.mu.Unlock()
 	named := 0
-	for index := uint32(0); index < uint32(count); index++ {
-		child, _ := store.ChildID(id, index)
+	for i := uint32(0); i < uint32(count); i++ {
+		child, _ := store.ChildID(id, i)
 		yes, _ := store.NodeNamed(child)
 		if yes {
 			named++
@@ -1751,6 +1949,20 @@ func (v *nativeNodeViews) namedChild(n *Node, index int) *Node {
 	store := v.snapshot.Store()
 	id := core.SelectedNodeID(n.rawShape)
 	count, _ := store.NodeChildCount(id)
+	if count >= nativeNamedIndexThreshold && index >= nativeNamedIndexOrdinal {
+		v.mu.Lock()
+		ids, ok := v.namedIDsLocked(id, uint32(count))
+		if ok {
+			if index >= len(ids) {
+				v.mu.Unlock()
+				return nil
+			}
+			result := v.getLocked(ids[index])
+			v.mu.Unlock()
+			return result
+		}
+		v.mu.Unlock()
+	}
 	for i := uint32(0); i < uint32(count); i++ {
 		child, _ := store.ChildID(id, i)
 		yes, _ := store.NodeNamed(child)
