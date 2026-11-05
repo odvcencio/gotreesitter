@@ -10,7 +10,11 @@ import (
 func goTokenSourceFactoryForTest(t *testing.T, lang *gotreesitter.Language) func([]byte) gotreesitter.TokenSource {
 	t.Helper()
 	return func(source []byte) gotreesitter.TokenSource {
-		return mustGoTokenSource(t, source, lang)
+		ts, err := grammars.NewGoTokenSource(source, lang)
+		if err != nil {
+			t.Fatalf("NewGoTokenSource failed: %v", err)
+		}
+		return ts
 	}
 }
 

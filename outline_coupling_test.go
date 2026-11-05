@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -52,7 +53,7 @@ var outlineForbiddenIdentifiers = []string{
 // that never mentions those surfaces cannot change what a parse produces.
 func TestOutlineSourceHasNoParserCoreCoupling(t *testing.T) {
 	for _, file := range outlineSourceFiles {
-		data, err := os.ReadFile(file)
+		data, err := os.ReadFile(filepath.Join(outlineRepositoryRoot(t), file))
 		if err != nil {
 			t.Fatalf("read outline source %s: %v", file, err)
 		}
@@ -70,7 +71,7 @@ func TestOutlineSourceHasNoParserCoreCoupling(t *testing.T) {
 // scan that reads a stale file list is the exact failure this repository has
 // seen before: a test that exists, passes, and covers nothing.
 func TestOutlineSourceScanCoversEveryOutlineFile(t *testing.T) {
-	entries, err := os.ReadDir(".")
+	entries, err := os.ReadDir(outlineRepositoryRoot(t))
 	if err != nil {
 		t.Fatalf("read package directory: %v", err)
 	}
@@ -91,7 +92,7 @@ func TestOutlineSourceScanCoversEveryOutlineFile(t *testing.T) {
 		}
 	}
 	for _, file := range outlineSourceFiles {
-		if _, err := os.Stat(file); err != nil {
+		if _, err := os.Stat(filepath.Join(outlineRepositoryRoot(t), file)); err != nil {
 			t.Errorf("outlineSourceFiles names %s, which does not exist: %v", file, err)
 		}
 	}
@@ -126,7 +127,7 @@ func TestOutlineTreeLeavesTheTreeUnchanged(t *testing.T) {
 				t.Fatalf("language %q is not registered", fixture.Language)
 			}
 			lang := entry.Language()
-			source, err := os.ReadFile(outlineGoldenRoot + "/" + fixture.File)
+			source, err := os.ReadFile(outlineGoldenRoot(t) + "/" + fixture.File)
 			if err != nil {
 				t.Fatalf("read fixture: %v", err)
 			}

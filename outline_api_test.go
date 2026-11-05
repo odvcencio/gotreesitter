@@ -38,7 +38,7 @@ func loadOutlineFixture(t *testing.T, language, file string) (*gts.Tree, *gts.La
 	}
 	query := grammars.ResolveTagsQuery(*entry)
 
-	source, err := os.ReadFile(filepath.Join(outlineGoldenRoot, file))
+	source, err := os.ReadFile(filepath.Join(outlineGoldenRoot(t), file))
 	if err != nil {
 		t.Fatalf("read fixture %s: %v", file, err)
 	}
@@ -265,7 +265,7 @@ func TestOutlineDefinitionKindsBoundWhatTheOutlineCanContain(t *testing.T) {
 	if report.Omitted() != 0 {
 		t.Errorf("Omitted() = %d, want 0 for this fixture", report.Omitted())
 	}
-	source, err := os.ReadFile(filepath.Join(outlineGoldenRoot, "go/service.go.fixture"))
+	source, err := os.ReadFile(filepath.Join(outlineGoldenRoot(t), "go/service.go.fixture"))
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}

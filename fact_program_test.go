@@ -577,7 +577,7 @@ func TestFactProgramGoCompatibility(t *testing.T) {
 		if fixture.Language != "go" {
 			continue
 		}
-		source, err := os.ReadFile(filepath.Join(outlineGoldenRoot, fixture.File))
+		source, err := os.ReadFile(filepath.Join(outlineGoldenRoot(t), fixture.File))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -626,7 +626,7 @@ func TestFactProgramGoCompatibility(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		path := filepath.Join("testdata", "facts", "go-compatibility-"+string(rune('0'+i))+".json")
+		path := filepath.Join(outlineRepositoryRoot(t), "testdata", "facts", "go-compatibility-"+string(rune('0'+i))+".json")
 		if os.Getenv("GTS_UPDATE_FACT_COMPAT") == "1" {
 			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 				t.Fatal(err)
