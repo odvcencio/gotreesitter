@@ -232,3 +232,51 @@ func TestWrapLanguageBlobVersionHeaderRejectsOversizedGeneratorVersion(t *testin
 		t.Fatal("expected an oversized generator version string to be rejected")
 	}
 }
+
+func TestLegacyReductionContinuationGrantRequiresExactRuntimeArtifact(t *testing.T) {
+	lang := &Language{Name: "continuation_certificate"}
+	if lang.CertifyLegacyReductionContinuations([32]byte{}) {
+		t.Fatal("unloaded language certified")
+	}
+	blob, err := EncodeLanguageBlob(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := LoadLanguage(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, ok := loaded.GrammarBlobSHA256()
+	if !ok {
+		t.Fatal("missing loaded identity")
+	}
+	wrong := identity
+	wrong[0] ^= 1
+	if loaded.CertifyLegacyReductionContinuations(wrong) || loaded.legacyReductionContinuationsCertified {
+		t.Fatal("wrong artifact certified")
+	}
+	before, err := EncodeLanguageBlob(loaded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !loaded.CertifyLegacyReductionContinuations(identity) || !loaded.legacyReductionContinuationsCertified {
+		t.Fatal("exact artifact not certified")
+	}
+	if loaded.CertifyLegacyReductionContinuations(identity) {
+		t.Fatal("duplicate grant reported a change")
+	}
+	after, err := EncodeLanguageBlob(loaded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("runtime grant changed serialized grammar bytes")
+	}
+	roundtrip, err := LoadLanguage(after)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if roundtrip.legacyReductionContinuationsCertified {
+		t.Fatal("runtime grant survived encoding")
+	}
+}

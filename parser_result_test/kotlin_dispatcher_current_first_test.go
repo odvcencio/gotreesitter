@@ -12,11 +12,11 @@ import (
 
 const (
 	kotlinDispatcherWitnessSHA256    = "efc3157ca94245c59ff5d093ca456c319f2518882f4b9a28303baa25182ec4fc"
-	kotlinDispatcherRawDigest        = "3d14ddefaa0623a36781cde5455f20fe798c63b6b62b4178500b3d4ab48653bc"
+	kotlinDispatcherRawDigest        = "3f89c1a3d1cc592c1c607a8bceeac417c4849e87e39de005efeb46e14ba629db"
 	kotlinDispatcherProductionDigest = "3f89c1a3d1cc592c1c607a8bceeac417c4849e87e39de005efeb46e14ba629db"
 )
 
-// TestKotlinDispatcherCurrentFirstGate stops at the first live parent rewrite.
+// TestKotlinDispatcherCurrentFirstGate checks that the already-correct raw tree needs no rewrite.
 func TestKotlinDispatcherCurrentFirstGate(t *testing.T) {
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	lang := grammars.KotlinLanguage()
@@ -60,21 +60,21 @@ func TestKotlinDispatcherCurrentFirstGate(t *testing.T) {
 	if productionInspection.SHA256 != kotlinDispatcherProductionDigest {
 		t.Fatalf("production digest=%s, want %s", productionInspection.SHA256, kotlinDispatcherProductionDigest)
 	}
-	if rawInspection.SHA256 == productionInspection.SHA256 {
-		t.Fatal("raw and production digests match; the live parent rewrite is not reproduced")
+	if rawInspection.SHA256 != productionInspection.SHA256 {
+		t.Fatal("raw and production digests differ; an already-correct tree was rewritten")
 	}
 	pass, ok := kotlinDispatcherPass(production)
 	if !ok {
 		t.Fatal("production did not record dispatch.kotlin")
 	}
-	if pass.Checked != 1 || pass.Run != 1 || pass.NodesVisited != 22 || pass.NodesRewritten != 23 {
-		t.Fatalf("production dispatch.kotlin=%+v, want checked=1 run=1 visited=22 rewritten=23", pass)
+	if pass.Checked != 1 || pass.Run != 1 || pass.NodesVisited != 24 || pass.NodesRewritten != 0 {
+		t.Fatalf("production dispatch.kotlin=%+v, want checked=1 run=1 visited=24 rewritten=0", pass)
 	}
 	recovered, ok := kotlinDispatcherSubpass(production, "dispatch.kotlin.recovered-source-file-root")
 	if !ok {
 		t.Fatal("production did not record dispatch.kotlin.recovered-source-file-root")
-	} else if recovered.Checked != 1 || recovered.Run != 1 || recovered.NodesVisited != 22 || recovered.NodesRewritten != 0 {
-		t.Fatalf("production recovered-root pass=%+v, want checked=1 run=1 visited=22 rewritten=0", recovered)
+	} else if recovered.Checked != 1 || recovered.Run != 1 || recovered.NodesVisited != 24 || recovered.NodesRewritten != 0 {
+		t.Fatalf("production recovered-root pass=%+v, want checked=1 run=1 visited=24 rewritten=0", recovered)
 	}
 	t.Logf("source_sha256=%s raw_digest=%s production_digest=%s dispatch.kotlin=%d/%d/%d/%d recovered_root=%d/%d/%d/%d", kotlinDispatcherWitnessSHA256, rawInspection.SHA256, productionInspection.SHA256, pass.Checked, pass.Run, pass.NodesVisited, pass.NodesRewritten, recovered.Checked, recovered.Run, recovered.NodesVisited, recovered.NodesRewritten)
 }
