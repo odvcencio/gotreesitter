@@ -645,10 +645,10 @@ func TestG18DropCohortDeepBranchedPathScratchOwnershipAndCapRollback(t *testing.
 	if err := tiny.Reset(); err != nil {
 		t.Fatal(err)
 	}
-	if tiny.nodes.Len() != 0 || len(tiny.links) != 0 || len(tiny.dropCohortDerivations) != 0 ||
+	if tiny.nodes.Len() != 0 || tiny.links.Len() != 0 || len(tiny.dropCohortDerivations) != 0 ||
 		len(tiny.dropCohortDerivationBytes) != 0 || len(tiny.dropCohortPathScratch) != 0 ||
 		tiny.dropCohortEphemeralBytes != 0 || tiny.dropCohortEphemeralPeak != 0 {
-		t.Fatalf("deep branched reset retained live state: nodes=%d links=%d derivations=%d bytes=%d path=%d current=%d peak=%d", tiny.nodes.Len(), len(tiny.links), len(tiny.dropCohortDerivations), len(tiny.dropCohortDerivationBytes), len(tiny.dropCohortPathScratch), tiny.dropCohortEphemeralBytes, tiny.dropCohortEphemeralPeak)
+		t.Fatalf("deep branched reset retained live state: nodes=%d links=%d derivations=%d bytes=%d path=%d current=%d peak=%d", tiny.nodes.Len(), tiny.links.Len(), len(tiny.dropCohortDerivations), len(tiny.dropCohortDerivationBytes), len(tiny.dropCohortPathScratch), tiny.dropCohortEphemeralBytes, tiny.dropCohortEphemeralPeak)
 	}
 }
 

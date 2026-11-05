@@ -64,7 +64,7 @@ func (c *Core) StorageBytes() uint64 {
 		uint64(len(c.nodePrecedenceWide))*coreInt64Bytes +
 		uint64(len(c.nodePathCountsWide))*coreNodePathCountRecordBytes +
 		uint64(len(c.nodeLineageRefSets))*coreNodeLineageRefSetBytes +
-		uint64(len(c.links))*coreLinkRecordBytes +
+		c.links.CloneActiveFootprintBytes() +
 		uint64(len(c.dropCohortLinkRefIndexes))*coreUint32Bytes +
 		uint64(c.subtrees.Len())*coreSubtreeRecordBytes +
 		uint64(len(c.recoveryVisibleCounts))*coreRecoveryVisibleCountBytes +
@@ -109,6 +109,7 @@ var (
 	coreReusedSubtreeBytes                  = uint64(unsafe.Sizeof(reusedSubtreeProvenance{}))
 	coreRecoveryDiscontinuityReductionBytes = uint64(unsafe.Sizeof(recoveryDiscontinuityReduction{}))
 	coreCheckpointRecordBytes               = uint64(unsafe.Sizeof(checkpointRecord{}))
+	coreCheckpointDigestCacheBytes          = uint64(unsafe.Sizeof(checkpointDigestCacheEntry{}))
 	coreNodePathCountRecordBytes            = uint64(unsafe.Sizeof(nodePathCountRecord{}))
 	coreCheckpointBucketBytes               = uint64(unsafe.Sizeof(uint64(0))) + uint64(unsafe.Sizeof(CheckpointID(0)))
 	coreBoundarySlotBytes                   = uint64(unsafe.Sizeof(boundarySlot{}))
@@ -167,7 +168,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total := c.nodes.FootprintBytes() +
 		uint64(cap(c.nodePrecedenceWide))*coreInt64Bytes +
 		uint64(cap(c.nodePathCountsWide))*coreNodePathCountRecordBytes +
-		uint64(cap(c.links))*coreLinkRecordBytes +
+		c.links.FootprintBytes() +
 		c.subtrees.FootprintBytes() +
 		uint64(cap(c.recoveryVisibleCounts))*coreRecoveryVisibleCountBytes +
 		uint64(cap(c.recoveryVisibleSymbols))*coreBoolBytes +
@@ -224,7 +225,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += c.popScratch.footprintBytes()
 	total += c.reductionScratch.footprintBytes()
 	total += uint64(cap(c.selectedBuild.resultHasError)) * coreBoolBytes
-	total += selectedStoreRetainedBytes(cap(c.selectedPool.records), cap(c.selectedPool.children))
+	total += c.selectedPool.retainedBytes()
 	total += c.selectedPolicy.RetainedBytes()
 
 	return total
@@ -259,7 +260,7 @@ func (c *Core) DominantCapacityBytes() uint64 {
 		uint64(cap(c.nodeLineages))*coreNodeLineageRecordBytes + uint64(cap(c.nodeLineageRecovery))*8 +
 		uint64(cap(c.alternativeSpillArena))*coreUint32Bytes +
 		c.subtrees.FootprintBytes() +
-		uint64(cap(c.links))*coreLinkRecordBytes +
+		c.links.FootprintBytes() +
 		uint64(cap(c.children))*coreChildRecordBytes
 }
 
@@ -268,6 +269,7 @@ func (i *checkpointInterner) footprintBytes() uint64 {
 		return 0
 	}
 	return uint64(cap(i.records))*coreCheckpointRecordBytes +
+		uint64(cap(i.receipts))*coreCheckpointDigestCacheBytes +
 		uint64(cap(i.bytes)) +
 		uint64(len(i.buckets))*coreCheckpointBucketBytes
 }
@@ -377,7 +379,7 @@ func (c *Core) releaseRecordArenaReserve() {
 	c.nodeLineages = nil
 	c.nodeLineageRecovery = nil
 	c.nodeLineageRefSets = nil
-	c.links = nil
+	c.links = linkRecordStorage{}
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
 	c.subtrees = subtreeRecordBlocks{}
@@ -419,7 +421,7 @@ func (c *Core) releaseOversizedRetention() {
 	c.nodeLineageRecovery = nil
 	c.nodeLineageRefSets = nil
 	c.nodeCheckpoints = nil
-	c.links = nil
+	c.links = linkRecordStorage{}
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
 	c.subtrees = subtreeRecordBlocks{}
@@ -467,7 +469,9 @@ func (c *Core) releaseOversizedRetention() {
 	c.popScratch.dropOversized()
 	c.reductionScratch.dropOversized()
 	c.selectedBuild.resultHasError = nil
-	c.selectedPool = selectedStoreBacking{}
+	// Detach this pool generation. Results already handed to callers may
+	// release later; they must not repopulate the trimmed core's new pool.
+	c.selectedPool = nil
 }
 
 func (s *derivationSummaryScratch) footprintBytes() uint64 {
@@ -499,6 +503,7 @@ func (i *checkpointInterner) dropOversized() {
 		return
 	}
 	i.records = nil
+	i.receipts = nil
 	i.bytes = nil
 	i.buckets = nil
 }

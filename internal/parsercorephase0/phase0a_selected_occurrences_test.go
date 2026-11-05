@@ -110,7 +110,11 @@ func TestPhase0ASelectedOccurrencesFailClosedOnRouteIdentityCorruption(t *testin
 		}},
 		{name: "stale-link", kind: Phase0AErrorStaleReference, mutate: func(core *Core, observer *phase0AObserver) {
 			row := observer.route.popLinks[observer.route.popRoutes[0].FirstLink]
-			core.links[row.Link-1].payload++
+			{
+				linkStorageMutation := core.links.At(int(row.Link - 1))
+				linkStorageMutation.payload++
+				core.links.Set(int(row.Link-1), linkStorageMutation)
+			}
 		}},
 		{name: "cycle", kind: Phase0AErrorCyclicReference, mutate: func(core *Core, observer *phase0AObserver) {
 			route := observer.route.popRoutes[0]
@@ -129,7 +133,11 @@ func TestPhase0ASelectedOccurrencesFailClosedOnRouteIdentityCorruption(t *testin
 			occurrence := observer.mutations[observer.occurrenceIndex[route.Occurrence]]
 			row := &observer.route.popLinks[route.FirstLink]
 			row.Payload = occurrence.Payload
-			core.links[row.Link-1].payload = occurrence.Payload
+			{
+				linkStorageMutation := core.links.At(int(row.Link - 1))
+				linkStorageMutation.payload = occurrence.Payload
+				core.links.Set(int(row.Link-1), linkStorageMutation)
+			}
 		}},
 	}
 	for _, test := range tests {
@@ -522,19 +530,39 @@ func TestPhase0ASelectedMigrationRevalidatesTargetPhysicalCandidateNodeAndKinds(
 		mutate func(*Core, *phase0AObserver, Phase0ATrailingExtraMigrationRecord)
 	}{
 		{name: "physical-prev", mutate: func(core *Core, _ *phase0AObserver, row Phase0ATrailingExtraMigrationRecord) {
-			core.links[row.TargetLink-1].prev++
+			{
+				linkStorageMutation := core.links.At(int(row.TargetLink - 1))
+				linkStorageMutation.prev++
+				core.links.Set(int(row.TargetLink-1), linkStorageMutation)
+			}
 		}},
 		{name: "physical-payload", mutate: func(core *Core, _ *phase0AObserver, row Phase0ATrailingExtraMigrationRecord) {
-			core.links[row.TargetLink-1].payload++
+			{
+				linkStorageMutation := core.links.At(int(row.TargetLink - 1))
+				linkStorageMutation.payload++
+				core.links.Set(int(row.TargetLink-1), linkStorageMutation)
+			}
 		}},
 		{name: "physical-score", mutate: func(core *Core, _ *phase0AObserver, row Phase0ATrailingExtraMigrationRecord) {
-			core.links[row.TargetLink-1].scoreDelta++
+			{
+				linkStorageMutation := core.links.At(int(row.TargetLink - 1))
+				linkStorageMutation.scoreDelta++
+				core.links.Set(int(row.TargetLink-1), linkStorageMutation)
+			}
 		}},
 		{name: "physical-order", mutate: func(core *Core, _ *phase0AObserver, row Phase0ATrailingExtraMigrationRecord) {
-			core.links[row.TargetLink-1].order++
+			{
+				linkStorageMutation := core.links.At(int(row.TargetLink - 1))
+				linkStorageMutation.order++
+				core.links.Set(int(row.TargetLink-1), linkStorageMutation)
+			}
 		}},
 		{name: "physical-has-order", mutate: func(core *Core, _ *phase0AObserver, row Phase0ATrailingExtraMigrationRecord) {
-			core.links[row.TargetLink-1].flags ^= linkFlagHasOrder
+			{
+				linkStorageMutation := core.links.At(int(row.TargetLink - 1))
+				linkStorageMutation.flags ^= linkFlagHasOrder
+				core.links.Set(int(row.TargetLink-1), linkStorageMutation)
+			}
 		}},
 		{name: "target-node-state", mutate: func(core *Core, _ *phase0AObserver, row Phase0ATrailingExtraMigrationRecord) {
 			(*core.nodes.At(int(row.Predecessor - 1))).state++

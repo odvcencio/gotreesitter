@@ -372,7 +372,7 @@ func throughTypeParameter[T any](lang *Language) {
 // parse. Check how the new code treats an absent interface, then add the file.
 var mirroredProbes = map[string][]string{
 	"CheckpointIdentity":                   {"external_scanner_checkpoint_capability.go"},
-	"ExternalScannerIsStateless":           {"admission_switch.go", "external_scanner_quiescence.go", "glr.go", "incremental.go", "parser.go", "parser_recover_c.go", "parsercore_phase0_per_version_lexer_state.go", "token_invariant_dependency.go", "token_invariant_lexical_proof.go"},
+	"ExternalScannerIsStateless":           {"admission_switch.go", "external_scanner_quiescence.go", "glr.go", "incremental.go", "parser.go", "parser_dfa_token_source.go", "parser_recover_c.go", "parsercore_phase0_per_version_lexer_state.go", "token_invariant_dependency.go", "token_invariant_lexical_proof.go"},
 	"PreservesStateOnScanFailure":          {"parser_dfa_token_source.go"},
 	"RetainsStateOnScanFailure":            {"parser_dfa_token_source.go"},
 	"SupportsCheckpointedNonLeafReuse":     {"external_scanner_checkpoints.go"},

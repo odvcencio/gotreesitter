@@ -4966,10 +4966,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		p.logf(ParserLogParse, "start len=%d incremental=%t", len(source), reuse != nil || oldTree != nil)
 	}
 	deferParentLinks := reuse == nil && oldTree == nil
-	scratch := acquireParserScratch()
+	scratch := acquireParserScratchForSource(len(source), p)
 	transientReduceParents := p.configureParseScratch(scratch, source, reuse, oldTree, arenaClass, deferParentLinks)
 	scratch.merge.gssOwner = &scratch.gss
-	defer releaseParserScratch(scratch, deferParentLinks)
+	defer releaseParserScratchForParser(scratch, deferParentLinks, p)
 	prevReduceScratch := p.reduceScratch
 	prevMergeScratch := p.mergeScratch
 	prevGoCompatFrames := p.goCompatFrames
@@ -5568,8 +5568,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// hasError=false is definitionally C-correct.
 		if tree != nil && p.crecoveryEnteredErrorState && stopReason == ParseStopAccepted {
 			if root := tree.root; root != nil && root.endByte >= expectedEOFByte {
-				hasError := reconcileStaleHasErrorFlagsWithMissing(root, 0, p.retainExternalFallbackMissingFlags)
-				hiddenMissing := !hasError && retainedHiddenMissingFlags(root, p.language, arena)
+				var rawOnlyMissing bool
+				hasError := reconcileStaleHasErrorFlagsWithMissingEvidence(root, 0, p.retainExternalFallbackMissingFlags, &rawOnlyMissing)
+				hiddenMissing := rawOnlyMissing || (!hasError && retainedHiddenMissingFlags(root, p.language, arena))
 				hasError = hasError || hiddenMissing
 				if hasError {
 					root.setHasError(true)
@@ -9000,6 +9001,7 @@ func (p *Parser) applyExtraShiftAction(s *glrStack, currentState StateID, act Pa
 	if isMissing {
 		leaf.setMissing(true)
 		leaf.setHasError(true)
+		p.retainExternalFallbackMissingFlags = true
 		if tok.missingDependencyExact() {
 			dependency, exact := p.missingNodeDependencyFromToken(tok)
 			if !exact || !arena.setMissingNodeDependency(leaf, dependency) {

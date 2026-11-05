@@ -112,3 +112,18 @@ func buildParserCoreSelectedStorePolicy(parser *Parser) (core.SelectedStorePolic
 	}
 	return policy, nil
 }
+
+// The profile is enabled by the authenticated output contract at its caller.
+func parserCoreTypeArgumentPolicy(lang *Language) core.SelectedTypeArgumentPolicy {
+	symbol := func(name string) core.Symbol {
+		value, _ := lang.symbolByNamePreferNamed(name)
+		return core.Symbol(value)
+	}
+	field := func(name string) core.FieldID { value, _ := lang.FieldByName(name); return core.FieldID(value) }
+	return core.SelectedTypeArgumentPolicy{
+		Call: symbol("call_expression"), Arguments: symbol("argument_list"), Identifier: symbol("identifier"), TypeIdentifier: symbol("type_identifier"),
+		Comment: symbol("comment"), TypeArguments: symbol("type_arguments"), Selector: symbol("selector_expression"), Unary: symbol("unary_expression"),
+		Qualified: symbol("qualified_type"), Pointer: symbol("pointer_type"), PackageIdentifier: symbol("package_identifier"), Parenthesized: symbol("parenthesized_expression"), ParenthesizedType: symbol("parenthesized_type"),
+		FunctionField: field("function"), ArgumentsField: field("arguments"), OperandField: field("operand"), OperatorField: field("operator"), SelectorField: field("field"), PackageField: field("package"), NameField: field("name"),
+	}
+}

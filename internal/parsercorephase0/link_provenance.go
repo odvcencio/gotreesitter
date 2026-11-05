@@ -39,8 +39,8 @@ func (c *Core) appendGraphLinkChecked(link linkRecord) (LinkID, error) {
 // appendGraphLink keeps the optional sidecar aligned with the link arena.
 // Callers must validate the link before publishing its containing node.
 func (c *Core) appendGraphLink(link linkRecord) LinkID {
-	id := LinkID(len(c.links) + 1)
-	c.links = append(c.links, link)
+	id := LinkID(c.links.Len() + 1)
+	c.links.Append(link)
 	if c.dropCohortLinkRefIndexes != nil {
 		c.dropCohortLinkRefIndexes = append(c.dropCohortLinkRefIndexes, 0)
 	}
@@ -63,16 +63,16 @@ func (c *Core) resolveDropCohortLinkRange(r LinkRange) ([]LinkID, error) {
 	if uint64(r.Count) > uint64(c.limits.MaxLinksPerBoundary) {
 		return nil, errors.New("parser-core phase zero: link range exceeds boundary cap")
 	}
-	if uint64(r.First) > uint64(len(c.links)) {
+	if uint64(r.First) > uint64(c.links.Len()) {
 		return nil, errors.New("parser-core phase zero: link range starts outside the graph")
 	}
 	ids := make([]LinkID, r.Count)
 	current := r.First
 	for index := range ids {
-		if current == 0 || uint64(current) > uint64(len(c.links)) {
+		if current == 0 || uint64(current) > uint64(c.links.Len()) {
 			return nil, errors.New("parser-core phase zero: link range leaves the graph")
 		}
-		link := c.links[current-1]
+		link := c.links.At(int(current - 1))
 		if err := link.validateShape(); err != nil {
 			return nil, err
 		}
@@ -133,10 +133,10 @@ func (c *Core) reductionLinkChainForHead(head Head) (LinkChainRef, error) {
 	if chain.First == 0 || chain.Count == 0 {
 		return LinkChainRef{}, errors.New("parser-core phase zero: reduction link chain is mixed-empty")
 	}
-	if uint64(chain.First) > uint64(len(c.links)) {
+	if uint64(chain.First) > uint64(c.links.Len()) {
 		return LinkChainRef{}, errors.New("parser-core phase zero: reduction link chain starts outside the graph")
 	}
-	if uint64(chain.Count) > uint64(len(c.links)) {
+	if uint64(chain.Count) > uint64(c.links.Len()) {
 		return LinkChainRef{}, errors.New("parser-core phase zero: reduction link chain exceeds the graph")
 	}
 	return chain, nil
@@ -145,8 +145,8 @@ func (c *Core) reductionLinkChainForHead(head Head) (LinkChainRef, error) {
 // DropCohortLinkRefIndex returns the one-based certificate index attached to
 // link. It fails closed for an unbound or malformed sidecar entry.
 func (c *Core) DropCohortLinkRefIndex(link LinkID) (uint32, bool) {
-	if c == nil || link == 0 || uint64(link) > uint64(len(c.links)) ||
-		len(c.dropCohortLinkRefIndexes) > len(c.links) ||
+	if c == nil || link == 0 || uint64(link) > uint64(c.links.Len()) ||
+		len(c.dropCohortLinkRefIndexes) > c.links.Len() ||
 		uint64(link) > uint64(len(c.dropCohortLinkRefIndexes)) {
 		return 0, false
 	}
@@ -280,7 +280,7 @@ func (c *Core) bindDropCohortLinkRefs(boundary ClassifiedBoundary, descriptor Ac
 	if len(linkIDs) == 0 {
 		return nil
 	}
-	if c.dropCohortLinkRefIndexes != nil && len(c.dropCohortLinkRefIndexes) > len(c.links) {
+	if c.dropCohortLinkRefIndexes != nil && len(c.dropCohortLinkRefIndexes) > c.links.Len() {
 		return errors.New("parser-core phase zero: link bind sidecar is longer than the graph")
 	}
 	indexes := make([]uint32, len(refs))
@@ -302,7 +302,7 @@ func (c *Core) bindDropCohortLinkRefs(boundary ClassifiedBoundary, descriptor Ac
 		if member.cohort != handle || member.action != expectedAction {
 			return errors.New("parser-core phase zero: link bind action authentication failed")
 		}
-		link := c.links[linkIDs[index]-1]
+		link := c.links.At(int(linkIDs[index] - 1))
 		if member.head.Node != link.prev {
 			return errors.New("parser-core phase zero: link bind graph identity mismatch")
 		}
@@ -312,9 +312,9 @@ func (c *Core) bindDropCohortLinkRefs(boundary ClassifiedBoundary, descriptor Ac
 		}
 	}
 	if c.dropCohortLinkRefIndexes == nil {
-		c.dropCohortLinkRefIndexes = make([]uint32, len(c.links))
-	} else if len(c.dropCohortLinkRefIndexes) < len(c.links) {
-		c.dropCohortLinkRefIndexes = append(c.dropCohortLinkRefIndexes, make([]uint32, len(c.links)-len(c.dropCohortLinkRefIndexes))...)
+		c.dropCohortLinkRefIndexes = make([]uint32, c.links.Len())
+	} else if len(c.dropCohortLinkRefIndexes) < c.links.Len() {
+		c.dropCohortLinkRefIndexes = append(c.dropCohortLinkRefIndexes, make([]uint32, c.links.Len()-len(c.dropCohortLinkRefIndexes))...)
 	}
 	for index, certificateIndex := range indexes {
 		linkIndex := int(linkIDs[index]) - 1

@@ -183,10 +183,10 @@ func (c *Core) AncestorStateWithActionExists(head Head, lookahead Symbol, maxDep
 			}
 			linkID := LinkID(node.firstLink)
 			for remaining := count; remaining > 0; remaining-- {
-				if linkID == 0 || uint64(linkID) > uint64(len(c.links)) {
+				if linkID == 0 || uint64(linkID) > uint64(c.links.Len()) {
 					return false, errors.New("parser-core phase zero: ancestor adjacency out of range")
 				}
-				link := c.links[linkID-1]
+				link := c.links.At(int(linkID - 1))
 				if err := link.validateShape(); err != nil {
 					return false, err
 				}

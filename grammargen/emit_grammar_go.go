@@ -129,6 +129,17 @@ func EmitGrammarGo(g *Grammar, pkgName, funcName string) ([]byte, error) {
 		fmt.Fprintf(&buf, "\t}\n\n")
 	}
 
+	if g.SeparateErrorLexMode {
+		fmt.Fprintf(&buf, "\tg.SeparateErrorLexMode = true\n\n")
+	}
+	if len(g.RecoveryLookaheadTokens) > 0 {
+		fmt.Fprintf(&buf, "\tg.RecoveryLookaheadTokens = []string{\n")
+		for _, name := range g.RecoveryLookaheadTokens {
+			fmt.Fprintf(&buf, "\t\t%s,\n", goString(name))
+		}
+		fmt.Fprintf(&buf, "\t}\n\n")
+	}
+
 	// Emit EnableLRSplitting.
 	if g.EnableLRSplitting {
 		fmt.Fprintf(&buf, "\tg.EnableLRSplitting = true\n\n")

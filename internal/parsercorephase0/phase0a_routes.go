@@ -259,16 +259,16 @@ func phase0AStablePhysicalLinks(core *Core, id NodeID) ([]phase0APhysicalLink, e
 	if err != nil {
 		return nil, err
 	}
-	if node.linkCount > core.limits.MaxLinksPerBoundary || uint64(node.linkCount) > uint64(core.limits.MaxLinks) || uint64(node.linkCount) > uint64(len(core.links)) {
+	if node.linkCount > core.limits.MaxLinksPerBoundary || uint64(node.linkCount) > uint64(core.limits.MaxLinks) || uint64(node.linkCount) > uint64(core.links.Len()) {
 		return nil, errors.New("parser-core phase zero A: physical adjacency exceeds cap")
 	}
 	out := make([]phase0APhysicalLink, node.linkCount)
 	next := LinkID(node.firstLink)
 	for index := len(out) - 1; index >= 0; index-- {
-		if next == 0 || uint64(next) > uint64(len(core.links)) {
+		if next == 0 || uint64(next) > uint64(core.links.Len()) {
 			return nil, errors.New("parser-core phase zero A: physical adjacency is unavailable")
 		}
-		link := core.links[next-1]
+		link := core.links.At(int(next - 1))
 		if err := link.validateShape(); err != nil {
 			return nil, err
 		}
@@ -558,7 +558,7 @@ func phase0AObservePopRoutes(core *Core, head NodeID, childCount int, production
 			RetainedLinkCount: route.retainedCount, TrailingLinkCount: uint32(len(route.links)) - route.retainedCount,
 		})
 		for ordinal, linkID := range route.links {
-			link := core.links[linkID-1]
+			link := core.links.At(int(linkID - 1))
 			segment, segmentOrdinal := Phase0APopRouteRetained, uint32(ordinal)
 			if uint32(ordinal) >= route.retainedCount {
 				segment, segmentOrdinal = Phase0APopRouteTrailing, uint32(ordinal)-route.retainedCount
@@ -1251,7 +1251,7 @@ func (core *Core) ObservePhase0AAcceptedSelection(capability Phase0AAcceptedSele
 	payloadIndex := 0
 	selectedLower := LinkID(0)
 	for index, link := range got.links {
-		if core.links[link-1].isRecoveryDiscontinuity() {
+		if core.links.At(int(link - 1)).isRecoveryDiscontinuity() {
 			resolved[index] = Phase0AAcceptedLinkRecord{
 				Ordinal: uint32(index), Link: link, RecoveryDiscontinuity: true,
 				ResolvedLowerLink: selectedLower,

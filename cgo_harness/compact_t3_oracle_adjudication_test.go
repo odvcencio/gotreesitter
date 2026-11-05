@@ -972,3 +972,48 @@ func compactT3ChildPath(parentPath, typ string, index int) string {
 	}
 	return fmt.Sprintf("%s/%s[%d]", parentPath, typ, index)
 }
+
+// TestCompactHTMLAbsorbSelectedLockedC preserves the C-selected outcome for
+// the former missing-insertion witness, including points and public flags.
+func TestCompactHTMLAbsorbSelectedLockedC(t *testing.T) {
+	manifest := loadCompactT3WitnessManifest(t)
+	var witness *compactT3Witness
+	for i := range manifest.Witnesses {
+		if manifest.Witnesses[i].ID == "html_log_7" {
+			witness = &manifest.Witnesses[i]
+			break
+		}
+	}
+	if witness == nil {
+		t.Fatal("locked HTML witness is absent")
+	}
+	cLanguage, err := ParityCLanguage("html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := COracleIdentity("html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCompactT3COracleProvenance(t, *witness, identity)
+	goLanguage, ok := compactT3GoLanguage("html")
+	if !ok {
+		t.Fatal("HTML language unavailable")
+	}
+	source := []byte(witness.SourceUTF8)
+	cTree := compactT3ParseC(t, cLanguage, source)
+	defer cTree.Close()
+	gotreesitter.ResetAdmissionCandidateCounters()
+	goTree := compactT3ParseGo(t, goLanguage, source, true)
+	defer goTree.Release()
+	routed, fallback := gotreesitter.AdmissionCandidateCounters()
+	if routed != 1 || fallback != 0 {
+		t.Fatalf("route counters=%d/%d", routed, fallback)
+	}
+	if !goTree.RootNode().HasError() || !cTree.RootNode().HasError() {
+		t.Fatal("expected recovered error roots")
+	}
+	if diff := compactT3StructuralDivergences(goTree.RootNode(), goLanguage, cTree.RootNode()); len(diff) != 0 {
+		t.Fatalf("compact HTML differs from locked C: %s", compactT3FormatDivergence(diff[0]))
+	}
+}

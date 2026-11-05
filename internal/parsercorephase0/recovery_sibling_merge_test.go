@@ -50,7 +50,7 @@ func TestRecoverySiblingMergeRollbackRestoresPublicationAndLineage(t *testing.T)
 	for _, changed := range []bool{false, true} {
 		compact, sibling, incoming, _ := recoverySiblingMergeFixture(t, changed)
 		beforeLineages := compact.testLineagesSnapshot()
-		beforeNodes, beforeLinks, beforeWork := compact.nodes.Len(), len(compact.links), compact.Work()
+		beforeNodes, beforeLinks, beforeWork := compact.nodes.Len(), compact.links.Len(), compact.Work()
 		abort := errors.New("abort sibling merge")
 		err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
 			if _, err := compact.MergeEquivalentRecoverySiblingHeadsOwned(owner, 3, 1, 0, false, sibling, incoming, recoverySiblingPayloadHasError); err != nil {
@@ -59,7 +59,7 @@ func TestRecoverySiblingMergeRollbackRestoresPublicationAndLineage(t *testing.T)
 			return abort
 		})
 		canonical, ok := compact.CanonicalBoundary(3, 1, false, 0)
-		if !errors.Is(err, abort) || !ok || canonical != incoming || compact.nodes.Len() != beforeNodes || len(compact.links) != beforeLinks || compact.Work() != beforeWork || !reflect.DeepEqual(compact.testLineagesSnapshot(), beforeLineages) {
+		if !errors.Is(err, abort) || !ok || canonical != incoming || compact.nodes.Len() != beforeNodes || compact.links.Len() != beforeLinks || compact.Work() != beforeWork || !reflect.DeepEqual(compact.testLineagesSnapshot(), beforeLineages) {
 			t.Fatalf("rollback changed=%t err=%v canonical=%+v/%t", changed, err, canonical, ok)
 		}
 	}
@@ -88,14 +88,14 @@ func TestRecoverySiblingMergeRejectsUnownedBoundaryAndUnequalCosts(t *testing.T)
 				callback = nil
 			}
 			beforeLineages := compact.testLineagesSnapshot()
-			beforeNodes, beforeLinks, beforeWork := compact.nodes.Len(), len(compact.links), compact.Work()
+			beforeNodes, beforeLinks, beforeWork := compact.nodes.Len(), compact.links.Len(), compact.Work()
 			beforeCanonical, beforeOK := compact.CanonicalBoundary(3, 1, false, 0)
 			err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
 				_, err := compact.MergeEquivalentRecoverySiblingHeadsOwned(owner, 3, 1, checkpoint, false, sibling, incoming, callback)
 				return err
 			})
 			canonical, ok := compact.CanonicalBoundary(3, 1, false, 0)
-			if err == nil || ok != beforeOK || canonical != beforeCanonical || compact.nodes.Len() != beforeNodes || len(compact.links) != beforeLinks || compact.Work() != beforeWork || !reflect.DeepEqual(compact.testLineagesSnapshot(), beforeLineages) {
+			if err == nil || ok != beforeOK || canonical != beforeCanonical || compact.nodes.Len() != beforeNodes || compact.links.Len() != beforeLinks || compact.Work() != beforeWork || !reflect.DeepEqual(compact.testLineagesSnapshot(), beforeLineages) {
 				t.Fatalf("rejection changed state: err=%v canonical=%+v/%t", err, canonical, ok)
 			}
 		})

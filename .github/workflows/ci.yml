@@ -446,6 +446,8 @@ jobs:
           TestDiagnosticParserCoreReductionUnchangedDistinctLexerSnapshotIsRetained
           TestDiagnosticParserCoreReplacementClearsDiscardedVersionStateTail
           TestDiagnosticParserCoreRollbackClearsDiscardedVersionStateTail
+          TestCompactRelexRecordsGlobalReads
+          TestCompactNegativeMemoKeepsRecordedHistory
           TestDiagnosticParserCoreSameSpanRelexReconstructsExactToken
           TestDiagnosticParserCoreSameSpanRelexRejectsTokenFieldChanges
           TestDiagnosticParserCoreSchedulerFootprintCountsWideSharedVersionStates
@@ -713,14 +715,6 @@ jobs:
           go test . -race -count=1 -timeout 15m -run "$pattern" -json |
             tee "harness_out/root-race/shard-${{ matrix.shard }}.json"
 
-      - name: Preserve completed root-race results
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: root-race-shard-${{ matrix.shard }}
-          path: harness_out/root-race/*.json
-          if-no-files-found: warn
-
   root_race_plan:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
@@ -767,14 +761,6 @@ jobs:
           mkdir -p harness_out/root-race
           go test . -race -count=1 -timeout 15m -run '^${{ matrix.target }}$' -json |
             tee "harness_out/root-race/isolated-${{ matrix.target }}.json"
-
-      - name: Preserve completed isolated root-race result
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: root-race-isolated-${{ matrix.target }}
-          path: harness_out/root-race/*.json
-          if-no-files-found: warn
 
   # Preserve the existing aggregate job ID consumed by the required `build`
   # context. The matrix result is successful only when every race shard passes.
@@ -1167,6 +1153,8 @@ jobs:
   # regression all block a code PR. The old generated-fixture W5 tests above
   # remain separate correctness/counter gates.
   editor_latency:
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
@@ -1189,9 +1177,16 @@ jobs:
       - name: Test editor-latency evidence and failure paths
         run: python3 scripts/test_editor_latency_gate.py
 
+      - name: Test private C-oracle cache
+        run: |
+          python3 scripts/test_w5_private_oracle.py
+          python3 scripts/test_w5_private_oracle_parent.py
+
       - name: Paired real-code editor latency
         env:
+          GTS_W5_PRIVATE_C_CACHE: "1"
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           # Forks cannot read the variable. Fetch the same public, pinned lock;
           # fetch_grammar_receipt_lock.sh still verifies its committed digest.
           GTS_CORPUS_LOCK_URL: ${{ vars.GTS_CORPUS_LOCK_URL || 'https://gist.githubusercontent.com/odvcencio/b5d19a2fcb80420c751b5bb7ab3129bb/raw/63e633db3cb7229c6495095c8ab34576bbd0525d/corpus_sources.lock' }}
@@ -1207,8 +1202,21 @@ jobs:
             BASE_SHA=$(git rev-parse HEAD^)
           fi
           git fetch --no-tags origin "$BASE_SHA"
+          w5_options=()
+          if [ "${PR_NUMBER:-}" = 1512 ] && [ "$BASE_SHA" = 9d14415d0a8d11632292310c578446b31554217b ]; then
+            decision="$RUNNER_TEMP/w5-1512-owner-decision.json"
+            curl --fail --silent --show-error --location --output "$decision" \
+              https://github.com/odvcencio/gotreesitter/releases/download/evidence/owner-decision-1512-58ce.json
+            w5_options+=(--approved-go-undo-receipt "$decision")
+          fi
+          # Owner approved only the source-bound Go undo row for this base.
+          if [ "${PR_NUMBER:-}" = 1512 ] && [ "$BASE_SHA" = b7f1877f72c46ac2992e865ab636edad1d545060 ]; then
+            decision="$RUNNER_TEMP/w5-b7-owner-decision.json"
+            printf '%s\n' '{"schema":"gts-w5-owner-decision-v1","owner_approved":true,"exception":"go-one-byte-undo-b7-to-278","base":"b7f1877f72c46ac2992e865ab636edad1d545060","reviewed_source":"2782879c97b4e28e9db7209ae7ddfbd6e9b69574","fixture_sha256":"ff2f811d29a56303bad96c3c7cff1a83814a974503a51cee918a314a96eb476e","tree_sha256":"a675b5e8c8e688c21f45cad8c5217c06802c3fa5061fb2555ba346b4769f4c55","base_admission_sha256":"4af75c271fee19a18a09caca22dba5fc3b0bb56142af480917f41f09ff69ef6a","head_admission_sha256":"4d7ae9309efb29d9a339d179f447aee788caee701d7d4c839ddbbcde53a863f0","oracle_runtime_commit":"10eb5ac119eec9cb4267a8e035066473983f5f3a","oracle_sources_sha256":"242c4f6b72d2d24421f84a505aa20164e43f144eb6401e876e6d24a167f06f51","oracle_go_grammar_commit":"2346a3ab1bb3857b48b29d779a1ef9799a248cd7","row":{"language":"go","workload":"one_byte","step":1,"counter":"reused_subtrees","before":39,"after":35},"context":{"reused_bytes_before":2816,"reused_bytes_after":2853,"nodes_before":109036,"nodes_after":108999},"scope":"This single counter row only; no timing, correctness, RSS, graduation or merge waiver.","owner_response_provenance":{"channel":"direct human owner reply","question_item_id":["request_user_input_async","call_3694a733fae64952bd5b34f85deeb359",0],"response":"Approve this scoped exception and minimal CI record"},"review_evidence":"https://github.com/odvcencio/gotreesitter/actions/runs/40949464539/job/123713570661"}' > "$decision"
+            w5_options+=(--approved-b7-undo-receipt "$decision")
+          fi
           bash scripts/run_editor_latency_gate.sh \
-            --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency"
+            --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency" "${w5_options[@]}"
 
       - name: Publish W5 job summary
         if: always()
@@ -1219,15 +1227,6 @@ jobs:
           else
             echo 'W5 failed before it could seal a complete receipt.' >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      - name: Upload W5 receipt and raw evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: w5-editor-latency-${{ github.run_id }}
-          path: ${{ runner.temp }}/w5-editor-latency
-          if-no-files-found: error
-          retention-days: 90
 
   counter_ledger:
     needs: exhaustive_parity_scope
@@ -1250,6 +1249,68 @@ jobs:
         run: |
           GOWORK=off go test ./cmd/perfcounterledger -count=1
           GOMAXPROCS=1 GOWORK=off go run ./cmd/perfcounterledger
+
+  v1_edit_sessions:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'workflow_dispatch'
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      - name: Run every v1 edit session in Docker
+        env:
+          SESSION_IMAGE: golang@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437
+          SESSION_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          evidence="${RUNNER_TEMP}/v1-edit-sessions"
+          mkdir -p "$evidence" "${RUNNER_TEMP}/v1-go-build" "${RUNNER_TEMP}/v1-go-mod"
+          docker pull "$SESSION_IMAGE"
+          docker image inspect "$SESSION_IMAGE" > "${RUNNER_TEMP}/v1-session-image.json"
+          container="gts-v1-sessions-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cleanup() {
+            cp "${RUNNER_TEMP}/v1-session-image.json" "$evidence/image.json"
+            docker stop --time 10 "$container" >/dev/null 2>&1 || true
+            docker inspect "$container" > "$evidence/container.json" 2>/dev/null || true
+            docker rm "$container" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          set +e
+          docker run --name "$container" --memory 4g --memory-swap 4g --cpus 2 --pids-limit 512 \
+            -e GOMAXPROCS=1 -e GOMEMLIMIT=3GiB -e GTS_V1_SOURCE_SHA="$SESSION_SOURCE_SHA" \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" -v "$evidence:/evidence" \
+            -v "${RUNNER_TEMP}/v1-go-build:/go-build" -v "${RUNNER_TEMP}/v1-go-mod:/go-mod" \
+            -e GOCACHE=/go-build -e GOMODCACHE=/go-mod \
+            "$SESSION_IMAGE" bash /workspace/scripts/run_v1_invariant_sessions.sh /evidence
+          status=$?
+          set -e
+          docker inspect "$container" > "${RUNNER_TEMP}/v1-session-container.json"
+          cp "${RUNNER_TEMP}/v1-session-container.json" "$evidence/container.json"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::v1 edit-session container failed with status $status"
+            if [ -f "$evidence/summary.json" ]; then cat "$evidence/summary.json"; fi
+            for log in root-build.log ledger-build.log counter-build.log; do
+              if [ -s "$evidence/$log" ]; then echo "--- $log (last 20 lines)"; tail -n 20 "$evidence/$log"; fi
+            done
+            if [ -s "$evidence/status.tsv" ]; then
+              IFS=$'\t' read -r route language code < <(tail -n 1 "$evidence/status.tsv")
+              printf 'Last session: route=%s language=%s exit=%s\n' "$route" "$language" "$code"
+              if [[ "$route" =~ ^[01]$ && "$language" =~ ^[a-zA-Z0-9_-]+$ && -f "$evidence/invariant-$route-$language.log" ]]; then
+                awk '/^--- FAIL:|^FAIL$|panic:|fatal error:|_test.go:[0-9]+:/ {print substr($0, 1, 500); if (++n == 20) exit}' "$evidence/invariant-$route-$language.log"
+              fi
+            fi
+            exit "$status"
+          fi
+          python3 - "$evidence/container.json" <<'PYCODE'
+          import json, sys
+          state = json.load(open(sys.argv[1]))[0]['State']
+          assert state['Status'] == 'exited' and state['ExitCode'] == 0 and not state['OOMKilled'], state
+          PYCODE
 
   exhaustive_parity_scope:
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
@@ -1355,6 +1416,7 @@ jobs:
       - glr_gss_demotion_scaling_gate
       - apidiff
       - counter_ledger
+      - v1_edit_sessions
       - editor_latency
       - exhaustive_parity_scope
       - compact-t3-oracle-cgo
@@ -1391,6 +1453,7 @@ jobs:
           GLR_GSS_DEMOTION_SCALING_GATE_RESULT: ${{ needs.glr_gss_demotion_scaling_gate.result }}
           APIDIFF_RESULT: ${{ needs.apidiff.result }}
           COUNTER_LEDGER_RESULT: ${{ needs.counter_ledger.result }}
+          V1_EDIT_SESSIONS_RESULT: ${{ needs.v1_edit_sessions.result }}
           EDITOR_LATENCY_RESULT: ${{ needs.editor_latency.result }}
           IS_MANUAL_RUN: ${{ github.event_name == 'workflow_dispatch' }}
           EXHAUSTIVE_PARITY_SCOPE_RESULT: ${{ needs.exhaustive_parity_scope.result }}
@@ -1446,6 +1509,9 @@ jobs:
           require_success "glr_gss_demotion_scaling_gate" "$GLR_GSS_DEMOTION_SCALING_GATE_RESULT"
           require_success "apidiff" "$APIDIFF_RESULT"
           require_success "counter_ledger" "$COUNTER_LEDGER_RESULT"
+          if [ "$IS_MANUAL_RUN" = "true" ]; then
+            require_success "v1_edit_sessions" "$V1_EDIT_SESSIONS_RESULT"
+          fi
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
           require_success "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"
@@ -2062,8 +2128,17 @@ jobs:
             --memory 4g \
             --cpus 2 \
             --gomemlimit 3GiB \
-            --wall-timeout 10m \
-            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestGoCompactIncrementalExecution.*Parity|TestGoCompactNestedReuse.*LockedC|TestGoCompactDeclineProfileReportsSelectedTreeReuse|TestStage6GoCompactCertification|TestGoTokenInvariantLookaheadNumeric(Repair|Reuse)LockedC)$' -count=1 -parallel 1 -timeout 5m -v"
+            --wall-timeout 12m \
+            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestGoCompactIncrementalExecution.*Parity|TestGoCompactNestedReuse.*LockedC|TestGoCompactDeclineProfileReportsSelectedTreeReuse|TestStage6GoCompactCertification|TestGoTokenInvariantLookaheadNumeric(Repair|Reuse)LockedC|TestGoHiddenMissingSemicolonEditsMatchLockedC|TestGoMalformedDeclarationPrefixLockedC|TestGoAssignmentTargetEdits16SitesLockedC)$' -count=1 -parallel 1 -timeout 8m -v"
+
+      - name: C and EDS hidden missing parity
+        run: |
+          for grammar in C EDS; do
+            bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build --label "ci-hidden-missing-${grammar,,}" \
+              --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 5m \
+              -- "cd /workspace/cgo_harness && go test . -tags treesitter_c_parity -run '^Test${grammar}HiddenMissingCorpus(Fresh|FirstEdit)LockedC$' -count=1 -parallel 1 -timeout 3m -v"
+          done
 
       - name: Nightly fuzz route witnesses against locked C
         run: |
@@ -2335,7 +2410,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 20m \
-            --run '^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandKnownDivergenceFromLockedC$'
+            --run '^TestCOracleVendoredSources$|^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandKnownDivergenceFromLockedC$'
 
       - name: JavaScript and TypeScript contextual lookahead against locked C
         run: |
@@ -2767,6 +2842,11 @@ jobs:
             } >> "${GITHUB_STEP_SUMMARY}"
           fi
 
+          # Keep edit attribution separate from the unchanged timing inputs.
+          # Capture the runner CPU because hosted ubuntu-latest spans hardware.
+          bash scripts/run_go_edit_attribution.sh "${BASE_TREE}" \
+            "${OUT_DIR}/edit-attribution" "${BASE_RSS_BIN}" "${HEAD_RSS_BIN}"
+
       - name: Perf Definitive Outcome Summary
         if: always()
         run: |
@@ -2803,10 +2883,3 @@ jobs:
               echo "- reason: no definitive win/loss from current thresholds"
             } >> "${GITHUB_STEP_SUMMARY}"
           fi
-
-      - name: Upload Perf Artifacts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: bench-gate-artifacts
-          path: ${{ runner.temp }}/bench-gate

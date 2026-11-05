@@ -660,3 +660,30 @@ func TestRecoveryCompareVersionsMirrorsOnSwap(t *testing.T) {
 		}
 	}
 }
+
+// TestRecoveryNodeErrorCostPinnedCErrorLeafCases matches the three subtree
+// cases constructed with pinned tree-sitter C 0.27.1 in the external oracle.
+func TestRecoveryNodeErrorCostPinnedCErrorLeafCases(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		symbol Symbol
+		extra  bool
+		want   uint32
+	}{
+		{"unlexable-error", RecoveryErrorSymbol, false, 502},
+		{"ordinary-visible", ordinarySymbol, false, 602},
+		{"ordinary-extra", ordinarySymbol, true, 502},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src, root := newRecoveryCostFixture(&recoveryCostSpec{symbol: RecoveryErrorSymbol, start: 0, end: 2, children: []*recoveryCostSpec{{symbol: tc.symbol, extra: tc.extra, start: 0, end: 2}}})
+			got, err := RecoveryNodeErrorCost(visibleSymbols(), src, root)
+			if err != nil || got != tc.want {
+				t.Fatalf("cost=%d, err=%v; pinned C=%d", got, err, tc.want)
+			}
+			visible, err := RecoveryNodeVisibleSubtreeCount(visibleSymbols(), src, root)
+			if err != nil || visible != 2 {
+				t.Fatalf("visible=%d, err=%v; want 2", visible, err)
+			}
+		})
+	}
+}

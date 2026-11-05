@@ -1,4 +1,4 @@
-//go:build gts_parsercorephase0
+//go:build !gts_no_parsercorephase0
 
 package gotreesitter
 
