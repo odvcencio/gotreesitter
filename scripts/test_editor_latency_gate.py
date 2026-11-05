@@ -17,6 +17,40 @@ import editor_latency_gate as gate
 
 
 class HostedCampaignTests(unittest.TestCase):
+    def test_powershell_source_validation_rejects_wrong_pair_and_patch(self):
+        base, reviewed, head = "b"*40, "c"*40, "d"*40
+        record = dict(gate.POWERSHELL_W5_POLICY, schema="w5-powershell-owner-decision-v1", exception="powershell-command-parameter-b03",
+                      owner_approved=True, decision_sha256=gate.POWERSHELL_W5_DECISION_SHA256, failed_row_count=63,
+                      failed_rows_sha256=gate.POWERSHELL_W5_ROWS_SHA256, base=base, base_tree="e"*40, reviewed_source=reviewed, reviewed_tree="f"*40)
+        def git_call(root, *args):
+            return {("rev-parse", "HEAD"):head, ("rev-parse", base+"^{tree}"):"e"*40,
+                    ("rev-parse", reviewed+"^{tree}"):"f"*40}[args]
+        def output(command, **kwargs):
+            if "--parents" in command: return (head + " " + reviewed + "\n").encode()
+            if "--name-only" in command: return b"scripts/editor_latency_gate.py\0"
+            if "--binary" in command: return b"reviewed diff"
+            if "patch-id" in command: return (record["reviewed_patch_id"] + " 0000000000000000000000000000000000000000\n").encode()
+            raise AssertionError(command)
+        with mock.patch.object(gate, "git", side_effect=git_call), mock.patch.object(gate.subprocess, "run"), mock.patch.object(gate.subprocess, "check_output", side_effect=output):
+            self.assertEqual(gate.validate_powershell_source(Path("/source"), base, head, record), record)
+            for wrong_base, wrong_head in (("0"*40, head), (base, "0"*40)):
+                with self.assertRaises(ValueError): gate.validate_powershell_source(Path("/source"), wrong_base, wrong_head, record)
+            for key, value in (("base_tree", "0"*40), ("reviewed_tree", "0"*40), ("reviewed_patch_id", "0"*40), ("decision_sha256", "0"*64)):
+                with self.subTest(key=key), self.assertRaises(ValueError):
+                    gate.validate_powershell_source(Path("/source"), base, head, dict(record, **{key:value}))
+            def bad_output(command, **kwargs):
+                if "--name-only" in command: return b"parser.go\0"
+                return output(command, **kwargs)
+            with mock.patch.object(gate.subprocess, "check_output", side_effect=bad_output), self.assertRaises(ValueError):
+                gate.validate_powershell_source(Path("/source"), base, head, record)
+            with mock.patch.object(gate.subprocess, "run", side_effect=subprocess.CalledProcessError(1, "merge-base")), self.assertRaises(subprocess.CalledProcessError):
+                gate.validate_powershell_source(Path("/source"), base, head, record)
+            def merge_output(command, **kwargs):
+                if "--parents" in command: return (head + " " + reviewed + " " + "a"*40 + "\n").encode()
+                return output(command, **kwargs)
+            with mock.patch.object(gate.subprocess, "check_output", side_effect=merge_output), self.assertRaises(ValueError):
+                gate.validate_powershell_source(Path("/source"), base, head, record)
+
     def test_role_cache_rejects_source_and_artifact_mutation(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -162,6 +196,78 @@ with gate.campaign_lock(Path(sys.argv[1])):
 
 
 class GateTests(unittest.TestCase):
+    def powershell_synthetic_approval(self):
+        receipts = {}
+        for f in self.m["fixtures"]:
+            lang = f["language"]
+            receipts[lang] = {}
+            for role in ("base", "head"):
+                a = self.admissions[role, lang]
+                o = a["oracle"]
+                o.update(grammar_subdir="src", grammar_patch_identity="none", sources_manifest_sha256=gate.POWERSHELL_W5_POLICY["oracle_sources_sha256"])
+                if lang == "powershell":
+                    o.update(grammar_repo=gate.POWERSHELL_W5_POLICY["oracle_repo"], grammar_commit=gate.POWERSHELL_W5_POLICY["oracle_" + role + "_commit"])
+                    if role == "head":
+                        for cell in a["cells"]:
+                            for step in cell["steps"]:
+                                step["counters"].update(tokens=103, reused_subtrees=97)
+                                if cell["workload"] == "typing": step["counters"]["nodes"] = 103
+                                else: step["counters"]["reused_bytes"] = 970
+                gate.write_json(self.admission_path(role, lang), a)
+                proof = {"schema":"w5-fresh-source-v1", "mode":"committed-parser-no-patch-no-regeneration", "language":lang,
+                         "repo":o["grammar_repo"], "commit":o["grammar_commit"], "subdir":"src", "expected_parser":"src/parser.c", "actual_parser":"src/parser.c",
+                         "parser_sha256":"a"*64, "abi":15, "sources":{"src/parser.c":"a"*64}, "artifact_sha256":o["grammar_artifact_sha256"]}
+                receipts[lang][role] = (None, None, {"oracle":copy.deepcopy(o), "fresh_proof":proof, "compilers":[], "build_env":"env", "image_id":"image"})
+        rows = []
+        for bc, hc in zip(self.admissions["base", "powershell"]["cells"], self.admissions["head", "powershell"]["cells"]):
+            for i, (bs, hs) in enumerate(zip(bc["steps"], hc["steps"])):
+                for key in gate.WORK_COUNTERS + gate.REUSE_COUNTERS:
+                    before, after = bs["counters"][key], hs["counters"][key]
+                    if after < before * .98 if key in gate.REUSE_COUNTERS else after > before * 1.02:
+                        rows.append({"language":"powershell", "workload":bc["workload"], "step":i, "counter":key, "before":before, "after":after})
+        self.assertEqual(len(rows), 63)
+        digest = gate.powershell_rowset_digest(rows)
+        record = dict(gate.POWERSHELL_W5_POLICY, schema="w5-powershell-owner-decision-v1", exception="powershell-command-parameter-b03", owner_approved=True, decision_sha256=gate.POWERSHELL_W5_DECISION_SHA256,
+                      failed_row_count=63, failed_rows_sha256=digest, base=self.base)
+        return receipts, rows, digest, record
+
+    def test_powershell_exception_is_exact_and_fail_closed(self):
+        receipts, rows, row_digest, record = self.powershell_synthetic_approval()
+        approval = {"record":record, "head":self.head}
+        with mock.patch.object(gate, "POWERSHELL_W5_ROWS_SHA256", row_digest), mock.patch.object(gate, "digest", return_value=record["fixture_sha256"]):
+            result = gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=receipts, powershell_approval=approval)
+            self.assertEqual(result["applied_exceptions"], [{"name":"powershell-command-parameter-b03", "row_count":63, "rows_sha256":row_digest}])
+            # Rechecking the same receipt after timing must apply exactly the same set.
+            self.assertEqual(gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=receipts, powershell_approval=approval)["applied_exceptions"], result["applied_exceptions"])
+            for broken in (None, {"record":record, "head":"f"*40}, {"record":dict(record, base="0"*40), "head":self.head}):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output), self.assertRaisesRegex(ValueError, "counter gate failed"):
+                    gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=receipts, powershell_approval=broken)
+                self.assertIn("W5 counter failure rows: 63", output.getvalue())
+            with mock.patch.object(gate, "digest", return_value="0"*64), contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, "counter gate failed"):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=receipts, powershell_approval=approval)
+            for mutation in (lambda rs: rs["powershell"]["head"][2].update(fresh_proof=None),
+                             lambda rs: rs["powershell"]["base"][2]["oracle"].update(grammar_commit="0"*40)):
+                broken = copy.deepcopy(receipts); mutation(broken)
+                with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(ValueError):
+                    gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=broken, powershell_approval=approval)
+            for bad_rows in (rows[:-1], rows+[rows[0]], rows[:-1]+[dict(rows[-1], after=rows[-1]["after"]+1)]):
+                with self.assertRaises(ValueError):
+                    gate.validate_powershell_rows(record, bad_rows, self.manifest, self.out, receipts)
+            with self.assertRaises(ValueError):
+                gate.validate_powershell_rows(record, rows, self.manifest, self.out, None)
+            wrong_manifest = self.out / "wrong-manifest.json"
+            wrong_manifest.write_text("{}")
+            with self.assertRaises(ValueError):
+                gate.validate_powershell_rows(record, rows, wrong_manifest, self.out, receipts)
+            swapped = copy.deepcopy(receipts)
+            swapped["powershell"]["base"], swapped["powershell"]["head"] = swapped["powershell"]["head"], swapped["powershell"]["base"]
+            with self.assertRaises(ValueError):
+                gate.validate_powershell_rows(record, rows, self.manifest, self.out, swapped)
+            with contextlib.redirect_stdout(io.StringIO()):
+                timed = gate.compare_timing(self.out, self.manifest, self.base, self.head, authenticated=receipts, powershell_approval=approval)
+            self.assertEqual(timed["applied_exceptions"], result["applied_exceptions"])
+
     def test_every_counter_failure_is_reported_before_gate_fails(self):
         language = self.m["fixtures"][0]["language"]
         admission = copy.deepcopy(self.admissions["head", language])

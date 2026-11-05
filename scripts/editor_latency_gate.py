@@ -33,6 +33,73 @@ LEDGER_LIMIT = 1.02
 RUNS = 20
 BENCHSTAT_MODULE = "golang.org/x/perf/cmd/benchstat@v0.0.0-20260929162123-406019bb8b68"
 
+# The owner approved only this exact failure multiset, after strict CI
+# reproduced it for the refreshed source pair. This is not a CLI opt-in.
+POWERSHELL_W5_DECISION_SHA256 = "d8aeee00a078043045548dcb0951dbb4447329fa528f5083620a4a00aff67403"
+POWERSHELL_W5_ROWS_SHA256 = "7533831c95279998d53b274c99150fbbbd9d8ac7a324fe0f17c61db93a9d3f02"
+POWERSHELL_W5_POLICY = {
+    "fixture_manifest_sha256": "110352e799c54aced0f169e3852d1f58d6ff7d33abf4412a4cc21842cdf7bd37",
+    "fixture_sha256": "7210a67d7bc3039211067e0a5a9a3731cb340477673fed80b0531d2c0a94c3e2",
+    "oracle_repo": "https://github.com/airbus-cert/tree-sitter-powershell",
+    "oracle_base_commit": "e7bd348c49fdfd5c853a146a670965ba516a6239",
+    "oracle_head_commit": "b03e6b0e39692037a98e37a26f0a969b2c46fbc1",
+    "oracle_subdir": "src", "oracle_runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
+    "oracle_binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
+    "oracle_sources_sha256": "242c4f6b72d2d24421f84a505aa20164e43f144eb6401e876e6d24a167f06f51",
+    "reviewed_patch_id": "08f31d7e49e4085970e13ce69353ad5e9cbcc24d",
+}
+POWERSHELL_W5_RECORD = dict(
+    POWERSHELL_W5_POLICY,
+    schema="w5-powershell-owner-decision-v1", exception="powershell-command-parameter-b03", owner_approved=True,
+    decision_sha256=POWERSHELL_W5_DECISION_SHA256, failed_row_count=63, failed_rows_sha256=POWERSHELL_W5_ROWS_SHA256,
+    base="d0838609c0d0f0c5f6d6fc892183e4f968ec77e7", base_tree="021617ec1d820f5fc9f98455d2efd6c70e377137",
+    reviewed_source="2f271264846e008bc63181a77d5fcfdb71b1b241", reviewed_tree="33ec95c6857b3454286bca00d38ac4e80738ae53",
+    original_evidence="https://github.com/odvcencio/gotreesitter/actions/runs/42095615414/job/127484861358",
+    refreshed_evidence="https://github.com/odvcencio/gotreesitter/actions/runs/42101764132/job/127506220069",
+)
+POWERSHELL_W5_SUCCESSOR_PATHS = frozenset(("scripts/editor_latency_gate.py", "scripts/test_editor_latency_gate.py"))
+
+
+def powershell_rowset_digest(rows):
+    ordered = sorted(rows, key=lambda r: (r["language"], r["workload"], r["step"], r["counter"]))
+    keys = [(r["language"], r["workload"], r["step"], r["counter"]) for r in ordered]
+    require(len(keys) == len(set(keys)), "duplicate PowerShell failure row")
+    return sha(json.dumps(ordered, sort_keys=True, separators=(",", ":")).encode())
+
+
+def validate_powershell_source(root, base, head, record):
+    require(record is not None and record.get("schema") == "w5-powershell-owner-decision-v1" and record.get("exception") == "powershell-command-parameter-b03" and record.get("owner_approved") is True and record.get("decision_sha256") == POWERSHELL_W5_DECISION_SHA256, "PowerShell owner decision missing")
+    require(record.get("failed_row_count") == 63 and record.get("failed_rows_sha256") == POWERSHELL_W5_ROWS_SHA256, "PowerShell owner rowset changed")
+    require(all(record.get(k) == v for k, v in POWERSHELL_W5_POLICY.items()), "PowerShell owner policy changed")
+    require(all(isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value) for value in (base, head, record.get("reviewed_source"), record.get("base_tree"), record.get("reviewed_tree"))), "PowerShell source identity malformed")
+    require(base == record["base"] and git(root, "rev-parse", "HEAD") == head, "PowerShell source pair mismatch")
+    reviewed = record["reviewed_source"]
+    require(git(root, "rev-parse", base + "^{tree}") == record["base_tree"] and git(root, "rev-parse", reviewed + "^{tree}") == record["reviewed_tree"], "PowerShell source tree mismatch")
+    subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", reviewed, head], check=True)
+    lineage = subprocess.check_output(["git", "-C", str(root), "rev-list", "--parents", reviewed + ".." + head]).decode().splitlines()
+    expected = head
+    for line in lineage:
+        commit = line.split()
+        require(len(commit) == 2 and commit[0] == expected, "PowerShell successor history is not linear")
+        changed = subprocess.check_output(["git", "-C", str(root), "diff", "--no-renames", "--name-only", "-z", commit[1], commit[0]]).decode().split("\0")
+        require((set(changed) - {""}) <= POWERSHELL_W5_SUCCESSOR_PATHS, "PowerShell successor changed production inputs")
+        expected = commit[1]
+    require(expected == reviewed, "PowerShell successor history is incomplete")
+    delta = subprocess.check_output(["git", "-C", str(root), "diff", "--binary", "--no-ext-diff", base, reviewed])
+    patch_id = subprocess.check_output(["git", "patch-id", "--stable"], input=delta).decode().split()
+    require(len(patch_id) >= 1 and patch_id[0] == record["reviewed_patch_id"], "PowerShell reviewed patch changed")
+    return record
+
+
+def select_powershell_approval(root, base, head):
+    if POWERSHELL_W5_RECORD is None or base != POWERSHELL_W5_RECORD.get("base"):
+        return None
+    try:
+        record = validate_powershell_source(root, base, head, POWERSHELL_W5_RECORD)
+        return {"record": record, "head": head}
+    except (ValueError, KeyError, subprocess.CalledProcessError):
+        return None
+
 # Owner approval applies only to this source-bound counter row. Strict mode
 # remains the default, and every opt-in requires the pinned decision receipt.
 GO_1512_UNDO_EXCEPTION = "go-one-byte-undo-1512-20261029"
@@ -214,7 +281,26 @@ def verify_fresh_proof(proof, oracle):
     require(proof.get("parser_sha256") == sources[parser], "fresh parser digest mismatch")
 
 
-def compare_counters(out, manifest_path, base_revision, head_revision, exception=None, authenticated=None):
+def validate_powershell_rows(record, rows, manifest_path, out, authenticated):
+    require(record is not None and authenticated is not None, "PowerShell exception requires authenticated private oracles")
+    require(record.get("schema") == "w5-powershell-owner-decision-v1" and record.get("exception") == "powershell-command-parameter-b03" and record.get("owner_approved") is True and record.get("decision_sha256") == POWERSHELL_W5_DECISION_SHA256, "PowerShell owner decision missing")
+    require(all(record.get(k) == v for k, v in POWERSHELL_W5_POLICY.items()), "PowerShell owner policy changed")
+    require(record.get("failed_row_count") == 63 and record.get("failed_rows_sha256") == POWERSHELL_W5_ROWS_SHA256, "PowerShell owner rowset changed")
+    require(sha(Path(manifest_path).read_bytes()) == record["fixture_manifest_sha256"] and digest(out / "fixtures/powershell") == record["fixture_sha256"], "PowerShell fixture identity changed")
+    require(len(rows) == 63 and all(r.get("language") == "powershell" for r in rows) and powershell_rowset_digest(rows) == POWERSHELL_W5_ROWS_SHA256, "PowerShell failure rowset changed")
+    receipts = authenticated["powershell"]
+    for role in ("base", "head"):
+        expected = receipts[role][2]
+        oracle = expected["oracle"]
+        wanted = {"language": "powershell", "grammar_repo": record["oracle_repo"], "grammar_commit": record["oracle_" + role + "_commit"],
+                  "grammar_subdir": record["oracle_subdir"], "grammar_patch_identity": "none", "runtime_commit": record["oracle_runtime_commit"],
+                  "binding_commit": record["oracle_binding_commit"], "sources_manifest_sha256": record["oracle_sources_sha256"]}
+        require(all(oracle.get(k) == v for k, v in wanted.items()), "PowerShell role oracle differs from owner decision")
+        verify_fresh_proof(expected.get("fresh_proof"), oracle)
+    return {"name": "powershell-command-parameter-b03", "row_count": 63, "rows_sha256": POWERSHELL_W5_ROWS_SHA256}
+
+
+def compare_counters(out, manifest_path, base_revision, head_revision, exception=None, authenticated=None, powershell_approval=None):
     m = fixture_manifest(manifest_path)
     manifest_sha = sha(Path(manifest_path).read_bytes())
     changes = []
@@ -269,6 +355,16 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
                         else:
                             failures.append(row)
     require(exception is None or len(applied) == 1, "W5 approved row did not match exactly once")
+    if powershell_approval is not None and exception is None:
+        try:
+            record = powershell_approval["record"]
+            require(record["base"] == base_revision and powershell_approval["head"] == head_revision, "PowerShell source pair mismatch")
+            approved = validate_powershell_rows(record, failures, manifest_path, out, authenticated)
+        except (ValueError, KeyError, TypeError, OSError):
+            approved = None
+        if approved is not None:
+            applied.append(approved)
+            failures = []
     result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "applied_exceptions":applied, "oracles": identities, "semantic_changes": semantic_changes}
     write_json(out / "counters.json", result)
     if failures:
@@ -346,8 +442,8 @@ def sample(rows, benchmark, runtime, metric):
     return statistics.mean(rows[benchmark + "/" + n][metric] / rows[benchmark + "/" + n]["edits/op"] for n in names)
 
 
-def compare_timing(out, manifest_path, base_revision, head_revision, exception=None, authenticated=None):
-    counters = compare_counters(out, manifest_path, base_revision, head_revision, exception, authenticated)
+def compare_timing(out, manifest_path, base_revision, head_revision, exception=None, authenticated=None, powershell_approval=None):
+    counters = compare_counters(out, manifest_path, base_revision, head_revision, exception, authenticated, powershell_approval)
     m = fixture_manifest(manifest_path)
     rows = []
     for f in m["fixtures"]:
@@ -621,6 +717,7 @@ def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receip
     require(not (approved_receipt and approved_b7_receipt), "multiple W5 exceptions are forbidden")
     exception = validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) if approved_receipt else None
     if approved_b7_receipt: exception = validate_b7_undo_exception(root, base_revision, head_revision, approved_b7_receipt)
+    powershell_approval = select_powershell_approval(root, base_revision, head_revision) if private_setting else None
     check_work_exemptions_history(root, base_revision)
     require(not out.exists(), "campaign output already exists; do not overwrite receipts")
     out.mkdir(parents=True)
@@ -718,7 +815,7 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                     run_checked(worker_common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
                 for directory, inputs, expected in receipts.values(): verify_private_oracle(directory, inputs, expected)
                 print("W5 four-way correctness passed:", language, flush=True)
-            compare_counters(out, manifest_path, base_revision, head_revision, exception, private_receipts if private_setting else None)
+            compare_counters(out, manifest_path, base_revision, head_revision, exception, private_receipts if private_setting else None, powershell_approval)
             print("W5 deterministic counter gate passed before timing", flush=True)
             for f in m["fixtures"]:
                 language = f["language"]
@@ -766,9 +863,11 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
         require(validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) == exception, "W5 exception identity changed")
     if approved_b7_receipt:
         require(validate_b7_undo_exception(root, base_revision, head_revision, approved_b7_receipt) == exception, "W5 b7 exception identity changed")
+    if powershell_approval is not None:
+        powershell_approval = select_powershell_approval(root, base_revision, head_revision)
     env["finished"] = load_sample()
     write_json(out / "environment.json", env)
-    result = compare_timing(out, manifest_path, base_revision, head_revision, exception, private_receipts if private_setting else None)
+    result = compare_timing(out, manifest_path, base_revision, head_revision, exception, private_receipts if private_setting else None, powershell_approval)
     require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")
 
 
