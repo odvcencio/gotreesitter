@@ -53,7 +53,7 @@ func TestResetRetainsConfigurationAndArenaCapacity(t *testing.T) {
 	wantLimits := compact.limits
 	wantDiagnostics := compact.diagnostics
 	wantCaps := [...]int{
-		compact.nodes.Capacity(), cap(compact.nodeCheckpoints), cap(compact.links), compact.subtrees.Capacity(),
+		compact.nodes.Capacity(), cap(compact.nodeCheckpoints), compact.links.Cap(), compact.subtrees.Capacity(),
 		cap(compact.externalProvenance),
 		cap(compact.missingLeafProvenance),
 		cap(compact.lexerSkippedPrefixes),
@@ -69,7 +69,7 @@ func TestResetRetainsConfigurationAndArenaCapacity(t *testing.T) {
 		t.Fatalf("reset changed retained configuration: tables=%v limits=%+v diagnostics=%+v", compact.tables == wantTables, compact.limits, compact.diagnostics)
 	}
 	gotCaps := [...]int{
-		compact.nodes.Capacity(), cap(compact.nodeCheckpoints), cap(compact.links), compact.subtrees.Capacity(),
+		compact.nodes.Capacity(), cap(compact.nodeCheckpoints), compact.links.Cap(), compact.subtrees.Capacity(),
 		cap(compact.externalProvenance),
 		cap(compact.missingLeafProvenance),
 		cap(compact.lexerSkippedPrefixes),
@@ -80,8 +80,8 @@ func TestResetRetainsConfigurationAndArenaCapacity(t *testing.T) {
 	if gotCaps != wantCaps {
 		t.Fatalf("reset changed retained capacities: got=%v want=%v", gotCaps, wantCaps)
 	}
-	if compact.nodes.Len() != 0 || len(compact.nodeCheckpoints) != 0 || len(compact.links) != 0 || compact.subtrees.Len() != 0 || len(compact.externalProvenance) != 0 || len(compact.missingLeafProvenance) != 0 || len(compact.lexerSkippedPrefixes) != 0 || len(compact.children) != 0 || len(compact.fields) != 0 || len(compact.aliases) != 0 || compact.boundaries.count != 0 || len(compact.boundaryJournal) != 0 || len(compact.transactions) != 0 {
-		t.Fatalf("reset retained logical state: nodes=%d node_checkpoints=%d links=%d subtrees=%d external_provenance=%d lexer_skipped_prefixes=%d children=%d fields=%d aliases=%d boundaries=%d journal=%d transactions=%d", compact.nodes.Len(), len(compact.nodeCheckpoints), len(compact.links), compact.subtrees.Len(), len(compact.externalProvenance), len(compact.lexerSkippedPrefixes), len(compact.children), len(compact.fields), len(compact.aliases), compact.boundaries.count, len(compact.boundaryJournal), len(compact.transactions))
+	if compact.nodes.Len() != 0 || len(compact.nodeCheckpoints) != 0 || compact.links.Len() != 0 || compact.subtrees.Len() != 0 || len(compact.externalProvenance) != 0 || len(compact.missingLeafProvenance) != 0 || len(compact.lexerSkippedPrefixes) != 0 || len(compact.children) != 0 || len(compact.fields) != 0 || len(compact.aliases) != 0 || compact.boundaries.count != 0 || len(compact.boundaryJournal) != 0 || len(compact.transactions) != 0 {
+		t.Fatalf("reset retained logical state: nodes=%d node_checkpoints=%d links=%d subtrees=%d external_provenance=%d lexer_skipped_prefixes=%d children=%d fields=%d aliases=%d boundaries=%d journal=%d transactions=%d", compact.nodes.Len(), len(compact.nodeCheckpoints), compact.links.Len(), compact.subtrees.Len(), len(compact.externalProvenance), len(compact.lexerSkippedPrefixes), len(compact.children), len(compact.fields), len(compact.aliases), compact.boundaries.count, len(compact.boundaryJournal), len(compact.transactions))
 	}
 	if compact.frontier != 1 || compact.checkpoint != 0 || compact.nextTransaction != 0 || compact.Work() != (Work{}) {
 		t.Fatalf("reset scalar drift: frontier=%d checkpoint=%x next_transaction=%d work=%+v", compact.frontier, compact.checkpoint, compact.nextTransaction, compact.Work())
@@ -118,7 +118,7 @@ func TestResetRejectsNilAndActiveTransactionWithoutMutation(t *testing.T) {
 	if err := compact.ApplyAtomic(func() error {
 		beforeNodes := compact.nodes.snapshotForTest()
 		beforeNodeCheckpoints := append([]CheckpointID(nil), compact.nodeCheckpoints...)
-		beforeLinks := append([]linkRecord(nil), compact.links...)
+		beforeLinks := compact.links.Values()
 		beforeSubtrees := compact.subtrees.snapshotForTest()
 		beforeExternalProvenance := append([]externalPayloadProvenance(nil), compact.externalProvenance...)
 		beforeMissingLeafProvenance := append([]missingLeafProvenance(nil), compact.missingLeafProvenance...)
@@ -136,7 +136,7 @@ func TestResetRejectsNilAndActiveTransactionWithoutMutation(t *testing.T) {
 		if err := compact.Reset(); err == nil {
 			t.Fatal("reset during active transaction unexpectedly succeeded")
 		}
-		if !reflect.DeepEqual(compact.nodes.snapshotForTest(), beforeNodes) || !reflect.DeepEqual(compact.nodeCheckpoints, beforeNodeCheckpoints) || !reflect.DeepEqual(compact.links, beforeLinks) || !reflect.DeepEqual(compact.subtrees.snapshotForTest(), beforeSubtrees) || !reflect.DeepEqual(compact.externalProvenance, beforeExternalProvenance) || !reflect.DeepEqual(compact.missingLeafProvenance, beforeMissingLeafProvenance) || !reflect.DeepEqual(compact.lexerSkippedPrefixes, beforeLexerSkippedPrefixes) || !reflect.DeepEqual(compact.children, beforeChildren) || !reflect.DeepEqual(compact.fields, beforeFields) || !reflect.DeepEqual(compact.aliases, beforeAliases) || !reflect.DeepEqual(compact.boundaries.logicalMap(), beforeBoundaries) || !reflect.DeepEqual(compact.boundaries.snapshot(), beforeBoundaryIndex) || !reflect.DeepEqual(compact.boundaryJournal, beforeJournal) || !reflect.DeepEqual(compact.transactions, beforeTransactions) || compact.frontier != beforeFrontier || compact.checkpoint != beforeCheckpoint || compact.nextTransaction != beforeNext || compact.work != beforeWork {
+		if !reflect.DeepEqual(compact.nodes.snapshotForTest(), beforeNodes) || !reflect.DeepEqual(compact.nodeCheckpoints, beforeNodeCheckpoints) || !reflect.DeepEqual(compact.links.Values(), beforeLinks) || !reflect.DeepEqual(compact.subtrees.snapshotForTest(), beforeSubtrees) || !reflect.DeepEqual(compact.externalProvenance, beforeExternalProvenance) || !reflect.DeepEqual(compact.missingLeafProvenance, beforeMissingLeafProvenance) || !reflect.DeepEqual(compact.lexerSkippedPrefixes, beforeLexerSkippedPrefixes) || !reflect.DeepEqual(compact.children, beforeChildren) || !reflect.DeepEqual(compact.fields, beforeFields) || !reflect.DeepEqual(compact.aliases, beforeAliases) || !reflect.DeepEqual(compact.boundaries.logicalMap(), beforeBoundaries) || !reflect.DeepEqual(compact.boundaries.snapshot(), beforeBoundaryIndex) || !reflect.DeepEqual(compact.boundaryJournal, beforeJournal) || !reflect.DeepEqual(compact.transactions, beforeTransactions) || compact.frontier != beforeFrontier || compact.checkpoint != beforeCheckpoint || compact.nextTransaction != beforeNext || compact.work != beforeWork {
 			t.Fatal("rejected active reset mutated compact state")
 		}
 		if state, offset, err := compact.Boundary(seed); err != nil || state != 1 || offset != 0 {

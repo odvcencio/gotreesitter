@@ -18,6 +18,7 @@ type gateWorkflow struct {
 		Needs  yaml.Node `yaml:"needs"`
 		RunsOn string    `yaml:"runs-on"`
 		Steps  []struct {
+			Uses string            `yaml:"uses"`
 			Env  map[string]string `yaml:"env"`
 			With map[string]string `yaml:"with"`
 			Run  string            `yaml:"run"`

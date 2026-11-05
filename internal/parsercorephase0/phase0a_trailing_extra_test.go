@@ -284,7 +284,7 @@ func TestPhase0ATrailingExtraMigrationResolvesNestedFactorChoice(t *testing.T) {
 		t.Fatalf("source links=%v ok=%t", sourceLinks, ok)
 	}
 	sourceLink := sourceLinks[0]
-	lowerNode := core.links[sourceLink-1].prev
+	lowerNode := core.links.At(int(sourceLink - 1)).prev
 	lowerLinks, ok := phase0AStableLinkIDs(core, lowerNode)
 	if !ok || len(lowerLinks) != 1 {
 		t.Fatalf("lower links=%v ok=%t", lowerLinks, ok)

@@ -76,6 +76,9 @@ const (
 // It uses ref counting so trees that borrow reused subtrees can keep arena
 // memory alive safely until all dependent trees are released.
 type nodeArena struct {
+	views            nodeViewBacking
+	viewArena        bool
+	viewNodeLimit    int
 	ownership        incr.Ownership
 	class            arenaClass
 	nodes            []Node
@@ -520,6 +523,8 @@ func (p *nodeArenaPool) drain() {
 func DrainArenaPools() {
 	incrementalArenaPool.drain()
 	fullArenaPool.drain()
+	nodeViewArenaPool.drain()
+	drainNodeViewBackings()
 }
 
 func nodeCapacityForBytes(slabBytes int) int {
@@ -584,15 +589,27 @@ func (a *nodeArena) Release() {
 	if a.refs.Add(-1) != 0 {
 		return
 	}
+	if a.views != nil {
+		a.views.release()
+		a.views = nil
+	}
 	// Eviction guard must fire BEFORE reset(). reset() calls recomputeAllocatedBytes()
 	// which overwrites allocatedBytes with the post-trim retained value (~1-15 MB).
 	// Checking after reset() means an arena that grew to hundreds of MB during a
 	// large parse would report a small retained size and slip back into the pool.
 	if a.class == arenaClassFull && a.allocatedBytes > maxRetainedFullArenaBytes {
-		discardRejectedFullArena(a)
+		if a.viewArena {
+			nodeViewArenaPool.discard(a)
+		} else {
+			discardRejectedFullArena(a)
+		}
 		return // drop; GC collects the backing arrays without reset overhead
 	}
 	a.reset()
+	if a.viewArena {
+		nodeViewArenaPool.release(a)
+		return
+	}
 	switch a.class {
 	case arenaClassIncremental:
 		incrementalArenaPool.release(a)
@@ -634,7 +651,9 @@ func (a *nodeArena) reset() {
 	a.fieldSlabCursor = 0
 	a.fieldSourceSlabCursor = 0
 	a.trimPrimaryNodeCapacity()
-	a.ensureDefaultSliceSlabs()
+	if !a.viewArena {
+		a.ensureDefaultSliceSlabs()
+	}
 	a.clearBudget()
 	// Reset the intern observation tables between parses. Both are
 	// allocated lazily on first observation hit when observation is on.
@@ -1206,6 +1225,12 @@ func (a *nodeArena) allocNodeFast() *Node {
 func (a *nodeArena) allocNodeSlow() *Node {
 	if len(a.nodeSlabs) == 0 {
 		capacity := max(nodeCapacityForClass(a.class), minArenaNodeCap)
+		if a.viewArena {
+			capacity = minArenaNodeCap
+			if remaining := a.viewNodeLimit - a.used; remaining > 0 {
+				capacity = min(capacity, remaining)
+			}
+		}
 		a.nodeSlabs = append(a.nodeSlabs, nodeSlab{data: make([]Node, capacity)})
 		a.allocatedBytes += nodeBytesForCap(capacity)
 		a.nodeSlabCursor = 0
@@ -1217,6 +1242,11 @@ func (a *nodeArena) allocNodeSlow() *Node {
 		if i >= len(a.nodeSlabs) {
 			lastCap := len(a.nodeSlabs[len(a.nodeSlabs)-1].data)
 			capacity := boundedNextSlabCap(lastCap, minArenaNodeCap, int(unsafe.Sizeof(Node{})))
+			if a.viewArena {
+				if remaining := a.viewNodeLimit - a.used; remaining > 0 {
+					capacity = min(capacity, remaining)
+				}
+			}
 			a.nodeSlabs = append(a.nodeSlabs, nodeSlab{data: make([]Node, capacity)})
 			a.allocatedBytes += nodeBytesForCap(capacity)
 		}
@@ -1587,6 +1617,7 @@ func (a *nodeArena) allocNodeSliceInternal(n int, clearOut bool) []*Node {
 
 	if len(a.childSlabs) == 0 {
 		a.childSlabs = append(a.childSlabs, childSliceSlab{data: make([]*Node, defaultChildSliceCap(a.class))})
+		a.allocatedBytes += childSliceBytesForCap(defaultChildSliceCap(a.class))
 		a.childSlabCursor = 0
 	}
 	if a.childSlabCursor < 0 || a.childSlabCursor >= len(a.childSlabs) {
@@ -1634,6 +1665,7 @@ func (a *nodeArena) allocFieldIDSlice(n int) []FieldID {
 
 	if len(a.fieldSlabs) == 0 {
 		a.fieldSlabs = append(a.fieldSlabs, fieldSliceSlab{data: make([]FieldID, defaultFieldSliceCap(a.class))})
+		a.allocatedBytes += fieldSliceBytesForCap(defaultFieldSliceCap(a.class))
 		a.fieldSlabCursor = 0
 	}
 	if a.fieldSlabCursor < 0 || a.fieldSlabCursor >= len(a.fieldSlabs) {
@@ -1959,7 +1991,12 @@ func (a *nodeArena) recomputeAllocatedBytes() {
 	if a == nil {
 		return
 	}
+	viewBytes := int64(0)
+	if a.views != nil {
+		viewBytes = int64(a.views.retainedBytes())
+	}
 	total := a.nodeStructBytesAllocated() +
+		viewBytes +
 		a.nodeFieldMetadataBytesAllocated() +
 		a.noTreeNodeBytesAllocated() +
 		a.compactFullLeafBytesAllocated() +

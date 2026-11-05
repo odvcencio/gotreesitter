@@ -293,13 +293,25 @@ func TestAncestorStateWithActionExistsPreservesSilentVisitedCap(t *testing.T) {
 	})
 	compact.nodes = nodeBlocksFromSliceForTest(make([]nodeRecord, predecessorCount+1))
 	compact.nodeLineages = make([]nodeLineageHot, predecessorCount+1)
-	compact.links = make([]linkRecord, predecessorCount)
+	compact.links = makeLinkRecordStorage(predecessorCount, predecessorCount)
 	compact.subtrees = subtreeBlocksFromSliceForTest([]subtreeRecord{{terminal: true}})
-	for index := range compact.links {
-		compact.links[index].prev = NodeID(index + 1)
-		compact.links[index].payload = 1
-		if index+1 < len(compact.links) {
-			compact.links[index].next = LinkID(index + 2)
+	for index := range compact.links.Len() {
+		{
+			linkStorageMutation := compact.links.At(int(index))
+			linkStorageMutation.prev = NodeID(index + 1)
+			compact.links.Set(int(index), linkStorageMutation)
+		}
+		{
+			linkStorageMutation := compact.links.At(int(index))
+			linkStorageMutation.payload = 1
+			compact.links.Set(int(index), linkStorageMutation)
+		}
+		if index+1 < compact.links.Len() {
+			{
+				linkStorageMutation := compact.links.At(int(index))
+				linkStorageMutation.next = LinkID(index + 2)
+				compact.links.Set(int(index), linkStorageMutation)
+			}
 		}
 	}
 	head := Head{Node: predecessorCount + 1}

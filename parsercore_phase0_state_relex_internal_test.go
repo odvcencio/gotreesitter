@@ -3,9 +3,11 @@
 package gotreesitter
 
 import (
+	"bytes"
 	"testing"
 	"unsafe"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
@@ -700,5 +702,131 @@ func TestNegativeRelexMemoRejectsFullWidthOutOfRangeState(t *testing.T) {
 		if !before.equal(&after) {
 			t.Fatal("invalid state changed the source")
 		}
+	}
+}
+
+func TestCompactRelexRecordsGlobalReads(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		accept Symbol
+		shared Symbol
+		want   bool
+	}{{"success", 2, 3, true}, {"noop", 2, 2, false}, {"failed", 0, 3, false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			source := []byte("xy")
+			states := []LexState{{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'x', Hi: 'x', NextState: 1}}}, {Default: -1, EOF: -1, AcceptToken: tc.accept}}
+			lang := &Language{LexStates: states, LexModes: []LexMode{{LexState: 0}}}
+			d := newDFATokenSourceDirect(NewLexer(states, source), lang, func(StateID, Symbol) uint16 { return 1 }, nil, nil, nil)
+			defer d.Close()
+			reads := incr.NewReads(len(source))
+			d.lexer.reuseReads = reads
+			snap := d.snapshotRelexState()
+			tok := Token{Symbol: tc.shared, StartByte: 0, EndByte: 1}
+			_, ok := (&diagnosticParserCoreGenericScheduler{tokenSource: d}).relexTokenForState(0, tok)
+			if ok != tc.want {
+				t.Fatalf("relex success=%v want=%v", ok, tc.want)
+			}
+			snap.restore(d)
+			reads.Seal()
+			if _, ok := reads.Lookahead(1); !ok {
+				t.Fatal("probe absent from global read history after restore")
+			}
+		})
+	}
+}
+
+func TestCompactNegativeMemoKeepsRecordedHistory(t *testing.T) {
+	f := loadDiagnosticParserCoreCanonicalFixture(t, "rewrite")
+	r, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, src, err := r.executeSchedulerOpen(f.Source, r.compact, true)
+	if src != nil {
+		defer src.Close()
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := s.tokenSource
+	offset := bytes.Index(f.Source, []byte("package"))
+	if offset <= 0 {
+		offset = bytes.Index(f.Source, []byte("func"))
+	}
+	if offset <= 0 {
+		t.Fatal("fixture has no noninitial identifier")
+	}
+	row := uint32(bytes.Count(f.Source[:offset], []byte("\n")))
+	lastNewline := bytes.LastIndexByte(f.Source[:offset], '\n')
+	col := uint32(offset - lastNewline - 1)
+	state := -1
+	var reads *incr.Reads
+	var span uint32
+	var before dfaRelexSnapshot
+	original := d.snapshotRelexState()
+	for i, mode := range d.language.LexModes {
+		valid := false
+		for _, v := range d.language.ExternalLexStates[mode.ExternalLexState] {
+			valid = valid || v
+		}
+		if !valid {
+			continue
+		}
+		original.restore(d)
+		d.lexer.pos, d.lexer.row, d.lexer.col = offset, row, col
+		d.SetParserState(StateID(i))
+		d.SetGLRStates(nil)
+		d.lexer.reuseReads = nil
+		s.versionLexerBefore = d.snapshotRelexState()
+		s.token = d.Next()
+		if int(s.token.StartByte) != offset || s.token.EndByte <= s.token.StartByte {
+			continue
+		}
+		before = d.snapshotRelexState()
+		s.negativeRelexMemo.Clear()
+		reads = incr.NewReads(len(f.Source))
+		d.lexer.reuseReads = reads
+		d.tokenInvariantMaxReadSpan = 0
+		_, ok := s.relexExternalTokenForState(StateID(i), s.token)
+		v, _, hit := s.negativeRelexMemo.Lookup(core.StateID(i), s.token.StartByte)
+		if !ok && hit && v > 0 {
+			state = i
+			span = v
+			break
+		}
+	}
+
+	if state < 0 {
+		t.Fatal("no scanner-enabled parser state")
+	}
+	s.negativeRelexMemo.Clear()
+	reads = incr.NewReads(len(f.Source))
+	d.lexer.reuseReads = reads
+	d.tokenInvariantMaxReadSpan = 0
+	_, ok := s.relexExternalTokenForState(StateID(state), s.token)
+	firstSpan, _, hit := s.negativeRelexMemo.Lookup(core.StateID(state), s.token.StartByte)
+	if ok || !hit || firstSpan != span {
+		t.Fatal("fresh negative probe did not install expected memo")
+	}
+	reads.Seal()
+	first, known := reads.Lookahead(s.token.StartByte)
+	if !known {
+		t.Fatal("original scanning probe absent")
+	}
+	d.tokenInvariantMaxReadSpan = 0
+	_, ok = s.relexExternalTokenForState(StateID(state), s.token)
+	if ok || d.tokenInvariantMaxReadSpan != span {
+		t.Fatal("memo did not replay negative probe frontier")
+	}
+	if !reads.ValidForSource(len(f.Source)) {
+		t.Fatal("memo hit performed another scan")
+	}
+	second, known := reads.Lookahead(s.token.StartByte)
+	if !known || first != second {
+		t.Fatal("memo hit changed original read history")
+	}
+	after := d.snapshotRelexState()
+	if !before.equal(&after) {
+		t.Fatal("probe changed lexer state")
 	}
 }

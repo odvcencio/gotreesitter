@@ -98,7 +98,11 @@ func TestSoleDerivationSummaryPreservesErrorOrder(t *testing.T) {
 					linkRecord{prev: prefix.Node, payload: 44, scoreDelta: 1},
 					linkRecord{prev: cycle.Node, payload: 55})
 				if name == "parent_adjacency_before_child_overflow" {
-					c.links[(*c.nodes.At(int(head.Node - 1))).firstLink-1].flags = math.MaxUint32
+					{
+						linkStorageMutation := c.links.At(int((*c.nodes.At(int(head.Node - 1))).firstLink - 1))
+						linkStorageMutation.flags = math.MaxUint32
+						c.links.Set(int((*c.nodes.At(int(head.Node - 1))).firstLink-1), linkStorageMutation)
+					}
 					want = "link has unknown flags"
 				}
 			}
@@ -193,22 +197,26 @@ func TestSoleDerivationSummaryHasNoPersistentState(t *testing.T) {
 		c.work = Work{Shifts: 7, Reductions: 11, Overflow: true}
 		beforeWork := c.Work()
 		beforeNodes := c.nodes.snapshotForTest()
-		beforeLinks := append([]linkRecord(nil), c.links...)
+		beforeLinks := c.links.Values()
 		for repeat := 0; repeat < 2; repeat++ {
 			compareSoleDerivation(t, c, head)
 		}
-		if c.Work() != beforeWork || !reflect.DeepEqual(c.nodes.snapshotForTest(), beforeNodes) || !reflect.DeepEqual(c.links, beforeLinks) {
+		if c.Work() != beforeWork || !reflect.DeepEqual(c.nodes.snapshotForTest(), beforeNodes) || !reflect.DeepEqual(c.links.Values(), beforeLinks) {
 			t.Fatal("derivation reads changed the graph or work counters")
 		}
 		// Reuse the same head after changing its graph and then repairing it.
 		last := (*c.nodes.At(int(head.Node - 1))).firstLink - 1
-		saved := c.links[last]
-		c.links[last].prev = head.Node
+		saved := c.links.At(int(last))
+		{
+			linkStorageMutation := c.links.At(int(last))
+			linkStorageMutation.prev = head.Node
+			c.links.Set(int(last), linkStorageMutation)
+		}
 		_, _, err = compareSoleDerivation(t, c, head)
 		if err == nil || !strings.Contains(err.Error(), "graph cycle") {
 			t.Fatalf("mutated graph error=%v", err)
 		}
-		c.links[last] = saved
+		c.links.Set(int(last), saved)
 		compareSoleDerivation(t, c, head)
 		c.limits.MaxDerivations = 1
 		compareSoleDerivation(t, c, head)

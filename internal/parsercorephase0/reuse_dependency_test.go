@@ -24,7 +24,11 @@ func TestSoleHeadPayloadAuthenticatesBoundary(t *testing.T) {
 		t.Fatal("ambiguous frontier was authenticated")
 	}
 	setNodePathCountForTest(c, head.Node, 1)
-	c.links[n.firstLink-1].payload = 0
+	{
+		linkStorageMutation := c.links.At(int(n.firstLink - 1))
+		linkStorageMutation.payload = 0
+		c.links.Set(int(n.firstLink-1), linkStorageMutation)
+	}
 	if _, err := c.SoleHeadPayload(head); err == nil {
 		t.Fatal("absent payload was authenticated")
 	}

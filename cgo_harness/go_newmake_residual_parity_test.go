@@ -101,26 +101,37 @@ func TestGoNewMakeResidualParity(t *testing.T) {
 	if err := cParser.SetLanguage(cLang); err != nil {
 		t.Fatalf("set C language: %v", err)
 	}
-	goParser := gts.NewParser(goLang)
+	for _, candidate := range []bool{false, true} {
+		t.Run(fmt.Sprintf("candidate=%t", candidate), func(t *testing.T) {
+			goParser := gts.NewParser(goLang)
+			goParser.SetAdmissionCandidateRoute(candidate)
 
-	for _, form := range forms {
-		t.Run(form, func(t *testing.T) {
-			src := []byte("package p\n\nfunc f() {\n\t_ = " + form + "\n}\n")
+			for _, form := range forms {
+				t.Run(form, func(t *testing.T) {
+					src := []byte("package p\n\nfunc f() {\n\t_ = " + form + "\n}\n")
 
-			cTree := cParser.Parse(src, nil)
-			defer cTree.Close()
-			var cb strings.Builder
-			nmCSExpr(cTree.RootNode(), src, &cb, 0, "")
+					cTree := cParser.Parse(src, nil)
+					defer cTree.Close()
+					var cb strings.Builder
+					nmCSExpr(cTree.RootNode(), src, &cb, 0, "")
 
-			goTree, err := goParser.Parse(src)
-			if err != nil {
-				t.Fatalf("go parse: %v", err)
-			}
-			var gb strings.Builder
-			nmGoSExpr(goTree.RootNode(), goLang, src, &gb, 0, "")
+					gts.ResetAdmissionCandidateCounters()
+					goTree, err := goParser.Parse(src)
+					if err != nil {
+						t.Fatalf("go parse: %v", err)
+					}
+					defer goTree.Release()
+					if candidate {
+						routed, fallback := gts.AdmissionCandidateCounters()
+						t.Logf("compact=%d fallback=%d reason=%q", routed, fallback, gts.AdmissionCandidateLastFallbackReason())
+					}
+					var gb strings.Builder
+					nmGoSExpr(goTree.RootNode(), goLang, src, &gb, 0, "")
 
-			if cb.String() != gb.String() {
-				t.Fatalf("PARITY MISMATCH for %q\n=== C ORACLE ===\n%s\n=== GOTREESITTER ===\n%s", form, cb.String(), gb.String())
+					if cb.String() != gb.String() {
+						t.Fatalf("PARITY MISMATCH for %q\n=== C ORACLE ===\n%s\n=== GOTREESITTER ===\n%s", form, cb.String(), gb.String())
+					}
+				})
 			}
 		})
 	}

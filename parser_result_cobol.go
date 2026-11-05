@@ -1161,7 +1161,10 @@ func normalizeCobolProcedureIfHeaderExecCICSClassErrors(proc *Node, source []byt
 }
 
 func normalizeCobolIfHeaderExecCICSClassError(header *Node, source []byte, lang *Language) bool {
-	if header == nil || header.hasError() || int(header.endByte) > len(source) {
+	if header == nil || int(header.endByte) > len(source) {
+		return false
+	}
+	if header.hasError() && !cobolRetainedMissingExecCICSClassHeader(header, source, lang) {
 		return false
 	}
 	execStart, cicsStart, cicsEnd, ok := cobolIfHeaderExecCICSBounds(header, source)
@@ -1197,6 +1200,7 @@ func normalizeCobolIfHeaderExecCICSClassError(header *Node, source []byte, lang 
 	execEnd := execStart + uint32(len("EXEC"))
 	err := newLeafNodeInArena(header.ownerArena, errorSymbol, true, execStart, execEnd, advancePointByBytes(Point{}, source[:execStart]), advancePointByBytes(Point{}, source[:execEnd]))
 	err.setHasError(true)
+	err.setExtra(true)
 	cicsWord := newLeafNodeInArena(header.ownerArena, wordSym, symbolIsNamed(lang, wordSym), cicsStart, cicsEnd, advancePointByBytes(Point{}, source[:cicsStart]), advancePointByBytes(Point{}, source[:cicsEnd]))
 	var isClassFieldIDs []FieldID
 	if hasXField && hasClassField {
@@ -1665,7 +1669,7 @@ func normalizeCobolRecoveredTailErrorChildren(tail *Node, source []byte, lang *L
 			out = cobolAppendCommentEntryMarkers(out, tail.ownerArena, source, cursor, child.startByte, commentEntrySym, commentEntryNamed)
 			cursor = child.startByte
 		}
-		if child.IsError() || child.HasError() {
+		if child.IsError() || (child.HasError() && !cobolRetainedMissingExecCICSClassHeader(child, source, lang)) {
 			out = cobolAppendCommentEntryMarkers(out, tail.ownerArena, source, cursor, child.endByte, commentEntrySym, commentEntryNamed)
 			cursor = child.endByte
 			continue
@@ -2394,4 +2398,89 @@ func cobolClearErrorFlags(n *Node) {
 
 func cobolRefreshHasErrorFromChildren(n *Node) {
 	resultRefreshHasErrorFromChildren(n)
+}
+
+// cobolRetainedMissingExecCICSClassHeader certifies only the ambiguous
+// condition/EXEC class shape joined to a trailing expression by an inserted,
+// zero-width AND. Hidden MISSING evidence does not make this public header an
+// arbitrary recovery error to erase. Real public ERROR/MISSING stays excluded.
+func cobolRetainedMissingExecCICSClassHeader(header *Node, source []byte, lang *Language) bool {
+	if header == nil || lang == nil || header.IsExtra() || header.IsError() || header.IsMissing() ||
+		!header.hasError() || header.Type(lang) != "if_header" || resultChildCount(header) != 1 {
+		return false
+	}
+	execStart, cicsStart, cicsEnd, ok := cobolIfHeaderExecCICSBounds(header, source)
+	if !ok {
+		return false
+	}
+	expr := resultChildAt(header, 0)
+	if expr == nil || expr.Type(lang) != "expr" || resultChildCount(expr) != 3 {
+		return false
+	}
+	prefix, conjunction, suffix := resultChildAt(expr, 0), resultChildAt(expr, 1), resultChildAt(expr, 2)
+	if prefix == nil || prefix.Type(lang) != "expr" || resultChildCount(prefix) != 1 ||
+		conjunction == nil || conjunction.Type(lang) != "AND" || !conjunction.hasError() ||
+		conjunction.startByte != conjunction.endByte || conjunction.startByte != cicsStart ||
+		suffix == nil || suffix.Type(lang) != "expr" {
+		return false
+	}
+	class := resultChildAt(prefix, 0)
+	if class == nil || class.Type(lang) != "is_class" || resultChildCount(class) != 2 {
+		return false
+	}
+	condition, word := resultChildAt(class, 0), resultChildAt(class, 1)
+	if condition == nil || condition.Type(lang) != "qualified_word" || condition.IsExtra() ||
+		condition.startByte < header.startByte || condition.endByte <= condition.startByte || condition.endByte > execStart ||
+		word == nil || word.Type(lang) != "WORD" || word.startByte != execStart || word.endByte != execStart+uint32(len("EXEC")) {
+		return false
+	}
+	if prefix.startByte != condition.startByte || prefix.endByte != word.endByte ||
+		class.startByte != condition.startByte || class.endByte != word.endByte ||
+		expr.startByte != condition.startByte || expr.endByte != header.endByte || suffix.endByte != expr.endByte {
+		return false
+	}
+	// The parser classified EXEC as the first class's WORD, inserted a
+	// hidden MISSING conjunction at CICS, and started a second expression
+	// with CICS. Trace-proven suffixes are either that qualified_word alone
+	// or a class containing it plus the following WORD (for example LINK).
+	if resultChildCount(suffix) != 1 || suffix.startByte != cicsStart {
+		return false
+	}
+	cics := resultChildAt(suffix, 0)
+	if cics != nil && cics.Type(lang) == "is_class" {
+		if resultChildCount(cics) != 2 {
+			return false
+		}
+		tailWord := resultChildAt(cics, 1)
+		if tailWord == nil || tailWord.Type(lang) != "WORD" || tailWord.startByte < cicsEnd {
+			return false
+		}
+		cics = resultChildAt(cics, 0)
+	}
+	if cics == nil || cics.Type(lang) != "qualified_word" || cics.IsExtra() ||
+		cics.startByte != cicsStart || cics.endByte != cicsEnd {
+		return false
+	}
+	if cobolPublicClassHeaderHasErrorOrMissing(header, 0) {
+		return false
+	}
+	if conjunction.ownerArena == nil || !rawShapeRefIsArenaBacked(conjunction.rawShape) {
+		return false
+	}
+	return retainedHiddenMissingFlags(conjunction, lang, conjunction.ownerArena)
+}
+
+func cobolPublicClassHeaderHasErrorOrMissing(n *Node, depth int) bool {
+	if n == nil {
+		return false
+	}
+	if n.IsError() || n.IsMissing() || depth >= maxTreeWalkDepth {
+		return true
+	}
+	for i := 0; i < resultChildCount(n); i++ {
+		if cobolPublicClassHeaderHasErrorOrMissing(resultChildAt(n, i), depth+1) {
+			return true
+		}
+	}
+	return false
 }

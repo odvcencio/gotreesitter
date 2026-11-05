@@ -201,7 +201,7 @@ func ImportGrammarJSON(data []byte) (*Grammar, error) {
 	}
 
 	// Import reserved word sets in source order. The first set is the global
-	// reserved set in tree-sitter's grammar.json format.
+	// reserved set and applies even when no production uses a RESERVED wrapper.
 	for _, name := range raw.reservedOrder {
 		members := raw.Reserved[name]
 		rules := make([]*Rule, 0, len(members))
@@ -220,20 +220,6 @@ func ImportGrammarJSON(data []byte) (*Grammar, error) {
 
 	// Import supertypes.
 	g.Supertypes = raw.Supertypes
-
-	// Reserved word sets are only meaningful when productions actually use
-	// per-context RESERVED wrappers. In tree-sitter's semantic, without any
-	// RESERVED usage every production step gets the default reserved_word_set_id,
-	// which results in no per-state filtering at runtime. Our generator's
-	// buildReservedWordTables currently applies the global reserved set more
-	// aggressively than tree-sitter would (treating it as a universal filter),
-	// which breaks grammars like Go where all reserved words are hard keywords
-	// handled directly by the LR grammar. Drop the sets when no RESERVED node
-	// was encountered so the runtime path falls back to the default (no filter)
-	// behavior that matches the DSL-built language.
-	if !conv.sawReservedNode {
-		g.ReservedWordSets = nil
-	}
 
 	applyImportGrammarPostShapeHints(g)
 
@@ -427,8 +413,7 @@ type jsonRuleNode struct {
 
 // jsonConverter holds context for converting grammar.json rules.
 type jsonConverter struct {
-	namedPrecs      map[string]int // named precedence → numeric value
-	sawReservedNode bool           // tracks whether any RESERVED wrapper was encountered
+	namedPrecs map[string]int // named precedence → numeric value
 }
 
 // convertRule converts a grammar.json rule node to a Grammar Rule.
@@ -543,11 +528,9 @@ func (c *jsonConverter) convertRule(data json.RawMessage) (*Rule, error) {
 		return Alias(child, val, node.Named), nil
 
 	case "RESERVED":
-		// RESERVED wraps a rule with context-dependent keyword reservation.
-		// We unwrap it — the structural grammar encodes the context, and our
-		// runtime parser handles keyword promotion separately. We track this
-		// so we can tell whether per-context reserved sets are actually used.
-		c.sawReservedNode = true
+		// Keep the existing structural unwrapping of context-specific RESERVED
+		// nodes. This IR does not retain a per-production reserved-set choice;
+		// explicit global reserved words are imported independently above.
 		child, err := c.convertRule(node.Content)
 		if err != nil {
 			return nil, fmt.Errorf("RESERVED: %w", err)

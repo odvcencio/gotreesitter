@@ -4432,7 +4432,7 @@
     },
     {
       "grammar": "go",
-      "blob_sha256": "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d",
+      "blob_sha256": "9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4",
       "states": 1507,
       "token_count": 95,
       "symbol_count": 229,
@@ -4482,7 +4482,7 @@
       "sparse_blocks": 1193,
       "bytes_per_state": 165.18646317186463,
       "expect_ext_states": 725,
-      "expect_kw_states": 0
+      "expect_kw_states": 1506
     },
     {
       "grammar": "godot_resource",
