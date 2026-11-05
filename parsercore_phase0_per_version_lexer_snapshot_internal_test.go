@@ -1334,17 +1334,19 @@ func TestDiagnosticParserCoreVersionLexerCoallocatedStorageBudgetAndGeneration(t
 			if err != nil || snapshot == nil {
 				t.Fatalf("construct snapshot: %v", err)
 			}
-			if !reflect.DeepEqual(snapshot.dfa, wantDFA) {
+			logicalDFA := snapshot.dfa
+			logicalDFA.extZeroTried = snapshot.triedMask.Restore(nil)
+			if !reflect.DeepEqual(logicalDFA, wantDFA) {
 				t.Fatal("coallocation changed captured DFA values")
 			}
 			reserved := 32
 			if payloadSize > 32 {
 				reserved = 64
 			}
-			if cap(snapshot.dfa.externalPayload)+cap(snapshot.dfa.externalTokenStart)+cap(snapshot.dfa.externalTokenEnd) != reserved || cap(snapshot.dfa.extZeroTried) != 128 {
+			if cap(snapshot.dfa.externalPayload)+cap(snapshot.dfa.externalTokenStart)+cap(snapshot.dfa.externalTokenEnd) != reserved || snapshot.triedMask.Len() != 113 || snapshot.dfa.extZeroTried != nil {
 				t.Fatal("snapshot did not retain all reserved storage in its field capacities")
 			}
-			wantFootprint := uint64(unsafe.Sizeof(*snapshot)) + uint64(unsafe.Sizeof(*snapshot.metadata)) + uint64(reserved+128+cap(snapshot.beforeCheckpointBytes)+cap(snapshot.afterCheckpointBytes))
+			wantFootprint := uint64(unsafe.Sizeof(*snapshot)) + uint64(unsafe.Sizeof(*snapshot.metadata)) + uint64(reserved+cap(snapshot.beforeCheckpointBytes)+cap(snapshot.afterCheckpointBytes))
 			if got := diagnosticParserCoreVersionLexerSnapshotFootprintBytes(snapshot); got != wantFootprint {
 				t.Fatalf("snapshot footprint %d, want reserved storage %d", got, wantFootprint)
 			}
@@ -1353,8 +1355,12 @@ func TestDiagnosticParserCoreVersionLexerCoallocatedStorageBudgetAndGeneration(t
 				t.Fatal("independent clone changed snapshot identity")
 			}
 			dfa.externalPayload[0], dfa.extZeroTried[0] = 0, false
-			clone.dfa.externalTokenEnd[0], clone.dfa.extZeroTried[112] = 0, false
-			if snapshot.dfa.externalPayload[0] != 0x11 || snapshot.dfa.externalTokenEnd[0] != 0x41 || !snapshot.dfa.extZeroTried[0] || !snapshot.dfa.extZeroTried[112] {
+			clone.dfa.externalTokenEnd[0] = 0
+			clonedMask := clone.triedMask.Restore(nil)
+			clonedMask[112] = false
+			clone.triedMask, _ = core.PackScannerTrialMask(clonedMask)
+			originalMask := snapshot.triedMask.Restore(nil)
+			if snapshot.dfa.externalPayload[0] != 0x11 || snapshot.dfa.externalTokenEnd[0] != 0x41 || !originalMask[0] || !originalMask[112] {
 				t.Fatal("coallocated source or clone storage aliases the original snapshot")
 			}
 			if err := compact.Reset(); err != nil {
@@ -1513,4 +1519,216 @@ func TestSnapshotPairFootprintMultiplePagesInPointerOrder(t *testing.T) {
 	if delta := diagnosticParserCoreSchedulerFootprintBytes(live) - diagnosticParserCoreSchedulerFootprintBytes(empty); delta != expected {
 		t.Fatalf("page accounting=%d want=%d", delta, expected)
 	}
+}
+
+func TestPackedSnapshotTrialIdentityUsesOnlyActiveCache(t *testing.T) {
+	trials := make([]bool, 113)
+	trials[0] = true
+	mask, _ := core.PackScannerTrialMask(trials)
+	left := &diagnosticParserCoreVersionLexerSnapshot{dfa: dfaRelexSnapshot{lexerPos: 5, extZeroPos: 5, extZeroState: 2}, triedMask: mask}
+	right := *left
+	trials[0], trials[112] = false, true
+	right.triedMask, _ = core.PackScannerTrialMask(trials)
+	if diagnosticParserCoreVersionLexerSnapshotEqual(left, &right) {
+		t.Fatal("active distinct trials compared equal")
+	}
+	left.dfa.extZeroPos, right.dfa.extZeroPos = 4, 4
+	if !diagnosticParserCoreVersionLexerSnapshotEqual(left, &right) {
+		t.Fatal("inactive trials changed logical snapshot equality")
+	}
+}
+
+// These controls allocate the real immutable page types. No scanner/core
+// provenance is needed before publication: the owned capacity must already be
+// charged. Records are initialized once and never recycled or overwritten.
+func packedBudgetRecord(t *testing.T, pages *core.ScannerSnapshotPages[diagnosticParserCoreVersionLexerSnapshot], packed bool, marker byte) (*diagnosticParserCoreVersionLexerSnapshot, *core.ScannerSnapshotStorage) {
+	t.Helper()
+	input := []byte{marker}
+	var record *diagnosticParserCoreVersionLexerSnapshot
+	var payload, start, end []byte
+	var tried []bool
+	var storage *core.ScannerSnapshotStorage
+	if packed {
+		record, payload, start, end, storage = pages.NewPacked(input, nil, nil)
+	} else {
+		trial := make([]bool, 65)
+		trial[64] = true
+		record, payload, start, end, tried, storage = pages.New(input, nil, nil, trial)
+	}
+	if record == nil || storage == nil || storage.FootprintBytes() == 0 {
+		t.Fatal("control did not allocate a coallocated snapshot page")
+	}
+	*record = diagnosticParserCoreVersionLexerSnapshot{
+		storage:          storage,
+		coreGeneration:   uint64(marker),
+		beforeCheckpoint: core.CheckpointID(marker),
+		dfa:              dfaRelexSnapshot{externalPayload: payload, externalTokenStart: start, externalTokenEnd: end, extZeroTried: tried},
+	}
+	// NewPacked/New must own the byte copy independently of caller scratch.
+	input[0] ^= 0xff
+	if !bytes.Equal(record.dfa.externalPayload, []byte{marker}) {
+		t.Fatal("snapshot page aliases mutable constructor input")
+	}
+	return record, storage
+}
+
+func packedBudgetBoundary(t *testing.T, scheduler *diagnosticParserCoreGenericScheduler, want uint64) {
+	t.Helper()
+	scheduler.options.stopControlMemoryBudgetBytes = int64(want + 1)
+	scheduler.options.stopControlHardCeilingBytes = 0
+	if got := scheduler.stopControlMemoryBudgetReason(); got != ParseStopNone {
+		t.Errorf("footprint below soft budget stopped: %v", got)
+	}
+	scheduler.options.stopControlMemoryBudgetBytes = int64(want)
+	if got := scheduler.stopControlMemoryBudgetReason(); got != ParseStopMemoryBudget {
+		t.Errorf("exact soft budget failed to stop: got=%v want=%v footprint=%d", got, ParseStopMemoryBudget, want)
+	}
+	scheduler.options.stopControlMemoryBudgetBytes = 0
+	scheduler.options.stopControlHardCeilingBytes = int64(want + 1)
+	if got := scheduler.stopControlMemoryBudgetReason(); got != ParseStopNone {
+		t.Errorf("footprint below hard ceiling stopped: %v", got)
+	}
+	scheduler.options.stopControlHardCeilingBytes = int64(want)
+	if got := scheduler.stopControlMemoryBudgetReason(); got != ParseStopMemoryBudget {
+		t.Errorf("exact hard ceiling failed to stop: got=%v want=%v footprint=%d", got, ParseStopMemoryBudget, want)
+	}
+	scheduler.options.stopControlHardCeilingBytes = 0
+}
+
+func TestPackedSnapshotBudgetUnpublishedCurrentStorage(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		packed, small bool
+	}{
+		{name: "packed_only", packed: true},
+		{name: "small_only_control", small: true},
+		{name: "both_shapes", packed: true, small: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var scheduler diagnosticParserCoreGenericScheduler
+			baseline := diagnosticParserCoreSchedulerFootprintBytes(&scheduler)
+			var records []*diagnosticParserCoreVersionLexerSnapshot
+			owned := uint64(0)
+			if tc.packed {
+				record, storage := packedBudgetRecord(t, &scheduler.versionLexerSnapshotPages, true, 0x31)
+				records = append(records, record)
+				owned += storage.FootprintBytes()
+			}
+			if tc.small {
+				record, storage := packedBudgetRecord(t, &scheduler.versionLexerSnapshotPages, false, 0x32)
+				records = append(records, record)
+				owned += storage.FootprintBytes()
+			}
+			if len(scheduler.headers) != 0 || len(scheduler.versionLexerRequests) != 0 {
+				t.Fatal("unpublished control accidentally published a reference")
+			}
+			want := baseline + owned
+			if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler); got != want {
+				t.Errorf("unpublished owned page capacity omitted: got=%d want=%d baseline=%d pages=%d", got, want, baseline, owned)
+			}
+			packedBudgetBoundary(t, &scheduler, want)
+			scheduler.versionLexerSnapshotPages.Reset()
+			if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler); got != baseline {
+				t.Errorf("reset current pages remain charged: got=%d want=%d", got, baseline)
+			}
+			for _, record := range records {
+				if record.coreGeneration != uint64(record.beforeCheckpoint) || !bytes.Equal(record.dfa.externalPayload, []byte{byte(record.beforeCheckpoint)}) {
+					t.Error("reset mutated a previously returned immutable record")
+				}
+			}
+			t.Logf("baseline=%d owned_pages=%d exact_with_pages=%d", baseline, owned, want)
+		})
+	}
+}
+
+func TestPackedSnapshotBudgetPublishedStorageDeduplicates(t *testing.T) {
+	var scheduler diagnosticParserCoreGenericScheduler
+	// Fix existing owner capacities before taking the baseline. Measurement
+	// itself must not grow reference scratch or change these expectations.
+	scheduler.headers = make([]diagnosticParserCoreHeader, 4)
+	scheduler.versionLexerRequests = make([]diagnosticParserCoreVersionLexerRequest, 4)
+	scheduler.footprintRefs = make([]diagnosticParserCoreFootprintRef, 0, 64)
+	baseline := diagnosticParserCoreSchedulerFootprintBytes(&scheduler)
+	var snapshots [4]*diagnosticParserCoreVersionLexerSnapshot
+	var storages [4]*core.ScannerSnapshotStorage
+	for i := range snapshots {
+		snapshots[i], storages[i] = packedBudgetRecord(t, &scheduler.versionLexerSnapshotPages, i < 2, byte(0x40+i))
+	}
+	if storages[0] != storages[1] || storages[2] != storages[3] || storages[0] == storages[2] {
+		t.Fatal("control did not create two distinct shared page allocations")
+	}
+	var states [4]diagnosticParserCoreVersionState
+	for i := range snapshots {
+		states[i].relexSnapshot = snapshots[i]
+		scheduler.headers[i].versionState = &states[i]
+	}
+	// Real co-owners: copied rollback headers and duplicate request aliases.
+	scheduler.headerRollbackScratch.inline[0] = scheduler.headers[0]
+	scheduler.versionLexerRequests[0].before, scheduler.versionLexerRequests[0].after = snapshots[0], snapshots[1]
+	scheduler.versionLexerRequests[1] = scheduler.versionLexerRequests[0]
+	scheduler.versionLexerRequests[2].before, scheduler.versionLexerRequests[2].after = snapshots[2], snapshots[3]
+	scheduler.versionLexerRequests[3] = scheduler.versionLexerRequests[2]
+	pages := storages[0].FootprintBytes() + storages[2].FootprintBytes()
+	wrappers := uint64(len(states)) * uint64(unsafe.Sizeof(states[0]))
+	want := baseline + pages + wrappers
+	if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler); got != want {
+		t.Fatalf("published aliases double-count or omit a page: got=%d want=%d", got, want)
+	}
+	packedBudgetBoundary(t, &scheduler, want)
+	clear(scheduler.headers)
+	clear(scheduler.headerRollbackScratch.inline[:])
+	if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler); got != baseline+pages {
+		t.Fatalf("request-only owners changed shared page charging: got=%d want=%d", got, baseline+pages)
+	}
+	// Reset drops current-page ownership; published request pointers must keep
+	// the old page fully charged and their immutable bytes intact.
+	scheduler.versionLexerSnapshotPages.Reset()
+	if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler); got != baseline+pages {
+		t.Fatalf("reset lost a page still owned by requests: got=%d want=%d", got, baseline+pages)
+	}
+	clear(scheduler.versionLexerRequests)
+	if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler); got != baseline {
+		t.Fatalf("released page owners remain charged: got=%d want=%d", got, baseline)
+	}
+	for i, snapshot := range snapshots {
+		if !bytes.Equal(snapshot.dfa.externalPayload, []byte{byte(0x40 + i)}) {
+			t.Fatal("reset changed immutable published bytes")
+		}
+	}
+	t.Logf("baseline=%d shared_pages=%d unique_state_wrappers=%d", baseline, pages, wrappers)
+}
+
+func TestPackedSnapshotBudgetCurrentAndRetiredPages(t *testing.T) {
+	var scheduler diagnosticParserCoreGenericScheduler
+	scheduler.versionLexerRequests = make([]diagnosticParserCoreVersionLexerRequest, 2)
+	scheduler.footprintRefs = make([]diagnosticParserCoreFootprintRef, 0, 16)
+	baseline := diagnosticParserCoreSchedulerFootprintBytes(&scheduler)
+	old, oldStorage := packedBudgetRecord(t, &scheduler.versionLexerSnapshotPages, true, 0x51)
+	_, sameStorage := packedBudgetRecord(t, &scheduler.versionLexerSnapshotPages, true, 0x52)
+	current, currentStorage := packedBudgetRecord(t, &scheduler.versionLexerSnapshotPages, true, 0x53)
+	if oldStorage != sameStorage || oldStorage == currentStorage {
+		t.Fatal("control did not roll to a distinct packed page")
+	}
+	scheduler.versionLexerRequests[0].before, scheduler.versionLexerRequests[0].after = old, old
+	want := baseline + oldStorage.FootprintBytes() + currentStorage.FootprintBytes()
+	if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler); got != want {
+		t.Errorf("retired live plus unpublished current page: got=%d want=%d", got, want)
+	}
+	packedBudgetBoundary(t, &scheduler, want)
+	scheduler.versionLexerRequests[1].before, scheduler.versionLexerRequests[1].after = current, current
+	if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler); got != want {
+		t.Errorf("publishing current page changes its full capacity charge: got=%d want=%d", got, want)
+	}
+	scheduler.versionLexerSnapshotPages.Reset()
+	if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler); got != want {
+		t.Errorf("reset loses older live pages: got=%d want=%d", got, want)
+	}
+	clear(scheduler.versionLexerRequests)
+	if got := diagnosticParserCoreSchedulerFootprintBytes(&scheduler); got != baseline {
+		t.Errorf("releasing current and retired owners leaves a charge: got=%d want=%d", got, baseline)
+	}
+	if old.beforeCheckpoint != 0x51 || current.beforeCheckpoint != 0x53 || !bytes.Equal(old.dfa.externalPayload, []byte{0x51}) || !bytes.Equal(current.dfa.externalPayload, []byte{0x53}) {
+		t.Fatal("rollover/reset changed an old record or generation")
+	}
+	t.Logf("baseline=%d retired_page=%d unpublished_current_page=%d", baseline, oldStorage.FootprintBytes(), currentStorage.FootprintBytes())
 }

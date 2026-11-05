@@ -34,5 +34,9 @@ func (c *Core) PrivateCheckpointCopyOwned(owner SchedulerTransactionToken, id Ch
 	if !bytes.Equal(private, authoritative) {
 		private = append([]byte(nil), authoritative...)
 	}
-	return PrivateCheckpointCopy{Bytes: private, Length: record.length, SHA256: record.digest}, true
+	digest, exact := c.checkpoints.recordDigest(id, record)
+	if !exact {
+		return PrivateCheckpointCopy{}, false
+	}
+	return PrivateCheckpointCopy{Bytes: private, Length: record.length, SHA256: digest}, true
 }

@@ -168,7 +168,7 @@ func TestPhase0APopRouteProofPreservesMixedAndTrailingPayloadIdentity(t *testing
 		}
 		linkID := LinkID(node.firstLink)
 		wantLinks = append(wantLinks, linkID)
-		nodeID = core.links[linkID-1].prev
+		nodeID = core.links.At(int(linkID - 1)).prev
 	}
 	for left, right := 0, len(wantLinks)-1; left < right; left, right = left+1, right-1 {
 		wantLinks[left], wantLinks[right] = wantLinks[right], wantLinks[left]

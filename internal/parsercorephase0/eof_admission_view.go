@@ -201,10 +201,10 @@ func (c *Core) VisitEOFAdmissionExactPath(
 			return result, ErrEOFAdmissionTopPayloadCap
 		}
 		linkID := LinkID(node.firstLink)
-		if linkID == 0 || uint64(linkID) > uint64(len(c.links)) {
+		if linkID == 0 || uint64(linkID) > uint64(c.links.Len()) {
 			return result, fmt.Errorf("%w: link is outside its arena", ErrEOFAdmissionMalformed)
 		}
-		link := c.links[linkID-1]
+		link := c.links.At(int(linkID - 1))
 		if link.next != 0 {
 			return result, fmt.Errorf("%w: adjacency is not singular", ErrEOFAdmissionMalformed)
 		}
@@ -225,7 +225,7 @@ func (c *Core) VisitEOFAdmissionExactPath(
 		id = link.prev
 	}
 	for reverseIndex := int(result.Links) - 1; reverseIndex >= 0; reverseIndex-- {
-		link := c.links[reverse[reverseIndex]-1]
+		link := c.links.At(int(reverse[reverseIndex] - 1))
 		score, err := checkedAddScore(result.Score, link.scoreDelta)
 		if err != nil {
 			return result, err

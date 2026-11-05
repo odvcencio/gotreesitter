@@ -32,7 +32,7 @@ func newS5DiscontinuityFixture(t *testing.T) (*Core, Head, Head, linkRecord) {
 	}
 	link := linkRecord{prev: seed.Node, flags: s5RecoveryDiscontinuityFlag}
 	node, linkID := appendS5SyntheticNode(t, core, 0, 0, link, 1)
-	return core, seed, Head{Node: node}, core.links[linkID-1]
+	return core, seed, Head{Node: node}, core.links.At(int(linkID - 1))
 }
 
 func TestS5RecoveryDiscontinuityLinkValidation(t *testing.T) {

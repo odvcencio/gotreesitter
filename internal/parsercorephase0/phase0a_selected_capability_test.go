@@ -192,7 +192,7 @@ func TestPhase0ASelectedOccurrenceBorrowRejectsLifecycleMutationAtomically(t *te
 	case <-time.After(time.Second):
 		t.Fatal("selected occurrence borrow did not enter callback")
 	}
-	shapeBefore := [6]uint64{uint64(core.nodes.Len()), uint64(len(core.links)), uint64(core.subtrees.Len()), uint64(len(core.children)), uint64(core.frontier), core.classificationPhase}
+	shapeBefore := [6]uint64{uint64(core.nodes.Len()), uint64(core.links.Len()), uint64(core.subtrees.Len()), uint64(len(core.children)), uint64(core.frontier), core.classificationPhase}
 	workBefore := core.Work()
 	if _, err := core.BeginRun(); !isPhase0AError(err, Phase0AErrorRunActive, "") {
 		t.Fatalf("begin run during borrow error=%v", err)
@@ -203,7 +203,7 @@ func TestPhase0ASelectedOccurrenceBorrowRejectsLifecycleMutationAtomically(t *te
 	if err := core.Reset(); !isPhase0AError(err, Phase0AErrorRunActive, "") {
 		t.Fatalf("reset during borrow error=%v", err)
 	}
-	shapeAfter := [6]uint64{uint64(core.nodes.Len()), uint64(len(core.links)), uint64(core.subtrees.Len()), uint64(len(core.children)), uint64(core.frontier), core.classificationPhase}
+	shapeAfter := [6]uint64{uint64(core.nodes.Len()), uint64(core.links.Len()), uint64(core.subtrees.Len()), uint64(len(core.children)), uint64(core.frontier), core.classificationPhase}
 	workAfter := core.Work()
 	if shapeBefore != shapeAfter || workBefore != workAfter {
 		t.Fatalf("rejected reset mutated compact state shape=%+v/%+v work=%+v/%+v", shapeBefore, shapeAfter, workBefore, workAfter)

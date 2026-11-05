@@ -91,7 +91,7 @@ func TestLinkProvenanceDefaultOffAndAccounting(t *testing.T) {
 	if core.dropCohortLinkRefIndexes != nil {
 		t.Fatal("new core allocated link provenance sidecar")
 	}
-	want := uint64(core.nodes.Len())*coreNodeRecordBytes + uint64(len(core.links))*coreLinkRecordBytes +
+	want := uint64(core.nodes.Len())*coreNodeRecordBytes + core.links.CloneActiveFootprintBytes() +
 		uint64(core.subtrees.Len())*coreSubtreeRecordBytes + uint64(len(core.children))*coreChildRecordBytes +
 		uint64(len(core.dropCohortRecords))*coreDropCohortRecordBytes +
 		uint64(len(core.dropCohortMembers))*coreDropCohortMemberBytes +
@@ -103,10 +103,10 @@ func TestLinkProvenanceDefaultOffAndAccounting(t *testing.T) {
 	if err := bindFixture(t, fixture); err != nil {
 		t.Fatal(err)
 	}
-	if len(core.dropCohortLinkRefIndexes) != len(core.links) {
-		t.Fatalf("sidecar length=%d, want %d", len(core.dropCohortLinkRefIndexes), len(core.links))
+	if len(core.dropCohortLinkRefIndexes) != core.links.Len() {
+		t.Fatalf("sidecar length=%d, want %d", len(core.dropCohortLinkRefIndexes), core.links.Len())
 	}
-	if got, want := core.StorageBytes()-before, uint64(len(core.links))*coreUint32Bytes; got != want {
+	if got, want := core.StorageBytes()-before, uint64(core.links.Len())*coreUint32Bytes; got != want {
 		t.Fatalf("sidecar storage delta=%d, want %d", got, want)
 	}
 	if got := core.dropCohortLinkRefJournal; len(got) != 0 {
@@ -128,7 +128,11 @@ func TestLinkProvenanceDefaultOffAndAccounting(t *testing.T) {
 
 func TestLinkProvenanceManyToOneAndExactGraphAuthentication(t *testing.T) {
 	many := newLinkProvenanceFixture(t, 8)
-	many.core.links[many.rangeValue.First-1].prev = many.nodes[0]
+	{
+		linkStorageMutation := many.core.links.At(int(many.rangeValue.First - 1))
+		linkStorageMutation.prev = many.nodes[0]
+		many.core.links.Set(int(many.rangeValue.First-1), linkStorageMutation)
+	}
 	many.core.dropCohortMembers[1].head = Head{Node: many.nodes[0]}
 	many.refs[1] = many.refs[0]
 	many.core.dropCohortCertificateRefs = many.core.dropCohortCertificateRefs[:1]
@@ -158,12 +162,24 @@ func TestLinkProvenanceRejectsMalformedRangesAndReferences(t *testing.T) {
 		{name: "mixed count zero", edit: func(_ *Core, _ LinkRange) LinkRange { return LinkRange{First: 1} }},
 		{name: "first out of bounds", edit: func(_ *Core, _ LinkRange) LinkRange { return LinkRange{First: 99, Count: 1} }},
 		{name: "noncontiguous", edit: func(core *Core, value LinkRange) LinkRange {
-			core.links[value.First-1].next = 0
+			{
+				linkStorageMutation := core.links.At(int(value.First - 1))
+				linkStorageMutation.next = 0
+				core.links.Set(int(value.First-1), linkStorageMutation)
+			}
 			return value
 		}},
 		{name: "chain skips", edit: func(core *Core, value LinkRange) LinkRange {
-			core.links[value.First-1].next = value.First - 1
-			core.links[value.First-2].next = value.First + 1
+			{
+				linkStorageMutation := core.links.At(int(value.First - 1))
+				linkStorageMutation.next = value.First - 1
+				core.links.Set(int(value.First-1), linkStorageMutation)
+			}
+			{
+				linkStorageMutation := core.links.At(int(value.First - 2))
+				linkStorageMutation.next = value.First + 1
+				core.links.Set(int(value.First-2), linkStorageMutation)
+			}
 			return value
 		}},
 	}
@@ -204,7 +220,7 @@ func TestLinkProvenanceRejectsMalformedRangesAndReferences(t *testing.T) {
 
 func TestLinkProvenanceRollbackRestoresContentAllocationAndLength(t *testing.T) {
 	fixture := newLinkProvenanceFixture(t, 8)
-	fixture.core.dropCohortLinkRefIndexes = make([]uint32, len(fixture.core.links))
+	fixture.core.dropCohortLinkRefIndexes = make([]uint32, fixture.core.links.Len())
 	before := append([]uint32(nil), fixture.core.dropCohortLinkRefIndexes...)
 	beforeLen, beforeCap := len(fixture.core.dropCohortLinkRefIndexes), cap(fixture.core.dropCohortLinkRefIndexes)
 	beforePtr := &fixture.core.dropCohortLinkRefIndexes[0]
@@ -333,12 +349,12 @@ func TestReductionLinkChainHandoffRejectsMalformedMetadata(t *testing.T) {
 			(*core.nodes.At(int(nodeID - 1))).firstLink = 0
 		}},
 		{name: "first out of bounds", edit: func(core *Core, nodeID NodeID, value LinkChainRef) {
-			(*core.nodes.At(int(nodeID - 1))).firstLink = uint32(len(core.links) + 1)
+			(*core.nodes.At(int(nodeID - 1))).firstLink = uint32(core.links.Len() + 1)
 			(*core.nodes.At(int(nodeID - 1))).linkCount = value.Count
 		}},
 		{name: "count exceeds arena", edit: func(core *Core, nodeID NodeID, value LinkChainRef) {
 			(*core.nodes.At(int(nodeID - 1))).firstLink = uint32(value.First)
-			(*core.nodes.At(int(nodeID - 1))).linkCount = uint32(len(core.links) + 1)
+			(*core.nodes.At(int(nodeID - 1))).linkCount = uint32(core.links.Len() + 1)
 		}},
 	}
 	for _, test := range tests {
@@ -363,7 +379,7 @@ func TestReductionLinkChainHandoffRejectsMalformedMetadata(t *testing.T) {
 
 func TestReductionLinkChainHandoffRollbackAndReset(t *testing.T) {
 	fixture := newLinkProvenanceFixture(t, 8)
-	beforeNodes, beforeLinks := fixture.core.nodes.Len(), len(fixture.core.links)
+	beforeNodes, beforeLinks := fixture.core.nodes.Len(), fixture.core.links.Len()
 	var escaped Head
 	err := fixture.core.ApplySchedulerAtomic(func(_ SchedulerTransactionToken) error {
 		id, err := fixture.core.appendNode(nodeInput{
@@ -382,8 +398,8 @@ func TestReductionLinkChainHandoffRollbackAndReset(t *testing.T) {
 	if err == nil {
 		t.Fatal("forced rollback returned nil")
 	}
-	if fixture.core.nodes.Len() != beforeNodes || len(fixture.core.links) != beforeLinks {
-		t.Fatalf("rollback arena lengths=%d/%d, want %d/%d", fixture.core.nodes.Len(), len(fixture.core.links), beforeNodes, beforeLinks)
+	if fixture.core.nodes.Len() != beforeNodes || fixture.core.links.Len() != beforeLinks {
+		t.Fatalf("rollback arena lengths=%d/%d, want %d/%d", fixture.core.nodes.Len(), fixture.core.links.Len(), beforeNodes, beforeLinks)
 	}
 	if _, err := fixture.core.reductionLinkChainForHead(escaped); err == nil {
 		t.Fatal("rolled-back reduction output head remained readable")

@@ -36,8 +36,9 @@ type MaterializationReplayBorrowedTransition func(pre StateID, view *Materializa
 // iterative traversal stack for VisitMaterializationPostorderWithScratch.
 // Callers must not use one scratch concurrently or reentrantly.
 type MaterializationPostorderScratch struct {
-	colors []uint8
-	frames []materializationPostorderFrame
+	colors       []uint8
+	frames       []materializationPostorderFrame
+	nativeFrames []nativeProjectionFrame
 	// view is the visit argument. It lives in the scratch so the pointer
 	// visitor does not move a fresh view to the heap on every subtree.
 	view       MaterializationSubtreeView
@@ -57,7 +58,13 @@ func (scratch *MaterializationPostorderScratch) RetainedBytes() uint64 {
 	if frames > (math.MaxUint64-colors)/size {
 		return math.MaxUint64
 	}
-	return colors + frames*size
+	total := colors + frames*size
+	nativeSize := uint64(unsafe.Sizeof(nativeProjectionFrame{}))
+	nativeFrames := uint64(cap(scratch.nativeFrames))
+	if nativeFrames > (math.MaxUint64-total)/nativeSize {
+		return math.MaxUint64
+	}
+	return total + nativeFrames*nativeSize
 }
 
 // Reset clears traversal state while retaining the backing storage for reuse.
@@ -71,12 +78,16 @@ func (scratch *MaterializationPostorderScratch) Reset() {
 		clear(scratch.frames[:cap(scratch.frames)])
 	}
 	scratch.frames = scratch.frames[:0]
+	if cap(scratch.nativeFrames) > 0 {
+		clear(scratch.nativeFrames[:cap(scratch.nativeFrames)])
+	}
+	scratch.nativeFrames = scratch.nativeFrames[:0]
 	scratch.view = MaterializationSubtreeView{}
 	scratch.replayView = MaterializationReplayView{}
 	scratch.inUse = false
 }
 
-func (scratch *MaterializationPostorderScratch) prepare(subtrees int) error {
+func (scratch *MaterializationPostorderScratch) prepareOwnershipColors(subtrees int) error {
 	if scratch == nil {
 		return errors.New("parser-core phase zero: materialization postorder scratch is nil")
 	}
@@ -89,12 +100,19 @@ func (scratch *MaterializationPostorderScratch) prepare(subtrees int) error {
 	} else {
 		scratch.colors = scratch.colors[:colorCount]
 	}
+	scratch.inUse = true
+	return nil
+}
+
+func (scratch *MaterializationPostorderScratch) prepare(subtrees int) error {
+	if err := scratch.prepareOwnershipColors(subtrees); err != nil {
+		return err
+	}
 	if cap(scratch.frames) < 64 {
 		scratch.frames = make([]materializationPostorderFrame, 0, 64)
 	} else {
 		scratch.frames = scratch.frames[:0]
 	}
-	scratch.inUse = true
 	return nil
 }
 

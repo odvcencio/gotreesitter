@@ -21,7 +21,7 @@ type admissionDepthFixture struct {
 
 func TestAdmissionCandidateYAMLZeroWidthDepth(t *testing.T) {
 	fixtures := []admissionDepthFixture{
-		{name: "github-actions", lang: grammars.YamlLanguage, mustFallback: true, wantDigest: "67d6dbaf8985d9b3e87cf8b09097eabfe63bc902db7863c91e7e061d85ca8cd7", source: `name: Go
+		{name: "github-actions", lang: grammars.YamlLanguage, mustRoute: true, wantDigest: "67d6dbaf8985d9b3e87cf8b09097eabfe63bc902db7863c91e7e061d85ca8cd7", source: `name: Go
 on:
   push:
     branches: [main]
@@ -75,7 +75,7 @@ spec:
               memory: "128Mi"
 `},
 	}
-	requireAdmissionDepthRatchet(t, fixtures, 0)
+	requireAdmissionDepthRatchet(t, fixtures, 1)
 }
 
 func TestAdmissionCandidateRepresentativeDepthRatchet(t *testing.T) {

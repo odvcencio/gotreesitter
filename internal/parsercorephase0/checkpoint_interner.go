@@ -24,13 +24,21 @@ type CheckpointInternerStats struct {
 }
 
 type checkpointRecord struct {
-	digest [32]byte
 	offset uint32
 	length uint32
 	next   CheckpointID
 }
 
+// Checkpoint receipts are immutable; this cache changes only while interning.
+// Concurrent receipt readers never publish cache entries.
+type checkpointDigestCacheEntry struct {
+	id             CheckpointID
+	offset, length uint32
+	digest         [32]byte
+}
+
 type checkpointInterner struct {
+	receipts   []checkpointDigestCacheEntry
 	records    []checkpointRecord
 	bytes      []byte
 	buckets    map[uint64]CheckpointID
@@ -57,6 +65,7 @@ func (i *checkpointInterner) intern(serialized []byte) (CheckpointID, error) {
 			start := uint64(record.offset)
 			end := start + uint64(record.length)
 			if end <= uint64(len(i.bytes)) && bytes.Equal(i.bytes[start:end], serialized) {
+				i.cacheReceipt(id, record, serialized)
 				return id, nil
 			}
 		}
@@ -73,7 +82,7 @@ func (i *checkpointInterner) intern(serialized []byte) (CheckpointID, error) {
 }
 
 // internHash confirms the complete serialized bytes after hash bucketing.
-// SHA-256 runs only for a new receipt, never for an existing checkpoint lookup.
+// Interning fills the small digest cache without mutating receipt readers.
 func (i *checkpointInterner) internHash(serialized []byte, hash uint64) (CheckpointID, error) {
 	if len(serialized) == 0 {
 		return 0, nil
@@ -87,6 +96,7 @@ func (i *checkpointInterner) internHash(serialized []byte, hash uint64) (Checkpo
 		start := uint64(record.offset)
 		end := start + uint64(record.length)
 		if end <= uint64(len(i.bytes)) && bytes.Equal(i.bytes[start:end], serialized) {
+			i.cacheReceipt(id, record, serialized)
 			return id, nil
 		}
 		id = record.next
@@ -109,9 +119,9 @@ func (i *checkpointInterner) internHash(serialized []byte, hash uint64) (Checkpo
 	id := CheckpointID(len(i.records) + 1)
 	offset := uint32(len(i.bytes))
 	i.bytes = append(i.bytes, serialized...)
-	i.records = append(i.records, checkpointRecord{
-		digest: sha256.Sum256(serialized), offset: offset, length: uint32(len(serialized)), next: bucket,
-	})
+	record := checkpointRecord{offset: offset, length: uint32(len(serialized)), next: bucket}
+	i.records = append(i.records, record)
+	i.cacheReceipt(id, record, serialized)
 	i.buckets[hash] = id
 	if bucket != 0 {
 		i.collisions++
@@ -134,7 +144,37 @@ func (i *checkpointInterner) receipt(id CheckpointID) (uint32, [32]byte, bool) {
 	if !ok {
 		return 0, [32]byte{}, false
 	}
-	return record.length, record.digest, true
+	digest, exact := i.recordDigest(id, record)
+	return record.length, digest, exact
+}
+
+// cacheReceipt is called only by interning, which already mutates the owner.
+// Full SHA-256 receipts remain exact after eviction; they are recomputed from
+// the immutable serialized bytes rather than stored on every record.
+func (i *checkpointInterner) cacheReceipt(id CheckpointID, record checkpointRecord, serialized []byte) {
+	if len(i.receipts) == 0 {
+		i.receipts = make([]checkpointDigestCacheEntry, 4)
+	}
+	entry := &i.receipts[uint32(id)%uint32(len(i.receipts))]
+	if entry.id == id && entry.offset == record.offset && entry.length == record.length {
+		return
+	}
+	*entry = checkpointDigestCacheEntry{id: id, offset: record.offset, length: record.length, digest: sha256.Sum256(serialized)}
+}
+
+func (i *checkpointInterner) recordDigest(id CheckpointID, record checkpointRecord) ([32]byte, bool) {
+	start := uint64(record.offset)
+	end := start + uint64(record.length)
+	if end < start || end > uint64(len(i.bytes)) {
+		return [32]byte{}, false
+	}
+	if len(i.receipts) != 0 {
+		entry := &i.receipts[uint32(id)%uint32(len(i.receipts))]
+		if entry.id == id && entry.offset == record.offset && entry.length == record.length {
+			return entry.digest, true
+		}
+	}
+	return sha256.Sum256(i.bytes[start:end]), true
 }
 
 // matches reports whether serialized equals the retained bytes of id. It is
@@ -192,6 +232,7 @@ func (i *checkpointInterner) reset() {
 	i.records = i.records[:0]
 	i.bytes = i.bytes[:0]
 	i.lastInterned = 0
+	clear(i.receipts[:])
 	clear(i.buckets)
 	i.collisions = 0
 }

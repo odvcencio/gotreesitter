@@ -327,37 +327,55 @@ func TestCompactRouteAuthenticatesRecoveryAliasFromReduction(t *testing.T) {
 	}
 }
 
-func TestCompactRouteCompetesMissingInsertionWithErrorAbsorb(t *testing.T) {
-	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
-	gts.EnableArenaBreakdown(true)
-	t.Cleanup(func() { gts.EnableArenaBreakdown(false) })
+func TestCompactRouteHTMLSelectsLockedCErrorAbsorb(t *testing.T) {
 	lang := grammars.HtmlLanguage()
-	if !lang.CompactStrategy2ErrorRegionCertified || !lang.CompactMissingTokenInsertionCertified {
-		t.Fatal("the HTML artifact lacks complete compact recovery certification")
-	}
 	gts.ResetAdmissionCandidateCountersForTest()
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
 	tree, err := parser.Parse([]byte("<html><bodyHello</body></html>\n"))
 	if err != nil {
-		t.Fatalf("parse: %v", err)
+		t.Fatal(err)
 	}
 	defer tree.Release()
-
 	routed, fallback := gts.AdmissionCandidateCounters()
 	if routed != 1 || fallback != 0 {
-		t.Fatalf("route counters routed=%d fallback=%d, want routed=1 fallback=0; reason=%q",
-			routed, fallback, gts.AdmissionCandidateLastFallbackReason())
+		t.Fatalf("route counters=%d/%d", routed, fallback)
 	}
-	if !tree.RootNode().HasError() {
-		t.Fatal("the selected recovery tree lost its error")
+	if !tree.RootNode().HasError() || routeEqualityTreeContainsMissing(tree.RootNode()) {
+		t.Fatal("wrong locked-C absorb selection")
 	}
-	if !routeEqualityTreeContainsMissing(tree.RootNode()) {
-		t.Fatal("the selected recovery tree contains no missing terminal")
+	inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), lang)
+	if err != nil || inspection.SHA256 != "ffca9ef006345898e5eb6cedcebf75a17908cffc62ff66d4926a0078bd01a7e0" {
+		t.Fatalf("locked C tree digest=%s err=%v", inspection.SHA256, err)
+	}
+}
+
+func TestCompactRouteScalaMissingInsertionWinsOverAbsorb(t *testing.T) {
+	gts.EnableArenaBreakdown(true)
+	t.Cleanup(func() { gts.EnableArenaBreakdown(false) })
+	lang := grammars.ScalaLanguage()
+	gts.ResetAdmissionCandidateCountersForTest()
+	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(true)
+	tree, err := parser.Parse([]byte("(y; "))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	routed, fallback := gts.AdmissionCandidateCounters()
+	if routed != 1 || fallback != 0 {
+		t.Fatalf("route counters=%d/%d", routed, fallback)
+	}
+	if !tree.RootNode().HasError() || !routeEqualityTreeContainsMissing(tree.RootNode()) {
+		t.Fatal("missing C-selected insertion")
 	}
 	breakdown, recorded := tree.ArenaBreakdown()
 	if !recorded || breakdown.MissingNodeDependencyCount == 0 || breakdown.MissingNodeDependencyBytesAllocated == 0 {
-		t.Fatalf("compact recovery did not materialize missing-dependency telemetry: recorded=%t breakdown=%+v", recorded, breakdown)
+		t.Fatalf("missing dependency telemetry: recorded=%t breakdown=%+v", recorded, breakdown)
+	}
+	inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), lang)
+	if err != nil || inspection.SHA256 != "06d2d9f6b02599ec5be0808330bf1c62e49b8cb0b146d094ceaa28b9185c79b6" {
+		t.Fatalf("locked C tree digest=%s err=%v", inspection.SHA256, err)
 	}
 }
 
