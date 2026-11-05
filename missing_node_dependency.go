@@ -52,7 +52,10 @@ func (d missingNodeDependency) endByte() (uint32, bool) {
 	return positioned + d.lookaheadBytes, true
 }
 
-func (a *nodeArena) setMissingNodeDependency(node *Node, dependency missingNodeDependency) bool {
+// missingNodeDependencyFits reports whether dependency describes the position
+// that node records, and whether node is a zero-width missing leaf of this
+// arena. Both setters apply this check before they write.
+func (a *nodeArena) missingNodeDependencyFits(node *Node, dependency missingNodeDependency) bool {
 	if a == nil || node == nil || node.ownerArena != a || !node.isMissing() || node.startByte != node.endByte {
 		return false
 	}
@@ -61,7 +64,16 @@ func (a *nodeArena) setMissingNodeDependency(node *Node, dependency missingNodeD
 	if !byteOK || !pointOK || positionedByte != node.startByte || positionedPoint != node.startPoint || node.startPoint != node.endPoint {
 		return false
 	}
-	if _, ok := dependency.endByte(); !ok {
+	_, ok := dependency.endByte()
+	return ok
+}
+
+// setMissingNodeDependency records dependency for node. It updates the node's
+// entry in place when one exists and appends one otherwise. The search makes
+// each call cost one pass over the arena's list, so a caller that holds a leaf
+// it allocated a moment ago uses setNewMissingNodeDependency instead.
+func (a *nodeArena) setMissingNodeDependency(node *Node, dependency missingNodeDependency) bool {
+	if !a.missingNodeDependencyFits(node, dependency) {
 		return false
 	}
 	for index := range a.missingNodeDependencies {
@@ -70,10 +82,33 @@ func (a *nodeArena) setMissingNodeDependency(node *Node, dependency missingNodeD
 			return true
 		}
 	}
+	a.appendMissingNodeDependency(node, dependency)
+	return true
+}
+
+// setNewMissingNodeDependency records dependency for a leaf that has no entry
+// yet, and it does not search the list. The caller must have taken node from
+// this arena since the arena's last reset and must not have recorded it. Such
+// a node cannot have an entry: the arena hands out each node once per reset,
+// and reset clears the list. A run of invalid tokens makes recovery shift many
+// missing leaves, and the list keeps the leaves of versions that lose, so a
+// search here made such a run cost time quadratic in its length (issue #1556).
+//
+// The checks, the append, and the byte accounting are those of
+// setMissingNodeDependency. Calling this for a node that already has an entry
+// leaves two entries, and reads see the older one.
+func (a *nodeArena) setNewMissingNodeDependency(node *Node, dependency missingNodeDependency) bool {
+	if !a.missingNodeDependencyFits(node, dependency) {
+		return false
+	}
+	a.appendMissingNodeDependency(node, dependency)
+	return true
+}
+
+func (a *nodeArena) appendMissingNodeDependency(node *Node, dependency missingNodeDependency) {
 	before := cap(a.missingNodeDependencies)
 	a.missingNodeDependencies = append(a.missingNodeDependencies, missingNodeDependencyEntry{node: node, dependency: dependency})
 	a.allocatedBytes += missingNodeDependencyEntryBytesForCap(cap(a.missingNodeDependencies) - before)
-	return true
 }
 
 func missingNodeDependencyForNode(node *Node) (missingNodeDependency, bool) {

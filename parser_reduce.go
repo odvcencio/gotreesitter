@@ -2902,7 +2902,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 			p.retainExternalFallbackMissingFlags = true
 			if tok.missingDependencyExact() {
 				dependency, exact := p.missingNodeDependencyFromToken(tok)
-				if !exact || arena == nil || !arena.setMissingNodeDependency(leaf, dependency) {
+				if !exact || arena == nil || !arena.setNewMissingNodeDependency(leaf, dependency) {
 					leaf.setDirty(true)
 				}
 			}

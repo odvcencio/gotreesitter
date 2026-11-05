@@ -9043,7 +9043,7 @@ func (p *Parser) applyExtraShiftAction(s *glrStack, currentState StateID, act Pa
 		p.retainExternalFallbackMissingFlags = true
 		if tok.missingDependencyExact() {
 			dependency, exact := p.missingNodeDependencyFromToken(tok)
-			if !exact || !arena.setMissingNodeDependency(leaf, dependency) {
+			if !exact || !arena.setNewMissingNodeDependency(leaf, dependency) {
 				leaf.setDirty(true)
 			}
 		}

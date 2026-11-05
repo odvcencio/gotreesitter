@@ -107,6 +107,38 @@ func TestApplyExtraShiftMissingMarksChildErrors(t *testing.T) {
 	}
 }
 
+// TestApplyExtraShiftMissingRecordsDependencyWithoutSearching pins that an
+// extra missing leaf, like any shifted missing leaf, is recorded without a
+// search of the arena's list (issue #1556).
+func TestApplyExtraShiftMissingRecordsDependencyWithoutSearching(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	parser := NewParser(lang)
+	arena := newNodeArena(arenaClassFull)
+	planted := plantMissingNodeDependencyForNextNode(t, arena)
+	stack := newGLRStack(lang.InitialState)
+	trackChildErrors := false
+	tok := Token{
+		Symbol: 1, StartByte: 3, EndByte: 3,
+		StartPoint: Point{Column: 3}, EndPoint: Point{Column: 3}, Missing: true,
+		missingStackRef:       parser.recordMissingStackAnchor(0, Point{}),
+		lexerLookaheadEndByte: 5, lexFlags: tokenFlagMissingDependencyExact,
+	}
+
+	parser.applyExtraShiftAction(&stack, lang.InitialState, ParseAction{
+		Type:  ParseActionShift,
+		Extra: true,
+	}, tok, arena, &parserScratch{}, &trackChildErrors)
+	if !parser.retainExternalFallbackMissingFlags {
+		t.Fatal("missing extra shift did not retain recovery flags")
+	}
+
+	want, exact := parser.missingNodeDependencyFromToken(tok)
+	if !exact {
+		t.Fatal("the token's dependency is not exact")
+	}
+	checkPlantedMissingNodeDependencyKept(t, arena, planted, stackEntryNode(stack.top()), want)
+}
+
 func TestApplyActionNonExtraShiftUsesActionState(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	parser := NewParser(lang)
