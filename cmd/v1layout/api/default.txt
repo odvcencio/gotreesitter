@@ -108,6 +108,7 @@ func *BoundTree.RootNode() *Node
 func *BoundTree.Source() []byte
 func *BoundTree.TreeCursor() *TreeCursor
 func *ExternalLexer.Advance(skip bool)
+func *ExternalLexer.AdvanceLineContent(skip bool) (int, int, rune)
 func *ExternalLexer.AdvanceSpaces(skip bool) int
 func *ExternalLexer.AdvanceUntilNewline(skip bool) int
 func *ExternalLexer.Column() uint32
