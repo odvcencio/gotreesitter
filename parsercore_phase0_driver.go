@@ -7974,7 +7974,7 @@ func materializeCompactMissingNodeDependency(arena *nodeArena, node *Node, view 
 		return false
 	}
 	stackPoint := Point{Row: view.MissingDependency.StackRow, Column: view.MissingDependency.StackColumn}
-	return arena.setMissingNodeDependency(node, missingNodeDependency{
+	return arena.setNewMissingNodeDependency(node, missingNodeDependency{
 		stackByte:      view.MissingDependency.StackByte,
 		stackPoint:     stackPoint,
 		paddingBytes:   view.MissingDependency.PaddingBytes,

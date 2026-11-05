@@ -32,6 +32,31 @@ func TestCompactMaterializationTransfersMissingDependency(t *testing.T) {
 	}
 }
 
+// TestCompactMaterializationRecordsMissingDependencyWithoutSearching pins that
+// the materializer, which allocates the leaf it records, does not search the
+// arena's list (issue #1556).
+func TestCompactMaterializationRecordsMissingDependencyWithoutSearching(t *testing.T) {
+	arena := newNodeArena(arenaClassIncremental)
+	planted := plantMissingNodeDependencyForNextNode(t, arena)
+	node := newLeafNodeInArena(arena, 1, true, 3, 3, Point{Column: 3}, Point{Column: 3})
+	node.setMissing(true)
+	node.setHasError(true)
+	view := core.MaterializationSubtreeView{
+		Missing: true, MissingDependencyExact: true,
+		MissingDependency: core.MissingLeafDependency{
+			StackByte: 0, PaddingBytes: 3, PaddingColumn: 3, LookaheadBytes: 3,
+		},
+	}
+	if !materializeCompactMissingNodeDependency(arena, node, view) {
+		t.Fatal("exact compact missing dependency did not transfer")
+	}
+	want := missingNodeDependency{
+		stackByte: 0, stackPoint: Point{},
+		paddingBytes: 3, paddingExtent: Point{Column: 3}, lookaheadBytes: 3,
+	}
+	checkPlantedMissingNodeDependencyKept(t, arena, planted, node, want)
+}
+
 func TestCompactMaterializationRejectsMissingDependencyWithoutReceipt(t *testing.T) {
 	arena := acquireNodeArena(arenaClassIncremental)
 	defer arena.Release()
