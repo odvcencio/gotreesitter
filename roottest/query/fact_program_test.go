@@ -364,8 +364,7 @@ func TestFactProgramLegacyAPI(t *testing.T) {
 	if err != nil || program.Kinds() != gotreesitter.FactDefinitions {
 		t.Fatalf("legacy constructor: %v", err)
 	}
-	// Keep positional literals valid: this type's layout must stay unchanged.
-	span := gotreesitter.DefinitionSpan{"go", "type", "Example", "type_spec", 1, 8, 1, 8}
+	span := gotreesitter.DefinitionSpan{Lang: "go", Kind: "type", Name: "Example", NodeType: "type_spec", StartByte: 1, EndByte: 8, NameStartByte: 1, NameEndByte: 8}
 	if span.Name != "Example" {
 		t.Fatal(span)
 	}
