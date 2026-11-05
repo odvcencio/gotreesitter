@@ -1841,7 +1841,13 @@ func (e *yamlEnv) scan() bool {
 			if shouldEmitComment {
 				e.adv()
 				for !yIsNwl(e.lka()) && e.lka() != 0 {
-					e.adv()
+					if _, count, last := e.lexer.AdvanceLineContent(false); count > 0 {
+						e.curCol += int16(count)
+						e.curChr = int32(last)
+						e.lookaheadValid = false
+					} else {
+						e.adv()
+					}
 				}
 				e.mrkEnd()
 				return e.retSym(yTokComment)

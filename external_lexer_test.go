@@ -1,6 +1,7 @@
 package gotreesitter
 
 import (
+	"reflect"
 	"testing"
 	"unicode/utf8"
 )
@@ -92,6 +93,46 @@ func TestExternalLexerAdvanceUntilNewlineSkip(t *testing.T) {
 	}
 	if tok.StartPoint.Row != 1 || tok.StartPoint.Column != uint32(2+len("abcπ")) {
 		t.Fatalf("token start point = %d:%d, want 1:%d", tok.StartPoint.Row, tok.StartPoint.Column, 2+len("abcπ"))
+	}
+}
+
+func TestExternalLexerAdvanceLineContentMatchesRunePath(t *testing.T) {
+	for _, source := range []string{"abcé😀\r\nnext", "\xef\xbb\xbfαé\xfftail", "aé\x00b", "é😀", "\xff", ""} {
+		for _, skip := range []bool{false, true} {
+			span := newExternalLexer([]byte(source), 0, 0, 0)
+			step := newExternalLexer([]byte(source), 0, 0, 0)
+			for _, lexer := range []*ExternalLexer{span, step} {
+				lexer.readFrontier = &externalReadFrontier{}
+				lexer.Column()
+				lexer.MarkEnd()
+			}
+
+			n, count, last := span.AdvanceLineContent(skip)
+			var wantBytes, wantCount int
+			var wantLast rune
+			for {
+				ch := step.Lookahead()
+				if ch == 0 || ch == '\r' || ch == '\n' {
+					break
+				}
+				_, width := utf8.DecodeRune(step.source[step.pos:])
+				if ch == utf8.RuneError && width == 1 {
+					break
+				}
+				wantBytes += width
+				wantCount++
+				wantLast = ch
+				step.Advance(skip)
+			}
+
+			if n != wantBytes || count != wantCount || last != wantLast {
+				t.Fatalf("source %q skip=%t: span (%d, %d, %U), rune path (%d, %d, %U)",
+					source, skip, n, count, last, wantBytes, wantCount, wantLast)
+			}
+			if !reflect.DeepEqual(span, step) {
+				t.Fatalf("source %q skip=%t: lexer state differs from the rune path", source, skip)
+			}
+		}
 	}
 }
 
