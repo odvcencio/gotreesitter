@@ -18,7 +18,8 @@ import (
 // hardcodes them -- see the symbols field on PowershellExternalScanner below.
 const (
 	powershellTokStatementTerminator = 0
-	powershellTokenCount             = 1
+	powershellTokBareDashes          = 1
+	powershellTokenCount             = 2
 )
 
 // powershellDefaultSymTable records the concrete gotreesitter.Symbol ID the
@@ -31,18 +32,20 @@ const (
 // list order.
 var powershellDefaultSymTable = [powershellTokenCount]gotreesitter.Symbol{
 	232, // _statement_terminator
+	233, // _bare_dashes
 }
 
 var powershellExternalScannerSpec = ExternalScannerSpec{
 	Language:       "powershell",
 	UpstreamRepo:   "https://github.com/airbus-cert/tree-sitter-powershell",
-	UpstreamCommit: "e7bd348c49fdfd5c853a146a670965ba516a6239",
+	UpstreamCommit: "b03e6b0e39692037a98e37a26f0a969b2c46fbc1",
 	SourceFiles: []ExternalScannerSourceFile{
-		{Path: "src/grammar.json", SHA256: "8d3b7b851a037064f08f350c0eed45324db644641424c71396a976e746549211"},
-		{Path: "src/scanner.c", SHA256: "cf366b70e258a0ac1eb264ac0f4165c8f0c1b943d1a6e9db9d291c6cf178221f"},
+		{Path: "src/grammar.json", SHA256: "a7504b323a1730437b32d7f312f9ce16ede8b8d7c4d608fa3a98bdec309492f2"},
+		{Path: "src/scanner.c", SHA256: "dab03ff73a44495c72e6b51f43fd2f5128a1a29344a29974f12fba250328cf99"},
 	},
 	Externals: []string{
 		"_statement_terminator",
+		"_bare_dashes",
 	},
 }
 
@@ -50,9 +53,11 @@ func init() {
 	RegisterExternalScannerSpec(powershellExternalScannerSpec)
 }
 
-// PowershellExternalScanner handles statement termination detection for PowerShell.
-// A statement terminator is a zero-width token that fires when the next
-// significant character is EOF, }, ;, ), or newline.
+// PowershellExternalScanner handles statement termination detection and bare
+// dash arguments for PowerShell. A statement terminator is a zero-width token
+// that fires when the next significant character is EOF, }, ;, ), or newline.
+// A bare dash argument is a `-` or `--` followed by whitespace or the end of
+// the command.
 type PowershellExternalScanner struct {
 	symbols         [powershellTokenCount]gotreesitter.Symbol
 	externalToToken []int
@@ -76,7 +81,7 @@ func (PowershellExternalScanner) Serialize(payload any, buf []byte) int { return
 func (PowershellExternalScanner) Deserialize(payload any, buf []byte)   {}
 
 // SupportsIncrementalReuse certifies changed-edit subtree reuse. The scanner
-// has no payload and recognizes only a statement terminator from the current
+// has no payload and recognizes only a statement terminator or bare dashes from the current
 // lookahead and parser-provided valid-symbol set.
 func (PowershellExternalScanner) SupportsIncrementalReuse() bool { return true }
 
@@ -91,10 +96,9 @@ func (PowershellExternalScanner) ExternalScannerIsStateless() bool { return true
 func (PowershellExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
 // Scan ports airbus-cert/tree-sitter-powershell src/scanner.c
-// scan_statement_terminator 1:1. Commit c6d1897 (the only src/scanner.c
-// change between da65ba3acc93 and e7bd348c49fd) switched the parser.h
-// include from angle brackets to quotes for build portability; it changed no
-// scanner behavior, so this port needed no update.
+// tree_sitter_powershell_external_scanner_scan 1:1. The bare dashes scan runs
+// first because the statement terminator consumes nothing and would otherwise
+// win over a `--`.
 func (s PowershellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(s.externalToToken) > 0 {
 		var semanticValid [powershellTokenCount]bool
@@ -109,6 +113,13 @@ func (s PowershellExternalScanner) Scan(payload any, lexer *gotreesitter.Externa
 		}
 		validSymbols = semanticValid[:]
 	}
+	if s.scanBareDashes(lexer, validSymbols) {
+		return true
+	}
+	return s.scanStatementTerminator(lexer, validSymbols)
+}
+
+func (s PowershellExternalScanner) scanStatementTerminator(lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if !powershellValid(validSymbols, powershellTokStatementTerminator) {
 		return false
 	}
@@ -125,6 +136,30 @@ func (s PowershellExternalScanner) Scan(payload any, lexer *gotreesitter.Externa
 		}
 		lexer.Advance(true)
 	}
+}
+
+func (s PowershellExternalScanner) scanBareDashes(lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if !powershellValid(validSymbols, powershellTokBareDashes) {
+		return false
+	}
+	for lexer.Lookahead() == ' ' || lexer.Lookahead() == '\t' {
+		lexer.Advance(true)
+	}
+	if lexer.Lookahead() != '-' {
+		return false
+	}
+	lexer.Advance(false)
+	if lexer.Lookahead() == '-' {
+		lexer.Advance(false)
+	}
+	lexer.MarkEnd()
+
+	switch lexer.Lookahead() {
+	case 0, ' ', '\t', '\r', '\n', ';', '|', '&', ')', '}':
+		lexer.SetResultSymbol(s.symbolTable()[powershellTokBareDashes])
+		return true
+	}
+	return false
 }
 
 func (s PowershellExternalScanner) symbolTable() *[powershellTokenCount]gotreesitter.Symbol {
