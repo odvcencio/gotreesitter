@@ -1405,8 +1405,9 @@ func legacyReuseFirstLeafSymbol(n *Node) Symbol {
 	return n.symbol
 }
 
-// Small-input dispatch retains the established public-symbol contract. Alias
-// receipts keep their raw symbol independently for large-input certification.
+// A complete source-bound receipt authenticates the raw alias symbol at any
+// size. Absent small-source metadata retains the conservative public symbol;
+// the established large-source dispatch behavior remains unchanged.
 func legacyReuseDispatchSymbol(n *Node) Symbol {
 	if n == nil {
 		return 0
