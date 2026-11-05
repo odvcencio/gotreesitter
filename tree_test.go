@@ -1775,3 +1775,70 @@ func TestNodeEditAfterTreeEditMovesSpanTwice(t *testing.T) {
 		t.Fatalf("after re-applied Node.Edit: leaf.EndByte() = %d, want %d", got, want)
 	}
 }
+
+func TestPrivatePagedCompatibilitySnapshotMutationAndScrub(t *testing.T) {
+	compactCompatibilitySnapshotSpare.Store(nil)
+	children := make([]*Node, 520)
+	for i := range children {
+		children[i] = &Node{symbol: Symbol(i % 100), startByte: uint32(i), endByte: uint32(i + 1)}
+	}
+	root := &Node{children: children, startByte: 0, endByte: 520}
+	ids := make([]FieldID, len(children))
+	sources := make([]uint8, len(children))
+	ids[0] = 1
+	sources[0] = 1
+	root.setFieldMetadata(ids, sources)
+	s := snapshotCompactCompatibilityTree(root, true)
+	if s == nil || s.nodeCount != 521 || len(s.nodePages) != 2 || !s.matches(root) {
+		t.Fatal("multi-page snapshot does not match")
+	}
+	original := children[510]
+	children[510] = children[511]
+	if s.matches(root) {
+		t.Fatal("child pointer mutation missed")
+	}
+	children[510] = original
+	ids[0] = 2
+	if s.matches(root) {
+		t.Fatal("field mutation missed")
+	}
+	ids[0] = 1
+	sources[0] = 2
+	if s.matches(root) {
+		t.Fatal("field source mutation missed")
+	}
+	sources[0] = 1
+	children[519].dynamicPrecedence++
+	if s.matches(root) {
+		t.Fatal("deep node mutation missed")
+	}
+	children[519].dynamicPrecedence--
+	if !s.matches(root) || s.matches(&Node{}) {
+		t.Fatal("snapshot restore or root identity failed")
+	}
+	s.release()
+	retained := compactCompatibilitySnapshotSpare.Swap(nil)
+	if retained != s {
+		t.Fatal("bounded snapshot not pooled")
+	}
+	if retained.root != nil || retained.nodeCount != 0 {
+		t.Fatal("pooled metadata retained root")
+	}
+	for _, page := range retained.nodePages {
+		for i := range page {
+			if page[i].node != nil {
+				t.Fatal("pooled page retained node")
+			}
+		}
+	}
+	for _, child := range retained.children[:cap(retained.children)] {
+		if child != nil {
+			t.Fatal("pooled child retained node")
+		}
+	}
+	for _, node := range retained.stack[:cap(retained.stack)] {
+		if node != nil {
+			t.Fatal("pooled stack retained node")
+		}
+	}
+}

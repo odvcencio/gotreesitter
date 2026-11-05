@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // Range is a span of source text.
@@ -3359,6 +3360,7 @@ func (t *Tree) ensureResultCompatibility() {
 		}
 		hadCompactLineage := t.compactMaterialized || compactTreeContainsMaterializedNode(t.root)
 		compatibilitySnapshot := snapshotCompactCompatibilityTree(t.root, hadCompactLineage)
+		defer compatibilitySnapshot.release()
 		if !parsePhaseTimingEnabled() {
 			parser := &Parser{language: t.language}
 			result := normalizeResultCompatibility(t.root, t.source, parser, nil)
@@ -3400,9 +3402,9 @@ func (t *Tree) disableIncrementalReuseAfterCompactCompatibility(snapshot *compac
 
 type compactCompatibilityNodeSnapshot struct {
 	node              *Node
-	children          []*Node
-	fieldIDs          []FieldID
-	fieldSources      []uint8
+	childCount        int
+	fieldCount        int
+	sourceCount       int
 	startPoint        Point
 	endPoint          Point
 	startByte         uint32
@@ -3416,30 +3418,74 @@ type compactCompatibilityNodeSnapshot struct {
 	semanticFlags     nodeFlags
 }
 
+const compactCompatibilitySnapshotPageSize = 512
+
+type compactCompatibilitySnapshotPage [compactCompatibilitySnapshotPageSize]compactCompatibilityNodeSnapshot
+
 type compactCompatibilityTreeSnapshot struct {
-	root  *Node
-	nodes []compactCompatibilityNodeSnapshot
+	root         *Node
+	nodePages    []*compactCompatibilitySnapshotPage
+	nodeCount    int
+	children     []*Node
+	fieldIDs     []FieldID
+	fieldSources []uint8
+	stack        []*Node
+}
+
+// At most one bounded, scrubbed workspace is retained across calls.
+var compactCompatibilitySnapshotSpare atomic.Pointer[compactCompatibilityTreeSnapshot]
+
+func (s *compactCompatibilityTreeSnapshot) release() {
+	if s == nil || len(s.nodePages) > 4 || cap(s.children) > 4096 ||
+		cap(s.fieldIDs) > 4096 || cap(s.fieldSources) > 4096 || cap(s.stack) > 2048 ||
+		compactCompatibilitySnapshotSpare.Load() != nil {
+		return
+	}
+	for _, page := range s.nodePages {
+		clear(page[:])
+	}
+	clear(s.children[:cap(s.children)])
+	clear(s.stack[:cap(s.stack)])
+	s.root = nil
+	s.nodeCount = 0
+	s.children = s.children[:0]
+	s.fieldIDs = s.fieldIDs[:0]
+	s.fieldSources = s.fieldSources[:0]
+	s.stack = s.stack[:0]
+	compactCompatibilitySnapshotSpare.CompareAndSwap(nil, s)
 }
 
 func snapshotCompactCompatibilityTree(root *Node, enabled bool) *compactCompatibilityTreeSnapshot {
 	if !enabled || root == nil {
 		return nil
 	}
-	snapshot := &compactCompatibilityTreeSnapshot{root: root}
-	stack := []*Node{root}
-	for len(stack) > 0 {
-		last := len(stack) - 1
-		node := stack[last]
-		stack = stack[:last]
+	snapshot := compactCompatibilitySnapshotSpare.Swap(nil)
+	if snapshot == nil {
+		snapshot = &compactCompatibilityTreeSnapshot{}
+	}
+	snapshot.root = root
+	snapshot.stack = append(snapshot.stack, root)
+	for len(snapshot.stack) > 0 {
+		last := len(snapshot.stack) - 1
+		node := snapshot.stack[last]
+		snapshot.stack = snapshot.stack[:last]
 		if node == nil {
 			continue
 		}
-		children := append([]*Node(nil), nodeChildrenForReason(node, materializeForEdit)...)
-		snapshot.nodes = append(snapshot.nodes, compactCompatibilityNodeSnapshot{
+		childStart, fieldStart, sourceStart := len(snapshot.children), len(snapshot.fieldIDs), len(snapshot.fieldSources)
+		snapshot.children = append(snapshot.children, nodeChildrenForReason(node, materializeForEdit)...)
+		snapshot.fieldIDs = append(snapshot.fieldIDs, node.fieldIDs()...)
+		snapshot.fieldSources = append(snapshot.fieldSources, node.fieldSources()...)
+		children := snapshot.children[childStart:]
+		pageIndex := snapshot.nodeCount / compactCompatibilitySnapshotPageSize
+		if pageIndex == len(snapshot.nodePages) {
+			snapshot.nodePages = append(snapshot.nodePages, new(compactCompatibilitySnapshotPage))
+		}
+		snapshot.nodePages[pageIndex][snapshot.nodeCount%compactCompatibilitySnapshotPageSize] = compactCompatibilityNodeSnapshot{
 			node:              node,
-			children:          children,
-			fieldIDs:          append([]FieldID(nil), node.fieldIDs()...),
-			fieldSources:      append([]uint8(nil), node.fieldSources()...),
+			childCount:        len(children),
+			fieldCount:        len(snapshot.fieldIDs) - fieldStart,
+			sourceCount:       len(snapshot.fieldSources) - sourceStart,
 			startPoint:        node.startPoint,
 			endPoint:          node.endPoint,
 			startByte:         node.startByte,
@@ -3451,9 +3497,10 @@ func snapshotCompactCompatibilityTree(root *Node, enabled bool) *compactCompatib
 			symbol:            node.symbol,
 			productionID:      node.productionID,
 			semanticFlags:     node.flags &^ (nodeFlagFieldIDCacheComputed | nodeFlagFieldIDCacheHasFieldIDs),
-		})
+		}
+		snapshot.nodeCount++
 		for i := len(children) - 1; i >= 0; i-- {
-			stack = append(stack, children[i])
+			snapshot.stack = append(snapshot.stack, children[i])
 		}
 	}
 	return snapshot
@@ -3463,7 +3510,15 @@ func (s *compactCompatibilityTreeSnapshot) matches(root *Node) bool {
 	if s == nil || s.root != root {
 		return false
 	}
-	for _, before := range s.nodes {
+	childOffset, fieldOffset, sourceOffset := 0, 0, 0
+	for i := 0; i < s.nodeCount; i++ {
+		before := &s.nodePages[i/compactCompatibilitySnapshotPageSize][i%compactCompatibilitySnapshotPageSize]
+		children := s.children[childOffset : childOffset+before.childCount]
+		fields := s.fieldIDs[fieldOffset : fieldOffset+before.fieldCount]
+		sources := s.fieldSources[sourceOffset : sourceOffset+before.sourceCount]
+		childOffset += before.childCount
+		fieldOffset += before.fieldCount
+		sourceOffset += before.sourceCount
 		node := before.node
 		if node == nil ||
 			node.startPoint != before.startPoint || node.endPoint != before.endPoint ||
@@ -3472,9 +3527,9 @@ func (s *compactCompatibilityTreeSnapshot) matches(root *Node) bool {
 			node.equivVersion != before.equivVersion || node.dynamicPrecedence != before.dynamicPrecedence ||
 			node.symbol != before.symbol || node.productionID != before.productionID ||
 			node.flags&^(nodeFlagFieldIDCacheComputed|nodeFlagFieldIDCacheHasFieldIDs) != before.semanticFlags ||
-			!sameNodePointers(node.children, before.children) ||
-			!sameFieldIDs(node.fieldIDs(), before.fieldIDs) ||
-			!sameBytes(node.fieldSources(), before.fieldSources) {
+			!sameNodePointers(node.children, children) ||
+			!sameFieldIDs(node.fieldIDs(), fields) ||
+			!sameBytes(node.fieldSources(), sources) {
 			return false
 		}
 	}
