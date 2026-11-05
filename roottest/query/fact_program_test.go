@@ -368,6 +368,17 @@ func TestFactProgramLegacyAPI(t *testing.T) {
 	if span.Name != "Example" {
 		t.Fatal(span)
 	}
+	// Positional literals are part of the legacy API, so preserve the field layout.
+	spanType := reflect.TypeOf(span)
+	wantFields := []string{"Lang", "Kind", "Name", "NodeType", "StartByte", "EndByte", "NameStartByte", "NameEndByte"}
+	if spanType.NumField() != len(wantFields) {
+		t.Fatalf("DefinitionSpan has %d fields; want %d", spanType.NumField(), len(wantFields))
+	}
+	for i, want := range wantFields {
+		if got := spanType.Field(i).Name; got != want {
+			t.Errorf("DefinitionSpan field %d = %q; want %q", i, got, want)
+		}
+	}
 }
 
 func TestFactDeclarationsDisabledAllocations(t *testing.T) {
