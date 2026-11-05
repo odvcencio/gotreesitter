@@ -604,6 +604,8 @@ func nativeViewQueryReader.SetCaptureTextOverride(c *QueryCapture, text string)
 func outlineError.Error() string
 func parserCoreCorridorExitReason.String() string
 func parserCoreCorridorOpcode.String() string
+func parserCoreMetadataSymbolNames.SelectedSymbolText(id core.Symbol) string
+func parserCorePublicSymbolNames.SelectedSymbolText(id core.Symbol) string
 func publicQueryReader.CaptureName(capture QueryCapture) string
 func publicQueryReader.CaptureNode(capture QueryCapture) *Node
 func publicQueryReader.CaptureRangeOverride(capture QueryCapture) (uint32, uint32, Point, Point, bool)
