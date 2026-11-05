@@ -375,6 +375,13 @@ const (
 	// ConflictPolicyDeclaredSelfReduceReduceLongest keeps the wider production
 	// in a certified same-symbol conflict with equal precedence and field maps.
 	ConflictPolicyDeclaredSelfReduceReduceLongest
+	// ConflictPolicyReuseSafeRepetitionReduce certifies an exact state and
+	// lookahead containing one plain reduce and one repetition-marked shift.
+	// It applies at both fresh and incremental redispatch, after reuse has
+	// declined the current subtree. Wildcards and compact-only gates are
+	// rejected. Existing kind values and the serialized policy layout stay
+	// unchanged.
+	ConflictPolicyReuseSafeRepetitionReduce
 )
 
 // ConflictPolicy describes one table row/lookahead conflict that can be
@@ -691,6 +698,8 @@ type Language struct {
 	// produced this Language. Keep it private so blob encoding stays stable.
 	grammarBlobSHA256      [32]byte
 	grammarBlobSHA256Valid bool
+	// Runtime-only: omitted by gob and granted only to an exact loaded artifact.
+	legacyReductionContinuationsCertified bool
 	// blobInfo records the version header LoadLanguage found (or did not
 	// find) on the blob that produced this Language. See BlobInfo and
 	// LanguageBlobInfo in language_blob_version_header.go.
@@ -1310,6 +1319,19 @@ func (l *Language) GrammarBlobSHA256() ([32]byte, bool) {
 		return [32]byte{}, false
 	}
 	return l.grammarBlobSHA256, true
+}
+
+// CertifyLegacyReductionContinuations enables bounded packed-continuation
+// publication for a grammar artifact whose selected trees have been verified.
+// Configure it before constructing parsers. The hash must match the exact blob
+// loaded by LoadLanguage. The grant is runtime-only and does not survive blob
+// encoding; it returns true only when a new grant is installed.
+func (l *Language) CertifyLegacyReductionContinuations(blobSHA256 [32]byte) bool {
+	if l == nil || !l.grammarBlobSHA256Valid || l.grammarBlobSHA256 != blobSHA256 || l.legacyReductionContinuationsCertified {
+		return false
+	}
+	l.legacyReductionContinuationsCertified = true
+	return true
 }
 
 // BlobInfo returns the version metadata LoadLanguage recorded when it loaded
