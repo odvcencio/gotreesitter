@@ -17,6 +17,33 @@ import editor_latency_gate as gate
 
 
 class HostedCampaignTests(unittest.TestCase):
+    def test_role_cache_rejects_source_and_artifact_mutation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "cache").mkdir()
+            source = root / "patch"
+            source.write_text("source")
+            artifact = root / "cache/parser.so"
+            artifact.write_text("artifact")
+            (root / "identity.json").write_text("identity")
+            (root / "cold-source.json").write_text("null")
+            for name in ("compiler.before", "compiler.after"):
+                (root / name).write_text("/cc " + "a" * 64 + "\n/cxx " + "b" * 64 + "\n")
+            for name in ("environment.before", "environment.after"):
+                (root / name).write_text("c" * 64 + "\n")
+            expected = {"sources": gate.source_fingerprints([source]), "artifact": gate.digest(artifact),
+                        "identity": gate.digest(root / "identity.json"), "fresh_proof_sha256": gate.digest(root / "cold-source.json"), "filename": "parser.so",
+                        "compilers": [["/cc", "a" * 64], ["/cxx", "b" * 64]], "build_env": "c" * 64,
+                        "image": "image", "image_id": "sha256:image"}
+            with mock.patch.object(gate.subprocess, "check_output", return_value="sha256:image\n"):
+                gate.verify_private_oracle(root, [source], expected)
+                for path in (source, artifact, root / "identity.json", root / "cold-source.json"):
+                    original = path.read_bytes()
+                    path.write_bytes(b"tampered")
+                    with self.assertRaises(ValueError):
+                        gate.verify_private_oracle(root, [source], expected)
+                    path.write_bytes(original)
+
     def test_lane_cache_scratch_and_unique_image(self):
         environment = {"GOCACHE": "/cache", "GOTMPDIR": "/go-tmp", "TMPDIR": "/tmp-dir", "GTS_EDITOR_LATENCY_IMAGE": "gotreesitter/test:unique"}
         with mock.patch.dict(os.environ, environment, clear=True):
@@ -135,6 +162,157 @@ with gate.campaign_lock(Path(sys.argv[1])):
 
 
 class GateTests(unittest.TestCase):
+    def test_authenticated_role_grammar_change_and_tampering(self):
+        receipts = {}
+        for f in self.m["fixtures"]:
+            language = f["language"]
+            receipts[language] = {}
+            for role in ("base", "head"):
+                admission = self.admissions[role, language]
+                admission["oracle"].update(grammar_subdir="src", grammar_patch_identity="none", sources_manifest_sha256="f" * 64)
+                if language == "go" and role == "head":
+                    admission["oracle"].update(grammar_commit="b" * 40, grammar_artifact_sha256="b" * 64)
+                    admission["initial_tree_sha256"] = "1" * 64
+                    admission["cells"][0]["steps"][0]["tree_sha256"] = "2" * 64
+                gate.write_json(self.admission_path(role, language), admission)
+                cold_oracle = copy.deepcopy(admission["oracle"])
+                cold_oracle["compiler_path"] = "/usr/bin/cc"
+                proof = {"schema":"w5-fresh-source-v1", "mode":"committed-parser-no-patch-no-regeneration", "language":language,
+                         "repo":cold_oracle["grammar_repo"], "commit":cold_oracle["grammar_commit"], "subdir":"src",
+                         "expected_parser":"src/parser.c", "actual_parser":"src/parser.c", "parser_sha256":"a" * 64,
+                         "abi":15, "sources":{"src/parser.c":"a" * 64}, "artifact_sha256":cold_oracle["grammar_artifact_sha256"]}
+                receipts[language][role] = (None, None, {"oracle": cold_oracle, "fresh_proof":proof, "compilers": [["/usr/bin/cc", "a" * 64]], "build_env": "env", "image_id": "image"})
+        result = gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=receipts)
+        self.assertEqual(len(result["semantic_changes"]), 2)
+        swapped = copy.deepcopy(receipts)
+        swapped["go"]["base"], swapped["go"]["head"] = swapped["go"]["head"], swapped["go"]["base"]
+        with self.assertRaises(ValueError):
+            gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=swapped)
+        wrong_compiler = copy.deepcopy(receipts)
+        wrong_compiler["go"]["head"][2]["compilers"][0][1] = "b" * 64
+        with self.assertRaises(ValueError):
+            gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=wrong_compiler)
+        for change in (
+            lambda r: r["go"]["head"][2].update(fresh_proof=None),
+            lambda r: r["go"]["head"][2].update(fresh_proof=copy.deepcopy(r["go"]["base"][2]["fresh_proof"])),
+            lambda r: r["go"]["head"][2]["fresh_proof"].update(artifact_sha256="c" * 64),
+            lambda r: r["go"]["head"][2]["fresh_proof"].update(mode="regenerated"),
+            lambda r: r["go"]["head"][2]["fresh_proof"].update(abi=0),
+            lambda r: r["go"]["head"][2]["fresh_proof"].update(actual_parser="generated/parser.c"),
+        ):
+            broken = copy.deepcopy(receipts)
+            change(broken)
+            with self.assertRaises(ValueError):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=broken)
+        original = copy.deepcopy(self.admissions["head", "go"])
+        for mutation in (
+            lambda a: a["oracle"].update(grammar_artifact_sha256="c" * 64),
+            lambda a: a.update(revision=self.base),
+            lambda a: a["cells"][0]["steps"][0].update(source_sha256="c" * 64),
+        ):
+            changed = copy.deepcopy(original)
+            mutation(changed)
+            gate.write_json(self.admission_path("head", "go"), changed)
+            with self.assertRaises(ValueError):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=receipts)
+        changed = copy.deepcopy(original)
+        changed["oracle"]["runtime_commit"] = "c" * 40
+        receipts["go"]["head"][2]["oracle"] = copy.deepcopy(changed["oracle"])
+        gate.write_json(self.admission_path("head", "go"), changed)
+        with self.assertRaises(ValueError):
+            gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=receipts)
+        for key in ("compiler_path", "compiler_version", "sources_manifest_sha256"):
+            changed = copy.deepcopy(original)
+            changed["oracle"][key] = "changed"
+            receipts["go"]["head"][2]["oracle"] = copy.deepcopy(changed["oracle"])
+            gate.write_json(self.admission_path("head", "go"), changed)
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=receipts)
+        same_grammar = copy.deepcopy(original)
+        same_grammar["oracle"] = copy.deepcopy(self.admissions["base", "go"]["oracle"])
+        receipts["go"]["head"][2]["oracle"] = copy.deepcopy(same_grammar["oracle"])
+        gate.write_json(self.admission_path("head", "go"), same_grammar)
+        with self.assertRaisesRegex(ValueError, "initial tree digest differs"):
+            gate.compare_counters(self.out, self.manifest, self.base, self.head, authenticated=receipts)
+
+    def test_lock_entry_is_language_specific(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "grammars").mkdir()
+            lock = root / "grammars/languages.lock"
+            lock.write_text("go https://example/go " + "a" * 40 + " src\nother https://example/other " + "b" * 40 + " src\n")
+            entry = gate.lock_grammar(root, "go")
+            gate.verify_locked_oracle(root, "go", entry)
+            for field in entry:
+                wrong = dict(entry, **{field: "wrong"})
+                with self.assertRaises(ValueError):
+                    gate.verify_locked_oracle(root, "go", wrong)
+            lock.write_text(lock.read_text().replace("b" * 40, "c" * 40))
+            self.assertEqual(gate.lock_grammar(root, "go"), entry)
+            lock.write_text(lock.read_text() + "go https://example/bad " + "d" * 40 + " src\n")
+            with self.assertRaises(ValueError):
+                gate.lock_grammar(root, "go")
+            lock.write_text("go https://example/go " + "a" * 40 + "\n")
+            self.assertEqual(gate.lock_grammar(root, "go")["grammar_subdir"], "src")
+
+    def test_generated_role_binds_revision_and_complete_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "grammars").mkdir()
+            (root / "grammars/languages.lock").write_text("grammar lock\n")
+            module = root / "module"
+            module.mkdir()
+            lock = gate.write_campaign_role(module, "base", "a" * 40, root)
+            source = (module / "campaign_role_test.go").read_text()
+            self.assertEqual(lock, gate.sha(b"grammar lock\n"))
+            for item in ("base", "/baseline", "a" * 40, lock):
+                self.assertIn(item, source)
+            with self.assertRaises(ValueError):
+                gate.write_campaign_role(module, "base", "not-a-revision", root)
+
+    def test_role_binding_rejects_changes_to_cold_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "grammars").mkdir()
+            lock = root / "grammars/languages.lock"
+            lock.write_text("baseline lock\n")
+            patch = root / "baseline.patch"
+            patch.write_text("baseline patch\n")
+            module = root / "module"
+            module.mkdir()
+            revision = "a" * 40
+            gate.write_campaign_role(module, "base", revision, root)
+            config = module / "campaign_role_test.go"
+            inputs = [lock, patch, config]
+            cold = {"sources": gate.source_fingerprints(inputs), "identity": "b" * 64,
+                    "compilers": [["/cc", "c" * 64], ["/cxx", "d" * 64]], "build_env": "e" * 64}
+            for path in inputs:
+                original = path.read_bytes()
+                path.write_bytes(b"tampered")
+                receipt = copy.deepcopy(cold)
+                with self.subTest(path=path.name), self.assertRaises(ValueError):
+                    gate.bind_private_role(module, "base", revision, root, inputs, receipt)
+                self.assertEqual(receipt["sources"], cold["sources"])
+                path.write_bytes(original)
+            original_config = config.read_bytes()
+            original_write = Path.write_text
+            def mutate_during_write(path, data, *args, **kwargs):
+                result = original_write(path, data, *args, **kwargs)
+                if path == config:
+                    patch.write_bytes(b"changed during config rewrite")
+                return result
+            receipt = copy.deepcopy(cold)
+            with mock.patch.object(Path, "write_text", mutate_during_write), self.assertRaises(ValueError):
+                gate.bind_private_role(module, "base", revision, root, inputs, receipt)
+            self.assertEqual(receipt["sources"], cold["sources"])
+            patch.write_text("baseline patch\n")
+            config.write_bytes(original_config)
+            receipt = copy.deepcopy(cold)
+            gate.bind_private_role(module, "base", revision, root, inputs, receipt)
+            self.assertEqual(receipt["sources"][str(lock)], cold["sources"][str(lock)])
+            self.assertEqual(receipt["sources"][str(patch)], cold["sources"][str(patch)])
+            self.assertNotEqual(receipt["sources"][str(config)], cold["sources"][str(config)])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

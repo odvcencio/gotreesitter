@@ -70,10 +70,33 @@ type parityLockEntry struct {
 }
 
 type parityCRef struct {
-	lang   *sitter.Language
-	raw    unsafe.Pointer // the TSLanguage the shared object returned
-	handle unsafe.Pointer
-	soPath string
+	lang       *sitter.Language
+	raw        unsafe.Pointer // the TSLanguage the shared object returned
+	handle     unsafe.Pointer
+	soPath     string
+	freshProof *COracleFreshSourceProof
+}
+
+// COracleFreshSourceProof is available only from a qualifying cold build.
+type COracleFreshSourceProof struct {
+	Schema         string            `json:"schema"`
+	Mode           string            `json:"mode"`
+	Language       string            `json:"language"`
+	Repo           string            `json:"repo"`
+	Commit         string            `json:"commit"`
+	Subdir         string            `json:"subdir"`
+	ExpectedParser string            `json:"expected_parser"`
+	ActualParser   string            `json:"actual_parser"`
+	ParserSHA256   string            `json:"parser_sha256"`
+	ABI            int               `json:"abi"`
+	Sources        map[string]string `json:"sources"`
+	ArtifactSHA256 string            `json:"artifact_sha256"`
+}
+
+type paritySourceCapture struct {
+	srcDir, parserPath string
+	sources            []string
+	regenerated        bool
 }
 
 const (
@@ -120,6 +143,8 @@ type COracleBuildIdentity struct {
 	Language              string `json:"language"`
 	GrammarRepo           string `json:"grammar_repo"`
 	GrammarCommit         string `json:"grammar_commit"`
+	GrammarSubdir         string `json:"grammar_subdir"`
+	GrammarPatchIdentity  string `json:"grammar_patch_identity"`
 	GrammarLinkage        string `json:"grammar_linkage"`
 	GrammarCompileFlags   string `json:"grammar_compile_flags"`
 	CompilerPath          string `json:"compiler_path"`
@@ -284,6 +309,10 @@ func COracleIdentity(name string) (COracleBuildIdentity, error) {
 		return COracleBuildIdentity{}, fmt.Errorf("hash C oracle grammar artifact: %w", err)
 	}
 	compilerPath, compilerVersion := cOracleCompilerIdentity()
+	patchIdentity, err := cOraclePatchIdentity(entry)
+	if err != nil {
+		return COracleBuildIdentity{}, err
+	}
 	return COracleBuildIdentity{
 		Contract:              COracleContractVersion,
 		Transport:             "cgo_parity_binding",
@@ -297,6 +326,8 @@ func COracleIdentity(name string) (COracleBuildIdentity, error) {
 		Language:              name,
 		GrammarRepo:           entry.RepoURL,
 		GrammarCommit:         entry.Commit,
+		GrammarSubdir:         entry.Subdir,
+		GrammarPatchIdentity:  patchIdentity,
 		GrammarLinkage:        "shared_dlopen",
 		GrammarCompileFlags:   COracleGrammarCFlags,
 		CompilerPath:          compilerPath,
@@ -304,6 +335,46 @@ func COracleIdentity(name string) (COracleBuildIdentity, error) {
 		GrammarArtifactPath:   ref.soPath,
 		GrammarArtifactSHA256: artifactSHA,
 	}, nil
+}
+
+// COracleFreshProof returns no proof for cache hits or unqualified cold builds.
+// The returned data is independent of the loader's retained state.
+func COracleFreshProof(name string) *COracleFreshSourceProof {
+	parityCRefState.mu.Lock()
+	defer parityCRefState.mu.Unlock()
+	ref := parityCRefState.refs[name]
+	if ref == nil || ref.freshProof == nil {
+		return nil
+	}
+	p := *ref.freshProof
+	p.Sources = make(map[string]string, len(ref.freshProof.Sources))
+	for k, v := range ref.freshProof.Sources {
+		p.Sources[k] = v
+	}
+	return &p
+}
+
+// cOraclePatchIdentity binds the effective per-language patch configuration and
+// contents, not unrelated changes elsewhere in the grammar lock or patch tree.
+func cOraclePatchIdentity(entry parityLockEntry) (string, error) {
+	spec, ok := grammarpatch.Lookup(entry.Name)
+	if !ok {
+		return "none", nil
+	}
+	path := parityGrammarPatchPath(entry)
+	if path == "" {
+		return "", fmt.Errorf("missing grammar patch for %s", entry.Name)
+	}
+	fileHash, err := fileSHA256(path)
+	if err != nil {
+		return "", err
+	}
+	config, err := json.Marshal(spec)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(append(append(config, 0), fileHash...))
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // COracleDeepDigest returns the gts-deep-tree-v1 structural digest emitted by the
@@ -453,6 +524,10 @@ func buildParityCRef(rootDir, cacheDir string, entry parityLockEntry) (*parityCR
 	if err := verifyPinnedRepo(repoDir, entry.Commit); err != nil {
 		return nil, fmt.Errorf("%s: %s %s rejected: %w", entry.Name, repoKind, repoDir, err)
 	}
+	var candidate *COracleFreshSourceProof
+	if os.Getenv("GTS_W5_PRIVATE_ORACLE_PREPARE") != "" {
+		candidate = freshParserCandidate(repoDir, entry)
+	}
 	if err := applyParityGrammarPatch(entry, repoDir); err != nil {
 		return nil, fmt.Errorf("%s: apply grammar patch: %w", entry.Name, err)
 	}
@@ -462,7 +537,8 @@ func buildParityCRef(rootDir, cacheDir string, entry parityLockEntry) (*parityCR
 		return nil, fmt.Errorf("%s: mkdir build dir: %w", entry.Name, err)
 	}
 	soPath := filepath.Join(buildDir, "parser.so")
-	if err := compileParserShared(entry, repoDir, soPath, buildDir); err != nil {
+	var capture paritySourceCapture
+	if err := compileParserShared(entry, repoDir, soPath, buildDir, &capture); err != nil {
 		return nil, fmt.Errorf("%s: compile parser shared library: %w", entry.Name, err)
 	}
 
@@ -470,12 +546,111 @@ func buildParityCRef(rootDir, cacheDir string, entry parityLockEntry) (*parityCR
 	for _, symbol := range parityLanguageSymbols(entry) {
 		ref, err := loadParitySharedLanguage(soPath, symbol)
 		if err == nil {
+			ref.freshProof = finishFreshParserProof(repoDir, entry, soPath, candidate, capture)
 			storeCachedParityCRef(cacheDir, entry, soPath)
 			return ref, nil
 		}
 		loadErrs = append(loadErrs, fmt.Sprintf("%s: %v", symbol, err))
 	}
 	return nil, fmt.Errorf("%s: load language symbol failed: %s", entry.Name, strings.Join(loadErrs, "; "))
+}
+
+// pinnedSourceDigest rejects symlinks, paths outside the checkout, untracked
+// files, and bytes that differ from the pinned tree, including filter changes.
+func pinnedSourceDigest(repoDir, path string) (string, string, bool) {
+	rel, err := filepath.Rel(repoDir, path)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", "", false
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil || filepath.Clean(resolved) != filepath.Clean(path) {
+		return "", "", false
+	}
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", "", false
+	}
+	rel = filepath.ToSlash(rel)
+	tree, err := parityGitStdout(repoDir, "ls-tree", "-z", "HEAD", "--", rel)
+	if err != nil {
+		return "", "", false
+	}
+	parts := strings.SplitN(strings.TrimSuffix(tree, "\x00"), "\t", 2)
+	if len(parts) != 2 || parts[1] != rel {
+		return "", "", false
+	}
+	fields := strings.Fields(parts[0])
+	if len(fields) != 3 || fields[1] != "blob" || !pinnedRepoModeMatches(fields[0], info.Mode()) {
+		return "", "", false
+	}
+	blob, err := parityGitStdout(repoDir, "hash-object", "--no-filters", "--", rel)
+	if err != nil || strings.TrimSpace(blob) != fields[2] {
+		return "", "", false
+	}
+	hash, err := fileSHA256(path)
+	return rel, hash, err == nil
+}
+
+func freshParserCandidate(repoDir string, entry parityLockEntry) *COracleFreshSourceProof {
+	if _, patched := grammarpatch.Lookup(entry.Name); patched {
+		return nil
+	}
+	path := filepath.Join(repoDir, entry.Subdir, "parser.c")
+	rel, hash, ok := pinnedSourceDigest(repoDir, path)
+	if !ok {
+		return nil
+	}
+	abi, ok := readParserLanguageVersion(path)
+	if !ok || abi < parityMinLanguageVersion || abi > parityMaxLanguageVersion {
+		return nil
+	}
+	return &COracleFreshSourceProof{Schema: "w5-fresh-source-v1", Mode: "committed-parser-no-patch-no-regeneration", Language: entry.Name, Repo: entry.RepoURL, Commit: entry.Commit, Subdir: entry.Subdir, ExpectedParser: rel, ParserSHA256: hash, ABI: abi}
+}
+
+func finishFreshParserProof(repoDir string, entry parityLockEntry, soPath string, candidate *COracleFreshSourceProof, capture paritySourceCapture) *COracleFreshSourceProof {
+	if candidate == nil || capture.regenerated || capture.parserPath != filepath.Join(repoDir, entry.Subdir, "parser.c") || capture.srcDir != filepath.Join(repoDir, entry.Subdir) {
+		return nil
+	}
+	if err := verifyPinnedRepo(repoDir, entry.Commit); err != nil {
+		return nil
+	}
+	ignored, err := parityGitStdout(repoDir, "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
+	if err != nil || ignored != "" {
+		return nil
+	}
+	tracked, err := parityGitStdout(repoDir, "ls-files", "--stage", "-z")
+	if err != nil {
+		return nil
+	}
+	for _, record := range strings.Split(tracked, "\x00") {
+		if record != "" && !strings.HasPrefix(record, "100644 ") && !strings.HasPrefix(record, "100755 ") {
+			return nil
+		}
+	}
+	sources := make(map[string]string, len(capture.sources))
+	for _, path := range capture.sources {
+		rel, hash, ok := pinnedSourceDigest(repoDir, path)
+		if !ok {
+			return nil
+		}
+		sources[rel] = hash
+	}
+	if sources[candidate.ExpectedParser] != candidate.ParserSHA256 {
+		return nil
+	}
+	abi, ok := readParserLanguageVersion(capture.parserPath)
+	if !ok || abi != candidate.ABI {
+		return nil
+	}
+	artifact, err := fileSHA256(soPath)
+	if err != nil {
+		return nil
+	}
+	proof := *candidate
+	proof.ActualParser = candidate.ExpectedParser
+	proof.Sources = sources
+	proof.ArtifactSHA256 = artifact
+	return &proof
 }
 
 func parityCBuildJobs() int {
@@ -981,8 +1156,8 @@ func clonePinnedCheckout(commit, dest string) error {
 	return runCommandRetry("", 2, "git", "-C", dest, "checkout", "--detach", "FETCH_HEAD")
 }
 
-func compileParserShared(entry parityLockEntry, repoDir, outSO, objDir string) error {
-	srcDir, parserPath, err := resolveParserSource(entry, repoDir)
+func compileParserShared(entry parityLockEntry, repoDir, outSO, objDir string, capture *paritySourceCapture) error {
+	srcDir, parserPath, regenerated, err := resolveParserSourceWithCapture(entry, repoDir)
 	if err != nil {
 		return err
 	}
@@ -993,6 +1168,9 @@ func compileParserShared(entry parityLockEntry, repoDir, outSO, objDir string) e
 		if _, err := os.Stat(scannerPath); err == nil {
 			sources = append(sources, scannerPath)
 		}
+	}
+	if capture != nil {
+		*capture = paritySourceCapture{srcDir: srcDir, parserPath: parserPath, sources: append([]string(nil), sources...), regenerated: regenerated}
 	}
 
 	var (
@@ -1052,17 +1230,24 @@ func compileParserShared(entry parityLockEntry, repoDir, outSO, objDir string) e
 }
 
 func resolveParserSource(entry parityLockEntry, repoDir string) (string, string, error) {
+	srcDir, parserPath, _, err := resolveParserSourceWithCapture(entry, repoDir)
+	return srcDir, parserPath, err
+}
+
+func resolveParserSourceWithCapture(entry parityLockEntry, repoDir string) (string, string, bool, error) {
 	srcDir := filepath.Join(repoDir, entry.Subdir)
 	parserPath := filepath.Join(srcDir, "parser.c")
+	regenerated := false
 
 	if _, err := os.Stat(parserPath); err != nil {
 		// Some repos don't commit parser.c. Try regenerating first, then fall
 		// back to a repo-wide search.
+		regenerated = true
 		_ = regenerateParserSource(repoDir, srcDir)
 		if _, err := os.Stat(parserPath); err != nil {
 			found, findErr := findParserC(repoDir)
 			if findErr != nil {
-				return "", "", fmt.Errorf("parser.c not found in %s", repoDir)
+				return "", "", regenerated, fmt.Errorf("parser.c not found in %s", repoDir)
 			}
 			parserPath = found
 			srcDir = filepath.Dir(found)
@@ -1071,8 +1256,9 @@ func resolveParserSource(entry parityLockEntry, repoDir string) (string, string,
 
 	if version, ok := readParserLanguageVersion(parserPath); ok &&
 		(version < parityMinLanguageVersion || version > parityMaxLanguageVersion) {
+		regenerated = true
 		if err := regenerateParserSource(repoDir, srcDir); err != nil {
-			return "", "", fmt.Errorf(
+			return "", "", regenerated, fmt.Errorf(
 				"parser.c ABI %d incompatible (need %d..%d) and regeneration failed: %w",
 				version, parityMinLanguageVersion, parityMaxLanguageVersion, err,
 			)
@@ -1080,21 +1266,21 @@ func resolveParserSource(entry parityLockEntry, repoDir string) (string, string,
 		if _, err := os.Stat(parserPath); err != nil {
 			found, findErr := findParserC(repoDir)
 			if findErr != nil {
-				return "", "", fmt.Errorf("parser.c not found after regeneration in %s", repoDir)
+				return "", "", regenerated, fmt.Errorf("parser.c not found after regeneration in %s", repoDir)
 			}
 			parserPath = found
 			srcDir = filepath.Dir(found)
 		}
 		if regeneratedVersion, ok := readParserLanguageVersion(parserPath); ok &&
 			(regeneratedVersion < parityMinLanguageVersion || regeneratedVersion > parityMaxLanguageVersion) {
-			return "", "", fmt.Errorf(
+			return "", "", regenerated, fmt.Errorf(
 				"parser.c ABI %d still incompatible after regeneration (need %d..%d)",
 				regeneratedVersion, parityMinLanguageVersion, parityMaxLanguageVersion,
 			)
 		}
 	}
 
-	return srcDir, parserPath, nil
+	return srcDir, parserPath, regenerated, nil
 }
 
 func regenerateParserSource(repoDir, hintDir string) error {

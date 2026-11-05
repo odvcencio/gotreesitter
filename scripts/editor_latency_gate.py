@@ -77,7 +77,7 @@ def canonical_go_admission(admission):
     # tree, counter, oracle version, grammar pin, and flags remain bound.
     data = json.loads(json.dumps(admission))
     data.pop("revision", None)
-    for key in ("grammar_artifact_path", "grammar_artifact_sha256", "compiler_path", "compiler_version"):
+    for key in ("grammar_artifact_path", "grammar_artifact_sha256", "compiler_path", "compiler_version", "grammar_subdir", "grammar_patch_identity"):
         data["oracle"].pop(key, None)
     return sha(json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode())
 
@@ -197,25 +197,64 @@ def oracle_identity(oracle):
     return {key: value for key, value in oracle.items() if key != "grammar_artifact_path"}
 
 
-def compare_counters(out, manifest_path, base_revision, head_revision, exception=None):
+def verify_fresh_proof(proof, oracle):
+    require(isinstance(proof, dict), "changed grammar lacks fresh committed-parser proof")
+    require(proof.get("schema") == "w5-fresh-source-v1" and proof.get("mode") == "committed-parser-no-patch-no-regeneration", "unqualified fresh source proof")
+    for field, oracle_field in (("language", "language"), ("repo", "grammar_repo"), ("commit", "grammar_commit"), ("subdir", "grammar_subdir"), ("artifact_sha256", "grammar_artifact_sha256")):
+        require(proof.get(field) == oracle.get(oracle_field), "fresh source proof does not match oracle")
+    require(oracle.get("grammar_patch_identity") == "none", "patched grammar cannot use committed-parser proof")
+    subdir = proof["subdir"]
+    require(isinstance(subdir, str) and subdir and not Path(subdir).is_absolute() and ".." not in Path(subdir).parts, "invalid proof subdir")
+    parser = str(Path(subdir) / "parser.c")
+    require(proof.get("expected_parser") == parser and proof.get("actual_parser") == parser, "fresh source parser path mismatch")
+    require(type(proof.get("abi")) is int and 13 <= proof["abi"] <= 15, "fresh source parser ABI is unknown or incompatible")
+    sources = proof.get("sources")
+    allowed = {str(Path(subdir) / name) for name in ("parser.c", "scanner.c", "scanner.cc", "scanner.cpp", "scanner.cxx")}
+    require(isinstance(sources, dict) and parser in sources and set(sources) <= allowed and all(isinstance(v, str) and re.fullmatch(r"[0-9a-f]{64}", v) for v in sources.values()), "invalid fresh compiler sources")
+    require(proof.get("parser_sha256") == sources[parser], "fresh parser digest mismatch")
+
+
+def compare_counters(out, manifest_path, base_revision, head_revision, exception=None, authenticated=None):
     m = fixture_manifest(manifest_path)
     manifest_sha = sha(Path(manifest_path).read_bytes())
     changes = []
     identities = []
     failures = []
     applied = []
+    semantic_changes = []
     for f in m["fixtures"]:
         base = admission(out, "base", f, manifest_sha, base_revision)
         head = admission(out, "head", f, manifest_sha, head_revision)
-        require(oracle_identity(base["oracle"]) == oracle_identity(head["oracle"]), f"{f['language']}: C oracle differs between revisions")
+        changed_grammar = False
+        if authenticated is not None:
+            receipts = authenticated[f["language"]]
+            require(receipts["base"][2]["compilers"] == receipts["head"][2]["compilers"] and receipts["base"][2]["build_env"] == receipts["head"][2]["build_env"] and receipts["base"][2]["image_id"] == receipts["head"][2]["image_id"], f"{f['language']}: C compiler, environment or image differs")
+            for role, actual in (("base", base), ("head", head)):
+                expected_oracle = dict(receipts[role][2]["oracle"])
+                expected_oracle["compiler_path"] = Path(expected_oracle["compiler_path"]).name
+                require(oracle_identity(actual["oracle"]) == oracle_identity(expected_oracle), f"{f['language']}: {role} oracle differs from authenticated build")
+            grammar_keys = ("grammar_repo", "grammar_commit", "grammar_subdir", "grammar_patch_identity")
+            changed_grammar = any(base["oracle"][key] != head["oracle"][key] for key in grammar_keys)
+            if changed_grammar:
+                ignored = set(grammar_keys) | {"grammar_artifact_path", "grammar_artifact_sha256"}
+                require({k:v for k,v in base["oracle"].items() if k not in ignored} == {k:v for k,v in head["oracle"].items() if k not in ignored}, f"{f['language']}: C runtime/compiler differs between revisions")
+                for role in ("base", "head"):
+                    verify_fresh_proof(receipts[role][2]["fresh_proof"], receipts[role][2]["oracle"])
+        if not changed_grammar:
+            require(oracle_identity(base["oracle"]) == oracle_identity(head["oracle"]), f"{f['language']}: C oracle differs between revisions")
         if exception is not None and f["language"] == "go":
             require(exception in (GO_1512_UNDO_EXCEPTION, GO_1512_B7_UNDO_EXCEPTION), "unknown W5 exception")
             require(canonical_go_admission(base) == GO_1512_BASE_ADMISSION and canonical_go_admission(head) == GO_1512_HEAD_ADMISSION, "W5 approved source/tree/oracle/counter receipt changed")
-        require(base["initial_tree_sha256"] == head["initial_tree_sha256"], "initial tree digest differs")
-        identities.append({"language": f["language"], "oracle": head["oracle"]})
+        if base["initial_tree_sha256"] != head["initial_tree_sha256"]:
+            require(changed_grammar, "initial tree digest differs")
+            semantic_changes.append({"language": f["language"], "step": "initial", "base": base["initial_tree_sha256"], "head": head["initial_tree_sha256"]})
+        identities.append({"language": f["language"], "base_oracle": base["oracle"], "oracle": head["oracle"]})
         for bc, hc in zip(base["cells"], head["cells"]):
             for index, (bs, hs) in enumerate(zip(bc["steps"], hc["steps"])):
-                require((bs["source_sha256"], bs["tree_sha256"], bs["has_error"]) == (hs["source_sha256"], hs["tree_sha256"], hs["has_error"]), "edit source/tree digest differs between revisions")
+                require(bs["source_sha256"] == hs["source_sha256"], "edit source differs between revisions")
+                if (bs["tree_sha256"], bs["has_error"]) != (hs["tree_sha256"], hs["has_error"]):
+                    require(changed_grammar, "edit source/tree digest differs between revisions")
+                    semantic_changes.append({"language": f["language"], "workload": bc["workload"], "step": index, "base": [bs["tree_sha256"], bs["has_error"]], "head": [hs["tree_sha256"], hs["has_error"]]})
                 for key in WORK_COUNTERS + REUSE_COUNTERS:
                     before, after = bs["counters"][key], hs["counters"][key]
                     bad = after > before * LEDGER_LIMIT
@@ -230,7 +269,7 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
                         else:
                             failures.append(row)
     require(exception is None or len(applied) == 1, "W5 approved row did not match exactly once")
-    result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "applied_exceptions":applied, "oracles": identities}
+    result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "applied_exceptions":applied, "oracles": identities, "semantic_changes": semantic_changes}
     write_json(out / "counters.json", result)
     require(not failures, f"deterministic counter gate failed: {failures[:8]}")
     return result
@@ -303,8 +342,8 @@ def sample(rows, benchmark, runtime, metric):
     return statistics.mean(rows[benchmark + "/" + n][metric] / rows[benchmark + "/" + n]["edits/op"] for n in names)
 
 
-def compare_timing(out, manifest_path, base_revision, head_revision, exception=None):
-    counters = compare_counters(out, manifest_path, base_revision, head_revision, exception)
+def compare_timing(out, manifest_path, base_revision, head_revision, exception=None, authenticated=None):
+    counters = compare_counters(out, manifest_path, base_revision, head_revision, exception, authenticated)
     m = fixture_manifest(manifest_path)
     rows = []
     for f in m["fixtures"]:
@@ -339,7 +378,7 @@ def compare_timing(out, manifest_path, base_revision, head_revision, exception=N
               "base_revision": base_revision, "head_revision": head_revision, "manifest_sha256": sha(Path(manifest_path).read_bytes()),
               "threshold_percent": 5, "counter_threshold_percent": 2, "seeds": list(range(1, RUNS+1)), "benchtime": "750ms",
               "protocol": "alternating-base-head-seeds; shuffled-workloads; Go-C-C-Go; complete-sessions; ns-per-edit",
-              "environment": environment, "cells": rows, "counter_rows": counters["rows"], "applied_exceptions": counters["applied_exceptions"], "oracles": counters["oracles"]}
+              "environment": environment, "cells": rows, "counter_rows": counters["rows"], "applied_exceptions": counters["applied_exceptions"], "oracles": counters["oracles"], "semantic_changes": counters["semantic_changes"]}
     write_json(out / "receipt.json", result)
     lines = [f"W5 editor latency: **{result['status']}**", "", f"Base `{base_revision}`; head `{head_revision}`. Twenty paired shuffle seeds, 750ms, one thread. A paired median above +5% fails any cell.", "",
              "| Language | Edit | Go base → head (µs/edit) | C base → head (µs/edit) | Go/C base → head | Paired Go change |", "|---|---|---:|---:|---:|---:|"]
@@ -462,27 +501,82 @@ def oracle_inputs(root):
     return [root / p for p in paths if p]
 
 
-def prepare_private_oracle(root, common, directory, language, inputs, image, image_id):
+def campaign_role_source(role, revision, checkout, expected=None):
+    require(role in ("base", "head") and re.fullmatch(r"[0-9a-f]{40}", revision), "invalid campaign role/revision")
+    lock = sha((checkout / "grammars/languages.lock").read_bytes())
+    container_root = "/baseline" if role == "base" else "/workspace"
+    values = dict(Role=role, Root=container_root, Revision=revision, LockSHA256=lock)
+    if expected:
+        values.update(IdentitySHA256=expected["identity"], CCPath=expected["compilers"][0][0], CCSHA256=expected["compilers"][0][1],
+                      CXXPath=expected["compilers"][1][0], CXXSHA256=expected["compilers"][1][1], BuildEnvSHA256=expected["build_env"])
+    fields = ", ".join(k + ": " + json.dumps(v) for k, v in values.items())
+    source = (
+        "// Code generated by the campaign; DO NOT EDIT.\n"
+        "package editorlatency\n"
+        "func init() { compiledCampaignRole = &campaignRole{" + fields + "} }\n")
+    return lock, source
+
+
+def write_campaign_role(module, role, revision, checkout, expected=None):
+    """Compile the role and its complete grammar lock into the shared driver."""
+    lock, source = campaign_role_source(role, revision, checkout, expected)
+    (module / "campaign_role_test.go").write_text(source)
+    return lock
+
+
+def bind_private_role(module, role, revision, checkout, inputs, expected):
+    """Permit only the intended config rewrite after the cold-build snapshot."""
+    config = module / "campaign_role_test.go"
+    key = str(config)
+    _, old_source = campaign_role_source(role, revision, checkout)
+    require(expected["sources"].get(key) == sha(old_source.encode()), "cold role config does not match expected pre-build configuration")
+    require(source_fingerprints(inputs) == expected["sources"], "oracle source inputs changed before role binding")
+    _, new_source = campaign_role_source(role, revision, checkout, expected)
+    config.write_text(new_source)
+    updated = dict(expected["sources"])
+    updated[key] = sha(new_source.encode())
+    require(source_fingerprints(inputs) == updated, "oracle source inputs changed during role binding")
+    expected["sources"] = updated
+
+
+def lock_grammar(root, language):
+    rows = [line.split() for line in (root / "grammars/languages.lock").read_text().splitlines()
+            if line.strip() and not line.lstrip().startswith("#") and line.split()[0] == language]
+    require(len(rows) == 1 and len(rows[0]) >= 3 and re.fullmatch(r"[0-9a-f]{40}", rows[0][2]), "invalid role grammar lock entry")
+    row = rows[0]
+    return {"grammar_repo": row[1], "grammar_commit": row[2], "grammar_subdir": row[3] if len(row) > 3 else "src"}
+
+
+def verify_locked_oracle(root, language, cold):
+    require(all(cold.get(k) == v for k, v in lock_grammar(root, language).items()), "cold oracle differs from role grammar lock")
+
+
+def prepare_private_oracle(root, common, directory, language, inputs, image, image_id, role):
     check_env(os.environ)
-    directory.mkdir(); (directory / "cache").mkdir()
+    require(role in ("base", "head"), "invalid oracle role")
+    directory.mkdir(parents=True); (directory / "cache").mkdir()
+    private = "/private/" + role
     require(not list((directory / "cache").iterdir()), "private cache must start empty")
     before = source_fingerprints(inputs)
     command = "\n".join(["set -euo pipefail", campaign_go_environment(),
         "unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK GTS_W5_PRIVATE_ORACLE_IDENTITY GTS_W5_PRIVATE_ORACLE_SHA256 GTS_W5_CC_PATH GTS_W5_CC_SHA256 GTS_W5_CXX_PATH GTS_W5_CXX_SHA256",
-        "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_PARITY_C_REF_BUILD_CACHE=/private/cache GTS_W5_PRIVATE_ORACLE_PREPARE=/private/cold.json",
-        f"export GTS_EDIT_LANGUAGE={shlex.quote(language)}", "cd /campaign/modules/head",
+        f"unset GTS_EDIT_REPO_ROOT GTS_EDIT_REVISION; export GOWORK=off GOMAXPROCS=1 GTS_PARITY_C_REF_BUILD_CACHE={private}/cache GTS_W5_PRIVATE_ORACLE_PREPARE={private}/cold.json",
+        f"export GTS_EDIT_LANGUAGE={shlex.quote(language)}", f"cd /campaign/modules/{role}",
         'compiler_receipt() { for name in cc c++; do path=$(command -v "$name"); printf \'%s %s\\n\' "$path" "$(sha256sum "$path" | cut -d\' \' -f1)"; done; }',
-        "compiler_receipt > /private/compiler.before",
-        "read -r GTS_W5_CC_PATH GTS_W5_CC_SHA256 < <(sed -n '1p' /private/compiler.before); read -r GTS_W5_CXX_PATH GTS_W5_CXX_SHA256 < <(sed -n '2p' /private/compiler.before); export GTS_W5_CC_PATH GTS_W5_CC_SHA256 GTS_W5_CXX_PATH GTS_W5_CXX_SHA256",
+        f"compiler_receipt > {private}/compiler.before",
+        f"read -r GTS_W5_CC_PATH GTS_W5_CC_SHA256 < <(sed -n '1p' {private}/compiler.before); read -r GTS_W5_CXX_PATH GTS_W5_CXX_SHA256 < <(sed -n '2p' {private}/compiler.before); export GTS_W5_CC_PATH GTS_W5_CC_SHA256 GTS_W5_CXX_PATH GTS_W5_CXX_SHA256",
         "go test -tags treesitter_c_parity . -run '^$' -count=1 -timeout 15m",
-        "compiler_receipt > /private/compiler.after; cmp /private/compiler.before /private/compiler.after; cmp /private/environment.before /private/environment.after"])
-    run_checked(common + ["--mount", f"{directory}:/private", "--label", "w5-oracle-" + language, "--wall-timeout", "20m", "--", command])
+        f"compiler_receipt > {private}/compiler.after; cmp {private}/compiler.before {private}/compiler.after; cmp {private}/environment.before {private}/environment.after"])
+    run_checked(common + ["--mount", f"{directory}:{private}", "--label", "w5-oracle-" + role + "-" + language, "--wall-timeout", "20m", "--", command])
     require(source_fingerprints(inputs) == before, "oracle inputs changed during fresh build")
     require(subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", image], text=True).strip() == image_id, "oracle Docker image changed")
     cold = read_json(directory / "cold.json"); identity_fields(cold)
     require(cold["language"] == language and cold["contract"] == "tree-sitter-c-v1", "cold identity mismatch")
+    verify_locked_oracle(root, language, cold)
     artifacts = list((directory / "cache").iterdir())
     require(len(artifacts) == 1 and digest(artifacts[0]) == cold["grammar_artifact_sha256"], "cold artifact mismatch")
+    proof = read_json(directory / "cold-source.json")
+    if proof is not None: verify_fresh_proof(proof, cold)
     compiler_bytes = (directory / "compiler.before").read_bytes()
     require(compiler_bytes == (directory / "compiler.after").read_bytes(), "compiler changed during build")
     compilers = [line.split() for line in compiler_bytes.decode().splitlines()]
@@ -490,9 +584,9 @@ def prepare_private_oracle(root, common, directory, language, inputs, image, ima
     require(compilers[0][0] == cold["compiler_path"], "cold C compiler path mismatch")
     build_env = (directory / "environment.before").read_text().strip()
     require(re.fullmatch(r"[0-9a-f]{64}", build_env) and (directory / "environment.after").read_text().strip() == build_env, "compiler environment changed during build")
-    cold["grammar_artifact_path"] = "/private/cache/" + artifacts[0].name
+    cold["grammar_artifact_path"] = private + "/cache/" + artifacts[0].name
     write_json(directory / "identity.json", cold)
-    expected = {"sources":before, "artifact":digest(artifacts[0]), "identity":digest(directory / "identity.json"), "compilers":compilers, "build_env":build_env, "filename":artifacts[0].name, "image":image, "image_id":image_id}
+    expected = {"sources":before, "artifact":digest(artifacts[0]), "identity":digest(directory / "identity.json"), "fresh_proof_sha256":digest(directory / "cold-source.json"), "fresh_proof":proof, "compilers":compilers, "build_env":build_env, "filename":artifacts[0].name, "image":image, "image_id":image_id, "oracle":cold}
     verify_private_oracle(directory, inputs, expected)
     return expected
 
@@ -504,18 +598,10 @@ def verify_private_oracle(directory, inputs, expected):
     artifacts = list((directory / "cache").iterdir())
     require(len(artifacts) == 1 and artifacts[0].name == expected["filename"] and digest(artifacts[0]) == expected["artifact"], "private oracle cache changed")
     require(digest(directory / "identity.json") == expected["identity"], "private oracle identity changed")
+    require(digest(directory / "cold-source.json") == expected["fresh_proof_sha256"], "private oracle source proof changed")
     compiler_lines = [line.split() for line in (directory / "compiler.before").read_text().splitlines()]
     require(compiler_lines == expected["compilers"] and (directory / "compiler.before").read_bytes() == (directory / "compiler.after").read_bytes(), "compiler receipt changed")
     require((directory / "environment.before").read_text().strip() == expected["build_env"] and (directory / "environment.after").read_text().strip() == expected["build_env"], "compiler environment receipt changed")
-
-
-def private_worker_environment(expected):
-    return ("unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK GTS_W5_PRIVATE_ORACLE_PREPARE; "
-            "export GTS_PARITY_C_REF_BUILD_CACHE=/private/cache GTS_W5_PRIVATE_ORACLE_IDENTITY=/private/identity.json "
-            f"GTS_W5_PRIVATE_ORACLE_SHA256={expected['identity']} "
-            f"GTS_W5_CC_PATH={shlex.quote(expected['compilers'][0][0])} GTS_W5_CC_SHA256={expected['compilers'][0][1]} "
-            f"GTS_W5_CXX_PATH={shlex.quote(expected['compilers'][1][0])} GTS_W5_CXX_SHA256={expected['compilers'][1][1]} "
-            f"GTS_W5_BUILD_ENV_SHA256={expected['build_env']}")
 
 
 def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receipt=None):
@@ -587,6 +673,10 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
         run_checked(["git", "-C", root, "worktree", "add", "--detach", base, base_revision])
         try:
             if private_setting: clean_private_inputs(base)
+            env["role_lock_sha256"] = {
+                role: write_campaign_role(out / "modules" / role, role, revision, checkout)
+                for role, revision, checkout in (("base", base_revision, base), ("head", head_revision, root))
+            }
             common = campaign_docker_command(root, base, out, cpu)
             env["docker_memory_limit"] = common[common.index("--memory") + 1]
             env["go_memory_limit"] = common[common.index("--gomemlimit") + 1]
@@ -597,37 +687,46 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                 run_checked(common + ["--label", "w5-oracle-setup", "--wall-timeout", "20m", "--", setup])
             for f in m["fixtures"]:
                 language = f["language"]
-                private_dir = Path(private_scratch) / language
-                private_inputs = oracle_inputs(root) + [out / "modules" / role / file for role in ("base", "head") for file in ("editor_latency_test.go", "go.mod", "go.sum")]
-                expected = prepare_private_oracle(root, common, private_dir, language, private_inputs, env["image"], env["image_id"]) if private_setting else None
-                if expected:
-                    private_receipts[language] = expected
-                    env.setdefault("private_oracles", {})[language] = expected
+                roles = (("base", base_revision, base), ("head", head_revision, root))
+                receipts = {}
+                if private_setting:
+                    for role, revision, checkout in roles:
+                        module = out / "modules" / role
+                        write_campaign_role(module, role, revision, checkout)
+                        private_dir = Path(private_scratch) / role / language
+                        private_inputs = oracle_inputs(root) + oracle_inputs(base) + [module / file for file in ("editor_latency_test.go", "campaign_role_test.go", "go.mod", "go.sum")]
+                        expected = prepare_private_oracle(checkout, common, private_dir, language, private_inputs, env["image"], env["image_id"], role)
+                        bind_private_role(module, role, revision, checkout, private_inputs, expected)
+                        verify_private_oracle(private_dir, private_inputs, expected)
+                        receipts[role] = (private_dir, private_inputs, expected)
+                    private_receipts[language] = receipts
+                    env.setdefault("private_oracles", {})[language] = {role: receipt[2] for role, receipt in receipts.items()}
                     write_json(out / "environment.json", env)
-                worker_common = common + (["--mount", f"{private_dir}:/private:ro"] if expected else [])
-                commands = ["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]
-                if exception and not expected:
+                worker_common = common + [item for role, (directory, _, _) in receipts.items() for item in ("--mount", f"{directory}:/private/{role}:ro")]
+                commands = ["set -euo pipefail", campaign_go_environment(), "unset GTS_EDIT_REPO_ROOT GTS_EDIT_REVISION; export GOWORK=off GOMAXPROCS=1 GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}"]
+                if exception and not receipts:
                     # Fresh pinned clone/build: do not trust a shared .so or a
                     # caller-provided source directory/extra grammar lock.
                     commands.append("unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK; export GTS_PARITY_C_REF_BUILD_CACHE=off")
-                if expected: commands.append(private_worker_environment(expected))
                 for role, revision in (("base", base_revision), ("head", head_revision)):
                     commands += [f"cd /campaign/modules/{role}", "go mod tidy", f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json go test -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m"]
                 with (out / ("correctness-" + language + ".log")).open("w") as log:
                     run_checked(worker_common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
-                if expected: verify_private_oracle(private_dir, private_inputs, expected)
+                for directory, inputs, expected in receipts.values(): verify_private_oracle(directory, inputs, expected)
                 print("W5 four-way correctness passed:", language, flush=True)
-            compare_counters(out, manifest_path, base_revision, head_revision, exception)
+            compare_counters(out, manifest_path, base_revision, head_revision, exception, private_receipts if private_setting else None)
             print("W5 deterministic counter gate passed before timing", flush=True)
             for f in m["fixtures"]:
                 language = f["language"]
-                private_dir = Path(private_scratch) / language
                 if private_setting:
                     # Reload only identity from an in-memory parent receipt; never trust a worker-written manifest.
-                    expected = private_receipts[language]
-                    verify_private_oracle(private_dir, private_inputs, expected)
-                else: expected = None
-                worker_common = common + (["--mount", f"{private_dir}:/private:ro"] if expected else [])
+                    receipts = private_receipts[language]
+                    for role, revision, checkout in (("base", base_revision, base), ("head", head_revision, root)):
+                        directory, inputs, expected = receipts[role]
+                        write_campaign_role(out / "modules" / role, role, revision, checkout, expected)
+                        verify_private_oracle(directory, inputs, expected)
+                else: receipts = {}
+                worker_common = common + [item for role, (directory, _, _) in receipts.items() for item in ("--mount", f"{directory}:/private/{role}:ro")]
                 env["samples"].append({"language": language, "before": load_sample()})
                 fragments = {role: [] for role in ("base", "head")}
                 rss_samples = []
@@ -635,15 +734,13 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                     prefix = f"{language}-seed-{seed}"
                     for role in fragments:
                         fragments[role].append(out / "timing" / f"{prefix}-{role}.txt")
-                    command = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1 GTS_EDIT_REPO_ROOT=/workspace GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}", "cd /campaign/modules/head", "/usr/bin/time -v bash /workspace/scripts/run_randomized_benchmarks.sh " + " ".join(shlex.quote(x) for x in ["--runs", "1", "--seed-start", str(seed), "--baseline-root", "/campaign/modules/base", "--baseline-output", f"/campaign/timing/{prefix}-base.txt", "--output", f"/campaign/timing/{prefix}-head.txt", "--tags", "treesitter_c_parity", "--bench-regex", "^BenchmarkW5(OneByte|HundredByte|Typing)$", "--require-benchmarks", ",".join(NAMES)])])
-                    if expected:
-                        command = private_worker_environment(expected) + "\n" + command
-                    elif exception:
+                    command = "\n".join(["set -euo pipefail", campaign_go_environment(), "unset GTS_EDIT_REPO_ROOT GTS_EDIT_REVISION; export GOWORK=off GOMAXPROCS=1 GTS_EDIT_MANIFEST=/workspace/cgo_harness/editor_latency/fixtures.json GTS_EDIT_FIXTURES=/campaign/fixtures", f"export GTS_EDIT_LANGUAGE={language}", "cd /campaign/modules/head", "/usr/bin/time -v bash /workspace/scripts/run_randomized_benchmarks.sh " + " ".join(shlex.quote(x) for x in ["--runs", "1", "--seed-start", str(seed), "--baseline-root", "/campaign/modules/base", "--baseline-output", f"/campaign/timing/{prefix}-base.txt", "--output", f"/campaign/timing/{prefix}-head.txt", "--tags", "treesitter_c_parity", "--bench-regex", "^BenchmarkW5(OneByte|HundredByte|Typing)$", "--require-benchmarks", ",".join(NAMES)])])
+                    if exception and not receipts:
                         command = "unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK; export GTS_PARITY_C_REF_BUILD_CACHE=off\n" + command
                     log_path = out / f"timing-{prefix}.log"
                     with log_path.open("w") as log:
                         run_checked(worker_common + ["--label", "w5-timing-" + prefix, "--wall-timeout", "90m", "--", command], stdout=log, stderr=subprocess.STDOUT)
-                    if expected: verify_private_oracle(private_dir, private_inputs, expected)
+                    for directory, inputs, expected in receipts.values(): verify_private_oracle(directory, inputs, expected)
                     rss = re.search(r"Maximum resident set size \(kbytes\): (\d+)", log_path.read_text())
                     require(rss is not None, "timing campaign omitted maximum RSS")
                     rss_samples.append(int(rss.group(1)))
@@ -667,7 +764,7 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
         require(validate_b7_undo_exception(root, base_revision, head_revision, approved_b7_receipt) == exception, "W5 b7 exception identity changed")
     env["finished"] = load_sample()
     write_json(out / "environment.json", env)
-    result = compare_timing(out, manifest_path, base_revision, head_revision, exception)
+    result = compare_timing(out, manifest_path, base_revision, head_revision, exception, private_receipts if private_setting else None)
     require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")
 
 

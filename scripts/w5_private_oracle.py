@@ -17,6 +17,6 @@ def source_fingerprints(inputs):
  return {str(pathlib.Path(p)):digest(p) for p in sorted(inputs)}
 
 def identity_fields(identity):
- required=('contract','transport','binding_module','binding_version','binding_commit','runtime_version','runtime_commit','runtime_linkage','sources_manifest_sha256','language','grammar_repo','grammar_commit','grammar_linkage','grammar_compile_flags','compiler_path','compiler_version','grammar_artifact_sha256')
+ required=('contract','transport','binding_module','binding_version','binding_commit','runtime_version','runtime_commit','runtime_linkage','sources_manifest_sha256','language','grammar_repo','grammar_commit','grammar_subdir','grammar_patch_identity','grammar_linkage','grammar_compile_flags','compiler_path','compiler_version','grammar_artifact_sha256')
  require(all(isinstance(identity.get(k),str) and identity[k] for k in required),'incomplete oracle identity')
  return {k:identity[k] for k in required}
