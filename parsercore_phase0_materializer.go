@@ -713,6 +713,12 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 			structuralChildren++
 		}
 	}
+	// Capture cumulative precedence from raw child occurrences before public
+	// projection can flatten hidden reductions or mutate a collapsed child.
+	// Reuse credits this signed total, including hidden production deltas.
+	rawDynamicPrecedence := reduceWindowDynamicPrecedence(entries, 0, len(entries), ParseAction{
+		DynamicPrecedence: int16(view.DynamicPrecedence),
+	})
 	if m.incrementalReuse != nil {
 		if err := validateCompactBorrowedReduceInputs(parser, entries, view.ProductionID, arena); err != nil {
 			return err
@@ -783,7 +789,7 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 		parent := m.makeParent(
 			Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
 		)
-		parent.dynamicPrecedence += int32(view.DynamicPrecedence)
+		parent.dynamicPrecedence = rawDynamicPrecedence
 		m.setParentSpan(parent, view)
 		parent.setExtra(view.Extra)
 		// The ERROR container's own HasError is always true,
@@ -810,7 +816,7 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 	}
 	if child := parser.collapsibleRawUnarySelfReduction(action, Token{}, arena, entries, 0, len(entries)); child != nil {
 		child.productionID = view.ProductionID
-		child.dynamicPrecedence += int32(view.DynamicPrecedence)
+		child.dynamicPrecedence = rawDynamicPrecedence
 		m.markFragile(child, view.Fragile)
 		if subtreeHasError {
 			child.setHasError(true)
@@ -837,7 +843,7 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 	}
 	if child := parser.collapsibleUnarySelfReduction(action, Token{}, arena, entries, 0, len(entries), children, fieldIDs); child != nil {
 		child.productionID = view.ProductionID
-		child.dynamicPrecedence += int32(view.DynamicPrecedence)
+		child.dynamicPrecedence = rawDynamicPrecedence
 		m.markFragile(child, view.Fragile)
 		if subtreeHasError {
 			child.setHasError(true)
@@ -849,7 +855,7 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 	parent := m.makeParent(
 		Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
 	)
-	parent.dynamicPrecedence += int32(view.DynamicPrecedence)
+	parent.dynamicPrecedence = rawDynamicPrecedence
 	m.setParentSpan(parent, view)
 	parent.setExtra(view.Extra)
 	if subtreeHasError {
