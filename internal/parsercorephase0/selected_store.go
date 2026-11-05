@@ -34,11 +34,13 @@ type SelectedAliasChildPair struct {
 }
 
 // SelectedStorePolicy is the fail-closed compact-to-consumer contract. Unary
-// is a dense parent-major matrix with stride len(Symbols).
+// is the mutable dense form. An immutable unary program can replace that matrix
+// when the authenticated adapter supplies exact symbol and pair rules.
 type SelectedStorePolicy struct {
 	Symbols               []SelectedSymbolPolicy
 	TypeArguments         SelectedTypeArgumentPolicy
 	Unary                 []SelectedUnaryRule
+	unaryProgram          SelectedUnaryProgram
 	RetainedAliasChildren []SelectedAliasChildPair
 	SupertypeMasks        []uint32
 	ExpectedRoot          Symbol
@@ -102,10 +104,13 @@ func (p SelectedStorePolicy) symbol(symbol Symbol) (SelectedSymbolPolicy, bool) 
 	return p.Symbols[symbol], true
 }
 
-func (p SelectedStorePolicy) unary(parent, child Symbol) SelectedUnaryRule {
+func (p *SelectedStorePolicy) unary(parent, child Symbol) SelectedUnaryRule {
 	stride := len(p.Symbols)
 	if int(parent) >= stride || int(child) >= stride {
 		return SelectedUnaryKeep
+	}
+	if p.unaryProgram.Width() != 0 {
+		return p.unaryProgram.Rule(parent, child)
 	}
 	slot := int(parent)*stride + int(child)
 	if slot >= len(p.Unary) {
@@ -131,7 +136,11 @@ func (p SelectedStorePolicy) validate() error {
 		return errors.New("parser-core phase zero: selected-store policy has no authenticated root")
 	}
 	width := len(p.Symbols)
-	if width > math.MaxInt/width || len(p.Unary) != width*width {
+	if p.unaryProgram.Width() != 0 {
+		if len(p.Unary) != 0 || p.unaryProgram.Width() != width {
+			return errors.New("parser-core phase zero: selected-store unary program width drifted")
+		}
+	} else if width > math.MaxInt/width || len(p.Unary) != width*width {
 		return errors.New("parser-core phase zero: selected-store unary policy width drifted")
 	}
 	for _, pair := range p.RetainedAliasChildren {
