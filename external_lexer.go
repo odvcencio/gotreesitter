@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "unicode/utf8"
+import (
+	"github.com/odvcencio/gotreesitter/internal/scannerspan"
+	"unicode/utf8"
+)
 
 // byteOrderMarkRune is the decoded rune value of a UTF-8 byte order mark
 // (the bytes 0xEF 0xBB 0xBF). C tree-sitter excludes it from the column
@@ -243,6 +246,45 @@ func (l *ExternalLexer) AdvanceUntilNewline(skip bool) int {
 		l.advancedContent = true
 	}
 	return n
+}
+
+// AdvanceLineContent consumes valid UTF-8 before CR, LF, NUL, an invalid
+// UTF-8 byte, or EOF. It returns consumed bytes, rune count, and the last rune.
+// Invalid bytes remain for the caller's existing scalar path.
+func (l *ExternalLexer) AdvanceLineContent(skip bool) (int, int, rune) {
+	if l == nil {
+		return 0, 0, 0
+	}
+	if l.pos >= len(l.source) {
+		l.recordReadFrontier()
+		return 0, 0, 0
+	}
+	start := l.pos
+	n, count, last := scannerspan.LineContent(l.source[start:])
+	if n == 0 {
+		l.recordReadFrontier()
+		return 0, 0, 0
+	}
+	l.pos += n
+	// All consumed rune starts are valid UTF-8, so each contributes only
+	// cursor+1. The final cursor dominates them and still records an invalid
+	// boundary's extra four bytes before the caller takes the scalar path.
+	l.recordReadFrontier()
+	l.point.Column += uint32(n)
+	if l.columnDataValid {
+		columns := count
+		if start == 0 && hasBOMPrefix(l.source[:n]) {
+			columns--
+		}
+		l.columnData += uint32(columns)
+	}
+	if skip {
+		l.startPos = l.pos
+		l.startPoint = l.point
+	} else {
+		l.advancedContent = true
+	}
+	return n, count, last
 }
 
 // MarkEnd marks the current scanner position as the token end.
