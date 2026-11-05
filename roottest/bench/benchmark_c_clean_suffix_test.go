@@ -22,6 +22,27 @@ func TestCInitializerBoundsTransientRecoveryStacks(t *testing.T) {
 	}
 }
 
+// A repetition-marked shift is a parser scheduling marker, not an additional
+// consuming path at the certified initializer-list comma cell.
+func TestCInitializerRepetitionReduceStaysSingleVersion(t *testing.T) {
+	source := cleanSuffixInitializerSource(40)
+	parser := gotreesitter.NewParser(grammars.CLanguage())
+	parser.SetAdmissionCandidateRoute(false)
+	tree, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(tree.Release)
+	requireCompleteCInitializerTree(t, source, tree)
+	if got := tree.ParseRuntime().MaxStacksSeen; got != 1 {
+		t.Fatalf("initializer repetition peak = %d, want one version", got)
+	}
+	// The selected path has 530 token leaves and 529 reductions.
+	if got := tree.ParseRuntime().NodesAllocated; got > 1059 {
+		t.Fatalf("initializer constructions = %d, want at most 1059", got)
+	}
+}
+
 func BenchmarkCInitializerAfterTransientRecovery(b *testing.B) {
 	source := cleanSuffixInitializerSource(40)
 	parser := gotreesitter.NewParser(grammars.CLanguage())

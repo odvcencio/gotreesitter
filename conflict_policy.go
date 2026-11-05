@@ -79,6 +79,24 @@ func declaredReduceReduceConflictPolicyChoice(lang *Language, currentState State
 	return ParseAction{}, false
 }
 
+// reuseSafeRepetitionConflictPolicyChoice reads only explicitly certified
+// exact rows. Other policies keep their existing incremental reuse gate.
+func reuseSafeRepetitionConflictPolicyChoice(lang *Language, currentState StateID, tok Token, actions []ParseAction) (ParseAction, bool) {
+	if lang == nil {
+		return ParseAction{}, false
+	}
+	for i := range lang.ConflictPolicies {
+		policy := &lang.ConflictPolicies[i]
+		if policy.Kind != ConflictPolicyReuseSafeRepetitionReduce || policy.State != currentState || policy.Lookahead != tok.Symbol {
+			continue
+		}
+		if chosen, ok := conflictPolicyChoiceForPolicy(lang, policy, actions); ok {
+			return chosen, true
+		}
+	}
+	return ParseAction{}, false
+}
+
 func conflictPolicyChoiceForPolicy(lang *Language, policy *ConflictPolicy, actions []ParseAction) (ParseAction, bool) {
 	if lang == nil || policy == nil {
 		return ParseAction{}, false
@@ -94,6 +112,17 @@ func conflictPolicyChoiceForPolicy(lang *Language, policy *ConflictPolicy, actio
 			return ParseAction{}, false
 		}
 		return singleShiftConflictChoice(actions)
+	case ConflictPolicyReuseSafeRepetitionReduce:
+		if policy.State == ConflictPolicyAnyState || policy.Lookahead == ConflictPolicyAnyLookahead ||
+			policy.CompactOnly || policy.CompactMinFrontierHeaders != 0 || len(policy.ReduceSymbols) != 1 || len(actions) != 2 {
+			return ParseAction{}, false
+		}
+		for _, act := range actions {
+			if act.Extra || act.ExtraChain || (act.Type == ParseActionReduce && act.Repetition) {
+				return ParseAction{}, false
+			}
+		}
+		return singleReduceAgainstRepetitionShiftConflictChoice(actions)
 	case ConflictPolicyRepetitionReduce:
 		if len(policy.ReduceSymbols) == 0 {
 			return ParseAction{}, false
@@ -340,7 +369,13 @@ func (p *Parser) deterministicConflictChoiceForDispatch(source []byte, s *glrSta
 		if chosen, ok := conflictPolicyChoiceForDispatch(p.language, s, tok, currentState, actions); ok {
 			return chosen, true
 		}
+	} else if chosen, ok := reuseSafeRepetitionConflictPolicyChoice(p.language, currentState, tok, actions); ok {
+		// This opt-in is table-row-only, so reuse redispatch makes the same
+		// choice as fresh parsing. The caller retains the raw action count
+		// for fragility before reaching this adapter.
+		return chosen, true
 	}
+
 	// C's global repetition-skip fold. Runs after explicit generated
 	// ConflictPolicies (per-state directives outrank the default) but before
 	// the grammargen repeat-boundary veto and the per-language arms: the veto
