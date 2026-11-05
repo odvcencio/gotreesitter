@@ -1,11 +1,7 @@
 package gotreesitter
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/gob"
 	"fmt"
-	"io"
 	"os"
 	"sort"
 	"testing"
@@ -209,46 +205,11 @@ func loadBlobForDecode(t *testing.T, name string) *Language {
 	if err != nil {
 		t.Skipf("blob %s not present: %v", name, err)
 	}
-	enveloped, _, err := UnwrapLanguageBlobVersionHeader(data)
+	lang, err := LoadLanguage(data)
 	if err != nil {
-		t.Fatalf("%s: version header: %v", name, err)
+		t.Fatalf("%s: load language: %v", name, err)
 	}
-	compressed, expectsTrailer, err := UnwrapLanguageBlobEnvelope(enveloped)
-	if err != nil {
-		t.Fatalf("%s: envelope: %v", name, err)
-	}
-	gzr, err := gzip.NewReader(bytes.NewReader(compressed))
-	if err != nil {
-		t.Fatalf("%s: gzip: %v", name, err)
-	}
-	defer gzr.Close()
-	// Fully buffer before decoding and restore the LargeStateGotos trailer,
-	// mirroring LoadLanguage: gob wraps a live gzip.Reader in a read-ahead
-	// buffer that would swallow the trailer, so a trailer-bearing blob decoded
-	// straight off the gzip stream would silently observe an empty map.
-	raw, err := io.ReadAll(gzr)
-	if err != nil {
-		t.Fatalf("%s: read gzip: %v", name, err)
-	}
-	var lang Language
-	br := bytes.NewReader(raw)
-	if err := gob.NewDecoder(br).Decode(&lang); err != nil {
-		t.Fatalf("%s: gob: %v", name, err)
-	}
-	trailer, err := DecodeLargeStateGotosTrailer(br)
-	if err != nil {
-		t.Fatalf("%s: trailer: %v", name, err)
-	}
-	if expectsTrailer && len(trailer) == 0 {
-		t.Fatalf("%s: envelope requires a non-empty trailer", name)
-	}
-	if !expectsTrailer && len(trailer) != 0 {
-		t.Fatalf("%s: trailer requires an envelope", name)
-	}
-	if trailer != nil {
-		lang.LargeStateGotos = trailer
-	}
-	return &lang
+	return lang
 }
 
 func symName(lang *Language, s Symbol) string {
@@ -308,5 +269,26 @@ func dumpConflictState(t *testing.T, p *Parser, lang *Language, state StateID) {
 		for _, a := range c.actions {
 			t.Logf("      %s", fmtAction(lang, a))
 		}
+	}
+}
+
+// The Make artifact uses the version header; the decoder must still reject
+// damage to the gzip payload rather than merely accepting the wrapper.
+func TestLoadMakeVersionedBlobRejectsCorruptGzipCRC(t *testing.T) {
+	data, err := os.ReadFile("grammars/grammar_blobs/make.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, info, err := UnwrapLanguageBlobVersionHeader(data)
+	if err != nil || !info.HasHeader {
+		t.Fatalf("version header: %+v, %v", info, err)
+	}
+	if _, err := LoadLanguage(data); err != nil {
+		t.Fatalf("valid Make blob: %v", err)
+	}
+	corrupt := append([]byte(nil), data...)
+	corrupt[len(corrupt)-8] ^= 1
+	if _, err := LoadLanguage(corrupt); err == nil {
+		t.Fatal("corrupt gzip CRC accepted")
 	}
 }
