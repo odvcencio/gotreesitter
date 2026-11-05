@@ -32,6 +32,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactAcceptanceStructuralElection bool
 	compactMixedGSSMerge                bool
 	legacyMergeAdmission                gotreesitter.LegacyMergeAdmissionPolicy
+	legacyReductionContinuations        bool
 	compactLexerSkippedPrefixTiling     bool
 	exactStackNodeEquivalence           bool
 	compactPackedGSSVersionOrder        bool
@@ -428,6 +429,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		externalScannerFullParseRetry:  gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:      gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		compactPrimaryAcceptDerivation: true,
+		legacyReductionContinuations:   true,
 	},
 	// Apex's tied class-literal election matches the C oracle once the
 	// compact route selects the sole primary derivation; the compact tree is
@@ -872,6 +874,16 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 				Kind:          gotreesitter.ConflictPolicyRepetitionReduce,
 				ReduceSymbols: []gotreesitter.Symbol{343},
 			},
+			// The pinned C runtime reduces initializer_list_repeat1 and skips
+			// SHIFT_REPEAT at this exact comma cell. Executing the marker first
+			// creates an unnecessary continuation at each list boundary. Keep
+			// C's broader repetition-fold opt-out and all other rows unchanged.
+			{
+				State:         1597,
+				Lookahead:     7,
+				Kind:          gotreesitter.ConflictPolicyReuseSafeRepetitionReduce,
+				ReduceSymbols: []gotreesitter.Symbol{355},
+			},
 		},
 	},
 	// Gleam's declared integer self conflict has plain reduce rows 732/735:
@@ -1051,6 +1063,9 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactMixedGSSMerge && !lang.CompactMixedGSSMergeCertified {
 		lang.CompactMixedGSSMergeCertified = true
+		changed = true
+	}
+	if profile.legacyReductionContinuations && lang.CertifyLegacyReductionContinuations(blobSHA256) {
 		changed = true
 	}
 	if missing := profile.legacyMergeAdmission &^ lang.LegacyMergeAdmission; missing != 0 {

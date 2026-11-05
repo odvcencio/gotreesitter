@@ -1642,3 +1642,226 @@ func TestParserLoggerReceivesEvents(t *testing.T) {
 		t.Fatalf("expected no events with nil logger, got parse=%d lex=%d", parseEvents, lexEvents)
 	}
 }
+
+// A real packed-input reduction produces a primary and a queued alternative.
+// The private chain must yield before the next same-token reduction; scheduling
+// that next action after publication must still make progress.
+func TestPendingForkStopsPrivateReduceChain(t *testing.T) {
+	a := acquireNodeArena(arenaClassFull)
+	defer a.Release()
+	var gs gssScratch
+	var es glrEntryScratch
+	var tmp []stackEntry
+	leaf := func(sym Symbol, start, end uint32) *Node {
+		return newLeafNodeInArena(a, sym, true, start, end, Point{Column: start}, Point{Column: end})
+	}
+	base := gs.allocNode(stackEntry{state: 1}, nil, 1)
+	left := gs.allocNode(newStackEntryNode(2, leaf(10, 0, 1)), base, 2)
+	right := gs.allocNode(newStackEntryNode(2, leaf(11, 0, 1)), base, 2)
+	h := gs.allocNode(newStackEntryNode(3, leaf(12, 1, 2)), left, 3)
+	h.appendExtraLink(gssMainLink{prev: right, entry: newStackEntryNode(3, leaf(13, 1, 2))})
+	lang := &Language{StateCount: 5, SymbolCount: 40, TokenCount: 2, SymbolMetadata: make([]SymbolMetadata, 40), ParseTable: make([][]uint16, 5)}
+	for i := range lang.SymbolMetadata {
+		lang.SymbolMetadata[i] = SymbolMetadata{Visible: true, Named: true}
+	}
+	for i := range lang.ParseTable {
+		lang.ParseTable[i] = make([]uint16, 40)
+	}
+	lang.ParseActions = []ParseActionEntry{{}, {Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 33, ChildCount: 1}}}, {Actions: []ParseAction{{Type: ParseActionShift, State: 4}}}}
+	lang.ParseTable[2][1] = 1
+	lang.ParseTable[2][33] = 2
+	lang.legacyReductionContinuationsCertified = true
+	p := NewParser(lang)
+	p.mergeScratch = &glrMergeScratch{language: lang}
+	s := glrStack{gss: gssStack{head: h}, byteOffset: 2}
+	tok := Token{Symbol: 1, StartByte: 2, EndByte: 2}
+	reduced := false
+	nodes := 0
+	track := false
+	first := ParseAction{Type: ParseActionReduce, Symbol: 32, ChildCount: 1}
+	p.applyActionWithReduceChain(nil, &s, first, tok, &reduced, &nodes, a, &es, &gs, &tmp, false, &track)
+	if !reduced || len(p.pendingForkStacks) != 1 || len(p.pendingFrontierForkStacks) != 0 || s.gss.head == nil {
+		t.Fatalf("not a real queued fork: reduced=%t pending=%d/%d", reduced, len(p.pendingForkStacks), len(p.pendingFrontierForkStacks))
+	}
+	if got := stackEntryNodeSymbol(p.pendingForkStacks[0].top()); got != 32 {
+		t.Fatalf("queued alternative top=%d want32", got)
+	}
+	if got := stackEntryNodeSymbol(s.top()); got != 32 {
+		t.Fatalf("private next reduction ran before yield: top=%d", got)
+	}
+	p.pendingForkStacks = p.pendingForkStacks[:0] // simulate publication; the whole parser-loop order is checked separately
+	before := nodes
+	reduced = false
+	p.applyActionWithReduceChain(nil, &s, lang.ParseActions[1].Actions[0], tok, &reduced, &nodes, a, &es, &gs, &tmp, false, &track)
+	if !reduced || nodes <= before || stackEntryNodeSymbol(s.top()) != 33 {
+		t.Fatalf("scheduled reduction did not progress: reduced=%t nodes=%d->%d top=%d", reduced, before, nodes, stackEntryNodeSymbol(s.top()))
+	}
+}
+
+func TestConflictFrontierYieldsForPendingContinuations(t *testing.T) {
+	for _, frontier := range []bool{false, true} {
+		t.Run(map[bool]string{false: "reduce", true: "frontier"}[frontier], func(t *testing.T) {
+			lang := buildConflictReduceFrontierLanguage(4, []ParseAction{{Type: ParseActionReduce, Symbol: 3, ChildCount: 1}, {Type: ParseActionShift, State: 3}})
+			lang.legacyReductionContinuationsCertified = true
+			p := NewParser(lang)
+			a := newNodeArena(arenaClassFull)
+			defer a.Release()
+			var entries glrEntryScratch
+			var gss gssScratch
+			var tmp []stackEntry
+			nodes := 0
+			reduced := false
+			track := false
+			stack := newConflictReduceFrontierStackForTest(p, a, &entries, &gss)
+			tok := Token{Symbol: 2, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+			seed := applyConflictFrontierReduceForTest(p, &stack, lang.ParseActions[6].Actions[0], tok, &reduced, &nodes, a, &entries, &gss, &tmp, &track)
+			q := newGLRStack(9)
+			q.score = 90
+			q.branchOrder = 77
+			if frontier {
+				p.pendingFrontierForkStacks = append(p.pendingFrontierForkStacks, q)
+			} else {
+				p.pendingForkStacks = append(p.pendingForkStacks, q)
+			}
+			beforeState, beforeByte, beforeNodes := stack.top().state, stack.byteOffset, nodes
+			p.completeConflictReduceFrontier(nil, &stack, tok, seed, 1, 8, nil, &reduced, &nodes, a, &entries, &gss, &tmp, false, &track)
+			if stack.shifted || stack.dead || stack.top().state != beforeState || stack.byteOffset != beforeByte || nodes != beforeNodes {
+				t.Fatal("advanced before publication")
+			}
+			var retained []glrStack
+			if frontier {
+				retained = p.pendingFrontierForkStacks
+			} else {
+				retained = p.pendingForkStacks
+			}
+			if len(retained) != 1 || retained[0].score != 90 || retained[0].branchOrder != 77 {
+				t.Fatal("pending version lost")
+			}
+			p.pendingForkStacks = p.pendingForkStacks[:0]
+			p.pendingFrontierForkStacks = p.pendingFrontierForkStacks[:0]
+			p.completeConflictReduceFrontier(nil, &stack, tok, seed, 1, 8, nil, &reduced, &nodes, a, &entries, &gss, &tmp, false, &track)
+			if !stack.shifted || stack.top().state != 3 || stack.byteOffset != 2 {
+				t.Fatal("same-token resume failed")
+			}
+		})
+	}
+}
+
+func TestEagerDefaultReducesDeclinesBranchingHistory(t *testing.T) {
+	old := glrFaithfulCapOneMerge
+	glrFaithfulCapOneMerge = true
+	defer func() { glrFaithfulCapOneMerge = old }()
+	lang := &Language{InitialState: 1, StateCount: 10, SymbolCount: 5, TokenCount: 3, SymbolMetadata: make([]SymbolMetadata, 5), ParseTable: make([][]uint16, 10)}
+	for i := range lang.SymbolMetadata {
+		lang.SymbolMetadata[i] = SymbolMetadata{Visible: true, Named: true}
+	}
+	for i := range lang.ParseTable {
+		lang.ParseTable[i] = make([]uint16, 5)
+	}
+	lang.legacyReductionContinuationsCertified = true
+	p := NewParser(lang)
+	p.eagerDefaultReduces = make([]eagerDefaultReduceAction, 10)
+	p.eagerDefaultReduces[3] = eagerDefaultReduceAction{ok: true, action: ParseAction{Type: ParseActionReduce, Symbol: 3, ChildCount: 2, ProductionID: 1}}
+	a := acquireNodeArena(arenaClassFull)
+	defer a.Release()
+	var gs gssScratch
+	var es glrEntryScratch
+	var tmp []stackEntry
+	mk := func() glrStack {
+		base := gs.allocNode(stackEntry{state: 1}, nil, 1)
+		leaf := func(s Symbol, start, end uint32) *Node {
+			return newLeafNodeInArena(a, s, true, start, end, Point{Column: start}, Point{Column: end})
+		}
+		l := gs.allocNode(newStackEntryNode(2, leaf(1, 0, 1)), base, 2)
+		h := gs.allocNode(newStackEntryNode(3, leaf(2, 1, 2)), l, 3)
+		altBase := gs.allocNode(stackEntry{state: 9}, nil, 1)
+		alt := gs.allocNode(newStackEntryNode(8, leaf(1, 0, 1)), altBase, 2)
+		h.appendExtraLink(gssMainLink{prev: alt, entry: newStackEntryNode(7, leaf(2, 1, 2))})
+		return glrStack{gss: gssStack{head: h}, byteOffset: 2}
+	}
+	stacks := []glrStack{mk(), mk()}
+	firstHead, secondHead := stacks[0].gss.head, stacks[1].gss.head
+	nodes := 0
+	track := false
+	if p.applyEagerDefaultReduces(nil, "test", stacks, &nodes, a, &es, &gs, &tmp, false, &track) {
+		t.Fatal("packed input should decline")
+	}
+	if len(p.pendingForkStacks) != 0 || nodes != 0 || stacks[0].gss.head != firstHead {
+		t.Fatal("packed input mutated before decline")
+	}
+	if stacks[1].gss.head != secondHead || stacks[1].top().state != 3 {
+		t.Fatal("second source advanced before pending publication")
+	}
+}
+func TestEagerDefaultReducesKeepsLinearFastPath(t *testing.T) {
+	lang := buildConflictReduceFrontierLanguage(4, []ParseAction{{Type: ParseActionReduce, Symbol: 3, ChildCount: 1}, {Type: ParseActionShift, State: 3}})
+	lang.legacyReductionContinuationsCertified = true
+	p := NewParser(lang)
+	p.eagerDefaultReduces = make([]eagerDefaultReduceAction, 4)
+	p.eagerDefaultReduces[1] = eagerDefaultReduceAction{ok: true, action: ParseAction{Type: ParseActionReduce, Symbol: 3, ChildCount: 1}}
+	a := acquireNodeArena(arenaClassFull)
+	defer a.Release()
+	var gs gssScratch
+	var es glrEntryScratch
+	var tmp []stackEntry
+	nodes := 0
+	track := false
+	stack := newConflictReduceFrontierStackForTest(p, a, &es, &gs)
+	stacks := []glrStack{stack}
+	if !p.applyEagerDefaultReduces(nil, "test", stacks, &nodes, a, &es, &gs, &tmp, false, &track) || nodes == 0 || stacks[0].top().state != 2 {
+		t.Fatalf("linear reduction did not progress: nodes=%d state=%d", nodes, stacks[0].top().state)
+	}
+}
+
+func TestUncertifiedReductionContinuationScheduling(t *testing.T) {
+	p := NewParser(&Language{})
+	p.pendingForkStacks = []glrStack{{}}
+	p.pendingFrontierForkStacks = []glrStack{{}}
+	if p.hasPendingReductionContinuations() {
+		t.Fatal("uncertified language changed legacy scheduling")
+	}
+	p.language.legacyReductionContinuationsCertified = true
+	if !p.hasPendingReductionContinuations() {
+		t.Fatal("certified queue did not request publication")
+	}
+}
+
+// A terminal fork created by this frontier has already consumed the token.
+// Publishing it must not discard the frontier's same-key cycle history.
+func TestCertifiedConflictFrontierCompletesOwnTerminalCycle(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		terminal ParseAction
+		cap      int
+	}{
+		{"shift_uncapped", ParseAction{Type: ParseActionShift, State: 3}, 0},
+		{"shift_capped", ParseAction{Type: ParseActionShift, State: 3}, 8},
+		{"recover_uncapped", ParseAction{Type: ParseActionRecover, State: 3}, 0},
+		{"recover_capped", ParseAction{Type: ParseActionRecover, State: 3}, 8},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := buildConflictReduceFrontierLanguage(6, []ParseAction{{Type: ParseActionReduce, Symbol: 3, ChildCount: 1}, tc.terminal})
+			lang.legacyReductionContinuationsCertified = true
+			parser := NewParser(lang)
+			arena := newNodeArena(arenaClassFull)
+			var entries glrEntryScratch
+			var gss gssScratch
+			var tmp []stackEntry
+			nodeCount, anyReduced, trackChildErrors := 0, false, false
+			stack := newConflictReduceFrontierStackForTest(parser, arena, &entries, &gss)
+			tok := Token{Symbol: 2, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+			seed := applyConflictFrontierReduceForTest(parser, &stack, lang.ParseActions[6].Actions[0], tok, &anyReduced, &nodeCount, arena, &entries, &gss, &tmp, &trackChildErrors)
+			parser.completeConflictReduceFrontier(nil, &stack, tok, seed, 1, tc.cap, nil, &anyReduced, &nodeCount, arena, &entries, &gss, &tmp, false, &trackChildErrors)
+			if !stack.dead {
+				t.Fatal("same-reduce cycle left the original branch live")
+			}
+			if len(parser.pendingFrontierForkStacks) != 1 || len(parser.pendingForkStacks) != 0 {
+				t.Fatalf("pending terminal/reduction forks = %d/%d, want 1/0", len(parser.pendingFrontierForkStacks), len(parser.pendingForkStacks))
+			}
+			terminal := parser.pendingFrontierForkStacks[0]
+			if !terminal.shifted || terminal.byteOffset != tok.EndByte {
+				t.Fatalf("terminal did not consume token: shifted=%t end=%d", terminal.shifted, terminal.byteOffset)
+			}
+		})
+	}
+}
