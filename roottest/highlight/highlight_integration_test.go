@@ -1,4 +1,4 @@
-package gotreesitter_test
+package highlight_test
 
 import (
 	"testing"

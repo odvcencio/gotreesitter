@@ -1,4 +1,4 @@
-package gotreesitter_test
+package query_test
 
 import (
 	"crypto/sha256"
