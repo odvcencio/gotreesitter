@@ -629,3 +629,72 @@ func TestConflictPolicyGobRoundTrip(t *testing.T) {
 		t.Fatalf("decoded recovered policy = %+v, want exact row preserved", recovered)
 	}
 }
+
+func TestReuseSafeRepetitionPolicyExactRow(t *testing.T) {
+	actions := []ParseAction{{Type: ParseActionReduce, Symbol: 355, ChildCount: 2}, {Type: ParseActionShift, State: 443, Repetition: true}}
+	policy := ConflictPolicy{State: 1597, Lookahead: 7, Kind: ConflictPolicyReuseSafeRepetitionReduce, ReduceSymbols: []Symbol{355}}
+	check := func(t *testing.T, policy ConflictPolicy, actions []ParseAction, state StateID, token Symbol, want bool) {
+		t.Helper()
+		p := NewParser(&Language{Name: "c", ConflictPolicies: []ConflictPolicy{policy}})
+		for _, reuse := range []*reuseCursor{nil, {}} {
+			got, ok := p.deterministicConflictChoiceForDispatch(nil, &glrStack{}, Token{Symbol: token}, state, actions, 1, reuse)
+			if ok != want || (ok && got != actions[0]) {
+				t.Fatalf("reuse=%t choice=%+v,%t want=%t", reuse != nil, got, ok, want)
+			}
+		}
+	}
+	check(t, policy, actions, 1597, 7, true)
+	if len(actions) != 2 || !actions[1].Repetition {
+		t.Fatal("raw row changed")
+	}
+	p := NewParser(&Language{Name: "c"})
+	if _, ok := p.cRepetitionSkipConflictChoice(&glrStack{}, actions); ok {
+		t.Fatal("global C opt-out bypassed")
+	}
+	for _, tc := range []struct {
+		name   string
+		mutate func(*ConflictPolicy)
+	}{
+		{"state-wildcard", func(p *ConflictPolicy) { p.State = ConflictPolicyAnyState }},
+		{"token-wildcard", func(p *ConflictPolicy) { p.Lookahead = ConflictPolicyAnyLookahead }},
+		{"compact-only", func(p *ConflictPolicy) { p.CompactOnly = true }},
+		{"frontier-gate", func(p *ConflictPolicy) { p.CompactMinFrontierHeaders = 2 }},
+		{"no-reduce-symbol", func(p *ConflictPolicy) { p.ReduceSymbols = nil }},
+		{"wrong-reduce-symbol", func(p *ConflictPolicy) { p.ReduceSymbols = []Symbol{354} }},
+		{"multiple-reduce-symbols", func(p *ConflictPolicy) { p.ReduceSymbols = []Symbol{354, 355} }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			q := policy
+			tc.mutate(&q)
+			check(t, q, actions, 1597, 7, false)
+			if _, ok := conflictPolicyChoiceForPolicy(&Language{}, &q, actions); ok {
+				t.Fatal("shared fresh/compact validator accepted invalid certificate")
+			}
+		})
+	}
+	check(t, policy, actions, 1596, 7, false)
+	check(t, policy, actions, 1597, 8, false)
+	for _, tc := range []struct {
+		name   string
+		mutate func([]ParseAction) []ParseAction
+	}{
+		{"reduce-extra", func(a []ParseAction) []ParseAction { a[0].Extra = true; return a }},
+		{"reduce-extra-chain", func(a []ParseAction) []ParseAction { a[0].ExtraChain = true; return a }},
+		{"reduce-repetition", func(a []ParseAction) []ParseAction { a[0].Repetition = true; return a }},
+		{"shift-extra", func(a []ParseAction) []ParseAction { a[1].Extra = true; return a }},
+		{"shift-extra-chain", func(a []ParseAction) []ParseAction { a[1].ExtraChain = true; return a }},
+		{"plain-shift", func(a []ParseAction) []ParseAction { a[1].Repetition = false; return a }},
+		{"third-action", func(a []ParseAction) []ParseAction { return append(a, a[0]) }},
+		{"one-action", func(a []ParseAction) []ParseAction { return a[:1] }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			check(t, policy, tc.mutate(append([]ParseAction(nil), actions...)), 1597, 7, false)
+		})
+	}
+	old := policy
+	old.Kind = ConflictPolicyRepetitionReduce
+	p = NewParser(&Language{Name: "c", ConflictPolicies: []ConflictPolicy{old}})
+	if _, ok := p.deterministicConflictChoiceForDispatch(nil, &glrStack{}, Token{Symbol: 7}, 1597, actions, 1, &reuseCursor{}); ok {
+		t.Fatal("ordinary repetition policy newly allowed during reuse")
+	}
+}

@@ -587,7 +587,7 @@ func (p *Parser) applyActionWithReduceChain(source []byte, s *glrStack, act Pars
 		return false
 	}
 	p.applyReduceActionDispatch(source, s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
-	if tok.NoLookahead || s == nil || s.dead || s.accepted || s.shifted {
+	if tok.NoLookahead || s == nil || s.dead || s.accepted || s.shifted || p.hasPendingReductionContinuations() {
 		return false
 	}
 	return p.chainSingleReduceActions(source, s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
@@ -700,7 +700,7 @@ func (s *conflictReduceFrontierScratch) add(key frontierReduceKey, flag uint8) {
 }
 
 func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok Token, seed conflictReduceFrontierSeed, liveStacks, maxLiveStacks int, allocBranchOrder func() uint64, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool) {
-	if p == nil || p.language == nil || tok.NoLookahead || s == nil || s.dead || s.accepted || s.shifted || s.cPaused {
+	if p == nil || p.language == nil || tok.NoLookahead || s == nil || s.dead || s.accepted || s.shifted || s.cPaused || p.hasPendingReductionContinuations() {
 		return
 	}
 	// Mirror of the C runtime's version-window discipline
@@ -883,6 +883,13 @@ func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok 
 		return true
 	}
 	for step := 1; step <= maxConflictReduceFrontierActions; step++ {
+		// Unreduced alternatives need same-token publication. Terminal
+		// frontier outputs have already consumed the token; retain this
+		// frontier's cycle history while its bounded primary walk finishes.
+		if p.language.legacyReductionContinuationsCertified && len(p.pendingForkStacks) != 0 {
+			return
+		}
+
 		if s.dead || s.accepted || s.shifted || s.cPaused || s.depth() == 0 {
 			return
 		}
@@ -2191,6 +2198,12 @@ func (p *Parser) chainSingleReduceActions(source []byte, s *glrStack, tok Token,
 			if s.dead || s.accepted || s.shifted {
 				return false
 			}
+			if p.hasPendingReductionContinuations() {
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakMulti()
+				}
+				return false
+			}
 		case ParseActionShift:
 			if perfCountersEnabled {
 				perfRecordReduceChainBreakShift()
@@ -2325,6 +2338,12 @@ func (p *Parser) chainSingleReduceActionsClassifiedHinted(source []byte, s *glrS
 			}
 			return false
 		}
+		if p.hasPendingReductionContinuations() {
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakMulti()
+			}
+			return false
+		}
 	}
 	if perfCountersEnabled {
 		perfRecordReduceChainHintLimit()
@@ -2373,6 +2392,12 @@ func (p *Parser) chainSingleReduceActionsClassifiedDefault(source []byte, s *glr
 			if s.dead || s.accepted || s.shifted {
 				return false
 			}
+			if p.hasPendingReductionContinuations() {
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakMulti()
+				}
+				return false
+			}
 		case classifiedParseActionSingleShift:
 			if perfCountersEnabled {
 				perfRecordReduceChainBreakShift()
@@ -2411,6 +2436,12 @@ func (p *Parser) chainSingleReduceActionsClassifiedBenchmarkOnly(source []byte, 
 			}
 			p.applyReduceActionDispatch(source, s, classified.action, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
 			if s.dead || s.accepted || s.shifted {
+				return false
+			}
+			if p.hasPendingReductionContinuations() {
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakMulti()
+				}
 				return false
 			}
 		case classifiedParseActionSingleShift:
@@ -2496,6 +2527,13 @@ func (p *Parser) chainSingleReduceActionsProfiled(source []byte, s *glrStack, to
 				default:
 					p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopDead)
 				}
+				return false
+			}
+			if p.hasPendingReductionContinuations() {
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakMulti()
+				}
+				p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopMulti)
 				return false
 			}
 		case ParseActionShift:
@@ -2616,6 +2654,13 @@ func (p *Parser) chainSingleReduceActionsClassifiedHintedProfiled(source []byte,
 			}
 			return false
 		}
+		if p.hasPendingReductionContinuations() {
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakMulti()
+			}
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopMulti)
+			return false
+		}
 	}
 	if perfCountersEnabled {
 		perfRecordReduceChainHintLimit()
@@ -2675,6 +2720,13 @@ func (p *Parser) chainSingleReduceActionsClassifiedProfiledDefault(source []byte
 				default:
 					p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopDead)
 				}
+				return false
+			}
+			if p.hasPendingReductionContinuations() {
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakMulti()
+				}
+				p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopMulti)
 				return false
 			}
 		case classifiedParseActionSingleShift:
@@ -9825,4 +9877,13 @@ func (p *Parser) fieldIDScratchFor(childCount int) []FieldID {
 		clear(p.fieldIDScratch)
 	}
 	return p.fieldIDScratch
+}
+
+// hasPendingReductionContinuations reports whether a completed reduction must
+// return to the outer dispatcher before taking another action on its primary
+// stack for an artifact that certifies the new publication order. Terminal
+// frontier outputs already consumed the token; an owning frontier walk may
+// finish its bounded cycle checks before publishing them.
+func (p *Parser) hasPendingReductionContinuations() bool {
+	return p != nil && p.language != nil && p.language.legacyReductionContinuationsCertified && (len(p.pendingForkStacks) != 0 || len(p.pendingFrontierForkStacks) != 0)
 }

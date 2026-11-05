@@ -83,7 +83,7 @@ cpon https://github.com/amaanq/tree-sitter-cpon 594289eadfec719198e560f9d7fd243c
 csv https://github.com/amaanq/tree-sitter-csv f6bf6e35eb0b95fbadea4bb39cb9709507fcb181 csv/src
 cuda https://github.com/theHamsta/tree-sitter-cuda 48b066f334f4cf2174e05a50218ce2ed98b6fd01 src
 cue https://github.com/eonpatapon/tree-sitter-cue be0f609c73cc2929811a9bce0ed90ca71ea87604 src
-cylc https://github.com/elliotfontaine/tree-sitter-cylc 6d1d81137112299324b526477ce1db989ab58fb8 src
+cylc https://github.com/seanwallawalla/ElliotFontaine_Tree-Sitter-Cylc 6d1d81137112299324b526477ce1db989ab58fb8 src
 desktop https://github.com/ValdezFOmar/tree-sitter-desktop 58e2ae16828d20889a36e657d728d901b4de47ec src
 devicetree https://github.com/joelspadin/tree-sitter-devicetree e685f1f6ac1702b046415efb476444167d63e41a src
 diff https://github.com/the-mikedavis/tree-sitter-diff 2520c3f934b3179bb540d23e0ef45f75304b5fed src

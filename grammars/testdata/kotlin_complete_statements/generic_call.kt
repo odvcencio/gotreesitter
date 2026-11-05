@@ -1,0 +1,3 @@
+fun g() {
+    listOf<P>()
+}

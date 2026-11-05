@@ -1062,7 +1062,7 @@ func TestBuiltinCConflictPolicyAttachesWildcard(t *testing.T) {
 	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
 
 	lang := CLanguage()
-	if got, want := len(lang.ConflictPolicies), 2; got != want {
+	if got, want := len(lang.ConflictPolicies), 3; got != want {
 		t.Fatalf("c ConflictPolicies = %d rows, want %d", got, want)
 	}
 	policy := lang.ConflictPolicies[0]
@@ -1081,6 +1081,12 @@ func TestBuiltinCConflictPolicyAttachesWildcard(t *testing.T) {
 		fold.Kind != gotreesitter.ConflictPolicyRepetitionReduce || len(fold.ReduceSymbols) != 1 ||
 		fold.ReduceSymbols[0] != 343 {
 		t.Fatalf("c conflict policy[1] = %+v, want wildcard repetition-reduce over enumerator_list_repeat1(343)", fold)
+	}
+	initializer := lang.ConflictPolicies[2]
+	if initializer.State != 1597 || initializer.Lookahead != 7 ||
+		initializer.Kind != gotreesitter.ConflictPolicyReuseSafeRepetitionReduce || len(initializer.ReduceSymbols) != 1 ||
+		initializer.ReduceSymbols[0] != 355 {
+		t.Fatalf("c conflict policy[2] = %+v, want exact initializer repetition-reduce row1597/lookahead7/symbol355", initializer)
 	}
 }
 
@@ -1735,5 +1741,31 @@ func TestBuiltinConflictActionVersionOrderRequiresExactBlobIdentity(t *testing.T
 				t.Fatal("stale artifact received certification")
 			}
 		})
+	}
+}
+
+func TestKotlinContinuationPublicationProfileIsExact(t *testing.T) {
+	count := 0
+	for name, profile := range builtinLanguageRuntimeProfiles {
+		if profile.legacyReductionContinuations {
+			count++
+			if name != "kotlin" {
+				t.Fatalf("unexpected continuation profile %s", name)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("continuation profiles=%d, want1", count)
+	}
+	lang := KotlinLanguage()
+	identity, ok := lang.GrammarBlobSHA256()
+	if !ok || identity != builtinLanguageRuntimeProfiles["kotlin"].blobSHA256 {
+		t.Fatal("unexpected Kotlin artifact")
+	}
+	if lang.CertifyLegacyReductionContinuations(identity) {
+		t.Fatal("exact built-in load omitted continuation grant")
+	}
+	if attachBuiltinLanguageRuntimeProfile("kotlin", sha256.Sum256([]byte("uncertified")), &gotreesitter.Language{}) {
+		t.Fatal("wrong Kotlin artifact attached a profile")
 	}
 }

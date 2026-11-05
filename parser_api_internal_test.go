@@ -1344,6 +1344,8 @@ func TestCertifiedAcceptedErrorRetryStackCeilingHonorsExplicitOverrides(t *testi
 			t.Setenv("GOT_GLR_MAX_STACKS", "")
 			t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
 			t.Setenv(env, "14")
+			ResetParseEnvConfigCacheForTests()
+			defer ResetParseEnvConfigCacheForTests()
 			if certifiedAcceptedErrorRetryUsesInitialStackCeiling(tree, sourceLen, 14) {
 				t.Fatalf("certified policy ignored explicit %s", env)
 			}
