@@ -3377,7 +3377,9 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 	// Its position, point, and range index add 24 bytes to the previous 2256.
 	// The three explicit work thresholds add 24 bytes without another allocation.
 	// EOF recovery state adds 24 bytes after the hot parser fields.
-	if got, want := unsafe.Sizeof(Parser{}), uintptr(2336); got != want {
+	// Incremental proof/schedule flags and the first-leaf action memo grow the
+	// embedded reuse cursor by 24 bytes; node and stack layouts are unchanged.
+	if got, want := unsafe.Sizeof(Parser{}), uintptr(2360); got != want {
 		t.Fatalf("Parser size = %d, want %d", got, want)
 	}
 	// Certification peaks and the EOF fallback count add 24 bytes to ParseRuntime.
@@ -3392,8 +3394,8 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 	if got, want := unsafe.Offsetof(Parser{}.cNodeMemoPeakTier), unsafe.Offsetof(Parser{}.crecoveryCostCompetitionRelevant)+2; got != want {
 		t.Fatalf("Parser memo peak offset = %d, want %d", got, want)
 	}
-	// The embedded scratch lexer also moves this later field by 24 bytes.
-	if got, want := unsafe.Offsetof(Parser{}.fullParseRetryPassesTaken), uintptr(1064); got != want {
+	// The embedded reuse cursor moves this later field by 24 bytes.
+	if got, want := unsafe.Offsetof(Parser{}.fullParseRetryPassesTaken), uintptr(1088); got != want {
 		t.Fatalf("Parser full-parse retry offset = %d, want %d", got, want)
 	}
 	if got, want := unsafe.Offsetof(Tree{}.recoveryNodeMemoPeakTier), unsafe.Offsetof(Tree{}.released)+1; got != want {
