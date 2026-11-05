@@ -35,7 +35,7 @@ func buildChildCountTestGrammar(rhsLen int) (*NormalizedGrammar, *LRTables) {
 func TestAssembleRejectsProductionOverChildCountLimit(t *testing.T) {
 	ng, tables := buildChildCountTestGrammar(300)
 
-	_, err := assemble(ng, tables, nil, nil, nil, nil)
+	_, err := assemble(ng, tables, nil, nil, nil, nil, -1)
 	if err == nil {
 		t.Fatal("assemble() = nil error, want child-count overflow error for a 300-symbol production")
 	}
@@ -52,7 +52,7 @@ func TestAssembleRejectsProductionOverChildCountLimit(t *testing.T) {
 func TestAssembleAcceptsProductionAtChildCountLimit(t *testing.T) {
 	ng, tables := buildChildCountTestGrammar(255)
 
-	lang, err := assemble(ng, tables, nil, nil, nil, nil)
+	lang, err := assemble(ng, tables, nil, nil, nil, nil, -1)
 	if err != nil {
 		t.Fatalf("assemble() with a 255-symbol production returned an error: %v", err)
 	}

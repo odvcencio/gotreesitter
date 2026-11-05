@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -106,7 +107,146 @@ func TestMain(m *testing.M) {
 			os.Exit(1)
 		}
 	}
-	os.Exit(m.Run())
+	if prepare := os.Getenv("GTS_W5_PRIVATE_ORACLE_PREPARE"); prepare != "" {
+		if err := preparePrivateOracle(prepare); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	if os.Getenv("GTS_W5_PRIVATE_ORACLE_IDENTITY") == "" {
+		os.Exit(m.Run())
+	}
+	if err := verifyPrivateOracle(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	code := m.Run()
+	if err := verifyPrivateOracle(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	os.Exit(code)
+}
+
+// The campaign parent creates a fresh cache, then mounts the artifact and its
+// verified identity read-only for workers.
+func preparePrivateOracle(path string) error {
+	for _, k := range []string{"GTS_PARITY_REPO_ROOT", "GTS_PARITY_REPO_CACHE", "GTS_PARITY_EXTRA_LOCK"} {
+		if os.Getenv(k) != "" {
+			return fmt.Errorf("oracle source override: %s", k)
+		}
+	}
+	if os.Getenv("GTS_PARITY_C_REF_BUILD_CACHE") != "/private/cache" || path != "/private/cold.json" {
+		return fmt.Errorf("invalid private oracle preparation path")
+	}
+	if err := verifyBuildCompilers(); err != nil {
+		return err
+	}
+	if err := os.WriteFile("/private/environment.before", []byte(buildEnvironmentDigest()+"\n"), 0600); err != nil {
+		return err
+	}
+	got, err := oracle.COracleIdentity(os.Getenv("GTS_EDIT_LANGUAGE"))
+	if err != nil {
+		return err
+	}
+	if err := verifyBuildCompilers(); err != nil {
+		return err
+	}
+	if err := os.WriteFile("/private/environment.after", []byte(buildEnvironmentDigest()+"\n"), 0600); err != nil {
+		return err
+	}
+	data, err := json.Marshal(got)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
+}
+
+func buildEnvironmentDigest() string {
+	var buildEnv []string
+	for _, key := range []string{"PATH", "CC", "CXX", "CGO_ENABLED", "CGO_CFLAGS", "CGO_CPPFLAGS", "CGO_CXXFLAGS", "CGO_LDFLAGS", "GOFLAGS"} {
+		buildEnv = append(buildEnv, os.Getenv(key))
+	}
+	return digest([]byte(strings.Join(buildEnv, "\x00") + "\x00"))
+}
+
+func verifyBuildCompilers() error {
+	for _, spec := range []struct{ command, pathEnv, hashEnv string }{
+		{"cc", "GTS_W5_CC_PATH", "GTS_W5_CC_SHA256"},
+		{"c++", "GTS_W5_CXX_PATH", "GTS_W5_CXX_SHA256"},
+	} {
+		path, err := exec.LookPath(spec.command)
+		if err != nil || path != os.Getenv(spec.pathEnv) {
+			return fmt.Errorf("compiler path changed: %s", spec.command)
+		}
+		contents, err := os.ReadFile(path)
+		if err != nil || digest(contents) != os.Getenv(spec.hashEnv) {
+			return fmt.Errorf("compiler binary changed: %s", spec.command)
+		}
+	}
+	return nil
+}
+
+func verifyPrivateOracle() error {
+	for _, k := range []string{"GTS_PARITY_REPO_ROOT", "GTS_PARITY_REPO_CACHE", "GTS_PARITY_EXTRA_LOCK"} {
+		if os.Getenv(k) != "" {
+			return fmt.Errorf("oracle source override: %s", k)
+		}
+	}
+	if os.Getenv("GTS_PARITY_C_REF_BUILD_CACHE") != "/private/cache" || os.Getenv("GTS_W5_PRIVATE_ORACLE_IDENTITY") != "/private/identity.json" {
+		return fmt.Errorf("invalid private oracle worker path")
+	}
+	if buildEnvironmentDigest() != os.Getenv("GTS_W5_BUILD_ENV_SHA256") {
+		return fmt.Errorf("compiler environment changed")
+	}
+	if err := verifyBuildCompilers(); err != nil {
+		return err
+	}
+	data, err := os.ReadFile(os.Getenv("GTS_W5_PRIVATE_ORACLE_IDENTITY"))
+	if err != nil {
+		return err
+	}
+	if digest(data) != os.Getenv("GTS_W5_PRIVATE_ORACLE_SHA256") {
+		return fmt.Errorf("oracle manifest digest mismatch")
+	}
+	var want oracle.COracleBuildIdentity
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&want); err != nil {
+		return err
+	}
+	got, err := oracle.COracleIdentity(os.Getenv("GTS_EDIT_LANGUAGE"))
+	if err != nil {
+		return err
+	}
+	a, _ := json.Marshal(want)
+	b, _ := json.Marshal(got)
+	if got.CompilerPath != os.Getenv("GTS_W5_CC_PATH") {
+		return fmt.Errorf("C oracle compiler path mismatch")
+	}
+	if !bytes.Equal(a, b) || got.GrammarArtifactSHA256 == "" {
+		return fmt.Errorf("oracle identity mismatch")
+	}
+	if filepath.Dir(got.GrammarArtifactPath) != "/private/cache" {
+		return fmt.Errorf("oracle artifact outside private cache")
+	}
+	artifact, err := os.ReadFile(got.GrammarArtifactPath)
+	if err != nil {
+		return err
+	}
+	if digest(artifact) != got.GrammarArtifactSHA256 {
+		return fmt.Errorf("oracle artifact digest mismatch")
+	}
+	return nil
 }
 
 func digest(data []byte) string {

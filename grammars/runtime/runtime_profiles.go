@@ -121,8 +121,8 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// against the production parser and the tree-sitter C oracle.
 	// The owned EOF bundle requires its executed recovery route before publication.
 	"go": {
-		// Re-certified 2026-09-20 against grammars/grammar_blobs/go.bin
-		// SHA-256 df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d,
+		// Re-certified 2026-10-24 against grammars/grammar_blobs/go.bin
+		// SHA-256 9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4,
 		// regenerated with cmd/grammargen (no -lr-split; -lr-split
 		// interacts badly with the Go external ASI scanner, see
 		// grammargen/README.md "Go's blob is generated without -lr-split").
@@ -130,9 +130,12 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		// certifications were re-validated against this blob via the
 		// cgo_harness Go compact/recovery receipts (TestGoCompactIncrementalExecution*,
 		// TestGoCompactRecoveryVersionTurnsLockedC, TestStage6GoCompactCertification).
-		blobSHA256:                 mustRuntimeProfileSHA256("df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"),
-		compactConvergedSplitDrops: true,
-		compactOwnedEOFRecovery:    true,
+		blobSHA256:                  mustRuntimeProfileSHA256("9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4"),
+		compactConvergedSplitDrops:  true,
+		compactOwnedEOFRecovery:     true,
+		// Let the absorbing version compete before the eagerly shifted
+		// missing-target version, matching C's assignment-error election.
+		recoveryMissingVersionTurns: true,
 		// Locked C exposes these aliased DFA leaves even when error recovery
 		// pops them before the enclosing string production can reduce.
 		visibleTerminalAliases: []visibleTerminalAliasProfile{

@@ -158,10 +158,10 @@ func (s *DerivationScratch) walk(c *Core, id NodeID, depth int, poll func() erro
 					return nil, errors.New("parser-core phase zero: adjacency cycle")
 				}
 			}
-			if uint64(linkID) > uint64(len(c.links)) {
+			if uint64(linkID) > uint64(c.links.Len()) {
 				return nil, errors.New("parser-core phase zero: link adjacency out of range")
 			}
-			link := c.links[linkID-1]
+			link := c.links.At(int(linkID - 1))
 			if err := link.validateShape(); err != nil {
 				return nil, err
 			}
@@ -251,7 +251,7 @@ func (c *Core) DerivationsWithScratch(head Head, scratch *DerivationScratch, pol
 				path.Payloads = []SubtreeID{}
 			}
 			for i := len(scratch.reverse) - 1; i >= 0; i-- {
-				link := &c.links[scratch.reverse[i]-1]
+				link := c.links.At(int(scratch.reverse[i] - 1))
 				path.Score, err = checkedAddScore(path.Score, link.scoreDelta)
 				if err != nil {
 					return nil, err

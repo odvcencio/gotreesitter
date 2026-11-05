@@ -41,7 +41,7 @@ func TestDiagnosticEOFRecoveryClonePlanAccountsEveryRequestedByte(t *testing.T) 
 		nodePrecedenceWide:                make([]int64, 2),
 		nodeLineages:                      make([]nodeLineageHot, 2),
 		nodeCheckpoints:                   make([]CheckpointID, 2),
-		links:                             make([]linkRecord, 3),
+		links:                             makeLinkRecordStorage(3, 3),
 		subtrees:                          subtreeBlocksFromSliceForTest(make([]subtreeRecord, 4)),
 		eofRecoveryRoots:                  []SubtreeID{2},
 		externalProvenance:                make([]externalPayloadProvenance, 1),
@@ -50,8 +50,9 @@ func TestDiagnosticEOFRecoveryClonePlanAccountsEveryRequestedByte(t *testing.T) 
 		fields:                            make([]FieldMapEntry, 6),
 		aliases:                           make([]Symbol, 7),
 		checkpoints: checkpointInterner{
-			records: make([]checkpointRecord, 2),
-			bytes:   make([]byte, 9),
+			records:  make([]checkpointRecord, 2),
+			receipts: make([]checkpointDigestCacheEntry, 4),
+			bytes:    make([]byte, 9),
 		},
 		boundaries:            boundaryIndex{slots: make([]boundarySlot, 8)},
 		alternativeSpillArena: make([]uint32, 10),
@@ -71,7 +72,7 @@ func TestDiagnosticEOFRecoveryClonePlanAccountsEveryRequestedByte(t *testing.T) 
 		uint64(2)*coreInt64Bytes +
 		uint64(2)*coreNodeLineageRecordBytes +
 		uint64(2)*coreCheckpointIDBytes +
-		uint64(3)*coreLinkRecordBytes +
+		uint64(3)*packedLinkRecordBytes +
 		uint64(4)*coreSubtreeRecordBytes +
 		coreSubtreeIDBytes +
 		coreExternalProvenanceBytes +
@@ -80,6 +81,7 @@ func TestDiagnosticEOFRecoveryClonePlanAccountsEveryRequestedByte(t *testing.T) 
 		uint64(6)*coreFieldRecordBytes +
 		uint64(7)*coreAliasRecordBytes +
 		uint64(2)*coreCheckpointRecordBytes +
+		uint64(4)*coreCheckpointDigestCacheBytes +
 		9 +
 		uint64(8)*coreBoundarySlotBytes +
 		uint64(10)*coreUint32Bytes
@@ -416,5 +418,26 @@ func TestDiagnosticEOFRecoveryPathCountMetadataCloneIsolation(t *testing.T) {
 	shadow.nodePathCountsWide[0].value--
 	if diagnosticEOFRecoveryCopiedArenasEqual(live, &shadow) {
 		t.Fatal("changed count was invisible")
+	}
+}
+
+func TestDiagnosticEOFRecoveryCheckpointDigestCacheDetaches(t *testing.T) {
+	live := newRecoveryVisibleCore(t)
+	id, err := live.InternCheckpoint([]byte("retained-state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, want, ok := live.CheckpointReceipt(id)
+	if !ok {
+		t.Fatal("missing live receipt")
+	}
+	shadow := cloneDiagnosticEOFRecoveryCore(live, 0, diagnosticEOFRecoveryValidationDemand{})
+	if !diagnosticEOFRecoveryStorageDisjoint(live, shadow) {
+		t.Fatal("clone aliases live cache")
+	}
+	shadow.checkpoints.reset()
+	_, got, ok := live.CheckpointReceipt(id)
+	if !ok || got != want {
+		t.Fatal("shadow reset changed live receipt")
 	}
 }

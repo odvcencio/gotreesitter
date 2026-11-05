@@ -160,10 +160,10 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 				return errors.New("parser-core phase zero: reused corridor has invalid seed adjacency")
 			}
 		} else {
-			if node.firstLink == 0 || uint64(node.firstLink) > uint64(len(c.links)) {
+			if node.firstLink == 0 || uint64(node.firstLink) > uint64(c.links.Len()) {
 				return errors.New("parser-core phase zero: reused corridor has invalid link identifier")
 			}
-			link := c.links[node.firstLink-1]
+			link := c.links.At(int(node.firstLink - 1))
 			if err := link.validateShape(); err != nil {
 				return err
 			}

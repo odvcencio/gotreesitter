@@ -167,6 +167,24 @@ type lexModeSpec struct {
 	skipWhitespace   bool         // whether to add skip transitions for whitespace
 }
 
+// errorRecoveryLexMode retains the initial mode's pattern tokens and adds
+// fixed, non-immediate terminals. Recovery must recognize punctuation that
+// cannot start a valid document, without admitting contextual patterns such
+// as string content that could swallow the rest of the input. This is a
+// separate mode; widening normal modes would change valid contextual lexing.
+func errorRecoveryLexMode(initial lexModeSpec, terminals []TerminalPattern) lexModeSpec {
+	mode := lexModeSpec{validSymbols: make(map[int]bool), skipWhitespace: initial.skipWhitespace}
+	for sym := range initial.validSymbols {
+		mode.validSymbols[sym] = true
+	}
+	for _, terminal := range terminals {
+		if value, fixed := stringRuleValue(terminal.Rule); fixed && value != "" && !terminal.Immediate {
+			mode.validSymbols[terminal.SymbolID] = true
+		}
+	}
+	return mode
+}
+
 func preferModePatterns(patterns []TerminalPattern, preferred map[int]bool) []TerminalPattern {
 	if len(patterns) < 2 || len(preferred) == 0 {
 		return patterns

@@ -166,9 +166,13 @@ package gotreesitter_test
 //     still guards real regressions.
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -1150,6 +1154,211 @@ func TestW5DeterminismAcrossFreshParsers(t *testing.T) {
 					}
 				})
 			}
+		})
+	}
+}
+
+// The W5 editor-latency gate edits one pinned Go file twice: byte 2959 changes
+// from E to Z, then back. It fails when a reuse counter falls or a work counter
+// rises against the base. Each step below carries the counters that the base
+// (ba95e4ea1) reported. The file is the one the cliff report vendors, so this
+// runs in the root-package race lane before the paired editor-latency job.
+func TestGoOneByteUndoReuseDoesNotFall(t *testing.T) {
+	compressed, err := os.ReadFile(filepath.Join("internal", "benchfixtures", "testdata", "cliffs", "go_elf.go.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := gzip.NewReader(bytes.NewReader(compressed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(source)
+	if got := hex.EncodeToString(sum[:]); got != "ff2f811d29a56303bad96c3c7cff1a83814a974503a51cee918a314a96eb476e" || len(source) != 140026 {
+		t.Fatalf("W5 Go fixture changed: %d bytes, sha256 %s", len(source), got)
+	}
+	const offset = 2959
+	if source[offset] != 'E' {
+		t.Fatalf("byte %d = %q, want 'E'", offset, source[offset])
+	}
+	entry := grammars.DetectLanguageByName("go")
+	if entry == nil || entry.Language() == nil {
+		t.Fatal("Go grammar unavailable")
+	}
+	lang := entry.Language()
+
+	edited, forward := goUndoReuseEdit(source, offset, 'Z')
+	restored, undo := goUndoReuseEdit(edited, offset, 'E')
+	steps := []struct {
+		name                string
+		source              []byte
+		edit                gts.InputEdit
+		maxTokens, maxNodes uint64
+		maxStacks           int
+		minSubtrees         uint64
+		minBytes            uint64
+	}{
+		{"edit", edited, forward, 22385, 109017, 18, 35, 2853},
+		{"undo", restored, undo, 22393, 109036, 18, 39, 2816},
+	}
+
+	parser := gts.NewParser(lang)
+	old, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { old.Release() }()
+	for _, step := range steps {
+		old.Edit(step.edit)
+		next, profile, err := parser.ParseIncrementalProfiled(step.source, old)
+		if err != nil {
+			t.Fatalf("%s step: %v", step.name, err)
+		}
+		if next != old {
+			old.Release()
+		}
+		old = next
+		fresh, err := gts.NewParser(lang).Parse(step.source)
+		if err != nil {
+			t.Fatalf("%s step fresh parse: %v", step.name, err)
+		}
+		incremental, err := benchfixtures.InspectGoTree(old.RootNode(), lang)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, err := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fresh.Release()
+		if incremental.SHA256 != want.SHA256 {
+			t.Fatalf("%s step: incremental tree differs from a fresh parse", step.name)
+		}
+		t.Logf("%s: reused_subtrees=%d reused_bytes=%d tokens=%d nodes=%d max_stacks=%d", step.name, profile.ReusedSubtrees, profile.ReusedBytes, profile.TokensConsumed, profile.NewNodesAllocated, profile.MaxStacksSeen)
+		if profile.ReusedSubtrees < step.minSubtrees {
+			t.Errorf("%s step reused %d subtrees, the base reused %d", step.name, profile.ReusedSubtrees, step.minSubtrees)
+		}
+		if profile.ReusedBytes < step.minBytes {
+			t.Errorf("%s step reused %d bytes, the base reused %d", step.name, profile.ReusedBytes, step.minBytes)
+		}
+		if profile.TokensConsumed > step.maxTokens || profile.NewNodesAllocated > step.maxNodes || profile.MaxStacksSeen > step.maxStacks {
+			t.Errorf("%s step work rose: tokens=%d nodes=%d stacks=%d, the base used %d, %d and %d", step.name,
+				profile.TokensConsumed, profile.NewNodesAllocated, profile.MaxStacksSeen, step.maxTokens, step.maxNodes, step.maxStacks)
+		}
+	}
+}
+
+func goUndoReuseEdit(source []byte, offset int, replacement byte) ([]byte, gts.InputEdit) {
+	point := func(text []byte, end int) gts.Point {
+		var p gts.Point
+		for _, ch := range text[:end] {
+			if ch == '\n' {
+				p.Row++
+				p.Column = 0
+			} else {
+				p.Column++
+			}
+		}
+		return p
+	}
+	out := append([]byte(nil), source...)
+	out[offset] = replacement
+	return out, gts.InputEdit{
+		StartByte: uint32(offset), OldEndByte: uint32(offset + 1), NewEndByte: uint32(offset + 1),
+		StartPoint: point(source, offset), OldEndPoint: point(source, offset+1), NewEndPoint: point(out, offset+1),
+	}
+}
+
+// TestGoCommentEditBoundaries compares incremental and fresh results around
+// comment edits, including a change that extends the maximal-munch token.
+func TestGoCommentEditBoundaries(t *testing.T) {
+	cases := []struct {
+		name, before, after   string
+		start, oldEnd, newEnd uint32
+	}{
+		{"same-symbol-dirty", "package p\n// old\nvar x = 1\n// keep\nvar y = 2\n", "package p\n// new\nvar x = 1\n// keep\nvar y = 2\n", 13, 16, 16},
+		{"extend-comment", "package p\n// old\nvar x = 1\n// keep\nvar y = 2\n", "package p\n// oldvar x = 1\n// keep\nvar y = 2\n", 16, 17, 16},
+	}
+	lang := grammars.DetectLanguageByName("go").Language()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			parser := gts.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(false)
+			old, err := parser.Parse([]byte(tc.before))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer old.Release()
+			point := func(s string, offset uint32) gts.Point {
+				var p gts.Point
+				for _, c := range []byte(s)[:offset] {
+					if c == '\n' {
+						p.Row++
+						p.Column = 0
+					} else {
+						p.Column++
+					}
+				}
+				return p
+			}
+			edit := gts.InputEdit{StartByte: tc.start, OldEndByte: tc.oldEnd, NewEndByte: tc.newEnd, StartPoint: point(tc.before, tc.start), OldEndPoint: point(tc.before, tc.oldEnd), NewEndPoint: point(tc.after, tc.newEnd)}
+			findComment := func(root *gts.Node, text string, src []byte) *gts.Node {
+				var visit func(*gts.Node) *gts.Node
+				visit = func(n *gts.Node) *gts.Node {
+					if n == nil {
+						return nil
+					}
+					if n.IsExtra() && n.Text(src) == text {
+						return n
+					}
+					for i := 0; i < n.ChildCount(); i++ {
+						if found := visit(n.Child(i)); found != nil {
+							return found
+						}
+					}
+					return nil
+				}
+				return visit(root)
+			}
+			beforeKeep := findComment(old.RootNode(), "// keep", []byte(tc.before))
+			if beforeKeep == nil {
+				t.Fatal("missing original unchanged comment")
+			}
+			old.Edit(edit)
+			next, profile, err := parser.ParseIncrementalProfiled([]byte(tc.after), old)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if next != old {
+				defer next.Release()
+			}
+			fresh, err := gts.NewParser(lang).Parse([]byte(tc.after))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			got, err := benchfixtures.InspectGoTree(next.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.SHA256 != want.SHA256 {
+				t.Fatalf("incremental != fresh: %s != %s", got.SHA256, want.SHA256)
+			}
+			afterKeep := findComment(next.RootNode(), "// keep", []byte(tc.after))
+			if afterKeep == nil {
+				t.Fatal("unchanged comment missing after edit")
+			}
+			if tc.name == "same-symbol-dirty" && beforeKeep != afterKeep {
+				t.Fatal("unchanged comment was not reused")
+			}
+			t.Logf("reused_subtrees=%d reused_bytes=%d same_comment_node=%t", profile.ReusedSubtrees, profile.ReusedBytes, beforeKeep == afterKeep)
 		})
 	}
 }

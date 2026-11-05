@@ -8,13 +8,8 @@ import (
 )
 
 func TestImportGrammarJSONReservedWordSets(t *testing.T) {
-	// When a grammar declares reserved word sets AND uses RESERVED wrappers
-	// somewhere, ImportGrammarJSON preserves the sets for generator consumption.
-	// When only the top-level "reserved" block is present without any
-	// RESERVED usages in rules, the sets are dropped because our current
-	// buildReservedWordTables path mismatches tree-sitter's semantic and
-	// actively harms parsing for grammars where every reserved word is a
-	// hard keyword the LR grammar already handles directly.
+	// Preserve declared sets in source order. RESERVED wrappers retain their
+	// existing structural handling independently of the global declaration.
 	data := []byte(`{
 		"name": "reserved_import",
 		"rules": {
@@ -56,10 +51,8 @@ func TestImportGrammarJSONReservedWordSets(t *testing.T) {
 	}
 }
 
-func TestImportGrammarJSONReservedWordSetsDroppedWithoutRESERVED(t *testing.T) {
-	// Without RESERVED usages, reserved word sets are dropped to match
-	// tree-sitter's semantic (a no-op global reserved list when no per-context
-	// reservation is in effect).
+func TestImportGrammarJSONReservedWordSetsPreservedWithoutRESERVED(t *testing.T) {
+	// An explicit global reserved list applies without context-specific wrappers.
 	data := []byte(`{
 		"name": "reserved_import_bare",
 		"rules": {
@@ -84,8 +77,12 @@ func TestImportGrammarJSONReservedWordSetsDroppedWithoutRESERVED(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ImportGrammarJSON failed: %v", err)
 	}
-	if len(g.ReservedWordSets) != 0 {
-		t.Fatalf("expected reserved word sets to be dropped (no RESERVED usage), got %d", len(g.ReservedWordSets))
+	if len(g.ReservedWordSets) != 1 || g.ReservedWordSets[0].Name != "global" {
+		t.Fatalf("reserved sets without wrappers = %+v, want one global set", g.ReservedWordSets)
+	}
+	rules := g.ReservedWordSets[0].Rules
+	if len(rules) != 1 || rules[0] == nil || rules[0].Kind != RuleString || rules[0].Value != "if" {
+		t.Fatalf("global reserved rules without wrappers = %+v, want Str(\"if\")", rules)
 	}
 }
 

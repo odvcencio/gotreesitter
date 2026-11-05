@@ -74,9 +74,9 @@ func TestSelectedStoreOnePassCancellationAfterGrowthReusesCleanBacking(t *testin
 	if !errors.Is(err, stop) || store != nil {
 		t.Fatalf("cancelled store=%v err=%v polls=%d", store, err, polls)
 	}
-	compact.selectedPoolMu.Lock()
-	pooledRecords := cap(compact.selectedPool.records)
-	compact.selectedPoolMu.Unlock()
+	compact.selectedStoreOwner().mu.Lock()
+	pooledRecords := cap(compact.selectedStoreOwner().backing.records)
+	compact.selectedStoreOwner().mu.Unlock()
 	if pooledRecords == 0 {
 		t.Fatal("cancelled grown backing was not returned to the pool")
 	}
@@ -109,7 +109,7 @@ func TestSelectedStoreOnePassRightSizeCopyPollsCancellation(t *testing.T) {
 	}
 	const length = 3 * selectedStoreCopyPollElements
 	store := &SelectedStore{
-		owner:   compact,
+		owner:   compact.selectedStoreOwner(),
 		records: make([]SelectedNodeRecord, length, 4*selectedStoreCopyPollElements),
 	}
 	defer store.Release()

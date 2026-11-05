@@ -133,24 +133,25 @@ type canonicalIncrementalRootReceipt struct {
 }
 
 type canonicalIncrementalProfileReceipt struct {
-	ReuseUnsupported              bool   `json:"reuse_unsupported"`
-	ReuseUnsupportedReason        string `json:"reuse_unsupported_reason,omitempty"`
-	AcceptedErrorRetryAttempts    uint8  `json:"accepted_error_retry_attempts"`
-	AcceptedErrorRetryAdopted     bool   `json:"accepted_error_retry_adopted"`
-	AcceptedErrorRetryMergePerKey int    `json:"accepted_error_retry_merge_per_key"`
-	AcceptedErrorRetryCause       string `json:"accepted_error_retry_cause"`
-	OldTreeReuseRoute             bool   `json:"old_tree_reuse_route"`
-	ReusedSubtrees                uint64 `json:"reused_subtrees"`
-	ReusedBytes                   uint64 `json:"reused_bytes"`
-	NewNodesAllocated             uint64 `json:"new_nodes_allocated"`
-	TokensConsumed                uint64 `json:"tokens_consumed"`
-	MaxStacksSeen                 int    `json:"max_stacks_seen"`
-	SingleStackIterations         int    `json:"single_stack_iterations"`
-	MultiStackIterations          int    `json:"multi_stack_iterations"`
-	RecoverSearches               uint64 `json:"recover_searches"`
-	RecoverStateChecks            uint64 `json:"recover_state_checks"`
-	RecoverHits                   uint64 `json:"recover_hits"`
-	StopReason                    string `json:"stop_reason"`
+	ReuseUnsupported               bool   `json:"reuse_unsupported"`
+	ReuseUnsupportedReason         string `json:"reuse_unsupported_reason,omitempty"`
+	AcceptedErrorRetryAttempts     uint8  `json:"accepted_error_retry_attempts"`
+	AcceptedErrorRetryAdopted      bool   `json:"accepted_error_retry_adopted"`
+	AcceptedErrorRetryMergePerKey  int    `json:"accepted_error_retry_merge_per_key"`
+	AcceptedErrorRetryCause        string `json:"accepted_error_retry_cause"`
+	OldTreeReuseRoute              bool   `json:"old_tree_reuse_route"`
+	ReusedSubtrees                 uint64 `json:"reused_subtrees"`
+	ReusedBytes                    uint64 `json:"reused_bytes"`
+	NewNodesAllocated              uint64 `json:"new_nodes_allocated"`
+	TokenInvariantDependencyChecks uint64 `json:"token_invariant_dependency_checks"`
+	TokensConsumed                 uint64 `json:"tokens_consumed"`
+	MaxStacksSeen                  int    `json:"max_stacks_seen"`
+	SingleStackIterations          int    `json:"single_stack_iterations"`
+	MultiStackIterations           int    `json:"multi_stack_iterations"`
+	RecoverSearches                uint64 `json:"recover_searches"`
+	RecoverStateChecks             uint64 `json:"recover_state_checks"`
+	RecoverHits                    uint64 `json:"recover_hits"`
+	StopReason                     string `json:"stop_reason"`
 }
 
 type canonicalIncrementalRuntimeReceipt struct {
@@ -250,6 +251,45 @@ func TestCanonicalIncrementalClassificationCompactReparse(t *testing.T) {
 		mutate(&changed)
 		if got := classifyCanonicalIncrementalDirection(true, false, profile, changed, false); got == "compact_incremental_reparse" {
 			t.Fatalf("incomplete compact proof accepted: %+v", changed)
+		}
+	}
+}
+
+func TestCanonicalIncrementalClassificationTokenInvariantLeaf(t *testing.T) {
+	profile := gotreesitter.IncrementalParseProfile{
+		TokenInvariantDependencyChecks: 1, TokensConsumed: 1, ReusedSubtrees: 1,
+		ReusedBytes: 30, MaxStacksSeen: 1, SingleStackIterations: 1,
+	}
+	runtime := gotreesitter.ParseRuntime{
+		StopReason: gotreesitter.ParseStopAccepted, TokensConsumed: 1, MaxStacksSeen: 1,
+	}
+	if got := classifyCanonicalIncrementalDirection(true, false, profile, runtime, false); got != "token_invariant_leaf_validation" {
+		t.Fatalf("authenticated leaf classification=%q", got)
+	}
+	for _, mutate := range []func(*gotreesitter.IncrementalParseProfile){
+		func(p *gotreesitter.IncrementalParseProfile) { p.TokenInvariantDependencyChecks = 0 },
+		func(p *gotreesitter.IncrementalParseProfile) { p.NewNodesAllocated = 1 },
+		func(p *gotreesitter.IncrementalParseProfile) { p.TokensConsumed = 2 },
+		func(p *gotreesitter.IncrementalParseProfile) { p.ReusedSubtrees = 0 },
+		func(p *gotreesitter.IncrementalParseProfile) { p.ReparseNanos = 1 },
+		func(p *gotreesitter.IncrementalParseProfile) { p.ReuseUnsupported = true },
+	} {
+		changed := profile
+		mutate(&changed)
+		if classifyCanonicalIncrementalDirection(true, false, changed, runtime, false) == "token_invariant_leaf_validation" {
+			t.Fatalf("incomplete leaf proof accepted: %+v", changed)
+		}
+	}
+	for _, mutate := range []func(*gotreesitter.ParseRuntime){
+		func(r *gotreesitter.ParseRuntime) { r.Truncated = true },
+		func(r *gotreesitter.ParseRuntime) { r.CRecoveryEnteredErrorState = true },
+		func(r *gotreesitter.ParseRuntime) { r.NodesAllocated = 1 },
+		func(r *gotreesitter.ParseRuntime) { r.CompactIncrementalReuseRoute = true },
+	} {
+		changed := runtime
+		mutate(&changed)
+		if classifyCanonicalIncrementalDirection(true, false, profile, changed, false) == "token_invariant_leaf_validation" {
+			t.Fatalf("incomplete leaf runtime accepted: %+v", changed)
 		}
 	}
 }
@@ -662,24 +702,25 @@ func admitCanonicalGoIncrementalDirection(tb testing.TB, editName string, direct
 			ChildCount: int(cFreshRoot.ChildCount()),
 		},
 		Profile: canonicalIncrementalProfileReceipt{
-			ReuseUnsupported:              profile.ReuseUnsupported,
-			ReuseUnsupportedReason:        profile.ReuseUnsupportedReason,
-			AcceptedErrorRetryAttempts:    profile.AcceptedErrorRetryAttempts,
-			AcceptedErrorRetryAdopted:     profile.AcceptedErrorRetryAdopted,
-			AcceptedErrorRetryMergePerKey: profile.AcceptedErrorRetryMergePerKey,
-			AcceptedErrorRetryCause:       canonicalIncrementalRetryCause(profile.AcceptedErrorRetryCause),
-			OldTreeReuseRoute:             profile.OldTreeReuseRoute,
-			ReusedSubtrees:                profile.ReusedSubtrees,
-			ReusedBytes:                   profile.ReusedBytes,
-			NewNodesAllocated:             profile.NewNodesAllocated,
-			TokensConsumed:                profile.TokensConsumed,
-			MaxStacksSeen:                 profile.MaxStacksSeen,
-			SingleStackIterations:         profile.SingleStackIterations,
-			MultiStackIterations:          profile.MultiStackIterations,
-			RecoverSearches:               profile.RecoverSearches,
-			RecoverStateChecks:            profile.RecoverStateChecks,
-			RecoverHits:                   profile.RecoverHits,
-			StopReason:                    string(profile.StopReason),
+			ReuseUnsupported:               profile.ReuseUnsupported,
+			ReuseUnsupportedReason:         profile.ReuseUnsupportedReason,
+			AcceptedErrorRetryAttempts:     profile.AcceptedErrorRetryAttempts,
+			AcceptedErrorRetryAdopted:      profile.AcceptedErrorRetryAdopted,
+			AcceptedErrorRetryMergePerKey:  profile.AcceptedErrorRetryMergePerKey,
+			AcceptedErrorRetryCause:        canonicalIncrementalRetryCause(profile.AcceptedErrorRetryCause),
+			OldTreeReuseRoute:              profile.OldTreeReuseRoute,
+			ReusedSubtrees:                 profile.ReusedSubtrees,
+			ReusedBytes:                    profile.ReusedBytes,
+			NewNodesAllocated:              profile.NewNodesAllocated,
+			TokenInvariantDependencyChecks: profile.TokenInvariantDependencyChecks,
+			TokensConsumed:                 profile.TokensConsumed,
+			MaxStacksSeen:                  profile.MaxStacksSeen,
+			SingleStackIterations:          profile.SingleStackIterations,
+			MultiStackIterations:           profile.MultiStackIterations,
+			RecoverSearches:                profile.RecoverSearches,
+			RecoverStateChecks:             profile.RecoverStateChecks,
+			RecoverHits:                    profile.RecoverHits,
+			StopReason:                     string(profile.StopReason),
 		},
 		Runtime: canonicalIncrementalRuntimeReceipt{
 			StopReason:                         string(runtime.StopReason),
@@ -737,6 +778,9 @@ func classifyCanonicalIncrementalDirection(appliedEdit, returnedOldTree bool, pr
 	if !appliedEdit && returnedOldTree && canonicalIncrementalProfileIsZero(profile) {
 		return "unchanged_snapshot_identity"
 	}
+	if appliedEdit && !returnedOldTree && !rootHasError && canonicalTokenInvariantLeafProof(profile, runtime) {
+		return "token_invariant_leaf_validation"
+	}
 	if appliedEdit && !returnedOldTree && !rootHasError && canonicalCompactReparseProof(profile, runtime) {
 		return "compact_incremental_reparse"
 	}
@@ -765,6 +809,21 @@ func classifyCanonicalIncrementalDirection(appliedEdit, returnedOldTree bool, pr
 		return "single_stack_incremental_reparse"
 	}
 	return "unclassified"
+}
+
+// This existing fast path validates the edited token and its lexical
+// dependencies, then shares the syntax without running the parser again.
+// Require its positive dependency-check counter as well as zero rebuild work.
+func canonicalTokenInvariantLeafProof(profile gotreesitter.IncrementalParseProfile, runtime gotreesitter.ParseRuntime) bool {
+	return profile.TokenInvariantDependencyChecks == 1 && !profile.ReuseUnsupported &&
+		!profile.OldTreeReuseRoute && !runtime.IncrementalOldTreeReuseRoute &&
+		profile.ReparseNanos == 0 && profile.TokensConsumed == 1 && profile.NewNodesAllocated == 0 &&
+		profile.ReusedSubtrees == 1 && profile.ReusedBytes > 0 && profile.MaxStacksSeen == 1 &&
+		profile.SingleStackIterations == 1 && profile.MultiStackIterations == 0 &&
+		profile.AcceptedErrorRetryAttempts == 0 && profile.RecoverSearches == 0 && profile.RecoverStateChecks == 0 && profile.RecoverHits == 0 &&
+		runtime.TokensConsumed == 1 && runtime.NodesAllocated == 0 && runtime.MaxStacksSeen == 1 &&
+		runtime.StopReason == gotreesitter.ParseStopAccepted && !runtime.CRecoveryEnteredErrorState &&
+		!runtime.Truncated && !runtime.TokenSourceEOFEarly && !runtime.CompactIncrementalReuseRoute && !runtime.CompactIncrementalFullRecoveryRoute
 }
 
 func canonicalCompactReparseProof(profile gotreesitter.IncrementalParseProfile, runtime gotreesitter.ParseRuntime) bool {
@@ -829,6 +888,11 @@ func requireCanonicalIncrementalClassification(tb testing.TB, label string, dire
 	case "unchanged_snapshot_identity":
 		if direction.applyEdit || !returnedOldTree || !canonicalIncrementalProfileIsZero(profile) {
 			tb.Fatalf("%s identity classification lacks pointer/profile proof", label)
+		}
+	case "token_invariant_leaf_validation":
+		if !direction.applyEdit || returnedOldTree || rootHasError || !canonicalTokenInvariantLeafProof(profile, runtime) ||
+			profile.ReusedBytes != uint64(len(direction.to)) {
+			tb.Fatalf("%s leaf validation lacks dependency and whole-syntax reuse proof: %+v runtime=%s", label, profile, runtime.Summary())
 		}
 	case "compact_incremental_reparse":
 		if !direction.applyEdit || returnedOldTree || rootHasError || !canonicalCompactReparseProof(profile, runtime) ||

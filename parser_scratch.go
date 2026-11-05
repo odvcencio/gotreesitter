@@ -9,7 +9,16 @@ import (
 // without retaining multi-megabyte backing arrays after unusually wide trees.
 const maxRetainedGoCompatFrames = 16 * 1024
 
+// Keep large parses from handing their working set to small parses. Heavy
+// small parses use separate pools, so matching parsers can reuse their working
+// storage without charging it to unrelated small parses.
+const largeParserScratchSourceBytes = 64 << 10
+const heavySmallParserScratchBytes = 16 << 20
+
 type parserScratch struct {
+	largePool                bool
+	sourceBytes              int
+	heavyGrammar             scratchGrammarKey
 	reuseState               parseReuseState
 	advancePages             []*[syntheticRootReplayAdvancePageFrames]syntheticRootReplayFrame
 	closePages               []*[syntheticRootReplayClosePageFrames]syntheticRootReplayFrame
@@ -48,8 +57,91 @@ var parserScratchPool = sync.Pool{
 	},
 }
 
+var largeParserScratchPool sync.Pool
+var heavySmallParserScratchPool sync.Pool
+
+// Scratch is reset storage, not a parse result. Exact blob identity is useful
+// where available; geometry provides a bounded reuse preference for custom
+// grammars without retaining their Language or depending on its lifetime.
+type scratchGrammarKey struct {
+	hash     [32]byte
+	geometry [6]uint32
+	known    bool
+	scanner  bool
+}
+
+func scratchKeyForLanguage(lang *Language) (scratchGrammarKey, bool) {
+	if lang == nil {
+		return scratchGrammarKey{}, false
+	}
+	key := scratchGrammarKey{scanner: lang.ExternalScanner != nil}
+	key.hash, key.known = lang.GrammarBlobSHA256()
+	if !key.known {
+		key.geometry = [6]uint32{lang.StateCount, lang.SymbolCount, lang.TokenCount, lang.ExternalTokenCount, uint32(len(lang.LexStates)), uint32(len(lang.ParseActions))}
+	}
+	return key, true
+}
+
 func acquireParserScratch() *parserScratch {
 	return parserScratchPool.Get().(*parserScratch)
+}
+
+func parserHeavySmallScratchFits(s *parserScratch, p *Parser, sourceBytes int) bool {
+	if s == nil || p == nil || p.language == nil || s.sourceBytes <= 0 {
+		return false
+	}
+	if sourceBytes < (s.sourceBytes+1)/2 || sourceBytes > s.sourceBytes*2 {
+		return false
+	}
+	key, ok := scratchKeyForLanguage(p.language)
+	return ok && key == s.heavyGrammar
+}
+
+func reclaimLargeScratchForSmallParse(s *parserScratch) {
+	if s != nil && s.allocatedBytes() > 32<<20 {
+		s.transientParents = transientParentScratch{}
+		s.transientChildren = transientChildScratch{}
+	}
+}
+
+func acquireParserScratchForSource(sourceBytes int, parser *Parser) *parserScratch {
+	var s *parserScratch
+	if sourceBytes >= largeParserScratchSourceBytes {
+		if cached := largeParserScratchPool.Get(); cached != nil {
+			s = cached.(*parserScratch)
+		} else {
+			s = &parserScratch{}
+		}
+		s.largePool = true
+	} else {
+		// A small parse can coexist with an idle large scratch. Keep the
+		// large parse's GSS and merge caches, but reclaim large transient
+		// materialization slabs so both classes do not retain their peaks.
+		// Pool.Get gives exclusive ownership of this idle scratch; release
+		// already cleared the slabs before putting it in the pool.
+		if cached := largeParserScratchPool.Get(); cached != nil {
+			large := cached.(*parserScratch)
+			reclaimLargeScratchForSmallParse(large)
+			largeParserScratchPool.Put(large)
+		}
+		if parser != nil {
+			if _, ok := scratchKeyForLanguage(parser.language); ok {
+				if cached := heavySmallParserScratchPool.Get(); cached != nil {
+					heavy := cached.(*parserScratch)
+					if parserHeavySmallScratchFits(heavy, parser, sourceBytes) {
+						s = heavy
+					}
+					// A mismatched idle candidate is discarded. Putting it back
+					// ahead of a new heavy parse can make this bucket write-only.
+				}
+			}
+		}
+		if s == nil {
+			s = acquireParserScratch()
+		}
+	}
+	s.sourceBytes = sourceBytes
+	return s
 }
 
 func (s *parserScratch) setBudget(bytes int64) {
@@ -145,6 +237,10 @@ func (s *parserScratch) releaseDFARelexSnapshot(retained bool) {
 }
 
 func releaseParserScratch(s *parserScratch, skipGSSClear bool) {
+	releaseParserScratchForParser(s, skipGSSClear, nil)
+}
+
+func releaseParserScratchForParser(s *parserScratch, skipGSSClear bool, parser *Parser) {
 	if s == nil {
 		return
 	}
@@ -249,5 +345,17 @@ func releaseParserScratch(s *parserScratch, skipGSSClear bool) {
 	s.gss.reset()
 	s.audit.reset()
 	s.clearBudget()
-	parserScratchPool.Put(s)
+	if s.largePool {
+		s.heavyGrammar = scratchGrammarKey{}
+		largeParserScratchPool.Put(s)
+	} else {
+		heavy := s.allocatedBytes() > heavySmallParserScratchBytes
+		if heavy && parser != nil && parser.language != nil {
+			s.heavyGrammar, _ = scratchKeyForLanguage(parser.language)
+			heavySmallParserScratchPool.Put(s)
+		} else if !heavy {
+			s.heavyGrammar = scratchGrammarKey{}
+			parserScratchPool.Put(s)
+		}
+	}
 }

@@ -194,6 +194,23 @@ func TestScalaProfileCertifiesPackageTwoRecovery(t *testing.T) {
 	}
 }
 
+func TestBuiltinGoMissingVersionTurnsRequireExactBlobIdentity(t *testing.T) {
+	lang := GoLanguage()
+	if !lang.RecoveryMissingVersionTurnsCertified {
+		t.Fatal("built-in Go artifact lacks its missing-version scheduling grant")
+	}
+	identity := sha256.Sum256(BlobByName("go"))
+	identity[0] ^= 1
+	custom := &gotreesitter.Language{Name: "go"}
+	if attachBuiltinLanguageRuntimeProfile("go", identity, custom) || custom.RecoveryMissingVersionTurnsCertified {
+		t.Fatal("a different Go artifact received missing-version scheduling")
+	}
+	other := &gotreesitter.Language{Name: "custom"}
+	if attachBuiltinLanguageRuntimeProfile("custom", sha256.Sum256(BlobByName("go")), other) || other.RecoveryMissingVersionTurnsCertified {
+		t.Fatal("the Go artifact granted missing-version scheduling to a custom language")
+	}
+}
+
 func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// 42 = the prior 41 plus the F# unary-wrapper materialization profile.
 	// Bash, Haskell, and JavaScript reuse their existing exact profiles.

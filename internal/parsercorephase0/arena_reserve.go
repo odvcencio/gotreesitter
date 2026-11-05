@@ -81,7 +81,7 @@ func (c *Core) ReserveRecordArenas(sourceLen int, maxBytes uint64) {
 	if c == nil || sourceLen <= 0 {
 		return
 	}
-	if c.nodes.Len() != 0 || len(c.nodeLineages) != 0 || len(c.links) != 0 ||
+	if c.nodes.Len() != 0 || len(c.nodeLineages) != 0 || c.links.Len() != 0 ||
 		c.subtrees.Len() != 0 || len(c.children) != 0 {
 		return
 	}
@@ -96,7 +96,7 @@ func (c *Core) ReserveRecordArenas(sourceLen int, maxBytes uint64) {
 	nodes, links, subtrees, children = boundedRecordReserveCounts(nodes, links, subtrees, children, maxBytes)
 	c.nodes.Grow(nodes)
 	c.nodeLineages = reserveArena(c.nodeLineages, nodes)
-	c.links = reserveArena(c.links, links)
+	c.links.Reserve(links)
 	c.subtrees.Grow(subtrees)
 	c.children = reserveArena(c.children, children)
 }
@@ -123,7 +123,7 @@ func (c *Core) GrowRecordArenas(sourceLen int, maxBytes uint64) {
 	nodes, links, subtrees, children = boundedRecordReserveCounts(nodes, links, subtrees, children, maxBytes)
 	c.nodes.Grow(nodes)
 	c.nodeLineages = growArena(c.nodeLineages, nodes)
-	c.links = growArena(c.links, links)
+	c.links.Grow(links)
 	c.subtrees.Grow(subtrees)
 	c.children = growArena(c.children, children)
 }
@@ -168,7 +168,7 @@ func (c *Core) ReserveRecordArenaBytes(sourceLen int, maxBytes uint64) uint64 {
 func reserveTotalBytes(nodes, links, subtrees, children int) uint64 {
 	return nodeRecordBlockMetadataBytes(nodes) + subtreeRecordBlockMetadataBytes(subtrees) + uint64(nodes)*coreNodeRecordBytes +
 		uint64(nodes)*coreNodeLineageRecordBytes +
-		uint64(links)*coreLinkRecordBytes +
+		uint64(links)*packedLinkRecordBytes +
 		uint64(subtrees)*coreSubtreeRecordBytes +
 		uint64(children)*coreChildRecordBytes
 }

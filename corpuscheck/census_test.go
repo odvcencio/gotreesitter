@@ -80,16 +80,16 @@ func TestVendoredCorpus_JSONFieldStaleness(t *testing.T) {
 	}
 }
 
-// TestVendoredCorpus_GoKnownDefect pins a genuine gotreesitter parser
-// defect (not fixture staleness): given a dangling `a.` selector
-// followed by a comment and then an `if` statement, gotreesitter's error
-// recovery produces a materially wrong tree (folds the `if` statement
-// into a bogus binary/composite-literal expression, and loses track of
-// the second function's closing brace, which surfaces as a spurious
-// top-level ERROR). This is tracked here, deliberately, as a check that
-// fails loudly if the shape of the bug changes (in which case this test
-// needs updating, not silencing) rather than a TODO comment nobody reads.
-func TestVendoredCorpus_GoKnownDefect(t *testing.T) {
+// TestVendoredCorpus_GoErrorsRecoveryGuard guards a fixed recovery defect.
+// Given a dangling `a.` selector followed by a comment and then an `if`
+// statement, error recovery used to fold the `if` statement into a bogus
+// binary/composite-literal expression and lose the second function's closing
+// brace, which surfaced as a spurious top-level ERROR (a shape failure at
+// /source_file). The compact recovery repairs fixed it: errors.txt now differs
+// from the vendored fixture only by the field annotations the fixture lacks,
+// like the rest of the vendored go corpus. A shape failure here is a
+// regression.
+func TestVendoredCorpus_GoErrorsRecoveryGuard(t *testing.T) {
 	root := vendoredRoot(t)
 	r := RunLanguage("go", filepath.Join(root, "go"))
 	if r.SkipReason != "" {
@@ -98,31 +98,16 @@ func TestVendoredCorpus_GoKnownDefect(t *testing.T) {
 	if r.Cases != 7 {
 		t.Fatalf("Cases = %d, want 7 (has the vendored fixture changed?)", r.Cases)
 	}
-
-	var errorsCaseFailure *CaseResult
-	for i := range r.Failed {
-		if filepath.Base(r.Failed[i].File) == "errors.txt" {
-			errorsCaseFailure = &r.Failed[i]
-			break
+	for _, f := range r.Failed {
+		if f.Reason != CategoryField {
+			t.Errorf("%s: unexpected non-field failure %q at %s: %s",
+				filepath.Base(f.File), f.Reason, f.Path, f.Detail)
 		}
 	}
-	if errorsCaseFailure == nil {
-		t.Fatalf("errors.txt's case no longer fails -- if gotreesitter's error recovery for " +
-			"dangling selector expressions was fixed, delete this test (or replace it with a " +
-			"regression guard) instead of leaving it stale")
-	}
-	if errorsCaseFailure.Reason != CategoryShape || errorsCaseFailure.Path != "/source_file" {
-		t.Fatalf("errors.txt now fails a different way than the known defect (reason=%s path=%s: %s); "+
-			"update this test to describe the current failure",
-			errorsCaseFailure.Reason, errorsCaseFailure.Path, errorsCaseFailure.Detail)
-	}
-
-	// The rest of the vendored go corpus (source_files.txt) is stale-field
-	// only, same as json -- confirm that's still true so a genuine new
-	// gotreesitter defect there doesn't hide behind "it's just fields".
-	if r.PassFieldLenient != 6 {
-		t.Fatalf("PassFieldLenient = %d, want 6: a non-field divergence appeared outside "+
-			"the known errors.txt defect: %v", r.PassFieldLenient, r.Failed)
+	if r.PassFieldLenient != 7 {
+		t.Fatalf("PassFieldLenient = %d, want 7: every case, errors.txt included, should "+
+			"match once the fixture's missing field annotations are excused: %v",
+			r.PassFieldLenient, r.Failed)
 	}
 }
 

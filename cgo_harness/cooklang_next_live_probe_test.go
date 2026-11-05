@@ -257,8 +257,8 @@ func cooklangNextWitnesses(t *testing.T) []cooklangNextWitness {
 			name: "a0-medium-complex", source: mustCooklangFile(t, "../testdata/dispatcher_census_a0/cooklang/medium__complex_test_recipe.cook"),
 			sourceSHA: "6120e9cafce48a745c0f5dade752499883bc2b07230cae93d6a452a788c7ba74", cDigest: "17c3be167109ab72b919cfc700715330f5b0c33e3fdea559ef25f01ae8ad7a1f",
 			routes: allRoutes(
-				divergent("a3d68deb706b92d41744bf7c4d9e4e7b31d58245998e7feef1004350d2a0502f", true, div("/recipe", "shape", "children=22", "children=42"), nil),
-				divergent("231ed2f2460fe3e0a78b7cdece9c206926f319029f542b53d56175d809bffb15", true, div("/recipe", "shape", "children=23", "children=42"), pass(442)),
+				divergent("aa74dea2c2d787f578e61f688b362a52cb0a9c201c253b5e5504f35d56d9d5b4", true, div("/recipe", "shape", "children=22", "children=42"), nil),
+				divergent("0b5117edb01689329acb88a4446fa96eaeddb92b69dde06b6c2c3f6538ab960a", true, div("/recipe", "shape", "children=23", "children=42"), pass(442)),
 			), cExpectation: "fallback", forest: "declined",
 		},
 		{

@@ -267,6 +267,13 @@ func nodeChildIndexInParent(node *Node, parent *Node) int {
 	if node == nil || parent == nil {
 		return -1
 	}
+	if views := nodeViews(node); views != nil {
+		actual, index, ok := views.parent(node)
+		if ok && actual == parent {
+			return index
+		}
+		return -1
+	}
 	if idx := int(node.childIndex); idx >= 0 && idx < len(parent.children) && parent.children[idx] == node {
 		return idx
 	}

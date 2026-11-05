@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"sync"
 	"unsafe"
 )
 
@@ -293,7 +292,7 @@ func planDiagnosticEOFRecoveryClone(live *Core, payloads []SubtreeID, providerWr
 		{len(live.nodeLineages), coreNodeLineageRecordBytes},
 		{len(live.nodeLineageRecovery), 8},
 		{len(live.nodeCheckpoints), coreCheckpointIDBytes},
-		{len(live.links), coreLinkRecordBytes},
+		{1, live.links.CloneActiveFootprintBytes()},
 		{1, live.subtrees.CloneActiveFootprintBytes()},
 		{len(live.eofRecoveryRoots), coreSubtreeIDBytes},
 		{len(live.recoveryDiscontinuityReductions), coreRecoveryDiscontinuityReductionBytes},
@@ -304,6 +303,7 @@ func planDiagnosticEOFRecoveryClone(live *Core, payloads []SubtreeID, providerWr
 		{len(live.fields), coreFieldRecordBytes},
 		{len(live.aliases), coreAliasRecordBytes},
 		{len(live.checkpoints.records), coreCheckpointRecordBytes},
+		{len(live.checkpoints.receipts), coreCheckpointDigestCacheBytes},
 		{len(live.checkpoints.bytes), 1},
 		{len(live.boundaries.slots), coreBoundarySlotBytes},
 		{len(live.alternativeSpillArena), coreUint32Bytes},
@@ -466,7 +466,7 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.nodeLineages = cloneDiagnosticSlice(live.nodeLineages, 0)
 	shadow.nodeLineageRecovery = cloneDiagnosticSlice(live.nodeLineageRecovery, 0)
 	shadow.nodeCheckpoints = cloneDiagnosticSlice(live.nodeCheckpoints, 0)
-	shadow.links = cloneDiagnosticSlice(live.links, 0)
+	shadow.links = live.links.CloneActive()
 	shadow.subtrees = live.subtrees.cloneActive(1)
 	// Recompute optional counts without retaining mutable caches from the live core.
 	shadow.recoveryVisibleCounts = nil
@@ -480,6 +480,7 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.fields = cloneDiagnosticSlice(live.fields, 0)
 	shadow.aliases = cloneDiagnosticSlice(live.aliases, 0)
 	shadow.checkpoints.records = cloneDiagnosticSlice(live.checkpoints.records, 0)
+	shadow.checkpoints.receipts = cloneDiagnosticSlice(live.checkpoints.receipts, 0)
 	shadow.checkpoints.bytes = cloneDiagnosticSlice(live.checkpoints.bytes, 0)
 	shadow.checkpoints.buckets = nil
 	shadow.boundaries.slots = cloneDiagnosticSlice(live.boundaries.slots, 0)
@@ -527,8 +528,7 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.cohortHeadScratch = nil
 	shadow.factorLinkScratch = nil
 	shadow.selectedBuild = selectedStoreBuildScratch{}
-	shadow.selectedPoolMu = sync.Mutex{}
-	shadow.selectedPool = selectedStoreBacking{}
+	shadow.selectedPool = nil
 	shadow.schedulerFrame = schedulerTransactionFrame{}
 	return shadow
 }
@@ -570,7 +570,8 @@ func diagnosticEOFRecoveryCopiedArenasEqual(live, shadow *Core) bool {
 		equalDiagnosticSlice(live.nodeLineages, shadow.nodeLineages) &&
 		equalDiagnosticSlice(live.nodeLineageRecovery, shadow.nodeLineageRecovery) &&
 		equalDiagnosticSlice(live.nodeCheckpoints, shadow.nodeCheckpoints) &&
-		equalDiagnosticSlice(live.links, shadow.links) &&
+		equalDiagnosticSlice(live.links.records, shadow.links.records) &&
+		equalDiagnosticSlice(live.links.wide, shadow.links.wide) &&
 		equalDiagnosticSubtreePrefix(&live.subtrees, &shadow.subtrees) &&
 		equalDiagnosticSlice(live.eofRecoveryRoots, shadow.eofRecoveryRoots[:len(live.eofRecoveryRoots)]) &&
 		equalDiagnosticSlice(live.recoveryDiscontinuityReductions, shadow.recoveryDiscontinuityReductions) &&
@@ -581,6 +582,7 @@ func diagnosticEOFRecoveryCopiedArenasEqual(live, shadow *Core) bool {
 		equalDiagnosticSlice(live.fields, shadow.fields) &&
 		equalDiagnosticSlice(live.aliases, shadow.aliases) &&
 		equalDiagnosticSlice(live.checkpoints.records, shadow.checkpoints.records) &&
+		equalDiagnosticSlice(live.checkpoints.receipts, shadow.checkpoints.receipts) &&
 		equalDiagnosticSlice(live.checkpoints.bytes, shadow.checkpoints.bytes) &&
 		equalDiagnosticSlice(live.boundaries.slots, shadow.boundaries.slots) &&
 		equalDiagnosticSlice(live.alternativeSpillArena, shadow.alternativeSpillArena) &&
@@ -631,7 +633,8 @@ func diagnosticEOFRecoveryStorageDisjoint(live, shadow *Core) bool {
 		disjointDiagnosticSlice(live.nodeLineages, shadow.nodeLineages) &&
 		disjointDiagnosticSlice(live.nodeLineageRecovery, shadow.nodeLineageRecovery) &&
 		disjointDiagnosticSlice(live.nodeCheckpoints, shadow.nodeCheckpoints) &&
-		disjointDiagnosticSlice(live.links, shadow.links) &&
+		disjointDiagnosticSlice(live.links.records, shadow.links.records) &&
+		disjointDiagnosticSlice(live.links.wide, shadow.links.wide) &&
 		disjointDiagnosticSubtreeBlocks(&live.subtrees, &shadow.subtrees) &&
 		disjointDiagnosticSlice(live.recoveryVisibleCounts, shadow.recoveryVisibleCounts) &&
 		disjointDiagnosticSlice(live.recoveryVisibleSymbols, shadow.recoveryVisibleSymbols) &&
@@ -644,6 +647,7 @@ func diagnosticEOFRecoveryStorageDisjoint(live, shadow *Core) bool {
 		disjointDiagnosticSlice(live.fields, shadow.fields) &&
 		disjointDiagnosticSlice(live.aliases, shadow.aliases) &&
 		disjointDiagnosticSlice(live.checkpoints.records, shadow.checkpoints.records) &&
+		disjointDiagnosticSlice(live.checkpoints.receipts, shadow.checkpoints.receipts) &&
 		disjointDiagnosticSlice(live.checkpoints.bytes, shadow.checkpoints.bytes) &&
 		disjointDiagnosticSlice(live.boundaries.slots, shadow.boundaries.slots) &&
 		disjointDiagnosticSlice(live.alternativeSpillArena, shadow.alternativeSpillArena) &&

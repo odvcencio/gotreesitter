@@ -4,6 +4,7 @@ package grammarruntime
 
 import (
 	"strings"
+	"sync"
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -677,29 +678,35 @@ func (t *vhdlTrie) match(lexer *gotreesitter.ExternalLexer) []int {
 // Global trie (built once, like the C token_tree)
 // ---------------------------------------------------------------------------
 
-var vhdlTokenTrie *vhdlTrie
+var (
+	vhdlTokenTrie     *vhdlTrie
+	vhdlTokenTrieOnce sync.Once
+)
 
-func init() {
-	vhdlTokenTrie = newVhdlTrie()
+func vhdlTrieForScanner() *vhdlTrie {
+	vhdlTokenTrieOnce.Do(func() {
+		vhdlTokenTrie = newVhdlTrie()
 
-	// Reserved words (all lowercase in the trie; lexer lowercases on lookup)
-	vhdlRegisterReserved(vhdlTokenTrie)
-	vhdlRegisterDirectives(vhdlTokenTrie)
-	vhdlRegisterDelimiters(vhdlTokenTrie)
-	vhdlRegisterOperatorSymbols(vhdlTokenTrie)
-	vhdlRegisterAttributes(vhdlTokenTrie)
-	vhdlRegisterBaseSpecifiers(vhdlTokenTrie)
+		// Reserved words (all lowercase in the trie; lexer lowercases on lookup)
+		vhdlRegisterReserved(vhdlTokenTrie)
+		vhdlRegisterDirectives(vhdlTokenTrie)
+		vhdlRegisterDelimiters(vhdlTokenTrie)
+		vhdlRegisterOperatorSymbols(vhdlTokenTrie)
+		vhdlRegisterAttributes(vhdlTokenTrie)
+		vhdlRegisterBaseSpecifiers(vhdlTokenTrie)
 
-	// Library registrations
-	vhdlRegisterStdEnv(vhdlTokenTrie)
-	vhdlRegisterStdStandard(vhdlTokenTrie)
-	vhdlRegisterStdTextio(vhdlTokenTrie)
-	vhdlRegisterIeeeStdLogic1164(vhdlTokenTrie)
-	vhdlRegisterIeeeNumericStd(vhdlTokenTrie)
-	vhdlRegisterIeeeFixedPkg(vhdlTokenTrie)
-	vhdlRegisterIeeeFloatPkg(vhdlTokenTrie)
-	vhdlRegisterIeeeMathReal(vhdlTokenTrie)
-	vhdlRegisterIeeeMathComplex(vhdlTokenTrie)
+		// Library registrations
+		vhdlRegisterStdEnv(vhdlTokenTrie)
+		vhdlRegisterStdStandard(vhdlTokenTrie)
+		vhdlRegisterStdTextio(vhdlTokenTrie)
+		vhdlRegisterIeeeStdLogic1164(vhdlTokenTrie)
+		vhdlRegisterIeeeNumericStd(vhdlTokenTrie)
+		vhdlRegisterIeeeFixedPkg(vhdlTokenTrie)
+		vhdlRegisterIeeeFloatPkg(vhdlTokenTrie)
+		vhdlRegisterIeeeMathReal(vhdlTokenTrie)
+		vhdlRegisterIeeeMathComplex(vhdlTokenTrie)
+	})
+	return vhdlTokenTrie
 }
 
 func vhdlRegisterReserved(t *vhdlTrie) {
@@ -1474,7 +1481,7 @@ func (sc VhdlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 		(lexer.Lookahead() >= 'A' && lexer.Lookahead() <= 'Z')
 	firstCharIsDoubleQuote := lexer.Lookahead() == '"'
 
-	types := vhdlTokenTrie.match(lexer)
+	types := vhdlTrieForScanner().match(lexer)
 
 	// If trie didn't match and first char was a letter, it's an identifier
 	if len(types) == 0 && firstCharIsLetter {

@@ -30,12 +30,19 @@ func (c *Core) MatchCheckpointPrivateCopy(id CheckpointID, private []byte, diges
 		return CheckpointCopyUnknown
 	}
 	record := &c.checkpoints.records[id-1]
-	if uint64(len(private)) != uint64(record.length) || *digest != record.digest {
+	if uint64(len(private)) != uint64(record.length) {
 		return CheckpointCopyUnknown
 	}
 	start := uint64(record.offset)
 	end := start + uint64(record.length)
-	if end < start || end > uint64(len(c.checkpoints.bytes)) || !bytes.Equal(c.checkpoints.bytes[start:end], private) {
+	if end < start || end > uint64(len(c.checkpoints.bytes)) {
+		return CheckpointCopyChanged
+	}
+	want, exact := c.checkpoints.recordDigest(id, *record)
+	if !exact || *digest != want {
+		return CheckpointCopyUnknown
+	}
+	if !bytes.Equal(c.checkpoints.bytes[start:end], private) {
 		return CheckpointCopyChanged
 	}
 	return CheckpointCopyExact
