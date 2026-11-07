@@ -8,7 +8,8 @@ class ParentCacheTests(unittest.TestCase):
   self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.cache=self.root/'cache';self.cache.mkdir()
   self.src=self.root/'source';self.src.write_text('source');self.art=self.cache/'a.so';self.art.write_text('artifact')
   self.identity=self.root/'identity.json';self.identity.write_text('{}');(self.root/'compiler.before').write_text('/usr/bin/cc '+('c'*64)+'\n/usr/bin/c++ '+('d'*64)+'\n'); (self.root/'compiler.after').write_bytes((self.root/'compiler.before').read_bytes()); (self.root/'environment.before').write_text('f'*64); (self.root/'environment.after').write_text('f'*64)
-  self.expected={'sources':g.source_fingerprints([self.src]),'filename':'a.so','artifact':g.digest(self.art),'identity':g.digest(self.identity),'compilers':[['/usr/bin/cc','c'*64],['/usr/bin/c++','d'*64]],'build_env':'f'*64,'image':'image','image_id':'sha256:image'}
+  self.proof=self.root/'cold-source.json';self.proof.write_text('null')
+  self.expected={'sources':g.source_fingerprints([self.src]),'filename':'a.so','artifact':g.digest(self.art),'identity':g.digest(self.identity),'fresh_proof_sha256':g.digest(self.proof),'compilers':[['/usr/bin/cc','c'*64],['/usr/bin/c++','d'*64]],'build_env':'f'*64,'image':'image','image_id':'sha256:image'}
   self.docker=patch.object(g.subprocess,'check_output',return_value='sha256:image\n');self.docker.start()
   self.env=patch.dict(os.environ,{},clear=True);self.env.start()
  def tearDown(self): self.env.stop();self.docker.stop();self.tmp.cleanup()
@@ -37,6 +38,9 @@ class ParentCacheTests(unittest.TestCase):
   with self.assertRaises(ValueError): self.verify()
  def test_changed_identity(self):
   self.identity.write_text('changed')
+  with self.assertRaises(ValueError): self.verify()
+ def test_changed_fresh_proof(self):
+  self.proof.write_text('{}')
   with self.assertRaises(ValueError): self.verify()
  def test_symlink_artifact(self):
   self.art.unlink(); self.art.symlink_to(self.src)

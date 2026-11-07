@@ -291,9 +291,10 @@ func TestExternalScannerSpecMatchesBlob(t *testing.T) {
 var scannerSpecCases = []scannerSpecCase{
 	{
 		lang:   "powershell",
-		commit: "e7bd348c49fdfd5c853a146a670965ba516a6239",
+		commit: "b03e6b0e39692037a98e37a26f0a969b2c46fbc1",
 		externals: []string{
 			"_statement_terminator",
+			"_bare_dashes",
 		},
 		tokenCount: powershellTokenCount,
 		bind:       scannerBinder(PowershellExternalScanner{}, func(s PowershellExternalScanner) ([]int, any) { return s.externalToToken, nil }),

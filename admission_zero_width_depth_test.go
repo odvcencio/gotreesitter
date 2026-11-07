@@ -86,7 +86,7 @@ func TestAdmissionCandidateRepresentativeDepthRatchet(t *testing.T) {
 		{name: "rust", lang: grammars.RustLanguage, wantDigest: "34b82eb28fe0bc3f105ad63604104e7fcdbaf420af12e1ff9696a2640a93a3b2", source: "fn main() {\n    let values = [1, 2, 3];\n    println!(\"{}\", values.len());\n}\n"},
 		{name: "typescript", lang: grammars.TypescriptLanguage, mustRoute: true, wantDigest: "be604fe1d9a6e5430ce2a6ff58b7a7777f9881100d20805a2b2d09952c369729", source: "interface User { id: number; name: string }\nexport const user: User = { id: 1, name: \"Ada\" };\n"},
 		{name: "html", lang: grammars.HtmlLanguage, wantDigest: "e870fad244cda7aa86e5a2ca0e310eb0dbe4be6a2920f791ef788c23786f82b4", source: "<!doctype html>\n<html><body><main><h1>Hello</h1><p>World</p></main></body></html>\n"},
-		{name: "powershell", lang: grammars.PowershellLanguage, mustRoute: true, wantDigest: "874998165753303f1c085af48c1256fdc637c857b8a9b1aed17f2c7010512213", source: "$items = @(1, 2, 3)\nforeach ($item in $items) { Write-Output $item }\n"},
+		{name: "powershell", lang: grammars.PowershellLanguage, mustRoute: true, wantDigest: "aa4b1ead2e0deffff2b78569ab9e45b36ffa90a34e61d5bfd32b3e1970952366", source: "$items = @(1, 2, 3)\nforeach ($item in $items) { Write-Output $item }\n"},
 	}
 	requireAdmissionDepthRatchet(t, fixtures, 5)
 }

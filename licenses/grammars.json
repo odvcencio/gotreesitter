@@ -1887,13 +1887,13 @@
     {
       "name": "powershell",
       "repo": "https://github.com/airbus-cert/tree-sitter-powershell",
-      "ref": "e7bd348c49fdfd5c853a146a670965ba516a6239",
+      "ref": "b03e6b0e39692037a98e37a26f0a969b2c46fbc1",
       "spdx": "MIT",
       "license_name": "MIT License",
       "copyright_holders": [
         "Copyright (c) 2023 Airbus CERT"
       ],
-      "license_file_url": "https://github.com/airbus-cert/tree-sitter-powershell/blob/e7bd348c49fdfd5c853a146a670965ba516a6239/LICENSE",
+      "license_file_url": "https://github.com/airbus-cert/tree-sitter-powershell/blob/b03e6b0e39692037a98e37a26f0a969b2c46fbc1/LICENSE",
       "method": "github_license_api",
       "copyleft": false
     },

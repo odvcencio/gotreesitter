@@ -1158,7 +1158,7 @@
       "capable": true,
       "default": true,
       "reason": "",
-      "external_lex_state_rows": 2,
+      "external_lex_state_rows": 4,
       "external_lex_states_sidecar": true
     },
     {

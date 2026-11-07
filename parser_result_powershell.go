@@ -1,5 +1,7 @@
 package gotreesitter
 
+import "bytes"
+
 func normalizePowerShellProgramShape(root *Node, source []byte, lang *Language) {
 	if root == nil || lang == nil || lang.Name != "powershell" || root.Type(lang) != "ERROR" || len(root.children) < 4 || len(source) == 0 {
 		return
@@ -213,7 +215,7 @@ func normalizePowerShellErrorProgramRoot(root *Node, lang *Language) {
 }
 
 func normalizePowerShellPathCommandNameVariables(root *Node, source []byte, lang *Language) {
-	if root == nil || lang == nil || lang.Name != "powershell" {
+	if root == nil || lang == nil || lang.Name != "powershell" || bytes.IndexByte(source, '&') < 0 {
 		return
 	}
 	pathCommandNameSym, pathCommandNameNamed, ok := symbolMeta(lang, "path_command_name")
@@ -246,7 +248,7 @@ func normalizePowerShellPathCommandNameVariables(root *Node, source []byte, lang
 }
 
 func normalizePowerShellEnumStatementKeywordSpans(root *Node, source []byte, lang *Language) {
-	if root == nil || lang == nil || lang.Name != "powershell" || len(source) == 0 {
+	if root == nil || lang == nil || lang.Name != "powershell" || !bytes.Contains(source, []byte("enum ")) {
 		return
 	}
 	walkResultTree(root, func(n *Node) {

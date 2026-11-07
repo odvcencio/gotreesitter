@@ -705,7 +705,7 @@
       "scope": "harness",
       "default": "unset",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityRepoCacheDir", "line": 782}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityRepoCacheDir", "line": 957}
       ]
     },
     {
@@ -715,7 +715,7 @@
       "scope": "harness",
       "default": "unset",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityLocalRepoDir", "line": 649}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityLocalRepoDir", "line": 824}
       ]
     },
     {
@@ -725,7 +725,7 @@
       "scope": "harness",
       "default": "automatic cache path",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityDefaultCBuildCacheDir", "line": 493}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityDefaultCBuildCacheDir", "line": 668}
       ]
     },
     {
@@ -735,7 +735,7 @@
       "scope": "harness",
       "default": "1",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityCBuildJobs", "line": 481}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityCBuildJobs", "line": 656}
       ]
     },
     {
@@ -745,7 +745,7 @@
       "scope": "harness",
       "default": "unset",
       "read_sites": [
-        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "COracleLanguage", "line": 164}
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "COracleLanguage", "line": 181}
       ]
     },
     {
