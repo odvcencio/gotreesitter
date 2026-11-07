@@ -35,7 +35,7 @@ BENCHSTAT_MODULE = "golang.org/x/perf/cmd/benchstat@v0.0.0-20260929162123-406019
 
 # The owner approved only this exact failure multiset, after strict CI
 # reproduced it for the refreshed source pair. This is not a CLI opt-in.
-POWERSHELL_W5_DECISION_SHA256 = "485d80df01502acad8299f8177a581b1b044ef0fe61ef746899c914e0665890c"
+POWERSHELL_W5_DECISION_SHA256 = "67f3785103fbc173946ee924ec80f3545236c5f2034cb91e398a57355bee080c"
 POWERSHELL_W5_ROWS_SHA256 = "7533831c95279998d53b274c99150fbbbd9d8ac7a324fe0f17c61db93a9d3f02"
 POWERSHELL_W5_POLICY = {
     "fixture_manifest_sha256": "110352e799c54aced0f169e3852d1f58d6ff7d33abf4412a4cc21842cdf7bd37",
@@ -46,16 +46,16 @@ POWERSHELL_W5_POLICY = {
     "oracle_subdir": "src", "oracle_runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
     "oracle_binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",
     "oracle_sources_sha256": "242c4f6b72d2d24421f84a505aa20164e43f144eb6401e876e6d24a167f06f51",
-    "reviewed_patch_id": "3449af63add2da88dea7d58e0f41649bace9ee74",
+    "reviewed_patch_id": "9ab6ad1811b09de09b06ceee41f3a19ecee9a8e8",
 }
 POWERSHELL_W5_RECORD = dict(
     POWERSHELL_W5_POLICY,
     schema="w5-powershell-owner-decision-v1", exception="powershell-command-parameter-b03", owner_approved=True,
     decision_sha256=POWERSHELL_W5_DECISION_SHA256, failed_row_count=63, failed_rows_sha256=POWERSHELL_W5_ROWS_SHA256,
-    base="d0838609c0d0f0c5f6d6fc892183e4f968ec77e7", base_tree="021617ec1d820f5fc9f98455d2efd6c70e377137",
-    reviewed_source="8c217d53bbffeee34bf932a4d2f741efc5794bdc", reviewed_tree="0c5f50a28af863801afdb751b7439b8fa2ce4dac",
+    base="a89c50db5f75de577db4569583e6700b14843402", base_tree="31db108ae21ee7cf6d97ab02ec5acbef90f0f5c9",
+    reviewed_source="466095b5edd405beee9afcdc53b7609d7eab6cbd", reviewed_tree="90ed41b330957761ea660da0a92ce71b0b7fe056",
     original_evidence="https://github.com/odvcencio/gotreesitter/actions/runs/42095615414/job/127484861358",
-    refreshed_evidence="https://github.com/odvcencio/gotreesitter/actions/runs/42186712785/job/127788798535",
+    refreshed_evidence="https://github.com/odvcencio/gotreesitter/actions/runs/42417614766/job/128539223477",
 )
 POWERSHELL_W5_SUCCESSOR_PATHS = frozenset(("scripts/editor_latency_gate.py", "scripts/test_editor_latency_gate.py"))
 
