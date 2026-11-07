@@ -1,4 +1,4 @@
-package gotreesitter_test
+package query_test
 
 import (
 	"encoding/json"
@@ -12,8 +12,32 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
+// outlineRepositoryRoot finds the module from the test's working directory.
+// It works before and after package moves, including builds with -trimpath.
+func outlineRepositoryRoot(t testing.TB) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		if err == nil && strings.HasPrefix(string(data), "module github.com/odvcencio/gotreesitter\n") {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("gotreesitter module root not found")
+		}
+		dir = parent
+	}
+}
+
 // outlineGoldenRoot holds the committed outline fixtures and their goldens.
-const outlineGoldenRoot = "testdata/outline"
+func outlineGoldenRoot(t testing.TB) string {
+	t.Helper()
+	return filepath.Join(outlineRepositoryRoot(t), "testdata", "outline")
+}
 
 // outlineGoldenUpdateEnv regenerates the goldens when it is set. The
 // assertions always run; only the WRITE is opt-in, so no continuous
@@ -251,7 +275,7 @@ func outlineForFixture(t *testing.T, fixture outlineGoldenFixture) outlineGolden
 		}
 	}
 
-	source, err := os.ReadFile(filepath.Join(outlineGoldenRoot, fixture.File))
+	source, err := os.ReadFile(filepath.Join(outlineGoldenRoot(t), fixture.File))
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
@@ -281,8 +305,8 @@ func outlineForFixture(t *testing.T, fixture outlineGoldenFixture) outlineGolden
 	}
 }
 
-func outlineGoldenPath(fixture outlineGoldenFixture) string {
-	return filepath.Join(outlineGoldenRoot, fixture.File+".golden.json")
+func outlineGoldenPath(t *testing.T, fixture outlineGoldenFixture) string {
+	return filepath.Join(outlineGoldenRoot(t), fixture.File+".golden.json")
 }
 
 func encodeOutlineGolden(t *testing.T, got outlineGoldenFile) []byte {
@@ -304,7 +328,7 @@ func TestOutlineGoldens(t *testing.T) {
 		fixture := fixture
 		t.Run(fixture.File, func(t *testing.T) {
 			encoded := encodeOutlineGolden(t, outlineForFixture(t, fixture))
-			path := outlineGoldenPath(fixture)
+			path := outlineGoldenPath(t, fixture)
 
 			if update {
 				if err := os.WriteFile(path, encoded, 0o644); err != nil {
@@ -335,7 +359,7 @@ func TestOutlineGoldenAccounting(t *testing.T) {
 	for _, fixture := range outlineGoldenFixtures {
 		fixture := fixture
 		t.Run(fixture.File, func(t *testing.T) {
-			path := outlineGoldenPath(fixture)
+			path := outlineGoldenPath(t, fixture)
 			data, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatalf("read golden %s: %v", path, err)
@@ -382,7 +406,7 @@ func TestOutlineGoldenAccounting(t *testing.T) {
 func TestOutlineGoldensPinEveryOmissionCounter(t *testing.T) {
 	totals := map[string]int{}
 	for _, fixture := range outlineGoldenFixtures {
-		path := outlineGoldenPath(fixture)
+		path := outlineGoldenPath(t, fixture)
 		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read golden %s: %v", path, err)
@@ -410,7 +434,7 @@ func TestOutlineGoldensPinEveryOmissionCounter(t *testing.T) {
 func TestOutlineGoldensRecordTreeErrorState(t *testing.T) {
 	withError, withoutError := 0, 0
 	for _, fixture := range outlineGoldenFixtures {
-		path := outlineGoldenPath(fixture)
+		path := outlineGoldenPath(t, fixture)
 		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read golden %s: %v", path, err)
@@ -529,7 +553,7 @@ func TestOutlineGoldensNestAndSpread(t *testing.T) {
 	nestedFixtures := 0
 
 	for _, fixture := range outlineGoldenFixtures {
-		path := outlineGoldenPath(fixture)
+		path := outlineGoldenPath(t, fixture)
 		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read golden %s: %v", path, err)

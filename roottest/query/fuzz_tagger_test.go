@@ -1,10 +1,11 @@
-package gotreesitter_test
+package query_test
 
 import (
 	"testing"
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
 func FuzzTaggerTag(f *testing.F) {
@@ -18,7 +19,7 @@ func FuzzTaggerTag(f *testing.F) {
 	f.Add([]byte("package p\n" + "((((((((((((((\n"))
 
 	lang := grammars.GoLanguage()
-	tagger, err := gotreesitter.NewTagger(lang, benchTagsQuery)
+	tagger, err := gotreesitter.NewTagger(lang, benchfixtures.GoTagsQuery)
 	if err != nil {
 		f.Fatalf("failed to create tagger: %v", err)
 	}
