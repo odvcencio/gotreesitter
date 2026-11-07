@@ -912,7 +912,13 @@ func emitLanguageExport(b *strings.Builder, name string, lang *gotreesitter.Lang
 	}
 	fmt.Fprintf(b, "    .alias_map = ts_non_terminal_alias_map,\n")
 
-	fmt.Fprintf(b, "    .lex_modes = ts_lex_modes,\n")
+	if lang.LanguageVersion < 15 {
+		// The runtime interprets this table using the ABI-14 TSLexMode stride.
+		// A void pointer initializer also works with older parser headers.
+		fmt.Fprintf(b, "    .lex_modes = (const void *)ts_lex_modes,\n")
+	} else {
+		fmt.Fprintf(b, "    .lex_modes = ts_lex_modes,\n")
+	}
 	fmt.Fprintf(b, "    .lex_fn = ts_lex,\n")
 
 	if len(lang.KeywordLexStates) > 0 {
