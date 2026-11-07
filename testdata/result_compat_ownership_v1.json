@@ -1726,7 +1726,7 @@
       "authoritative_owner": "derivation_election_selection",
       "witnesses": [
         "cgo_harness/parity_cgo_test.go",
-        "query_kotlin_regression_test.go",
+        "roottest/query/query_kotlin_regression_test.go",
         "roottest/parse/parser_included_ranges_kotlin_root_test.go",
         "cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go"
       ],

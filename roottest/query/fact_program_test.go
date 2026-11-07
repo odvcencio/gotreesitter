@@ -1,4 +1,4 @@
-package gotreesitter_test
+package query_test
 
 import (
 	"encoding/json"
@@ -364,10 +364,20 @@ func TestFactProgramLegacyAPI(t *testing.T) {
 	if err != nil || program.Kinds() != gotreesitter.FactDefinitions {
 		t.Fatalf("legacy constructor: %v", err)
 	}
-	// Keep positional literals valid: this type's layout must stay unchanged.
-	span := gotreesitter.DefinitionSpan{"go", "type", "Example", "type_spec", 1, 8, 1, 8}
+	span := gotreesitter.DefinitionSpan{Lang: "go", Kind: "type", Name: "Example", NodeType: "type_spec", StartByte: 1, EndByte: 8, NameStartByte: 1, NameEndByte: 8}
 	if span.Name != "Example" {
 		t.Fatal(span)
+	}
+	// Positional literals are part of the legacy API, so preserve the field layout.
+	spanType := reflect.TypeOf(span)
+	wantFields := []string{"Lang", "Kind", "Name", "NodeType", "StartByte", "EndByte", "NameStartByte", "NameEndByte"}
+	if spanType.NumField() != len(wantFields) {
+		t.Fatalf("DefinitionSpan has %d fields; want %d", spanType.NumField(), len(wantFields))
+	}
+	for i, want := range wantFields {
+		if got := spanType.Field(i).Name; got != want {
+			t.Errorf("DefinitionSpan field %d = %q; want %q", i, got, want)
+		}
 	}
 }
 
@@ -577,7 +587,7 @@ func TestFactProgramGoCompatibility(t *testing.T) {
 		if fixture.Language != "go" {
 			continue
 		}
-		source, err := os.ReadFile(filepath.Join(outlineGoldenRoot, fixture.File))
+		source, err := os.ReadFile(filepath.Join(outlineGoldenRoot(t), fixture.File))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -626,7 +636,7 @@ func TestFactProgramGoCompatibility(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		path := filepath.Join("testdata", "facts", "go-compatibility-"+string(rune('0'+i))+".json")
+		path := filepath.Join(outlineRepositoryRoot(t), "testdata", "facts", "go-compatibility-"+string(rune('0'+i))+".json")
 		if os.Getenv("GTS_UPDATE_FACT_COMPAT") == "1" {
 			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 				t.Fatal(err)
