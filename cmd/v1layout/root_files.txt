@@ -111,7 +111,6 @@ external_scanner_quiescence_test.go
 external_symbol_resolver.go
 external_symbol_resolver_test.go
 fact_program.go
-fact_program_test.go
 final_tree_compaction.go
 final_tree_compaction_test.go
 forest_cap_pinning_json5_test.go
@@ -121,7 +120,6 @@ fuzz_admission_route_equality_test.go
 fuzz_parser_test.go
 fuzz_scanner_grammars_test.go
 fuzz_scanner_grammars_wrappers_test.go
-fuzz_tagger_test.go
 generated_repeat_metadata.go
 glr.go
 glr_forest.go
@@ -146,7 +144,6 @@ highlight_injection_timeout_test.go
 highlight_injections.go
 highlight_injections_exec.go
 highlight_injections_exec_test.go
-highlight_integration_test.go
 highlight_test.go
 imports.go
 included_ranges.go
@@ -215,9 +212,6 @@ node_field_metadata_test.go
 oedit_leading_splice_sweep_test.go
 oedit_range_normalize_sweep_test.go
 outline.go
-outline_api_test.go
-outline_coupling_test.go
-outline_golden_test.go
 outline_internal_test.go
 outline_owner.go
 outline_report.go
@@ -598,7 +592,6 @@ query_compile_predicates.go
 query_impossible_pattern.go
 query_impossible_pattern_analysis.go
 query_impossible_pattern_test.go
-query_kotlin_regression_test.go
 query_match_budget.go
 query_matcher.go
 query_matcher_budget_test.go
@@ -665,7 +658,6 @@ tree_handle_lifetime_internal_test.go
 tree_health_test.go
 tree_test.go
 understanding.go
-understanding_test.go
 utf16.go
 utf16_benchmark_test.go
 utf16_test.go

@@ -6,17 +6,12 @@ import (
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
 // benchTagsQuery is a tags query suitable for Go source.
 // It matches function/method definitions and call references.
-const benchTagsQuery = `
-(function_declaration (identifier) @name) @definition.function
-(method_declaration (field_identifier) @name) @definition.method
-(call_expression (identifier) @name) @reference.call
-(call_expression (selector_expression (field_identifier) @name)) @reference.call
-(type_declaration (type_spec (type_identifier) @name)) @definition.type
-`
+const benchTagsQuery = benchfixtures.GoTagsQuery
 
 var taggerBenchSink int
 var codeUnderstandingBenchSink int
