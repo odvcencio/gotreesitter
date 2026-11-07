@@ -402,12 +402,20 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 			break
 		}
 	}
+	// The authenticated pop counts recovery discontinuities as physical depth,
+	// but C omits their null subtrees from the popped payload array. Project the
+	// private path copy before separating trailing extras: a null link must not
+	// hide an extra or prevent the final extra from publishing its boundary.
+	payloadLinks := links[:0]
+	for _, link := range links {
+		if !link.isRecoveryDiscontinuity() {
+			payloadLinks = append(payloadLinks, link)
+		}
+	}
+	links = payloadLinks
 	depth := len(links)
 	trailing := 0
 	for region == nil && trailing < depth {
-		if links[trailing].isRecoveryDiscontinuity() {
-			break
-		}
 		payload, err := c.subtree(links[trailing].payload)
 		if err != nil {
 			return Head{}, err
@@ -417,7 +425,10 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 		}
 		trailing++
 	}
-	if trailing == depth {
+	if region == nil && trailing == depth {
+		if depth == 0 {
+			return Head{}, errors.New("parser-core phase zero: ancestor recovery path has no ERROR payload")
+		}
 		return Head{}, errors.New("parser-core phase zero: ancestor recovery path has only trailing extras")
 	}
 
@@ -425,9 +436,6 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 	score, order := priorScore, priorOrder
 	for index := depth - 1; index >= trailing; index-- {
 		link := links[index]
-		if link.isRecoveryDiscontinuity() {
-			continue
-		}
 		children = append(children, link.payload)
 		score, err = checkedAddScore(score, link.scoreDelta)
 		if err != nil {
@@ -507,9 +515,6 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 	}
 	for index := trailing - 1; index >= 0; index-- {
 		link := links[index]
-		if link.isRecoveryDiscontinuity() {
-			continue
-		}
 		payload, err := c.subtree(link.payload)
 		if err != nil {
 			return Head{}, err

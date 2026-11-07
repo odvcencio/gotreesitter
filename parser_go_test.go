@@ -1309,7 +1309,7 @@ func TestGoIfElseSameLineKeywordPromotion(t *testing.T) {
 func TestGoMergePerKeyCapRegressionFiles(t *testing.T) {
 	for _, name := range []string{
 		"language_forest_optin_test.go",
-		"query_kotlin_regression_test.go",
+		"roottest/query/query_kotlin_regression_test.go",
 	} {
 		t.Run(name, func(t *testing.T) {
 			src, err := os.ReadFile(name)
