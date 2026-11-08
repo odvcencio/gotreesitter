@@ -238,7 +238,7 @@ func ExtractGrammar(source string) (*ExtractedGrammar, error) {
 		// Not fatal: ABI < 15 grammars won't have reserved words.
 	}
 	if err := extractSupertypes(source, g); err != nil {
-		// Not fatal: ABI < 15 grammars or grammars without supertypes.
+		return nil, fmt.Errorf("supertypes: %w", err)
 	}
 	if err := extractLanguageMetadata(source, g); err != nil {
 		// Not fatal: ABI < 15 grammars won't have metadata.
@@ -2042,20 +2042,123 @@ func extractSupertypes(source string, g *ExtractedGrammar) error {
 		return nil
 	}
 
-	// Parse as a flat list of symbols/numbers.
-	tokenRe := regexp.MustCompile(`\b([A-Za-z_]\w*|\d+)\b`)
-	toks := tokenRe.FindAllStringSubmatch(entryBody, -1)
-	var mapEntries []uint16
-	for _, t := range toks {
-		sym, ok := resolveIndexedName(t[1], g.enumValues)
-		if !ok {
-			continue
-		}
-		mapEntries = append(mapEntries, uint16(sym))
+	mapEntries, err := parseSupertypeEntries(entryBody, g.enumValues)
+	if err != nil {
+		return err
 	}
 	g.SupertypeMapEntries = mapEntries
 
 	return nil
+}
+
+// parseSupertypeEntries implements C sequential and designated array
+// initializers. A designator changes the next index; omitted slots are zero.
+// The runtime stores each slice index and length in uint16, so no referenced
+// entry can occur beyond the sum of those two maximum values.
+func parseSupertypeEntries(body string, enums map[string]int) ([]uint16, error) {
+	const maxEntries = 2 * int(^uint16(0))
+	var input scanner.Scanner
+	input.Init(strings.NewReader(body))
+	input.Mode = scanner.ScanIdents | scanner.ScanInts | scanner.ScanComments | scanner.SkipComments
+	var scanErr error
+	input.Error = func(_ *scanner.Scanner, message string) {
+		if scanErr == nil {
+			scanErr = fmt.Errorf("supertype entries: %s", message)
+		}
+	}
+	token := input.Scan()
+	var atom func(int) (int, error)
+	atom = func(depth int) (int, error) {
+		if depth > 256 {
+			return 0, fmt.Errorf("supertype entries: expression nesting exceeds limit")
+		}
+		if token == '(' {
+			token = input.Scan()
+			value, err := atom(depth + 1)
+			if err != nil {
+				return 0, err
+			}
+			if token != ')' {
+				return 0, fmt.Errorf("supertype entries: expected closing parenthesis")
+			}
+			token = input.Scan()
+			return value, scanErr
+		}
+		if token == '+' {
+			if input.Peek() == '+' {
+				return 0, fmt.Errorf("supertype entries: increment operator is unsupported")
+			}
+			token = input.Scan()
+			return atom(depth + 1)
+		}
+		if scanErr != nil {
+			return 0, scanErr
+		}
+		if token != scanner.Ident && token != scanner.Int {
+			return 0, fmt.Errorf("supertype entries: expected integer or symbol, got %q", input.TokenText())
+		}
+		text := input.TokenText()
+		var value int
+		var ok bool
+		if token == scanner.Int {
+			if n, err := strconv.ParseUint(text, 0, 32); err == nil {
+				value, ok = int(n), true
+			}
+		} else {
+			value, ok = resolveIndexedName(text, enums)
+		}
+		if !ok {
+			return 0, fmt.Errorf("supertype entries: unknown value %q", text)
+		}
+		token = input.Scan()
+		return value, scanErr
+	}
+	var result []uint16
+	next := 0
+	for token != scanner.EOF {
+		if token == '[' {
+			token = input.Scan()
+			index, err := atom(0)
+			if err != nil {
+				return nil, err
+			}
+			if index < 0 || index >= maxEntries {
+				return nil, fmt.Errorf("supertype entries: index %d out of range", index)
+			}
+			if token != ']' {
+				return nil, fmt.Errorf("supertype entries: expected closing bracket")
+			}
+			token = input.Scan()
+			if token != '=' {
+				return nil, fmt.Errorf("supertype entries: expected equals")
+			}
+			token = input.Scan()
+			next = index
+		}
+		value, err := atom(0)
+		if err != nil {
+			return nil, err
+		}
+		if value < 0 || value > int(^uint16(0)) || next >= maxEntries {
+			return nil, fmt.Errorf("supertype entries: value or position out of range")
+		}
+		if next >= len(result) {
+			result = append(result, make([]uint16, next+1-len(result))...)
+		}
+		result[next] = uint16(value)
+		next++
+		if token == scanner.EOF {
+			break
+		}
+		if token != ',' {
+			return nil, fmt.Errorf("supertype entries: expected comma, got %q", input.TokenText())
+		}
+		token = input.Scan()
+	}
+	if scanErr != nil {
+		return nil, scanErr
+	}
+	return result, nil
 }
 
 // extractLanguageMetadata parses the .metadata block from the TSLanguage struct
