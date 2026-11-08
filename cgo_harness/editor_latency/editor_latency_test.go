@@ -98,9 +98,68 @@ type receipt struct {
 	Cells             []cellReceipt               `json:"cells"`
 }
 
+// The campaign generates this configuration into each module before compiling
+// the shared driver. Keeping it in the binary prevents one process-wide
+// environment from selecting the other revision's checkout.
+type campaignRole struct {
+	Role, Root, Revision, LockSHA256                                     string
+	IdentitySHA256, CCPath, CCSHA256, CXXPath, CXXSHA256, BuildEnvSHA256 string
+}
+
+var compiledCampaignRole *campaignRole
+
+func applyCampaignRole() error {
+	c := compiledCampaignRole
+	if c == nil {
+		return nil // Standalone use outside the paired campaign.
+	}
+	_, revErr := hex.DecodeString(c.Revision)
+	_, lockErr := hex.DecodeString(c.LockSHA256)
+	if (c.Role != "base" && c.Role != "head") || !filepath.IsAbs(c.Root) || len(c.Revision) != 40 || revErr != nil || len(c.LockSHA256) != 64 || lockErr != nil {
+		return fmt.Errorf("invalid compiled campaign role")
+	}
+	for key, want := range map[string]string{"GTS_EDIT_REPO_ROOT": c.Root, "GTS_EDIT_REVISION": c.Revision} {
+		if got := os.Getenv(key); got != "" && got != want {
+			return fmt.Errorf("%s conflicts with compiled campaign role", key)
+		}
+		if err := os.Setenv(key, want); err != nil {
+			return err
+		}
+	}
+	if c.IdentitySHA256 != "" {
+		private := "/private/" + c.Role
+		for key, want := range map[string]string{
+			"GTS_PARITY_C_REF_BUILD_CACHE": private + "/cache", "GTS_W5_PRIVATE_ORACLE_IDENTITY": private + "/identity.json",
+			"GTS_W5_PRIVATE_ORACLE_SHA256": c.IdentitySHA256, "GTS_W5_CC_PATH": c.CCPath, "GTS_W5_CC_SHA256": c.CCSHA256,
+			"GTS_W5_CXX_PATH": c.CXXPath, "GTS_W5_CXX_SHA256": c.CXXSHA256, "GTS_W5_BUILD_ENV_SHA256": c.BuildEnvSHA256,
+		} {
+			if got := os.Getenv(key); got != "" && got != want {
+				return fmt.Errorf("%s conflicts with compiled campaign role", key)
+			}
+			if err := os.Setenv(key, want); err != nil {
+				return err
+			}
+		}
+	}
+	lock, err := os.ReadFile(filepath.Join(c.Root, "grammars", "languages.lock"))
+	if err != nil || digest(lock) != c.LockSHA256 {
+		return fmt.Errorf("compiled campaign role lock mismatch")
+	}
+	return nil
+}
+
+func privateRoot() string {
+	if compiledCampaignRole != nil {
+		return "/private/" + compiledCampaignRole.Role
+	}
+	return "/private"
+}
+
 func TestMain(m *testing.M) {
-	// The oracle locates its lock relative to the working directory. Both
-	// revision binaries use the campaign's one pinned oracle checkout.
+	if err := applyCampaignRole(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 	if root := os.Getenv("GTS_EDIT_REPO_ROOT"); root != "" {
 		if err := os.Chdir(root); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -137,13 +196,13 @@ func preparePrivateOracle(path string) error {
 			return fmt.Errorf("oracle source override: %s", k)
 		}
 	}
-	if os.Getenv("GTS_PARITY_C_REF_BUILD_CACHE") != "/private/cache" || path != "/private/cold.json" {
+	if os.Getenv("GTS_PARITY_C_REF_BUILD_CACHE") != privateRoot()+"/cache" || path != privateRoot()+"/cold.json" {
 		return fmt.Errorf("invalid private oracle preparation path")
 	}
 	if err := verifyBuildCompilers(); err != nil {
 		return err
 	}
-	if err := os.WriteFile("/private/environment.before", []byte(buildEnvironmentDigest()+"\n"), 0600); err != nil {
+	if err := os.WriteFile(privateRoot()+"/environment.before", []byte(buildEnvironmentDigest()+"\n"), 0600); err != nil {
 		return err
 	}
 	got, err := oracle.COracleIdentity(os.Getenv("GTS_EDIT_LANGUAGE"))
@@ -153,7 +212,22 @@ func preparePrivateOracle(path string) error {
 	if err := verifyBuildCompilers(); err != nil {
 		return err
 	}
-	if err := os.WriteFile("/private/environment.after", []byte(buildEnvironmentDigest()+"\n"), 0600); err != nil {
+	if err := os.WriteFile(privateRoot()+"/environment.after", []byte(buildEnvironmentDigest()+"\n"), 0600); err != nil {
+		return err
+	}
+	proof, err := json.Marshal(oracle.COracleFreshProof(os.Getenv("GTS_EDIT_LANGUAGE")))
+	if err != nil {
+		return err
+	}
+	proofFile, err := os.OpenFile(privateRoot()+"/cold-source.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	if _, err := proofFile.Write(proof); err != nil {
+		proofFile.Close()
+		return err
+	}
+	if err := proofFile.Close(); err != nil {
 		return err
 	}
 	data, err := json.Marshal(got)
@@ -202,7 +276,7 @@ func verifyPrivateOracle() error {
 			return fmt.Errorf("oracle source override: %s", k)
 		}
 	}
-	if os.Getenv("GTS_PARITY_C_REF_BUILD_CACHE") != "/private/cache" || os.Getenv("GTS_W5_PRIVATE_ORACLE_IDENTITY") != "/private/identity.json" {
+	if os.Getenv("GTS_PARITY_C_REF_BUILD_CACHE") != privateRoot()+"/cache" || os.Getenv("GTS_W5_PRIVATE_ORACLE_IDENTITY") != privateRoot()+"/identity.json" {
 		return fmt.Errorf("invalid private oracle worker path")
 	}
 	if buildEnvironmentDigest() != os.Getenv("GTS_W5_BUILD_ENV_SHA256") {
@@ -236,7 +310,7 @@ func verifyPrivateOracle() error {
 	if !bytes.Equal(a, b) || got.GrammarArtifactSHA256 == "" {
 		return fmt.Errorf("oracle identity mismatch")
 	}
-	if filepath.Dir(got.GrammarArtifactPath) != "/private/cache" {
+	if filepath.Dir(got.GrammarArtifactPath) != privateRoot()+"/cache" {
 		return fmt.Errorf("oracle artifact outside private cache")
 	}
 	artifact, err := os.ReadFile(got.GrammarArtifactPath)
