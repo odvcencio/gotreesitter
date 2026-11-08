@@ -7,6 +7,79 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-11-07
+
+### Highlights
+
+- Add a pure-Go command for parsing, queries, highlights, symbols and corpus tests.
+- Correct highlight priorities and inheritance, with explicit upgrade notes for changed captures.
+- On pinned fixtures, legacy YAML parse time fell 5.39% over 20 paired runs;
+  a compact 1 MiB Go parse allocated 17.52% fewer bytes ([#1486](https://github.com/odvcencio/gotreesitter/pull/1486), [#1504](https://github.com/odvcencio/gotreesitter/pull/1504)).
+
+### Upgrade notes
+
+- `grammars.JSONTokenSource`, `NewJSONTokenSource` and `NewJSONTokenSourceOrEOF`
+  are removed, and the registry no longer routes `json` through a token source.
+  To upgrade, call `parser.Parse(src)` where you called
+  `ParseWithTokenSource(src, grammars.NewJSONTokenSourceOrEOF(src, lang))`, and
+  `parser.ParseIncremental(src, old)` for incremental parses. Drop
+  `WithTokenSourceFactory` from highlighters and taggers for JSON. Code that
+  calls `entry.TokenSourceFactory(...)` without a nil check must check for nil
+  and fall back to `Parse`. Trees differ from the old ones on 6 JSON files in the
+  test corpus, and in each of them only the DFA tree matched C.
+
+- `Highlight` and its incremental and UTF-16 variants no longer return a range
+  for a `spell`, `nospell`, `conceal`, `none`, underscore-prefixed or
+  locals-directive capture. Code that reads a `spell`, `none` or underscore
+  capture from `Highlight` no longer receives it.
+- Injected child layers keep their own pattern order on identical spans, as a
+  standalone file does. Before, a layer lost its pattern indexes and the order of
+  the matches decided. In a Markdown fence of starlark, `{` changes from
+  `punctuation.bracket` to `punctuation.special`.
+- On a span that an injected language and its host both capture, the injected
+  capture now wins. Before, the host's capture won unless it came from the first
+  pattern of the host's query.
+- Queries that set `(#set! priority N)` now resolve overlaps by priority. Before,
+  the directive had no effect and the narrower capture won. Sixteen shipped
+  queries set a priority. In the diff query, the `---`, `+++`, `-` and `+`
+  markers now take `diff.minus` or `diff.plus` instead of `punctuation.special`.
+  In hare, `:outer` in `break :outer;` is one `label` range where it was a
+  `punctuation.delimiter` range and a `variable` range, and in tablegen, `!add` is
+  one `function` range where it was a `punctuation.special` range and a
+  `function` range.
+
+- `ExternalVM` scanner APIs are removed. Implement a Go
+  `gotreesitter.ExternalScanner` instead ([#1536](https://github.com/odvcencio/gotreesitter/pull/1536)).
+- The `grammars` facade drops per-language scanner aliases and unused helpers,
+  including `DecodeAndCertifyLanguageBlob`. Import `grammars/runtime` for the
+  equivalents exported there ([#1536](https://github.com/odvcencio/gotreesitter/pull/1536)).
+- Replace `corpuscheck.RunLanguageLimited` with `RunLanguageWithOptions` and
+  `RunOptions{MaxCases: n}` ([#1536](https://github.com/odvcencio/gotreesitter/pull/1536)).
+- The `tsquery` command now requires `-lang`. Supply the registered grammar
+  name so the query is compiled and validated before code generation
+  ([#1537](https://github.com/odvcencio/gotreesitter/pull/1537)).
+- Use `gotreesitter test` in place of the standalone `corpuscheck` command.
+  Corpus mismatches return exit status 1; an empty selection or a requested
+  language that cannot run returns status 2 ([#1524](https://github.com/odvcencio/gotreesitter/pull/1524)).
+- Callers can no longer use a nil root to recognize an accepted parse with no
+  syntax nodes. Check the input itself for an empty byte slice and inspect
+  `HasError()` for parse errors ([#1543](https://github.com/odvcencio/gotreesitter/pull/1543)).
+- Curated and inherited highlight queries change some capture names. Check
+  themes that map built-in captures to colors ([#1539](https://github.com/odvcencio/gotreesitter/pull/1539)).
+
+### Added
+
+- Add `cmd/scannercert`, a report-only tool that replays external scanner calls
+  from saved state and reports any difference from the live result. It grants no
+  incremental-reuse approval and changes no scanner capability flag
+  ([#1518](https://github.com/odvcencio/gotreesitter/pull/1518)).
+
+- Add the pure-Go `gotreesitter` command for parsing, querying, highlighting,
+  tags, outlines, code patterns and corpus tests. It accepts files or standard
+  input and supports JSON output ([#1524](https://github.com/odvcencio/gotreesitter/pull/1524)).
+- Add `LangEntry.Parse`, `NewParser` and `NewHighlighter` helpers that use the
+  entry's registered token source when one is available ([#1537](https://github.com/odvcencio/gotreesitter/pull/1537)).
+
 ### Changed
 
 - Make the highlighter return only captures that name a color. It no longer
@@ -63,12 +136,20 @@ for tags and release notes while still in `0.x`.
   did not, and the C++ token source matches C on a malformed class body that the
   DFA path parses without an error.
 
-### Added
+- Compose highlight queries from first-line `; inherits:` directives and add
+  curated query coverage, including Apex, Vue, V, Typst and HLSL. Imported
+  queries carry source and license attribution ([#1539](https://github.com/odvcencio/gotreesitter/pull/1539)).
+- Scan YAML comment content in batches ([#1567](https://github.com/odvcencio/gotreesitter/pull/1567)).
+- Reduce DFA, publication and read-history overhead in certified Go incremental
+  parsing. Unsupported or unproven reuse retains fresh verification
+  ([#1570](https://github.com/odvcencio/gotreesitter/pull/1570)).
+- Publish compact parse results through owned node views and preserve recovery
+  and scanner-history checks ([#1569](https://github.com/odvcencio/gotreesitter/pull/1569)).
 
-- Add `cmd/scannercert`, a report-only tool that replays external scanner calls
-  from saved state and reports any difference from the live result. It grants no
-  incremental-reuse approval and changes no scanner capability flag
-  ([#1518](https://github.com/odvcencio/gotreesitter/pull/1518)).
+- Page compact compatibility snapshots and cap the scrubbed workspace retained
+  between calls. On the qualified roughly 2 KiB TypeScript fixture, allocated
+  bytes fell from 167.425 to 3.139 KiB per parse; the separate 1 MiB probe's peak
+  RSS fell from 294,732 to 165,056 KiB ([#1577](https://github.com/odvcencio/gotreesitter/pull/1577)).
 
 ### Fixed
 
@@ -89,37 +170,29 @@ for tags and release notes while still in `0.x`.
 - Compact projection: publish hidden-supertype ancestry and synthetic-root
   metadata exactly. The Go supertype query failed before this fix ([#1484](https://github.com/odvcencio/gotreesitter/pull/1484)).
 
-### Breaking Changes
+- Make: accept builtin names such as `$(file)` and `${dir}` as variable
+  references, including nested expressions, while preserving function calls
+  ([#1561](https://github.com/odvcencio/gotreesitter/pull/1561)).
+- Kotlin: preserve queued reduction alternatives for the certified shipped
+  grammar, including the generic-call regression cases ([#1568](https://github.com/odvcencio/gotreesitter/pull/1568)).
+- Accepted parses with no syntax nodes now return a zero-width `ERROR` root
+  instead of a nil root, matching locked C on the affected cases ([#1543](https://github.com/odvcencio/gotreesitter/pull/1543)).
+- Generated C exports for pre-ABI-15 grammars compile against the pinned runtime
+  headers while retaining the older lexer-mode table layout ([#1579](https://github.com/odvcencio/gotreesitter/pull/1579)).
 
-- `grammars.JSONTokenSource`, `NewJSONTokenSource` and `NewJSONTokenSourceOrEOF`
-  are removed, and the registry no longer routes `json` through a token source.
-  To upgrade, call `parser.Parse(src)` where you called
-  `ParseWithTokenSource(src, grammars.NewJSONTokenSourceOrEOF(src, lang))`, and
-  `parser.ParseIncremental(src, old)` for incremental parses. Drop
-  `WithTokenSourceFactory` from highlighters and taggers for JSON. Code that
-  calls `entry.TokenSourceFactory(...)` without a nil check must check for nil
-  and fall back to `Parse`. Trees differ from the old ones on 6 JSON files in the
-  test corpus, and in each of them only the DFA tree matched C.
+- PowerShell: update the pinned grammar and scanner so native arguments such
+  as comma lists, bare `--` and `-`, attached option values and trailing `&`
+  parse cleanly. The replay preserves the original contributor's work
+  ([#1576](https://github.com/odvcencio/gotreesitter/pull/1576), [#1574](https://github.com/odvcencio/gotreesitter/pull/1574)).
 
-- `Highlight` and its incremental and UTF-16 variants no longer return a range
-  for a `spell`, `nospell`, `conceal`, `none`, underscore-prefixed or
-  locals-directive capture. Code that reads a `spell`, `none` or underscore
-  capture from `Highlight` no longer receives it.
-- Injected child layers keep their own pattern order on identical spans, as a
-  standalone file does. Before, a layer lost its pattern indexes and the order of
-  the matches decided. In a Markdown fence of starlark, `{` changes from
-  `punctuation.bracket` to `punctuation.special`.
-- On a span that an injected language and its host both capture, the injected
-  capture now wins. Before, the host's capture won unless it came from the first
-  pattern of the host's query.
-- Queries that set `(#set! priority N)` now resolve overlaps by priority. Before,
-  the directive had no effect and the narrower capture won. Sixteen shipped
-  queries set a priority. In the diff query, the `---`, `+++`, `-` and `+`
-  markers now take `diff.minus` or `diff.plus` instead of `punctuation.special`.
-  In hare, `:outer` in `break :outer;` is one `label` range where it was a
-  `punctuation.delimiter` range and a `variable` range, and in tablegen, `!add` is
-  one `function` range where it was a `punctuation.special` range and a
-  `function` range.
+- Keep trailing comments outside recovered `ERROR` nodes when an ancestor
+  recovery path contains a discontinuity ([#1580](https://github.com/odvcencio/gotreesitter/pull/1580)).
+
+### Evidence
+
+- Validation and measurement scope are recorded in the linked pull requests,
+  including the [qualified Go incremental run](https://github.com/odvcencio/gotreesitter/actions/runs/42080641055),
+  [#1569](https://github.com/odvcencio/gotreesitter/pull/1569) and [#1579](https://github.com/odvcencio/gotreesitter/pull/1579). The release receipt binds the final commit and its full manual CI run.
 
 ## [0.56.0] - 2026-10-13
 
@@ -2320,7 +2393,8 @@ focused on current releases:
 - [v0.24.1 – v0.44.0](docs/changelog/archive-2.md)
 - [v0.1.0 – v0.24.0](docs/changelog/archive-3.md)
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.56.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.57.0...HEAD
+[0.57.0]: https://github.com/odvcencio/gotreesitter/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/odvcencio/gotreesitter/compare/v0.55.1...v0.56.0
 [0.55.1]: https://github.com/odvcencio/gotreesitter/compare/v0.55.0...v0.55.1
 [0.54.0]: https://github.com/odvcencio/gotreesitter/compare/v0.53.0...v0.54.0

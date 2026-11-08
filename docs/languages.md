@@ -3,7 +3,7 @@
 206 grammars ship in the registry. All 206 produce error-free parse trees on smoke samples. Run `go run ./cmd/parity_report` for current status.
 
 - 119 external scanners (hand-written Go implementations of upstream C scanners)
-- 5 hand-written Go token sources (authzed, c, cpp, java, json). Go and Lua keep Go token sources in the API but parse through the DFA lexer.
+- 4 hand-written Go token sources on the default path (authzed, c, cpp, java). Go and Lua token sources remain available in `grammars/runtime`; their default parse route uses the DFA lexer.
 - Remaining languages use the DFA lexer generated from grammar tables
 
 ## Parse quality
