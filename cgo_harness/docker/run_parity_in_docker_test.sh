@@ -131,4 +131,77 @@ assert_contains 'retrying in 30s' "$test_root/exhausted.stderr"
 assert_contains 'giving up' "$test_root/exhausted.stderr"
 pass 'persistent network failures exhaust three attempts and fail'
 
+# fake_run_docker writes a mock docker binary for a full run. It records the
+# arguments of every invocation, one line each, in $test_root/docker-calls.
+fake_run_docker() {
+	cat >"$mock_bin/docker" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >>"$test_root/docker-calls"
+case "\$1" in
+create) echo fakecid ;;
+start | rm) ;;
+logs) echo "fake container log" ;;
+wait) echo 0 ;;
+inspect)
+	if [[ "\$*" == *OOMKilled* ]]; then echo false; elif [[ "\$*" == *State.Error* ]]; then echo; else echo '[]'; fi
+	;;
+run) ;;
+*) echo "unsupported docker subcommand: \$*" >&2; exit 1 ;;
+esac
+EOF
+	chmod +x "$mock_bin/docker"
+}
+
+# run_with_mounts <name> <args...> runs the script against the fake docker and
+# leaves the recorded calls in $test_root/<name>.calls.
+run_with_mounts() {
+	local name=$1
+	shift
+	rm -f -- "$test_root/docker-calls"
+	fake_run_docker
+	PATH="$mock_bin:$PATH" bash "$runner" --repo-root "$repo_root" --no-build \
+		--out-root "$test_root/out-$name" "$@" \
+		>"$test_root/$name.stdout" 2>"$test_root/$name.stderr" ||
+		fail "$name run failed: $(cat "$test_root/$name.stderr")"
+	cp -- "$test_root/docker-calls" "$test_root/$name.calls"
+}
+
+lane_cache="$test_root/lane-go-cache"
+ro_dir="$test_root/readonly-input"
+mkdir -p -- "$lane_cache" "$ro_dir"
+
+# Default mode: one full-tree repair pass over the workspace and the
+# read-write mount, with no stamp.
+run_with_mounts default --mount "$lane_cache:/lane-go-cache" --mount "$ro_dir:/ro:ro" -- true
+fixups=$(grep -c '^run ' "$test_root/default.calls" || true)
+[[ "$fixups" -eq 1 ]] || fail "default mode ran $fixups repair containers, want 1"
+assert_contains "dst=/workspace" "$test_root/default.calls"
+assert_contains "dst=/lane-go-cache" "$test_root/default.calls"
+if grep -F -- 'ownership-stamp' "$test_root/default.calls" >/dev/null; then
+	fail 'default mode used the run stamp'
+fi
+pass 'default mode repairs the workspace and the read-write mount in full'
+
+# --no-chown still repairs the entries the run created in a read-write mount,
+# and no longer touches the workspace.
+run_with_mounts nochown --no-chown --mount "$lane_cache:/lane-go-cache" --mount "$ro_dir:/ro:ro" -- true
+fixup_call=$(grep '^run ' "$test_root/nochown.calls" || true)
+[[ -n "$fixup_call" ]] || fail '--no-chown ran no repair container'
+[[ "$fixup_call" == *"dst=/lane-go-cache"* ]] || fail '--no-chown repair lacks the lane cache mount'
+[[ "$fixup_call" == *"dst=/gts-ownership-stamp,readonly"* ]] || fail '--no-chown repair lacks the run stamp'
+[[ "$fixup_call" == *"GTS_FIXUP_NEWER=-cnewer /gts-ownership-stamp"* ]] || fail '--no-chown repair is not limited to new entries'
+[[ "$fixup_call" != *"dst=/workspace"* ]] || fail '--no-chown repair walked the workspace'
+[[ "$fixup_call" != *"dst=/ro"* ]] || fail 'repair mounted a read-only folder'
+grep -F 'ownership_fixup=ok' "$test_root"/out-nochown/*/metadata.txt >/dev/null || fail '--no-chown did not record ownership_fixup=ok'
+pass '--no-chown repairs new entries in read-write mounts only'
+
+# --no-chown with no read-write mount has nothing to repair.
+run_with_mounts nochown_none --no-chown --mount "$ro_dir:/ro:ro" -- true
+if grep -q '^run ' "$test_root/nochown_none.calls"; then
+	fail '--no-chown ran a repair container with no read-write mount'
+fi
+grep -F 'ownership_fixup=skipped' "$test_root"/out-nochown_none/*/metadata.txt >/dev/null || fail 'expected ownership_fixup=skipped'
+pass '--no-chown without a read-write mount runs no repair'
+
 printf '%s\n' 'all run_parity_in_docker.sh tests passed'
