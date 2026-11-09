@@ -109,7 +109,7 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 		occurrences++
 		rawChildSlots += uint64(record.childCount)
 		oldStackCapacity := cap(stack)
-		stack = append(stack, selectedOccurrenceFrame{occurrence: uint32(len(logical))})
+		stack = append(stack, selectedOccurrenceFrame{occurrence: uint32(len(logical)), rawPrecedence: int32(record.dynamicPrecedence)})
 		if cap(stack) != oldStackCapacity {
 			c.selectedBuild.stack = stack
 			if err := poll(); err != nil {
@@ -194,10 +194,7 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 				return nil, fmt.Errorf("parser-core phase zero: selected symbol %d is outside policy", symbol)
 			}
 
-			rawPrecedence, err := checkedSelectedPrecedence(frame.rawPrecedence, int32(record.dynamicPrecedence))
-			if err != nil {
-				return nil, err
-			}
+			rawPrecedence := frame.rawPrecedence
 			hasError := frame.hasError || record.missing || record.symbol == ErrorRegionSymbol
 			folded := false
 			if !record.terminal && record.childCount == 1 && record.fieldCount == 0 && record.aliasCount == 0 && len(logical)-logicalStart == 1 {

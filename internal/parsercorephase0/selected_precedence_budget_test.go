@@ -216,3 +216,90 @@ func TestSelectedStoreOnePassRawPrecedenceOverflowCleanup(t *testing.T) {
 	}
 	defer store.Release()
 }
+
+// The parent action must be applied before its raw children, as in native
+// projection; otherwise a valid final score can be rejected mid-fold.
+func TestSelectedStoreOnePassPrecedenceBoundaryMatchesNative(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		leaf, parent, tail int16
+		width              int
+		addOne             bool
+		want               int32
+	}{
+		{"upper", 32767, -1, 1, 65538, true, 2147483647},
+		{"lower", -32768, 1, -1, 65536, false, -2147483648},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			policy := selectedStoreTestPolicy(t, 2)
+			c, err := New(&selectedStorePolicyTable{policy: policy}, Limits{MaxSubtrees: 1 << 18, MaxChildren: 1 << 18, MaxSelectedOccurrences: 1 << 18, MaxSelectedBytes: 1 << 27})
+			if err != nil {
+				t.Fatal(err)
+			}
+			groups := make([]SubtreeID, 0, 3)
+			for start := 0; start < tc.width; start += 200 {
+				count := min(200, tc.width-start)
+				children := make([]SubtreeID, count)
+				for i := range children {
+					children[i], err = c.appendSubtree(subtreeRecord{symbol: 1, terminal: true, endByte: 1, dynamicPrecedence: tc.leaf}, nil, nil, nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				id, e := c.appendSubtree(subtreeRecord{symbol: 3, endByte: 1}, children, nil, nil)
+				if e != nil {
+					t.Fatal(e)
+				}
+				groups = append(groups, id)
+			}
+			for len(groups) > 200 {
+				next := make([]SubtreeID, 0, (len(groups)+199)/200)
+				for start := 0; start < len(groups); start += 200 {
+					end := min(start+200, len(groups))
+					id, e := c.appendSubtree(subtreeRecord{symbol: 3, endByte: 1}, groups[start:end], nil, nil)
+					if e != nil {
+						t.Fatal(e)
+					}
+					next = append(next, id)
+				}
+				groups = next
+			}
+			if tc.addOne {
+				id, e := c.appendSubtree(subtreeRecord{symbol: 1, terminal: true, endByte: 1, dynamicPrecedence: 1}, nil, nil, nil)
+				if e != nil {
+					t.Fatal(e)
+				}
+				groups = append(groups, id)
+			}
+			big, err := c.appendSubtree(subtreeRecord{symbol: 3, endByte: 1}, groups, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tail, err := c.appendSubtree(subtreeRecord{symbol: 1, terminal: true, endByte: 1, dynamicPrecedence: tc.tail}, nil, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			root, err := c.appendSubtree(subtreeRecord{symbol: 2, endByte: 1, dynamicPrecedence: tc.parent}, []SubtreeID{big, tail}, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var sink nativeWalkTestSink
+			replay := NativeProjectionReplay{Scratch: &MaterializationPostorderScratch{}, Transition: func(pre StateID, _ *MaterializationReplayView) (StateID, bool, error) { return pre + 1, true, nil }}
+			ids, err := c.StreamNativeProjection([]SubtreeID{root}, []byte("x"), &sink, replay, nil)
+			if err != nil {
+				t.Fatalf("native: %v", err)
+			}
+			if got := sink.records[ids[0]-1].DynamicPrecedence; got != tc.want {
+				t.Fatalf("native=%d want=%d", got, tc.want)
+			}
+			store, err := c.buildSelectedStoreOnePass([]SubtreeID{root}, policy, []byte("x"), nil)
+			if err != nil {
+				t.Fatalf("one-pass: %v", err)
+			}
+			defer store.Release()
+			if got := store.records[store.root-1].DynamicPrecedence; got != tc.want {
+				t.Fatalf("one-pass=%d want=%d", got, tc.want)
+			}
+		})
+	}
+}
