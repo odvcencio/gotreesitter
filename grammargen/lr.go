@@ -631,7 +631,10 @@ func buildLRTablesInternal(bgCtx context.Context, ng *NormalizedGrammar, trackPr
 	} else {
 		itemSets = ctx.buildItemSets()
 		const maxRuntimeStateID = int(^uint16(0))
-		if usePreciseExternalBuilder && (ctx.preciseStateBudgetExceeded || len(itemSets) > maxRuntimeStateID) {
+		// Small grammars still use buildItemSets when the external-builder
+		// preference is false. Its state budget applies on that path too, so
+		// never publish the incomplete automaton returned after exhaustion.
+		if ctx.preciseStateBudgetExceeded || (usePreciseExternalBuilder && len(itemSets) > maxRuntimeStateID) {
 			ctx = newCtx()
 			itemSets = ctx.buildItemSetsLALR()
 		}
