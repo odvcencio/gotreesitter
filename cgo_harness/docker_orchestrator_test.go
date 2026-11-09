@@ -216,6 +216,10 @@ func (r *dockerParityRunner) runTest(t *testing.T, opts containerOpts) *parityRe
 	runErr := cmd.Run()
 	elapsed := time.Since(start)
 
+	// The container runs as root, so it leaves root-owned files in the
+	// bind-mounted repository. Hand them back to the host user.
+	repairHostOwnership(t, opts.RepoRoot, image)
+
 	exitCode := 0
 	if runErr != nil {
 		if exitErr, ok := runErr.(*exec.ExitError); ok {
@@ -243,6 +247,45 @@ func (r *dockerParityRunner) runTest(t *testing.T, opts containerOpts) *parityRe
 		Events:    events,
 		OOMKilled: oomKilled,
 		Duration:  elapsed,
+	}
+}
+
+// ownershipRepairArgs returns the docker arguments of the container that
+// returns root-owned entries under repoRoot to the given host user. It skips
+// .git/objects, which the test container never writes.
+func ownershipRepairArgs(repoRoot, image string, uid, gid int) []string {
+	return []string{
+		"run", "--rm",
+		"-v", repoRoot + ":/workspace",
+		"-e", fmt.Sprintf("GTS_HOST_UID=%d", uid),
+		"-e", fmt.Sprintf("GTS_HOST_GID=%d", gid),
+		image,
+		"bash", "-o", "pipefail", "-c",
+		`find /workspace -xdev -path "*/.git/objects" -prune -o -user 0 -print0 | xargs -0r chown -h "$GTS_HOST_UID:$GTS_HOST_GID"`,
+	}
+}
+
+// repairHostOwnership runs the ownership repair container. A host that runs
+// as root has nothing to repair. A failed repair is logged, not fatal.
+func repairHostOwnership(t *testing.T, repoRoot, image string) {
+	t.Helper()
+	if os.Getuid() == 0 {
+		return
+	}
+	out, err := exec.Command("docker", ownershipRepairArgs(repoRoot, image, os.Getuid(), os.Getgid())...).CombinedOutput()
+	if err != nil {
+		t.Logf("ownership repair failed: %v\n%s", err, out)
+	}
+}
+
+// TestOwnershipRepairArgs checks that the repair container mounts the
+// repository read-write and chowns to the host user.
+func TestOwnershipRepairArgs(t *testing.T) {
+	args := strings.Join(ownershipRepairArgs("/repo", "img", 1000, 1001), " ")
+	for _, want := range []string{"-v /repo:/workspace", "GTS_HOST_UID=1000", "GTS_HOST_GID=1001", "-user 0", "chown -h"} {
+		if !strings.Contains(args, want) {
+			t.Errorf("repair args lack %q: %s", want, args)
+		}
 	}
 }
 
