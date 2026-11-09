@@ -149,3 +149,43 @@ func TestPreciseExternalStateBudgetPropagatesCancellation(t *testing.T) {
 		t.Fatalf("GenerateLanguageWithContext: nil_language=%t err=%v, want nil language and context.Canceled", lang == nil, err)
 	}
 }
+
+// cancelOnFallbackPoll cancels synchronously when the LR(0) fallback first
+// checks Done. The precise state budget of one exhausts before its own
+// 64-iteration cancellation poll.
+type cancelOnFallbackPoll struct {
+	context.Context
+	cancel context.CancelFunc
+	calls  int
+}
+
+func (c *cancelOnFallbackPoll) Done() <-chan struct{} {
+	c.calls++
+	c.cancel()
+	return c.Context.Done()
+}
+
+func TestPreciseExternalStateBudgetCancelsDuringFallback(t *testing.T) {
+	setPreciseBudgetTestEnvironment(t)
+	t.Setenv("GOT_LR_PRECISE_EXTERNAL_STATE_BUDGET", "1")
+	ng, err := Normalize(preciseBudgetGrammar(24))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ng.ExternalSymbols) != 24 || ng.PreferPreciseExternalLexStates || len(ng.Productions) > 400 {
+		t.Fatal("fixture does not exercise the small-grammar fallback path")
+	}
+	base, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx := &cancelOnFallbackPoll{Context: base, cancel: cancel}
+	if ctx.Err() != nil {
+		t.Fatal("context canceled before fallback")
+	}
+	tables, lr, err := buildLRTablesInternal(ctx, ng, false)
+	if ctx.calls == 0 || lr == nil || lr.lalrLR0CoreEntries == 0 || len(lr.lalrLR0ItemSets) == 0 {
+		t.Fatalf("fallback poll not reached: calls=%d lr=%v", ctx.calls, lr != nil)
+	}
+	if tables != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("nil tables=%t err=%v; want cancellation", tables == nil, err)
+	}
+}
