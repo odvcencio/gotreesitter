@@ -247,9 +247,10 @@ type selectedStoreBuildScratch struct {
 }
 
 type selectedOccurrenceFrame struct {
-	occurrence uint32
-	next       uint32
-	hasError   bool
+	occurrence    uint32
+	next          uint32
+	rawPrecedence int32
+	hasError      bool
 }
 
 // SelectedBuildAuxiliaryBytes reports selected-build backing not included in
@@ -1123,7 +1124,8 @@ func appendSelectedRetainedAliasWrapper(
 	store.records = append(store.records, SelectedNodeRecord{
 		FirstChild: first, StartByte: child.StartByte, EndByte: child.EndByte,
 		Symbol: alias, Field: field, ProductionID: productionID, ChildCount: 1,
-		flags: selectedFlags(meta, false, false, false, false, child.HasError()) | child.flags&selectedNodeFlagFragile,
+		DynamicPrecedence: child.DynamicPrecedence,
+		flags:             selectedFlags(meta, false, false, false, false, child.HasError()) | child.flags&selectedNodeFlagFragile,
 	})
 	source, _ := store.PayloadSource(childID)
 	store.appendPayloadSource(source)
@@ -1224,6 +1226,14 @@ func moveSelectedStoreChildren(children []SelectedNodeID, destination, source, c
 }
 
 func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStorePolicy, deltas []int32, retainedCap uint64, poll func() error) error {
+	return s.finishRootsMode(roots, policy, deltas, retainedCap, poll, false)
+}
+
+func (s *SelectedStore) finishRootsWithRawPrecedence(roots []SelectedNodeID, policy SelectedStorePolicy, deltas []int32, retainedCap uint64, poll func() error) error {
+	return s.finishRootsMode(roots, policy, deltas, retainedCap, poll, true)
+}
+
+func (s *SelectedStore) finishRootsMode(roots []SelectedNodeID, policy SelectedStorePolicy, deltas []int32, retainedCap uint64, poll func() error, rawPrecedence bool) error {
 	if len(roots) == 0 {
 		return errors.New("parser-core phase zero: selected store sealed no logical roots")
 	}
@@ -1316,6 +1326,9 @@ func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStore
 		real.flags = selectedNodeFlagNamed
 		real.SupertypeMask = 0
 		real.EndByte = 0
+		if rawPrecedence {
+			real.DynamicPrecedence = 0
+		}
 	}
 	merged := s.children[oldStart : oldStart+uint32(mergedCount)]
 	if !policy.ProjectSyntheticSiblingRoot {
@@ -1324,6 +1337,13 @@ func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStore
 		real.StartByte = s.records[merged[0]-1].StartByte
 	}
 	for childIndex, child := range merged {
+		if synthetic && rawPrecedence {
+			var err error
+			real.DynamicPrecedence, err = checkedSelectedPrecedence(real.DynamicPrecedence, s.records[child-1].DynamicPrecedence)
+			if err != nil {
+				return err
+			}
+		}
 		if policy.ProjectSyntheticSiblingRoot && s.records[child-1].StartByte < real.StartByte {
 			real.StartByte = s.records[child-1].StartByte
 		}
