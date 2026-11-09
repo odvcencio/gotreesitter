@@ -10,6 +10,10 @@ import (
 
 var errEntryWithoutLanguage = errors.New("grammars: language entry has no loader")
 
+// entryAfterFunc is context.AfterFunc. Tests wrap it to learn when the
+// cancellation bridge has stored the parser's flag.
+var entryAfterFunc = context.AfterFunc
+
 // NewParser returns a parser for the entry's language. The parser has no token
 // source of its own, so parser.Parse always uses the DFA lexer. Call
 // entry.Parse to use the registered token source (c, cpp, java, authzed).
@@ -62,7 +66,7 @@ func (e *LangEntry) parse(ctx context.Context, src []byte, strict bool) (*gotree
 	if ctx.Done() != nil {
 		var cancelled uint32
 		parser.SetCancellationFlag(&cancelled)
-		stop := context.AfterFunc(ctx, func() { atomic.StoreUint32(&cancelled, 1) })
+		stop := entryAfterFunc(ctx, func() { atomic.StoreUint32(&cancelled, 1) })
 		defer stop()
 	}
 
@@ -84,10 +88,18 @@ func (e *LangEntry) parse(ctx context.Context, src []byte, strict bool) (*gotree
 
 // +why=`The parser stop reason, not a late context notification, owns the outcome.`
 func entryParseResult(tree *gotreesitter.Tree, err error, ctx context.Context) (*gotreesitter.Tree, error) {
-	if tree != nil && tree.ParseStopReason() == gotreesitter.ParseStopCancelled {
-		return tree, errors.Join(err, ctx.Err())
+	// Only this call's bridge sets the flag, and only after ctx is done, so a
+	// nil ctx.Err() means the parse was not cancelled. Checking it first keeps
+	// an uncancelled Parse from reading the stop reason, which would finish
+	// deferred result work early.
+	ctxErr := ctx.Err()
+	if ctxErr == nil || tree == nil || tree.ParseStopReason() != gotreesitter.ParseStopCancelled {
+		return tree, err
 	}
-	return tree, err
+	if err == nil {
+		return tree, ctxErr
+	}
+	return tree, errors.Join(err, ctxErr)
 }
 
 // NewHighlighter returns a highlighter built from the entry's language and

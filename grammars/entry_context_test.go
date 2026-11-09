@@ -29,16 +29,20 @@ func TestLangEntryParseContextPreCancelled(t *testing.T) {
 	}
 }
 
-// observedContext lets a token source wait for the cancellation bridge to run,
-// without sleeps or relying on how many tokens the parser processes per tick.
-type observedContext struct {
-	context.Context
-	applied chan struct{}
-}
-
-func (c observedContext) Value(any) any { return nil }
-func (c observedContext) AfterFunc(f func()) func() bool {
-	return context.AfterFunc(c.Context, func() { f(); close(c.applied) })
+// observeEntryCancelStore returns a channel that closes after the cancellation
+// bridge has stored the parser's flag. A token source can wait on it without
+// sleeps and without relying on goroutine scheduling. It swaps a package-level
+// hook until the test ends, so use it only in tests that do not call
+// t.Parallel and that run one cancellable parse.
+func observeEntryCancelStore(t *testing.T) <-chan struct{} {
+	t.Helper()
+	applied := make(chan struct{})
+	prev := entryAfterFunc
+	entryAfterFunc = func(ctx context.Context, f func()) func() bool {
+		return prev(ctx, func() { f(); close(applied) })
+	}
+	t.Cleanup(func() { entryAfterFunc = prev })
+	return applied
 }
 
 type entryHookTokens struct {
@@ -74,7 +78,8 @@ func TestLangEntryParseContextDuringParse(t *testing.T) {
 					want = context.DeadlineExceeded
 				}
 				defer cancel()
-				ctx := observedContext{parent, make(chan struct{})}
+				ctx := parent
+				applied := observeEntryCancelStore(t)
 				entered := false
 				entry := *base
 				entry.TokenSourceFactory = func(src []byte, _ *gts.Language) gts.TokenSource {
@@ -84,7 +89,7 @@ func TestLangEntryParseContextDuringParse(t *testing.T) {
 							cancel()
 						}
 						<-ctx.Done()
-						<-ctx.applied
+						<-applied
 					}}
 				}
 				src := []byte(strings.Repeat("int value;\n", 1000))
@@ -103,6 +108,9 @@ func TestLangEntryParseContextDuringParse(t *testing.T) {
 				}
 				if !errors.Is(err, want) {
 					t.Fatalf("error=%v, want %v", err, want)
+				}
+				if !strict && err != want {
+					t.Fatalf("non-strict stop returned %#v, want the bare context error", err)
 				}
 				if tree == nil || tree.ParseStopReason() != gts.ParseStopCancelled {
 					t.Fatal("missing cancelled partial tree")
@@ -255,7 +263,8 @@ func TestLangEntryParseContextIsolation(t *testing.T) {
 	base.Language()
 	parent, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ctx := observedContext{parent, make(chan struct{})}
+	ctx := parent
+	applied := observeEntryCancelStore(t)
 	entered := make(chan struct{})
 	done := make(chan error, 1)
 	cancelledSource := []byte(strings.Repeat("int cancelled;\n", 1000))
@@ -268,7 +277,7 @@ func TestLangEntryParseContextIsolation(t *testing.T) {
 		return &entryHookTokens{TokenSource: ts, hook: func() {
 			close(entered)
 			<-ctx.Done()
-			<-ctx.applied
+			<-applied
 		}}
 	}
 	go func() {
