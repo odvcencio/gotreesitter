@@ -2375,3 +2375,65 @@ func ReviewBuildColdPolicyForTest(p *Parser) error {
 	}
 	return err
 }
+
+func TestCompactMaterializerHiddenPrecedenceAffectsReuse(t *testing.T) {
+	lang := &Language{SymbolMetadata: []SymbolMetadata{{}, {Name: "leaf", Visible: true, Named: true}, {Name: "hidden"}, {Name: "visible", Visible: true, Named: true}, {Name: "root", Visible: true, Named: true}}}
+	p := NewParser(lang)
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	var scratch diagnosticParserCoreMaterializationScratch
+	m := compactMaterializer{parser: p, arena: arena, source: []byte("abc"), materializationScratch: &scratch, nodesByID: make([]*Node, 7), hasErrorByID: make([]bool, 7), points: diagnosticParserCorePointIndex{lineStarts: []uint32{0}}}
+	for i := 1; i <= 3; i++ {
+		m.nodesByID[i] = newLeafNodeInArena(arena, 1, true, uint32(i-1), uint32(i), Point{Column: uint32(i - 1)}, Point{Column: uint32(i)})
+	}
+	for _, x := range []struct {
+		id   core.SubtreeID
+		v    core.MaterializationSubtreeView
+		want int32
+	}{
+		{4, core.MaterializationSubtreeView{Symbol: 2, StartByte: 0, EndByte: 2, Children: []core.SubtreeID{1, 2}, DynamicPrecedence: -7}, -7},
+		{5, core.MaterializationSubtreeView{Symbol: 3, StartByte: 2, EndByte: 3, Children: []core.SubtreeID{3}, DynamicPrecedence: 2}, 2},
+		{6, core.MaterializationSubtreeView{Symbol: 4, StartByte: 0, EndByte: 3, Children: []core.SubtreeID{4, 5}, DynamicPrecedence: 3}, -2},
+	} {
+		if err := m.visit(x.id, &x.v); err != nil {
+			t.Fatalf("id=%d: %v", x.id, err)
+		}
+		if got := m.nodesByID[x.id].dynamicPrecedence; x.id != 6 && got != x.want {
+			t.Fatalf("id=%d precedence=%d want=%d", x.id, got, x.want)
+		}
+	}
+	root := m.nodesByID[6]
+	// A score-zero competing lineage must beat the true -2 reused lineage;
+	// the old projected +5 incorrectly elects the reused lineage.
+	reuseParser := NewParser(buildArithmeticLanguage())
+	var freshEntries, reuseEntries glrEntryScratch
+	var freshGSS, reuseGSS gssScratch
+	fresh := newGLRStackWithScratch(reuseParser.language.InitialState, &freshEntries)
+	fresh.branchOrder = 2
+	other := NewLeafNode(1, true, 0, 3, Point{}, Point{Column: 3})
+	reuseParser.pushStackNode(&fresh, 1, other, &freshEntries, &freshGSS)
+	reused := newGLRStackWithScratch(reuseParser.language.InitialState, &reuseEntries)
+	reused.branchOrder = 1
+	_, bytes, ok := reuseNode(reuseParser, &reused, root, 1, reuseParser.language.InitialState, Token{}, nil, &reuseCursor{sourceLen: 3}, &reuseEntries, &reuseGSS, externalScannerCheckpointRef{})
+	if !ok || bytes != 3 {
+		t.Fatalf("reuseNode bytes=%d ok=%t", bytes, ok)
+	}
+	stacks := []glrStack{fresh, reused}
+	reuseParser.promotePrimaryStack(stacks)
+	if got := stackEntryNode(stacks[0].top()); got != other {
+		t.Fatalf("wrong score winner: reused=%d fresh=%d", reused.score, fresh.score)
+	}
+	if root.dynamicPrecedence != -2 {
+		t.Fatalf("root precedence=%d want -2", root.dynamicPrecedence)
+	}
+	if len(root.children) != 3 {
+		t.Fatalf("projected children=%d want 3", len(root.children))
+	}
+	var visible int32
+	for _, n := range root.children {
+		visible += n.dynamicPrecedence
+	}
+	if visible != 2 {
+		t.Fatalf("visible precedence=%d want 2", visible)
+	}
+}
