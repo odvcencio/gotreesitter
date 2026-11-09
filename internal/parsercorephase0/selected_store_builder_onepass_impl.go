@@ -86,6 +86,9 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 	c.selectedBuild.stack = stack
 	c.selectedBuild.collect = payloads
 	c.selectedBuild.rawRoots = edges
+	if err := poll(); err != nil {
+		return nil, err
+	}
 
 	var occurrences, rawChildSlots, work uint64
 	push := func(payload SubtreeID, alias Symbol, field FieldID) error {
@@ -105,9 +108,30 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 		}
 		occurrences++
 		rawChildSlots += uint64(record.childCount)
-		stack = append(stack, selectedOccurrenceFrame{occurrence: uint32(len(logical))})
+		oldStackCapacity := cap(stack)
+		stack = append(stack, selectedOccurrenceFrame{occurrence: uint32(len(logical)), rawPrecedence: int32(record.dynamicPrecedence)})
+		if cap(stack) != oldStackCapacity {
+			c.selectedBuild.stack = stack
+			if err := poll(); err != nil {
+				return err
+			}
+		}
+		oldPayloadCapacity := cap(payloads)
 		payloads = append(payloads, uint32(payload))
+		if cap(payloads) != oldPayloadCapacity {
+			c.selectedBuild.collect = payloads
+			if err := poll(); err != nil {
+				return err
+			}
+		}
+		oldEdgeCapacity := cap(edges)
 		edges = append(edges, uint32(alias)|uint32(field)<<16)
+		if cap(edges) != oldEdgeCapacity {
+			c.selectedBuild.rawRoots = edges
+			if err := poll(); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 
@@ -170,6 +194,7 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 				return nil, fmt.Errorf("parser-core phase zero: selected symbol %d is outside policy", symbol)
 			}
 
+			rawPrecedence := frame.rawPrecedence
 			hasError := frame.hasError || record.missing || record.symbol == ErrorRegionSymbol
 			folded := false
 			if !record.terminal && record.childCount == 1 && record.fieldCount == 0 && record.aliasCount == 0 && len(logical)-logicalStart == 1 {
@@ -196,11 +221,7 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 						child.flags = selectedFlags(meta, child.Extra(), child.External(), child.Terminal(), child.Missing(), child.HasError()) | child.flags&selectedNodeFlagFragile
 					}
 					child.ProductionID = record.productionID
-					delta, err := checkedSelectedPrecedence(precedenceDeltas[childID-1], int32(record.dynamicPrecedence))
-					if err != nil {
-						return nil, err
-					}
-					precedenceDeltas[childID-1] = delta
+					child.DynamicPrecedence = rawPrecedence
 					if field != 0 && !retainAliasChild {
 						child.Field = field
 					}
@@ -263,7 +284,7 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 				store.records = append(store.records, SelectedNodeRecord{
 					FirstChild: first, StartByte: startByte, EndByte: endByte,
 					Symbol: symbol, Field: incomingField,
-					ProductionID: record.productionID, DynamicPrecedence: int32(record.dynamicPrecedence),
+					ProductionID: record.productionID, DynamicPrecedence: rawPrecedence,
 					ChildCount: uint16(len(children)), flags: flags,
 				})
 				precedenceDeltas = append(precedenceDeltas, int32(record.dynamicPrecedence))
@@ -289,8 +310,15 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 			if field != 0 && !retainAliasChild {
 				store.applyDirectField(logical[logicalStart:], field)
 			}
-			if frameIndex > 0 && hasError {
-				stack[frameIndex-1].hasError = true
+			if frameIndex > 0 {
+				parent := &stack[frameIndex-1]
+				parent.rawPrecedence, err = checkedSelectedPrecedence(parent.rawPrecedence, rawPrecedence)
+				if err != nil {
+					return nil, err
+				}
+				if hasError {
+					parent.hasError = true
+				}
 			}
 			stack = stack[:frameIndex]
 			payloads = payloads[:frameIndex]
@@ -309,16 +337,13 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 			return nil, err
 		}
 	}
-	if err := store.finishRoots(rootIDs, policy, precedenceDeltas, c.limits.MaxSelectedBytes, poll); err != nil {
+	if err := store.finishRootsWithRawPrecedence(rootIDs, policy, precedenceDeltas, c.limits.MaxSelectedBytes, poll); err != nil {
 		return nil, err
 	}
 	if err := store.normalizeGoCompatibility(policy, source, poll); err != nil {
 		return nil, err
 	}
 	if err := store.normalizeResultRootSourceStart(policy, source); err != nil {
-		return nil, err
-	}
-	if err := store.recomputePrecedence(precedenceDeltas); err != nil {
 		return nil, err
 	}
 	if !policy.transientProjection {
