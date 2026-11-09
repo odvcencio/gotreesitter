@@ -135,6 +135,7 @@ func BeginDiagnosticWorkCount() {
 	if activeDiagnosticWorkCount != nil || activeDiagnosticRetryTrace != nil {
 		panic("gotreesitter: diagnostic work-count parse already active")
 	}
+	workCountNestedStart()
 	activeDiagnosticWorkCount = &DiagnosticWorkCount{Contract: DiagnosticWorkCountContract, boardDirect: DiagnosticWorkCountBoardDirect{
 		Schema: "gts-work-count-board-direct/v3", FrontierLexerElectionsAvailable: true,
 	}}
@@ -175,6 +176,7 @@ func EndDiagnosticWorkCount() DiagnosticWorkCount {
 			panic("gotreesitter: diagnostic work-count parse attempt did not finalize")
 		}
 	}
+	workCountNestedFinishSession(activeDiagnosticWorkCount)
 	activeDiagnosticWorkCount.reconcileOutsideAttempt()
 	out := *activeDiagnosticWorkCount
 	workCountEndConvergence()
@@ -311,6 +313,7 @@ func workCountBeginParseAttempt(maxStacks, maxNodes, maxMergePerKey int) workCou
 		entrySnapshot:           workCountValuesSnapshot(c),
 	})
 	if activeDiagnosticWorkCount != nil {
+		workCountNestedBegin(activeDiagnosticWorkCount, index)
 		workCountResetConvergenceAttempt(index)
 	}
 	return workCountAttemptToken(index)
@@ -338,6 +341,9 @@ func workCountResolveParseAttempt(token workCountAttemptToken, maxStacks int, re
 	attempt.ResolvedMaxNodes = maxNodes
 	attempt.capsSnapshot = workCountValuesSnapshot(c)
 	attempt.EntryToCaps = workCountValuesDelta(c, attempt.capsSnapshot, attempt.entrySnapshot)
+	if activeDiagnosticWorkCount != nil {
+		workCountNestedSetPhase(c, uint32(token), 1)
+	}
 }
 
 func workCountBeginFinalizeParseAttempt(token workCountAttemptToken) {
@@ -351,6 +357,9 @@ func workCountBeginFinalizeParseAttempt(token workCountAttemptToken) {
 	}
 	attempt.finalizeSnapshot = workCountValuesSnapshot(c)
 	attempt.CapsToFinalize = workCountValuesDelta(c, attempt.finalizeSnapshot, attempt.capsSnapshot)
+	if activeDiagnosticWorkCount != nil {
+		workCountNestedSetPhase(c, uint32(token), 2)
+	}
 }
 
 func workCountEndFinalizeParseAttempt(token workCountAttemptToken, stopReason ParseStopReason, tree *Tree) {
@@ -368,6 +377,9 @@ func workCountEndFinalizeParseAttempt(token workCountAttemptToken, stopReason Pa
 		attempt.RootEndByte = root.endByte
 	}
 	attempt.finalized = true
+	if activeDiagnosticWorkCount != nil {
+		workCountNestedEnd(c, uint32(token), attempt)
+	}
 }
 
 func diagnosticWorkCountSaturatingAdd(counts *DiagnosticWorkCount, slot *uint64, delta uint64) {
@@ -600,5 +612,186 @@ func workCountRecordNoTreeParentConstruction() {
 	if c := activeDiagnosticWorkCount; c != nil {
 		workCountSaturatingAdd(&c.NoTreeParentConstructionsProxy, 1)
 		workCountSaturatingAdd(&c.ParentConstructionsProxy, 1)
+	}
+}
+
+// Nested attempts share aggregate counters. Track only open attempts so each
+// direct child is subtracted once from its parent’s active phase. Unsupported
+// depth, lifetime, or arithmetic sets the existing overflow flag.
+const workCountNestedDepthLimit = 512
+
+type workCountNestedAttempt struct {
+	id          uint32
+	parent      uint32
+	parentPhase uint8
+	phase       uint8
+	child       [3]DiagnosticWorkCountValues
+}
+
+var workCountNestedAttempts [workCountNestedDepthLimit]workCountNestedAttempt
+var workCountNestedDepth int
+var workCountNestedCount uint32
+var workCountNestedInvalid bool
+
+func workCountNestedStart() {
+	workCountNestedDepth = 0
+	workCountNestedCount = 0
+	workCountNestedInvalid = false
+}
+func workCountNestedFail(c *DiagnosticWorkCount) {
+	workCountNestedInvalid = true
+	if c != nil {
+		c.Overflow = true
+	}
+}
+func workCountNestedBegin(c *DiagnosticWorkCount, id uint32) {
+	if workCountNestedInvalid {
+		if c != nil {
+			c.Overflow = true
+		}
+		return
+	}
+	if id != workCountNestedCount+1 || workCountNestedDepth == workCountNestedDepthLimit {
+		workCountNestedFail(c)
+		return
+	}
+	var parent uint32
+	var phase uint8
+	if workCountNestedDepth > 0 {
+		frame := &workCountNestedAttempts[workCountNestedDepth-1]
+		parent = frame.id
+		phase = frame.phase
+	}
+	workCountNestedAttempts[workCountNestedDepth] = workCountNestedAttempt{id: id, parent: parent, parentPhase: phase}
+	workCountNestedCount = id
+	workCountNestedDepth++
+}
+func workCountNestedSetPhase(c *DiagnosticWorkCount, id uint32, phase uint8) {
+	if workCountNestedInvalid {
+		if c != nil {
+			c.Overflow = true
+		}
+		return
+	}
+	if workCountNestedDepth == 0 || id == 0 || phase > 2 {
+		workCountNestedFail(c)
+		return
+	}
+	frame := &workCountNestedAttempts[workCountNestedDepth-1]
+	if frame.id != id || (phase != frame.phase+1 && !(phase == 2 && frame.phase == 0)) {
+		workCountNestedFail(c)
+		return
+	}
+	if phase == 2 && frame.phase == 0 { // No caps: the old public entry phase is empty.
+		merged, ok := workCountNestedVectorAdd(frame.child[0], frame.child[1])
+		if !ok {
+			workCountNestedFail(c)
+			return
+		}
+		frame.child[0] = DiagnosticWorkCountValues{}
+		frame.child[1] = merged
+	}
+	frame.phase = phase
+}
+func workCountNestedVectorAdd(a, b DiagnosticWorkCountValues) (DiagnosticWorkCountValues, bool) {
+	var out DiagnosticWorkCountValues
+	valid := true
+	workCountForEachValue(&out, func(dst *uint64, x, y uint64) {
+		if ^uint64(0)-x < y {
+			valid = false
+			return
+		}
+		*dst = x + y
+	}, a, b)
+	return out, valid
+}
+func workCountNestedVectorSub(a, b DiagnosticWorkCountValues) (DiagnosticWorkCountValues, bool) {
+	var out DiagnosticWorkCountValues
+	valid := true
+	workCountForEachValue(&out, func(dst *uint64, x, y uint64) {
+		if x < y {
+			valid = false
+			return
+		}
+		*dst = x - y
+	}, a, b)
+	return out, valid
+}
+func workCountNestedEnd(c *DiagnosticWorkCount, id uint32, attempt *DiagnosticWorkCountAttempt) {
+	if workCountNestedInvalid {
+		if c != nil {
+			c.Overflow = true
+		}
+		return
+	}
+	if id == 0 || id > workCountNestedCount || workCountNestedDepth == 0 || workCountNestedAttempts[workCountNestedDepth-1].id != id || attempt == nil {
+		workCountNestedFail(c)
+		return
+	}
+	rec := &workCountNestedAttempts[workCountNestedDepth-1]
+	// Record a child's full inclusive interval exactly once in its parent's phase.
+	inclusive := attempt.Counters
+	totalChildren, ok := workCountNestedVectorAdd(rec.child[0], rec.child[1])
+	if !ok {
+		workCountNestedFail(c)
+		return
+	}
+	totalChildren, ok = workCountNestedVectorAdd(totalChildren, rec.child[2])
+	if !ok {
+		workCountNestedFail(c)
+		return
+	}
+	exclusive, ok := workCountNestedVectorSub(inclusive, totalChildren)
+	if !ok {
+		workCountNestedFail(c)
+		return
+	}
+	entry, ok := workCountNestedVectorSub(attempt.EntryToCaps, rec.child[0])
+	if !ok {
+		workCountNestedFail(c)
+		return
+	}
+	loop, ok := workCountNestedVectorSub(attempt.CapsToFinalize, rec.child[1])
+	if !ok {
+		workCountNestedFail(c)
+		return
+	}
+	final, ok := workCountNestedVectorSub(attempt.Finalize, rec.child[2])
+	if !ok {
+		workCountNestedFail(c)
+		return
+	}
+	phaseSum, ok := workCountNestedVectorAdd(entry, loop)
+	if !ok {
+		workCountNestedFail(c)
+		return
+	}
+	phaseSum, ok = workCountNestedVectorAdd(phaseSum, final)
+	if !ok || phaseSum != exclusive {
+		workCountNestedFail(c)
+		return
+	}
+	if rec.parent != 0 {
+		if workCountNestedDepth < 2 || workCountNestedAttempts[workCountNestedDepth-2].id != rec.parent || rec.parentPhase > 2 {
+			workCountNestedFail(c)
+			return
+		}
+		parent := &workCountNestedAttempts[workCountNestedDepth-2]
+		next, valid := workCountNestedVectorAdd(parent.child[rec.parentPhase], inclusive)
+		if !valid {
+			workCountNestedFail(c)
+			return
+		}
+		parent.child[rec.parentPhase] = next
+	}
+	attempt.EntryToCaps = entry
+	attempt.CapsToFinalize = loop
+	attempt.Finalize = final
+	attempt.Counters = exclusive
+	workCountNestedDepth--
+}
+func workCountNestedFinishSession(c *DiagnosticWorkCount) {
+	if workCountNestedInvalid || workCountNestedDepth != 0 || c == nil || int(workCountNestedCount) != len(c.Attempts) {
+		workCountNestedFail(c)
 	}
 }
