@@ -1,6 +1,7 @@
 package grammars
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestLangEntryParseMatchesParseFile(t *testing.T) {
 				t.Fatalf("%s: expected a registered token source", name)
 			}
 			src := []byte(ParseSmokeSample(name))
-			got, err := entry.Parse(src)
+			got, err := entry.Parse(context.Background(), src)
 			if err != nil {
 				t.Fatalf("entry.Parse: %v", err)
 			}
@@ -55,7 +56,7 @@ func TestLangEntryParseUsesDFAWithoutTokenSource(t *testing.T) {
 		t.Skip("python gained a registered token source")
 	}
 	src := []byte(ParseSmokeSample("python"))
-	got, err := entry.Parse(src)
+	got, err := entry.Parse(context.Background(), src)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +110,7 @@ func TestLangEntryNewHighlighterUsesTokenSource(t *testing.T) {
 
 func TestLangEntryWithoutLoaderReturnsError(t *testing.T) {
 	var entry LangEntry
-	if _, err := entry.Parse([]byte("x")); err == nil {
+	if _, err := entry.Parse(context.Background(), []byte("x")); err == nil {
 		t.Error("Parse on an entry without a loader returned no error")
 	}
 	if _, err := entry.NewHighlighter(); err == nil {

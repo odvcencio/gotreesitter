@@ -7,6 +7,16 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `grammars.LangEntry.Parse` now takes a `context.Context` as its
+  first argument. Replace `entry.Parse(src)` with `entry.Parse(ctx, src)` (or
+  `context.Background()` when cancellation is not needed). Context cancellation
+  and deadlines stop parser work cooperatively and return a context error.
+- Add `LangEntry.ParseStrict(ctx, src)` to report early stops while preserving
+  registered token-source selection. Non-nil trees remain caller-owned even
+  when an error is returned.
+
 ## [0.57.0] - 2026-11-07
 
 ### Highlights

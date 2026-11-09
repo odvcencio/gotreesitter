@@ -89,15 +89,25 @@ after an early stop.
 
 ## Registered token sources
 
-`gotreesitter.NewParser(lang).Parse(src)` always lexes with the built-in DFA lexer. Five languages also register a hand-written token source in the `grammars` package: authzed, c, cpp, java and json. `grammars.ParseFile` uses it. The `LangEntry` helpers make the same choice:
+`gotreesitter.NewParser(lang).Parse(src)` always lexes with the built-in DFA lexer. Four languages also register a hand-written token source in the `grammars` package: authzed, c, cpp and java. `grammars.ParseFile` uses it. The `LangEntry` helpers make the same choice:
 
 ```go
 entry := grammars.DetectLanguageByName("json")
-tree, err := entry.Parse(src)        // token source when registered, DFA otherwise
+tree, err := entry.Parse(ctx, src)    // token source when registered, DFA otherwise
 hl, err := entry.NewHighlighter()    // same choice for highlighting
 ```
 
 `entry.NewParser()` returns a plain parser. It has no token source, so call `entry.Parse` to use the registered one. The hand-written source is not always the better lexer: on one real C file it reported a parse error that the DFA lexer did not. If you depend on exact trees for these languages, compare both on your own input.
+
+Pass a non-nil context to `entry.Parse` or `entry.ParseStrict`. Use
+`context.Background()` when cancellation is not needed, and
+`context.WithTimeout` or `context.WithDeadline` to bound a request. Both methods
+return a context error when cancellation stops parsing. `ParseStrict` also
+preserves `ErrParseStoppedEarly` for partial trees and reports non-context early
+stops. Syntax errors still live in the returned tree. Release every non-nil tree,
+even when an error accompanies it. A parse that completed before cancellation
+keeps its result. Cancellation is cooperative and cannot interrupt a blocking
+loader, scanner or token source.
 
 ## Tree lookup helpers
 
