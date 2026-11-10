@@ -36,7 +36,10 @@ type Golden struct {
 // Replay parses g.Src with the golden's tables. It returns the trace, the
 // visible-tree digest, the stop reason and the parser (for arena checks).
 func Replay(g *Golden) (trace []string, digest, stop string, p *ccore.Parser) {
-	p = ccore.NewParser(ccore.Config{Tables: g.Tables})
+	p, err := ccore.NewParser(ccore.Config{Tables: g.Tables})
+	if err != nil {
+		panic("ccoretest: golden " + g.Name + ": " + err.Error())
+	}
 	p.SetLogger(func(s string) { trace = append(trace, s) })
 	_, stop = p.Parse(g.Src)
 	p.SetLogger(nil)

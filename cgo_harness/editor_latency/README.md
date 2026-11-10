@@ -107,10 +107,15 @@ or unfinished evidence fails closed.
 
 `receipt.json`, `counters.json`, admissions, raw randomized output, normalized
 output, benchstat tables, and Docker logs form the evidence. `METRIC:` lines
-appear in the job log; `summary.md` becomes the GitHub job summary. CI retains
-the artifact for 90 days. A failed timing gate still writes the complete
-receipt and summary, so its cause remains reviewable. A correctness or resource
-failure leaves its logs and blocks the job before timing.
+appear in the job log; `summary.md` becomes the GitHub job summary. CI runs one
+job per language (`--languages <language>`), so each job writes a subset receipt
+(schema `w5-editor-latency-subset-receipt-v1`, `complete: false`, with a
+`languages` list) that covers its language only. The workflow uploads no
+artifact for this job: the evidence stays in the runner's job folder, and only
+the job log and the job summary are kept (they follow the repository's
+log retention). A failed timing gate still writes the receipt and summary, so
+its cause remains reviewable. A correctness or resource failure leaves its logs
+on the runner and blocks the job before timing.
 
 The generated-fixture `TestW5EditorLatencyGate` and manual slow-tier job remain
 independent gates. This timing gate does not change their ceilings, the engine

@@ -1,5 +1,20 @@
 # CI gate coverage map
 
+## internal/ccore equality job and race lanes, November 10, 2026
+
+`internal/ccore` is the new parser core. Nothing in the library calls it
+yet; these gates cover it before a parse route exists.
+
+| Gate | What it runs | What it proves |
+|---|---|---|
+| Job `ccore-equality-cgo` (matrix: json, python, c, typescript; in the `build` aggregate) | `cgo_harness/docker/ccore_equality.sh <language>` in the parity container | `internal/ccore` equals pinned C on the parse log, the visible-tree digest, the subtree records, the edit sessions, the lookup tables, scanner isolation and (json) the committed goldens. The script fails when a test it runs has no `PASS` line or no positive `CCCOUNT` line; its `--self-test` step proves that. Inputs are files under `testdata` folders (named in the tests), frozen copies in `cgo_harness/testdata/ccore/`, and literals. |
+| Race lane `ccore` | `go test -race` of `./internal/ccore` | the core's unit tests and golden replays |
+| Race lane `ccore-bind` | `go test -race` of `./internal/ccore/bind` | registration, `New`, `FuncScanner` and the import guard (the root package links this package in every build) |
+| Race lane `ccore-bindtest` | `go test -race` of `./internal/ccore/bind/bindtest` | the test-support wrapper that the equality tests use |
+
+Campaign tools that count differences (mutation, census, share counters)
+are not part of the repository; they print and assert nothing.
+
 ## Grammar-lock stamp receipts, September 20, 2026
 
 Ten `cgo_harness` receipt tests pinned a `*GrammarLockSHA256` constant.

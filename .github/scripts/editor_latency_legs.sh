@@ -13,8 +13,10 @@
 # "editor_latency (<language>)" exists, is completed, and has conclusion
 # "success". It also fails when a page's total_count differs from the jobs read,
 # when an input is unreadable, or on any other error. The matrix aggregate
-# (needs.editor_latency.result) is not enough on its own: a language job that
-# is cancelled before it gets a runner can leave the aggregate at success.
+# (needs.editor_latency.result) is expected to fail when a language job fails or
+# is cancelled. This per-language check is a precaution against a case that was
+# reported for GitHub but not observed here: a job cancelled before it gets a
+# runner leaving the aggregate at success.
 #
 # Two entries with one name fail. After "re-run failed jobs" the attempt's list
 # holds every job exactly once, the jobs that were not re-run with their earlier
@@ -42,11 +44,12 @@ all=$(jq -s 'map(if type == "array" then .[] else . end)' "$jobs_file") || fail 
 pages=$(jq 'length' <<<"$all")
 ((pages > 0)) || fail 'jobs file is empty'
 jq -e 'all(type == "object" and (.jobs | type == "array"))' <<<"$all" > /dev/null || fail 'a page has no jobs array'
-total=$(jq -r '[.[] | .total_count] | if all(type == "number") then (.[0] // 0) else -1 end' <<<"$all")
-read_count=$(jq '[.[] | .jobs | length] | add' <<<"$all")
-if ((total < 0)) || ((total != read_count)); then
-	fail "read $read_count jobs but total_count is $total (missing page?)"
-fi
+# total_count must be a number equal to its floor (so not a string, null or a
+# fraction) and equal to the jobs read. The value is tested, not its text form,
+# which differs between jq versions (before 1.7, 10.0 prints as 10).
+jq -e '([.[] | .jobs | length] | add) as $n
+	| all(.[]; (.total_count | type == "number" and . == floor) and .total_count == $n)' <<<"$all" > /dev/null ||
+	fail "total_count is missing, not an integer, or differs from the $(jq '[.[] | .jobs | length] | add' <<<"$all") jobs read (missing page?)"
 
 bad=0
 while IFS= read -r language; do

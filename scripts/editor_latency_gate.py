@@ -820,7 +820,11 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
             write_json(out / "environment.json", env)
             private_receipts = {}
             if private_setting:
-                setup = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1", "cd /campaign/modules/base; go mod tidy", "cd /campaign/modules/head; go mod tidy"])
+                # Both campaign modules use the head's cgo_harness. Its test files may
+                # import packages that only the head's root has; "go mod tidy" loads
+                # those tests too and fails on the base. -e lets tidy finish; the go
+                # test build below still fails on any package the driver needs.
+                setup = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1", "cd /campaign/modules/base; go mod tidy -e", "cd /campaign/modules/head; go mod tidy -e"])
                 run_checked(common + ["--label", "w5-oracle-setup", "--wall-timeout", "20m", "--", setup])
             for f in fixtures:
                 language = f["language"]
@@ -846,7 +850,7 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                     # caller-provided source directory/extra grammar lock.
                     commands.append("unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK; export GTS_PARITY_C_REF_BUILD_CACHE=off")
                 for role, revision in (("base", base_revision), ("head", head_revision)):
-                    commands += [f"cd /campaign/modules/{role}", "go mod tidy", f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json go test -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m"]
+                    commands += [f"cd /campaign/modules/{role}", "go mod tidy -e", f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json go test -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m"]
                 with (out / ("correctness-" + language + ".log")).open("w") as log:
                     run_checked(worker_common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
                 for directory, inputs, expected in receipts.values(): verify_private_oracle(directory, inputs, expected)

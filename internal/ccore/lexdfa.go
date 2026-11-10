@@ -520,8 +520,11 @@ const (
 // holds the same ranges as for one transition {14, 16-18} -> 8, which is not
 // a map entry. The rule reads it as one transition. A real case of two such
 // transitions is angular's lex state 14, where the second transition's range
-// lies below the first's, so the rule keeps the map. Over the 116,537 pinned
-// states without an end transition the rule gives C's step in every state.
+// lies below the first's, so the rule keeps the map. The blob also merges
+// consecutive map entries of one target into one range (entries 2 to 8, each
+// -> 2, become [2,8] -> 2), which shortens the run and can hide a map that C
+// has. Over the 116,537 pinned states without an end transition the rule gives
+// C's step in every state.
 // Exact repair: keep C's end-of-input step at import.
 func ccNulNext(st *LexDFAState) int32 {
 	run := 0

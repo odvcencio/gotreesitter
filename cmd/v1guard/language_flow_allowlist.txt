@@ -1,5 +1,5 @@
 # R6 baseline. Counts may only shrink; remove a row when its last use leaves.
-# prefixes: parser,glr,lexer,lex_,scanner,external_scanner,incremental,conflict,token_invariant,result_compat
+# prefixes: parser,glr,lexer,lex_,scanner,external_scanner,incremental,conflict,token_invariant,result_compat,ccore
 1	glr_forest.go|compare|cmake
 1	glr_forest.go|switch|agda
 1	glr_forest.go|switch|authzed

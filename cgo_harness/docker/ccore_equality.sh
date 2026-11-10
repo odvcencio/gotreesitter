@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# Equality of internal/ccore with pinned C for ONE grammar, in one container.
+#
+#   bash cgo_harness/docker/run_parity_in_docker.sh --label ci-ccore-<language> ... \
+#     -- "bash /workspace/cgo_harness/docker/ccore_equality.sh <language>"
+#
+# The checks are the tests in cgo_harness/ccore_*_test.go: parse log (trace),
+# visible-tree digest, subtree records, edit sessions, lookup tables and the
+# committed goldens. Every input is a file under a testdata folder (named in
+# the tests) or a literal or generated input in the tests; no private input is
+# read. A difference fails the run. Nothing here parses through internal/ccore
+# outside tests.
+#
+# A test counts only when its output has a "--- PASS: <test>" line AND a
+# "CCCOUNT test=<test> set=<set> checked=<n>" line with n > 0 for the input
+# set that was asked for. A wrong -test.run pattern, a skipped test or a test
+# that compared nothing therefore fails the script.
+#
+#   bash cgo_harness/docker/ccore_equality.sh --self-test
+# runs check_output on fake outputs and proves that each of those cases fails.
+set -euo pipefail
+
+# The campaign switches must not be set in a required check.
+unset CCORE_REPORT_ONLY CCORE_UPDATE_GOLDEN
+
+# check_output <test> <set> <output file>: succeeds when the output holds the
+# PASS line and a count line for the set with a positive count. It prints the
+# count on success and the reason on failure.
+check_output() {
+  local test=$1 set=$2 file=$3
+  if ! grep -q -- "^--- PASS: ${test} " "$file"; then
+    echo "no '--- PASS: ${test}' line" >&2; return 1
+  fi
+  local n
+  n=$(sed -n "s/^CCCOUNT test=${test} set=${set} checked=\([0-9][0-9]*\)\$/\1/p" "$file" | awk '{s += $1} END {print s + 0}')
+  if [ "$n" -le 0 ]; then
+    echo "no positive 'CCCOUNT test=${test} set=${set}' line (checked ${n})" >&2; return 1
+  fi
+  echo "$n"
+}
+
+if [ "${1:-}" = "--self-test" ]; then
+  d=$(mktemp -d); trap 'rm -rf "$d"' EXIT
+  fails=0
+  expect() { # description, expected exit (0 or 1), test, set, file
+    local desc=$1 want=$2; shift 2
+    if check_output "$@" >/dev/null 2>&1; then got=0; else got=1; fi
+    if [ "$got" = "$want" ]; then echo "ok   self-test: ${desc}"; else echo "FAIL self-test: ${desc} (exit ${got}, want ${want})"; fails=1; fi
+  }
+  printf '%s\n' '=== RUN   TestX' 'CCCOUNT test=TestX set=json checked=5' '--- PASS: TestX (0.01s)' 'PASS' >"$d/good"
+  printf '%s\n' '=== RUN   TestX' 'CCCOUNT test=TestX set=json checked=5' 'PASS' >"$d/nopass"
+  printf '%s\n' '=== RUN   TestX' 'CCCOUNT test=TestX set=json checked=0' '--- PASS: TestX (0.01s)' 'PASS' >"$d/zero"
+  printf '%s\n' '=== RUN   TestX' '--- PASS: TestX (0.00s)' 'PASS' >"$d/nocount"
+  printf '%s\n' '=== RUN   TestX' '--- SKIP: TestX (0.00s)' 'PASS' >"$d/skip"
+  printf '%s\n' 'testing: warning: no tests to run' 'PASS' >"$d/norun"
+  printf '%s\n' '=== RUN   TestX' 'CCCOUNT test=TestX set=other checked=9' '--- PASS: TestX (0.01s)' 'PASS' >"$d/otherset"
+  expect "good output is accepted" 0 TestX json "$d/good"
+  expect "missing PASS line fails" 1 TestX json "$d/nopass"
+  expect "zero count fails" 1 TestX json "$d/zero"
+  expect "no count line fails" 1 TestX json "$d/nocount"
+  expect "skipped test fails" 1 TestX json "$d/skip"
+  expect "pattern that matches no test fails" 1 TestX json "$d/norun"
+  expect "count of another set fails" 1 TestX json "$d/otherset"
+  expect "misspelled test name fails" 1 TestXx json "$d/good"
+  exit "$fails"
+fi
+
+lang=${1:?usage: ccore_equality.sh <language> | --self-test}
+cd "$(dirname "${BASH_SOURCE[0]}")/.."   # cgo_harness
+
+# Input sets per language (CCORE_LANG values), and the edit-session set.
+case "$lang" in
+  json)       sets="json json-eof json-rec-d"; inc="json-session"; golden=1 ;;
+  python)     sets="python python-eof python-session"; inc="python-session"; golden=0 ;;
+  c)          sets="c c-eof c-session"; inc=""; golden=0 ;;
+  typescript) sets="typescript typescript-session"; inc="typescript-session"; golden=0 ;;
+  *) echo "ccore_equality.sh: no input sets for language '$lang'" >&2; exit 2 ;;
+esac
+
+export GOWORK=off GOMAXPROCS=1
+bin="${TMPDIR:-/tmp}/ccore-equality.$$.test"
+trap 'rm -f "$bin"' EXIT
+go test -c -tags 'cgo treesitter_c_parity' -o "$bin" .
+
+failed=0
+total_trace=0 total_digest=0 total_records=0 total_inc=0
+last_n=0
+run() { # test-name, set name for the count line, output-line prefix to count, then NAME=value pairs
+  local test=$1 set=$2 prefix=$3; shift 3
+  local out; out=$(mktemp)
+  last_n=0
+  if env "$@" "$bin" -test.run "^${test}\$" -test.count=1 -test.v -test.timeout=40m >"$out" 2>&1; then
+    local n
+    if n=$(check_output "$test" "$set" "$out" 2>"$out.why"); then
+      last_n=$(grep -c "^${prefix} " "$out" || true)
+      echo "ok   ${test} $* checked=${n} lines=${last_n}"
+    else
+      echo "FAIL ${test} $*: $(cat "$out.why")"; tail -n 20 "$out"; failed=1
+    fi
+  else
+    echo "FAIL ${test} $*"; tail -n 40 "$out"; failed=1
+  fi
+  rm -f "$out" "$out.why"
+}
+
+norm="CCORE_NORM_NAMES=1"; [ "$lang" = json ] && norm="CCORE_NORM_NAMES="
+for set in $sets; do
+  run TestCcoreTrace   "$set" CCTRACE  "$norm" CCORE_LANG=$set; total_trace=$((total_trace + last_n))
+  run TestCcoreDigest  "$set" CCDIGEST "$norm" CCORE_LANG=$set; total_digest=$((total_digest + last_n))
+  run TestCcoreRecords "$set" CCREC    "$norm" CCORE_LANG=$set; total_records=$((total_records + last_n))
+done
+if [ -n "$inc" ]; then
+  run TestCcoreIncremental "$inc" CCINC "$norm" CCORE_INC_SET=$inc; total_inc=$((total_inc + last_n))
+fi
+run TestCcoreTables "$lang" CCTABLES CCORE_LANGS=$lang
+run TestCcoreScannerIsolation "$lang" CCCOUNT "$norm" CCORE_LANG=$lang
+if [ "$golden" = 1 ]; then run TestCcoreGolden json CCGOLDEN CCORE_LANG=$lang; fi
+
+echo "SUMMARY language=$lang trace_lines=$total_trace digest_lines=$total_digest record_lines=$total_records incremental_lines=$total_inc failed=$failed"
+# A run that skipped every input proves nothing.
+if [ "$total_trace" -eq 0 ] || [ "$total_digest" -eq 0 ] || [ "$total_records" -eq 0 ]; then
+  echo "no input was compared for $lang" >&2
+  failed=1
+fi
+exit "$failed"

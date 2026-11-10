@@ -151,9 +151,9 @@ func TestInvalidNextManyTargets(t *testing.T) {
 	if next, _ := ccInvalidNext(&st); next != 1 {
 		t.Fatalf("a later qualifying target won: got %d, want 1", next)
 	}
-	// Two targets qualify. C takes the first condition that holds for -1, and
-	// such a condition starts at code point 1: target 2's does, at index 1;
-	// target 3's first range starts at 9 and does not hold for -1.
+	// Two targets qualify. The rule's tie-break is the target whose first
+	// range starting at code point 1 comes first: target 2's, at index 1.
+	// Target 3's first range starts at 9.
 	st.Trans = []LexTrans{{Lo: 9, Hi: full, Next: 3, Skip: true}, {Lo: 1, Hi: full, Next: 2}, {Lo: 1, Hi: 8, Next: 3}}
 	if next, skip := ccInvalidNext(&st); next != 2 || skip {
 		t.Fatalf("got %d skip=%v, want 2 without skip", next, skip)
@@ -253,6 +253,11 @@ func TestNulNextFollowsTheGeneratorsMap(t *testing.T) {
 			one(0, 1), one('(', 234), one('*', 273), one('/', 325), one('>', 164), one('[', 279), one('\\', 324),
 			one('\'', 323), one(')', 323), one('.', 323), one('<', 323), one('=', 323), one(']', 323),
 			{Lo: '\t', Hi: '\r', Next: 323}, one(' ', 323), {Lo: 1, Hi: 0x10FFFF, Next: 327}}, 1},
+		// A range adjacent to the next cannot share its character set (a set
+		// joins adjacent ranges), so 13 -> 9 is a map entry of its own.
+		{"an adjacent range stops the walk back", []LexTrans{
+			one(0, 1), one(2, 2), one(4, 3), one(6, 4), one(8, 5), one(10, 6), one(12, 7), one(13, 9),
+			{Lo: 14, Hi: 20, Next: 9}}, 1},
 		// The shape the blob cannot tell apart: read as one transition
 		// {14, 16-18} -> 8, so the map has seven entries and no step is taken.
 		// If C wrote 14 -> 8 in the map and the range in an "if", C takes the

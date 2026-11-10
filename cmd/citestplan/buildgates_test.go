@@ -103,7 +103,7 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	if out, err := run(nil); err != nil {
 		t.Fatalf("successful code gates rejected: %v\n%s", err, out)
 	}
-	for _, gate := range []string{"exhaustive_parity_scope", "phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff", "editor_latency", "wasm_cross_build"} {
+	for _, gate := range []string{"exhaustive_parity_scope", "phase0_tagged_suite", "parity-cgo", "glr_gss_demotion_scaling_gate", "apidiff", "editor_latency", "wasm_cross_build", "ccore-equality-cgo"} {
 		t.Run(gate, func(t *testing.T) {
 			if !containsGate(build.Needs, gate) {
 				t.Fatalf("build.needs omits %s", gate)

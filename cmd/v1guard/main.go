@@ -24,7 +24,7 @@ import (
 // packages. Tests are excluded from the R6 language rule. A registry records
 // the prefixes it was written under, so a PR that widens this list is compared
 // with the base only inside the base's scope.
-var rootEnginePrefixes = []string{"parser", "glr", "lexer", "lex_", "scanner", "external_scanner", "incremental", "conflict", "token_invariant", "result_compat"}
+var rootEnginePrefixes = []string{"parser", "glr", "lexer", "lex_", "scanner", "external_scanner", "incremental", "conflict", "token_invariant", "result_compat", "ccore"}
 
 // legacyEnginePrefixes is the scope of a registry that has no prefixes header.
 var legacyEnginePrefixes = []string{"parser", "glr", "lexer", "lex_", "scanner", "external_scanner"}
