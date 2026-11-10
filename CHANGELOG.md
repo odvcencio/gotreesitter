@@ -11,9 +11,7 @@ for tags and release notes while still in `0.x`.
 
 - A new parser core, `internal/ccore`, is in the tree. It is built to make the
   same decisions as the C tree-sitter 0.27.1 runtime, and CI compares its
-  decision trace with pinned C's line for line. Its purpose is exact tree-sitter
-  behaviour in pure Go on every target Go builds for. Grammars move to it in
-  later releases.
+  decision trace with pinned C's line for line.
 - Public parsing keeps the existing engine routing; no public API reaches the
   new core.
 - Add `LangEntry.ParseContext` and `LangEntry.ParseStrict` for cancellation and

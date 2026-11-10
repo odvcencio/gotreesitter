@@ -28,9 +28,8 @@ allocation. See [CHANGELOG.md](CHANGELOG.md) for changes and upgrade notes,
 and [docs/v1-design.md](docs/v1-design.md) for the v1 plan.
 
 On `main`, not yet released: `internal/ccore`, a C-faithful parser core that CI
-compares with pinned C. Only tests parse through it; the next release follows
-when the first grammars run on it. See the Unreleased section of the changelog
-and [docs/roadmap.md](docs/roadmap.md).
+compares with pinned C. Only tests parse through it. See the Unreleased section
+of the changelog.
 
 ## Quick start
 

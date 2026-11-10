@@ -29,7 +29,7 @@ See the [per-language matrix](external-scanners.md#incremental-reuse-certificati
 
 **Arena allocator** — Nodes are allocated from slab-based arenas to reduce GC pressure. Arenas are released in bulk when a tree is freed.
 
-**C-faithful core (`internal/ccore`)** — A second parser core, built to make the same decisions as the C tree-sitter 0.27.1 runtime: parser, stack, subtrees, lexer walk, error recovery, external-scanner protocol, tree edits, and node reuse. It imports only the standard library. No public API reaches it; only tests parse through it. The required CI job `ccore-equality-cgo` compares it with pinned C for json, python, c, and typescript on every pull request that changes code; see [ci-gate-coverage.md](ci-gate-coverage.md). Routing grammars to it is planned work; see the [roadmap](roadmap.md).
+**C-faithful core (`internal/ccore`)** — A second parser core, built to make the same decisions as the C tree-sitter 0.27.1 runtime: parser, stack, subtrees, lexer walk, error recovery, external-scanner protocol, tree edits, and node reuse. It imports only the standard library. No public API reaches it; only tests parse through it. The required CI job `ccore-equality-cgo` compares it with pinned C for json, python, c, and typescript on every pull request that changes code; see [ci-gate-coverage.md](ci-gate-coverage.md).
 
 **Query engine** — S-expression pattern compiler with predicate evaluation and streaming cursor iteration. It supports all standard tree-sitter predicates (`#eq?`, `#match?`, `#any-of?`, `#has-ancestor?`, and similar predicates) and directive annotations (`#set!`, `#offset!`, `#select-adjacent!`, `#strip!`).
 
