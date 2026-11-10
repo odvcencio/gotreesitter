@@ -82,9 +82,11 @@ func TestRootDependencyClosure(t *testing.T) {
 	}
 	cmd := exec.Command(gotool, "list", "-deps", ".")
 	cmd.Dir = repositoryRoot(t)
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("go list -deps .: %v", err)
+		t.Fatalf("go list -deps .: %v\n%s", err, stderr.String())
 	}
 	deps := strings.Fields(string(out))
 	if len(deps) < 10 {

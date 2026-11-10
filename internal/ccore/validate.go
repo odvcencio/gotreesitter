@@ -18,10 +18,11 @@ var (
 	ErrNoLexAutomaton = errors.New("ccore: tables have no lex automaton")
 	ErrKeywordCapture = errors.New("ccore: keyword capture symbol not below 255")
 	ErrShiftState     = errors.New("ccore: shift action to a state above 65,535")
-	ErrShiftTarget    = errors.New("ccore: shift action to a state outside the lex modes (at or above the state count)")
-	ErrGotoTarget     = errors.New("ccore: goto target outside the lex modes (at or above the state count)")
+	ErrShiftTarget    = errors.New("ccore: shift action to a state at or above len(LexModes)")
+	ErrGotoTarget     = errors.New("ccore: goto target at or above len(LexModes)")
 	ErrGotoTooLarge   = errors.New("ccore: large-table goto target above 65,535")
 	ErrScannerMissing = errors.New("ccore: tables have external symbols but the config has no scanner")
+	ErrExternalRow    = errors.New("ccore: an external valid-symbol row is shorter than the external symbols")
 )
 
 // maxIndex is the largest state, token or symbol count the core's 16-bit
@@ -92,15 +93,26 @@ func (c Config) validate() error {
 	if len(t.ExternalSymbols) != 0 && c.Scanner == nil {
 		return fmt.Errorf("%w (%d external symbols)", ErrScannerMissing, len(t.ExternalSymbols))
 	}
+	// The scanner port reads the valid-symbol row of an external lex state by
+	// external token index (scanner.go passes rows[ExternalLexState]); a row
+	// shorter than the external symbols would be read past its end. Row 0 is
+	// "no external scanning" and is never passed. An empty list means the rows
+	// are derived from the action table.
+	for i, row := range t.ExternalLexStates {
+		if i > 0 && len(row) < len(t.ExternalSymbols) {
+			return fmt.Errorf("%w (row %d has %d entries, %d external symbols)", ErrExternalRow, i, len(row), len(t.ExternalSymbols))
+		}
+	}
 	return nil
 }
 
 // validateGotos checks every goto target of the parse tables: the dense rows,
 // the derived dense rows of small states, the compressed small-state table,
-// the sparse small-state lookups and the large-state goto map. A goto target is the value stored for a nonterminal
-// (a symbol at or above the token count); it must be a state, that is, below
-// len(LexModes), because the parse loop indexes LexModes with it. A large-table
-// goto above 65,535 does not fit C's 16-bit state.
+// the sparse small-state lookups and the large-state goto map. A goto target
+// is the value stored for a nonterminal (a symbol at or above the token count);
+// it must be a state, that is, below len(LexModes), because the parse loop
+// indexes LexModes with it. A large-table goto above 65,535 does not fit C's
+// 16-bit state.
 func (t *Tables) validateGotos() error {
 	states := uint64(len(t.LexModes))
 	bad := func(where string, v uint64) error {

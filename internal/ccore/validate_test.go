@@ -137,6 +137,12 @@ func TestNewParserRefuses(t *testing.T) {
 			c.Actions = []ccore.ActionEntry{{Actions: []ccore.Action{{Type: ccore.ActionShift, State: 65536}}}}
 			return ccore.Config{Tables: c}
 		}},
+		{"external valid-symbol row shorter than the external symbols", ccore.ErrExternalRow, func() ccore.Config {
+			c := clone()
+			c.ExternalSymbols = []ccore.Symbol{1, 2}
+			c.ExternalLexStates = [][]bool{nil, {true}}
+			return ccore.Config{Tables: c, Scanner: scanStub{}}
+		}},
 		{"external symbols without a scanner", ccore.ErrScannerMissing, func() ccore.Config {
 			c := clone()
 			c.ExternalSymbols = []ccore.Symbol{1}
@@ -163,11 +169,11 @@ func TestNewParserRefuses(t *testing.T) {
 	}
 }
 
-// TestRefusalTextsDiffer: the fourteen refusals have fourteen different texts.
+// TestRefusalTextsDiffer: the fifteen refusals have fifteen different texts.
 func TestRefusalTextsDiffer(t *testing.T) {
 	errs := []error{ccore.ErrNoTables, ccore.ErrInitialState, ccore.ErrNoStates, ccore.ErrTooManyStates, ccore.ErrTooManyTokens,
 		ccore.ErrTooManySymbols, ccore.ErrLexModesShort, ccore.ErrNoLexAutomaton, ccore.ErrKeywordCapture, ccore.ErrShiftState, ccore.ErrScannerMissing,
-		ccore.ErrShiftTarget, ccore.ErrGotoTarget, ccore.ErrGotoTooLarge}
+		ccore.ErrShiftTarget, ccore.ErrGotoTarget, ccore.ErrGotoTooLarge, ccore.ErrExternalRow}
 	seen := map[string]bool{}
 	for _, e := range errs {
 		if seen[e.Error()] {

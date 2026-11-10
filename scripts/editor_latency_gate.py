@@ -600,6 +600,33 @@ def campaign_go_environment():
                      if os.environ.get(variable)) or "true"
 
 
+def campaign_tidy_command(role):
+    """The "go mod tidy" command of a campaign module. Both modules use the
+    head's cgo_harness, whose test files may import packages that only the
+    head's root has, and "go mod tidy" loads those tests too: on the base it
+    fails, so the base runs "go mod tidy -e" (finish anyway; the go test build
+    still fails on any package the driver needs). The head runs plain
+    "go mod tidy": it passes there and checks the imports under all build tags."""
+    if role not in ("base", "head"):
+        raise ValueError("campaign role must be base or head: %r" % (role,))
+    return "go mod tidy -e" if role == "base" else "go mod tidy"
+
+
+def campaign_setup_script():
+    """The private setup script of the campaign: tidy both modules (under
+    set -e, so that a failing head tidy stops the script)."""
+    return "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1",
+                      "cd /campaign/modules/base; " + campaign_tidy_command("base"),
+                      "cd /campaign/modules/head; " + campaign_tidy_command("head")])
+
+
+def campaign_role_commands(role, revision, language):
+    """The three commands of one role in a language's correctness script: enter
+    the module, tidy it, run the real-code edit test."""
+    return [f"cd /campaign/modules/{role}", campaign_tidy_command(role),
+            f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json go test -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m"]
+
+
 def check_work_exemptions_shrink(before, after):
     def keyed(entries):
         rows = {(e["fixture_sha256"], e["cell"], e["class"]): e for e in entries}
@@ -820,11 +847,8 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
             write_json(out / "environment.json", env)
             private_receipts = {}
             if private_setting:
-                # Both campaign modules use the head's cgo_harness. Its test files may
-                # import packages that only the head's root has; "go mod tidy" loads
-                # those tests too and fails on the base. -e lets tidy finish; the go
-                # test build below still fails on any package the driver needs.
-                setup = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1", "cd /campaign/modules/base; go mod tidy -e", "cd /campaign/modules/head; go mod tidy -e"])
+                # See campaign_tidy_command: -e on the base only.
+                setup = campaign_setup_script()
                 run_checked(common + ["--label", "w5-oracle-setup", "--wall-timeout", "20m", "--", setup])
             for f in fixtures:
                 language = f["language"]
@@ -850,7 +874,7 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                     # caller-provided source directory/extra grammar lock.
                     commands.append("unset GTS_PARITY_REPO_ROOT GTS_PARITY_REPO_CACHE GTS_PARITY_EXTRA_LOCK; export GTS_PARITY_C_REF_BUILD_CACHE=off")
                 for role, revision in (("base", base_revision), ("head", head_revision)):
-                    commands += [f"cd /campaign/modules/{role}", "go mod tidy -e", f"GTS_EDIT_REVISION={revision} GTS_EDIT_ADMISSION_OUT=/campaign/admission/{role}/{language}.json go test -tags treesitter_c_parity . -run '^TestW5RealCodeEdits$' -count=1 -v -timeout 15m"]
+                    commands += campaign_role_commands(role, revision, language)
                 with (out / ("correctness-" + language + ".log")).open("w") as log:
                     run_checked(worker_common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
                 for directory, inputs, expected in receipts.values(): verify_private_oracle(directory, inputs, expected)

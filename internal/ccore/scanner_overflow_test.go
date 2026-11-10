@@ -20,7 +20,7 @@ func (bigState) Close() {}
 
 // TestScannerStateAboveBufferStopsParse: a state length above the buffer (or
 // below zero) stops the parse with a clear text; it neither panics nor
-// truncates. A length equal to the buffer is accepted.
+// truncates. A length equal to the buffer (1,024) is accepted.
 func TestScannerStateAboveBufferStopsParse(t *testing.T) {
 	g := loadGoldens(t)[0]
 	tables := *g.Tables
@@ -29,7 +29,7 @@ func TestScannerStateAboveBufferStopsParse(t *testing.T) {
 	tables.LexModes = modes
 	tables.ExternalSymbols = []ccore.Symbol{1}
 	tables.ExternalLexStates = [][]bool{nil, {true}}
-	for _, n := range []int{1025, 2000, -1} {
+	for _, n := range []int{1025, 2000, -1, 1024} {
 		p, err := ccore.NewParser(ccore.Config{Tables: &tables, Scanner: bigState{n: n}})
 		if err != nil {
 			t.Fatal(err)
@@ -43,7 +43,14 @@ func TestScannerStateAboveBufferStopsParse(t *testing.T) {
 			}()
 			_, stop = p.Parse(g.Src)
 		}()
-		if !strings.Contains(stop, "external scanner reported a state of") || !strings.Contains(stop, "1024") {
+		refused := strings.Contains(stop, "external scanner reported a state of") && strings.Contains(stop, "1024")
+		if n == 1024 {
+			// A length equal to the buffer is accepted: no overflow stop (what
+			// else the stub scanner makes the parse do does not matter here).
+			if strings.Contains(stop, "external scanner reported a state of") {
+				t.Errorf("state length 1024 was refused: stop text %q", stop)
+			}
+		} else if !refused {
 			t.Errorf("state length %d: stop text %q", n, stop)
 		}
 	}

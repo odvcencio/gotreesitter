@@ -11,10 +11,12 @@ package cgoharness
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 
 	g "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind/bindtest"
 )
 
@@ -64,17 +66,45 @@ func ccoreCount(test, set string, checked int) {
 	fmt.Printf("CCCOUNT test=%s set=%s checked=%d\n", test, set, checked)
 }
 
-// TestCcoreScannerIsolation: two parsers made by bind.New for one language do
-// not share scanner state. Two different inputs are parsed in turn on the two
-// parsers (interleaved); every digest must equal the digest of a fresh parser.
-// CCORE_LANG=<language>; a language without an external scanner passes with
-// the same checks.
+// TestCcoreScannerIsolation checks two things for one language
+// (CCORE_LANG=<language>).
+//
+// 1. Directly: two bind.Config(gl) values hold a scanner of their own. When the
+// language has an external scanner, both Scanner fields must be non-nil, must be
+// pointers (their identity can be told), and must be different pointers. The
+// scanner is a *bind.FuncScanner made by the adapter for each Config call; the
+// payload lives in the adapter object its two functions are bound to, which the
+// test cannot see, so identity of the *FuncScanner is the strongest direct
+// check available from outside the root package. A language without an external
+// scanner has Scanner == nil in both.
+//
+// 2. By parsing: two parsers made by bind.New are used in turn on two different
+// inputs (interleaved, three rounds); every digest must equal the digest of a
+// fresh parser. This does not prove isolation by itself (every scan starts with
+// a deserialize of the previous state), which is why check 1 exists.
 func TestCcoreScannerIsolation(t *testing.T) {
 	name := os.Getenv("CCORE_LANG")
 	if name == "" {
 		t.Skip("set CCORE_LANG")
 	}
 	gl := grammars.DetectLanguageByName(name).Language()
+	cfg1, err1 := bind.Config(gl)
+	cfg2, err2 := bind.Config(gl)
+	if err1 != nil || err2 != nil {
+		t.Fatalf("%s: bind.Config: %v, %v", name, err1, err2)
+	}
+	if gl.ExternalScanner != nil {
+		if cfg1.Scanner == nil || cfg2.Scanner == nil {
+			t.Fatalf("%s: the language has an external scanner but a Config has none (%v, %v)", name, cfg1.Scanner == nil, cfg2.Scanner == nil)
+		}
+		v1, v2 := reflect.ValueOf(cfg1.Scanner), reflect.ValueOf(cfg2.Scanner)
+		if v1.Kind() != reflect.Pointer || v2.Kind() != reflect.Pointer {
+			t.Fatalf("%s: the Config scanner is a %s, not a pointer: its identity cannot be checked", name, v1.Kind())
+		}
+		ccoreExpect(t, v1.Pointer() != v2.Pointer(), "%s: two Config values hold the same scanner", name)
+	} else if cfg1.Scanner != nil || cfg2.Scanner != nil {
+		t.Fatalf("%s: the language has no external scanner but a Config has one", name)
+	}
 	ins := ccoreInputs(t, name, false)
 	if len(ins) < 2 {
 		t.Fatalf("%s: need two inputs, have %d", name, len(ins))

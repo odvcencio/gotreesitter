@@ -16,6 +16,64 @@ from unittest import mock
 import editor_latency_gate as gate
 
 
+class CampaignTidyCommandTests(unittest.TestCase):
+    def test_roles_differ_only_by_the_e_flag(self):
+        base, head = gate.campaign_tidy_command("base"), gate.campaign_tidy_command("head")
+        self.assertEqual(base, "go mod tidy -e")
+        self.assertEqual(head, "go mod tidy")
+        self.assertEqual(base.replace(" -e", ""), head)
+
+    def test_unknown_role_is_refused(self):
+        with self.assertRaises(ValueError):
+            gate.campaign_tidy_command("other")
+
+    # The generated commands of both paths. A stub "go" records its arguments and
+    # the directory it ran in, and fails for "mod tidy" in a module named by
+    # FAIL_IN; the script text is run with /campaign replaced by a temporary
+    # directory.
+    def _run(self, text, fail_in=""):
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = os.path.join(tmp, "bin")
+            os.makedirs(bindir)
+            for role in ("base", "head"):
+                os.makedirs(os.path.join(tmp, "campaign", "modules", role))
+            log = os.path.join(tmp, "log")
+            stub = ("#!/bin/bash\n"
+                    "echo \"$(basename \"$PWD\"): go $*\" >> \"$LOG\"\n"
+                    "if [ \"$1 $2\" = 'mod tidy' ] && [ \"$(basename \"$PWD\")\" = \"$FAIL_IN\" ]; then exit 9; fi\n")
+            path = os.path.join(bindir, "go")
+            with open(path, "w") as f:
+                f.write(stub)
+            os.chmod(path, 0o755)
+            env = dict(os.environ, PATH=bindir + os.pathsep + os.environ["PATH"], LOG=log, FAIL_IN=fail_in)
+            script = text.replace("/campaign", os.path.join(tmp, "campaign"))
+            proc = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True)
+            lines = open(log).read().splitlines() if os.path.exists(log) else []
+            return proc.returncode, lines
+
+    def test_setup_script_uses_e_for_base_only_and_stops_on_head_failure(self):
+        code, lines = self._run(gate.campaign_setup_script())
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, ["base: go mod tidy -e", "head: go mod tidy"])
+        code, lines = self._run(gate.campaign_setup_script(), fail_in="head")
+        self.assertNotEqual(code, 0, "a failing head tidy must fail the setup script")
+        code, lines = self._run(gate.campaign_setup_script(), fail_in="base")
+        self.assertNotEqual(code, 0)
+
+    def test_language_commands_use_e_for_base_only_and_stop_on_head_failure(self):
+        def script(role):
+            return "\n".join(["set -euo pipefail"] + gate.campaign_role_commands(role, "rev", "go"))
+        code, lines = self._run(script("base"))
+        self.assertEqual(lines[0], "base: go mod tidy -e")
+        self.assertTrue(lines[1].startswith("base: go test"), lines)
+        code, lines = self._run(script("head"))
+        self.assertEqual(lines[0], "head: go mod tidy")
+        self.assertTrue(lines[1].startswith("head: go test"), lines)
+        code, lines = self._run(script("head"), fail_in="head")
+        self.assertNotEqual(code, 0, "a failing head tidy must fail the language script")
+        self.assertEqual(lines, ["head: go mod tidy"], "the head test must not run after a failing tidy")
+
+
 class HostedCampaignTests(unittest.TestCase):
     def test_powershell_source_validation_rejects_wrong_pair_and_patch(self):
         base, reviewed, head = "b"*40, "c"*40, "d"*40

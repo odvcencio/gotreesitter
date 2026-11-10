@@ -295,9 +295,9 @@ func TestCcoreIncremental(t *testing.T) {
 			// Every parse of the step must finish (no stop text), the core's fresh
 			// parse must equal C's fresh parse, and the incremental parse must
 			// equal both C's incremental parse and the core's fresh parse.
-			ccoreExpect(t, stop == "" && fstop == "" && first < 0 && sInc == cInc && sInc == sFresh && sFresh == cFresh && editEq && oldKept && det && recEq,
-				"%s/%s: incremental parse differs (stop %q, fresh_stop %q, trace_eq %t, inc_eq_c %t, inc_eq_fresh %t, fresh_eq_cfresh %t, edit_eq %t, old_kept %t, deterministic %t, rec_eq %t)",
-				set, st.id, stop, fstop, first < 0, sInc == cInc, sInc == sFresh, sFresh == cFresh, editEq, oldKept, det, recEq)
+			ccoreExpect(t, stop == "" && fstop == "" && first < 0 && len(clog) > 0 && sInc == cInc && sInc == sFresh && sFresh == cFresh && editEq && oldKept && det && recEq,
+				"%s/%s: incremental parse differs (stop %q, fresh_stop %q, trace_eq %t, inc_eq_c %t, inc_eq_fresh %t, fresh_eq_cfresh %t, edit_eq %t, old_kept %t, deterministic %t, rec_eq %t, c_log_lines %d)",
+				set, st.id, stop, fstop, first < 0, sInc == cInc, sInc == sFresh, sFresh == cFresh, editEq, oldKept, det, recEq, len(clog))
 			if first >= 0 {
 				for i := first - 2; i < first+3; i++ {
 					if i < 0 {
