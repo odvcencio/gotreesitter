@@ -216,7 +216,7 @@ func (p *Store) visibleDescendants(h Handle) uint32 {
 // repeatDepth is C/subtree.h:307 ts_subtree_repeat_depth. C reads
 // ptr->repeat_depth for every heap subtree, and for a leaf with external
 // tokens that field overlays bytes 16 and 17 of the union member
-// external_scanner_state (C/subtree.h:152-163, ExternalScannerState at
+// external_scanner_state (C/subtree.h:132-152, ExternalScannerState at
 // subtree.h:31-37). A state of 24 bytes or fewer is stored in short_data, and
 // the bytes past its length are zero because ts_subtree_new_leaf
 // (C/subtree.c:201) builds the record from a compound literal. A longer state

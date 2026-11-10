@@ -68,7 +68,8 @@ retry:
 			// walk fails at the end of input and the error skip would add empty
 			// ERROR leaves for ever. The walk's failure is read as the empty end
 			// token, which is what the earlier root kernel returned at the end of
-			// input.
+			// input. Cannot differ on a C table: 239 of 240 error-state lex states
+			// have "if (eof)" (the other, swift, a bare "lookahead == 0").
 			lexed = true
 			*tok = Token{}
 		}

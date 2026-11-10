@@ -260,7 +260,12 @@ func (p *Parser) lexExternal(version int, parseState uint16, mode LexMode, cur L
 	prev := p.extState(last)
 	res := &e.res
 	*res = ExtScan{}
-	found := p.scanner.Scan(p.src, int(cur.bytes), cur.row, cur.col, prev, rows[mode.ExternalLexState], e.buf, res)
+	scanPos, scanRow, scanCol := int(cur.bytes), cur.row, cur.col
+	if scanPos == 0 && len(p.src) >= 3 && p.src[0] == 0xEF && p.src[1] == 0xBB && p.src[2] == 0xBF {
+		// C/lexer.c:438-441 ts_lexer_start skips U+FEFF at byte 0 before the scanner runs.
+		scanPos, scanCol = 3, scanCol+3
+	}
+	found := p.scanner.Scan(p.src, scanPos, scanRow, scanCol, prev, rows[mode.ExternalLexState], e.buf, res)
 	*calledGetColumn = *calledGetColumn || res.DidGetColumn
 	if res.LookaheadEnd > *lookaheadEnd { // ts_lexer_finish
 		*lookaheadEnd = res.LookaheadEnd

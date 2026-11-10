@@ -3,15 +3,24 @@ package ccore
 // The lex automaton walk. Ports the generated ts_lex and ts_lex_keywords
 // functions of a grammar's parser.c (START_LEXER, ADVANCE, SKIP, ACCEPT_TOKEN,
 // END_STATE) over the lex tables in Tables, together with the character
-// reading of C/lexer.c: ts_lexer__get_lookahead, ts_lexer__advance and
-// ts_lexer__eof. Two changes against the earlier root kernel make the reading
-// equal C's: at the end of input the lookahead is 0 and the walk goes on (end
-// transitions first, then transitions on character 0), and an ill-formed UTF-8
-// sequence is lookahead -1 (TS_DECODE_ERROR), not U+FFFD.
+// reading of C/lexer.c: ts_lexer__get_lookahead, ts_lexer__advance,
+// ts_lexer__eof and the start of ts_lexer_start (the byte order mark). The
+// reading equals C's in these points: at the end of input the lookahead is 0
+// and advance does nothing; an ill-formed UTF-8 sequence is lookahead -1
+// (TS_DECODE_ERROR), not U+FFFD; a SKIP keeps an earlier accept (ts_lexer_finish
+// moves the token start back to the token end); U+FEFF at byte 0 is padding.
 //
-// Two rules below are heuristics, because the blob keeps less than C's source
-// of ts_lex: ccInvalidNext (the "lookahead != x" tests) and ccBodyState (the
-// "!eof" operand). Each says what it assumes.
+// The blob keeps less than C's source of ts_lex, so three rules in this file
+// are heuristics, each marked HEURISTIC where it stands:
+//
+//	ccNulNext          (lexdfa.go) a step on character 0 at the end of input
+//	ccInvalidNext      (lexdfa.go) the step on lookahead -1
+//	end accept         (lexdfa.go, in scanDFA) an end transition read as the end accept
+//
+// A fourth, in lexer.go (Parser.lex), reads a failed error-mode scan at the
+// end of input as the empty end token. Each comment gives the count of lex
+// states, over the 241 pinned parser.c files (118,580 states), where the rule
+// differs from C.
 
 import "unicode/utf8"
 
@@ -21,6 +30,48 @@ const (
 	LexAsciiNoMatch = int32(0x7fff_ffff)
 	LexAsciiSkipBit = int32(-1 << 31)
 )
+
+// BuildLexAscii derives the ASCII fast-path table of states: for each state
+// and each character below 128, the first matching transition (with the SKIP
+// flag in bit 31), or LexAsciiNoMatch. It is what the root package's
+// buildLexAsciiTable gives for the same states.
+func BuildLexAscii(states []LexDFAState) [][128]int32 {
+	tbl := make([][128]int32, len(states))
+	for si := range states {
+		row := &tbl[si]
+		for c := range row {
+			row[c] = LexAsciiNoMatch
+		}
+		remaining := 128
+		for ti := range states[si].Trans {
+			if remaining == 0 {
+				break
+			}
+			tr := &states[si].Trans[ti]
+			if tr.Hi < 0 || tr.Lo >= 128 {
+				continue
+			}
+			lo, hi := tr.Lo, tr.Hi
+			if lo < 0 {
+				lo = 0
+			}
+			if hi > 127 {
+				hi = 127
+			}
+			v := tr.Next
+			if tr.Skip {
+				v |= LexAsciiSkipBit
+			}
+			for c := int(lo); c <= int(hi); c++ {
+				if row[c] == LexAsciiNoMatch {
+					row[c] = v
+					remaining--
+				}
+			}
+		}
+	}
+	return tbl
+}
 
 // LexTrans maps a character range (inclusive) to a next state.
 type LexTrans struct {
@@ -49,11 +100,18 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 	curState := int32(startState)
 	if curState < 0 || int(curState) >= len(states) {
 		*out = Token{}
+		start := NewLength(uint32(startPos), startRow, startCol)
+		fail[0], fail[1] = start, start
 		return false
 	}
 
 	scanPos, scanRow, scanCol := startPos, startRow, startCol
-	tokenStartPos, tokenStartRow, tokenStartCol := startPos, startRow, startCol
+	// C/lexer.c:438-441 ts_lexer_start: U+FEFF at byte 0 is skipped as padding
+	// (advance with skip). The column counts its three bytes (lexer.c:207-217).
+	if startPos == 0 && len(src) >= 3 && src[0] == 0xEF && src[1] == 0xBB && src[2] == 0xBF {
+		scanPos, scanCol = 3, startCol+3
+	}
+	tokenStartPos, tokenStartRow, tokenStartCol := scanPos, scanRow, scanCol
 
 	// The last accepting state.
 	acceptPos := -1
@@ -103,7 +161,10 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 				// earlier zero-width accept of the start state (a token that can
 				// match nothing) does not survive. The blob keeps the end accept
 				// only as AcceptEOF, which blobs from older generator runs omit;
-				// so the end transition itself is read as that accept.
+				// so the end transition itself is read as that accept. Differs from C
+				// where a state accepts a token and also has "if (eof)" (18 states:
+				// caddy, csv, ledger, nginx, nushell, yaml), and where the importer
+				// invents an end transition (341 states; known difference).
 				if int(curState) < len(states) && curState >= 0 {
 					if tg := &states[curState]; tg.AcceptToken == 0 && !tg.Skip {
 						acceptPos = scanPos
@@ -119,9 +180,18 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 				}
 				continue
 			}
-			if ccBodyState(st) {
+			// C takes no other step at the end of input (the tests carry "!eof"),
+			// except a bare character 0 in an ADVANCE_MAP (see ccNulNext).
+			next := ccNulNext(st)
+			if next < 0 {
+				next = st.Default // tables from the grammar generator; none in C tables
+			}
+			if next < 0 {
 				break
 			}
+			eofHops++
+			curState = next
+			continue
 		} else {
 			eofHops = 0
 			b = src[scanPos]
@@ -167,9 +237,6 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 			break
 		}
 
-		if size == 0 {
-			eofHops++ // a transition on character 0 at the end of input
-		}
 		scanPos += size
 		if r == '\n' {
 			scanRow++
@@ -197,13 +264,20 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 		}
 
 		if skipTransition {
-			// C SKIP(state) consumes and resets the token start.
+			// C SKIP(state) consumes and resets the token start. It does not reset
+			// the accepted token: ts_lexer_finish moves the token start back to the
+			// token end (C/lexer.c:455-457), so the token is empty. An accept of the
+			// generator's own skip states (acceptSkip) is dropped as before.
 			tokenStartPos = scanPos
 			tokenStartRow = scanRow
 			tokenStartCol = scanCol
-			acceptPos = -1
-			acceptSymbol = 0
-			acceptSkip = false
+			if acceptSkip {
+				acceptPos = -1
+				acceptSymbol = 0
+				acceptSkip = false
+			} else if acceptPos >= 0 {
+				acceptStartPos, acceptStartRow, acceptStartCol = acceptPos, acceptRow, acceptCol
+			}
 		}
 
 		curState = nextState
@@ -263,49 +337,94 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 }
 
 // ccInvalidNext is the transition that C takes on lookahead -1 (an
-// ill-formed UTF-8 sequence). HEURISTIC. -1 is below every range, so only a C
-// test that excludes a few code points ("lookahead != x") holds. The blob keeps
-// such a test as ranges that together cover all but a few code points, and it
-// does not keep the form of the test; the first transition whose target is
-// reached by ranges covering that much is taken.
+// ill-formed UTF-8 sequence). HEURISTIC; wrong in 20 of 118,580 lex states
+// (org 19, gitattributes 1); the rule of the earlier commit was wrong in 3,015.
+// -1 is below every range, so C takes a step on it only from a test without a
+// lower bound. The generator writes a negated set as "lookahead != 0 && ...",
+// so the blob keeps it as ranges that start at code point 1 and cover all but
+// a few code points; a test that holds for code point 0 is "(!eof && ...)",
+// which is false for -1, and its ranges start at 0. The blob does not keep the
+// form of the test, so the target whose ranges start at 1 and cover all but
+// 256 code points is taken. A lone [0,0] range ("lookahead == 0") is ignored.
+// Two linear passes, no nested loop: a weighted majority vote finds the one
+// target that can hold more than half of the summed coverage, and a second
+// pass sums that target's coverage.
 func ccInvalidNext(st *LexDFAState) (int32, bool) {
+	cand := int32(-1)
+	var w int64
 	for i := range st.Trans {
-		next := st.Trans[i].Next
-		var covered int64
-		minLo := rune(0x10FFFF)
-		for j := range st.Trans {
-			if st.Trans[j].Next == next {
-				covered += int64(st.Trans[j].Hi) - int64(st.Trans[j].Lo) + 1
-				if st.Trans[j].Lo < minLo {
-					minLo = st.Trans[j].Lo
-				}
-			}
+		t := &st.Trans[i]
+		if t.Lo == 0 && t.Hi == 0 {
+			continue
 		}
-		// A test with a lower bound ("lookahead > x") fails on -1; a
-		// negation starts at code point 0 (or 1 for "lookahead != 0").
-		if covered >= 0x110000-256 && minLo <= 1 {
-			return next, st.Trans[i].Skip
+		c := int64(t.Hi) - int64(t.Lo) + 1
+		switch {
+		case w == 0:
+			cand, w = t.Next, c
+		case t.Next == cand:
+			w += c
+		case w >= c:
+			w -= c
+		default:
+			cand, w = t.Next, c-w
 		}
+	}
+	if w == 0 {
+		return -1, false
+	}
+	var covered int64
+	minLo := rune(0x10FFFF)
+	skip, seen := false, false
+	for i := range st.Trans {
+		t := &st.Trans[i]
+		if t.Lo == 0 && t.Hi == 0 || t.Next != cand {
+			continue
+		}
+		covered += int64(t.Hi) - int64(t.Lo) + 1
+		if t.Lo < minLo {
+			minLo = t.Lo
+		}
+		if !seen {
+			skip, seen = t.Skip, true
+		}
+	}
+	if covered >= 0x110000-256 && minLo == 1 {
+		return cand, skip
 	}
 	return -1, false
 }
 
-// ccBodyState reports a state with a catch-all transition ("lookahead != 0"
-// and the like). HEURISTIC. C writes the character-0 test of such a state as
-// "!eof && lookahead == 0", so the end of input does not take it; the blob
-// keeps only "lookahead == 0" (the generator drops the "!eof" operand), so it
-// cannot say which form C had.
-func ccBodyState(st *LexDFAState) bool {
-	var covered int64
-	for i := range st.Trans {
-		t := &st.Trans[i]
-		lo := t.Lo
-		if lo == 0 {
-			lo = 1
+// ccNulNext is the step on character 0 at the end of input, or -1. HEURISTIC;
+// wrong in 1 of 118,580 lex states (http 1); the rule of the earlier commit
+// was wrong in 129 (julia 78, earthfile 37, bitbake 7, http 4, python,
+// starlark and gitattributes 1 each), and "never" in 61.
+// At the end of input C's lookahead is 0 and eof is true. A generated test
+// "(!eof && lookahead == 0)" or "!eof && ..." is false there, and so is a
+// range test; only a bare character 0 in an ADVANCE_MAP (no "!eof"), or the
+// bare "lookahead == 0" of old generators, holds. The importer drops the
+// "!eof" operand (cmd/ts2go/lex_dfa.go:1126-1156), so the blob keeps a [0,0]
+// range for each form and for ADVANCE_MAP alike. C writes the "!eof" test in
+// states with a catch-all and in states without one, so a catch-all does not
+// tell the forms apart. The shape of the map does: the importer turns
+// ADVANCE_MAP(0, ...) into a leading run of at least 8 single-character
+// transitions, none of them a SKIP (a map cannot skip), (the scan finds that run in every ADVANCE_MAP state). The [0,0] range is taken if it
+// is in such a run.
+func ccNulNext(st *LexDFAState) int32 {
+	run := 0
+	for run < len(st.Trans) {
+		t := &st.Trans[run]
+		if t.Lo != t.Hi || t.Skip {
+			break
 		}
-		if t.Hi >= lo {
-			covered += int64(t.Hi) - int64(lo) + 1
+		run++
+	}
+	if run < 8 {
+		return -1
+	}
+	for i := 0; i < run; i++ {
+		if t := &st.Trans[i]; t.Lo == 0 {
+			return t.Next
 		}
 	}
-	return covered >= 0x110000-256
+	return -1
 }

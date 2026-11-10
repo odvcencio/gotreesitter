@@ -94,6 +94,16 @@ type Tables struct {
 	ExternalLexStates [][]bool // valid-symbol rows; empty: derived from the action table
 }
 
+// BuildAscii derives the ASCII fast-path tables from the lex states (a table
+// read from a file has none).
+func (t *Tables) BuildAscii() {
+	t.LexAscii = BuildLexAscii(t.LexStates)
+	t.KeywordLexAscii = nil
+	if len(t.KeywordLexStates) != 0 {
+		t.KeywordLexAscii = BuildLexAscii(t.KeywordLexStates)
+	}
+}
+
 // ActionIndex is the root's lookupActionIndex: the action index for
 // (state, symbol), or 0.
 func (t *Tables) ActionIndex(state uint32, sym Symbol) uint16 {
