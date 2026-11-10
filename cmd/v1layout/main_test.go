@@ -153,7 +153,8 @@ func TestAdapterFilesBudgetAndTags(t *testing.T) {
 		}
 		exist++
 		for _, line := range strings.Split(string(raw), "\n") {
-			if strings.HasPrefix(strings.TrimSpace(line), "//go:build") {
+			// Both the current and the legacy form of a build constraint.
+			if trimmed := strings.TrimSpace(line); strings.HasPrefix(trimmed, "//go:build") || strings.HasPrefix(trimmed, "// +build") {
 				t.Errorf("%s has a build line: %s", name, line)
 			}
 		}

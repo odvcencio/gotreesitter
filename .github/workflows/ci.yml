@@ -859,6 +859,9 @@ jobs:
           - name: ccore-bindtest
             package_filter: '/internal/ccore/bind/bindtest$'
             test_filter: ''
+          - name: ccore-bindall
+            package_filter: '/internal/ccore/bind/bindall$'
+            test_filter: ''
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 

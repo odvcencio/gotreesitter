@@ -370,7 +370,7 @@ func TestCcoreTrace(t *testing.T) {
 			}
 		}
 		fmt.Printf("CCTRACE input=%s c_lines=%d spike_lines=%d equal=%t first_diff=%d stop=%q c_error=%t\n", in.ID, len(clog), len(slog), first < 0, first, stop, cerr)
-		ccoreExpect(t, first < 0, "%s: the trace differs from C at line %d", in.ID, first)
+		ccoreExpect(t, first < 0 && len(clog) > 0, "%s: the trace differs from C at line %d, or C logged nothing (%d lines)", in.ID, first, len(clog))
 		if first >= 0 {
 			for i := first - 3; i < first+4; i++ {
 				if i < 0 {

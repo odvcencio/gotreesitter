@@ -1,7 +1,7 @@
 package ccore
 
 // Tables is the language data the core reads. The root adapter builds one per
-// language (ccore_tables.go); lookups are plain slice reads with no interface
+// language (ccore_bind.go); lookups are plain slice reads with no interface
 // and no error return. Slices of basic types are shared with the language;
 // the action, lex-mode and alias tables are converted once.
 //
@@ -254,12 +254,15 @@ func (p *Parser) isReserved(state uint16, sym Symbol) bool { // C/language.h ts_
 	if int(state) >= len(p.t.LexModes) {
 		return false
 	}
-	set := int(p.t.LexModes[state].ReservedWordSetID)
+	set := uint64(p.t.LexModes[state].ReservedWordSetID)
 	if set == 0 {
 		return false
 	}
-	n := int(p.t.MaxReservedWordSetSize)
-	for i := set * n; i < set*n+n && i < len(p.t.ReservedWords); i++ {
+	// The product of two 16-bit values needs 32 bits; int is 32 bits on some
+	// targets, so the index is computed in uint64 and bounded by the table.
+	n := uint64(p.t.MaxReservedWordSetSize)
+	start, words := set*n, uint64(len(p.t.ReservedWords))
+	for i := start; i < start+n && i < words; i++ {
 		if p.t.ReservedWords[i] == sym {
 			return true
 		}
