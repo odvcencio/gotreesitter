@@ -13,17 +13,48 @@ import (
 
 // Exercise the actual workflow shell, so adding a needs edge without enforcing
 // its result (or enforcing an unbound environment variable) cannot pass.
+type gateWorkflowStep struct {
+	ID   string            `yaml:"id"`
+	Name string            `yaml:"name"`
+	If   string            `yaml:"if"`
+	Uses string            `yaml:"uses"`
+	Env  map[string]string `yaml:"env"`
+	With map[string]string `yaml:"with"`
+	Run  string            `yaml:"run"`
+}
+
 type gateWorkflow struct {
 	Jobs map[string]struct {
-		Needs  yaml.Node `yaml:"needs"`
-		RunsOn string    `yaml:"runs-on"`
-		Steps  []struct {
-			Uses string            `yaml:"uses"`
-			Env  map[string]string `yaml:"env"`
-			With map[string]string `yaml:"with"`
-			Run  string            `yaml:"run"`
-		} `yaml:"steps"`
+		Needs    yaml.Node         `yaml:"needs"`
+		RunsOn   string            `yaml:"runs-on"`
+		If       string            `yaml:"if"`
+		Outputs  map[string]string `yaml:"outputs"`
+		Timeout  int               `yaml:"timeout-minutes"`
+		Strategy struct {
+			FailFast *bool `yaml:"fail-fast"`
+			Matrix   struct {
+				Language []string `yaml:"language"`
+			} `yaml:"matrix"`
+		} `yaml:"strategy"`
+		Permissions map[string]string  `yaml:"permissions"`
+		Steps       []gateWorkflowStep `yaml:"steps"`
 	} `yaml:"jobs"`
+}
+
+// The build job has a few steps now (checkout, language-job check, gate); the
+// gate is the one named "Check Required Build Gate".
+func buildGateStep(t *testing.T, wf gateWorkflow) gateWorkflowStep {
+	t.Helper()
+	var found []gateWorkflowStep
+	for _, step := range wf.Jobs["build"].Steps {
+		if step.Name == "Check Required Build Gate" {
+			found = append(found, step)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("expected one aggregate step, got %d", len(found))
+	}
+	return found[0]
 }
 
 func readGateWorkflow(t *testing.T) gateWorkflow {
@@ -46,14 +77,12 @@ func readGateWorkflow(t *testing.T) gateWorkflow {
 func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	wf := readGateWorkflow(t)
 	build := wf.Jobs["build"]
-	if len(build.Steps) != 1 {
-		t.Fatalf("expected one aggregate step, got %d", len(build.Steps))
-	}
-	step := build.Steps[0]
+	step := buildGateStep(t, wf)
 	base := map[string]string{
 		"IS_DRAFT": "false", "IS_PULL_REQUEST": "true",
 		"IS_MANUAL_RUN": "false",
 		"RUN_CODE_CI":   "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
+		"RUN_EDITOR_LATENCY": "true",
 	}
 	for key := range step.Env {
 		if strings.HasSuffix(key, "_RESULT") {
@@ -113,6 +142,78 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	}
 	if _, exists := wf.Jobs["grammargen_visibility"]; exists {
 		t.Error("obsolete grammargen_visibility job still exists")
+	}
+}
+
+// The scope rule may skip editor_latency, but the gate must then see exactly
+// "skipped"; a skip that the rule did not request still blocks the build.
+func TestBuildGateEditorLatencyScope(t *testing.T) {
+	wf := readGateWorkflow(t)
+	step := buildGateStep(t, wf)
+	if step.Env["RUN_EDITOR_LATENCY"] != "${{ needs.exhaustive_parity_scope.outputs.run_editor_latency }}" {
+		t.Fatalf("build must bind the scope output: %q", step.Env["RUN_EDITOR_LATENCY"])
+	}
+	if got := wf.Jobs["exhaustive_parity_scope"].Outputs["run_editor_latency"]; got != "${{ steps.scope.outputs.run_editor_latency }}" {
+		t.Fatalf("scope job must declare run_editor_latency: %q", got)
+	}
+	if !strings.Contains(wf.Jobs["editor_latency"].If, "needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true'") {
+		t.Fatalf("editor_latency condition omits the scope output: %s", wf.Jobs["editor_latency"].If)
+	}
+	// editor_latency is a matrix; needs.editor_latency.result is success only if
+	// every leg succeeds. The gate sees that one aggregate: any leg that failed
+	// or was cancelled shows as failure or cancelled and blocks the build.
+	if got := wf.Jobs["editor_latency"].Strategy.Matrix.Language; len(got) != 10 {
+		t.Fatalf("editor_latency must be a matrix of ten languages: %v", got)
+	}
+	run := func(event, value, result string) ([]byte, error) {
+		env := map[string]string{
+			"IS_DRAFT": "false", "IS_PULL_REQUEST": fmt.Sprint(event == "pull_request"),
+			"IS_MANUAL_RUN": fmt.Sprint(event == "workflow_dispatch"),
+			"RUN_CODE_CI":   "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
+			"RUN_EDITOR_LATENCY": value,
+		}
+		for key := range step.Env {
+			if strings.HasSuffix(key, "_RESULT") {
+				env[key] = "success"
+			}
+		}
+		env["EDITOR_LATENCY_RESULT"] = result
+		cmd := exec.Command("bash", "-c", step.Run)
+		cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
+		for key, value := range env {
+			cmd.Env = append(cmd.Env, key+"="+value)
+		}
+		return cmd.CombinedOutput()
+	}
+	for _, event := range []string{"pull_request", "workflow_dispatch"} {
+		for _, tc := range []struct {
+			value, result string
+			pass          bool
+			msg           string
+		}{
+			{"true", "success", true, ""},
+			{"true", "skipped", false, "editor_latency finished with result=skipped"},
+			{"true", "failure", false, "editor_latency finished with result=failure"},
+			{"true", "cancelled", false, "editor_latency finished with result=cancelled"},
+			{"false", "skipped", true, ""},
+			{"false", "success", false, "requires skipped"},
+			{"false", "failure", false, "requires skipped"},
+			{"false", "cancelled", false, "requires skipped"},
+			{"", "skipped", false, "invalid run_editor_latency="},
+			{"maybe", "success", false, "invalid run_editor_latency=maybe"},
+		} {
+			out, err := run(event, tc.value, tc.result)
+			if tc.pass && err != nil {
+				t.Errorf("%s value=%q result=%s must pass: %v\n%s", event, tc.value, tc.result, err, out)
+			}
+			if !tc.pass && (err == nil || !strings.Contains(string(out), tc.msg)) {
+				t.Errorf("%s value=%q result=%s must fail with %q: err=%v\n%s", event, tc.value, tc.result, tc.msg, err, out)
+			}
+		}
+	}
+	// A push is neither: the job does not run there and the gate ignores it.
+	if out, err := run("push", "true", "skipped"); err != nil {
+		t.Errorf("push must not require editor_latency: %v\n%s", err, out)
 	}
 }
 

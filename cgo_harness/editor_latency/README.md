@@ -1,6 +1,11 @@
 # W5 real-code edit gate
 
-Every code PR runs `editor_latency` in the required CI `build` aggregate.
+Every code PR that changes engine source runs `editor_latency` in the required
+CI `build` aggregate, as one job per language. While `.github/ccore-unrouted`
+exists, a PR that changes only `internal/ccore`, its harness tests or
+documentation skips the job (`.github/scripts/editor_latency_scope.sh`); the
+`build` gate then requires the job to be skipped, and otherwise requires a
+successful job for every language in `fixtures.json`.
 Trusted repository heads use the configured `GTS_RUNNER_LABELS` pool when
 available. Fork heads use disposable GitHub-hosted Linux runners. The job
 requires complete paired evidence on the selected runner. Configure a runner
@@ -24,9 +29,10 @@ authentication. It must never enter the repository or uploaded evidence.
 
 `fixtures.json` fixes the first eight languages in
 `grammars/update_tier1_top50.txt`, plus Go and PowerShell. It contains every
-source, edit position, replacement byte, comment, and typing seed. Runtime
-fixture selection, known-difference skips, and timing eligibility filters are
-absent. An engine change cannot silently drop a failing file or cell.
+source, edit position, replacement byte, comment, and typing seed. Each CI job
+selects one language with `--languages`; a run without that option covers all
+ten. Known-difference skips and timing eligibility filters are absent. An
+engine change cannot silently drop a failing file or cell.
 
 Each language has three cells:
 
