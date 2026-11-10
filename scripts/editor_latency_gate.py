@@ -207,7 +207,26 @@ def fixture_manifest(path):
     return m
 
 
-def fetch_fixtures(root, manifest_path, lock, out):
+def parse_languages(text):
+    """Turn a comma list such as "go,powershell" into names; None means all."""
+    if text is None:
+        return None
+    names = text.split(",")
+    require(all(re.fullmatch(r"[a-z_]+", n) for n in names), "invalid --languages list")
+    require(len(set(names)) == len(names), "duplicate language in --languages")
+    return names
+
+
+def selected_fixtures(manifest, languages):
+    """Fixtures to run, in manifest order. languages=None selects every fixture."""
+    if languages is None:
+        return manifest["fixtures"]
+    known = [f["language"] for f in manifest["fixtures"]]
+    require(languages and all(n in known for n in languages), "unknown language in --languages")
+    return [f for f in manifest["fixtures"] if f["language"] in languages]
+
+
+def fetch_fixtures(root, manifest_path, lock, out, languages=None):
     m = fixture_manifest(manifest_path)
     wanted = (root / "cgo_harness/perf_scan/corpus_sources.lock.sha256").read_text().split()[0]
     require(sha(lock.read_bytes()) == wanted, "unauthenticated corpus lock")
@@ -220,7 +239,7 @@ def fetch_fixtures(root, manifest_path, lock, out):
     priorities = [line for line in (root / "grammars/update_tier1_top50.txt").read_text().splitlines() if line and not line.startswith("#")]
     require(m["languages"] == priorities[:8], "W5 languages drifted from the top-eight priority list")
     out.mkdir()
-    for f in m["fixtures"]:
+    for f in selected_fixtures(m, languages):
         row = rows[f["language"]]
         require(row[1:3] == [f["repo"], f["commit"]], "fixture does not match authenticated corpus lock")
         url = f["repo"].replace("https://github.com/", "https://raw.githubusercontent.com/") + "/" + f["commit"] + "/" + f["path"]
@@ -300,15 +319,16 @@ def validate_powershell_rows(record, rows, manifest_path, out, authenticated):
     return {"name": "powershell-command-parameter-b03", "row_count": 63, "rows_sha256": POWERSHELL_W5_ROWS_SHA256}
 
 
-def compare_counters(out, manifest_path, base_revision, head_revision, exception=None, authenticated=None, powershell_approval=None):
+def compare_counters(out, manifest_path, base_revision, head_revision, exception=None, authenticated=None, powershell_approval=None, languages=None):
     m = fixture_manifest(manifest_path)
+    fixtures = selected_fixtures(m, languages)
     manifest_sha = sha(Path(manifest_path).read_bytes())
     changes = []
     identities = []
     failures = []
     applied = []
     semantic_changes = []
-    for f in m["fixtures"]:
+    for f in fixtures:
         base = admission(out, "base", f, manifest_sha, base_revision)
         head = admission(out, "head", f, manifest_sha, head_revision)
         changed_grammar = False
@@ -366,6 +386,8 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
             applied.append(approved)
             failures = []
     result = {"schema": "w5-edit-counters-v1", "passed": not failures, "rows": changes, "failures": failures, "applied_exceptions":applied, "oracles": identities, "semantic_changes": semantic_changes}
+    if languages is not None:
+        result["languages"] = [f["language"] for f in fixtures]
     write_json(out / "counters.json", result)
     if failures:
         print(f"W5 counter failure rows: {len(failures)}", flush=True)
@@ -442,11 +464,12 @@ def sample(rows, benchmark, runtime, metric):
     return statistics.mean(rows[benchmark + "/" + n][metric] / rows[benchmark + "/" + n]["edits/op"] for n in names)
 
 
-def compare_timing(out, manifest_path, base_revision, head_revision, exception=None, authenticated=None, powershell_approval=None):
-    counters = compare_counters(out, manifest_path, base_revision, head_revision, exception, authenticated, powershell_approval)
+def compare_timing(out, manifest_path, base_revision, head_revision, exception=None, authenticated=None, powershell_approval=None, languages=None):
+    counters = compare_counters(out, manifest_path, base_revision, head_revision, exception, authenticated, powershell_approval, languages)
     m = fixture_manifest(manifest_path)
+    fixtures = selected_fixtures(m, languages)
     rows = []
-    for f in m["fixtures"]:
+    for f in fixtures:
         language = f["language"]
         base = parse_bench(out / "timing" / (language + "-base.txt"), "base")
         head = parse_bench(out / "timing" / (language + "-head.txt"), "head")
@@ -479,8 +502,14 @@ def compare_timing(out, manifest_path, base_revision, head_revision, exception=N
               "threshold_percent": 5, "counter_threshold_percent": 2, "seeds": list(range(1, RUNS+1)), "benchtime": "750ms",
               "protocol": "alternating-base-head-seeds; shuffled-workloads; Go-C-C-Go; complete-sessions; ns-per-edit",
               "environment": environment, "cells": rows, "counter_rows": counters["rows"], "applied_exceptions": counters["applied_exceptions"], "oracles": counters["oracles"], "semantic_changes": counters["semantic_changes"]}
+    title = "W5 editor latency"
+    if languages is not None:
+        # A subset receipt has its own schema, so it cannot pass as a complete one.
+        names = [f["language"] for f in fixtures]
+        result.update(schema="w5-editor-latency-subset-receipt-v1", complete=False, languages=names)
+        title += f" (subset: {', '.join(names)}; not a complete receipt)"
     write_json(out / "receipt.json", result)
-    lines = [f"W5 editor latency: **{result['status']}**", "", f"Base `{base_revision}`; head `{head_revision}`. Twenty paired shuffle seeds, 750ms, one thread. A paired median above +5% fails any cell.", "",
+    lines = [f"{title}: **{result['status']}**", "", f"Base `{base_revision}`; head `{head_revision}`. Twenty paired shuffle seeds, 750ms, one thread. A paired median above +5% fails any cell.", "",
              "| Language | Edit | Go base → head (µs/edit) | C base → head (µs/edit) | Go/C base → head | Paired Go change |", "|---|---|---:|---:|---:|---:|"]
     for row in rows:
         lines.append(f"| {row['language']} | {row['workload']} | {row['base_go_ns']/1000:.2f} → {row['head_go_ns']/1000:.2f} | {row['base_c_ns']/1000:.2f} → {row['head_c_ns']/1000:.2f} | {row['base_go_c']:.2f}x → {row['head_go_c']:.2f}x | {(row['paired_ratio']-1)*100:+.2f}% {'PASS' if row['passed'] else '**FAIL**'} |")
@@ -704,8 +733,9 @@ def verify_private_oracle(directory, inputs, expected):
     require((directory / "environment.before").read_text().strip() == expected["build_env"] and (directory / "environment.after").read_text().strip() == expected["build_env"], "compiler environment receipt changed")
 
 
-def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receipt=None):
+def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receipt=None, languages=None):
     root = root.resolve(); out = out.resolve()
+    selected_fixtures(fixture_manifest(root / "cgo_harness/editor_latency/fixtures.json"), languages)  # reject unknown names before any work
     private_setting = os.environ.get("GTS_W5_PRIVATE_C_CACHE", "")
     require(private_setting in ("", "1"), "invalid private C cache setting")
     if private_setting:
@@ -715,9 +745,12 @@ def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receip
     base_revision = git(root, "rev-parse", base_revision + "^{commit}")
     clean_revision(root, head_revision)
     require(not (approved_receipt and approved_b7_receipt), "multiple W5 exceptions are forbidden")
+    if languages is not None and "go" not in languages:
+        # The owner-approved Go exceptions belong to the Go run; this run neither needs nor uses them.
+        approved_receipt = approved_b7_receipt = None
     exception = validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) if approved_receipt else None
     if approved_b7_receipt: exception = validate_b7_undo_exception(root, base_revision, head_revision, approved_b7_receipt)
-    powershell_approval = select_powershell_approval(root, base_revision, head_revision) if private_setting else None
+    powershell_approval = select_powershell_approval(root, base_revision, head_revision) if private_setting and (languages is None or "powershell" in languages) else None
     check_work_exemptions_history(root, base_revision)
     require(not out.exists(), "campaign output already exists; do not overwrite receipts")
     out.mkdir(parents=True)
@@ -725,9 +758,10 @@ def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receip
     lock_path = out / "corpus.lock"
     run_checked(["bash", root / "scripts/fetch_grammar_receipt_lock.sh", os.environ.get("GTS_CORPUS_LOCK_URL", ""), lock_path])
     try:
-        m = fetch_fixtures(root, manifest_path, lock_path, out / "fixtures")
+        m = fetch_fixtures(root, manifest_path, lock_path, out / "fixtures", languages)
     finally:
         lock_path.unlink(missing_ok=True)
+    fixtures = selected_fixtures(m, languages)
     cpu = max(os.sched_getaffinity(0))
     env = {"base_revision": base_revision, "head_revision": head_revision,
            "driver_sha256": sha((root / "cgo_harness/editor_latency/editor_latency_test.go").read_bytes()),
@@ -736,6 +770,8 @@ def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receip
            "grammar_lock_sha256": sha((root / "grammars/languages.lock").read_bytes()),
            "corpus_lock_sha256": (root / "cgo_harness/perf_scan/corpus_sources.lock.sha256").read_text().split()[0],
            "system": platform.system(), "architecture": platform.machine(), "cpu": cpu, "started": load_sample(), "samples": []}
+    if languages is not None:
+        env["languages"] = [f["language"] for f in fixtures]
     cpuinfo = Path("/proc/cpuinfo").read_text()
     env["cpu_model"] = next((line.split(":", 1)[1].strip() for line in cpuinfo.splitlines() if line.startswith("model name")), "unknown")
     for role in ("base", "head"):
@@ -786,7 +822,7 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
             if private_setting:
                 setup = "\n".join(["set -euo pipefail", campaign_go_environment(), "export GOWORK=off GOMAXPROCS=1", "cd /campaign/modules/base; go mod tidy", "cd /campaign/modules/head; go mod tidy"])
                 run_checked(common + ["--label", "w5-oracle-setup", "--wall-timeout", "20m", "--", setup])
-            for f in m["fixtures"]:
+            for f in fixtures:
                 language = f["language"]
                 roles = (("base", base_revision, base), ("head", head_revision, root))
                 receipts = {}
@@ -815,9 +851,9 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                     run_checked(worker_common + ["--label", "w5-correctness-" + language, "--wall-timeout", "35m", "--", "\n".join(commands)], stdout=log, stderr=subprocess.STDOUT)
                 for directory, inputs, expected in receipts.values(): verify_private_oracle(directory, inputs, expected)
                 print("W5 four-way correctness passed:", language, flush=True)
-            compare_counters(out, manifest_path, base_revision, head_revision, exception, private_receipts if private_setting else None, powershell_approval)
+            compare_counters(out, manifest_path, base_revision, head_revision, exception, private_receipts if private_setting else None, powershell_approval, languages)
             print("W5 deterministic counter gate passed before timing", flush=True)
-            for f in m["fixtures"]:
+            for f in fixtures:
                 language = f["language"]
                 if private_setting:
                     # Reload only identity from an in-memory parent receipt; never trust a worker-written manifest.
@@ -867,7 +903,7 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
         powershell_approval = select_powershell_approval(root, base_revision, head_revision)
     env["finished"] = load_sample()
     write_json(out / "environment.json", env)
-    result = compare_timing(out, manifest_path, base_revision, head_revision, exception, private_receipts if private_setting else None, powershell_approval)
+    result = compare_timing(out, manifest_path, base_revision, head_revision, exception, private_receipts if private_setting else None, powershell_approval, languages)
     require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")
 
 
@@ -879,19 +915,22 @@ def main():
     run.add_argument("--output", type=Path, required=True)
     run.add_argument("--approved-go-undo-receipt", type=Path)
     run.add_argument("--approved-b7-undo-receipt", type=Path)
+    run.add_argument("--languages", help="comma-separated languages to run, in manifest order; default is all")
     compare = sub.add_parser("compare")
     compare.add_argument("--output", type=Path, required=True)
     compare.add_argument("--manifest", type=Path, required=True)
     compare.add_argument("--base", required=True)
     compare.add_argument("--head", required=True)
+    compare.add_argument("--languages", help="comma-separated languages to compare; default is all")
     args = parser.parse_args()
     try:
+        languages = parse_languages(args.languages)
         if args.command == "run":
             root = Path(__file__).resolve().parents[1]
             with campaign_lock():
-                campaign(root, args.base, args.output, args.approved_go_undo_receipt, args.approved_b7_undo_receipt)
+                campaign(root, args.base, args.output, args.approved_go_undo_receipt, args.approved_b7_undo_receipt, languages)
         else:
-            result = compare_timing(args.output, args.manifest, args.base, args.head)
+            result = compare_timing(args.output, args.manifest, args.base, args.head, languages=languages)
             require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")
     except (ValueError, OSError, KeyError, subprocess.CalledProcessError) as error:
         print(f"W5 gate failed: {error}", file=sys.stderr)
