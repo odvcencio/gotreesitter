@@ -34,6 +34,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=./ownership_fixup.sh
+source "$SCRIPT_DIR/ownership_fixup.sh"
 
 # Defaults.
 MEMORY="8g"
@@ -356,6 +358,23 @@ docker run \
 CONTAINER_EXIT=$?
 set -e
 
+# The container runs as root, so everything it wrote under the mounted output
+# folder belongs to root on the host. Return it to the host user. The source
+# and seed folders are read-only and need no repair.
+OWNERSHIP_FIXUP="skipped"
+if [[ "$(id -u)" != "0" ]]; then
+    # shellcheck disable=SC2034 # read by gts_fixup_ownership
+    GTS_FIXUP_MOUNT_ARGS=(--mount "type=bind,src=$OUT_DIR,dst=/out")
+    # shellcheck disable=SC2034 # read by gts_fixup_ownership
+    GTS_FIXUP_PATHS=(/out)
+    if gts_fixup_ownership "$IMAGE_TAG" "$(id -u)" "$(id -g)" "$OUT_DIR/ownership_fixup.log" ""; then
+        OWNERSHIP_FIXUP="ok"
+    else
+        OWNERSHIP_FIXUP="failed"
+        echo "ownership fixup failed; see $OUT_DIR/ownership_fixup.log" >&2
+    fi
+fi
+
 # Save metadata.
 cat > "$OUT_DIR/metadata.txt" <<EOF
 timestamp: $TIMESTAMP
@@ -375,6 +394,7 @@ glr_v2_compact_full_leaves: ${GOT_GLR_V2_COMPACT_FULL_LEAVES:-unset}
 offline: $OFFLINE
 seed_dir: ${SEED_DIR:-none}
 exit_code: $CONTAINER_EXIT
+ownership_fixup: $OWNERSHIP_FIXUP
 EOF
 
 echo ""

@@ -2,6 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./ownership_fixup.sh
+source "$SCRIPT_DIR/ownership_fixup.sh"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 WORKTREE_PATH_GUARD="$SCRIPT_DIR/../../scripts/validate_worktree_path.sh"
 OUT_ROOT="$REPO_ROOT/harness_out/docker"
@@ -80,9 +82,14 @@ Options:
                          on the later invocations in that job.
   --mount <src:dst[:ro]> Add an extra bind mount. Use this for external
                          corpus workspaces needed by custom commands.
-  --no-chown             Keep root-owned files that the container wrote under
-                         the mounted workspace. By default the script returns
-                         those files to the host user after the run.
+  --no-chown             Skip the full-tree ownership pass over the workspace
+                         and the --mount folders. By default the script
+                         returns every root-owned file there to the host user
+                         after the run. With this flag it still returns the
+                         root-owned entries the run created in each read-write
+                         --mount folder, so a shared Go cache that a lane
+                         mounts stays usable by non-root builds. It leaves
+                         the workspace alone.
                          GTS_DOCKER_SKIP_CHOWN=1 has the same effect.
   -h, --help             Show this help
 
@@ -398,8 +405,14 @@ fi
 
 RUN_START_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 RUN_START_NS="$(date +%s%N)"
+# Marks the start of the run for the ownership repair of --no-chown mode.
+OWNERSHIP_STAMP="$OUT_DIR/.ownership-stamp"
+gts_fixup_stamp "$OWNERSHIP_STAMP"
 
 EXTRA_MOUNT_ARGS=()
+# The read-write --mount folders, for the ownership repair after the run.
+EXTRA_RW_MOUNT_ARGS=()
+EXTRA_RW_PATHS=()
 for spec in "${EXTRA_MOUNTS[@]}"; do
   IFS=':' read -r mount_src mount_dst mount_mode extra <<< "$spec"
   if [[ -z "${mount_src:-}" || -z "${mount_dst:-}" || -n "${extra:-}" ]]; then
@@ -419,7 +432,10 @@ for spec in "${EXTRA_MOUNTS[@]}"; do
   mount_arg="type=bind,src=$mount_src,dst=$mount_dst"
   case "${mount_mode:-rw}" in
     ro|readonly) mount_arg="$mount_arg,readonly" ;;
-    rw|"") ;;
+    rw|"")
+      EXTRA_RW_MOUNT_ARGS+=(--mount "$mount_arg")
+      EXTRA_RW_PATHS+=("$mount_dst")
+      ;;
     *)
       echo "invalid --mount mode in $spec" >&2
       exit 2
@@ -482,28 +498,32 @@ docker inspect "$CID" >"$OUT_DIR/inspect.json"
 # .git/objects and the nested .claude worktrees, which the container never
 # writes.
 OWNERSHIP_FIXUP="skipped"
-if [[ "$SKIP_CHOWN" != "1" && "$HOST_UID" != "0" ]]; then
-  FIXUP_PATHS=(/workspace)
-  for spec in "${EXTRA_MOUNTS[@]}"; do
-    IFS=':' read -r _ fix_dst fix_mode _ <<< "$spec"
-    case "${fix_mode:-rw}" in
-      ro|readonly) ;;
-      *) FIXUP_PATHS+=("$fix_dst") ;;
-    esac
-  done
-  if docker run --rm \
-      --mount "type=bind,src=$REPO_ROOT,dst=/workspace" \
-      "${EXTRA_MOUNT_ARGS[@]}" \
-      -e "GTS_HOST_UID=$HOST_UID" \
-      -e "GTS_HOST_GID=$HOST_GID" \
-      "$IMAGE_TAG" \
-      bash -c 'find "$@" -xdev \( -path "*/.git/objects" -o -path /workspace/.claude \) -prune -o -user 0 -print0 | xargs -0r chown -h "$GTS_HOST_UID:$GTS_HOST_GID"' _ "${FIXUP_PATHS[@]}" \
-      >"$OUT_DIR/ownership_fixup.log" 2>&1; then
-    OWNERSHIP_FIXUP="ok"
-  else
-    OWNERSHIP_FIXUP="failed"
-    echo "ownership fixup failed; see $OUT_DIR/ownership_fixup.log" >&2
+if [[ "$HOST_UID" != "0" ]]; then
+  # Without --no-chown the pass covers the workspace and every read-write
+  # --mount folder in full. With --no-chown it covers only the read-write
+  # --mount folders and only the entries this run created, which keeps it
+  # short on a large shared cache and still leaves no root-owned entries there.
+  # shellcheck disable=SC2034 # read by gts_fixup_ownership
+  GTS_FIXUP_MOUNT_ARGS=("${EXTRA_RW_MOUNT_ARGS[@]}")
+  # shellcheck disable=SC2034 # read by gts_fixup_ownership
+  GTS_FIXUP_PATHS=("${EXTRA_RW_PATHS[@]}")
+  fixup_stamp="$OWNERSHIP_STAMP"
+  if [[ "$SKIP_CHOWN" != "1" ]]; then
+    GTS_FIXUP_MOUNT_ARGS+=(--mount "type=bind,src=$REPO_ROOT,dst=/workspace")
+    GTS_FIXUP_PATHS+=(/workspace)
+    fixup_stamp=""
   fi
+  fixup_status=0
+  gts_fixup_ownership "$IMAGE_TAG" "$HOST_UID" "$HOST_GID" \
+    "$OUT_DIR/ownership_fixup.log" "$fixup_stamp" || fixup_status=$?
+  case "$fixup_status" in
+    0) OWNERSHIP_FIXUP="ok" ;;
+    3) ;;
+    *)
+      OWNERSHIP_FIXUP="failed"
+      echo "ownership fixup failed; see $OUT_DIR/ownership_fixup.log" >&2
+      ;;
+  esac
 fi
 
 OOM_KILLED="$(docker inspect -f '{{.State.OOMKilled}}' "$CID")"

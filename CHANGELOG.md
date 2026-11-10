@@ -7,6 +7,14 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Changed
+
+- Add `grammars.LangEntry.ParseContext(ctx, src)` for cooperative context
+  cancellation and deadlines. Existing `entry.Parse(src)` calls remain supported.
+- Add `LangEntry.ParseStrict(ctx, src)` to report early stops while preserving
+  registered token-source selection. Non-nil trees remain caller-owned even
+  when an error is returned.
+
 ## [0.57.0] - 2026-11-07
 
 ### Highlights
