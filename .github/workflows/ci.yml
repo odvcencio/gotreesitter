@@ -71,6 +71,9 @@ jobs:
       - name: Repository hygiene
         run: bash scripts/repository_hygiene_test.sh
 
+      - name: Editor-latency scope rule tests
+        run: bash .github/scripts/editor_latency_scope_test.sh
+
       - name: R6 engine and environment guardrails
         run: |
           git fetch --no-tags --depth=1 origin main
@@ -1156,7 +1159,7 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: "1"
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 180
     steps:
@@ -1318,6 +1321,7 @@ jobs:
     outputs:
       run_code_ci: ${{ steps.scope.outputs.run_code_ci }}
       run_exhaustive: ${{ steps.scope.outputs.run_exhaustive }}
+      run_editor_latency: ${{ steps.scope.outputs.run_editor_latency }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -1337,6 +1341,7 @@ jobs:
 
           run_code_ci=true
           run_exhaustive=false
+          run_editor_latency=true
           if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$EVENT_NAME" = "schedule" ]; then
             run_exhaustive=true
           elif [ "$EVENT_NAME" = "pull_request" ]; then
@@ -1370,8 +1375,22 @@ jobs:
               } >> "$GITHUB_STEP_SUMMARY"
               echo "run_code_ci=${run_code_ci}" >> "$GITHUB_OUTPUT"
               echo "run_exhaustive=${run_exhaustive}" >> "$GITHUB_OUTPUT"
+              echo "run_editor_latency=${run_editor_latency}" >> "$GITHUB_OUTPUT"
               exit 0
             fi
+
+            # The paired editor-latency job (about 2 hours) is skipped only when
+            # the pull request changes no engine source; see the script.
+            git diff "${PR_BASE_SHA}...HEAD" -- .github/workflows/ci.yml > /tmp/ci-yml.diff || : > /tmp/ci-yml.diff
+            run_editor_latency=$(bash .github/scripts/editor_latency_scope.sh /tmp/changed-files.txt /tmp/ci-yml.diff "$PWD" 2> /tmp/editor-latency-reason.txt) || run_editor_latency=true
+            if [ "$run_editor_latency" != "false" ]; then
+              run_editor_latency=true
+            fi
+            {
+              echo "### Editor-latency scope"
+              echo
+              echo "run_editor_latency=${run_editor_latency}: $(cat /tmp/editor-latency-reason.txt 2>/dev/null || true)"
+            } >> "$GITHUB_STEP_SUMMARY"
 
             # Every exhaustive test compares against the locked C oracle, so a
             # change to its pin (cgo_harness/go.mod) or its vendored runtime
@@ -1397,6 +1416,7 @@ jobs:
 
           echo "run_code_ci=${run_code_ci}" >> "$GITHUB_OUTPUT"
           echo "run_exhaustive=${run_exhaustive}" >> "$GITHUB_OUTPUT"
+          echo "run_editor_latency=${run_editor_latency}" >> "$GITHUB_OUTPUT"
 
   build:
     needs:
@@ -1455,6 +1475,7 @@ jobs:
           COUNTER_LEDGER_RESULT: ${{ needs.counter_ledger.result }}
           V1_EDIT_SESSIONS_RESULT: ${{ needs.v1_edit_sessions.result }}
           EDITOR_LATENCY_RESULT: ${{ needs.editor_latency.result }}
+          RUN_EDITOR_LATENCY: ${{ needs.exhaustive_parity_scope.outputs.run_editor_latency }}
           IS_MANUAL_RUN: ${{ github.event_name == 'workflow_dispatch' }}
           EXHAUSTIVE_PARITY_SCOPE_RESULT: ${{ needs.exhaustive_parity_scope.result }}
           EXHAUSTIVE_PARITY_SCOPE: ${{ needs.exhaustive_parity_scope.outputs.run_exhaustive }}
@@ -1522,7 +1543,17 @@ jobs:
             require_success "pr_commit_buildability" "$PR_COMMIT_BUILDABILITY_RESULT"
           fi
           if [ "$IS_PULL_REQUEST" = "true" ] || [ "$IS_MANUAL_RUN" = "true" ]; then
-            require_success "editor_latency" "$EDITOR_LATENCY_RESULT"
+            if [ "$RUN_EDITOR_LATENCY" = "true" ]; then
+              require_success "editor_latency" "$EDITOR_LATENCY_RESULT"
+            elif [ "$RUN_EDITOR_LATENCY" = "false" ]; then
+              if [ "$EDITOR_LATENCY_RESULT" != "skipped" ]; then
+                echo "::error::editor_latency finished with result=${EDITOR_LATENCY_RESULT} but run_editor_latency=false requires skipped"
+                failed=1
+              fi
+            else
+              echo "::error::exhaustive_parity_scope emitted invalid run_editor_latency=${RUN_EDITOR_LATENCY}"
+              failed=1
+            fi
           fi
 
           if [ "$IS_DRAFT" = "true" ]; then

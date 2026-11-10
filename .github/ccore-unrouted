@@ -1,0 +1,9 @@
+This file exists while no grammar is routed to internal/ccore by default.
+
+While it exists, a pull request that changes only internal/ccore, its harness
+tests, or documentation skips the paired editor-latency job (editor_latency).
+The required build gate accepts that skip. Every other job still runs.
+See .github/scripts/editor_latency_scope.sh for the exact path rules.
+
+The pull request that first routes a grammar to the new core by default must
+delete this file.
