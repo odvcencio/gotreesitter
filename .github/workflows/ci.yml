@@ -1399,9 +1399,18 @@ jobs:
               exit 0
             fi
 
-            # The paired editor-latency job (about 2 hours) is skipped only when
-            # the pull request changes no engine source; see the script.
-            run_editor_latency=$(bash .github/scripts/editor_latency_scope.sh "$changed_files" "$PWD" 2> "$reason_file") || run_editor_latency=true
+            # The paired editor-latency job (ten language jobs, about 25 minutes)
+            # is skipped only when the pull request changes no engine source; see
+            # the script. The base's copy of the script decides, so a pull
+            # request cannot switch the job off by editing the rule. A base
+            # without the script runs the job.
+            scope_rule="$RUNNER_TEMP/editor_latency_scope.base.sh"
+            if git show "${PR_BASE_SHA}:.github/scripts/editor_latency_scope.sh" > "$scope_rule" 2> /dev/null; then
+              run_editor_latency=$(bash "$scope_rule" "$changed_files" "$PWD" 2> "$reason_file") || run_editor_latency=true
+            else
+              run_editor_latency=true
+              echo 'the base has no scope rule' > "$reason_file"
+            fi
             if [ "$run_editor_latency" != "false" ]; then
               run_editor_latency=true
             fi
