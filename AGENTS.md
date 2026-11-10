@@ -8,7 +8,7 @@ The owner's [v1 design](docs/v1-design.md) governs engine work and supersedes co
 The full design is `hypha://m31labs/gotreesitter/specs/spec.gotreesitter-v1-design`.
 Keep one active pull request (PR) per lane:
 
-- Core: `sched`, `gss`, and `recover`.
+- Core: `sched`, `gss`, `recover`, and `internal/ccore`.
 - Incremental: `incr`.
 - Output: `tree` and `compat`.
 - Legacy fixes: Q items.

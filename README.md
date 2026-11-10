@@ -21,11 +21,13 @@ go get github.com/odvcencio/gotreesitter
 
 gotreesitter loads the same parse-table format that tree-sitter's C runtime uses. `ts2go` extracts grammar tables from upstream `parser.c` files, compresses them into binary blobs, and deserializes them on first use. 206 grammars ship in the registry.
 
-The current release is **v0.57.0**. It adds a pure-Go parser command and
-grammar-entry helpers, corrects highlight priorities and inheritance, fixes
-Make, Kotlin and TypeScript parsing, and reduces YAML scanner work and compact
-allocation. See [CHANGELOG.md](CHANGELOG.md) for changes and upgrade notes,
-and [docs/v1-design.md](docs/v1-design.md) for the v1 plan.
+The current release is **v0.58.0**. It adds `internal/ccore`, a C-faithful
+parser core that CI compares with pinned C. Only tests parse through it, and the
+default engine routing is unchanged. The release also adds
+`LangEntry.ParseContext` and `ParseStrict`, and fixes compact-projection
+precedence, grammar-generation fallback and `ts2go` supertype handling. See
+[CHANGELOG.md](CHANGELOG.md) for changes and
+[docs/v1-design.md](docs/v1-design.md) for the v1 plan.
 
 ## Quick start
 
