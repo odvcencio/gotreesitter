@@ -7,13 +7,90 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
-### Changed
+## [0.58.0] - 2026-11-10
 
-- Add `grammars.LangEntry.ParseContext(ctx, src)` for cooperative context
-  cancellation and deadlines. Existing `entry.Parse(src)` calls remain supported.
+### Highlights
+
+- A new parser core, `internal/ccore`, is in the tree. It is built to make the
+  same decisions as the C tree-sitter 0.27.1 runtime, and CI compares its
+  decision trace with pinned C's line for line. Its purpose is exact tree-sitter
+  behaviour in pure Go on every target Go builds for. Grammars move to it in
+  later releases.
+- Public parsing keeps the existing engine routing; no public API reaches the
+  new core.
+- Add `LangEntry.ParseContext` and `LangEntry.ParseStrict` for cancellation and
+  early-stop errors.
+- Grammar generation: `grammargen` falls back to LALR when precise construction
+  exhausts its state budget, and `ts2go` reads designated supertype
+  initializers correctly.
+
+### Added
+
+- Add `LangEntry.ParseContext(ctx, src)` for cooperative context
+  cancellation and deadlines. Existing `entry.Parse(src)` calls remain supported
+  ([#1590](https://github.com/odvcencio/gotreesitter/pull/1590)).
 - Add `LangEntry.ParseStrict(ctx, src)` to report early stops while preserving
   registered token-source selection. Non-nil trees remain caller-owned even
-  when an error is returned.
+  when an error is returned. Both methods use the registered token source when
+  there is one. Cancellation sets the parser's existing cancellation flag, so it
+  cannot interrupt a blocking loader, scanner or token source, and a parse that
+  finished before a late cancellation keeps its result
+  ([#1590](https://github.com/odvcencio/gotreesitter/pull/1590)).
+- Add `internal/ccore`, a C-faithful parser core: parser, stack, subtrees,
+  lexer, error recovery, external scanners, edits and reuse, using only the
+  standard library. No public API reaches it. On the test corpus it equals
+  pinned C 0.27.1 on 1,197 of 1,198 decision traces, 1,283 of 1,283
+  visible-tree digests, 1,233 of 1,233 record sets and 509 of 509 incremental
+  session steps. On real files, 178 of 202 grammars are fully equal
+  ([#1592](https://github.com/odvcencio/gotreesitter/pull/1592),
+  [#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
+- Add root adapters that build `ccore` tables from a `*Language`, the packages
+  `internal/ccore/bind` and `internal/ccore/bind/bindtest`, table validation,
+  and a required CI job, `ccore-equality-cgo`. On every pull request that
+  changes code, the job compares the new core with pinned C for json, python, c
+  and typescript. Nothing parses through the new core outside tests
+  ([#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
+
+### Changed
+
+- Run the editor-latency CI gate as one job per language, which cuts a pull
+  request's CI from about two hours to about 26 minutes, and skip it for pull
+  requests that change only `internal/ccore`, its harness tests or
+  documentation ([#1594](https://github.com/odvcencio/gotreesitter/pull/1594)).
+- Make the cgo harness repair file ownership after its Docker runs, so files
+  that a root container writes into a mounted folder no longer block later
+  non-root builds ([#1589](https://github.com/odvcencio/gotreesitter/pull/1589)).
+
+### Fixed
+
+- Compact projection: keep raw cumulative dynamic precedence through hidden
+  projection, unary reductions and retained aliases, so checked additions match
+  native `int32` boundary behavior ([#1588](https://github.com/odvcencio/gotreesitter/pull/1588)).
+- Grammar generation: fall back to LALR when precise item-set construction
+  exhausts its state budget. The old path kept the incomplete automaton, which
+  gave an `ERROR` root for valid input in the regression fixture. If the
+  fallback also exhausts its budget, generation returns an error instead of
+  tables ([#1585](https://github.com/odvcencio/gotreesitter/pull/1585)).
+- `ts2go`: stop reading the index in a designated C supertype initializer as an
+  entry, which shifted the subtype table. Unsupported entries now return an
+  error instead of partial metadata. This does not update the F# grammar
+  ([#1584](https://github.com/odvcencio/gotreesitter/pull/1584)).
+- Work-count diagnostics: make attempt counters and phase breakdowns
+  exclusive, avoiding false `Overflow` reports caused by counting nested work
+  twice. This applies only to `gts_workcount` builds
+  ([#1591](https://github.com/odvcencio/gotreesitter/pull/1591)).
+- Editor-latency gate: fix the preparation of the baseline module when shared
+  harness tests import packages that the baseline lacks. Packages that the
+  timing driver needs must still build
+  ([#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
+
+### Evidence
+
+- Validation and measurement scope are recorded in the linked pull requests,
+  including [#1592](https://github.com/odvcencio/gotreesitter/pull/1592) and
+  [#1595](https://github.com/odvcencio/gotreesitter/pull/1595) for the `ccore`
+  comparison with pinned C. The release receipt binds the final commit and its
+  full manual CI run.
 
 ## [0.57.0] - 2026-11-07
 
@@ -2401,7 +2478,8 @@ focused on current releases:
 - [v0.24.1 – v0.44.0](docs/changelog/archive-2.md)
 - [v0.1.0 – v0.24.0](docs/changelog/archive-3.md)
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.57.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.58.0...HEAD
+[0.58.0]: https://github.com/odvcencio/gotreesitter/compare/v0.57.0...v0.58.0
 [0.57.0]: https://github.com/odvcencio/gotreesitter/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/odvcencio/gotreesitter/compare/v0.55.1...v0.56.0
 [0.55.1]: https://github.com/odvcencio/gotreesitter/compare/v0.55.0...v0.55.1

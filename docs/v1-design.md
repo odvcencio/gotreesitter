@@ -254,6 +254,14 @@ The owner decided O-Q1 to O-Q7 on 2026-09-26. Where a decision differs from the 
 | O-Q6 | No module split before v1.0. Revisit after grammar format v1 ships. |
 | O-Q7 | No release-cadence cap before v1.0. A regular cadence starts after v1.0. The global default still flips only in `v1.0.0-rc.1` (D7). |
 
+### Decision of 2026-11-10: a C-faithful core
+
+On 2026-11-10 the owner decided that a C-faithful core replaces the present compact scheduler, which is frozen. Scheduling differently from C needed proofs, guards, and declines wherever the design differed. The core follows C's control flow, so equality tests compare its decision trace line for line with C's logger. The core is `internal/ccore` ([#1592](https://github.com/odvcencio/gotreesitter/pull/1592)). In v0.58.0 no public API reaches it. CI compares it with pinned C on every pull request that changes code ([#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
+
+This entry replaces D1's choice of engine: the C-faithful core, not compact, becomes the only engine. Legacy and the compact scheduler are deleted after every grammar that legacy supports has graduated to the core. The entry also supersedes the engine lanes and the package list that name the compact scheduler's packages (`sched`, `gss`, `recover`, `incr`, `tree`, `compat`) in Target architecture and in Lanes and sequence. It does not restate D2 to D5, the milestone table, or the work-item names; where they describe the compact engine, they describe the earlier plan.
+
+These parts stay in force: the four gates, D6 to D13, the v1.0 release gate, O-Q1 to O-Q7, and the cohorts as the list of grammars to graduate.
+
 ## Graduation cohorts
 
 These cohorts cover every grammar that the legacy engine supports: 206 default grammars and the opt-in Lean 4 grammar. The compact route accepts 111 of the 206 today, declines 84, and never sees the 11 forest-route grammars.

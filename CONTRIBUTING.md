@@ -55,6 +55,17 @@ bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode cgo --langs types
 (`GOMAXPROCS=1`, `GOFLAGS=-p=1`). Fortran gets tighter memory limits unless you
 override them.
 
+To compare `internal/ccore`, the C-faithful parser core, with pinned C for one
+language, run the script that the CI job `ccore-equality-cgo` runs for json,
+python, c, and typescript. The header of `cgo_harness/docker/ccore_equality.sh`
+describes the checks, and the job's step in `.github/workflows/ci.yml` gives the
+container limits:
+
+```sh
+bash cgo_harness/docker/run_parity_in_docker.sh --label ci-ccore-json \
+  -- "bash /workspace/cgo_harness/docker/ccore_equality.sh json"
+```
+
 ## Send a pull request
 
 1. Fork the repository and branch from `main`.
