@@ -104,7 +104,14 @@ func TestScanInvalidByte(t *testing.T) {
 		want bool
 	}{
 		{"starts at 1", []LexTrans{{Lo: 1, Hi: 0x10FFFF, Next: 1}}, true},
-		{"starts at 0", []LexTrans{{Lo: 0, Hi: 0x10FFFF, Next: 1}}, false},
+		// Known difference: a range from 0 is "(!eof && lookahead < x)" (false for
+		// -1 in C only when written with a lower bound) or a bare "if (!eof)"
+		// (true for -1); the blob cannot tell, and the scan finds no state with
+		// the bare form, so the rule refuses it.
+		{"starts at 0 (known difference)", []LexTrans{{Lo: 0, Hi: 0x10FFFF, Next: 1}}, false},
+		// C takes the first condition in source order when two targets overlap
+		// with equal coverage.
+		{"overlap, first in source order", []LexTrans{{Lo: 1, Hi: 'a' - 1, Next: 1}, {Lo: 'a' + 1, Hi: 0x10FFFF, Next: 1}, {Lo: 1, Hi: 'b' - 1, Next: 2}, {Lo: 'b' + 1, Hi: 0x10FFFF, Next: 2}}, true},
 		{"lone [0,0] ignored", []LexTrans{{Lo: 0, Hi: 0, Next: 2}, {Lo: 1, Hi: 0x10FFFF, Next: 1}}, true},
 		{"holes of 300 code points", []LexTrans{{Lo: 1, Hi: 100, Next: 1}, {Lo: 401, Hi: 0x10FFFF, Next: 1}}, false},
 		{"lower bound", []LexTrans{{Lo: 5, Hi: 0x10FFFF, Next: 1}}, false},
