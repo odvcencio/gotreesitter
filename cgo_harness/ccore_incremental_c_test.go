@@ -262,8 +262,8 @@ func TestCcoreIncremental(t *testing.T) {
 						}
 					}
 				}
-				again, _ := core.ParseIncremental(st.src, edited, nil)
-				det = core.DigestOf(again, false) == core.DigestOf(tree, false)
+				again, againStop := core.ParseIncremental(st.src, edited, nil)
+				det = againStop == stop && core.DigestOf(again, false) == core.DigestOf(tree, false)
 			}
 			first := -1
 			for i := 0; i < len(clog) || i < len(slog); i++ {
@@ -292,9 +292,12 @@ func TestCcoreIncremental(t *testing.T) {
 			}
 			fmt.Printf("CCINC set=%s input=%s edit=%t c_error=%t stop=%q fresh_stop=%q edit_eq=%t old_kept=%t deterministic=%t trace_eq=%t first_diff=%d inc_eq_c=%t inc_eq_fresh=%t fresh_eq_cfresh=%t cinc_eq_cfresh=%t rec_eq=%t rec_lines=%d rec_first=%d ext_rejects=%d lex_external=%d reused=%d reused_bytes=%d largest=%d edit_ns=%d parse_ns=%d\n",
 				set, st.id, st.edit != nil, cerr, stop, fstop, editEq, oldKept, det, first < 0, first, sInc == cInc, sInc == sFresh, sFresh == cFresh, cInc == cFresh, recEq, recLines, recFirst, extRej, extLex, nodes, bytes, largest, editNs, parseNs)
-			ccoreExpect(t, first < 0 && sInc == cInc && sInc == sFresh && editEq && oldKept && det && recEq,
-				"%s/%s: incremental parse differs (trace_eq %t, inc_eq_c %t, inc_eq_fresh %t, edit_eq %t, old_kept %t, deterministic %t, rec_eq %t)",
-				set, st.id, first < 0, sInc == cInc, sInc == sFresh, editEq, oldKept, det, recEq)
+			// Every parse of the step must finish (no stop text), the core's fresh
+			// parse must equal C's fresh parse, and the incremental parse must
+			// equal both C's incremental parse and the core's fresh parse.
+			ccoreExpect(t, stop == "" && fstop == "" && first < 0 && sInc == cInc && sInc == sFresh && sFresh == cFresh && editEq && oldKept && det && recEq,
+				"%s/%s: incremental parse differs (stop %q, fresh_stop %q, trace_eq %t, inc_eq_c %t, inc_eq_fresh %t, fresh_eq_cfresh %t, edit_eq %t, old_kept %t, deterministic %t, rec_eq %t)",
+				set, st.id, stop, fstop, first < 0, sInc == cInc, sInc == sFresh, sFresh == cFresh, editEq, oldKept, det, recEq)
 			if first >= 0 {
 				for i := first - 2; i < first+3; i++ {
 					if i < 0 {

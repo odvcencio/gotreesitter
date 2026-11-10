@@ -96,8 +96,8 @@ func (c Config) validate() error {
 }
 
 // validateGotos checks every goto target of the parse tables: the dense rows,
-// the compressed small-state table, the sparse small-state lookups and the
-// large-state goto map. A goto target is the value stored for a nonterminal
+// the derived dense rows of small states, the compressed small-state table,
+// the sparse small-state lookups and the large-state goto map. A goto target is the value stored for a nonterminal
 // (a symbol at or above the token count); it must be a state, that is, below
 // len(LexModes), because the parse loop indexes LexModes with it. A large-table
 // goto above 65,535 does not fit C's 16-bit state.
@@ -113,6 +113,13 @@ func (t *Tables) validateGotos() error {
 		for sym := int(t.TokenCount); sym < len(row); sym++ {
 			if v := uint64(row[sym]); v >= states {
 				return bad(fmt.Sprintf("dense state %d symbol %d", s, sym), v)
+			}
+		}
+	}
+	for s, row := range t.SmallTokenLookup {
+		for sym := int(t.TokenCount); sym < len(row); sym++ {
+			if v := uint64(row[sym]); v >= states {
+				return bad(fmt.Sprintf("small state %d derived row symbol %d", s, sym), v)
 			}
 		}
 	}

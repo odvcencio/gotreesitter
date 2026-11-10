@@ -110,6 +110,13 @@ func TestNewParserRefuses(t *testing.T) {
 			c.SmallMap = []uint32{0}
 			return ccore.Config{Tables: c}
 		}},
+		{"goto in a derived small-state row at the state count", ccore.ErrGotoTarget, func() ccore.Config {
+			c := clone()
+			row := make([]uint16, c.TokenCount+1)
+			row[c.TokenCount] = uint16(len(c.LexModes))
+			c.SmallTokenLookup = [][]uint16{row}
+			return ccore.Config{Tables: c}
+		}},
 		{"goto in a sparse small lookup at the state count", ccore.ErrGotoTarget, func() ccore.Config {
 			c := clone()
 			c.SmallLookup = [][]ccore.SmallPair{{{Sym: uint16(c.TokenCount), Val: uint16(len(c.LexModes))}}}
