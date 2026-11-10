@@ -161,10 +161,12 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 				// earlier zero-width accept of the start state (a token that can
 				// match nothing) does not survive. The blob keeps the end accept
 				// only as AcceptEOF, which blobs from older generator runs omit;
-				// so the end transition itself is read as that accept. Differs from C
-				// where a state accepts a token and also has "if (eof)" (18 states:
-				// caddy, csv, ledger, nginx, nushell, yaml), and where the importer
-				// invents an end transition (341 states; known difference).
+				// so the end transition itself is read as that accept. The rule is
+				// needed where a state accepts a token and also has "if (eof)" (18
+				// pinned states: caddy, csv, ledger, nginx, nushell, yaml); C's end
+				// accept comes last there too, so the result is C's. It differs from
+				// C where the importer invents an end transition (341 states; known
+				// difference).
 				if int(curState) < len(states) && curState >= 0 {
 					if tg := &states[curState]; tg.AcceptToken == 0 && !tg.Skip {
 						acceptPos = scanPos
@@ -337,8 +339,11 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 }
 
 // ccInvalidNext is the transition that C takes on lookahead -1 (an
-// ill-formed UTF-8 sequence). HEURISTIC; wrong in 20 of 118,580 lex states
-// (org 19, gitattributes 1); the rule of the first fix was wrong in 3,015.
+// ill-formed UTF-8 sequence). HEURISTIC. Over the 118,580 lex states of the
+// 241 pinned parser.c files it differs from C in 21 states on the range lists
+// the core walks (org 19, gitattributes 1, http 1) and in 20 on the lists
+// before adjacent ranges of one target are merged; the rule of the first fix
+// differed in 3,015.
 // -1 is below every range, so C takes a step on it only from a test without a
 // lower bound. The generator writes a negated set as "lookahead != 0 && ...",
 // which the importer keeps as ranges that start at code point 1 and cover all
@@ -346,24 +351,28 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 // 256 code points is taken, and a lone [0,0] range ("lookahead == 0") is
 // ignored. The blob does not keep the form of the test, so it cannot tell
 // every C condition apart. A range that starts at 0 comes from several forms:
-// "(!eof && lookahead < x)" (org 19 states and gitattributes 1 are of this
-// kind and hold for -1, so the rule misses them), "lookahead <= x", and a
-// bare "if (!eof)", which also holds for -1 and imports as one range
-// [0,0x10FFFF]. The scan finds no state with a [0,0x10FFFF] range in the 241
-// sources, and accepting one range from 0 does not lower the count of wrong
-// states (20 either way), so the rule rejects ranges that start at 0.
+// "(!eof && lookahead <= x)" and a bare "if (!eof)" hold for -1; a set test,
+// "(!eof && set_contains(...))", does not, because -1 is in no set. So the
+// rule rejects a target with a range that starts at 0. The scan finds no
+// state with a [0,0x10FFFF] range. The states the rule misses: in org a
+// negated set function, "!..._character_set_N(lookahead)", whose ranges cover
+// less than the rule asks; in gitattributes a guarded range from 0; in http a
+// [0,0] range that the blob merges with [1,8], so that it is no longer alone.
 // Exact repair: keep C's step for -1 at import.
 // When several targets qualify (their ranges overlap), C takes the first
-// condition in source order, so the target whose first range comes first wins.
+// condition that holds, in source order. A condition that holds for -1 starts
+// at code point 1 in the blob, so the target whose first range starting at 1
+// comes first wins, with that range's SKIP flag.
 // The rule is exact for the ranges the blob holds. A target can qualify only
 // if one of its ranges starts at code point 1, so the first pass collects the
-// targets that have such a range and the second pass sums their coverage: two
-// linear passes while at most ccInvalidSlots targets have one. A state with
-// more of them takes ccInvalidNextAll, which gives the same answer with one
-// pass per target. In the 118,580 pinned states no state has more than one
-// such target, so none takes it.
+// targets that have such a range, in order, and the second pass sums their
+// coverage: two linear passes while at most ccInvalidSlots targets have one.
+// A state with more of them takes ccInvalidNextAll, which gives the same
+// answer with one pass per target. In the pinned states no state has more
+// than one such target, so none takes it.
 func ccInvalidNext(st *LexDFAState) (int32, bool) {
 	var cand [ccInvalidSlots]int32
+	var skip [ccInvalidSlots]bool
 	n := 0
 	for i := range st.Trans {
 		t := &st.Trans[i]
@@ -383,19 +392,14 @@ func ccInvalidNext(st *LexDFAState) (int32, bool) {
 		if n == ccInvalidSlots {
 			return ccInvalidNextAll(st)
 		}
-		cand[n] = t.Next
+		cand[n], skip[n] = t.Next, t.Skip
 		n++
 	}
 	if n == 0 {
 		return -1, false
 	}
 	var covered [ccInvalidSlots]int64
-	var minLo [ccInvalidSlots]rune
-	var skip [ccInvalidSlots]bool
-	var first [ccInvalidSlots]int
-	for j := 0; j < n; j++ {
-		minLo[j], first[j] = 0x10FFFF, -1
-	}
+	var fromZero [ccInvalidSlots]bool
 	for i := range st.Trans {
 		t := &st.Trans[i]
 		if t.Lo == 0 && t.Hi == 0 {
@@ -406,33 +410,29 @@ func ccInvalidNext(st *LexDFAState) (int32, bool) {
 				continue
 			}
 			covered[j] += int64(t.Hi) - int64(t.Lo) + 1
-			if t.Lo < minLo[j] {
-				minLo[j] = t.Lo
-			}
-			if first[j] < 0 {
-				first[j], skip[j] = i, t.Skip
+			if t.Lo == 0 {
+				fromZero[j] = true
 			}
 			break
 		}
 	}
-	best := -1
+	// cand is in the order of each target's first range that starts at 1.
 	for j := 0; j < n; j++ {
-		if covered[j] >= ccInvalidCover && minLo[j] == 1 && (best < 0 || first[j] < first[best]) {
-			best = j
+		if covered[j] >= ccInvalidCover && !fromZero[j] {
+			return cand[j], skip[j]
 		}
 	}
-	if best < 0 {
-		return -1, false
-	}
-	return cand[best], skip[best]
+	return -1, false
 }
 
 // ccInvalidNextAll is ccInvalidNext without the limit on the number of
-// targets: for each target that has a range starting at code point 1 it sums
-// the target's ranges in one pass. The cost is the number of such targets
-// times the number of transitions.
+// targets: for each target that has a range starting at code point 1, in the
+// order of those ranges, it sums the target's ranges in one pass and returns
+// the first target that qualifies. Its cost can reach the square of the number
+// of transitions: one pass per such target, and for each range that starts at
+// code point 1 a scan of the earlier transitions to see whether its target was
+// already summed.
 func ccInvalidNextAll(st *LexDFAState) (int32, bool) {
-	bestNext, bestFirst, bestSkip := int32(-1), -1, false
 	for i := range st.Trans {
 		t := &st.Trans[i]
 		if t.Lo != 1 {
@@ -449,26 +449,22 @@ func ccInvalidNextAll(st *LexDFAState) (int32, bool) {
 			continue
 		}
 		var covered int64
-		minLo := rune(0x10FFFF)
-		first, skip := -1, false
+		fromZero := false
 		for k := range st.Trans {
 			u := &st.Trans[k]
 			if u.Next != t.Next || u.Lo == 0 && u.Hi == 0 {
 				continue
 			}
 			covered += int64(u.Hi) - int64(u.Lo) + 1
-			if u.Lo < minLo {
-				minLo = u.Lo
-			}
-			if first < 0 {
-				first, skip = k, u.Skip
+			if u.Lo == 0 {
+				fromZero = true
 			}
 		}
-		if covered >= ccInvalidCover && minLo == 1 && (bestFirst < 0 || first < bestFirst) {
-			bestNext, bestFirst, bestSkip = t.Next, first, skip
+		if covered >= ccInvalidCover && !fromZero {
+			return t.Next, t.Skip
 		}
 	}
-	return bestNext, bestSkip
+	return -1, false
 }
 
 const (
@@ -477,39 +473,60 @@ const (
 	ccInvalidSlots = 8
 	// ccInvalidCover is the coverage a target needs: every code point but 256.
 	ccInvalidCover = 0x110000 - 256
+	// ccNulMapRanges is the number of leading simple ranges from which the
+	// generator writes an ADVANCE_MAP.
+	ccNulMapRanges = 8
 )
 
-// ccNulNext is the step on character 0 at the end of input, or -1. HEURISTIC;
-// wrong in 1 of 118,580 lex states (http 1); the rule of the first fix was
-// wrong in 129 (julia 78, earthfile 37, bitbake 7, http 4, python, starlark
-// and gitattributes 1 each), and "never" in 61.
+// ccNulNext is the step on character 0 at the end of input, or -1. HEURISTIC:
+// the blob does not say which step C takes there, so the rule rebuilds what
+// the generator wrote. Over the 118,580 pinned lex states it gives C's step in
+// every state, on the range lists the core walks and on the lists before
+// adjacent ranges of one target are merged. The rule of the second fix
+// differed in 2 states (http, bitbake), that of the first in 129, and "never"
+// in 61.
 // At the end of input C's lookahead is 0 and eof is true. A generated test
 // "(!eof && lookahead == 0)" or "!eof && ..." is false there, and so is a
 // range test; only a bare character 0 in an ADVANCE_MAP (no "!eof"), or the
 // bare "lookahead == 0" of old generators, holds. The importer drops the
-// "!eof" operand (cmd/ts2go/lex_dfa.go:1126-1156), so the blob keeps a [0,0]
-// range for each form and for ADVANCE_MAP alike. C writes the "!eof" test in
-// states with a catch-all and in states without one, so a catch-all does not
-// tell the forms apart. What the scan found: the importer copies the pairs of
-// an ADVANCE_MAP as single-character transitions in source order and sets no
-// minimum number of them; the shortest map seen in the 241 sources has 8
-// pairs, and a [0,0] range in a leading run of 8 or more single-character,
-// non-SKIP transitions separates the two forms in all but 1 state (a map
-// cannot hold a SKIP). The shape is not exact: an ordinary guarded condition
-// "(!eof && lookahead == 0)" followed by seven single-character conditions has
-// the same shape, and would be taken wrongly. No pinned grammar has it except
-// the 1 wrong state counted above. Exact repair: keep C's end-of-input step
-// at import (design R/design/lex-blob-fidelity.md).
+// "!eof" operand (cmd/ts2go/lex_dfa.go:1126-1156), so the blob keeps a range
+// that starts at 0 for each form and for ADVANCE_MAP alike. C writes the
+// "!eof" test in states with a catch-all and in states without one, so a
+// catch-all does not tell the forms apart. The map does.
+// The generator sorts a state's transitions with the simple ones first: not a
+// SKIP, and every range of the character set at most two code points wide and
+// not above 0xFFFF. When the leading simple transitions hold at least 8
+// ranges it writes them as an ADVANCE_MAP and the rest as "if" tests
+// (tree-sitter, crates/generate/src/render.rs, the block that sets
+// leading_simple_transition_range_count). The importer copies the map's pairs
+// in source order. So the rule counts the leading ranges of that kind. The
+// range that ends the run can belong to a transition whose first ranges looked
+// simple: a transition has one target, so when the ending range is not a SKIP
+// and has the target of the run's last ranges, those leave the run. With at
+// least 8 ranges left, the range that starts at 0 is a map entry, and C takes
+// its step at the end of input.
+// What a looser rule did: http's first lex state begins with the guarded
+// "(!eof && lookahead == 0)", four single characters and three single
+// characters of a transition that goes on with wider ranges. Counting those
+// three gave 8, the step was taken, and it accepted an empty token at the end
+// of input again and again.
+// Exact repair: keep C's end-of-input step at import.
 func ccNulNext(st *LexDFAState) int32 {
 	run := 0
 	for run < len(st.Trans) {
 		t := &st.Trans[run]
-		if t.Lo != t.Hi || t.Skip {
+		if t.Skip || t.Hi-t.Lo > 1 || t.Hi > 0xFFFF {
 			break
 		}
 		run++
 	}
-	if run < 8 {
+	if run < len(st.Trans) && !st.Trans[run].Skip {
+		next := st.Trans[run].Next
+		for run > 0 && st.Trans[run-1].Next == next {
+			run--
+		}
+	}
+	if run < ccNulMapRanges {
 		return -1
 	}
 	for i := 0; i < run; i++ {

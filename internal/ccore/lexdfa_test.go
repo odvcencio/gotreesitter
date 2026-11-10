@@ -151,10 +151,30 @@ func TestInvalidNextManyTargets(t *testing.T) {
 	if next, _ := ccInvalidNext(&st); next != 1 {
 		t.Fatalf("a later qualifying target won: got %d, want 1", next)
 	}
-	// The qualifying target's first range is not the one that starts at 1.
+	// Two targets qualify. C takes the first condition that holds for -1, and
+	// such a condition starts at code point 1: target 2's does, at index 1;
+	// target 3's first range starts at 9 and does not hold for -1.
 	st.Trans = []LexTrans{{Lo: 9, Hi: full, Next: 3, Skip: true}, {Lo: 1, Hi: full, Next: 2}, {Lo: 1, Hi: 8, Next: 3}}
+	if next, skip := ccInvalidNext(&st); next != 2 || skip {
+		t.Fatalf("got %d skip=%v, want 2 without skip", next, skip)
+	}
+	// The SKIP flag is that of the range that starts at 1.
+	st.Trans = []LexTrans{{Lo: 9, Hi: full, Next: 3}, {Lo: 1, Hi: 8, Next: 3, Skip: true}}
 	if next, skip := ccInvalidNext(&st); next != 3 || !skip {
-		t.Fatalf("got %d skip=%v, want 3 with the skip flag of its first range", next, skip)
+		t.Fatalf("got %d skip=%v, want 3 with the skip flag of its range from 1", next, skip)
+	}
+	// A range from 0 that is not a lone [0,0] disqualifies its target, also
+	// when the blob has merged [0,0] with [1,8] (http, a known difference).
+	st.Trans = []LexTrans{{Lo: 0, Hi: 8, Next: 4}, {Lo: 9, Hi: full + 8, Next: 4}}
+	if next, _ := ccInvalidNext(&st); next != -1 {
+		t.Fatalf("a target with a range from 0 was taken: %d", next)
+	}
+	st.Trans = []LexTrans{{Lo: 1, Hi: full, Next: 4}, {Lo: 0, Hi: 5, Next: 4}}
+	if next, _ := ccInvalidNext(&st); next != -1 {
+		t.Fatalf("a target with ranges from 1 and from 0 was taken: %d", next)
+	}
+	if next, _ := ccInvalidNextAll(&st); next != -1 {
+		t.Fatalf("per-target rule: a target with ranges from 1 and from 0 was taken: %d", next)
 	}
 	// Nine targets with a range starting at 1: the rule goes on to
 	// ccInvalidNextAll and still finds the only qualifying one, the last.
@@ -165,6 +185,72 @@ func TestInvalidNextManyTargets(t *testing.T) {
 	st.Trans = append(st.Trans, LexTrans{Lo: 1, Hi: full, Next: 9})
 	if next, _ := ccInvalidNext(&st); next != 9 {
 		t.Fatalf("more targets than slots: got %d, want 9", next)
+	}
+}
+
+// The coverage a target needs is every code point but 256, in both forms of
+// the rule. The number is written out here, so that a changed constant fails.
+func TestInvalidNextThreshold(t *testing.T) {
+	const need = 0x110000 - 256
+	for _, c := range []struct {
+		hi   rune
+		want int32
+	}{{need, 1}, {need - 1, -1}} {
+		st := LexDFAState{Default: -1, EOF: -1, Trans: []LexTrans{{Lo: 1, Hi: c.hi, Next: 1}}}
+		if next, _ := ccInvalidNext(&st); next != c.want {
+			t.Errorf("two-pass rule, range [1,%d]: got %d, want %d", c.hi, next, c.want)
+		}
+		if next, _ := ccInvalidNextAll(&st); next != c.want {
+			t.Errorf("per-target rule, range [1,%d]: got %d, want %d", c.hi, next, c.want)
+		}
+	}
+}
+
+// ccNulNext rebuilds the generator's ADVANCE_MAP from the blob's ranges. The
+// first two lists are pinned lex states as the blob holds them.
+func TestNulNextFollowsTheGeneratorsMap(t *testing.T) {
+	one := func(c rune, next int32) LexTrans { return LexTrans{Lo: c, Hi: c, Next: next} }
+	cases := []struct {
+		name  string
+		trans []LexTrans
+		want  int32
+	}{
+		// http, lex state 1: "(!eof && lookahead == 0)", four single characters,
+		// then a transition to 896 whose first three ranges are single
+		// characters and whose fourth is wide. C takes no step at the end of
+		// input; a rule that counted the three accepted an empty token for ever.
+		{"http state 1: guarded test, no map", []LexTrans{
+			one(0, 863), one(10, 897), one(13, 899), one(92, 891), one(123, 888),
+			one(32, 896), one(160, 896), one(5760, 896), {Lo: 8192, Hi: 8202, Next: 896},
+			one(8239, 896), {Lo: 48, Hi: 57, Next: 807}}, -1},
+		// bitbake, lex state 239: a map of 8 ranges, one of them two code
+		// points wide after the blob merged 0x0b and 0x0c. C takes the step.
+		{"bitbake state 239: map with a merged pair", []LexTrans{
+			one(0, 203), one(10, 197), one(13, 7), one(35, 243), one(36, 242), one(92, 240),
+			one(9, 239), {Lo: 11, Hi: 12, Next: 239}, {Lo: 1, Hi: 31, Next: 244}, {Lo: 33, Hi: 0x10FFFF, Next: 244}}, 203},
+		{"the same map before the merge", []LexTrans{
+			one(0, 203), one(10, 197), one(13, 7), one(35, 243), one(36, 242), one(92, 240),
+			one(9, 239), one(11, 239), one(12, 239), {Lo: 1, Hi: 31, Next: 244}}, 203},
+		{"seven ranges are not a map", []LexTrans{
+			one(0, 1), one(10, 2), one(13, 3), one(35, 4), one(36, 5), one(92, 6), one(9, 7), {Lo: 1, Hi: 31, Next: 8}}, -1},
+		{"a range above 0xFFFF ends the run", []LexTrans{
+			one(0, 1), one(10, 2), one(13, 3), one(35, 4), one(36, 5), one(92, 6), one(9, 7), one(0x10000, 8), one(40, 9)}, -1},
+		{"a range three wide ends the run", []LexTrans{
+			one(0, 1), one(10, 2), one(13, 3), one(35, 4), one(36, 5), one(92, 6), one(9, 7), {Lo: 60, Hi: 62, Next: 8}, one(40, 9)}, -1},
+		{"a SKIP that ends the run takes nothing out of it", []LexTrans{
+			one(0, 1), one(10, 2), one(13, 3), one(35, 4), one(36, 5), one(92, 6), one(9, 7), one(11, 7),
+			{Lo: 32, Hi: 32, Next: 7, Skip: true}}, 1},
+		{"the range from 0 may be two wide", []LexTrans{
+			{Lo: 0, Hi: 1, Next: 9}, one(10, 2), one(13, 3), one(35, 4), one(36, 5), one(92, 6), one(9, 7), one(11, 8)}, 9},
+		{"a map without character 0", []LexTrans{
+			one(5, 1), one(10, 2), one(13, 3), one(35, 4), one(36, 5), one(92, 6), one(9, 7), one(11, 8)}, -1},
+		{"no transitions", nil, -1},
+	}
+	for _, c := range cases {
+		st := LexDFAState{Default: -1, EOF: -1, Trans: c.trans}
+		if got := ccNulNext(&st); got != c.want {
+			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
+		}
 	}
 }
 
