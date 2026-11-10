@@ -2,7 +2,7 @@ package ccore
 
 // Lexing: C/parser.c ts_parser__lex (lex modes, error retry, error skip,
 // keyword promotion, token cache, leaf construction) is core code. The
-// automaton kernels sit behind LexKernel.
+// automaton walk is lexdfa.go.
 
 import "unicode/utf8"
 
@@ -18,16 +18,10 @@ type Token struct {
 	LookaheadEnd uint32 // the farthest byte inspected while selecting the token
 }
 
-// LexKernel runs one lexer automaton.
-//
-// Scan lexes one token starting at src[pos] (row and col are the position's
-// point) in the DFA start state lexState. It reports false when no token
-// matches; out.LookaheadEnd is then the farthest byte inspected. After a false
-// return, Fail reports where the failed attempt began (after skipped
-// whitespace) and where it ended.
-type LexKernel interface {
-	Scan(lexState uint32, src []byte, pos int, row, col uint32, out *Token) bool
-	Fail() (start, end Length)
+// scan runs the main lex automaton (the generated ts_lex of the grammar) and
+// records where a failed attempt began and ended.
+func (p *Parser) scan(lexState uint32, pos int, row, col uint32, out *Token) bool {
+	return scanDFA(p.t.LexStates, p.t.LexAscii, p.src, lexState, pos, row, col, out, &p.fail)
 }
 
 // C/parser.c:505 ts_parser__lex: external scan, internal scan, error-mode
@@ -65,19 +59,41 @@ retry:
 		p.log("lex_internal state:%d, row:%d, column:%d", mode.LexState, start.row, start.col)
 	}
 	for !foundExternal {
-		if pos >= len(p.src) {
-			*tok = Token{StartByte: uint32(pos), EndByte: uint32(pos), StartRow: row, StartCol: col, EndRow: row, EndCol: col, LookaheadEnd: uint32(pos) + 1}
+		lexed := p.scan(mode.Index, pos, row, col, tok)
+		if !lexed && errorMode && pos >= len(p.src) {
+			// HEURISTIC. In C the error-state lex function accepts the end token at
+			// the end of input, so the error skip below never starts there. A blob
+			// from the grammar generator can leave end-token acceptance out of its
+			// lex states (it keeps it in the parser's own end check), and then the
+			// walk fails at the end of input and the error skip would add empty
+			// ERROR leaves for ever. The walk's failure is read as the empty end
+			// token, which is what the earlier root kernel returned at the end of
+			// input.
+			lexed = true
+			*tok = Token{}
+		}
+		if lexed && pos >= len(p.src) {
+			// C/lexer.c:251-263: the walk ran at the end of input; if it accepted no
+			// token, the end token is empty and the lookahead end is one byte past.
+			if tok.Symbol == 0 {
+				*tok = Token{StartByte: uint32(pos), EndByte: uint32(pos), StartRow: row, StartCol: col, EndRow: row, EndCol: col, LookaheadEnd: uint32(pos) + 1}
+			}
 			break
 		}
-		if !p.kernel.Scan(mode.Index, p.src, pos, row, col, tok) {
+		if !lexed {
+			// C/parser.c:601 ts_lexer_finish runs after a failed main lex too, so its
+			// lookahead end counts toward the token that is lexed next.
+			if tok.LookaheadEnd > lookaheadEnd {
+				lookaheadEnd = tok.LookaheadEnd
+			}
 			if !errorMode {
-				// C/parser.c:586-591: retry from the start in the error state's lex mode.
+				// C/parser.c:604-609: retry from the start in the error state's lex mode.
 				errorMode = true
 				mode = p.t.LexModes[0]
 				pos, row, col = int(start.bytes), start.row, start.col
 				goto retry
 			}
-			// C/parser.c:592-606: skip characters into an ERROR leaf (ccore_recover.go).
+			// C/parser.c:611-627: skip characters into an ERROR leaf (lexErrorSkip below).
 			result := p.lexErrorSkip(version, parseState, start, mode, lookaheadEnd, &calledGetColumn)
 			if p.stop != "" {
 				return 0, false
@@ -110,10 +126,10 @@ retry:
 	}
 	sym := tok.Symbol
 	isKeyword := false
-	if !foundExternal && sym == p.t.KeywordCapture && sym != 0 && p.kwKernel != nil {
+	if !foundExternal && sym == p.t.KeywordCapture && sym != 0 && len(p.t.KeywordLexStates) != 0 {
 		kt := &p.kwTok
 		*kt = Token{}
-		if p.kwKernel.Scan(0, p.src, int(tok.StartByte), tok.StartRow, tok.StartCol, kt) && kt.Symbol != 0 {
+		if scanDFA(p.t.KeywordLexStates, p.t.KeywordLexAscii, p.src, 0, int(tok.StartByte), tok.StartRow, tok.StartCol, kt, &p.kwFail) && kt.Symbol != 0 {
 			isKeyword = true
 			if kt.EndByte == tok.EndByte && (p.hasActions(parseState, kt.Symbol) || p.isReserved(parseState, kt.Symbol)) {
 				sym = kt.Symbol
@@ -167,11 +183,9 @@ func (p *Parser) lexErrorSkip(version int, parseState uint16, start Length, mode
 	if p.logf != nil {
 		p.log("skip_unrecognized_character")
 	}
-	errStart, cur := p.kernel.Fail()
+	errStart, cur := p.fail[0], p.fail[1]
 	errEnd := errStart
-	if cur.bytes > lookaheadEnd {
-		lookaheadEnd = cur.bytes
-	}
+	// The failed scans' lookahead ends are already in lookaheadEnd (C/parser.c:601).
 	for {
 		if cur.bytes == errEnd.bytes {
 			if int(cur.bytes) >= len(p.src) {
@@ -228,9 +242,8 @@ func (p *Parser) scanFrom(mode LexMode, at Length) (bool, Length, uint32) {
 		if pos >= len(p.src) {
 			return true, Length{}, uint32(pos) + 1
 		}
-		if !p.kernel.Scan(mode.Index, p.src, pos, row, col, tok) {
-			_, failEnd := p.kernel.Fail()
-			return false, failEnd, tok.LookaheadEnd
+		if !p.scan(mode.Index, pos, row, col, tok) {
+			return false, p.fail[1], tok.LookaheadEnd
 		}
 		if tok.Symbol == 0 {
 			if int(tok.EndByte) <= pos {

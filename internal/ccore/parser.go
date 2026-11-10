@@ -3,8 +3,6 @@ package ccore
 // Config names what a Parser needs from the root package.
 type Config struct {
 	Tables  *Tables
-	Lex     LexKernel  // the main lexer automaton
-	Keyword LexKernel  // the keyword automaton; nil when the language has none
 	Scanner ExtScanner // nil when the language has no external scanner
 }
 
@@ -12,8 +10,6 @@ type Config struct {
 type Parser struct {
 	Store
 	t        *Tables
-	kernel   LexKernel
-	kwKernel LexKernel
 	scanner  ExtScanner
 	src      []byte
 	nodes    []stackNode
@@ -44,7 +40,9 @@ type Parser struct {
 	stop         string
 	ext          scannerState // external scanner side (scanner.go)
 	forceRows    bool
-	lexTok       Token // scratch tokens: pointers passed to interface methods would escape
+	fail         [2]Length // where the last failed main scan began and ended
+	kwFail       [2]Length // the same for a keyword scan (not read)
+	lexTok       Token     // scratch tokens
 	kwTok        Token
 	skipTok      Token
 
@@ -59,7 +57,7 @@ type Parser struct {
 
 // NewParser returns a parser for the language described by c.
 func NewParser(c Config) *Parser {
-	return &Parser{t: c.Tables, kernel: c.Lex, kwKernel: c.Keyword, scanner: c.Scanner}
+	return &Parser{t: c.Tables, scanner: c.Scanner}
 }
 
 // SetForceDerivedRows derives the external valid-symbol rows from the action
@@ -251,7 +249,7 @@ func (p *Parser) accept(version int, lookahead Handle) {
 	p.heads[version].status = headHalted
 }
 
-// C/parser.c:1598 ts_parser__advance without node reuse and recovery.
+// C/parser.c:1598 ts_parser__advance.
 func (p *Parser) advance(version int, allowReuse bool) bool {
 	state := p.nodes[p.heads[version].node].state
 	position := p.nodes[p.heads[version].node].position.bytes
@@ -447,9 +445,9 @@ func compareVersions(a, b errorStatus) int { // C/parser.c:246
 	return cmpNone
 }
 
-// C/parser.c:1814 ts_parser__condense_stack. Resuming a paused version
-// (handle_error) is recovery: it ends the parse with "needs recovery".
-func (p *Parser) condense() (uint32, bool) {
+// C/parser.c:1814 ts_parser__condense_stack. It returns the minimum error
+// cost of the live versions that are not in error.
+func (p *Parser) condense() uint32 {
 	made := false
 	minCost := ^uint32(0)
 	for i := 0; i < len(p.heads); i++ {
@@ -526,13 +524,10 @@ func (p *Parser) condense() (uint32, bool) {
 			p.log("condense")
 		}
 	}
-	return minCost, true
+	return minCost
 }
 
-// parse is the C/parser.c:2124 ts_parser_parse loop.
-func (p *Parser) parse(src []byte) string { return p.parseWith(src, 0) }
-
-// parseWith runs the loop with an optional edited old tree (C: old_tree).
+// parseWith is the C/parser.c:2124 ts_parser_parse loop. It runs the loop with an optional edited old tree (C: old_tree).
 // A fresh parse truncates the arenas; an incremental one appends to them.
 func (p *Parser) parseWith(src []byte, old Handle) string {
 	p.src = src
@@ -589,10 +584,7 @@ func (p *Parser) parseWith(src []byte, old Handle) string {
 				}
 			}
 		}
-		minCost, ok := p.condense()
-		if !ok {
-			return p.stop
-		}
+		minCost := p.condense()
 		if p.finished != 0 && p.errorCost(p.finished) < minCost {
 			for len(p.heads) > 0 {
 				p.removeVersion(len(p.heads) - 1)

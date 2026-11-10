@@ -64,7 +64,6 @@ type scannerState struct {
 	bytes     []byte // side arena: serialized scanner state of every external leaf
 	buf       []byte
 	cacheLast Handle   // C TokenCache.last_external_token
-	scans     int      // statistics (not in C)
 	rows      [][]bool // valid-symbol rows derived from the action table (Tables.ExternalLexStates empty)
 	rowsDone  bool
 	active    bool // some lex mode has an external lex state; false: every hook returns at once
@@ -93,7 +92,6 @@ func (p *Parser) extReset(fresh bool) {
 		p.ext.bytes = p.ext.bytes[:0]
 	}
 	p.ext.cacheLast = 0
-	p.ext.scans = 0
 }
 
 // extRows is C/language.h ts_language_enabled_external_tokens' table: the
@@ -260,7 +258,6 @@ func (p *Parser) lexExternal(version int, parseState uint16, mode LexMode, cur L
 	}
 	last := p.heads[version].lastExternal
 	prev := p.extState(last)
-	e.scans++
 	res := &e.res
 	*res = ExtScan{}
 	found := p.scanner.Scan(p.src, int(cur.bytes), cur.row, cur.col, prev, rows[mode.ExternalLexState], e.buf, res)

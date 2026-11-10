@@ -68,12 +68,12 @@ func (p *Store) kidSpan(start, n uint32) []Handle { return p.kids[start : start+
 func (p *Store) kidAt(slot int) Handle            { return p.kids[slot] }
 func (p *Store) setKidAt(slot int, h Handle)      { p.kids[slot] = h }
 
-// capBytes is the arena capacity in bytes (a statistic, not C's).
+// capBytes is the arena capacity in bytes (a statistic, not C's; it counts 80 bytes per record).
 func (p *Store) capBytes() int { return cap(p.recs)*80 + cap(p.kids)*8 }
 
 // arenaUse returns the arena bytes in use and the bytes reachable from root.
 func (p *Store) arenaUse(root Handle) (used, reachable int) {
-	const recBytes, kidBytes = 96, 8
+	const recBytes, kidBytes = 96, 8 // an estimate for the statistic, not unsafe.Sizeof
 	used = len(p.recs)*recBytes + len(p.kids)*kidBytes
 	seen := make(map[Handle]bool)
 	stack := []Handle{root}
@@ -114,8 +114,13 @@ func (p *Store) HasChanges(h Handle) bool   { return p.hasChanges(h) }
 func (p *Store) Padding(h Handle) Length    { return p.padding(h) }
 func (p *Store) Size(h Handle) Length       { return p.size(h) }
 func (p *Store) ChildCount(h Handle) uint32 { return p.childCount(h) }
-func (p *Store) Children(h Handle) []Handle { return p.children(h) }
-func (p *Store) ErrorCost(h Handle) uint32  { return p.errorCost(h) }
+func (p *Store) Children(h Handle) []Handle {
+	if h&1 != 0 {
+		return nil
+	}
+	return p.children(h)
+}
+func (p *Store) ErrorCost(h Handle) uint32 { return p.errorCost(h) }
 
 func (p *Store) rec(h Handle) *rec { return &p.recs[h>>1] }
 
@@ -208,11 +213,33 @@ func (p *Store) visibleDescendants(h Handle) uint32 {
 	return p.recs[h>>1].visibleDescendantCount
 }
 
-func (p *Store) repeatDepth(h Handle) uint32 {
+// repeatDepth is C/subtree.h:307 ts_subtree_repeat_depth. C reads
+// ptr->repeat_depth for every heap subtree, and for a leaf with external
+// tokens that field overlays bytes 16 and 17 of the union member
+// external_scanner_state (C/subtree.h:152-163, ExternalScannerState at
+// subtree.h:31-37). A state of 24 bytes or fewer is stored in short_data, and
+// the bytes past its length are zero because ts_subtree_new_leaf
+// (C/subtree.c:201) builds the record from a compound literal. A longer state
+// is stored through long_data (8 bytes), so bytes 16 and 17 stay zero.
+func (p *Parser) repeatDepth(h Handle) uint32 {
 	if h&1 != 0 {
 		return 0
 	}
-	return uint32(p.recs[h>>1].repeatDepth)
+	r := &p.recs[h>>1]
+	if r.childCount == 0 && r.flags&heapHasExternalTokens != 0 {
+		st := p.extState(h)
+		var d uint32
+		if len(st) <= 24 {
+			if len(st) > 16 {
+				d = uint32(st[16])
+			}
+			if len(st) > 17 {
+				d |= uint32(st[17]) << 8
+			}
+		}
+		return d
+	}
+	return uint32(r.repeatDepth)
 }
 
 func (p *Store) leafSymbol(h Handle) Symbol { // C ts_subtree_leaf_symbol

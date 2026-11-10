@@ -2,8 +2,8 @@
 // tree-sitter 0.27.1 (parser.c, stack.c, subtree.c, reusable_node.h,
 // tree.c). Function comments name the C function and `C/<file>:<line>` of
 // the pinned runtime. The package imports the standard library only. The
-// root package supplies the language tables, the lexer kernels and the
-// external scanner through Tables, LexKernel and ExtScanner.
+// root package supplies the language tables, the lex automata and the
+// external scanner through Tables and ExtScanner.
 //
 // Go constructs that differ from C, semantics kept:
 //   - Handle is an 8-byte value: bit 0 set = inline leaf with C's packed

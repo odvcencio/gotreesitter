@@ -12,7 +12,7 @@ import (
 
 // ---------------------------------------------------------------- output
 
-// digestWriter is the visible-tree digest of design section 6.2.
+// digestWriter writes the visible-tree digest: one record per visible node (kind, byte and point range, flags, child count).
 type digestWriter struct {
 	buf []byte
 }

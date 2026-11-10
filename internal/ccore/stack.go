@@ -26,13 +26,13 @@ const (
 	headHalted
 )
 
-type stackHead struct { // C StackHead (summary is recovery-only: not kept)
+type stackHead struct { // C StackHead
 	node                 int32
 	nodeCountAtLastError uint32
 	lastExternal         Handle
 	lookaheadWhenPaused  Handle
 	status               uint8
-	summary              []summaryEntry // recovery (ccore_stack_summary.go)
+	summary              []summaryEntry // recovery (stack_summary.go)
 }
 
 type stackSlice struct { // C StackSlice

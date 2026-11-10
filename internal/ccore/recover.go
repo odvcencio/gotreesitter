@@ -173,7 +173,8 @@ func (p *Parser) handleError(version int, lookahead Handle) {
 	for v := version; v < versionCount; {
 		if !didInsertMissing {
 			state := p.nodes[p.heads[v].node].state
-			for missing := Symbol(1); uint32(missing) < p.t.TokenCount; missing++ {
+			for missingIdx := uint32(1); missingIdx < p.t.TokenCount; missingIdx++ {
+				missing := Symbol(missingIdx)
 				after := p.nextState(state, missing)
 				if after == 0 || after == state {
 					continue

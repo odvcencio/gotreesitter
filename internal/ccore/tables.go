@@ -11,7 +11,7 @@ package ccore
 //   ts_language_symbol_metadata, ts_language_symbol_name,
 //   ts_language_lookaheads (ts_lookahead_iterator__next).
 // The action-index and goto lookups return the same values as the root
-// package's lookupActionIndex and lookupGoto; a root test checks that.
+// package's lookupActionIndex and lookupGoto; the cgo_harness test TestCcoreTables checks that.
 
 // SmallPair is one (symbol, value) pair of a small state's sparse lookup.
 type SmallPair struct{ Sym, Val uint16 }
@@ -42,7 +42,7 @@ type ActionEntry struct {
 	Actions  []Action
 }
 
-// LexMode is C's TSLexerMode. Index is the DFA start state the lexer kernel
+// LexMode is C's TSLexerMode. Index is the DFA start state the lex walk
 // takes (the root's LexMode.LexStateIndex); it is a function of the other
 // fields, so struct equality keeps the meaning C gives to mode equality.
 type LexMode struct {
@@ -82,6 +82,13 @@ type Tables struct {
 	KeywordCapture         Symbol
 	ReservedWords          []Symbol
 	MaxReservedWordSetSize uint16
+
+	// The lex automata (lexdfa.go). The ASCII tables are an optional speed-up
+	// derived from the transitions; the walk gives the same answer without them.
+	LexStates        []LexDFAState
+	LexAscii         [][128]int32 `json:"-"`
+	KeywordLexStates []LexDFAState
+	KeywordLexAscii  [][128]int32 `json:"-"`
 
 	ExternalSymbols   []Symbol // external token index -> symbol
 	ExternalLexStates [][]bool // valid-symbol rows; empty: derived from the action table
