@@ -129,6 +129,100 @@ func TestScanInvalidByte(t *testing.T) {
 	}
 }
 
+// ccInvalidNext with many targets. A target qualifies if its ranges start at
+// code point 1 and cover all but 256 code points; among those the one whose
+// first range comes first wins. Half-size targets around a qualifying one must
+// not hide it, and the two-pass rule must agree with the one-pass-per-target
+// rule on every state.
+func TestInvalidNextManyTargets(t *testing.T) {
+	const full = 0x110000 - 256
+	half := func(next int32) LexTrans { return LexTrans{Lo: 1, Hi: full / 2, Next: next} }
+	// One qualifying target first, then sixteen targets of half the size.
+	trans := []LexTrans{{Lo: 1, Hi: full, Next: 1}}
+	for next := int32(2); next <= 17; next++ {
+		trans = append(trans, half(next))
+	}
+	st := LexDFAState{Default: -1, EOF: -1, Trans: trans}
+	if next, _ := ccInvalidNext(&st); next != 1 {
+		t.Fatalf("sixteen half-size targets hid the qualifying one: got %d, want 1", next)
+	}
+	// A second qualifying target at the end must not win over the first.
+	st.Trans = append(st.Trans, LexTrans{Lo: 1, Hi: full, Next: 18})
+	if next, _ := ccInvalidNext(&st); next != 1 {
+		t.Fatalf("a later qualifying target won: got %d, want 1", next)
+	}
+	// The qualifying target's first range is not the one that starts at 1.
+	st.Trans = []LexTrans{{Lo: 9, Hi: full, Next: 3, Skip: true}, {Lo: 1, Hi: full, Next: 2}, {Lo: 1, Hi: 8, Next: 3}}
+	if next, skip := ccInvalidNext(&st); next != 3 || !skip {
+		t.Fatalf("got %d skip=%v, want 3 with the skip flag of its first range", next, skip)
+	}
+	// Nine targets with a range starting at 1: the rule goes on to
+	// ccInvalidNextAll and still finds the only qualifying one, the last.
+	st.Trans = nil
+	for next := int32(1); next <= 8; next++ {
+		st.Trans = append(st.Trans, LexTrans{Lo: 1, Hi: 100, Next: next})
+	}
+	st.Trans = append(st.Trans, LexTrans{Lo: 1, Hi: full, Next: 9})
+	if next, _ := ccInvalidNext(&st); next != 9 {
+		t.Fatalf("more targets than slots: got %d, want 9", next)
+	}
+}
+
+// The two forms of the rule agree on generated states: few and many targets,
+// ranges that start at 0, at 1 and above, lone [0,0] ranges, and targets split
+// over several ranges.
+func TestInvalidNextFormsAgree(t *testing.T) {
+	const full = 0x110000 - 256
+	seed := uint64(0x9e3779b97f4a7c15)
+	rnd := func(n int) int {
+		seed ^= seed << 13
+		seed ^= seed >> 7
+		seed ^= seed << 17
+		return int(seed % uint64(n))
+	}
+	qualifying, none := 0, 0
+	for round := 0; round < 20000; round++ {
+		var st LexDFAState
+		targets := 1 + rnd(12)
+		for i, n := 0, 1+rnd(24); i < n; i++ {
+			tr := LexTrans{Next: int32(1 + rnd(targets)), Skip: rnd(4) == 0}
+			switch rnd(6) {
+			case 0:
+				tr.Lo, tr.Hi = 0, 0
+			case 1:
+				tr.Lo, tr.Hi = 1, rune(full+rnd(300))
+			case 2:
+				tr.Lo, tr.Hi = 1, rune(1+rnd(full))
+			case 3:
+				tr.Lo = rune(2 + rnd(full/2))
+				tr.Hi = tr.Lo + rune(rnd(full/2+300))
+			case 4:
+				tr.Lo, tr.Hi = 0, rune(rnd(full))
+			default:
+				tr.Lo = rune(1 + rnd(200))
+				tr.Hi = tr.Lo + rune(rnd(64))
+			}
+			if tr.Hi > 0x10FFFF {
+				tr.Hi = 0x10FFFF
+			}
+			st.Trans = append(st.Trans, tr)
+		}
+		next, skip := ccInvalidNext(&st)
+		allNext, allSkip := ccInvalidNextAll(&st)
+		if next != allNext || skip != allSkip {
+			t.Fatalf("round %d: two-pass rule gives %d skip=%v, per-target rule gives %d skip=%v for %+v", round, next, skip, allNext, allSkip, st.Trans)
+		}
+		if next >= 0 {
+			qualifying++
+		} else {
+			none++
+		}
+	}
+	if qualifying < 1000 || none < 1000 {
+		t.Fatalf("the generated states are one-sided: %d with a step, %d without", qualifying, none)
+	}
+}
+
 // A failed scan from a start state outside the table still reports where it began.
 func TestScanBadStartState(t *testing.T) {
 	var tok Token

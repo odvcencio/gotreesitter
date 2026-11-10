@@ -355,62 +355,44 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 // Exact repair: keep C's step for -1 at import.
 // When several targets qualify (their ranges overlap), C takes the first
 // condition in source order, so the target whose first range comes first wins.
-// Two linear passes, no nested loop over the ranges: a weighted vote with
-// ccVoteSlots counters keeps every target whose summed coverage can reach the
-// threshold, and a second pass sums the survivors' coverage. The scan scores
-// exactly this algorithm (20 wrong; the same as an exact sum per target).
+// The rule is exact for the ranges the blob holds. A target can qualify only
+// if one of its ranges starts at code point 1, so the first pass collects the
+// targets that have such a range and the second pass sums their coverage: two
+// linear passes while at most ccInvalidSlots targets have one. A state with
+// more of them takes ccInvalidNextAll, which gives the same answer with one
+// pass per target. In the 118,580 pinned states no state has more than one
+// such target, so none takes it.
 func ccInvalidNext(st *LexDFAState) (int32, bool) {
-	var cand [ccVoteSlots]int32
-	var weight [ccVoteSlots]int64
+	var cand [ccInvalidSlots]int32
 	n := 0
 	for i := range st.Trans {
 		t := &st.Trans[i]
-		if t.Lo == 0 && t.Hi == 0 {
+		if t.Lo != 1 {
 			continue
 		}
-		w := int64(t.Hi) - int64(t.Lo) + 1
-		found := false
+		seen := false
 		for j := 0; j < n; j++ {
 			if cand[j] == t.Next {
-				weight[j] += w
-				found = true
+				seen = true
 				break
 			}
 		}
-		if found {
+		if seen {
 			continue
 		}
-		if n < ccVoteSlots {
-			cand[n], weight[n] = t.Next, w
-			n++
-			continue
+		if n == ccInvalidSlots {
+			return ccInvalidNextAll(st)
 		}
-		m := w
-		for j := 0; j < n; j++ {
-			if weight[j] < m {
-				m = weight[j]
-			}
-		}
-		k := 0
-		for j := 0; j < n; j++ {
-			if weight[j] -= m; weight[j] > 0 {
-				cand[k], weight[k] = cand[j], weight[j]
-				k++
-			}
-		}
-		n = k
-		if w > m {
-			cand[n], weight[n] = t.Next, w-m
-			n++
-		}
+		cand[n] = t.Next
+		n++
 	}
 	if n == 0 {
 		return -1, false
 	}
-	var covered [ccVoteSlots]int64
-	var minLo [ccVoteSlots]rune
-	var skip [ccVoteSlots]bool
-	var first [ccVoteSlots]int
+	var covered [ccInvalidSlots]int64
+	var minLo [ccInvalidSlots]rune
+	var skip [ccInvalidSlots]bool
+	var first [ccInvalidSlots]int
 	for j := 0; j < n; j++ {
 		minLo[j], first[j] = 0x10FFFF, -1
 	}
@@ -435,7 +417,7 @@ func ccInvalidNext(st *LexDFAState) (int32, bool) {
 	}
 	best := -1
 	for j := 0; j < n; j++ {
-		if covered[j] >= 0x110000-256 && minLo[j] == 1 && (best < 0 || first[j] < first[best]) {
+		if covered[j] >= ccInvalidCover && minLo[j] == 1 && (best < 0 || first[j] < first[best]) {
 			best = j
 		}
 	}
@@ -445,13 +427,57 @@ func ccInvalidNext(st *LexDFAState) (int32, bool) {
 	return cand[best], skip[best]
 }
 
-// ccVoteSlots is the number of counters of the vote in ccInvalidNext. The vote
-// keeps every target whose summed coverage is more than 1/(ccVoteSlots+1) of
-// the sum over all ranges; a target that qualifies has at least 0x110000-256,
-// so the vote is exact unless 9 full-size overlapping targets are present
-// (the most distinct targets in one pinned state is 124, none of them overlap
-// that much; the scan gives the same 20 wrong states as an exact sum).
-const ccVoteSlots = 8
+// ccInvalidNextAll is ccInvalidNext without the limit on the number of
+// targets: for each target that has a range starting at code point 1 it sums
+// the target's ranges in one pass. The cost is the number of such targets
+// times the number of transitions.
+func ccInvalidNextAll(st *LexDFAState) (int32, bool) {
+	bestNext, bestFirst, bestSkip := int32(-1), -1, false
+	for i := range st.Trans {
+		t := &st.Trans[i]
+		if t.Lo != 1 {
+			continue
+		}
+		again := false
+		for j := 0; j < i; j++ {
+			if st.Trans[j].Lo == 1 && st.Trans[j].Next == t.Next {
+				again = true
+				break
+			}
+		}
+		if again {
+			continue
+		}
+		var covered int64
+		minLo := rune(0x10FFFF)
+		first, skip := -1, false
+		for k := range st.Trans {
+			u := &st.Trans[k]
+			if u.Next != t.Next || u.Lo == 0 && u.Hi == 0 {
+				continue
+			}
+			covered += int64(u.Hi) - int64(u.Lo) + 1
+			if u.Lo < minLo {
+				minLo = u.Lo
+			}
+			if first < 0 {
+				first, skip = k, u.Skip
+			}
+		}
+		if covered >= ccInvalidCover && minLo == 1 && (bestFirst < 0 || first < bestFirst) {
+			bestNext, bestFirst, bestSkip = t.Next, first, skip
+		}
+	}
+	return bestNext, bestSkip
+}
+
+const (
+	// ccInvalidSlots is the number of targets with a range starting at code
+	// point 1 that ccInvalidNext handles in two passes.
+	ccInvalidSlots = 8
+	// ccInvalidCover is the coverage a target needs: every code point but 256.
+	ccInvalidCover = 0x110000 - 256
+)
 
 // ccNulNext is the step on character 0 at the end of input, or -1. HEURISTIC;
 // wrong in 1 of 118,580 lex states (http 1); the rule of the first fix was
