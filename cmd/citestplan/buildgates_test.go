@@ -13,6 +13,16 @@ import (
 
 // Exercise the actual workflow shell, so adding a needs edge without enforcing
 // its result (or enforcing an unbound environment variable) cannot pass.
+type gateWorkflowStep struct {
+	ID   string            `yaml:"id"`
+	Name string            `yaml:"name"`
+	If   string            `yaml:"if"`
+	Uses string            `yaml:"uses"`
+	Env  map[string]string `yaml:"env"`
+	With map[string]string `yaml:"with"`
+	Run  string            `yaml:"run"`
+}
+
 type gateWorkflow struct {
 	Jobs map[string]struct {
 		Needs    yaml.Node         `yaml:"needs"`
@@ -26,13 +36,25 @@ type gateWorkflow struct {
 				Language []string `yaml:"language"`
 			} `yaml:"matrix"`
 		} `yaml:"strategy"`
-		Steps []struct {
-			Uses string            `yaml:"uses"`
-			Env  map[string]string `yaml:"env"`
-			With map[string]string `yaml:"with"`
-			Run  string            `yaml:"run"`
-		} `yaml:"steps"`
+		Permissions map[string]string  `yaml:"permissions"`
+		Steps       []gateWorkflowStep `yaml:"steps"`
 	} `yaml:"jobs"`
+}
+
+// The build job has a few steps now (checkout, language-job check, gate); the
+// gate is the one named "Check Required Build Gate".
+func buildGateStep(t *testing.T, wf gateWorkflow) gateWorkflowStep {
+	t.Helper()
+	var found []gateWorkflowStep
+	for _, step := range wf.Jobs["build"].Steps {
+		if step.Name == "Check Required Build Gate" {
+			found = append(found, step)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("expected one aggregate step, got %d", len(found))
+	}
+	return found[0]
 }
 
 func readGateWorkflow(t *testing.T) gateWorkflow {
@@ -55,10 +77,7 @@ func readGateWorkflow(t *testing.T) gateWorkflow {
 func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	wf := readGateWorkflow(t)
 	build := wf.Jobs["build"]
-	if len(build.Steps) != 1 {
-		t.Fatalf("expected one aggregate step, got %d", len(build.Steps))
-	}
-	step := build.Steps[0]
+	step := buildGateStep(t, wf)
 	base := map[string]string{
 		"IS_DRAFT": "false", "IS_PULL_REQUEST": "true",
 		"IS_MANUAL_RUN": "false",
@@ -130,7 +149,7 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 // "skipped"; a skip that the rule did not request still blocks the build.
 func TestBuildGateEditorLatencyScope(t *testing.T) {
 	wf := readGateWorkflow(t)
-	step := wf.Jobs["build"].Steps[0]
+	step := buildGateStep(t, wf)
 	if step.Env["RUN_EDITOR_LATENCY"] != "${{ needs.exhaustive_parity_scope.outputs.run_editor_latency }}" {
 		t.Fatalf("build must bind the scope output: %q", step.Env["RUN_EDITOR_LATENCY"])
 	}

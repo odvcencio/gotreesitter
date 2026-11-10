@@ -72,7 +72,9 @@ jobs:
         run: bash scripts/repository_hygiene_test.sh
 
       - name: Editor-latency scope rule tests
-        run: bash .github/scripts/editor_latency_scope_test.sh
+        run: |
+          bash .github/scripts/editor_latency_scope_test.sh
+          bash .github/scripts/editor_latency_legs_test.sh
 
       - name: R6 engine and environment guardrails
         run: |
@@ -1170,7 +1172,10 @@ jobs:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
-    timeout-minutes: 45
+    # The gate holds a machine-wide lock (/tmp/gotreesitter-editor-latency.lock).
+    # On a machine that hosts several runner services the language jobs run one
+    # after another and the wait counts against this timeout.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -1354,14 +1359,17 @@ jobs:
           run_code_ci=true
           run_exhaustive=false
           run_editor_latency=true
+          # The job's own folder: runner services can share /tmp.
+          changed_files="$RUNNER_TEMP/changed-files.txt"
+          reason_file="$RUNNER_TEMP/editor-latency-reason.txt"
           if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$EVENT_NAME" = "schedule" ]; then
             run_exhaustive=true
           elif [ "$EVENT_NAME" = "pull_request" ]; then
             # --no-renames makes a code-to-docs rename expose both paths, so it
             # cannot accidentally take the lightweight docs-only route.
-            git diff --name-only --no-renames "${PR_BASE_SHA}...HEAD" > /tmp/changed-files.txt
+            git diff --name-only --no-renames "${PR_BASE_SHA}...HEAD" > "$changed_files"
 
-            if [ ! -s /tmp/changed-files.txt ]; then
+            if [ ! -s "$changed_files" ]; then
               echo "::error::Pull request changed-file list is empty; refusing to skip code CI"
               exit 1
             fi
@@ -1376,7 +1384,7 @@ jobs:
               fi
               run_code_ci=true
               break
-            done < /tmp/changed-files.txt
+            done < "$changed_files"
 
             if [ "$run_code_ci" = "false" ]; then
               git diff --check "${PR_BASE_SHA}...HEAD"
@@ -1393,29 +1401,28 @@ jobs:
 
             # The paired editor-latency job (about 2 hours) is skipped only when
             # the pull request changes no engine source; see the script.
-            git diff "${PR_BASE_SHA}...HEAD" -- .github/workflows/ci.yml > /tmp/ci-yml.diff || : > /tmp/ci-yml.diff
-            run_editor_latency=$(bash .github/scripts/editor_latency_scope.sh /tmp/changed-files.txt /tmp/ci-yml.diff "$PWD" 2> /tmp/editor-latency-reason.txt) || run_editor_latency=true
+            run_editor_latency=$(bash .github/scripts/editor_latency_scope.sh "$changed_files" "$PWD" 2> "$reason_file") || run_editor_latency=true
             if [ "$run_editor_latency" != "false" ]; then
               run_editor_latency=true
             fi
             {
               echo "### Editor-latency scope"
               echo
-              echo "run_editor_latency=${run_editor_latency}: $(cat /tmp/editor-latency-reason.txt 2>/dev/null || true)"
+              echo "run_editor_latency=${run_editor_latency}: $(cat "$reason_file" 2>/dev/null || true)"
             } >> "$GITHUB_STEP_SUMMARY"
 
             # Every exhaustive test compares against the locked C oracle, so a
             # change to its pin (cgo_harness/go.mod) or its vendored runtime
             # runs the sweep too.
             exhaustive_pattern='^(parser_result_.*\.go|parser_recover_c.*\.go|parser_result_test/.*\.go|cgo_harness/(parity_cgo_test|parity_gate_ratchet_test)\.go|cgo_harness/go\.mod|cgo_harness/internal/coracle/.*)$'
-            if grep -Eq "$exhaustive_pattern" /tmp/changed-files.txt; then
+            if grep -Eq "$exhaustive_pattern" "$changed_files"; then
               run_exhaustive=true
               {
                 echo "### Exhaustive parity trigger"
                 echo
                 echo "Running exhaustive CGo parity because this PR touches parser-result, C-recovery, C-oracle, or parity-degradation gate files:"
                 echo
-                grep -E "$exhaustive_pattern" /tmp/changed-files.txt | sed 's/^/- `/' | sed 's/$/`/'
+                grep -E "$exhaustive_pattern" "$changed_files" | sed 's/^/- `/' | sed 's/$/`/'
               } >> "$GITHUB_STEP_SUMMARY"
             else
               {
@@ -1462,10 +1469,63 @@ jobs:
       - wasm_tinygo_build
     if: always()
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
-    timeout-minutes: 5
+    # Checkout, up to six tries of the job list, then the gate.
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
     steps:
-      - name: Check Required Build Gate
+      # needs.editor_latency.result alone is not proof: a language job cancelled
+      # before it gets a runner can leave the aggregate at success. List the jobs
+      # of this run attempt and check each expected language by name.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # Folders only: the default (cone) mode does not take file paths.
+          sparse-checkout: |
+            .github/scripts
+            cgo_harness/editor_latency
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      # Same condition as the editor_latency job and as the gate's requirement
+      # below; when this step does not run, the gate does not read its output.
+      - id: legs
+        name: Check every editor-latency language job
+        if: always() && needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
         env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -uo pipefail
+          jobs_json="$RUNNER_TEMP/editor-latency-jobs.json"
+          result=failure
+          # Pages of 30: the API answered HTTP 502 to per_page=100 for the job
+          # list of a re-run attempt (run 42687308051, 10 November 2026).
+          # Six tries, 10 seconds apart: the API can fail for a moment, and the
+          # list can lag behind a job that has just finished. A job's conclusion
+          # is final within an attempt, so a retry cannot turn a failed or
+          # cancelled language job into a pass.
+          for try in 1 2 3 4 5 6; do
+            if gh api --paginate "repos/${REPO}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=30" > "$jobs_json" &&
+               bash .github/scripts/editor_latency_legs.sh "$jobs_json" cgo_harness/editor_latency/fixtures.json; then
+              result=success
+              break
+            fi
+            if [ "$try" != 6 ]; then
+              sleep 10
+            fi
+          done
+          echo "result=${result}" >> "$GITHUB_OUTPUT"
+
+      - name: Check Required Build Gate
+        if: always()
+        env:
+          EDITOR_LATENCY_LEGS_RESULT: ${{ steps.legs.outputs.result }}
           IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true }}
           IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
           RUN_CODE_CI: ${{ needs.exhaustive_parity_scope.outputs.run_code_ci }}
@@ -1557,6 +1617,7 @@ jobs:
           if [ "$IS_PULL_REQUEST" = "true" ] || [ "$IS_MANUAL_RUN" = "true" ]; then
             if [ "$RUN_EDITOR_LATENCY" = "true" ]; then
               require_success "editor_latency" "$EDITOR_LATENCY_RESULT"
+              require_success "editor_latency language jobs" "${EDITOR_LATENCY_LEGS_RESULT:-missing}"
             elif [ "$RUN_EDITOR_LATENCY" = "false" ]; then
               if [ "$EDITOR_LATENCY_RESULT" != "skipped" ]; then
                 echo "::error::editor_latency finished with result=${EDITOR_LATENCY_RESULT} but run_editor_latency=false requires skipped"
