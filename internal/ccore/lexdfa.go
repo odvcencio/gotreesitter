@@ -360,16 +360,17 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 // [0,0] range that the blob merges with [1,8], so that it is no longer alone.
 // Exact repair: keep C's step for -1 at import.
 // When several targets qualify (their ranges overlap), C takes the first
-// condition that holds, in source order. A condition that holds for -1 starts
-// at code point 1 in the blob, so the target whose first range starting at 1
-// comes first wins, with that range's SKIP flag.
-// The rule is exact for the ranges the blob holds. A target can qualify only
-// if one of its ranges starts at code point 1, so the first pass collects the
-// targets that have such a range, in order, and the second pass sums their
-// coverage: two linear passes while at most ccInvalidSlots targets have one.
-// A state with more of them takes ccInvalidNextAll, which gives the same
-// answer with one pass per target. In the pinned states no state has more
-// than one such target, so none takes it.
+// condition that holds, in source order. The rule's tie-break is the target
+// whose first range starting at code point 1 comes first, with that range's
+// SKIP flag. That is part of the heuristic: a condition such as
+// "lookahead != 0 && lookahead != 1" holds for -1 but imports from code point
+// 2, and "lookahead == 1" starts at 1 but does not hold for -1.
+// A target can qualify only if one of its ranges starts at code point 1, so
+// the first pass collects the targets that have such a range, in order, and
+// the second pass sums their coverage: two linear passes while at most
+// ccInvalidSlots targets have one. A state with more of them takes
+// ccInvalidNextAll, which computes the same rule with one pass per target. In
+// the pinned states no state has more than one such target, so none takes it.
 func ccInvalidNext(st *LexDFAState) (int32, bool) {
 	var cand [ccInvalidSlots]int32
 	var skip [ccInvalidSlots]bool
@@ -501,15 +502,26 @@ const (
 // leading_simple_transition_range_count). The importer copies the map's pairs
 // in source order. So the rule counts the leading ranges of that kind. The
 // range that ends the run can belong to a transition whose first ranges looked
-// simple: a transition has one target, so when the ending range is not a SKIP
-// and has the target of the run's last ranges, those leave the run. With at
-// least 8 ranges left, the range that starts at 0 is a map entry, and C takes
-// its step at the end of input.
+// simple. A transition has one target, and its character set lists its
+// ranges in ascending order with gaps between them. So when the ending range
+// is not a SKIP, the ranges just before it that have its target and lie below
+// it with a gap leave the run, one by one; a range that does not lie below the
+// next one with a gap belongs to another transition, and the walk stops.
+// With at least 8 ranges left, the range that starts at 0 is a map entry, and
+// C takes its step at the end of input.
 // What a looser rule did: http's first lex state begins with the guarded
 // "(!eof && lookahead == 0)", four single characters and three single
 // characters of a transition that goes on with wider ranges. Counting those
 // three gave 8, the step was taken, and it accepted an empty token at the end
 // of input again and again.
+// What the blob cannot tell: the generator can emit two transitions with one
+// target (states merged by minimization), for example a map that ends with
+// 14 -> 8 followed by "16 <= lookahead && lookahead <= 18" -> 8. The blob
+// holds the same ranges as for one transition {14, 16-18} -> 8, which is not
+// a map entry. The rule reads it as one transition. A real case of two such
+// transitions is angular's lex state 14, where the second transition's range
+// lies below the first's, so the rule keeps the map. Over the 116,537 pinned
+// states without an end transition the rule gives C's step in every state.
 // Exact repair: keep C's end-of-input step at import.
 func ccNulNext(st *LexDFAState) int32 {
 	run := 0
@@ -521,9 +533,14 @@ func ccNulNext(st *LexDFAState) int32 {
 		run++
 	}
 	if run < len(st.Trans) && !st.Trans[run].Skip {
-		next := st.Trans[run].Next
-		for run > 0 && st.Trans[run-1].Next == next {
+		next, lo := st.Trans[run].Next, st.Trans[run].Lo
+		for run > 0 {
+			prev := &st.Trans[run-1]
+			if prev.Next != next || prev.Hi+1 >= lo {
+				break
+			}
 			run--
+			lo = prev.Lo
 		}
 	}
 	if run < ccNulMapRanges {

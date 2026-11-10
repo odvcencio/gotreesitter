@@ -244,6 +244,22 @@ func TestNulNextFollowsTheGeneratorsMap(t *testing.T) {
 			{Lo: 0, Hi: 1, Next: 9}, one(10, 2), one(13, 3), one(35, 4), one(36, 5), one(92, 6), one(9, 7), one(11, 8)}, 9},
 		{"a map without character 0", []LexTrans{
 			one(5, 1), one(10, 2), one(13, 3), one(35, 4), one(36, 5), one(92, 6), one(9, 7), one(11, 8)}, -1},
+		// angular, lex state 14, with character 0 in place of '"' in its map:
+		// the map has 13 entries and ends with six to 323, and a second
+		// transition to 323 follows whose first range lies below them. Two
+		// transitions: the map stays and C takes the step. A rule that rolled
+		// back every range with the target left 7 and took none.
+		{"angular state 14: a second transition with the same target", []LexTrans{
+			one(0, 1), one('(', 234), one('*', 273), one('/', 325), one('>', 164), one('[', 279), one('\\', 324),
+			one('\'', 323), one(')', 323), one('.', 323), one('<', 323), one('=', 323), one(']', 323),
+			{Lo: '\t', Hi: '\r', Next: 323}, one(' ', 323), {Lo: 1, Hi: 0x10FFFF, Next: 327}}, 1},
+		// The shape the blob cannot tell apart: read as one transition
+		// {14, 16-18} -> 8, so the map has seven entries and no step is taken.
+		// If C wrote 14 -> 8 in the map and the range in an "if", C takes the
+		// step (a known difference; the exact repair is at import).
+		{"ambiguous: a later range above the run with its target", []LexTrans{
+			one(0, 1), one(2, 2), one(4, 3), one(6, 4), one(8, 5), one(10, 6), one(12, 7), one(14, 8),
+			{Lo: 16, Hi: 18, Next: 8}}, -1},
 		{"no transitions", nil, -1},
 	}
 	for _, c := range cases {
