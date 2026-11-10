@@ -15,11 +15,18 @@ import (
 // its result (or enforcing an unbound environment variable) cannot pass.
 type gateWorkflow struct {
 	Jobs map[string]struct {
-		Needs   yaml.Node         `yaml:"needs"`
-		RunsOn  string            `yaml:"runs-on"`
-		If      string            `yaml:"if"`
-		Outputs map[string]string `yaml:"outputs"`
-		Steps   []struct {
+		Needs    yaml.Node         `yaml:"needs"`
+		RunsOn   string            `yaml:"runs-on"`
+		If       string            `yaml:"if"`
+		Outputs  map[string]string `yaml:"outputs"`
+		Timeout  int               `yaml:"timeout-minutes"`
+		Strategy struct {
+			FailFast *bool `yaml:"fail-fast"`
+			Matrix   struct {
+				Language []string `yaml:"language"`
+			} `yaml:"matrix"`
+		} `yaml:"strategy"`
+		Steps []struct {
 			Uses string            `yaml:"uses"`
 			Env  map[string]string `yaml:"env"`
 			With map[string]string `yaml:"with"`
@@ -133,6 +140,12 @@ func TestBuildGateEditorLatencyScope(t *testing.T) {
 	if !strings.Contains(wf.Jobs["editor_latency"].If, "needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true'") {
 		t.Fatalf("editor_latency condition omits the scope output: %s", wf.Jobs["editor_latency"].If)
 	}
+	// editor_latency is a matrix; needs.editor_latency.result is success only if
+	// every leg succeeds. The gate sees that one aggregate: any leg that failed
+	// or was cancelled shows as failure or cancelled and blocks the build.
+	if got := wf.Jobs["editor_latency"].Strategy.Matrix.Language; len(got) != 10 {
+		t.Fatalf("editor_latency must be a matrix of ten languages: %v", got)
+	}
 	run := func(event, value, result string) ([]byte, error) {
 		env := map[string]string{
 			"IS_DRAFT": "false", "IS_PULL_REQUEST": fmt.Sprint(event == "pull_request"),
@@ -162,6 +175,7 @@ func TestBuildGateEditorLatencyScope(t *testing.T) {
 			{"true", "success", true, ""},
 			{"true", "skipped", false, "editor_latency finished with result=skipped"},
 			{"true", "failure", false, "editor_latency finished with result=failure"},
+			{"true", "cancelled", false, "editor_latency finished with result=cancelled"},
 			{"false", "skipped", true, ""},
 			{"false", "success", false, "requires skipped"},
 			{"false", "failure", false, "requires skipped"},

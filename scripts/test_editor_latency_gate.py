@@ -681,6 +681,131 @@ class GateTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_1512_B7_UNDO_EXCEPTION)
 
+    # Subset runs: one language per CI job, with the same checks and thresholds.
+    def test_subset_runs_only_named_languages_in_manifest_order(self):
+        names = [f["language"] for f in self.m["fixtures"]]
+        self.assertEqual(gate.parse_languages(None), None)
+        self.assertEqual([f["language"] for f in gate.selected_fixtures(self.m, None)], names)
+        self.assertEqual([f["language"] for f in gate.selected_fixtures(self.m, ["powershell", "go"])], ["go", "powershell"])
+        for bad in (["nope"], [], ["go", "nope"]):
+            with self.assertRaisesRegex(ValueError, "unknown language"):
+                gate.selected_fixtures(self.m, bad)
+        for bad in ("", "go,", "go,go", "Go", "../go"):
+            with self.assertRaises(ValueError):
+                gate.parse_languages(bad)
+        result = None
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = gate.compare_timing(self.out, self.manifest, self.base, self.head, languages=["go"])
+        self.assertEqual({c["language"] for c in result["cells"]}, {"go"})
+        self.assertEqual(len(result["cells"]), 3)
+        self.assertEqual({r["language"] for r in result["counter_rows"]}, {"go"})
+
+    def test_subset_receipt_is_marked_and_unrestricted_receipt_is_unchanged(self):
+        full = self.compare()
+        self.assertEqual(full["schema"], "w5-editor-latency-receipt-v1")
+        self.assertNotIn("languages", full)
+        self.assertNotIn("complete", full)
+        self.assertTrue((self.out / "summary.md").read_text().startswith("W5 editor latency: **passed**"))
+        self.assertNotIn("languages", gate.read_json(self.out / "counters.json"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            part = gate.compare_timing(self.out, self.manifest, self.base, self.head, languages=["python"])
+        self.assertEqual(part["schema"], "w5-editor-latency-subset-receipt-v1")
+        self.assertIs(part["complete"], False)
+        self.assertEqual(part["languages"], ["python"])
+        self.assertIn("(subset: python; not a complete receipt)", (self.out / "summary.md").read_text())
+        self.assertEqual(gate.read_json(self.out / "counters.json")["languages"], ["python"])
+
+    def test_subset_judges_only_its_languages(self):
+        # A regression in another language does not fail this run; one in this language does.
+        python = next(f for f in self.m["fixtures"] if f["language"] == "python")
+        php = next(f for f in self.m["fixtures"] if f["language"] == "php")
+        self.write_bench(php, "head", 1.50)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(gate.compare_timing(self.out, self.manifest, self.base, self.head, languages=["python"])["status"], "passed")
+            self.assertEqual(gate.compare_timing(self.out, self.manifest, self.base, self.head, languages=["php"])["status"], "failed")
+        self.assertEqual(self.compare()["status"], "failed")
+        self.write_bench(php, "head")
+        self.write_bench(python, "head", 1.0501)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(gate.compare_timing(self.out, self.manifest, self.base, self.head, languages=["python"])["status"], "failed")
+
+    def test_subset_counter_failure_in_own_language_still_fails(self):
+        a = self.admissions["head", "java"]
+        a["cells"][0]["steps"][0]["counters"]["tokens"] = 103
+        gate.write_json(self.admission_path("head", "java"), a)
+        with contextlib.redirect_stdout(io.StringIO()):
+            gate.compare_counters(self.out, self.manifest, self.base, self.head, languages=["python"])
+            with self.assertRaisesRegex(ValueError, "counter gate failed"):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, languages=["java"])
+
+    def test_go_exception_applies_in_go_run_and_must_match_once_there(self):
+        base_hash, head_hash = self.prepare_w5_undo_exception()
+        with mock.patch.object(gate, "GO_1512_BASE_ADMISSION", base_hash), mock.patch.object(gate, "GO_1512_HEAD_ADMISSION", head_hash):
+            result = gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_1512_UNDO_EXCEPTION, languages=["go"])
+            self.assertEqual(len(result["applied_exceptions"]), 1)
+            # The same owner-approved row is not excused in a run without the exception.
+            with self.assertRaisesRegex(ValueError, "counter gate failed"):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, languages=["go"])
+            # A run that names the exception but lacks its language cannot match the row.
+            with self.assertRaisesRegex(ValueError, "did not match exactly once"):
+                gate.compare_counters(self.out, self.manifest, self.base, self.head, gate.GO_1512_UNDO_EXCEPTION, languages=["python"])
+            # Other languages are unaffected by the Go row, and the other run still passes.
+            gate.compare_counters(self.out, self.manifest, self.base, self.head, languages=["python"])
+
+    def test_campaign_ignores_go_receipts_when_go_is_not_selected(self):
+        sentinel = RuntimeError("stopped after validation")
+        receipt = self.out / "receipt-file"
+        for languages, used in ((["python"], False), (["go"], True), (["go", "python"], True), (None, True)):
+            out = self.out / ("campaign-" + "-".join(languages or ["all"]))
+            with self.subTest(languages=languages), \
+                    mock.patch.object(gate, "git", return_value=self.head), mock.patch.object(gate, "clean_revision"), \
+                    mock.patch.object(gate, "check_work_exemptions_history"), mock.patch.object(gate, "run_checked"), \
+                    mock.patch.object(gate, "fetch_fixtures", side_effect=sentinel), \
+                    mock.patch.object(gate, "validate_1512_undo_exception", return_value=gate.GO_1512_UNDO_EXCEPTION) as validate, \
+                    mock.patch.object(gate, "validate_b7_undo_exception", return_value=gate.GO_1512_B7_UNDO_EXCEPTION) as validate_b7:
+                with self.assertRaises(RuntimeError):
+                    gate.campaign(Path(__file__).resolve().parents[1], self.base, out, receipt, None, languages)
+                self.assertEqual(validate.called, used)
+                with self.assertRaises(RuntimeError):
+                    gate.campaign(Path(__file__).resolve().parents[1], self.base, out.with_name(out.name + "-b7"), None, receipt, languages)
+                self.assertEqual(validate_b7.called, used)
+
+    def test_campaign_still_forbids_two_exceptions_in_any_run(self):
+        with mock.patch.object(gate, "git", return_value=self.head), mock.patch.object(gate, "clean_revision"):
+            with self.assertRaisesRegex(ValueError, "multiple W5 exceptions"):
+                gate.campaign(Path(__file__).resolve().parents[1], self.base, self.out / "x", Path("a"), Path("b"), ["python"])
+
+    def test_powershell_approval_is_selected_only_in_its_run(self):
+        sentinel = RuntimeError("stopped after selection")
+        for languages, used in ((["go"], False), (["powershell"], True), (None, True)):
+            with self.subTest(languages=languages), mock.patch.dict(os.environ, {"GTS_W5_PRIVATE_C_CACHE": "1"}), \
+                    mock.patch.object(gate, "check_env"), mock.patch.object(gate, "clean_private_inputs"), \
+                    mock.patch.object(gate, "git", return_value=self.head), mock.patch.object(gate, "clean_revision"), \
+                    mock.patch.object(gate, "select_powershell_approval", return_value=None) as select, \
+                    mock.patch.object(gate, "check_work_exemptions_history", side_effect=sentinel):
+                with self.assertRaises(RuntimeError):
+                    gate.campaign(Path(__file__).resolve().parents[1], self.base, self.out / "ps", None, None, languages)
+                self.assertEqual(select.called, used)
+
+    def test_unknown_language_is_a_command_line_error(self):
+        script = Path(__file__).resolve().parent / "editor_latency_gate.py"
+        for text, message in (("nope", "unknown language"), ("go,nope", "unknown language"), ("go,go", "duplicate language")):
+            done = subprocess.run([sys.executable, str(script), "run", "--base", "x", "--output", str(self.out / "never"), "--languages", text], capture_output=True, text=True)
+            self.assertEqual(done.returncode, 1, done.stderr)
+            self.assertIn("W5 gate failed: ", done.stderr)
+            self.assertIn(message, done.stderr)
+        self.assertFalse((self.out / "never").exists())
+
+    def test_workflow_languages_match_the_manifest(self):
+        path = os.environ.get("GTS_TEST_GATE_WORKFLOW")
+        text = Path(path) if path else Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml"
+        found = re.search(r"(?ms)^  editor_latency:\n(.*?)(?=^  [A-Za-z_][A-Za-z0-9_-]*:\n)", text.read_text())
+        self.assertIsNotNone(found)
+        matrix = re.search(r"language: \[([^\]]*)\]", found.group(1))
+        self.assertIsNotNone(matrix)
+        self.assertEqual([n.strip() for n in matrix.group(1).split(",")], [f["language"] for f in self.m["fixtures"]])
+
+
 class DetailedArtifactPolicyTests(unittest.TestCase):
     def test_detailed_outputs_stay_local_and_verdicts_remain(self):
         path = os.environ.get("GTS_TEST_GATE_WORKFLOW")
