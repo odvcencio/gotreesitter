@@ -112,7 +112,10 @@ func TestDeterminism(t *testing.T) {
 func TestEditSelf(t *testing.T) {
 	totalReused := 0
 	for _, g := range loadGoldens(t) {
-		p := ccore.NewParser(ccore.Config{Tables: g.Tables})
+		p, err := ccore.NewParser(ccore.Config{Tables: g.Tables})
+		if err != nil {
+			t.Fatalf("%s: %v", g.Name, err)
+		}
 		if _, stop := p.Parse(g.Src); stop != "" {
 			t.Errorf("%s: fresh parse stop %q", g.Name, stop)
 			continue

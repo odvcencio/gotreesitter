@@ -853,6 +853,12 @@ jobs:
           - name: ccore
             package_filter: '/internal/ccore$'
             test_filter: ''
+          - name: ccore-bind
+            package_filter: '/internal/ccore/bind$'
+            test_filter: ''
+          - name: ccore-bindtest
+            package_filter: '/internal/ccore/bind/bindtest$'
+            test_filter: ''
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -1162,7 +1168,10 @@ jobs:
   # remain separate correctness/counter gates.
   # One job per language, in parallel, each with the full protocol (correctness,
   # counter gate, 20 paired seeds). The build gate reads needs.editor_latency.result,
-  # which is success only when every language job succeeds. The language list must
+  # which is expected to fail when a language job fails or is cancelled. As a
+  # precaution it also checks each language job by name (see the build job):
+  # GitHub users have reported a job cancelled before it gets a runner leaving
+  # the aggregate at success; that was not observed here. The language list must
   # equal the languages of cgo_harness/editor_latency/fixtures.json (a test checks).
   editor_latency:
     name: editor_latency (${{ matrix.language }})
@@ -1473,6 +1482,7 @@ jobs:
       - compact-t3-oracle-cgo
       - merge-event-census-cgo
       - grammar-lock-stamp-receipts-cgo
+      - ccore-equality-cgo
       - parity-cgo-exhaustive
       - freshness
       - compact-route-lifecycle-history
@@ -1487,9 +1497,11 @@ jobs:
       contents: read
       actions: read
     steps:
-      # needs.editor_latency.result alone is not proof: a language job cancelled
-      # before it gets a runner can leave the aggregate at success. List the jobs
-      # of this run attempt and check each expected language by name.
+      # The aggregate needs.editor_latency.result is expected to fail when a
+      # language job fails or is cancelled. As a precaution against a case that
+      # was reported for GitHub but not observed here (a job cancelled before it
+      # gets a runner leaving the aggregate at success), list the jobs of this
+      # run attempt and check each expected language by name.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Folders only: the default (cone) mode does not take file paths.
@@ -1512,6 +1524,7 @@ jobs:
           REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
+          AGGREGATE_RESULT: ${{ needs.editor_latency.result }}
         run: |
           set -uo pipefail
           jobs_json="$RUNNER_TEMP/editor-latency-jobs.json"
@@ -1522,13 +1535,18 @@ jobs:
           # list can lag behind a job that has just finished. A job's conclusion
           # is final within an attempt, so a retry cannot turn a failed or
           # cancelled language job into a pass.
-          for try in 1 2 3 4 5 6; do
-            if gh api --paginate "repos/${REPO}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=30" > "$jobs_json" &&
+          # When the aggregate is not success the gate fails anyway, so try once.
+          tries=6
+          if [ "$AGGREGATE_RESULT" != success ]; then
+            tries=1
+          fi
+          for try in $(seq 1 "$tries"); do
+            if timeout 60 gh api --paginate "repos/${REPO}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=30" > "$jobs_json" &&
                bash .github/scripts/editor_latency_legs.sh "$jobs_json" cgo_harness/editor_latency/fixtures.json; then
               result=success
               break
             fi
-            if [ "$try" != 6 ]; then
+            if [ "$try" != "$tries" ]; then
               sleep 10
             fi
           done
@@ -1566,6 +1584,7 @@ jobs:
           COMPACT_T3_ORACLE_CGO_RESULT: ${{ needs.compact-t3-oracle-cgo.result }}
           MERGE_EVENT_CENSUS_CGO_RESULT: ${{ needs.merge-event-census-cgo.result }}
           GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT: ${{ needs.grammar-lock-stamp-receipts-cgo.result }}
+          CCORE_EQUALITY_CGO_RESULT: ${{ needs.ccore-equality-cgo.result }}
           EXHAUSTIVE_PARITY_RESULT: ${{ needs.parity-cgo-exhaustive.result }}
           FRESHNESS_RESULT: ${{ needs.freshness.result }}
           COMPACT_ROUTE_LIFECYCLE_HISTORY_RESULT: ${{ needs.compact-route-lifecycle-history.result }}
@@ -1620,6 +1639,7 @@ jobs:
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
           require_success "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"
+          require_success "ccore-equality-cgo" "$CCORE_EQUALITY_CGO_RESULT"
           require_success "wasm_cross_build" "$WASM_CROSS_BUILD_RESULT"
           require_success "wasm_tinygo_build" "$WASM_TINYGO_BUILD_RESULT"
 
@@ -2461,6 +2481,57 @@ jobs:
             --c-ref-build-jobs 1 \
             --timeout 20m \
             --run '^TestIncrementalCReuseCommentTrailingNewline$|^TestIncrementalCReuseReceiptEOFMatchesFresh$|^TestCooklangNextLiveArmLockedCRoutes$|^TestSolidityNextLiveArmLockedCRoutes$|^TestDoxygenNextLiveArmProbe$|^TestSQLN31vDispatcherBlockerRoutes$|^TestPerlN31sDispatcherBlockerReceipt$|^TestJuliaDispatchBlockerReceiptRoutes$|^TestWGSLN31rDispatcherBlockerReceipt$|^TestGoNextLiveArmProbe$'
+
+  # ccore-equality-cgo checks internal/ccore against pinned C: the parse log,
+  # the visible-tree digest, the subtree records, edit sessions, the lookup
+  # tables and the committed goldens (cgo_harness/ccore_*_test.go). One
+  # grammar per container: json (no scanner, no keyword lexer), python
+  # (external scanner and keyword lexer), c (keyword lexer, no scanner) and
+  # typescript (a large table). Nothing parses through internal/ccore outside
+  # these tests. The inputs are files under testdata folders, named in the
+  # tests, and literals; no private input is read. With a custom command the
+  # runner's --timeout and --test-parallel do nothing; the script runs each
+  # test with -test.timeout=40m and one process, and --wall-timeout 45m (a
+  # kill of the container) bounds the whole run, inside the job's 60 minutes.
+  # The script fails when a test it runs has no PASS line or no positive count
+  # (its --self-test shows that, and the first step runs it).
+  ccore-equality-cgo:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [json, python, c, typescript]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          cache: ${{ runner.environment != 'self-hosted' }}
+          go-version-file: go.mod
+
+      - name: The equality script fails on a missing test or a zero count
+        run: bash cgo_harness/docker/ccore_equality.sh --self-test
+
+      - name: internal/ccore equals pinned C (${{ matrix.language }})
+        run: |
+          GTS_PARITY_MODE=smoke \
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-ccore-${{ matrix.language }} \
+            --memory 8g \
+            --cpus 2 \
+            --pids 4096 \
+            --gomemlimit 6GiB \
+            --goflags -p=1 \
+            --c-ref-build-jobs 1 \
+            --wall-timeout 45m \
+            -- "bash /workspace/cgo_harness/docker/ccore_equality.sh ${{ matrix.language }}"
 
   parity-cgo:
     needs: exhaustive_parity_scope

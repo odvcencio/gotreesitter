@@ -301,17 +301,20 @@ func TestBuildJobChecksLanguageJobsWithAttemptJobList(t *testing.T) {
 			legs = step
 		}
 	}
-	if legs.Run == "" || legs.Env["GH_TOKEN"] != "${{ github.token }}" || legs.Env["RUN_ATTEMPT"] != "${{ github.run_attempt }}" {
+	if legs.Run == "" || legs.Env["GH_TOKEN"] != "${{ github.token }}" || legs.Env["RUN_ATTEMPT"] != "${{ github.run_attempt }}" || legs.Env["AGGREGATE_RESULT"] != "${{ needs.editor_latency.result }}" {
 		t.Fatalf("language-job step missing or unbound: %+v", legs)
 	}
 	// The step's condition is the editor_latency job's condition plus always():
 	// it runs, even after failures, exactly when the gate requires its result.
 	wantIf := "always() && " + wf.Jobs["editor_latency"].If
+	if wf.Jobs["editor_latency"].If != editorLatencyJobIf {
+		t.Fatalf("editor_latency job condition changed: %s", wf.Jobs["editor_latency"].If)
+	}
 	if legs.If != wantIf {
 		t.Fatalf("language-job step condition:\n got %s\nwant %s", legs.If, wantIf)
 	}
 	// Pages of 30: per_page=100 answered HTTP 502 for a re-run attempt.
-	for _, want := range []string{"gh api --paginate", "/attempts/${RUN_ATTEMPT}/jobs?per_page=30", "editor_latency_legs.sh", "cgo_harness/editor_latency/fixtures.json", "sleep 10"} {
+	for _, want := range []string{"gh api --paginate", "/attempts/${RUN_ATTEMPT}/jobs?per_page=30", "editor_latency_legs.sh", "cgo_harness/editor_latency/fixtures.json", "sleep 10", "timeout 60 gh api"} {
 		if !strings.Contains(legs.Run, want) {
 			t.Errorf("language-job step omits %q", want)
 		}
@@ -357,15 +360,20 @@ func TestBuildJobChecksLanguageJobsWithAttemptJobList(t *testing.T) {
 		}
 		return fmt.Sprintf(`{"total_count":%d,"jobs":[%s]}`, len(jobs), strings.Join(jobs, ","))
 	}
-	// tries: how often the step asks the API; a failure is retried five times.
+	// tries: how often the step asks the API; a failure is retried five times,
+	// but only once when the aggregate is not success (the gate fails anyway).
 	for _, tc := range []struct {
 		name, body, ghExit, want string
-		tries                    int
+		aggregate                string
+		failFirst, tries         int
 	}{
-		{"all succeed", page("", "success"), "0", "result=success", 1},
-		{"one cancelled", page("go", "cancelled"), "0", "result=failure", 6},
-		{"one missing", page("go", ""), "0", "result=failure", 6},
-		{"api error", page("", "success"), "1", "result=failure", 6},
+		{"all succeed", page("", "success"), "0", "result=success", "success", 0, 1},
+		{"one cancelled", page("go", "cancelled"), "0", "result=failure", "success", 0, 6},
+		{"one missing", page("go", ""), "0", "result=failure", "success", 0, 6},
+		{"api error", page("", "success"), "1", "result=failure", "success", 0, 6},
+		{"the API fails once, then succeeds", page("", "success"), "0", "result=success", "success", 1, 2},
+		{"aggregate not success: one call, no wait", page("", "success"), "0", "result=failure", "failure", 1, 1},
+		{"aggregate cancelled, list fine: one call, result success", page("", "success"), "0", "result=success", "cancelled", 0, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -373,7 +381,7 @@ func TestBuildJobChecksLanguageJobsWithAttemptJobList(t *testing.T) {
 			if err := os.WriteFile(body, []byte(tc.body), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			stub := "#!/bin/bash\nprintf '%s\\n' \"$*\" >> \"$CALLS\"\n[ \"$GH_EXIT\" = 0 ] && cat \"$BODY\"\nexit \"$GH_EXIT\"\n"
+			stub := "#!/bin/bash\nprintf '%s\\n' \"$*\" >> \"$CALLS\"\nn=$(cat \"$COUNT\" 2>/dev/null || echo 0); n=$((n+1)); echo $n > \"$COUNT\"\n[ \"$n\" -le \"$GH_FAIL_FIRST\" ] && exit 1\n[ \"$GH_EXIT\" = 0 ] && cat \"$BODY\"\nexit \"$GH_EXIT\"\n"
 			bin := filepath.Join(dir, "bin")
 			if err := os.Mkdir(bin, 0o755); err != nil {
 				t.Fatal(err)
@@ -389,7 +397,7 @@ func TestBuildJobChecksLanguageJobsWithAttemptJobList(t *testing.T) {
 			output := filepath.Join(dir, "output")
 			cmd := exec.Command("bash", "-c", legs.Run)
 			cmd.Dir = repoRoot
-			cmd.Env = []string{"PATH=" + bin + ":" + os.Getenv("PATH"), "CALLS=" + filepath.Join(dir, "calls"), "BODY=" + body, "GH_EXIT=" + tc.ghExit,
+			cmd.Env = []string{"PATH=" + bin + ":" + os.Getenv("PATH"), "CALLS=" + filepath.Join(dir, "calls"), "BODY=" + body, "GH_EXIT=" + tc.ghExit, "COUNT=" + filepath.Join(dir, "count"), "GH_FAIL_FIRST=" + fmt.Sprint(tc.failFirst), "AGGREGATE_RESULT=" + tc.aggregate,
 				"RUNNER_TEMP=" + dir, "GITHUB_OUTPUT=" + output, "REPO=o/r", "RUN_ID=7", "RUN_ATTEMPT=3", "GH_TOKEN=x"}
 			if out, err := cmd.CombinedOutput(); err != nil {
 				t.Fatalf("the step itself must not fail: %v\n%s", err, out)

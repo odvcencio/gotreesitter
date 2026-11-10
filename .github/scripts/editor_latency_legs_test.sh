@@ -67,6 +67,13 @@ expect 'two pages together succeed' 0 "$dir/pages.json"
 jq '{total_count: .total_count, jobs: .jobs[:6]}' "$dir/ok.json" > "$dir/page1.json"
 expect 'a missing second page fails' 1 "$dir/page1.json"
 
+# total_count must be a number equal to its floor and to the jobs read.
+jq '.total_count |= tostring' "$dir/ok.json" > "$dir/string.json"
+expect 'total_count as a string fails' 1 "$dir/string.json"
+jq 'del(.total_count)' "$dir/ok.json" > "$dir/nototal.json"
+expect 'a missing total_count fails' 1 "$dir/nototal.json"
+jq '.total_count = null' "$dir/ok.json" > "$dir/nulltotal.json"
+expect 'a null total_count fails' 1 "$dir/nulltotal.json"
 echo '{"message":"Resource not accessible","status":"403"}' > "$dir/error.json"
 expect 'an API error body fails' 1 "$dir/error.json"
 : > "$dir/empty.json"

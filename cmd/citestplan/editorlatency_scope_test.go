@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -115,6 +116,35 @@ func TestEditorLatencyScopeStepRunsTheBaseRule(t *testing.T) {
 	}
 }
 
+// The scope step keeps its files in the job's own folder: runner services can
+// share /tmp, and another job could overwrite the list between two uses.
+func TestEditorLatencyScopeStepAvoidsSharedTmp(t *testing.T) {
+	var run string
+	for _, step := range readGateWorkflow(t).Jobs["exhaustive_parity_scope"].Steps {
+		if step.ID == "scope" {
+			run = step.Run
+		}
+	}
+	if run == "" {
+		t.Fatal("scope step not found")
+	}
+	if strings.Contains(run, "/tmp/") {
+		t.Error("the scope step must not use /tmp/")
+	}
+	for _, want := range []string{
+		`changed_files="$RUNNER_TEMP/changed-files.txt"`,
+		`reason_file="$RUNNER_TEMP/editor-latency-reason.txt"`,
+		`scope_rule="$RUNNER_TEMP/editor_latency_scope.base.sh"`,
+	} {
+		if !strings.Contains(run, want) {
+			t.Errorf("the scope step omits %s", want)
+		}
+	}
+}
+
+// The job's own condition, pinned: three terms and the event test.
+const editorLatencyJobIf = "needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')"
+
 // Edits that would drop a language from the gate, or let a failed language
 // pass, without changing the language list: a second matrix key (exclude or
 // include), continue-on-error, or a condition on the gate step.
@@ -138,6 +168,24 @@ func TestEditorLatencyGateCannotBeSoftened(t *testing.T) {
 	matrix, _ := strategy["matrix"].(map[string]any)
 	if _, ok := matrix["language"]; !ok || len(matrix) != 1 {
 		t.Fatalf("editor_latency matrix must have the single key language: %v", matrix)
+	}
+	// Conditions that could switch the gate off. A step of editor_latency may
+	// carry an if only if it prepares a self-hosted runner or writes the summary;
+	// an if on the timing step or the script tests would let the job pass
+	// without timing anything.
+	if latency["if"] != editorLatencyJobIf {
+		t.Errorf("editor_latency job condition changed:\n got %v\nwant %s", latency["if"], editorLatencyJobIf)
+	}
+	if build["if"] != "always()" {
+		t.Errorf("build must have the job condition always() (a skipped required check counts as passed): %v", build["if"])
+	}
+	allowedIf := map[string]bool{"Prepare job-owned Go cache and scratch": true, "Publish W5 job summary": true}
+	latencySteps, _ := latency["steps"].([]any)
+	for i, raw := range latencySteps {
+		step, _ := raw.(map[string]any)
+		if _, has := step["if"]; has && !allowedIf[fmt.Sprint(step["name"])] {
+			t.Errorf("editor_latency step %d (%v) must not have an if", i, step["name"])
+		}
 	}
 	for name, job := range map[string]map[string]any{"editor_latency": latency, "build": build} {
 		if _, ok := job["continue-on-error"]; ok {

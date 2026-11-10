@@ -29,7 +29,10 @@ package ccore
 //     byte is the lexer cursor plus one (plus four after an invalid UTF-8
 //     lookahead), as C's ts_lexer_finish computes it.
 
-import "bytes"
+import (
+	"bytes"
+	"strconv"
+)
 
 // ExtScan is the result of one external scan.
 type ExtScan struct {
@@ -57,7 +60,13 @@ type ExtScanner interface {
 // heapExternalStateChange is C's has_external_scanner_state_change (heap flag).
 const heapExternalStateChange uint16 = 1 << 10
 
-const extSerializationBufferSize = 4096 // C: TREE_SITTER_SERIALIZATION_BUFFER_SIZE is 1024; Go scanners may write more
+// extSerializationBufferSize is the length of the buffer a scanner serializes
+// into. C passes lexer.debug_buffer, which has TREE_SITTER_SERIALIZATION_BUFFER_SIZE
+// = 1024 bytes (C/parser.h:14, C/lexer.h:37, C/parser.c:404-407), and asserts that
+// the scanner returns at most that many (C/parser.c:409). Scanner ports that bound
+// their state by len(buf) (hcl, for one) stop where C's scanner stops only if the
+// buffer has C's length.
+const extSerializationBufferSize = 1024
 
 // scannerState is the scanner side of Parser.
 type scannerState struct {
@@ -275,6 +284,13 @@ func (p *Parser) lexExternal(version int, parseState uint16, mode LexMode, cur L
 	}
 	tok := res.Token
 	n := res.StateLen
+	if n < 0 || n > len(e.buf) {
+		// C asserts that the scanner serializes at most the buffer size
+		// (C/parser.c:409). A port that reports more is broken: stop the parse
+		// with a clear reason instead of slicing out of range or truncating.
+		p.stop = "external scanner reported a state of " + strconv.Itoa(n) + " bytes; the serialization buffer holds " + strconv.Itoa(len(e.buf))
+		return false
+	}
 	state := e.buf[:n]
 	changed := !bytes.Equal(prev, state)
 	// Ignore empty external tokens (C/parser.c:557-583).

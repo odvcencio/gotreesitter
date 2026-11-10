@@ -21,7 +21,30 @@ import (
 	"strings"
 )
 
-const rootBudget = 689
+const rootBudget = 691
+
+// adapterFiles is the named exception to "root files may only shrink" (owner
+// decision 6 of the ccore route design). Exactly these root file names may be
+// added to the root, in addition to the files of the base allowlist. They are
+// the adapters between the root package and internal/ccore; each has no build
+// tag and no exported identifier. The API snapshots catch an exported
+// identifier; the tag-atom check rejects only build-tag atoms it does not
+// know, so TestAdapterFilesBudgetAndTags checks that the files of this list
+// that exist carry no //go:build line. The first two arrive with the adapters and equality
+// tests; the others arrive with the route and public tree. The budget above
+// counts only the files that exist: 689 before the exception plus the two
+// files that have landed.
+var adapterFiles = []string{
+	"ccore_bind.go",
+	"ccore_scanner.go",
+	"ccore_route.go",
+	"ccore_tree.go",
+	"ccore_incremental.go",
+	"ccore_views.go",
+	"ccore_cursor.go",
+	"ccore_query_reader.go",
+	"ccore_certified_gen.go",
+}
 
 // The root has eleven build-tag atoms. Snapshot the default build and each
 // atom separately so a tag-only exported declaration cannot disappear.
@@ -185,9 +208,13 @@ func checkRootAllowlistGrowth(root, base string, files []string) error {
 	for _, name := range strings.Fields(string(output)) {
 		allowed[name] = true
 	}
+	named := map[string]bool{}
+	for _, name := range adapterFiles {
+		named[name] = true
+	}
 	for _, name := range files {
-		if !allowed[name] {
-			return fmt.Errorf("root file %q was not present in the base allowlist; root files may only shrink", name)
+		if !allowed[name] && !named[name] {
+			return fmt.Errorf("root file %q was not present in the base allowlist and is not a named adapter file; root files may only shrink", name)
 		}
 	}
 	return nil

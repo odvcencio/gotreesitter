@@ -65,6 +65,8 @@ benchmark_warm_reuse_test.go
 bound_tree.go
 bound_tree_test.go
 c_string_argument_call_limit_test.go
+ccore_bind.go
+ccore_scanner.go
 compact_incremental_execution_test.go
 compact_nested_reuse_lookahead_dfa_test.go
 compact_nested_reuse_lookahead_test.go

@@ -86,9 +86,8 @@ Compare code changes with paired runs on one host.
 
 W5 now runs on code PRs that change engine source, in the required CI `build`
 aggregate, as one `editor_latency` job per language (the scope rule is in
-`cgo_harness/editor_latency/README.md`). Each job uses the configured
-`self-hosted,gts-vm` runner pool when one is set and GitHub-hosted runners
-otherwise, and compares the exact PR base and head on one pinned CPU. Any edit cell whose
+`cgo_harness/editor_latency/README.md`). For trusted repository heads each job uses the configured
+`self-hosted,gts-vm` runner pool when one is set; fork heads, and every head when no pool is set, use GitHub-hosted runners. Each job compares the exact PR base and head on one pinned CPU. Any edit cell whose
 median paired Go latency rises by more than **5%** fails the job; C slowdown
 cannot excuse a Go regression. Cancellation, incomplete evidence, oracle
 drift, a correctness failure, and a counter-gate failure also block the job.

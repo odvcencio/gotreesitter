@@ -55,9 +55,14 @@ type Parser struct {
 	shifts, reductions, lexCalls, tokens, maxVersions, multiTokens int
 }
 
-// NewParser returns a parser for the language described by c.
-func NewParser(c Config) *Parser {
-	return &Parser{t: c.Tables, scanner: c.Scanner}
+// NewParser returns a parser for the language described by c, or an error
+// that says why the core cannot serve it (validate.go). It checks the tables
+// and hooks once; parsing does not repeat the checks.
+func NewParser(c Config) (*Parser, error) {
+	if err := c.validate(); err != nil {
+		return nil, err
+	}
+	return &Parser{t: c.Tables, scanner: c.Scanner}, nil
 }
 
 // SetForceDerivedRows derives the external valid-symbol rows from the action
