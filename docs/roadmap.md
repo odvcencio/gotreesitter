@@ -11,7 +11,7 @@ It supersedes Campaign v7 where they conflict and fully supersedes the compact g
 
 On 2026-11-10 the owner decided that a C-faithful core replaces the compact scheduler, which is frozen. See the [decision](v1-design.md#decision-of-2026-11-10-a-c-faithful-core).
 
-- `internal/ccore` is the C-faithful core. It has been in the tree since v0.58.0.
+- `internal/ccore` is the C-faithful core. It is on `main` and not yet in a release.
 - The required CI job `ccore-equality-cgo` compares it with pinned C 0.27.1 for json, python, c, and typescript on every pull request that changes code.
 - No public API reaches it. `Parse` and incremental parsing still run on the existing engines.
 

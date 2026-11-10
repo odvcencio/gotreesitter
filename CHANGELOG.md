@@ -7,8 +7,6 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
-## [0.58.0] - 2026-11-10
-
 ### Highlights
 
 - A new parser core, `internal/ccore`, is in the tree. It is built to make the
@@ -89,8 +87,7 @@ for tags and release notes while still in `0.x`.
 - Validation and measurement scope are recorded in the linked pull requests,
   including [#1592](https://github.com/odvcencio/gotreesitter/pull/1592) and
   [#1595](https://github.com/odvcencio/gotreesitter/pull/1595) for the `ccore`
-  comparison with pinned C. The release receipt binds the final commit and its
-  full manual CI run.
+  comparison with pinned C.
 
 ## [0.57.0] - 2026-11-07
 
@@ -2478,8 +2475,7 @@ focused on current releases:
 - [v0.24.1 – v0.44.0](docs/changelog/archive-2.md)
 - [v0.1.0 – v0.24.0](docs/changelog/archive-3.md)
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.58.0...HEAD
-[0.58.0]: https://github.com/odvcencio/gotreesitter/compare/v0.57.0...v0.58.0
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.57.0...HEAD
 [0.57.0]: https://github.com/odvcencio/gotreesitter/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/odvcencio/gotreesitter/compare/v0.55.1...v0.56.0
 [0.55.1]: https://github.com/odvcencio/gotreesitter/compare/v0.55.0...v0.55.1
