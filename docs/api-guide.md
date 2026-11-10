@@ -441,6 +441,10 @@ nodes with the old tree. `ParseIncremental` updates the parent links of those
 shared nodes, so do not read the old tree from another goroutine during the
 call. After the call, read the new tree.
 
+Parse from an old tree once per edit. A second changed-source incremental parse from the same old tree
+moves the shared nodes to the newest result, and `Parent()` on the earlier
+result is then unreliable for those nodes.
+
 `ParseIncremental` walks the old tree's spine, identifies the edit region, and reuses unchanged content by reference. For an admitted clean edit, re-lex/reparse work can stay close to the invalidated region: reuse covers leaf nodes, the unchanged suffix, the untouched root, and unchanged top-level siblings after the edit. Admission for top-level sibling reuse is per node: a fragility bit plus byte-range equality, not a language allowlist.
 
 Parse reuse does not guarantee absolute `O(edit)` work. Length or point changes

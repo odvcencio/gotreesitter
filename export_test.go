@@ -556,3 +556,11 @@ func SnippetRootMemoProbeForTest(parser *Parser, source []byte, start, end uint3
 	}
 	return probe
 }
+
+// ParentLinksLentForTest reports whether a later incremental parse borrowed
+// nodes of t and moved their parent links.
+func ParentLinksLentForTest(t *Tree) bool { return t.parentLinksLent }
+
+// EnsureParentLinksForTest runs the repair that an incremental parse runs on
+// its old tree before it reads it.
+func EnsureParentLinksForTest(t *Tree) { t.ensureParentLinks() }

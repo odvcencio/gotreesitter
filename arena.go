@@ -93,7 +93,16 @@ type nodeArena struct {
 	parentLinkMu        sync.Mutex
 	deferredParentRoot  *Node
 	parentLinksDeferred atomic.Bool
-	finalChildRefs      bool
+	// foreignParentLinksDeferred is set while a legacy incremental parse
+	// attempt runs. Parents owned by this arena then leave the parent link of
+	// a child owned by another arena alone; wireOwnedParentLinks sets it.
+	foreignParentLinksDeferred bool
+	// incrementalAttempt marks an arena that a legacy incremental parse attempt
+	// built into. It stays set for the arena's life, so the parse can link the
+	// result again after a lazy pass linked it early and a later attempt moved
+	// the links of shared nodes.
+	incrementalAttempt bool
+	finalChildRefs     bool
 	// skipChildClear allows reset() to skip child-slab pointer clearing when
 	// a parse did not borrow any external nodes (full parse without reuse).
 	skipChildClear bool
@@ -683,6 +692,8 @@ func (a *nodeArena) resetParentLinks() {
 	a.parentLinkMu.Lock()
 	a.deferredParentRoot = nil
 	a.parentLinksDeferred.Store(false)
+	a.foreignParentLinksDeferred = false
+	a.incrementalAttempt = false
 	a.parentLinkMu.Unlock()
 }
 

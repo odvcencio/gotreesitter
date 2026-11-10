@@ -224,6 +224,11 @@ func TestGoLanguageFixtureLengthChangeIncrementalMatchesFresh(t *testing.T) {
 		}
 		defer fresh.Release()
 		assertLockedIncrementalTreeMatchesFresh(t, lang, incremental, fresh, "d5af3b86c49049bf95e1ebf5a098a4194a3d17d08b233c5fb9e5bfd90e37c801")
+		// An adopted retry released the first attempt: every parent link must
+		// still belong to the returned tree.
+		if bad := v1InvariantWrongParents(incremental.RootNode()); len(bad) != 0 {
+			t.Fatalf("adopted retry left %d wrong parent links; first: %s", len(bad), bad[0])
+		}
 		if profile.AcceptedErrorRetryAttempts != 1 || !profile.AcceptedErrorRetryAdopted ||
 			profile.AcceptedErrorRetryMergePerKey != 3 || profile.AcceptedErrorRetryCause != gotreesitter.IncrementalRetryCauseAcceptedErrorBaseMerge {
 			t.Fatalf("forward retry profile = %+v", profile)
@@ -275,6 +280,11 @@ func TestGoLanguageFixtureLengthChangeIncrementalMatchesFresh(t *testing.T) {
 		}
 		defer fresh.Release()
 		assertLockedIncrementalTreeMatchesFresh(t, lang, incremental, fresh, "583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539")
+		// An adopted retry released the first attempt: every parent link must
+		// still belong to the returned tree.
+		if bad := v1InvariantWrongParents(incremental.RootNode()); len(bad) != 0 {
+			t.Fatalf("adopted retry left %d wrong parent links; first: %s", len(bad), bad[0])
+		}
 		if profile.AcceptedErrorRetryAttempts != 1 || !profile.AcceptedErrorRetryAdopted || profile.AcceptedErrorRetryMergePerKey != 3 {
 			t.Fatalf("reverse retry profile = %+v", profile)
 		}
