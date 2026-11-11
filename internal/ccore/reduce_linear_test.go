@@ -20,13 +20,19 @@ func TestReduceLinearCheck(t *testing.T) {
 		p.SetReduceCheck(true)
 		var trace []string
 		p.SetLogger(func(s string) { trace = append(trace, s) })
-		_, stop := p.Parse(g.Src)
+		tr, stop := p.Parse(g.Src)
 		p.SetLogger(nil)
-		if stop != g.Stop || p.Digest() != g.Digest {
-			t.Errorf("%s: stop %q or digest differs from the golden", g.Name, stop)
+		if stop != g.Stop {
+			t.Errorf("%s: stop %q differs from the golden", g.Name, stop)
 		}
-		if hash, lines := p.Records(nil); hash != g.RecordHash || lines != g.RecordCount {
-			t.Errorf("%s: records differ from the golden", g.Name)
+		if tr != nil { // a stopped parse returns no tree
+			if p.Digest(tr) != g.Digest {
+				t.Errorf("%s: digest differs from the golden", g.Name)
+			}
+			if hash, lines := p.Records(tr, nil); hash != g.RecordHash || lines != g.RecordCount {
+				t.Errorf("%s: records differ from the golden", g.Name)
+			}
+			tr.Release()
 		}
 		if len(trace) != len(g.Trace) {
 			t.Errorf("%s: %d trace lines, want %d", g.Name, len(trace), len(g.Trace))

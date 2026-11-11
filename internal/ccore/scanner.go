@@ -18,10 +18,12 @@ package ccore
 //   C/subtree.c:349 ts_subtree_summarize_children (flags)    -> extSummarize
 //
 // Go constructs that differ from C, semantics kept:
-//   - Scanner state bytes of a leaf live in a side arena (ext.bytes). The
-//     heap leaf record keeps offset and length in two fields a leaf does not
-//     otherwise use (visibleDescendantCount, namedChildCount), as C's
-//     SubtreeHeapData unions the children pointer with the scanner state.
+//   - Scanner state bytes of a leaf live in the state pages of the Store,
+//     owned by the leaf (a copy of the leaf copies them; freeing the leaf
+//     frees them, C/subtree.c:271-275, 601-603). The heap leaf record keeps
+//     offset and length in two fields a leaf does not otherwise use
+//     (visibleDescendantCount, namedChildCount), as C's SubtreeHeapData
+//     unions the children pointer with the scanner state.
 //   - The core owns C's call rules: the valid-symbol row, the empty-token rule
 //     and the state comparison. One ExtScanner.Scan call performs C's
 //     deserialize, scan and serialize in that order.
@@ -70,7 +72,6 @@ const extSerializationBufferSize = 1024
 
 // scannerState is the scanner side of Parser.
 type scannerState struct {
-	bytes     []byte // side arena: serialized scanner state of every external leaf
 	buf       []byte
 	cacheLast Handle   // C TokenCache.last_external_token
 	rows      [][]bool // valid-symbol rows derived from the action table (Tables.ExternalLexStates empty)
@@ -83,7 +84,7 @@ type scannerState struct {
 // extResult is the result of one successful external scan.
 type extResult struct {
 	tok     Token
-	off, n  uint32
+	n       uint32
 	changed bool
 }
 
@@ -96,9 +97,6 @@ func (p *Parser) extReset(fresh bool) {
 				break
 			}
 		}
-	}
-	if fresh { // an incremental parse keeps the old tree's scanner states (same lifetime as the record arena)
-		p.ext.bytes = p.ext.bytes[:0]
 	}
 	p.ext.cacheLast = 0
 }
@@ -158,7 +156,7 @@ func (p *Parser) extState(h Handle) []byte {
 	if r.flags&heapHasExternalTokens == 0 || r.childCount != 0 {
 		return nil
 	}
-	return p.ext.bytes[r.visibleDescendantCount : r.visibleDescendantCount+r.namedChildCount]
+	return p.stateBytes(r.visibleDescendantCount, r.namedChildCount)
 }
 
 // extStateEq is ts_subtree_external_scanner_state_eq.
@@ -217,7 +215,11 @@ func (p *Parser) extSummarize(self *rec, child Handle, first bool) {
 // ts_external_scanner_state_init and has_external_scanner_state_change.
 func (p *Parser) extAttach(leaf Handle, e *extResult) {
 	r := p.rec(leaf)
-	r.visibleDescendantCount, r.namedChildCount = e.off, e.n
+	if e.n > 0 {
+		off := p.allocState(&p.core.pc, e.n, p.logging)
+		copy(p.stateBytes(off, e.n), p.ext.buf[:e.n])
+		r.visibleDescendantCount, r.namedChildCount = off, e.n
+	}
 	if e.changed {
 		r.flags |= heapExternalStateChange
 	}
@@ -305,7 +307,6 @@ func (p *Parser) lexExternal(version int, parseState uint16, mode LexMode, cur L
 		}
 	}
 	out.tok, out.changed = tok, changed
-	out.off, out.n = uint32(len(e.bytes)), uint32(n)
-	e.bytes = append(e.bytes, state...)
+	out.n = uint32(n) // the bytes stay in e.buf until extAttach copies them into the store
 	return true
 }

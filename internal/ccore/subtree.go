@@ -27,54 +27,143 @@ type rec struct { // C SubtreeHeapData without ref_count
 	firstLeafState         uint16
 }
 
-// Store owns the record arena and the child arena. Every read and write of a
-// record or of a child list goes through its methods, so that a later change
-// of the storage (pages, segments) touches this file and no algorithm file.
-type Store struct {
-	recs []rec
-	kids []Handle
+// claim takes a record slot for the running parse and returns its handle
+// (lifetime.go, step 1). While a parse logs (an incremental parse) it takes from
+// the free list first, sets the new bit, logs what it took and leaves an empty
+// record in the slot, so that the sweep of an aborted parse finds and frees it;
+// otherwise it bumps. A record that will own storage (a child list, scanner-state
+// bytes) is claimed before that storage is allocated and filled afterwards (fill):
+// the slot is the parse's own from the claim on, so no other allocator can take
+// its place, and a refusal of the storage leaves an empty record, never storage
+// that no record owns. An index from the free list is checked against the record
+// limit like a bumped one.
+func (s *Store) claim() Handle {
+	c := s.core
+	if !s.logging { // a fresh parse: bump into the current page; the store is dropped if the parse fails, so the slot is not written
+		cur := &c.pc
+		if cur.recSlot < recPageLen {
+			idx := uint32(cur.recPage)<<recShift | uint32(cur.recSlot)
+			if idx > c.recLimit.Load() {
+				c.limitPanic("record index limit reached")
+			}
+			cur.recSlot++
+			return Handle(idx) << 1
+		}
+		return Handle(s.bumpRec(cur)) << 1
+	}
+	var idx uint32
+	if idx = c.freeRec; idx != 0 {
+		if idx > c.recLimit.Load() {
+			c.limitPanic("record index limit reached")
+		}
+		w := &s.refs[idx>>recShift][idx&recMask]
+		c.freeRec = *w & countMask
+		*w = 0 // a record taken from the free list has one owner
+		c.taken = append(c.taken, idx)
+	} else {
+		cur := &c.pc
+		if cur.recSlot == recPageLen {
+			s.closeSpan()
+			s.growRec(cur)
+			c.spanFirst = cur.recSlot
+		}
+		idx = s.bumpRec(cur)
+	}
+	*s.recAt(idx) = rec{flags: heapNew}
+	return Handle(idx) << 1
 }
 
-// Tree is a parse result: the root handle and the store that holds it.
-type Tree struct {
-	Root  Handle
-	Store *Store
+// fill sets the record that claim gave out.
+func (s *Store) fill(h Handle, r rec) {
+	if s.logging {
+		r.flags |= heapNew
+	}
+	*s.recAt(uint32(h >> 1)) = r
 }
 
-func (p *Store) clear()           { p.recs = append(p.recs[:0], rec{}); p.kids = p.kids[:0] }
-func (p *Store) recCount() uint32 { return uint32(len(p.recs)) }
-
-// add appends a record and returns its handle.
-func (p *Store) add(r rec) Handle {
-	p.recs = append(p.recs, r)
-	return Handle(len(p.recs)-1) << 1
+// add is claim and fill for a record that owns no storage.
+func (s *Store) add(r rec) Handle {
+	h := s.claim()
+	s.fill(h, r)
+	return h
 }
 
-// addKids appends a child list and returns its start index.
-func (p *Store) addKids(children []Handle) uint32 {
-	start := uint32(len(p.kids))
-	p.kids = append(p.kids, children...)
+// bumpRec takes the next slot of cur's page.
+func (s *Store) bumpRec(cur *arenaCur) uint32 {
+	if cur.recSlot == recPageLen {
+		s.growRec(cur)
+	}
+	idx := uint32(cur.recPage)<<recShift | uint32(cur.recSlot)
+	if idx > s.core.recLimit.Load() {
+		s.core.limitPanic("record index limit reached")
+	}
+	cur.recSlot++
+	return idx
+}
+
+// addKids copies a child list into the store and returns its start (0 for no children).
+func (s *Store) addKids(children []Handle) uint32 {
+	n := uint32(len(children))
+	if n == 0 {
+		return 0
+	}
+	if cur := &s.core.pc; n <= 8 && !s.logging && cur.kidPage >= 0 && cur.kidOff+int(n) <= kidPageLen { // a fresh parse: lists of 1 to 8 handles have exact size classes
+		o := cur.kidOff
+		copy(s.kids[cur.kidPage][o:o+int(n)], children)
+		cur.kidOff += int(n)
+		return uint32(cur.kidPage)<<kidShift | uint32(o)
+	}
+	start := s.allocKids(&s.core.pc, n, s.logging)
+	copy(s.kidSpan(start, n), children)
 	return start
 }
 
-// copyKids appends a copy of the child list [start, start+n) and returns the copy's start.
-func (p *Store) copyKids(start, n uint32) uint32 {
-	at := uint32(len(p.kids))
-	p.kids = append(p.kids, p.kids[start:start+n]...)
+// copyKids copies the child list [start, start+n) and returns the copy's start.
+func (s *Store) copyKids(start, n uint32) uint32 {
+	if n == 0 {
+		return 0
+	}
+	at := s.allocKids(&s.core.pc, n, s.logging)
+	copy(s.kidSpan(at, n), s.kidSpan(start, n))
 	return at
 }
 
-func (p *Store) kidSpan(start, n uint32) []Handle { return p.kids[start : start+n] }
-func (p *Store) kidAt(slot int) Handle            { return p.kids[slot] }
-func (p *Store) setKidAt(slot int, h Handle)      { p.kids[slot] = h }
+// recWatermark is the index the next bumped record gets: records below it
+// existed before the parse that is starting. A page that is full has slot
+// recPageLen, which is the first bit of the page number: the two are added, not
+// or-ed.
+func (s *Store) recWatermark() uint32 {
+	if s.core == nil {
+		return 0
+	}
+	cur := &s.core.pc
+	if cur.recPage < 0 {
+		return 0
+	}
+	return uint32(cur.recPage)<<recShift + uint32(cur.recSlot)
+}
 
-// capBytes is the arena capacity in bytes (a statistic, not C's; it counts 80 bytes per record).
-func (p *Store) capBytes() int { return cap(p.recs)*80 + cap(p.kids)*8 }
+// allocatedRecords is the number of record slots the store has handed out.
+func (s *Store) allocatedRecords() int {
+	w := int(s.recWatermark())
+	if w == 0 {
+		return 0
+	}
+	return w - 1
+}
 
-// arenaUse returns the arena bytes in use and the bytes reachable from root.
-func (p *Store) arenaUse(root Handle) (used, reachable int) {
-	const recBytes, kidBytes = 96, 8 // an estimate for the statistic, not unsafe.Sizeof
-	used = len(p.recs)*recBytes + len(p.kids)*kidBytes
+// capBytes is the memory the pages hold, in bytes (a statistic, not C's).
+func (s *Store) capBytes() int {
+	if s.core == nil {
+		return 0
+	}
+	return s.core.pageBytes()
+}
+
+// arenaUse returns the page bytes held and the bytes reachable from root.
+func (s *Store) arenaUse(root Handle) (used, reachable int) {
+	const kidBytes = 8
+	used = s.core.pageBytes()
 	seen := make(map[Handle]bool)
 	stack := []Handle{root}
 	for len(stack) > 0 {
@@ -84,26 +173,47 @@ func (p *Store) arenaUse(root Handle) (used, reachable int) {
 			continue
 		}
 		seen[h] = true
-		r := p.rec(h)
+		r := s.rec(h)
 		reachable += recBytes + int(r.childCount)*kidBytes
-		stack = append(stack, p.kidSpan(r.childrenStart, r.childCount)...)
+		stack = append(stack, s.kidSpan(r.childrenStart, r.childCount)...)
 	}
 	return used, reachable
 }
 
-// hashArena writes every record and child handle to w (determinism checks).
-func (p *Store) hashArena(w io.Writer) {
+// hashArena writes every record, child handle and state byte the parse has
+// used to w (determinism checks). The caller holds the lease and emu.
+func (s *Store) hashArena(w io.Writer) {
+	c := s.core
 	var b [8]byte
-	for _, r := range p.recs {
-		fmt.Fprintf(w, "%v", r)
-	}
-	for _, k := range p.kids {
-		binary.LittleEndian.PutUint64(b[:], uint64(k))
-		w.Write(b[:])
+	cur, ecur := &c.pc, &c.ec // the caller holds the lease and emu
+	for pg := 0; pg < c.nextRec; pg++ {
+		n := recPageLen // a page that is not the current page of an allocator is full
+		if pg == cur.recPage {
+			n = cur.recSlot
+		} else if pg == ecur.recPage {
+			n = ecur.recSlot // slots past it hold stale records of a pooled page
+		}
+		for i := 0; i < n; i++ {
+			r := &s.recs[pg][i]
+			if s.refs[pg][i]&flagFree != 0 {
+				continue // a free record: its contents are stale
+			}
+			fmt.Fprintf(w, "%v", *r)
+			if r.childCount > 0 {
+				for _, k := range s.kidSpan(r.childrenStart, r.childCount) {
+					binary.LittleEndian.PutUint64(b[:], uint64(k))
+					w.Write(b[:])
+				}
+			} else if r.flags&heapHasExternalTokens != 0 && r.namedChildCount > 0 {
+				w.Write(s.stateBytes(r.visibleDescendantCount, r.namedChildCount))
+			}
+		}
 	}
 }
 
-// Read accessors for adapters and tests.
+// Read accessors for adapters and tests. They read through the view they are
+// called on; a handle is valid while the tree it came from is held and not
+// edited or released by the goroutine that owns it (see Tree.Reader).
 func (p *Store) Symbol(h Handle) Symbol     { return p.symbol(h) }
 func (p *Store) ParseState(h Handle) uint16 { return p.parseState(h) }
 func (p *Store) Visible(h Handle) bool      { return p.visible(h) }
@@ -114,6 +224,10 @@ func (p *Store) HasChanges(h Handle) bool   { return p.hasChanges(h) }
 func (p *Store) Padding(h Handle) Length    { return p.padding(h) }
 func (p *Store) Size(h Handle) Length       { return p.size(h) }
 func (p *Store) ChildCount(h Handle) uint32 { return p.childCount(h) }
+
+// Children returns the child list of h. The slice points into a page: it is
+// valid until the tree that the view belongs to is edited or released (see
+// Tree.Reader); the caller must not write it.
 func (p *Store) Children(h Handle) []Handle {
 	if h&1 != 0 {
 		return nil
@@ -122,27 +236,40 @@ func (p *Store) Children(h Handle) []Handle {
 }
 func (p *Store) ErrorCost(h Handle) uint32 { return p.errorCost(h) }
 
-func (p *Store) rec(h Handle) *rec { return &p.recs[h>>1] }
+// ExtState returns the scanner-state bytes of a heap leaf that has external
+// tokens (C ts_subtree_external_scanner_state); nil for any other handle. The
+// slice points into a page and is valid until the tree that the view belongs to
+// is edited or released (see Tree.Reader); the caller must not write it.
+func (p *Store) ExtState(h Handle) []byte {
+	if h == 0 || h&1 != 0 {
+		return nil
+	}
+	r := p.rec(h)
+	if r.flags&heapHasExternalTokens == 0 || r.childCount != 0 {
+		return nil
+	}
+	return p.stateBytes(r.visibleDescendantCount, r.namedChildCount)
+}
 
 func (p *Store) symbol(h Handle) Symbol {
 	if h&1 != 0 {
 		return Symbol((h >> 8) & 0xff)
 	}
-	return p.recs[h>>1].symbol
+	return p.rec(h).symbol
 }
 
 func (p *Store) parseState(h Handle) uint16 {
 	if h&1 != 0 {
 		return uint16(h >> 16)
 	}
-	return p.recs[h>>1].parseState
+	return p.rec(h).parseState
 }
 
 func (p *Store) hasFlag(h Handle, inl uint64, heap uint16) bool {
 	if h&1 != 0 {
 		return uint64(h)&inl != 0
 	}
-	return p.recs[h>>1].flags&heap != 0
+	return p.rec(h).flags&heap != 0
 }
 
 func (p *Store) visible(h Handle) bool { return p.hasFlag(h, inlVisible, heapVisible) }
@@ -157,7 +284,7 @@ func (p *Store) padding(h Handle) Length { // C ts_subtree_padding
 	if h&1 != 0 {
 		return Length{bytes: uint32(h>>48) & 0xff, row: uint32(h>>40) & 0xf, col: uint32(h>>32) & 0xff}
 	}
-	return p.recs[h>>1].padding
+	return p.rec(h).padding
 }
 
 func (p *Store) size(h Handle) Length { // C ts_subtree_size
@@ -165,7 +292,7 @@ func (p *Store) size(h Handle) Length { // C ts_subtree_size
 		b := uint32(h>>56) & 0xff
 		return Length{bytes: b, col: b}
 	}
-	return p.recs[h>>1].size
+	return p.rec(h).size
 }
 
 func (p *Store) totalSize(h Handle) Length { return lenAdd(p.padding(h), p.size(h)) }
@@ -174,19 +301,19 @@ func (p *Store) lookaheadBytes(h Handle) uint32 {
 	if h&1 != 0 {
 		return uint32(h>>44) & 0xf
 	}
-	return p.recs[h>>1].lookaheadBytes
+	return p.rec(h).lookaheadBytes
 }
 
 func (p *Store) childCount(h Handle) uint32 {
 	if h&1 != 0 {
 		return 0
 	}
-	return p.recs[h>>1].childCount
+	return p.rec(h).childCount
 }
 
 func (p *Store) children(h Handle) []Handle {
-	r := &p.recs[h>>1]
-	return p.kids[r.childrenStart : r.childrenStart+r.childCount]
+	r := p.rec(h)
+	return p.kidSpan(r.childrenStart, r.childCount)
 }
 
 func (p *Store) errorCost(h Handle) uint32 { // C ts_subtree_error_cost
@@ -196,21 +323,21 @@ func (p *Store) errorCost(h Handle) uint32 { // C ts_subtree_error_cost
 	if h&1 != 0 {
 		return 0
 	}
-	return p.recs[h>>1].errorCost
+	return p.rec(h).errorCost
 }
 
 func (p *Store) dynPrec(h Handle) int32 {
-	if h&1 != 0 || p.recs[h>>1].childCount == 0 {
+	if h&1 != 0 || p.rec(h).childCount == 0 {
 		return 0
 	}
-	return p.recs[h>>1].dynamicPrecedence
+	return p.rec(h).dynamicPrecedence
 }
 
 func (p *Store) visibleDescendants(h Handle) uint32 {
-	if h&1 != 0 || p.recs[h>>1].childCount == 0 {
+	if h&1 != 0 || p.rec(h).childCount == 0 {
 		return 0
 	}
-	return p.recs[h>>1].visibleDescendantCount
+	return p.rec(h).visibleDescendantCount
 }
 
 // repeatDepth is C/subtree.h:307 ts_subtree_repeat_depth. C reads
@@ -225,7 +352,7 @@ func (p *Parser) repeatDepth(h Handle) uint32 {
 	if h&1 != 0 {
 		return 0
 	}
-	r := &p.recs[h>>1]
+	r := p.rec(h)
 	if r.childCount == 0 && r.flags&heapHasExternalTokens != 0 {
 		st := p.extState(h)
 		var d uint32
@@ -246,7 +373,7 @@ func (p *Store) leafSymbol(h Handle) Symbol { // C ts_subtree_leaf_symbol
 	if h&1 != 0 {
 		return p.symbol(h)
 	}
-	r := &p.recs[h>>1]
+	r := p.rec(h)
 	if r.childCount == 0 {
 		return r.symbol
 	}
@@ -257,7 +384,7 @@ func (p *Store) leafParseState(h Handle) uint16 { // C ts_subtree_leaf_parse_sta
 	if h&1 != 0 {
 		return p.parseState(h)
 	}
-	r := &p.recs[h>>1]
+	r := p.rec(h)
 	if r.childCount == 0 {
 		return r.parseState
 	}
@@ -265,18 +392,18 @@ func (p *Store) leafParseState(h Handle) uint16 { // C ts_subtree_leaf_parse_sta
 }
 
 func (p *Store) fragileLeft(h Handle) bool {
-	return h&1 == 0 && p.recs[h>>1].flags&heapFragileLeft != 0
+	return h&1 == 0 && p.rec(h).flags&heapFragileLeft != 0
 }
 func (p *Store) fragileRight(h Handle) bool {
-	return h&1 == 0 && p.recs[h>>1].flags&heapFragileRight != 0
+	return h&1 == 0 && p.rec(h).flags&heapFragileRight != 0
 }
 
 func (p *Store) hasExternalTokens(h Handle) bool {
-	return h&1 == 0 && h != 0 && p.recs[h>>1].flags&heapHasExternalTokens != 0
+	return h&1 == 0 && h != 0 && p.rec(h).flags&heapHasExternalTokens != 0
 }
 
 func (p *Store) hasExternalStateChange(h Handle) bool {
-	return h&1 == 0 && h != 0 && p.recs[h>>1].flags&heapExternalStateChange != 0
+	return h&1 == 0 && h != 0 && p.rec(h).flags&heapExternalStateChange != 0
 }
 
 func (p *Store) dependsOnColumn(h Handle) bool {
@@ -284,7 +411,7 @@ func (p *Store) dependsOnColumn(h Handle) bool {
 }
 
 func (p *Store) isFragile(h Handle) bool {
-	return h&1 == 0 && p.recs[h>>1].flags&(heapFragileLeft|heapFragileRight) != 0
+	return h&1 == 0 && p.rec(h).flags&(heapFragileLeft|heapFragileRight) != 0
 }
 
 func (p *Store) hasChanges(h Handle) bool { return p.hasFlag(h, inlHasChanges, heapHasChanges) }
@@ -301,14 +428,21 @@ func (p *Store) setExtra(h Handle, extra bool) Handle {
 		}
 		return h &^ Handle(inlExtra)
 	}
-	r := p.recs[h>>1]
+	r := *p.rec(h)
 	if extra {
 		r.flags |= heapExtra
 	} else {
 		r.flags &^= heapExtra
 	}
-	p.recs = append(p.recs, r)
-	return Handle(len(p.recs)-1) << 1
+	nh := p.claim()
+	if r.childCount > 0 { // C ts_subtree_make_mut clones the child list (C/subtree.c:261-278): two records must not own one list
+		r.childrenStart = p.copyKids(r.childrenStart, r.childCount)
+	} else {
+		p.cloneState(&r, &p.core.pc)
+	}
+	p.nCopy++
+	p.fill(nh, r)
+	return nh
 }
 
 // C/subtree.c:166 ts_subtree_new_leaf (has_external_tokens and
@@ -357,6 +491,7 @@ func (p *Parser) newLeaf(sym Symbol, padding, size Length, lookahead uint32, sta
 	if dependsOnColumn {
 		fl |= heapDependsOnColumn
 	}
+	p.nLeaf++
 	return p.add(rec{padding: padding, size: size, lookaheadBytes: lookahead, symbol: sym, parseState: state, flags: fl})
 }
 
@@ -375,6 +510,8 @@ func (p *Parser) setSymbol(h Handle, sym Symbol) Handle {
 		return h
 	}
 	r := *p.rec(h)
+	nh := p.claim()
+	p.cloneState(&r, &p.core.pc)
 	r.symbol = sym
 	r.flags &^= heapVisible | heapNamed
 	if vis {
@@ -383,7 +520,9 @@ func (p *Parser) setSymbol(h Handle, sym Symbol) Handle {
 	if nam {
 		r.flags |= heapNamed
 	}
-	return p.add(r)
+	p.nCopy++
+	p.fill(nh, r)
+	return nh
 }
 
 // C/subtree.c:492 ts_subtree_new_node. The children are copied into the
@@ -400,9 +539,17 @@ func (p *Parser) newNode(sym Symbol, children []Handle, productionID uint16) Han
 	if sym == symError || sym == symErrorRepeat {
 		fl |= heapFragileLeft | heapFragileRight
 	}
+	h := p.claim() // before the child list: a refused record strands no storage
 	start := p.addKids(children)
-	h := p.add(rec{symbol: sym, childCount: uint32(len(children)), childrenStart: start, flags: fl, productionID: productionID})
+	if p.logging {
+		p.core.fire("storage") // test hook: the child list exists; the record must already be ours
+	}
+	p.nNode++
+	p.fill(h, rec{symbol: sym, childCount: uint32(len(children)), childrenStart: start, flags: fl, productionID: productionID})
 	p.summarize(h)
+	if p.rec(h).size.bytes == 0 {
+		p.zeroNodes++ // see findMulti
+	}
 	return h
 }
 
@@ -420,55 +567,74 @@ func (p *Parser) summarize(h Handle) {
 		if p.ext.active {
 			p.extSummarize(self, child, i == 0)
 		}
-		if i == 0 {
-			self.padding = p.padding(child)
-			self.size = p.size(child)
+		// One record lookup per child; an inline leaf (cr nil) has its fields in the handle.
+		var cr *rec
+		var cpad, csize Length
+		var clook, grandchildren, cerr uint32
+		var csym Symbol
+		var cextra, cvis, cnamed bool
+		if child&1 == 0 {
+			cr = p.rec(child)
+			cpad, csize, clook, grandchildren, csym = cr.padding, cr.size, cr.lookaheadBytes, cr.childCount, cr.symbol
+			cextra, cvis, cnamed = cr.flags&heapExtra != 0, cr.flags&heapVisible != 0, cr.flags&heapNamed != 0
+			if cr.flags&heapMissing != 0 {
+				cerr = costPerMissingTree + costPerRecovery
+			} else {
+				cerr = cr.errorCost
+			}
 		} else {
-			self.size = lenAdd(self.size, p.totalSize(child))
+			cpad, csize, clook, csym = p.padding(child), p.size(child), p.lookaheadBytes(child), p.symbol(child)
+			cextra, cvis, cnamed = p.extra(child), p.visible(child), p.named(child)
+			cerr = p.errorCost(child)
 		}
-		if end := self.padding.bytes + self.size.bytes + p.lookaheadBytes(child); end > lookaheadEnd {
+		if i == 0 {
+			self.padding = cpad
+			self.size = csize
+		} else {
+			self.size = lenAdd(self.size, lenAdd(cpad, csize))
+		}
+		if end := self.padding.bytes + self.size.bytes + clook; end > lookaheadEnd {
 			lookaheadEnd = end
 		}
-		grandchildren := p.childCount(child)
-		csym := p.symbol(child)
 		if csym == symErrorRepeat {
-			self.errorCost += p.errorCost(child) - p.errorExtentCost(p.size(child))
+			self.errorCost += cerr - p.errorExtentCost(csize)
 		} else {
-			self.errorCost += p.errorCost(child)
+			self.errorCost += cerr
 			if self.symbol == symError || self.symbol == symErrorRepeat {
-				if !p.extra(child) && !(csym == symError && grandchildren == 0) {
-					if p.visible(child) {
+				if !cextra && !(csym == symError && grandchildren == 0) {
+					if cvis {
 						self.errorCost += costPerSkippedTree
 					} else if grandchildren > 0 {
-						self.errorCost += costPerSkippedTree * p.rec(child).visibleChildCount
+						self.errorCost += costPerSkippedTree * cr.visibleChildCount
 					}
 				}
 			}
 		}
-		self.dynamicPrecedence += p.dynPrec(child)
-		self.visibleDescendantCount += p.visibleDescendants(child)
-		if !p.extra(child) && csym != 0 && structural < len(alias) && alias[structural] != 0 {
+		if grandchildren > 0 { // dynPrec and visibleDescendants are 0 for a leaf
+			self.dynamicPrecedence += cr.dynamicPrecedence
+			self.visibleDescendantCount += cr.visibleDescendantCount
+		}
+		if !cextra && csym != 0 && structural < len(alias) && alias[structural] != 0 {
 			self.visibleDescendantCount++
 			self.visibleChildCount++
 			if _, named := p.meta(alias[structural]); named {
 				self.namedChildCount++
 			}
-		} else if p.visible(child) {
+		} else if cvis {
 			self.visibleDescendantCount++
 			self.visibleChildCount++
-			if p.named(child) {
+			if cnamed {
 				self.namedChildCount++
 			}
 		} else if grandchildren > 0 {
-			c := p.rec(child)
-			self.visibleChildCount += c.visibleChildCount
-			self.namedChildCount += c.namedChildCount
+			self.visibleChildCount += cr.visibleChildCount
+			self.namedChildCount += cr.namedChildCount
 		}
 		if csym == symError {
 			self.flags |= heapFragileLeft | heapFragileRight
 			self.parseState = stateNone
 		}
-		if !p.extra(child) {
+		if !cextra {
 			structural++
 		}
 	}
@@ -570,12 +736,112 @@ func (p *Parser) compress(tree Handle, count uint32, stack *[]Handle) {
 	}
 }
 
-// shared is C's ref_count > 1 for the balance: a record that existed before
-// this parse belongs to a tree that is still alive (the old tree).
-func (p *Parser) shared(h Handle) bool { return h&1 == 0 && uint32(h>>1) < p.watermark }
+// shared is C's ref_count > 1 for the balance: a record that this parse did
+// not allocate belongs to a tree that is still alive (the old tree). A record
+// that the running parse allocated has one owner unless the finished tree
+// reaches it more than once. Cached heap tokens are handed out once (lifetime.go,
+// step 2), but nothing in the parser stops a new internal node from being placed
+// in two slots (a node of byte size zero can be; for a node of positive size the
+// tree's byte spans make it unlikely, but that is not a proof the code relies
+// on). So the balance step asks findMulti, for every finished tree, for the new
+// records that the tree reaches more than once, and treats them as shared, which
+// is C's ref_count > 1 test. The test of the balance step does not depend on the
+// size of a node.
+func (p *Parser) shared(h Handle) bool {
+	if h&1 != 0 {
+		return false
+	}
+	if !p.isNew(h) {
+		return true
+	}
+	if p.multi != nil {
+		if _, twice := p.multi[h]; twice {
+			p.balanceRefusals++
+			return true
+		}
+	}
+	return false
+}
+
+// findMulti walks the finished tree before it is balanced and records, for each
+// new record that it reaches more than once, how many times more than once
+// (p.multi: the number of owners beyond the first, the count that the reference
+// word keeps). It marks the records it visits (new records only: an old record
+// has only old children and is never written) and clears the marks before it
+// returns. A fresh parse has no publication walk, so countFreshShared adds these
+// counts to the reference words; an incremental parse's publication walk counts
+// the same owners itself.
+func (p *Parser) findMulti() {
+	p.balanceChecks++
+	p.multi = nil
+	stack := append(p.scratch[:0], p.finished)
+	seen := p.seen[:0]
+	for len(stack) > 0 {
+		h := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if h == 0 || h&1 != 0 || !p.isNew(h) {
+			continue
+		}
+		r := p.rec(h)
+		if r.flags&heapMark != 0 {
+			if p.multi == nil {
+				p.multi = map[Handle]uint32{}
+			}
+			p.multi[h]++
+			continue
+		}
+		r.flags |= heapMark
+		seen = append(seen, h)
+		if r.childCount > 0 {
+			for _, k := range p.kidSpan(r.childrenStart, r.childCount) {
+				if k&1 == 0 && k != 0 {
+					stack = append(stack, k)
+				}
+			}
+		}
+	}
+	for _, h := range seen {
+		p.rec(h).flags &^= heapMark
+	}
+	p.scratch, p.seen = stack[:0], seen[:0]
+}
+
+// countFreshShared gives the owners that findMulti found to the reference words
+// of a fresh tree, so that releasing the tree and a later tree that also owns
+// the record count it once per owner, as C does (the caller holds the lease).
+func (p *Parser) countFreshShared() {
+	c := p.core
+	for h, n := range p.multi {
+		w := &p.refs[h>>(recShift+1)][(h>>1)&recMask]
+		if uint64(*w&countMask)+uint64(n) > uint64(c.countLimit.Load()) {
+			c.limitPanic("reference count limit reached")
+		}
+		*w += n
+		counters.shared.Add(int64(n))
+	}
+}
+
+// cloneState gives the heap leaf copy r its own scanner-state bytes (C/subtree.c:271-275).
+func (p *Store) cloneState(r *rec, cur *arenaCur) {
+	if r.childCount != 0 || r.flags&heapHasExternalTokens == 0 || r.namedChildCount == 0 {
+		return
+	}
+	var off uint32
+	if cur == &p.core.ec {
+		off = p.allocStateEdit(r.namedChildCount)
+	} else {
+		off = p.allocState(cur, r.namedChildCount, cur == &p.core.pc && p.logging)
+	}
+	copy(p.stateBytes(off, r.namedChildCount), p.stateBytes(r.visibleDescendantCount, r.namedChildCount))
+	r.visibleDescendantCount = off
+}
 
 // C/parser.c:1915 ts_parser__balance_subtree.
 func (p *Parser) balance() {
+	if p.preBalance != nil {
+		p.preBalance() // tests only
+	}
+	p.findMulti()
 	stack := p.scratch[:0]
 	if p.childCount(p.finished) > 0 && !p.shared(p.finished) {
 		stack = append(stack, p.finished)
@@ -601,4 +867,16 @@ func (p *Parser) balance() {
 		}
 	}
 	p.scratch = stack[:0]
+}
+
+// copyHeapLeaf returns a new record with the content of the heap leaf h and
+// its own copy of the scanner-state bytes (C/subtree.c:271-275).
+func (p *Store) copyHeapLeaf(h Handle) Handle {
+	r := *p.rec(h)
+	r.flags &^= heapNew | heapMark
+	nh := p.claim()
+	p.cloneState(&r, &p.core.pc)
+	p.nCopy++
+	p.fill(nh, r)
+	return nh
 }

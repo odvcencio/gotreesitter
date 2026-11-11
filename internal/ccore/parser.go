@@ -8,6 +8,16 @@ type Config struct {
 
 // Parser is one parsing context (C TSParser).
 type Parser struct {
+	testLimits *storeLimits // lowered store limits for stores this parser creates (tests only)
+
+	// The balance step (subtree.go): zeroNodes counts the internal nodes of byte
+	// size zero that the parse made (a statistic); multi holds, for each new
+	// record that the finished tree reaches more than once, the owners beyond the
+	// first (found before balancing, for every tree).
+	zeroNodes, balanceChecks, balanceRefusals int
+	multi                                     map[Handle]uint32
+	seen                                      []Handle // scratch of findMulti
+	preBalance                                func()   // tests only: runs before the balance step
 	Store
 	t        *Tables
 	scanner  ExtScanner
@@ -28,11 +38,13 @@ type Parser struct {
 	rn           []reusableEntry
 	rnLastExt    Handle // C ReusableNode.last_external_token
 	reuseActive  bool
-	watermark    uint32 // records below it belong to trees alive before this parse (C: ref_count > 1)
 	reusedNodes  int
 	reusedBytes  uint64
 	largestReuse uint32
 	finished     Handle
+	ops          int // steps of the parse loop in this parse (stop hook)
+	stopAt       int
+	stopPanics   bool
 	cacheTok     Handle
 	cacheAt      uint32
 	accepts      int
@@ -266,6 +278,13 @@ func (p *Parser) accept(version int, lookahead Handle) {
 
 // C/parser.c:1598 ts_parser__advance.
 func (p *Parser) advance(version int, allowReuse bool) bool {
+	if p.ops++; p.stopAt > 0 && p.ops >= p.stopAt {
+		if p.stopPanics {
+			panic("ccore: stop hook")
+		}
+		p.stop = "stopped by hook"
+		return false
+	}
 	state := p.nodes[p.heads[version].node].state
 	position := p.nodes[p.heads[version].node].position.bytes
 	var entry actionEntry
@@ -278,6 +297,12 @@ func (p *Parser) advance(version int, allowReuse bool) bool {
 	if lookahead == 0 {
 		didReuse = false
 		lookahead = p.cachedToken(state, position, lastExternal, &entry)
+		if lookahead&1 == 0 && lookahead != 0 {
+			// lifetime.go, step 2: a cached heap token is handed out once; every later
+			// hand-out is a copy of the record with its state bytes, so that no record sits in two slots
+			// of a tree. C shares the leaf and counts two owners (C/parser.c:711-718).
+			lookahead = p.copyHeapLeaf(lookahead)
+		}
 	}
 	needsLex := lookahead == 0
 	for {
@@ -543,13 +568,9 @@ func (p *Parser) condense() uint32 {
 }
 
 // parseWith is the C/parser.c:2124 ts_parser_parse loop. It runs the loop with an optional edited old tree (C: old_tree).
-// A fresh parse truncates the arenas; an incremental one appends to them.
+// ParseWith (api.go) holds the lease, sets up the store and ends the parse.
 func (p *Parser) parseWith(src []byte, old Handle) string {
 	p.src = src
-	if old == 0 {
-		p.clear()
-	}
-	p.watermark = p.recCount()
 	p.reusedNodes, p.reusedBytes, p.largestReuse = 0, 0, 0
 	p.nodes = p.nodes[:0]
 	p.free = p.free[:0]

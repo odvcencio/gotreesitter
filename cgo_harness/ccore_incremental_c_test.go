@@ -201,6 +201,7 @@ func TestCcoreIncremental(t *testing.T) {
 		}
 	})
 	steps := 0
+	doubleTrees, zeroNodes, balanceChecks, balanceRefusals := 0, 0, 0, 0
 	for _, chain := range ccoreIncChains(t, set) {
 		core := ccoreNew(gl)
 		fresh := ccoreNew(gl)
@@ -215,6 +216,8 @@ func TestCcoreIncremental(t *testing.T) {
 			recEq, recLines, recFirst := true, uint64(0), -1
 			var stop string
 			var editNs, parseNs int64
+			var prevTree, editedTree, againTree bindtest.Tree
+			released := false
 			if st.edit == nil {
 				if ctree != nil {
 					ctree.Close()
@@ -226,7 +229,9 @@ func TestCcoreIncremental(t *testing.T) {
 				ctree.Edit(ccoreSitterEdit(st.edit))
 				cEdited := ccoreCDigestChanges(ctree, true)
 				t0 := time.Now()
+				prevTree = tree
 				edited := core.Edit(tree, *st.edit)
+				editedTree = edited
 				editNs = time.Since(t0).Nanoseconds()
 				sEdited := core.DigestOf(edited, true)
 				editEq = cEdited == sEdited
@@ -263,7 +268,14 @@ func TestCcoreIncremental(t *testing.T) {
 					}
 				}
 				again, againStop := core.ParseIncremental(st.src, edited, nil)
+				againTree = again
+				released = true
 				det = againStop == stop && core.DigestOf(again, false) == core.DigestOf(tree, false)
+			}
+			if released { // the edited tree, the tree it came from and the second reparse are done
+				core.Release(againTree)
+				core.Release(editedTree)
+				core.Release(prevTree)
 			}
 			first := -1
 			for i := 0; i < len(clog) || i < len(slog); i++ {
@@ -274,8 +286,17 @@ func TestCcoreIncremental(t *testing.T) {
 			}
 			cInc := ccoreCDigestChanges(ctree, false)
 			sInc := core.DigestOf(tree, false)
+			if twice, visited := core.DoubleReach(tree); twice != 0 {
+				ccoreExpect(t, false, "%s/%s: %d of %d heap records are reached twice in the tree", set, st.id, twice, visited)
+			}
+			doubleTrees++
+			zeroN, balChecks, balRefusals := core.BalanceStats()
+			zeroNodes += zeroN
+			balanceChecks += balChecks
+			balanceRefusals += balRefusals
 			fstop := fresh.Parse(st.src, nil)
 			sFresh := fresh.Digest()
+			fresh.ReleaseLast()
 			cf := cfresh.Parse(st.src, nil)
 			cFresh := ccoreCDigestChanges(cf, false)
 			cerr := cf.RootNode().HasError()
@@ -314,10 +335,15 @@ func TestCcoreIncremental(t *testing.T) {
 				}
 			}
 		}
+		core.Release(tree)
 		if ctree != nil {
 			ctree.Close()
 			ctree = nil
 		}
+		fmt.Printf("CCSTOREINT test=incremental set=%s shared_in_tree=%d double_free=%d bad_retain=%d\n", set, core.SharedInTree(), core.DoubleFree(), core.BadRetain())
+		ccoreExpectStore(t, "TestCcoreIncremental "+set, core)
 	}
+	fmt.Printf("CCDOUBLE test=incremental set=%s trees=%d\n", set, doubleTrees)
+	fmt.Printf("CCBALANCE test=incremental set=%s trees=%d zero_width_nodes=%d walks=%d refusals=%d\n", set, doubleTrees, zeroNodes, balanceChecks, balanceRefusals)
 	ccoreCount("TestCcoreIncremental", set, steps)
 }

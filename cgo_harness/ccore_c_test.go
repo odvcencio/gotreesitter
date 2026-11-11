@@ -406,6 +406,7 @@ func TestCcoreDigest(t *testing.T) {
 	spike := ccoreNew(gl)
 	legacy := g.NewParser(gl)
 	legacy.SetAdmissionCandidateRoute(false)
+	doubleTrees, zeroNodes, balanceChecks, balanceRefusals, allocRecs, reachRecs := 0, 0, 0, 0, 0, 0
 	checked := 0
 	for _, in := range ccoreInputs(t, name, false) {
 		checked++
@@ -427,12 +428,38 @@ func TestCcoreDigest(t *testing.T) {
 		sd := spike.Digest()
 		ad := spike.ArenaDigest()
 		steps, tokens, maxv, multi, arena := spike.Stats()
+		twice, visited := spike.DoubleReach(spike.Tree())
+		ccoreExpect(t, twice == 0, "%s: %d of %d heap records are reached twice in the finished tree", in.ID, twice, visited)
+		doubleTrees++
+		zeroN, balChecks, balRefusals := spike.BalanceStats()
+		zeroNodes += zeroN
+		balanceChecks += balChecks
+		balanceRefusals += balRefusals
+		leaves, nodes, copies := spike.RecordSources()
+		allocRecs += leaves + nodes + copies
+		reachRecs += visited
+		spike.ReleaseLast()
 		stop2 := spike.Parse(in.Src, nil)
 		det := stop2 == stop && spike.Digest() == sd && spike.ArenaDigest() == ad
+		spikeEnd := spike.RootEnd() // read before the release: the package reads only live trees
+		spike.ReleaseLast()
 		fmt.Printf("CCDIGEST input=%s bytes=%d stop=%q equal=%t deterministic=%t c_error=%t c_end=%d spike_end=%d steps=%d tokens=%d max_versions=%d multi_tokens=%d arena_bytes=%d legacy_eq_c=%t\n",
-			in.ID, len(in.Src), stop, sd == cd && stop == "", det, cerr, cend, spike.RootEnd(), steps, tokens, maxv, multi, arena, legacyEq)
+			in.ID, len(in.Src), stop, sd == cd && stop == "", det, cerr, cend, spikeEnd, steps, tokens, maxv, multi, arena, legacyEq)
 		ccoreExpect(t, sd == cd && stop == "", "%s: the digest differs from C (stop %q)", in.ID, stop)
 		ccoreExpect(t, det, "%s: two parses give different results", in.ID)
+	}
+	fmt.Printf("CCSTOREINT test=digest lang=%s shared_in_tree=%d double_free=%d bad_retain=%d\n", name, spike.SharedInTree(), spike.DoubleFree(), spike.BadRetain())
+	ccoreExpectStore(t, "TestCcoreDigest "+name, spike)
+	fmt.Printf("CCDOUBLE test=digest lang=%s trees=%d\n", name, doubleTrees)
+	fmt.Printf("CCBALANCE test=digest lang=%s trees=%d zero_width_nodes=%d walks=%d refusals=%d\n", name, doubleTrees, zeroNodes, balanceChecks, balanceRefusals)
+	// A fresh parse leaves the records that the finished tree does not reach in
+	// the store until the store ends. For the CI input sets (not the eof and
+	// session sets, whose inputs are tiny or near-identical) the share over the
+	// whole set must stay at or below 10 percent.
+	fmt.Printf("CCUNREACHSHARE lang=%s records=%d reachable=%d unreachable_pct=%.3f\n", name, allocRecs, reachRecs, 100*float64(allocRecs-reachRecs)/float64(max(allocRecs, 1)))
+	switch name {
+	case "json", "python", "c", "typescript":
+		ccoreExpect(t, allocRecs > 0 && (allocRecs-reachRecs)*10 <= allocRecs, "%s: %d of %d records of the fresh parses are unreachable, more than 10 percent", name, allocRecs-reachRecs, allocRecs)
 	}
 	ccoreCount("TestCcoreDigest", name, checked)
 }
@@ -467,6 +494,7 @@ func BenchmarkCcore(b *testing.B) {
 					if stop := sp.Parse(in.Src, nil); stop != "" {
 						b.Skipf("spike stop %q", stop)
 					}
+					sp.ReleaseLast()
 					b.ReportAllocs()
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
@@ -474,6 +502,7 @@ func BenchmarkCcore(b *testing.B) {
 						if arm == "spikewalk" {
 							sp.Walk()
 						}
+						sp.ReleaseLast()
 					}
 				case "legacy":
 					p := g.NewParser(gl)
@@ -560,6 +589,7 @@ func BenchmarkCcoreSet(b *testing.B) {
 						switch arm {
 						case "spike":
 							sp.Parse(in.Src, nil)
+							sp.ReleaseLast()
 						case "legacy":
 							if tree, err := lp.Parse(in.Src); err == nil {
 								tree.Release()

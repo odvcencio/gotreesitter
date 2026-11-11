@@ -156,12 +156,15 @@ func TestCcoreBigChain(t *testing.T) {
 				fmt.Printf("CCBIG   %d C: %s\nCCBIG   %d S: %s\n", k, c, k, s)
 			}
 		}
+		core.Release(tree)
+		core.Release(edited)
 		cn.Close()
 		ce.Close()
 	}
 	// The 1,000-step chain of single-token edits, from the fresh tree.
 	used0, reach0 := core.ArenaUse(base)
 	fmt.Printf("CCARENA step=fresh used=%d reachable=%d\n", used0, reach0)
+	fmt.Printf("CCSTORE step=fresh %s\n", core.StoreInfo())
 	rng := rand.New(rand.NewSource(1000))
 	cur := append([]byte(nil), src...)
 	tree := base
@@ -188,6 +191,7 @@ func TestCcoreBigChain(t *testing.T) {
 		next, e := ccoreReplaceEdit(cur, at, b)
 		edited := core.Edit(tree, e)
 		var stop string
+		prev := tree
 		tree, stop = core.ParseIncremental(next, edited, nil)
 		fstop := fresh.Parse(next, nil)
 		sd := core.DigestOf(tree, false)
@@ -206,8 +210,11 @@ func TestCcoreBigChain(t *testing.T) {
 			}
 			used, reach := core.ArenaUse(tree)
 			line += fmt.Sprintf(" eq_c=%t used=%d reachable=%d", cEq, used, reach)
+			fmt.Printf("CCSTORE step=%d %s\n", step, core.StoreInfo())
 		}
 		fmt.Println(line)
+		core.Release(edited)
+		core.Release(prev)
 		cur = next
 	}
 	used, reach := core.ArenaUse(tree)
@@ -224,7 +231,7 @@ func BenchmarkCcoreBigEdit(b *testing.B) {
 		for _, arm := range []string{"core", "legacy", "c"} {
 			i, arm := i, arm
 			b.Run(names[i]+"/"+arm, func(b *testing.B) {
-				var editNs, parseNs int64
+				var editNs, parseNs, relNs int64
 				switch arm {
 				case "core":
 					core := ccoreNew(gl)
@@ -235,9 +242,15 @@ func BenchmarkCcoreBigEdit(b *testing.B) {
 						t0 := time.Now()
 						edited := core.Edit(base, edits[i])
 						t1 := time.Now()
-						core.ParseIncremental(srcs[i], edited, nil)
+						nt, _ := core.ParseIncremental(srcs[i], edited, nil)
 						editNs += t1.Sub(t0).Nanoseconds()
 						parseNs += time.Since(t1).Nanoseconds()
+						b.StopTimer()
+						r0 := time.Now()
+						core.Release(nt)
+						core.Release(edited)
+						relNs += time.Since(r0).Nanoseconds()
+						b.StartTimer()
 					}
 				case "legacy":
 					p := g.NewParser(gl)
@@ -295,6 +308,9 @@ func BenchmarkCcoreBigEdit(b *testing.B) {
 				}
 				b.ReportMetric(float64(editNs)/float64(b.N), "edit-ns/op")
 				b.ReportMetric(float64(parseNs)/float64(b.N), "reparse-ns/op")
+				if relNs > 0 {
+					b.ReportMetric(float64(relNs)/float64(b.N), "release-ns/op")
+				}
 			})
 		}
 	}
