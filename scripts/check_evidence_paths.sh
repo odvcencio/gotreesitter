@@ -4,9 +4,8 @@
 #   check_evidence_paths.sh            check every tracked path (the index)
 #   check_evidence_paths.sh BASE_SHA   check only paths added since BASE_SHA
 #
-# Evidence belongs in the PR body, the GitHub release named "evidence", or the
-# Hyphae space for this repository (see AGENTS.md, "Evidence stays out of the
-# repository"). The paths named in scripts/evidence_paths_allowlist.txt are
+# Evidence belongs in the PR body or the GitHub release named "evidence" (see
+# AGENTS.md, "Evidence stays out of the repository"). The paths named in scripts/evidence_paths_allowlist.txt are
 # existing files that wait for retirement. The list may only shrink.
 set -euo pipefail
 
@@ -108,10 +107,9 @@ fi
 if ((fail_count > 0)); then
 	cat >&2 <<'EOF'
 
-Evidence stays out of the repository. Put numbers and verdicts in the PR body,
-raw files in the "evidence" GitHub release (gh release upload evidence <file>
---repo odvcencio/gotreesitter), and written receipts in the Hyphae space
-hypha://m31labs/gotreesitter under reports/receipts/.
+Evidence stays out of the repository. Put numbers and verdicts in the PR body.
+Attach raw files to the "evidence" GitHub release:
+gh release upload evidence <file> --repo odvcencio/gotreesitter
 EOF
 	exit 1
 fi

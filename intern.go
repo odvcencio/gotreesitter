@@ -110,8 +110,7 @@ type InternObservationStats struct {
 	FullMisses  uint64
 }
 
-// Phase 1 scaffolding for the GLR node interning initiative
-// (initiative.glr-node-interning in hyphae://m31labs/gotreesitter).
+// Phase 1 scaffolding for the GLR node interning initiative.
 //
 // Scope of this file:
 //   - InternTable type + reset/teardown lifecycle hooks

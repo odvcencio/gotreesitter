@@ -114,8 +114,7 @@ func DecodeAndCertifyLanguageBlob(name string) error { return nil }
 
 // TestToolsDoNotEmitOmittedFacadeNames fails when a Go tool under cmd/ writes a
 // name that the facade omits into generated source. Static analysis misses
-// these uses because the name sits inside a string literal, and .canopyignore
-// hides cmd/ts2go. A name that a tool emits must stay out of skippedForwarders.
+// these uses because the name sits inside a string literal. A name that a tool emits must stay out of skippedForwarders.
 func TestToolsDoNotEmitOmittedFacadeNames(t *testing.T) {
 	changeTestDirectory(t, filepath.Join("..", ".."))
 	omitted := map[string]bool{}

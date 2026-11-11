@@ -86,12 +86,9 @@ report `ns/op`, `B/op`, and `allocs/op`. Do not commit evidence files, receipts,
 reports, specs, or plans to the repository. Put the numbers in the pull request
 body or attach the files to the pull request.
 
-## Maintainer tools
+## Maintainer workflow
 
-The maintainers use canopy, buckley, and Hyphae for code analysis, commits and
-pull requests, and project knowledge. Outside contributors do not need them;
-plain `git` and the pull request template are enough. The maintainer workflow
-(lanes, counter ledger, gate presets) is in [AGENTS.md](AGENTS.md).
+The maintainer workflow (lanes, counter ledger, gate presets) is in [AGENTS.md](AGENTS.md).
 
 ## More
 

@@ -16,9 +16,7 @@ package grammargen
 // only ratchet upward. The floor is intentionally low: grammargen's
 // generated LR automaton has no valid parse path for several
 // parameter-expansion operator/suffix alternatives (default-value `:-`,
-// pattern-substitution `//`, indirect `!`, subscript) inside `${...}`. See
-// hypha://m31labs/gotreesitter/object/spec.bash-expansion-table-defect.rca
-// for the full root-cause analysis; the minimal reducer is `echo ${x:-y}`
+// pattern-substitution `//`, indirect `!`, subscript) inside `${...}`. The minimal reducer is `echo ${x:-y}`
 // (TestBashParameterExpansionOperatorReducer below).
 //
 // Corpus acquisition mirrors python_parity_test.go / python_keyword_test.go's
@@ -221,8 +219,7 @@ func TestBashRealCorpusParityFloor(t *testing.T) {
 		SExprParity: bashRealCorpusFloorSExpr,
 		DeepParity:  bashRealCorpusFloorDeep,
 	}
-	msgSuffix := " — see hypha://m31labs/gotreesitter/object/spec.bash-expansion-table-defect.rca " +
-		"(minimal reducer: `echo ${x:-y}`); if this is an intentional improvement, " +
+	msgSuffix := " (minimal reducer: `echo ${x:-y}`); if this is an intentional improvement, " +
 		"bump both this floor and grammargen/testdata/real_corpus_parity_floors.json[\"bash\"] together"
 	if metrics.Eligible < floor.Eligible {
 		t.Errorf("ratchet regression eligible: %d < floor %d%s", metrics.Eligible, floor.Eligible, msgSuffix)
@@ -239,8 +236,7 @@ func TestBashRealCorpusParityFloor(t *testing.T) {
 }
 
 // TestBashParameterExpansionOperatorReducer is the minimal reducer for the
-// bash real-corpus floor RCA
-// (hypha://m31labs/gotreesitter/object/spec.bash-expansion-table-defect.rca):
+// bash real-corpus floor RCA:
 // the grammargen-generated LR automaton has no valid parse path for the
 // parameter-expansion operator/suffix alternatives inside `${...}`
 // (default-value `:-`, pattern-substitution `//`, indirect `!`, subscript).
@@ -277,8 +273,7 @@ func TestBashParameterExpansionOperatorReducer(t *testing.T) {
 			return // fix landed — pin now green.
 		}
 		t.Skipf("KNOWN DIVERGENCE (bash expansion-suffix table defect): "+
-			"generated lane produces ERROR for `echo ${x:-y}`; see "+
-			"hypha://m31labs/gotreesitter/object/spec.bash-expansion-table-defect.rca. tree: %s",
+			"generated lane produces ERROR for `echo ${x:-y}`. tree: %s",
 			root.SExpr(genLang))
 	})
 }
