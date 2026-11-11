@@ -400,6 +400,115 @@ func BenchmarkGoParseIncrementalSingleByteEdit(b *testing.B) {
 	tree.Release()
 }
 
+// lengthChangingEditCase describes an edit that changes the length of the
+// source: with is the text that contains the one-byte letter at offset at, and
+// without is the same text with that byte removed. Both must parse without
+// error. A typing session alternates between the two.
+type lengthChangingEditCase struct {
+	with, without []byte
+	at            int
+	startWith     bool // the benchmark starts from the text that has the byte
+}
+
+// makeLengthChangingEditCase builds the two texts of an edit inside the first
+// occurrence of prefix. For an insertion case the byte is letter and it is
+// placed right after prefix; for a deletion case the byte is the one that
+// follows prefix in src (a digit of an identifier).
+func makeLengthChangingEditCase(tb testing.TB, src []byte, prefix string, letter byte, deleting bool) lengthChangingEditCase {
+	tb.Helper()
+	i := bytes.Index(src, []byte(prefix))
+	if i < 0 {
+		tb.Fatalf("could not find edit site %q", prefix)
+	}
+	at := i + len(prefix)
+	if deleting {
+		without := append(append([]byte(nil), src[:at]...), src[at+1:]...)
+		return lengthChangingEditCase{with: append([]byte(nil), src...), without: without, at: at, startWith: true}
+	}
+	with := append(append(append([]byte(nil), src[:at]...), letter), src[at:]...)
+	return lengthChangingEditCase{with: with, without: append([]byte(nil), src...), at: at}
+}
+
+// benchmarkParseIncrementalLengthChangingEdit reparses after an edit that
+// inserts or deletes one byte inside an identifier. Each iteration applies the
+// exact edit with Tree.Edit and moves between two valid texts, so every
+// iteration changes the length of the source. The same-length replacement of
+// BenchmarkGoParseIncrementalSingleByteEditDFA is answered without a parse;
+// these benchmarks are not.
+func benchmarkParseIncrementalLengthChangingEdit(b *testing.B, lang *gotreesitter.Language, c lengthChangingEditCase) {
+	parser := gotreesitter.NewParser(lang)
+	for _, text := range [][]byte{c.with, c.without} {
+		tree, err := gotreesitter.NewParser(lang).Parse(text)
+		if err != nil {
+			b.Fatalf("parse error: %v", err)
+		}
+		if root := tree.RootNode(); root == nil || root.HasError() || root.EndByte() != uint32(len(text)) {
+			b.Fatalf("benchmark text does not parse cleanly")
+		}
+		tree.Release()
+	}
+	cur, other := c.without, c.with
+	if c.startWith {
+		cur, other = c.with, c.without
+	}
+	tree, err := parser.Parse(cur)
+	if err != nil {
+		b.Fatalf("initial parse error: %v", err)
+	}
+	if tree.RootNode() == nil {
+		b.Fatal("initial parse returned nil root")
+	}
+	// removed describes the edit from the longer text to the shorter one.
+	startPoint := pointAtOffset(c.without, c.at)
+	insertEdit := gotreesitter.InputEdit{
+		StartByte: uint32(c.at), OldEndByte: uint32(c.at), NewEndByte: uint32(c.at + 1),
+		StartPoint: startPoint, OldEndPoint: startPoint, NewEndPoint: pointAtOffset(c.with, c.at+1),
+	}
+	deleteEdit := gotreesitter.InputEdit{
+		StartByte: uint32(c.at), OldEndByte: uint32(c.at + 1), NewEndByte: uint32(c.at),
+		StartPoint: startPoint, OldEndPoint: pointAtOffset(c.with, c.at+1), NewEndPoint: startPoint,
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(c.with)))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		edit := insertEdit
+		if len(cur) > len(other) {
+			edit = deleteEdit
+		}
+		tree.Edit(edit)
+		old := tree
+		tree, err = parser.ParseIncremental(other, tree)
+		if err != nil {
+			b.Fatalf("incremental parse error: %v", err)
+		}
+		if tree.RootNode() == nil {
+			b.Fatal("incremental parse returned nil root")
+		}
+		if old != tree {
+			old.Release()
+		}
+		cur, other = other, cur
+	}
+	tree.Release()
+}
+
+// BenchmarkGoParseIncrementalTypedLetterEditDFA types one letter inside an
+// identifier and deletes it again on the next iteration.
+func BenchmarkGoParseIncrementalTypedLetterEditDFA(b *testing.B) {
+	src := makeGoBenchmarkSource(benchmarkFuncCount(b))
+	benchmarkParseIncrementalLengthChangingEdit(b, grammars.GoLanguage(), makeLengthChangingEditCase(b, src, "{ v", 'x', false))
+}
+
+// BenchmarkGoParseIncrementalDeletedByteEditDFA deletes one character of an
+// identifier and puts it back on the next iteration.
+func BenchmarkGoParseIncrementalDeletedByteEditDFA(b *testing.B) {
+	src := makeGoBenchmarkSource(benchmarkFuncCount(b))
+	benchmarkParseIncrementalLengthChangingEdit(b, grammars.GoLanguage(), makeLengthChangingEditCase(b, src, "func f", 0, true))
+}
+
 func BenchmarkGoParseIncrementalSingleByteEditDFA(b *testing.B) {
 	lang := grammars.GoLanguage()
 	parser := gotreesitter.NewParser(lang)
