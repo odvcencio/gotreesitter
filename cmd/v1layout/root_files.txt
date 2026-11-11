@@ -566,8 +566,6 @@ parsercore_phase0_state_relex_test.go
 parsercore_phase0_stop_control.go
 parsercore_phase0_stop_control_export_test.go
 parsercore_phase0_symbol_policy.go
-parsercore_phase0_token_reuse.go
-parsercore_phase0_token_reuse_internal_test.go
 parsercore_phase0_warm_benchmark_internal_test.go
 parsercore_phase0_warm_scanner_external_test.go
 parsercore_selected_store_internal_test.go
@@ -582,8 +580,6 @@ pending_parent.go
 perf_counters.go
 perf_metrics_perf.go
 perf_metrics_stub.go
-pointer_light_measurement_test.go
-pointer_light_soa_test.go
 powershell_normalize_test.go
 python_root_haserror_gate_test.go
 query.go

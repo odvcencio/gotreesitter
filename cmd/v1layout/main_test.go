@@ -137,7 +137,7 @@ func TestRootAllowlistGrowthAllowsOnlyNamedAdapters(t *testing.T) {
 	}
 }
 
-// TestAdapterFilesBudgetAndTags: the budget is 689 plus the number of files of
+// TestAdapterFilesBudgetAndTags: the budget is 685 plus the number of files of
 // the named list that exist in the root, and none of them has a //go:build
 // line (the tag-atom check only rejects atoms it does not know).
 func TestAdapterFilesBudgetAndTags(t *testing.T) {
@@ -159,7 +159,7 @@ func TestAdapterFilesBudgetAndTags(t *testing.T) {
 			}
 		}
 	}
-	if rootBudget != 689+exist {
-		t.Errorf("budget %d, want 689 plus %d existing adapter files = %d", rootBudget, exist, 689+exist)
+	if rootBudget != 685+exist {
+		t.Errorf("budget %d, want 685 plus %d existing adapter files = %d", rootBudget, exist, 685+exist)
 	}
 }
