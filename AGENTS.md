@@ -5,7 +5,7 @@ It says how to make a change safely, what a pull request (PR) must show, and wha
 [CONTRIBUTING.md](CONTRIBUTING.md) covers setup and first steps. [docs/repository-map.md](docs/repository-map.md) says where things live.
 
 The correctness and performance requirements apply to everyone.
-The Canopy, Buckley, and Hyphae steps apply to maintainers who have those tools configured. Other contributors may use `rg`, direct source reads, and signed plain-Git commits, and put their results in the PR body; maintainers archive raw evidence as section 6 describes.
+Contributors use `rg` and direct source reads, sign their commits, and put their results in the PR body. Raw evidence goes where section 6 describes.
 
 ### Where engine work goes
 
@@ -94,16 +94,7 @@ Do not decide these yourself.
 - Keep correctness gating separate from performance gating.
 - Prefer reproducible runs over ad-hoc spot checks.
 - When chasing an OOM, keep narrowing the workload until one language and one suite remain.
-- Use `rg` for literal text. Plain `canopy search grep` patterns start structural parsing.
-- Use `scripts/canopy_query.sh` for cached structural searches and analyses.
-- Use direct `canopy ... --no-cache` commands for narrow searches of changed files.
-- Scope structural Canopy searches to the smallest useful path.
-- Apply `--limit` to structural searches.
-- Do not run concurrent repository-wide Canopy searches.
-- The query wrapper detects changed, missing, and new source files.
-- The query wrapper uses a fresh scoped query when the cache is stale.
-- Run `scripts/refresh_canopy_index.sh` before a broad search when the source set changed.
-- The refresh script promotes its temporary cache only after a successful build and validation.
+- Use `rg` to search; scope a search to the smallest useful path.
 
 ### 2) Correctness Gate (must stay green)
 Run before and after performance changes:
@@ -170,12 +161,9 @@ Use profiled runs to decide whether the next win comes from:
 ### 6) Commit Discipline
 - Keep commits scoped and bisectable.
 - Drop scratch/debug artifacts before commit.
-- Sign every commit. Use squash merges when landing PRs on `main`.
-- Use project commit flow:
-  - `git add ...`
-  - `buckley commit --yes --minimal-output`
+- Sign every commit; the repository requires verified signatures. Use squash merges when landing PRs on `main`.
 
-Replace `...` in `git add ...` with the paths you intend to commit, and `<file>` in the upload command below with the path of the local file.
+Replace `<file>` in the upload command below with the path of the local file.
 
 #### Evidence stays out of the repository
 Do not commit receipts, screens, censuses, certificates, raw logs, profiles, or benchmark archives.
@@ -184,8 +172,7 @@ Do not commit receipts, screens, censuses, certificates, raw logs, profiles, or 
 2. Attach raw files to the GitHub release named `evidence`:
    `gh release upload evidence <file> --repo odvcencio/gotreesitter`.
    Pack a folder of files into one `.tar.gz` first.
-3. Store written receipts in the Hyphae space `hypha://m31labs/gotreesitter` under `reports/receipts/`.
-4. Link to a release asset or a pinned commit instead of copying its content into a doc.
+3. Link to a release asset or a pinned commit instead of copying its content into a doc.
 
 The repository keeps user-facing docs, test inputs, and generated files that a test checks.
 CI (`.github/workflows/repository-hygiene.yml`) runs `scripts/check_evidence_paths.sh`.
@@ -227,7 +214,7 @@ Full-parse non-truncation probe:
 
 ### 8) Prose Standard: Plain language
 
-Write plainly: lead with the point, use common words and the active voice, keep each term consistent, back claims with evidence (numbers, links, test output), and say what you did not verify. Maintainers' agents: use the `writing-plainly` skill.
+Write plainly: lead with the point, use common words and the active voice, keep each term consistent, back claims with evidence (numbers, links, test output), and say what you did not verify.
 
 Use numbers from pinned benchmarks or CI runs as receipts. Cite them in the PR body; do not commit them.
 

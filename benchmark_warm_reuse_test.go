@@ -13,7 +13,7 @@ import (
 )
 
 // Warm-parse benchmark: reuse one Parser to parse many files. This mirrors
-// the indexer workload (canopy, IDE). If the arena pool works correctly,
+// the indexer workload (a code indexer, an IDE). If the arena pool works correctly,
 // the per-parse allocation should drop sharply after the first parse.
 func BenchmarkSelfParseWarmReuse(b *testing.B) {
 	files := []string{

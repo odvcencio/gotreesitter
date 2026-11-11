@@ -1,9 +1,6 @@
 # gotreesitter v1 design
 
 The owner's design, dated 2026-09-25, governs engine work.
-The full design is the Hyphae object
-`hypha://m31labs/gotreesitter/specs/spec.gotreesitter-v1-design`.
-This document summarizes that design. It does not replace it.
 The design supersedes Campaign v7 where they conflict.
 It fully supersedes `specs/spec.compact-graduation-rider.v1.md`.
 

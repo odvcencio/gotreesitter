@@ -4,9 +4,8 @@
 #   check_evidence_paths.sh            check every tracked path (the index)
 #   check_evidence_paths.sh BASE_SHA   check only paths added since BASE_SHA
 #
-# Evidence belongs in the PR body, the GitHub release named "evidence", or the
-# Hyphae space for this repository (see AGENTS.md, "Evidence stays out of the
-# repository"). The paths named in scripts/evidence_paths_allowlist.txt are
+# Evidence belongs in the PR body or the GitHub release named "evidence" (see
+# AGENTS.md, "Evidence stays out of the repository"). The paths named in scripts/evidence_paths_allowlist.txt are
 # existing files that wait for retirement. The list may only shrink.
 set -euo pipefail
 

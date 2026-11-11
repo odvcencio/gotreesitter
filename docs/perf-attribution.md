@@ -361,10 +361,10 @@ The focused Docker receipts are:
 P25aw used these structural commands:
 
 ```text
-scripts/canopy_query.sh search symbols cgo_harness --name 'Swift|swift|Incremental|incremental|Reuse|reuse|Edit|edit' --limit 200 --json
-scripts/canopy_query.sh search refs ParseIncrementalProfiled cgo_harness --limit 200 --json
-scripts/canopy_query.sh search refs ParseIncremental cgo_harness --limit 300 --json
-scripts/canopy_query.sh search refs SupportsIncrementalReuse grammars --limit 200 --json
+canopy search symbols cgo_harness --name 'Swift|swift|Incremental|incremental|Reuse|reuse|Edit|edit' --limit 200 --json
+canopy search refs ParseIncrementalProfiled cgo_harness --limit 200 --json
+canopy search refs ParseIncremental cgo_harness --limit 300 --json
+canopy search refs SupportsIncrementalReuse grammars --limit 200 --json
 canopy search refs SupportsIncrementalReuse grammars/swift_scanner.go --no-cache --limit 20 --json
 canopy search symbols parser.go --name 'incrementalTokenSourceFreshFullParse|parseIncrementalInternal' --no-cache --limit 20 --json
 canopy search refs incrementalTokenSourceFreshFullParse parser.go --no-cache --limit 20 --json
@@ -480,9 +480,9 @@ removed. No parser or test change remains.
 P25at used these structural commands:
 
 ```text
-scripts/canopy_query.sh search refs ensureNodeCapacity . --limit 200 --json
-scripts/canopy_query.sh graph calls --reverse ensureNodeCapacity . --json --depth 4
-scripts/canopy_query.sh search symbols . --name 'ensure(Node|Exact)NodeCapacity|nodeArena|parse.*Arena.*Capacity|maxRetainedNodeCapacityForClass' --limit 300 --json
+canopy search refs ensureNodeCapacity . --limit 200 --json
+canopy graph calls --reverse ensureNodeCapacity . --json --depth 4
+canopy search symbols . --name 'ensure(Node|Exact)NodeCapacity|nodeArena|parse.*Arena.*Capacity|maxRetainedNodeCapacityForClass' --limit 300 --json
 canopy search refs ensureNodeCapacity parser.go --no-cache --limit 50 --json
 ```
 
@@ -574,8 +574,8 @@ It also applies field metadata, deferred fields, and repeated fields.
 The structural commands were:
 
 ```text
-scripts/canopy_query.sh search refs appendFlattenedHiddenChildrenWithFieldScratch . --limit 100 --json
-scripts/canopy_query.sh graph calls --reverse appendFlattenedHiddenChildrenWithFieldScratch parser_reduce.go --json --depth 4
+canopy search refs appendFlattenedHiddenChildrenWithFieldScratch . --limit 100 --json
+canopy graph calls --reverse appendFlattenedHiddenChildrenWithFieldScratch parser_reduce.go --json --depth 4
 canopy search symbols parser_reduce.go --name 'appendFlattenedHiddenChildrenWithFieldScratch' --no-cache --limit 20 --json
 ```
 

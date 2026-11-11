@@ -10,9 +10,7 @@ component this tranche narrows.
 lever.** An earlier draft of this document and of the code comments in
 `admission_switch_candidate.go` overclaimed both the correctness and the
 performance case. See "Corrected finding" below for the record. The
-campaign canon (`hypha://m31labs/gotreesitter`) records that A5/C1 is no
-longer a C-ratchet (compaction-CPU) lever; the real target for that lever is
-the compatibility walk inside `finalizeResultRoot`, reached during
+real target for that lever is the compatibility walk inside `finalizeResultRoot`, reached during
 materialization, not the tail this document covers.
 
 ## What this changes

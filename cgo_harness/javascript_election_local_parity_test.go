@@ -71,7 +71,6 @@ func TestJavaScriptElectionRawCOracleParity(t *testing.T) {
 			// supertype nodes) through the production loading path
 			// (grammars.JavascriptLanguage / grammars.LoadLanguage). This
 			// reproduces with no table-generation change at all. See
-			// hypha://m31labs/gotreesitter/object/spore.2026-08-02.pecan.javascript-blob-regen-scanner-corruption.
 			// wantDivergence stays true until both the blob resync and the
 			// scanner fix land.
 			name:           "corpus_real_small_functions",

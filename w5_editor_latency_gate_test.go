@@ -109,14 +109,13 @@ package gotreesitter_test
 // A "-" mid/bot ceiling means the cell's reject counter still scales with file
 // size (that language is not flattened), so no fixed bound is asserted there.
 //
-//   - go: topRootNonLeafChanged=16. The campaign Status section
-//     (hypha://m31labs/gotreesitter spec.campaign.oedit) records W1b's
-//     achieved result as "rootNonLeafChanged constant 9 at any size" for
+//   - go: topRootNonLeafChanged=16. An earlier
+//     measurement records W1b's achieved result as "rootNonLeafChanged constant 9 at any size" for
 //     clean near-top Go edits; this harness measures 10-11 on its own
 //     fixture (a different sibling count than w1b's own 300-sibling
 //     fixture, hence the small difference) -- 16 keeps that as a small
 //     constant with slack for box variance, satisfying the literal
-//     campaign instruction "clean-Go top-level edits rootNonLeafChanged <=
+//     requirement "clean-Go top-level edits rootNonLeafChanged <=
 //     16 regardless of size".
 //   - css top MinByteReusePercent=90 for the SWEEP's synthetic fixture
 //     (measured ~96 on this box). The campaign's literal instruction ("CSS

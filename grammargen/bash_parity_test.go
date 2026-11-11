@@ -16,9 +16,7 @@ package grammargen
 // only ratchet upward. The floor is intentionally low: grammargen's
 // generated LR automaton has no valid parse path for several
 // parameter-expansion operator/suffix alternatives (default-value `:-`,
-// pattern-substitution `//`, indirect `!`, subscript) inside `${...}`. See
-// hypha://m31labs/gotreesitter/object/spec.bash-expansion-table-defect.rca
-// for the full root-cause analysis; the minimal reducer is `echo ${x:-y}`
+// pattern-substitution `//`, indirect `!`, subscript) inside `${...}`. The minimal reducer is `echo ${x:-y}`
 // (TestBashParameterExpansionOperatorReducer below).
 //
 // Corpus acquisition mirrors python_parity_test.go / python_keyword_test.go's
@@ -239,8 +237,7 @@ func TestBashRealCorpusParityFloor(t *testing.T) {
 }
 
 // TestBashParameterExpansionOperatorReducer is the minimal reducer for the
-// bash real-corpus floor RCA
-// (hypha://m31labs/gotreesitter/object/spec.bash-expansion-table-defect.rca):
+// bash real-corpus floor RCA:
 // the grammargen-generated LR automaton has no valid parse path for the
 // parameter-expansion operator/suffix alternatives inside `${...}`
 // (default-value `:-`, pattern-substitution `//`, indirect `!`, subscript).

@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// Nested-parenthesis scaling fixture. arbiter's grammar (same author,
-// Apache-2.0; grammar.bin copied read-only into testdata/glr_scaling) forks
+// Nested-parenthesis scaling fixture. A rule-language grammar with
+// parenthesized expressions (Apache-2.0; grammar.bin copied read-only into testdata/glr_scaling) forks
 // the GLR parser's stack while resolving paren_expr and collapses it back on
 // most tokens, which is the exact fork/collapse-per-token pattern that made
 // tryDemoteSingleLinearGSS (parser.go) and gssNodeCanReach (glr.go)
@@ -38,9 +38,9 @@ func loadGLRScalingLanguage(tb testing.TB) *Language {
 	return lang
 }
 
-// nestedParenSource builds a valid arbiter rule whose "when" condition is
+// nestedParenSource builds a valid rule whose "when" condition is
 // wrapped in `depth` levels of parenthesized grouping: "rule R { when {
-// (((...x > 1...))) } then A {} }". arbiter's paren_expr = "(" expr ")" lets
+// (((...x > 1...))) } then A {} }". that grammar's paren_expr = "(" expr ")" lets
 // this nest to any depth, and the grammar's ambiguity in disambiguating a
 // grouping paren from the surrounding expression forks and re-collapses the
 // GLR stack close to once per '(' and ')'.

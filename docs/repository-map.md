@@ -78,14 +78,14 @@ tracked in [compact-route-coverage-census.md](compact-route-coverage-census.md).
 | `roottest/` | Root-package black-box test packages (`bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package |
 | `parser_result_test/` | Black-box tests (`package parserresult_test`) for the result-compatibility tier; kept separate from the root package so census and dispatcher tests cannot depend on unexported internals |
 | `pgo/` | Current profile-guided optimization (PGO) input: `default.pgo`. CI uses `-pgo=pgo/default.pgo`; L1 moves the profile beside its consuming commands. |
-| `policy/` | The `arbiter`-checked release policy (`release.arb`, `release.test.arb`) that `.github/workflows/release.yml` runs directly by path |
+| `policy/` | The release policy (`release.arb`, `release.test.arb`) that `.github/workflows/release.yml` runs directly by path |
 | `wasm/` | Browser runtimes and grammargen WebAssembly targets |
 | `scripts/` | Bounded host-side maintenance helpers; heavy correctness work stays in Docker or CI |
 | `testdata/` | Checked-in regression fixtures and ratchet manifests |
 
 ## Review-sensitive seams
 
-Canopy's churn/complexity/centrality analysis identifies the parser scheduler,
+Churn, complexity, and centrality analysis identifies the parser scheduler,
 reduction engine, DFA token source, recovery election, tree cloning, and GLR
 merge paths as the highest-risk shared seams. In practice, changes around
 `parseInternal`, `completeConflictReduceFrontier`, `mergeStacksWithScratch`,
@@ -125,11 +125,3 @@ Run `scripts/prune_harness_artifacts.sh` for a size-labelled dry run.
 `--delete` removes only root build artifacts and reproducible caches. Receipt
 directories require the explicit `--delete-receipts` option so evidence is not
 discarded during ordinary cleanup.
-
-## Maintainer entry points
-
-1. Read `AGENTS.md` for correctness/performance gate discipline.
-2. Use this map to locate the owning subsystem.
-3. Use Canopy for symbol references, impact, and hotspot analysis.
-4. Run the smallest Docker correctness gate that covers the change.
-5. Keep commits scoped and use the repository's Buckley commit flow.

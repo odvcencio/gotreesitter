@@ -115,8 +115,7 @@ attribution. No live arm lacks a firing witness.
 The registry still gives every live entry the shared witness path
 `cgo_harness/parity_cgo_test.go` and leaves `receipt_refs` empty. This is
 defect `A0-REGISTRY-002`, a traceability gap. Keep it separate from firing
-coverage. The durable signed receipt is
-`hypha-receipt:2026-08-11:a0-r1-denominator-refresh`.
+coverage.
 
 ## Ownership
 

@@ -131,6 +131,6 @@ fresh-tree verification.
 | `large_*` | 2 | Large-input regression fixtures |
 | `walk_*`, `rust_*`, `runtime_*` | 6 | Small focused helper/regression groups |
 
-For file-level ownership disputes, prefer `hypha analyze refs <Symbol>` or
-`git log -p -- <file>` over guessing from the prefix table above; prefixes
+For file-level ownership disputes, use `rg` to find references to the symbol, or
+`git log -p -- <file>`, instead of guessing from the prefix table above; prefixes
 group by naming convention, not by a machine-checked package boundary.

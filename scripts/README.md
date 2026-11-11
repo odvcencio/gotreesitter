@@ -15,12 +15,6 @@ root build products and reproducible caches; durable harness and benchmark
 receipts require the separate `--delete-receipts` opt-in. It never includes
 private `.gts/`, `.tiller/`, or other agent notes.
 
-`canopy_query.sh` validates the cached index before each structural query. It
-uses a fresh scoped query when indexed files or the source set changed.
-
-`refresh_canopy_index.sh` builds a temporary index and validates it. It records
-the Git commit only after it promotes the validated index.
-
 `check_generated_ownership.sh` checks each tracked generated Go file. It
 requires one standard marker and a known generator command.
 
