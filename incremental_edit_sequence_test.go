@@ -379,3 +379,51 @@ func TestIncrementalFullRetryMatchesFreshTerminalErrorFlags(t *testing.T) {
 		}
 	}
 }
+
+// TestInjectionParseEmptySpanDoesNotReuseTree reaches an empty injection span
+// through InjectionParser.Parse: a missing ";" in C source has zero width. The
+// injected tree must not be reused by a plain parser given the document source;
+// the incremental parse must equal a fresh parse.
+func TestInjectionParseEmptySpanDoesNotReuseTree(t *testing.T) {
+	parentLang := grammars.CLanguage()
+	childLang := grammars.PythonLanguage()
+
+	ip := gts.NewInjectionParser()
+	ip.RegisterLanguage("c", parentLang)
+	ip.RegisterLanguage("python", childLang)
+	if err := ip.RegisterInjectionQuery("c",
+		`((MISSING ";") @injection.content (#set! injection.language "python"))`); err != nil {
+		t.Fatal(err)
+	}
+	source := []byte("int a\n")
+	result, err := ip.Parse(source, "c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Injections) != 1 {
+		t.Fatalf("expected 1 injection, got %d", len(result.Injections))
+	}
+	inj := result.Injections[0]
+	if len(inj.Ranges) != 1 || inj.Ranges[0].StartByte != inj.Ranges[0].EndByte {
+		t.Fatalf("injection ranges = %+v, want one empty range", inj.Ranges)
+	}
+	if inj.Tree == nil {
+		t.Fatal("injection has no tree")
+	}
+
+	again, err := gts.NewParser(childLang).ParseIncremental(inj.Tree.Source(), inj.Tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := gts.NewParser(childLang).Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.RootNode() == inj.Tree.RootNode() {
+		t.Fatal("ParseIncremental returned the empty injected tree unchanged")
+	}
+	if a, f := again.RootNode(), fresh.RootNode(); a.StartByte() != f.StartByte() || a.EndByte() != f.EndByte() || a.Type(childLang) != f.Type(childLang) {
+		t.Fatalf("ParseIncremental root %s [%d,%d), fresh parse root %s [%d,%d)",
+			a.Type(childLang), a.StartByte(), a.EndByte(), f.Type(childLang), f.StartByte(), f.EndByte())
+	}
+}

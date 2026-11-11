@@ -537,7 +537,7 @@ func (p SnippetRootMemoProbe) Release() {
 
 // SnippetRootMemoProbeForTest calls parseSnippetRootWithOffset twice inside one
 // parse operation of parser. Direct is the snippet root from an independent
-// snippet parse, shifted with Tree.RootNodeWithOffset as callers did before
+// snippet parse, shifted with Tree.rootNodeWithRecoveryOffset (the internal twin of RootNodeWithOffset that keeps the recovery point rule) as callers did before
 // the memo existed.
 func SnippetRootMemoProbeForTest(parser *Parser, source []byte, start, end uint32) SnippetRootMemoProbe {
 	var probe SnippetRootMemoProbe
@@ -551,7 +551,7 @@ func SnippetRootMemoProbeForTest(parser *Parser, source []byte, start, end uint3
 	probe.ClearedAfterOperation = parser.forestDeclineMemo == nil || len(parser.forestDeclineMemo.snippetRootMemo) == 0
 	tree, err := parseWithSnippetParser(parser.language, source[start:end])
 	if err == nil && tree != nil {
-		probe.Direct = tree.RootNodeWithOffset(start, advancePointByBytes(Point{}, source[:start]))
+		probe.Direct = tree.rootNodeWithRecoveryOffset(start, advancePointByBytes(Point{}, source[:start]))
 		probe.release = tree.Release
 	}
 	return probe

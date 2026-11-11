@@ -4231,12 +4231,32 @@ func (t *Tree) RootNodeWithOffset(offsetBytes uint32, offsetExtent Point) *Node 
 	if offsetBytes == 0 && offsetExtent == (Point{}) {
 		return t.root
 	}
+	return t.rootNodeWithOffsetMode(offsetBytes, offsetExtent, true)
+}
+
+// rootNodeWithRecoveryOffset is RootNodeWithOffset with the point rule that the
+// internal recovery wrappers have always used (see cloneOffset.offsetPoint).
+func (t *Tree) rootNodeWithRecoveryOffset(offsetBytes uint32, offsetExtent Point) *Node {
+	if t == nil {
+		return nil
+	}
+	t.ensureResultCompatibility()
+	if t.root == nil {
+		return nil
+	}
+	if offsetBytes == 0 && offsetExtent == (Point{}) {
+		return t.root
+	}
+	return t.rootNodeWithOffsetMode(offsetBytes, offsetExtent, false)
+}
+
+func (t *Tree) rootNodeWithOffsetMode(offsetBytes uint32, offsetExtent Point, followPointAdd bool) *Node {
 	if views := nodeViews(t.root); views != nil {
 		copy := views.copyTree(t)
 		defer copy.Release()
-		return cloneTreeNodesWithOffset(copy.root, offsetBytes, offsetExtent)
+		return cloneTreeNodesWithOffsetMode(copy.root, offsetBytes, offsetExtent, followPointAdd)
 	}
-	return cloneTreeNodesWithOffset(t.root, offsetBytes, offsetExtent)
+	return cloneTreeNodesWithOffsetMode(t.root, offsetBytes, offsetExtent, followPointAdd)
 }
 
 // Source returns the original source text. Returns nil for a nil tree.
@@ -4601,9 +4621,17 @@ type cloneOffset struct {
 	byteDelta uint32
 	point     Point
 	baseRow   uint32
+	// followPointAdd selects C tree-sitter's point_add rule: the offset column
+	// is added only to points on row zero of the tree. The default rule is the
+	// one the internal recovery wrappers use (see offsetPoint).
+	followPointAdd bool
 }
 
 func cloneTreeNodesWithOffset(root *Node, offsetBytes uint32, offsetExtent Point) *Node {
+	return cloneTreeNodesWithOffsetMode(root, offsetBytes, offsetExtent, false)
+}
+
+func cloneTreeNodesWithOffsetMode(root *Node, offsetBytes uint32, offsetExtent Point, followPointAdd bool) *Node {
 	if root == nil {
 		return nil
 	}
@@ -4616,6 +4644,8 @@ func cloneTreeNodesWithOffset(root *Node, offsetBytes uint32, offsetExtent Point
 		byteDelta: offsetBytes,
 		point:     offsetExtent,
 		baseRow:   root.startPoint.Row,
+
+		followPointAdd: followPointAdd,
 	}
 
 	type clonePair struct {
@@ -4671,8 +4701,8 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	*dst = *src
 	dst.errorRankCache = 0
 	if offset != nil {
-		dst.startByte = addUint32Delta(src.startByte, int64(offset.byteDelta))
-		dst.endByte = addUint32Delta(src.endByte, int64(offset.byteDelta))
+		dst.startByte = offset.offsetByte(src.startByte)
+		dst.endByte = offset.offsetByte(src.endByte)
 		dst.startPoint = offset.offsetPoint(src.startPoint)
 		dst.endPoint = offset.offsetPoint(src.endPoint)
 	}
@@ -4711,11 +4741,30 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	}
 }
 
+// offsetByte shifts a byte position by the clone's byte offset. The public
+// mode wraps like C's unsigned addition; the recovery mode saturates.
+func (o *cloneOffset) offsetByte(b uint32) uint32 {
+	if o.followPointAdd {
+		return b + o.byteDelta
+	}
+	return addUint32Delta(b, int64(o.byteDelta))
+}
+
 func (o *cloneOffset) offsetPoint(p Point) Point {
 	if o == nil {
 		return p
 	}
 	originalRow := p.Row
+	if o.followPointAdd {
+		// point_add in C tree-sitter: only a point on row zero of the tree
+		// takes the offset column; a point on a later row keeps its column.
+		// The additions wrap like C's unsigned arithmetic.
+		p.Row += o.point.Row
+		if originalRow == 0 {
+			p.Column += o.point.Column
+		}
+		return p
+	}
 	p.Row = addUint32Delta(p.Row, int64(o.point.Row))
 	// When adding a multi-line prefix, only nodes on the original first row
 	// of this tree receive the column offset. Rows after that keep columns.
@@ -4954,8 +5003,8 @@ func applyCloneOffsetToNoTreeNode(n *noTreeNode, offset *cloneOffset) {
 	if n == nil || offset == nil {
 		return
 	}
-	n.startByte = addUint32Delta(n.startByte, int64(offset.byteDelta))
-	n.endByte = addUint32Delta(n.endByte, int64(offset.byteDelta))
+	n.startByte = offset.offsetByte(n.startByte)
+	n.endByte = offset.offsetByte(n.endByte)
 	if perfCountersEnabled {
 		perfRecordCloneOffsetShifted()
 	}

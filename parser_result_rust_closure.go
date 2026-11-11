@@ -155,7 +155,7 @@ func rustRecoverFunctionHeaderNodesFromRange(source []byte, start, blockStart ui
 	}
 	defer tree.Release()
 	startPoint := advancePointByBytes(Point{}, source[:start])
-	offsetRoot := tree.RootNodeWithOffset(start, startPoint)
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start, startPoint)
 	if offsetRoot == nil || offsetRoot.HasError() {
 		return nil, false
 	}
@@ -574,7 +574,7 @@ func rustRecoverRustClosureParameterNodeFromRange(source []byte, start, end uint
 	if startPoint.Row < prefixPoint.Row {
 		return nil, false
 	}
-	offsetRoot := tree.RootNodeWithOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
 	if offsetRoot == nil || offsetRoot.HasError() {
 		return nil, false
 	}
