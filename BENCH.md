@@ -27,12 +27,11 @@ control flow, and it never forks under the current parser. It remains
 useful for tracking the incremental fast paths and single-stack
 regressions, but it is not a representative full-parse headline.
 
-The project has withdrawn the former **1.895x C** full-parse headline and
-its **29% materialization** decomposition in favor of the locked real-code
-replacement below. The old comparison also used different Go grammar
-artifacts: gotreesitter used the project-locked 1,425-state/214-symbol
-grammar, while the C benchmark used a 1,404-state/212-symbol grammar
-bundled by the old smacker binding.
+The full-parse headline is the locked real-code result below. Do not quote
+the earlier **1.895x C** ratio or its **29% materialization** split: they
+compared different Go grammar artifacts (1,425 states and 214 symbols in the
+project-locked grammar, 1,404 states and 212 symbols in the grammar bundled
+by the old smacker binding).
 
 `BenchmarkGoParseCoreDFA` is a parser-loop diagnostic (no tree
 materialization). The project never quotes its numbers as full-parse
@@ -41,7 +40,7 @@ numbers. See the benchmark-integrity note below.
 ### Primary trio baseline
 
 Source: `origin/main` at `5cbd4fb2508cd694fe62d811982f4b018e65132f`.
-Measured 2026-09-27 with Go 1.26.4 on a dedicated benchmark VM
+Measured with Go 1.26.4 on a dedicated benchmark host
 (Xeon Platinum 8481C, four cores with SMT off, 31 GB RAM) running Ubuntu 24.04.
 Host: pinned to CPU 2; load1 ranged from 0.00 to 0.94 and steal time was zero.
 
@@ -62,32 +61,18 @@ These values are medians of 20 runs:
 A repeated 20-seed control on the same source differed by -0.11% for full
 parse, -0.08% for edit, and +0.21% for no-edit. To isolate the host effect
 from source changes, the published source revision (`92db945f28de67be51de8235c9cd4e25a900f648`)
-was also run twice on this VM. Its quiet medians were 8,686,195 ns, 177,281 ns,
+was also run twice on this host. Its quiet medians were 8,686,195 ns, 177,281 ns,
 and 8.318 ns. Against the previously published values from a loaded host, those exact-source
 results are lower by 40.5%, 35.1%, and 45.0%, respectively.
 
 The edit benchmark allocates one scratch buffer after it starts its timer.
 That setup adds about 6 B/op at this duration.
 
-The 2026-07-12 receipt at `04f75d15` measured 1,976 ns and zero allocations
-for the edit. The first allocation increase came from `93a8724dc`.
-That merge disabled unsafe same-width reuse after a correctness failure.
-The later lexical proof restored reuse, but its checks cost more than the July
-shortcut. Keep the July receipt as history, not a current target.
-
-The September 61.9 ms full-parse receipt came from branch commit `4637be52a`.
-It does not reproduce at current main, so it is retired as a current receipt.
-Pull request #1282 reported 3.411 ms, 90.720 µs, and 3.294 ns on an
-unspecified, loaded host. Its merge measured 13.816 ms, 256.963 µs, and
-14.335 ns on this Xeon. Its allocation trio was 8, 5, and 0, matching main.
-Compare code changes with paired runs on one host.
-
 ### Editor-latency (O(edit)) status
 
-W5 now runs on code PRs that change engine source, in the required CI `build`
+The editor-latency gate runs on code PRs that change engine source, in the required CI `build`
 aggregate, as one `editor_latency` job per language (the scope rule is in
-`cgo_harness/editor_latency/README.md`). For trusted repository heads each job uses the configured
-`self-hosted,gts-vm` runner pool when one is set; fork heads, and every head when no pool is set, use GitHub-hosted runners. Each job compares the exact PR base and head on one pinned CPU. Any edit cell whose
+`cgo_harness/editor_latency/README.md`). Each job compares the exact PR base and head on one pinned CPU. Any edit cell whose
 median paired Go latency rises by more than **5%** fails the job; C slowdown
 cannot excuse a Go regression. Cancellation, incomplete evidence, oracle
 drift, a correctness failure, and a counter-gate failure also block the job.
@@ -120,32 +105,12 @@ are excluded. C allocation numbers cover the Go binding, including the tiny
 typing snapshot clone, rather than native allocation. See the
 [protocol and reproduction command](cgo_harness/editor_latency/README.md).
 
-Campaign output is stored outside the repository and uploaded as CI artifacts.
-Each run includes timings, counters, oracle fingerprints, environment details,
-METRIC lines, and a SHA-256 seal. The corpus lock is never committed.
+Each run uploads its evidence as a CI artifact: timings, counters, oracle
+fingerprints, environment details, METRIC lines, and a SHA-256 seal. The corpus
+lock is never committed.
 
-Fixture admission rejected the first Go, C#, and PowerShell choices because
-fresh Go did not match fresh C. Lone-slash EOF seeds also failed fresh parity
-in JavaScript, Java, and PHP. The fixed manifest selects whole files and valid
-typing seeds that pass every step; it never selects or skips fixtures at run
-time. An incomplete first timing attempt was discarded: repeated C reset
-timer snapshots made TypeScript processes take 31.7–49.7 seconds. The final
-driver restores immutable C snapshots and clocks whole typing sessions;
-all twenty seeds were then rerun, with TypeScript processes taking
-13.4–17.1 seconds. These are total harness process durations. The gate
-thresholds and existing pins are unchanged.
-
-Historical CHANGELOG measurements below remain separate from this seal:
-
-- CSS editor-style incremental edits: node reuse rises from 63.8% to 99.5%
-  (PR #395, workstream W1).
-- Go clean-file incremental edits: `ReuseRejectRootNonLeafChanged` holds at
-  a constant 9, regardless of file size (PR #398, workstream W1b).
-- A 137KB near-top insert: about 22ms, down from about 47ms on the same
-  fixture (PR #398, workstream W1b).
-
-See [CHANGELOG.md](CHANGELOG.md) v0.44.0 and v0.44.1 for full context,
-including known issues.
+The fixed manifest selects whole files and valid typing seeds that pass every
+step; it never selects or skips fixtures at run time.
 
 ## The one C oracle
 
@@ -163,11 +128,9 @@ Every new "versus C" claim names and fingerprints the same oracle inputs:
 - C runtime and grammar compiled with `-O2` into the static publication
   artifact, with compiler identity, flags, and artifact SHA-256 in the receipt.
 
-The owner moved the oracle runtime from v0.25.1 (commit
-`f5afe475deb7c0bae6407fb776c76824f717bb61`) to v0.27.1 on 2026-10-28
-(issue #1325). Receipts and ratios published before that date measured
-against v0.25.1 and stay as recorded; they are not re-measured by the pin
-change. New "versus C" claims name v0.27.1.
+Receipts and ratios published before the oracle moved to v0.27.1 measured
+against v0.25.1 (commit `f5afe475deb7c0bae6407fb776c76824f717bb61`) and stay as
+recorded; they are not re-measured. New "versus C" claims name v0.27.1.
 
 The in-process cgo parity transport and the static throughput artifact must
 consume those same runtime and grammar sources. The former
@@ -189,8 +152,7 @@ that exercise genuine GLR forking:
 These reach 12-18 live stacks, thousands to tens of thousands of multi-stack
 iterations, and constructed-to-selected-node ratios of 3.65-4.47 on the
 admitting revision. This page reports generated code separately and never
-blends it into the human-code headline. A pinned external-project fixture
-will be added to check repository self-reference.
+blends it into the human-code headline.
 
 Produce the complete publication receipt from a clean worktree on a quiet
 Docker-capable host:
@@ -207,29 +169,17 @@ overrides, noisy-host admission, identity drift, and incomplete receipts.
 Shortened or skipped gates require `--diagnostic` and carry the
 `NONPUBLICATION_DIAGNOSTIC` label.
 
-### Sealed epoch — v9 (hardware-attested, authoritative)
+### Go-vs-C result on the four real-Go fixtures
 
-This epoch supersedes v8 below. It is the project's current Go-vs-C
-authority. The project sealed it inside a hardened confidential-computing
-enclave, then independently verified every cryptographic layer. The enclave
-ran on AMD Secure Encrypted Virtualization (SEV) Confidential Space, with
-debug mode disabled since boot. An independent audit verified the
-attestation token's RS256 signature (RSA with SHA-256) against Google's
-live JSON Web Key Set (JWKS). The audit also verified the Ed25519 receipt
-signature and confirmed that the payload nonce binds to the signed receipt
-bytes. Every check in the independent verification tool reported `OK`;
-none reported `FAIL`.
-
-The sealed epoch times one full, non-incremental parse per fixture, using
-the same method as v8, v0.45.0, and run6. Each Go run calls the public
-`Parser.Parse` API, then checks root completeness: byte 0 to end of
-source, with no parse error. The C oracle runs the matching
-`public_validated` lane: parse, root completeness, and a check for
-`ts_node_has_error`. Neither side walks the full tree. Each fixture-backend
-pair runs with `GOMAXPROCS=1`. Each pair runs for at least 10 seconds of
-elapsed time. Go binaries are built with `GOAMD64=v3` (the Go compiler's
-x86-64 microarchitecture-level flag) and profile-guided optimization
-(PGO), pinned to profile SHA-256
+This is the project's current Go-vs-C result. It times one full,
+non-incremental parse per fixture. Each Go run calls the public
+`Parser.Parse` API, then checks root completeness: byte 0 to end of source,
+with no parse error. The C oracle runs the matching `public_validated` lane:
+parse, root completeness, and a check for `ts_node_has_error`. Neither side
+walks the full tree. Each fixture-backend pair runs with `GOMAXPROCS=1` for at
+least 10 seconds of elapsed time. Go binaries are built with `GOAMD64=v3` (the
+Go compiler's x86-64 microarchitecture-level flag) and profile-guided
+optimization (PGO), pinned to profile SHA-256
 `1e5e9aea594f4fcbc3c0fb5d4064d2fb856b13b2faf0994f747520615eaa2ae2`. An
 anti-cheat checksum over the parsed source blocks dead-code elimination.
 An A/A null test reruns the same binary against itself 3 times and reports
@@ -249,128 +199,26 @@ production self-ratio geomean of **0.9989**, with maximum absolute delta
 **1.42%**. It reports a C-oracle self-ratio geomean of **0.9985**, with
 maximum absolute delta **0.69%**.
 
-Per-fixture change against the v8 epoch (production 4.575x, compact
-3.681x geomean):
+Caveats:
 
-| Fixture | Production delta | Compact delta |
-|---|---:|---:|
-| `rewrite.go` | +20.45% | +6.28% |
-| `query_compile.go` | +7.79% | +17.51% |
-| `language.go` | +0.96% | +9.06% |
-| `grammargen/lr.go` | -6.43% | +0.99% |
-| **Geomean** | **+5.24%** | **+8.30%** |
+- The run used the 10-second benchtime floor; it did not resample at 750ms
+  or 5s.
+- The C oracle binary has SHA-256
+  `a2aaf98ec7b869d5e1a311fe209fe2bdc31335a60d2840a1ffc3d72877cd3274`.
+- The A/A null figures are reported values, not pass/fail gates. Both A/A
+  geomeans sit close to 1.0, so measurement noise alone does not explain the
+  size of the changes against earlier runs.
+- The run was built from gotreesitter commit
+  `492cd600cfd2bfd0bd3e8b3233fc2f477ff0e887`. The sealed run used a hardened
+  confidential-computing environment that is not reproducible outside it, so
+  treat its output as an attested measurement, not a locally rerunnable
+  script. Reproduce the driver and oracle sources from that commit.
+- These ratios are not comparable to the bare-metal receipts that
+  `BENCH.md` carried earlier. The sealed method (single-run `ns/op` at
+  `GOMAXPROCS=1` with 10s benchtime) and the bare-metal method (median of ten
+  process-isolated samples) measure differently.
 
-Per-fixture change against the v0.45.0 epoch (production 5.526x, compact
-2.9975x geomean):
-
-| Fixture | Production delta | Compact delta |
-|---|---:|---:|
-| `rewrite.go` | -7.71% | +41.31% |
-| `query_compile.go` | -28.24% | +27.48% |
-| `language.go` | -21.13% | +33.95% |
-| `grammargen/lr.go` | +10.30% | +29.62% |
-| **Geomean** | **-12.88%** | **+32.99%** |
-
-Production ratios rose on three fixtures and fell on one
-(`grammargen/lr.go`) against v8; the production geomean rose 5.24%.
-Compact ratios rose on all four fixtures against v8; the compact geomean
-rose 8.30%. This is the second straight compact regression: v8 regressed
-compact against v0.45.0, and this epoch regresses compact again, against
-v8. All four compact ratios stay above 3.0x C. No model bound a target
-ratio for this seal. Report the measurement as measured, not adjusted to
-fit an expectation.
-
-Mandatory caveats:
-
-- This epoch ran only at the 10-second benchtime floor; it did not resample
-  at 750ms or 5s.
-- The C oracle binary is byte-identical to v8's, run6's, and v0.45.0's: all
-  four cite SHA-256
-  `a2aaf98ec7b869d5e1a311fe209fe2bdc31335a60d2840a1ffc3d72877cd3274`. The C
-  side did not change between epochs; only the Go binaries and the sealed
-  commit changed.
-- 46 commits landed on gotreesitter `main` between this epoch's build
-  commit (`492cd600`) and the v8 epoch's build commit (`3325e0b1`). Three
-  named changes landed in that range: the provenance-predicate flip with
-  rank-walk retirement, the single-header condense/elect fast-path
-  successors to PR #580, and the condense direct-append plus dispatch
-  cell-validation hoist (PR #622). Each merged on a correctness argument,
-  with timing explicitly deferred to this seal. This receipt seals the
-  current tip; it does not isolate any one change. Read the deltas above
-  as the combined effect of every merge in that range, plus ordinary
-  Confidential Space VM-to-VM hardware variance across separate launches.
-  This receipt cannot separate those causes.
-- The A/A null figures are reported values, not sealed pass/fail gates. The
-  receipt embeds no numeric A/A threshold. Both this epoch's A/A geomeans
-  sit close to 1.0 (production 0.9989, C-oracle 0.9985), so measurement
-  noise alone does not explain the size of the deltas above.
-
-Citation:
-
-- Run ID: `strictboundary-20260802T062212Z-v9`.
-- Image: `strict-boundary:v9`, digest
-  `sha256:80c809f0335e1422e6f073b1f776cfa09c3f4f5d1c2f8abe8fef686b08d5970b`
-  (10s benchtime, hardened, authoritative), held in a private container
-  registry.
-- SHA-256 of the C oracle binary:
-  `a2aaf98ec7b869d5e1a311fe209fe2bdc31335a60d2840a1ffc3d72877cd3274`
-  (unchanged from v8, run6, and v0.45.0).
-- SHA-256 of the 10-second driver source
-  (`cgo_harness/pure_c/go_timing_oracle_10s.c`):
-  `4512710e99d36d161145113ce980d740bf1668470219140be0c15df5ce9ce58c`.
-- SHA-256 of the PGO profile (`pgo/default.pgo`):
-  `1e5e9aea594f4fcbc3c0fb5d4064d2fb856b13b2faf0994f747520615eaa2ae2`.
-- gotreesitter git HEAD: `492cd600cfd2bfd0bd3e8b3233fc2f477ff0e887` (short
-  form `492cd600`). This was the `main` tip at seal time: the merge commit
-  for PR #622 (`cedar/l1-followon-fastpaths`).
-- Verification: the sealed run metadata records `attestation_status: ok`.
-  An independent re-check confirmed the RS256 signature against Google's
-  live JWKS at fetch time. The payload nonce
-  (`e20102e23972b033af5e63c01fc1e12177edef4f03a0ee1b99a96064c69c192f`)
-  matches the attestation token's `eat_nonce` claim, binding the token to
-  this exact receipt payload. The independent verification tool
-  (`gts-cs-bench-harness/verify/main.go`) printed every check as `OK`,
-  zero `NOTE`, zero `FAIL`: full PASS verdict.
-
-This epoch's ratios are not comparable to the historical bare-metal
-receipts further below. The enclave method (single-run `ns/op` at
-`GOMAXPROCS=1` with 10s benchtime) and the bare-metal method (median of ten
-process-isolated samples) measure differently. A higher enclave ratio does
-not indicate a Go regression against those receipts.
-
-The enclave image itself is not reproducible outside Confidential Space.
-Treat its output as an attested measurement, not a locally rerunnable
-script. Reproduce the driver and oracle sources from git `492cd600` on
-`main`.
-
-### Superseded epochs and receipts (index)
-
-Each superseded receipt below stays a valid historical claim. Its full
-section is addressable at the exact commit linked in the table, which is
-the last `main` commit that carried the section. Where CHANGELOG.md also
-records the receipt, the version section is named.
-
-| Receipt | Headline | Exact location |
-|---|---|---|
-| Sealed epoch v8 | production 4.575x C, compact 3.681x C | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#sealed-epoch--v8-hardware-attested-historical-superseded) |
-| Sealed epoch v0.45.0 (run v6) | production 5.526x C, compact 2.9975x C | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#sealed-epoch--v0450-hardware-attested-historical-superseded); CHANGELOG [0.46.0] |
-| Sealed epoch run6 | first 10-second-floor enclave run | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#sealed-epoch--run6-hardware-attested-historical-superseded) |
-| First locked-oracle publication receipt | first exact static-oracle publication | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#first-locked-oracle-publication-receipt) |
-| v0.39.0 production baseline | historical straight-LR control | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#v0390-production-code-baseline-historical); CHANGELOG [0.39.0] |
-| v0.40.0 production baseline | 4.851050x C equal-fixture geomean at 1935a42c | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#v0400-production-code-baseline-historical-superseded) |
-| v0.27.0 combined receipt | withdrawn 1.895x C ratio | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#v0270-combined-receipt); CHANGELOG [0.37.0] |
-| Same-host C calibration | withdrawn, oracle mismatch | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#withdrawn-same-host-c-calibration); CHANGELOG [0.27.0] |
-| Post-fusion compact-candidate receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#exact-revision-production-and-post-fusion-compact-candidate-receipt); CHANGELOG [0.41.0] |
-| Compact candidate action-row dispatch receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#compact-candidate-action-row-dispatch-receipt) |
-| Compact candidate point-cache receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#compact-candidate-point-cache-receipt) |
-| Construction-authenticated compact receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#exact-revision-production-and-construction-authenticated-compact-receipt-historical-superseded) |
-| Direct selected-store boundary receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#direct-selected-store-boundary-receipt) |
-| Single-link compact reduction publication | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#single-link-compact-reduction-publication) |
-| Fresh compact scheduler session publication | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#fresh-compact-scheduler-session-publication) |
-| Diagnostic workload-regime receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#diagnostic-workload-regime-receipt) |
-| Authenticated work-count diagnostic harness | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#authenticated-work-count-diagnostic-harness) |
-| Four-fixture work-count board backends | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#four-fixture-work-count-board-backends) |
-| Forest-routing screen and confirmation | fleet screen | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#forest-routing-screen-and-confirmation) |
+Earlier receipts are in [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md).
 
 ## Go-vs-C fleet scoreboard (full parse, real corpora)
 
@@ -409,19 +257,6 @@ closure findings, and the combined oracle-language manifest omits them.
 Certification still rejects them; both modes reject missing, generic,
 contradictory, or mixed identity evidence.
 
-## Memory receipts (the v0.24 → v0.26.1 campaign)
-
-On the exact Poppler witness under a hard 2 GiB container:
-
-- Retained post-GC heap: 862,803,056 → **409,862,040 bytes (−52.5%)**
-  after final-tree arena compaction (v0.26.1).
-- Node header: **144 → 104 bytes** via arena-backed field-metadata
-  sidecars (v0.26.0).
-- Bounded raw-shape reclamation: **−192 MiB** retained (v0.26.0).
-
-Each claim shipped with exact Go/C S-expression and deep parity on the same
-witness; memory wins that break the selected tree do not merge.
-
 ## Methodology (why these numbers can be trusted)
 
 1. **Correctness and performance are separate gates.** Before timing, every
@@ -439,17 +274,15 @@ witness; memory wins that break the selected tree do not merge.
    untimed warm parse; the timed lane includes parse, first root
    validation, and tree release/close. The harness measures cold
    construction/loading separately.
-5. **Benchmark integrity is audited.** A 2026-07-11 audit found that the
-   then-canonical full-parse benchmark silently ran a no-tree diagnostic
-   path; the project withdrew the affected headline numbers (1.54 ms /
-   7 allocs and successors). A 2026-07-14 audit then found that the
-   replacement workload never forked and that its C lane used a different
-   grammar. The project withdrew those claims too, rather than patch around
-   them.
+5. **Benchmark integrity is audited.** A full-parse benchmark must run the
+   tree-building path, must use a workload that forks, and must use the same
+   grammar artifact in the C lane.
+   Report a measurement as measured, not adjusted to fit an expectation.
 6. **Quiet-host discipline.** Publication runs use `GOMAXPROCS=1`, a pinned
    core, ten process-isolated samples per backend and fixture in five
    paired Go-C-C-Go cycles, at least 750 ms of internal timing, and Go
    `benchmem`. Contended-box measurements are smoke evidence only.
+7. **Memory changes keep parity.** A memory change ships with exact Go/C S-expression and deep parity on the same witness. A memory win that breaks the selected tree does not merge.
 
 ## Multi-workload tracking
 
@@ -460,60 +293,7 @@ go run ./cmd/benchmatrix --count 10   # bench_out/matrix.{json,md} + raw logs
 The default matrix includes a bounded, warmed language-family full-parse
 group reported in MB/s, plus the Go/editor lanes above.
 
-## Appendix: Historical corrections and reproduction
-
-`BenchmarkGoParseFullDFA` calls `Parser.Parse`, requires a complete root, and
-releases the materialized tree. Its generated 500-function source is a
-historical straight-LR control, not the representative full-parse headline.
-`BenchmarkGoParseCoreDFA` remains a parser-loop diagnostic that suppresses
-ordinary tree materialization.
-
-A 2026-07-11 audit found that older versions of `BenchmarkGoParseFullDFA`
-called `ParseNoResultCompatibilityBenchmarkOnly`, which also enabled the
-no-tree path. The previously published `1.54 ms`, `728 B/op`, and
-`7 allocs/op` figures — and v0.24.0's later `978 B/op` and `5 allocs/op`
-figures — therefore described parser-core diagnostics, not a full
-materialized parse. The project withdrew those headline comparisons. The
-corrected historical control later measured 10.907 ms on a pinned quiet
-host. A second audit found that this source never forks and that its C
-comparison used a different Go grammar from gotreesitter. The project
-withdrew the former 1.895x ratio and 29% materialization decomposition
-rather than promote them as representative claims.
-
-The replacement canonical matrix freezes four clean, human-authored Go files
-spanning 5-236 KiB. They reach 12-18 live stacks and constructed-to-selected
-node ratios of 3.65-4.47. Admission requires exact deep parity against one
-oracle: upstream tree-sitter v0.27.1 commit `10eb5ac1…` (v0.25.1
-commit `f5afe475…` for receipts recorded before 2026-10-28), tree-sitter-go
-commit `2346a3ab…`, compiled with `-O2` into a fingerprinted static C
-artifact. The benchmark and parity lanes share those oracle sources and
-identity; see this file for the full contract and fixture hashes.
-
-The first strict materialized real-Go publication receipt, shipped with
-v0.37.0, measured **5.481673x C** by equal-fixture geomean and **6.313799x
-C** for the fixed-suite sum of medians. Those corrected real-code results,
-rather than the withdrawn 1.895x straight-LR comparison, established the
-full-parse baseline; this file records every per-fixture median,
-RSS value, and receipt hash.
-
-The current Go-versus-C authority is the sealed v9 epoch in
-[the sealed v9 epoch](#sealed-epoch--v9-hardware-attested-authoritative). It
-measures public `Parser.Parse` at **4.815x C** by equal-fixture geomean over
-the four locked real-Go fixtures, and the compact route at **3.986x C**. The
-epoch ran inside a hardware-attested enclave with one pinned CPU, and an
-independent verification confirmed every cryptographic layer. Its ratios
-are not comparable to the earlier bare-metal receipts, so the v0.37.0 and
-v0.40.0 rows stay historical claims only. See this file for the
-per-fixture table, the A/A null test, the exact identities, and the
-support boundary.
-
-The historical incremental measurements on the same generated 500-function
-Go workload were `649 ns` for a one-byte edit and `2.43 ns` for a no-edit
-reparse. They remain narrow workload-specific controls. The locked
-incremental matrix validates correctness and classifies work, but it does
-not establish a general comparative Go/C speed headline.
-
-### Reproduction commands
+## Reproduction
 
 ```sh
 # Authenticated real-code Go full-parse lanes:
@@ -561,13 +341,11 @@ you can compare parser throughput across generated source sizes. Use
 
 ## Known limitations
 
-- **Full-parse throughput**: the sealed v9 epoch measures public
-  `Parser.Parse` at **4.815x C** by equal-fixture geomean over the four
+- **Full-parse throughput**: public `Parser.Parse` measures
+  **4.815x C** by equal-fixture geomean over the four
   locked real-Go fixtures, with `grammargen/lr.go` as the worst fixture at
   **6.065x C** (see this file). The compact route measures
-  **3.986x C** on the same fixtures. The former ~2.1x row used a
-  straight-LR synthetic and a different Go grammar, so it stays historical
-  only. The
+  **3.986x C** on the same fixtures. The
   locked incremental matrix validates correctness and classifies work,
   but general incremental Go/C performance has no current
   publication-grade headline. Full-parse throughput varies by grammar

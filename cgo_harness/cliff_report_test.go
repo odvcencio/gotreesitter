@@ -100,7 +100,7 @@ type cliffReport struct {
 	Routes          []cliffRoute `json:"routes"`
 }
 
-// TestCliffReport is the report-only detector from the v1 design, R7 and P3.
+// TestCliffReport is the report-only cliff detector of the performance gate in docs/v1-design.md.
 // Run one fixture per process in the locked C-oracle Docker harness.
 func TestCliffReport(t *testing.T) {
 	if os.Getenv("GTS_ADMISSION_CANDIDATE") != "1" {
