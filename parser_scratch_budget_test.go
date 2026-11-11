@@ -352,3 +352,108 @@ func TestParserScratchSizeClassesConcurrent(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// oversizedSharedScratchTarget is the accounted size of a seed that lies above
+// the tiny-parse hand-out bound and below the heavy-pool threshold. Seeds are
+// built to a byte target so the tests do not depend on the size of a GSS node.
+const oversizedSharedScratchTarget = 9 << 20
+
+func TestParserScratchFitsHandOut(t *testing.T) {
+	const atBound = tinyParserScratchCeilingBytes - tinyParserScratchGrowthBytes
+	withBytes := func(n int64) *parserScratch {
+		s := &parserScratch{}
+		s.transientParents.allocatedBytes = n
+		return s
+	}
+	cases := []struct {
+		name   string
+		bytes  int64
+		source int
+		want   bool
+	}{
+		{"empty, tiny source", 0, 45, true},
+		{"exactly at the bound, tiny source", atBound, 45, true},
+		{"one byte above the bound, tiny source", atBound + 1, 45, false},
+		{"9 MiB, tiny source", 9 << 20, 45, false},
+		{"last tiny source size", 9 << 20, tinyParserScratchSourceBytes - 1, false},
+		{"first source size without a bound", 9 << 20, tinyParserScratchSourceBytes, true},
+		{"large source", 40 << 20, largeParserScratchSourceBytes, true},
+	}
+	for _, c := range cases {
+		if got := parserScratchFitsHandOut(withBytes(c.bytes), c.source); got != c.want {
+			t.Errorf("%s: fits = %t, want %t", c.name, got, c.want)
+		}
+	}
+}
+
+func TestTinyParseKeepsOversizedSharedScratchAvailable(t *testing.T) {
+	shared, _, _, restore := swapScratchPoolsForTest()
+	defer restore()
+	parser := &Parser{language: &Language{}}
+	fit := newScratchWithGSSNodesForTest(16)
+	over1 := newScratchWithAccountedBytesForTest(oversizedSharedScratchTarget)
+	over2 := newScratchWithAccountedBytesForTest(oversizedSharedScratchTarget)
+	shared.Put(fit)
+	shared.Put(over1)
+	shared.Put(over2)
+
+	tiny := acquireParserScratchForSource(45, parser)
+	if tiny != fit {
+		t.Fatalf("tiny parse got an object of %d bytes, want the small one", tiny.allocatedBytes())
+	}
+	// The oversized objects are back in the pool they came from, so a larger
+	// parse can still take them.
+	items := shared.Items()
+	if len(items) != 2 || !((items[0] == over1 && items[1] == over2) || (items[0] == over2 && items[1] == over1)) {
+		t.Fatalf("shared pool holds %d objects after the hand-out, want both oversized ones", len(items))
+	}
+}
+
+func TestTinyParseBoundsSharedPoolTries(t *testing.T) {
+	shared, _, _, restore := swapScratchPoolsForTest()
+	defer restore()
+	parser := &Parser{language: &Language{}}
+	// The fitting object lies beyond the last allowed try.
+	fit := newScratchWithGSSNodesForTest(16)
+	shared.Put(fit)
+	for i := 0; i < maxScratchHandOutTries; i++ {
+		shared.Put(newScratchWithAccountedBytesForTest(oversizedSharedScratchTarget))
+	}
+	tiny := acquireParserScratchForSource(45, parser)
+	if tiny == fit {
+		t.Fatal("tiny parse consumed the object beyond the try bound")
+	}
+	if tiny.allocatedBytes() != 0 {
+		t.Fatalf("tiny parse got %d bytes, want a fresh object", tiny.allocatedBytes())
+	}
+	if shared.Gets() != maxScratchHandOutTries {
+		t.Fatalf("shared pool was asked %d times, want %d", shared.Gets(), maxScratchHandOutTries)
+	}
+	if shared.Len() != maxScratchHandOutTries+1 {
+		t.Fatalf("shared pool holds %d objects, want all %d back", shared.Len(), maxScratchHandOutTries+1)
+	}
+}
+
+func TestShrinkingSourceChainDoesNotHandOversizedHeavyScratch(t *testing.T) {
+	_, _, heavy, restore := swapScratchPoolsForTest()
+	defer restore()
+	lang := &Language{grammarBlobSHA256Valid: true, grammarBlobSHA256: [32]byte{7}}
+	parser := &Parser{language: lang}
+	seed := newScratchWithAccountedBytesForTest(heavySmallParserScratchBytes + 1<<20)
+	if seed.allocatedBytes() <= heavySmallParserScratchBytes {
+		t.Fatalf("seed holds %d bytes, want a heavy object", seed.allocatedBytes())
+	}
+	// A chain of halving sources (20 KiB, 10 KiB, 5 KiB) runs the unchanged
+	// path and leaves the object with the size of its last borrower. The next
+	// halving, 2560 bytes, is within the heavy size window and is tiny.
+	seed.sourceBytes = 5 << 10
+	seed.heavyGrammar, _ = scratchKeyForLanguage(lang)
+	heavy.Put(seed)
+	s := acquireParserScratchForSource(2560, parser)
+	if s == seed {
+		t.Fatal("tiny source received the oversized heavy scratch")
+	}
+	if items := heavy.Items(); len(items) != 1 || items[0] != seed {
+		t.Fatalf("heavy pool holds %d objects, want the oversized one back", len(items))
+	}
+}

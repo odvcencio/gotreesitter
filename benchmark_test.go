@@ -875,3 +875,83 @@ func TestScannerAdaptationRevokesProducer(t *testing.T) {
 func TestAuthenticatedNativeReuseWitness(t *testing.T) {
 	gotreesitter.RunAuthenticatedNativeReuseWitness(t, grammars.GoLanguage())
 }
+
+func scratchHandOutGoSource(n int) []byte {
+	var buf bytes.Buffer
+	buf.WriteString("package p\n\n")
+	for buf.Len() < n {
+		buf.WriteString("func f(a, b int) int {\n\tif a > b {\n\t\treturn a - b\n\t}\n\treturn b - a\n}\n\n")
+	}
+	return buf.Bytes()
+}
+
+func scratchHandOutPythonSource(n int) []byte {
+	var buf bytes.Buffer
+	for buf.Len() < n {
+		buf.WriteString("def f(a, b):\n    if a > b:\n        return a - b\n    return b - a\n\n")
+	}
+	return buf.Bytes()
+}
+
+// TestTinyParseDoesNotReceiveOversizedScratchFullPath runs a real tiny parse
+// against a deterministic shared pool that holds an oversized object. The
+// parse must not receive that object, and the object must still be in the pool.
+func TestTinyParseDoesNotReceiveOversizedScratchFullPath(t *testing.T) {
+	const ceiling = int64(8 << 20)
+	probe, restore := gotreesitter.SwapScratchPoolsForTest()
+	defer restore()
+	oversized := probe.PutSharedWithAccountedBytes(9 << 20)
+	if oversized <= ceiling {
+		t.Fatalf("seed holds %d bytes, want more than %d", oversized, ceiling)
+	}
+	parser := gotreesitter.NewParser(grammars.JsonLanguage())
+	parser.SetAdmissionCandidateRoute(false)
+	tree, err := parser.Parse([]byte(`{"a": [1, 2, 3], "b": {"c": true, "d": null}}`))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	held := tree.ParseRuntime().ScratchBytesAllocated
+	tree.Release()
+	if held > ceiling {
+		t.Fatalf("tiny parse held %d scratch bytes with an oversized object in the pool, ceiling %d", held, ceiling)
+	}
+	if kept := probe.KeepOnlyLargestShared(); kept < oversized {
+		t.Fatalf("the oversized object left the shared pool: largest is %d bytes, want at least %d", kept, oversized)
+	}
+}
+
+func benchmarkScratchAlternating(b *testing.B, first, second *gotreesitter.Language, firstSrc, secondSrc []byte) {
+	p1 := gotreesitter.NewParser(first)
+	p2 := gotreesitter.NewParser(second)
+	p1.SetAdmissionCandidateRoute(false)
+	p2.SetAdmissionCandidateRoute(false)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tree, err := p1.Parse(firstSrc)
+		if err != nil {
+			b.Fatal(err)
+		}
+		tree.Release()
+		tree, err = p2.Parse(secondSrc)
+		if err != nil {
+			b.Fatal(err)
+		}
+		tree.Release()
+	}
+}
+
+// BenchmarkScratchAlternatingGoTinyJSON alternates a 20 KiB Go parse with a
+// tiny JSON parse. Scratch that the Go parse keeps must stay available to the
+// next Go parse; B/op and allocs/op must not rise.
+func BenchmarkScratchAlternatingGoTinyJSON(b *testing.B) {
+	benchmarkScratchAlternating(b, grammars.GoLanguage(), grammars.JsonLanguage(),
+		scratchHandOutGoSource(20<<10), []byte(`{"a": [1, 2, 3], "b": {"c": true, "d": null}}`))
+}
+
+// BenchmarkScratchAlternatingGoPython alternates a 20 KiB Go parse with a
+// 20 KiB Python parse.
+func BenchmarkScratchAlternatingGoPython(b *testing.B) {
+	benchmarkScratchAlternating(b, grammars.GoLanguage(), grammars.PythonLanguage(),
+		scratchHandOutGoSource(20<<10), scratchHandOutPythonSource(20<<10))
+}
