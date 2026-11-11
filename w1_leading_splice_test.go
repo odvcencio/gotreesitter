@@ -4,7 +4,7 @@ package gotreesitter_test
 // the LEADING-run block-splice. A mid-file or bottom edit no longer pays
 // O(preceding top-level items): the whole run of byte-identical top-level items
 // BEFORE the edit is spliced back as a block from the initial parser state, the
-// mirror of the trailing block-splice (w1_block_splice_test.go). These tests are
+// mirror of the trailing block-splice (roottest/parse/w1_block_splice_test.go). These tests are
 // real-parse and enforce the campaign invariants for the leading path:
 //
 //   - Oracle equality: the incremental tree is structurally identical to a fresh

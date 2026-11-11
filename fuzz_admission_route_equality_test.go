@@ -35,7 +35,7 @@ var routeEqualityFuzzLanguages = []string{
 // admissionRouteEqualityLanguage bundles one curated language with a
 // compact-forced and a production-forced Parser, both built once and reused
 // for the whole fuzz run (matching FuzzGoParseDoesNotPanic's convention in
-// fuzz_parser_test.go).
+// roottest/parse/fuzz_parser_test.go).
 type admissionRouteEqualityLanguage struct {
 	name       string
 	lang       *gts.Language

@@ -14,7 +14,7 @@ import (
 // This file fuzzes every one of gotreesitter's 119 hand-ported external
 // scanners with arbitrary bytes (hardening/fuzz-blob-safety finding #3).
 // Only the Go grammar had parser fuzzing before this file existed
-// (fuzz_parser_test.go); every other scanner-backed grammar had none.
+// (roottest/parse/fuzz_parser_test.go); every other scanner-backed grammar had none.
 //
 // Go's native fuzzer requires one top-level FuzzXxx function per target, so
 // this file is table-driven in the sense that matters: fuzzScannerGrammar
