@@ -363,6 +363,20 @@ func BenchmarkTypeScriptParseIncrementalSingleByteEditDFA(b *testing.B) {
 	})
 }
 
+// BenchmarkTypeScriptParseIncrementalTypedLetterEditDFA types one letter inside an
+// identifier and deletes it again on the next iteration.
+func BenchmarkTypeScriptParseIncrementalTypedLetterEditDFA(b *testing.B) {
+	src := makeTypeScriptBenchmarkSource(benchmarkFuncCount(b))
+	benchmarkParseIncrementalLengthChangingEdit(b, grammars.TypescriptLanguage(), makeLengthChangingEditCase(b, src, "const v", 'x', false))
+}
+
+// BenchmarkTypeScriptParseIncrementalDeletedByteEditDFA deletes one character of an
+// identifier and puts it back on the next iteration.
+func BenchmarkTypeScriptParseIncrementalDeletedByteEditDFA(b *testing.B) {
+	src := makeTypeScriptBenchmarkSource(benchmarkFuncCount(b))
+	benchmarkParseIncrementalLengthChangingEdit(b, grammars.TypescriptLanguage(), makeLengthChangingEditCase(b, src, "function f", 0, true))
+}
+
 func BenchmarkTypeScriptParseIncrementalNoEditDFA(b *testing.B) {
 	benchmarkParseIncrementalNoEditDFA(b, dfaBenchmarkSpec{
 		name:   "typescript",
@@ -388,6 +402,20 @@ func BenchmarkPythonParseIncrementalSingleByteEditDFA(b *testing.B) {
 		source: makePythonBenchmarkSource,
 		marker: "v = ",
 	})
+}
+
+// BenchmarkPythonParseIncrementalTypedLetterEditDFA types one letter inside an
+// identifier and deletes it again on the next iteration.
+func BenchmarkPythonParseIncrementalTypedLetterEditDFA(b *testing.B) {
+	src := makePythonBenchmarkSource(benchmarkFuncCount(b))
+	benchmarkParseIncrementalLengthChangingEdit(b, grammars.PythonLanguage(), makeLengthChangingEditCase(b, src, "    v", 'x', false))
+}
+
+// BenchmarkPythonParseIncrementalDeletedByteEditDFA deletes one character of an
+// identifier and puts it back on the next iteration.
+func BenchmarkPythonParseIncrementalDeletedByteEditDFA(b *testing.B) {
+	src := makePythonBenchmarkSource(benchmarkFuncCount(b))
+	benchmarkParseIncrementalLengthChangingEdit(b, grammars.PythonLanguage(), makeLengthChangingEditCase(b, src, "def f", 0, true))
 }
 
 func BenchmarkPythonParseIncrementalNoEditDFA(b *testing.B) {
