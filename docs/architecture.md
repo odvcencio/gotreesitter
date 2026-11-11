@@ -10,7 +10,7 @@ nonterminals with authenticated compact dependency proofs. Length or point chang
 still require coordinate updates in affected trailing subtrees. This is not an
 absolute `O(edit)` guarantee. The v0.52.0 release disables the unsafe same-length
 token-invariant shortcut while preserving ordinary subtree reuse and no-edit reuse.
-The unreleased implementation restores this shortcut with authenticated lexical dependencies.
+Authenticated lexical dependencies guard same-length token-invariant reuse.
 [Pull request #1093](https://github.com/odvcencio/gotreesitter/pull/1093) closed
 [issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
 General reuse with external scanners requires explicit certification, with

@@ -35,8 +35,8 @@ Run the invariant gate for every language that an engine PR can affect:
 - The root covers the input, or the stop reason explains the gap.
 - A reparse without edits allocates nothing.
 
-Graduate a language through the allowlist, with the results of the [graduation gate](docs/v1-design.md#graduation-gate-one-language) in the PR body.
-Do not change the global default engine outside a release candidate (D7).
+Add a language to the allowlist only after the E-A exit gate and the [graduation gate](docs/v1-design.md#graduation-gate-one-language) pass. Put the results in the PR body.
+Change the global default engine only after all top-50 languages graduate, and only in a release candidate (D7).
 
 ### Lanes
 
@@ -83,7 +83,7 @@ Reviewers check the same five points. Review the claim against the code, not aga
 Do not decide these yourself.
 
 - An exception to the counter ledger (R3, [v1 design](docs/v1-design.md#r3-counter-ledger-changes)). Agents never approve one.
-- Recording a known difference from C for a grammar. It needs proof that the grammar cannot match C, a witness, and the blocking mechanism. It does not authorize intentional divergence from C.
+- Recording a known difference from C for a grammar. It requires proof that the grammar cannot graduate, a witness, the blocking mechanism, an explanation of why no generic mechanism serves it, and the repository owner's approval. A known difference does not authorize intentional divergence from C.
 - Changing the default engine for a grammar, or deleting an engine.
 - Publishing a release ([docs/releasing.md](docs/releasing.md)).
 - Changing a gate in the v1 design.
