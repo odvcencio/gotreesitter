@@ -135,6 +135,86 @@ func BenchmarkCTreeSitterGoParseIncrementalSingleByteEdit(b *testing.B) {
 	}
 }
 
+// benchmarkCTreeSitterGoLengthChangingEdit is the C twin of the pure-Go
+// benchmarks that insert or delete one byte inside an identifier. The edit
+// positions and texts are the same as in benchmark_test.go.
+func benchmarkCTreeSitterGoLengthChangingEdit(b *testing.B, prefix string, letter byte, deleting bool) {
+	parser := newOracleCTreeSitterParser(b)
+	defer parser.Close()
+
+	base := makeGoBenchmarkSource(benchmarkFuncCount(b))
+	i := bytes.Index(base, []byte(prefix))
+	if i < 0 {
+		b.Fatalf("could not find edit site %q", prefix)
+	}
+	at := i + len(prefix)
+	var with, without []byte
+	if deleting {
+		with = append([]byte(nil), base...)
+		without = append(append([]byte(nil), base[:at]...), base[at+1:]...)
+	} else {
+		without = append([]byte(nil), base...)
+		with = append(append(append([]byte(nil), base[:at]...), letter), base[at:]...)
+	}
+	for _, text := range [][]byte{with, without} {
+		tree := parseOracleCTree(b, parser, nil, text, "check")
+		if requireCompleteOracleCTree(b, tree, text, "check"); tree.RootNode().HasError() {
+			b.Fatal("benchmark text does not parse cleanly")
+		}
+		tree.Close()
+	}
+	cur, other := without, with
+	if deleting {
+		cur, other = with, without
+	}
+	tree := parseOracleCTree(b, parser, nil, cur, "initial")
+	if tree == nil || tree.RootNode() == nil {
+		b.Fatal("initial parse returned nil root")
+	}
+	defer func() {
+		if tree != nil {
+			tree.Close()
+		}
+	}()
+	startPoint := oracleCTreeSitterPointAtOffset(without, at)
+	withEnd := oracleCTreeSitterPointAtOffset(with, at+1)
+	insertEdit := sitter.InputEdit{
+		StartByte: uint(at), OldEndByte: uint(at), NewEndByte: uint(at + 1),
+		StartPosition: startPoint, OldEndPosition: startPoint, NewEndPosition: withEnd,
+	}
+	deleteEdit := sitter.InputEdit{
+		StartByte: uint(at), OldEndByte: uint(at + 1), NewEndByte: uint(at),
+		StartPosition: startPoint, OldEndPosition: withEnd, NewEndPosition: startPoint,
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(with)))
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		edit := insertEdit
+		if len(cur) > len(other) {
+			edit = deleteEdit
+		}
+		tree.Edit(&edit)
+		newTree := parseOracleCTree(b, parser, tree, other, "incremental")
+		if newTree == nil || newTree.RootNode() == nil {
+			b.Fatal("incremental parse returned nil root")
+		}
+		tree.Close()
+		tree = newTree
+		cur, other = other, cur
+	}
+}
+
+func BenchmarkCTreeSitterGoParseIncrementalTypedLetterEdit(b *testing.B) {
+	benchmarkCTreeSitterGoLengthChangingEdit(b, "{ v", 'x', false)
+}
+
+func BenchmarkCTreeSitterGoParseIncrementalDeletedByteEdit(b *testing.B) {
+	benchmarkCTreeSitterGoLengthChangingEdit(b, "func f", 0, true)
+}
+
 func BenchmarkCTreeSitterGoParseIncrementalNoEdit(b *testing.B) {
 	parser := newOracleCTreeSitterParser(b)
 	defer parser.Close()
