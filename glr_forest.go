@@ -417,6 +417,10 @@ func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, 
 	p.finalizeForestRoot(root, source)
 	tree := newTreeWithArenas(root, source, p.language, arena, nil)
 	tree.setParseRuntime(forestAcceptedRuntime(root, source))
+	// The forest never sets node.parent; wire the finished tree once.
+	if r := rawRootOrNil(tree); r != nil {
+		wireParentLinksWithScratch(r, nil)
+	}
 	// Diagnostic-only: mirrors the copyNormalizationStats call every other
 	// route makes (parser.go's parseInternal tail; tree.go's
 	// ensureResultCompatibility). forestAcceptedRuntime above deliberately
@@ -463,6 +467,10 @@ func (p *Parser) maybeReplaceRecoveredTreeWithForest(source []byte, tree *Tree) 
 		return tree, false
 	}
 	p.normalizeReturnedTreeForParse(candidate, source)
+	// Normalization can rebuild nodes; link the tree after its last pass.
+	if r := rawRootOrNil(candidate); r != nil {
+		wireParentLinksWithScratch(r, nil)
+	}
 	candidateRoot := rawRootOrNil(candidate)
 	if candidate.rawParseStoppedEarly() || candidateRoot == nil || candidateRoot.StartByte() != 0 || candidateRoot.EndByte() != uint32(len(source)) || candidateRoot.HasErrorOrMissing() {
 		candidate.Release()
@@ -811,6 +819,10 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 		progress.beginDetail(time.Now(), "forest_normalize_begin", "forest_normalize_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, "")
 	}
 	p.normalizeReturnedTreeForParse(tree, source)
+	// The forest never sets node.parent; wire the finished tree once.
+	if r := rawRootOrNil(tree); r != nil {
+		wireParentLinksWithScratch(r, nil)
+	}
 	tree.captureTokenInvariantReadSpanValue(lexicalReadSpan)
 	tree.prepareLegacyReuseDependencies()
 	if arena.legacyReuseReads.CertifiedForestAttributes() && !root.HasError() {

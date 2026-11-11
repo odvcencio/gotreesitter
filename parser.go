@@ -5139,6 +5139,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	}
 	arena := acquireNodeArena(poolClass)
 	arena.skipChildClear = reuse == nil && oldTree == nil
+	arena.foreignParentLinksDeferred = !deferParentLinks
+	arena.incrementalAttempt = !deferParentLinks
 	if reuse == nil && oldTree == nil {
 		arena.ownership.BeginFresh()
 	}
@@ -5771,7 +5773,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			for _, child := range root.children {
 				trimRecoveryWhitespaceTail(child, source)
 			}
-			wireParentLinksWithScratch(root, &scratch.nodeLinks)
+			if oldTree == nil {
+				wireParentLinksWithScratch(root, &scratch.nodeLinks)
+			}
 		}
 		return finalizeTree(tree, ParseStopAccepted)
 	}

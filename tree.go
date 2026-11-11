@@ -1082,7 +1082,7 @@ func nodeMaterializeFinalChildRefs(n *Node, reason materializeReason) {
 		)
 		children[i] = child
 		refs[i] = newPendingChildEntry(updated)
-		if child != nil {
+		if child != nil && !deferForeignParentLink(child, n) {
 			setNodeParentLink(child, n, i)
 		}
 	}
@@ -1134,7 +1134,9 @@ func nodeMaterializeFinalChildRefAt(n *Node, i int, reason materializeReason) *N
 	if child == nil {
 		return nil
 	}
-	setNodeParentLink(child, n, i)
+	if !deferForeignParentLink(child, n) {
+		setNodeParentLink(child, n, i)
+	}
 	if !wasMaterialized {
 		arena.finalChildRefsSingleChildMaterializedChildren++
 	}
@@ -2845,6 +2847,15 @@ func nodeCarriesError(n *Node) bool {
 	return n.flags&(nodeFlagHasError|nodeFlagMissing) != 0 || n.symbol == errorSymbol
 }
 
+// deferForeignParentLink reports whether parent must leave the link of child
+// alone. A parent owned by an unfinished incremental attempt does not link a
+// child that another arena owns. wireOwnedParentLinks links it after the last
+// attempt.
+func deferForeignParentLink(child, parent *Node) bool {
+	a := parent.ownerArena
+	return a != nil && a.foreignParentLinksDeferred && child.ownerArena != a
+}
+
 func populateParentNode(n *Node, children []*Node) {
 	hasError := n.symbol == errorSymbol || n.flags&nodeFlagMissing != 0
 	switch len(children) {
@@ -2859,7 +2870,9 @@ func populateParentNode(n *Node, children []*Node) {
 		n.endByte = c0.endByte
 		n.startPoint = c0.startPoint
 		n.endPoint = c0.endPoint
-		setNodeParentLink(c0, n, 0)
+		if !deferForeignParentLink(c0, n) {
+			setNodeParentLink(c0, n, 0)
+		}
 		n.setHasError(hasError || nodeCarriesError(c0))
 		return
 	case 2:
@@ -2869,8 +2882,12 @@ func populateParentNode(n *Node, children []*Node) {
 		n.endByte = c1.endByte
 		n.startPoint = c0.startPoint
 		n.endPoint = c1.endPoint
-		setNodeParentLink(c0, n, 0)
-		setNodeParentLink(c1, n, 1)
+		if !deferForeignParentLink(c0, n) {
+			setNodeParentLink(c0, n, 0)
+		}
+		if !deferForeignParentLink(c1, n) {
+			setNodeParentLink(c1, n, 1)
+		}
 		n.setHasError(hasError || nodeCarriesError(c0) || nodeCarriesError(c1))
 		return
 	default:
@@ -2881,8 +2898,11 @@ func populateParentNode(n *Node, children []*Node) {
 		n.startPoint = first.startPoint
 		n.endPoint = last.endPoint
 
+		deferForeign := n.ownerArena != nil && n.ownerArena.foreignParentLinksDeferred
 		for i, c := range children {
-			setNodeParentLink(c, n, i)
+			if !deferForeign || c.ownerArena == n.ownerArena {
+				setNodeParentLink(c, n, i)
+			}
 			if nodeCarriesError(c) {
 				hasError = true
 			}
@@ -3279,6 +3299,19 @@ func (t *Tree) ensureParentLinks() {
 	// here too; ordinary Node.Parent reads continue using immutable view links.
 	materializeNodeViews(t.root)
 	t.root.ensureParentLinks()
+	if t.incrementalParentLinksPending() {
+		// Safety net for a tree that missed finishIncrementalParentLinks. A lazy
+		// compatibility pass that has not run yet links again afterwards.
+		var buf []*Node
+		t.wireOwnedParentLinks(&buf)
+		t.incrementalLinksFinal = true
+	}
+	if t.parentLinksLent {
+		// Another incremental parse borrowed nodes of this tree and moved their
+		// links to its own result. Point every node back at this tree.
+		t.parentLinksLent = false
+		wireParentLinksWithScratch(t.root, nil)
+	}
 }
 
 func (t *Tree) ensureExternalScannerCheckpoints() {
@@ -3333,6 +3366,49 @@ func (t *Tree) setIncrementalFreshVerified(verified bool) {
 	t.resultCompatibilityFinalizer.incrementalFreshVerified = verified
 }
 
+// incrementalParentLinksPending reports whether t came from a legacy
+// incremental parse attempt whose reduce-time link writes are still deferred.
+func (t *Tree) incrementalParentLinksPending() bool {
+	return t != nil && t.root != nil && t.arena != nil && t.arena.foreignParentLinksDeferred
+}
+
+// legacyIncrementalResult reports whether t was built by a legacy incremental
+// parse attempt, whether or not its links are wired yet.
+func (t *Tree) legacyIncrementalResult() bool {
+	return t != nil && t.root != nil && t.arena != nil && t.arena.incrementalAttempt
+}
+
+// wireOwnedParentLinks sets the parent link of every child of every node that
+// t's arena owns and that is reachable from the root. It stops at each reused
+// subtree root (a node that another arena owns) after re-pointing it, so the
+// borrowed subtree is not written. buf is scratch and is cleared on return.
+func (t *Tree) wireOwnedParentLinks(buf *[]*Node) {
+	arena := t.arena
+	arena.foreignParentLinksDeferred = false // Child() must link from here on
+	setNodeRootLink(t.root)
+	if t.root.ownerArena != arena {
+		return
+	}
+	stack, high := append((*buf)[:0], t.root), 1
+	for len(stack) > 0 {
+		n := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		for i, count := 0, nodeChildCountNoMaterialize(n); i < count; i++ {
+			c := nodeChildAtForReason(n, i, materializeForParentAPI)
+			if c == nil {
+				continue
+			}
+			setNodeParentLink(c, n, i)
+			if c.ownerArena == arena {
+				stack = append(stack, c)
+			}
+		}
+		high = max(high, len(stack))
+	}
+	clear(stack[:high])
+	*buf = stack[:0]
+}
+
 func (t *Tree) hasDeferredResultCompatibility() bool {
 	return t != nil && t.resultCompatibilityFinalizer != nil && !t.resultCompatibilityFinalizer.runBoundOnly
 }
@@ -3346,6 +3422,12 @@ func (t *Tree) ensureResultCompatibility() {
 		return
 	}
 	finalizer.once.Do(func() {
+		defer func() {
+			if t.legacyIncrementalResult() && t.incrementalLinksFinal && !t.parentLinksLent {
+				var b []*Node
+				t.wireOwnedParentLinks(&b)
+			}
+		}()
 		defer func() { markPublishedRootError(t.root) }()
 		span := finalizer.tokenInvariantReadSpan
 		finalizer.tokenInvariantReadSpan = 0
@@ -3976,6 +4058,14 @@ type Tree struct {
 	// Captured only from the accepted lexical attempt, never inferred from the
 	// next edit's token source. The byte occupies existing header padding.
 	eofExtraTokenSourceProofID uint8
+	// parentLinksLent is set when a later incremental parse borrowed nodes of
+	// this tree and moved their parent links to its own result.
+	parentLinksLent bool
+	// incrementalLinksFinal is set once the parse has linked this tree as the
+	// attempt's final result. Before that, a lazy compatibility pass must not
+	// link children that other arenas own: the attempt may still lose. Both
+	// flags occupy header padding after eofExtraTokenSourceProofID.
+	incrementalLinksFinal bool
 	// Zero means unknown. A full DFA parse records the longest primitive read,
 	// including failed probes. Incremental reconstruction cannot infer this bound.
 	tokenInvariantReadSpan uint32

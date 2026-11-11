@@ -1842,3 +1842,33 @@ func TestPrivatePagedCompatibilitySnapshotMutationAndScrub(t *testing.T) {
 		}
 	}
 }
+
+// While a legacy incremental attempt runs, a parent that the attempt's arena
+// owns must not write the parent link of a child that another arena owns.
+func TestPopulateParentNodeDefersForeignChildLink(t *testing.T) {
+	old := newNodeArena(arenaClassFull)
+	fresh := newNodeArena(arenaClassFull)
+
+	oldParent := newLeafNodeInArena(old, 1, true, 0, 4, Point{}, Point{})
+	borrowed := newLeafNodeInArena(old, 2, true, 0, 2, Point{}, Point{})
+	oldParent.children = []*Node{borrowed}
+	setNodeParentLink(borrowed, oldParent, 0)
+
+	owned := newLeafNodeInArena(fresh, 3, true, 2, 4, Point{}, Point{})
+
+	for _, deferred := range []bool{false, true} {
+		fresh.foreignParentLinksDeferred = deferred
+		setNodeParentLink(borrowed, oldParent, 0)
+		parent := newParentNodeInArena(fresh, 4, true, []*Node{borrowed, owned}, nil, 0)
+		gotParent, _, _ := nodeParentLink(borrowed)
+		if deferred && gotParent != oldParent {
+			t.Fatalf("deferred: foreign child link changed to %p, want it left at the old parent", gotParent)
+		}
+		if !deferred && gotParent != parent {
+			t.Fatalf("not deferred: foreign child link = %p, want the new parent", gotParent)
+		}
+		if got, _, _ := nodeParentLink(owned); got != parent {
+			t.Fatalf("deferred=%t: owned child link = %p, want the new parent", deferred, got)
+		}
+	}
+}

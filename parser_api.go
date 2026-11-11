@@ -1100,7 +1100,30 @@ func (p *Parser) parseIncrementalWithTokenSourceChanged(source []byte, oldTree *
 	}
 	p.normalizeReturnedIncrementalTree(tree, oldTree, source)
 	tree, _ = p.maybeReplaceRecoveredTokenSourceTreeWithForest(source, tree, ts)
+	p.finishIncrementalParentLinks(tree, oldTree)
 	return tree, nil
+}
+
+// finishIncrementalParentLinks sets the parent links that a legacy incremental
+// parse attempt deferred. Fresh, forest, compact and unchanged results carry
+// no pending mark and pass through untouched.
+func (p *Parser) finishIncrementalParentLinks(tree, oldTree *Tree) {
+	if tree == nil || tree == oldTree || (oldTree != nil && tree.arena == oldTree.arena) {
+		return
+	}
+	// Any result can have moved links of the old tree's nodes: a discarded
+	// attempt wrote them, or a compact result borrowed them.
+	if oldTree != nil {
+		oldTree.parentLinksLent = true
+	}
+	if !tree.legacyIncrementalResult() {
+		return
+	}
+	// Link the final tree now. A later attempt can have moved the links of
+	// shared nodes since an earlier attempt linked them. A lazy compatibility
+	// pass that has not run yet links again (ensureResultCompatibility).
+	tree.wireOwnedParentLinks(&p.reuseScratch.cache)
+	tree.incrementalLinksFinal = true
 }
 
 // ParseOption configures ParseWith behavior.
@@ -2060,6 +2083,10 @@ func (p *Parser) ParseWithTokenSourceFactoryStrict(source []byte, factory TokenS
 // It reuses unchanged subtrees from the old tree for better performance.
 // Call oldTree.Edit() for each edit before calling this method.
 //
+// Parse from an old tree once per edit. A second changed-source incremental parse from the same old
+// tree moves the shared nodes to the newest result, and Parent() on the
+// earlier result is then unreliable for those nodes.
+//
 // A caller that skips Tree.Edit is only safe when source is unchanged or
 // stays the same length as oldTree's own source. Passing a different-length
 // source with no recorded edit falls back to an ordinary fresh parse instead
@@ -2145,9 +2172,11 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 	defer p.endParseOperationBudget(operationBudget)
 	tree, reason, recoveryDeclined := p.attemptCompactIncrementalParse(source, oldTree, nil)
 	if tree != nil {
+		p.finishIncrementalParentLinks(tree, oldTree)
 		return tree, nil
 	}
 	if tree = p.attemptCompactIncrementalRecoveryFullParse(source, oldTree, reason, recoveryDeclined, nil); tree != nil {
+		p.finishIncrementalParentLinks(tree, oldTree)
 		return tree, nil
 	}
 	tree, err := p.parseIncrementalChanged(source, oldTree)
@@ -2163,6 +2192,7 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*T
 	if tree != nil && tree != oldTree {
 		tree.ensureParseRuntime().CompactIncrementalFallbackReason = reason
 	}
+	p.finishIncrementalParentLinks(tree, oldTree)
 	return tree, err
 }
 
@@ -2516,12 +2546,14 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 	var compactTiming incrementalParseTiming
 	tree, reason, recoveryDeclined := p.attemptCompactIncrementalParse(source, oldTree, &compactTiming)
 	if tree != nil {
+		p.finishIncrementalParentLinks(tree, oldTree)
 		return tree, compactTiming.toProfile(), nil
 	}
 	fallbackStarted := time.Now()
 	if tree = p.attemptCompactIncrementalRecoveryFullParse(source, oldTree, reason, recoveryDeclined, &compactTiming); tree != nil {
 		fallbackTiming := freshParseFallbackTiming(fallbackStarted, tree, "compact_incremental_full_recovery")
 		fallbackTiming.addAttempt(&compactTiming)
+		p.finishIncrementalParentLinks(tree, oldTree)
 		return tree, fallbackTiming.toProfile(), nil
 	}
 	tree, timing, err := p.parseIncrementalChangedProfiled(source, oldTree)
@@ -2539,6 +2571,7 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 	if tree != nil && tree != oldTree {
 		tree.ensureParseRuntime().CompactIncrementalFallbackReason = reason
 	}
+	p.finishIncrementalParentLinks(tree, oldTree)
 	return tree, timing.toProfile(), err
 }
 
@@ -2670,6 +2703,7 @@ func (p *Parser) parseIncrementalWithTokenSourceChangedProfiled(source []byte, o
 	p.normalizeReturnedIncrementalTree(tree, oldTree, source)
 	forestStart := time.Now()
 	tree, forestRepaired := p.maybeReplaceRecoveredTokenSourceTreeWithForest(source, tree, ts)
+	p.finishIncrementalParentLinks(tree, oldTree)
 	if forestRepaired {
 		return tree, profileForestRecoveryFallback(timing, tree, time.Since(forestStart)), nil
 	}

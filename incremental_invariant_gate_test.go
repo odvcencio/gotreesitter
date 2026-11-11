@@ -47,6 +47,7 @@ package gotreesitter_test
 // available to a consumer, which is why it is the one this gate hard-fails
 // on.
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -730,10 +731,122 @@ func assertV1InvariantTree(t *testing.T, phase string, tree *gts.Tree, lang *gts
 	if root.Type(lang) == "ERROR" && !root.HasError() {
 		t.Fatalf("%s has an ERROR root without HasError()", phase)
 	}
+	if bad := v1InvariantWrongParents(root); len(bad) != 0 {
+		t.Fatalf("%s has %d children whose Parent() is not the node they were reached from; first: %s", phase, len(bad), bad[0])
+	}
 	if root.EndByte() < uint32(len(source)) {
 		stop := tree.ParseRuntime().StopReason
 		if stop == "" || stop == gts.ParseStopAccepted {
 			t.Fatalf("%s root ends at %d of %d bytes without an explanatory stop reason (%q)", phase, root.EndByte(), len(source), stop)
 		}
+	}
+}
+
+// v1InvariantWrongParents lists every child whose Parent() is not the node it
+// was reached from through Child().
+func v1InvariantWrongParents(root *gts.Node) []string {
+	var bad []string
+	if root.Parent() != nil {
+		bad = append(bad, "the root reports a parent")
+	}
+	stack := []*gts.Node{root}
+	for len(stack) > 0 {
+		n := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		for i := 0; i < n.ChildCount(); i++ {
+			c := n.Child(i)
+			if c == nil {
+				continue
+			}
+			if c.Parent() != n {
+				bad = append(bad, fmt.Sprintf("child %d [%d,%d) of node [%d,%d)", i, c.StartByte(), c.EndByte(), n.StartByte(), n.EndByte()))
+			}
+			stack = append(stack, c)
+		}
+	}
+	return bad
+}
+
+// One old tree serves two incremental parses. The first result lends the old
+// tree's nodes, so the old tree is marked; the repair that the second parse
+// runs first points every root child back at the old root.
+func TestIncrementalOldTreeUsedTwiceRewires(t *testing.T) {
+	for _, releaseFirst := range []bool{false, true} {
+		t.Run(fmt.Sprintf("releaseFirst=%t", releaseFirst), func(t *testing.T) {
+			lang := grammars.GoLanguage()
+			src1 := []byte("package p\n\nfunc a() int { return 1 }\n\nfunc b() int { return 2 }\n\nfunc c() int { return 3 }\n")
+			parser := gts.NewParser(lang)
+			old, err := parser.Parse(src1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer old.Release()
+			insert := func(src []byte, marker, text string) ([]byte, gts.InputEdit) {
+				at := bytes.Index(src, []byte(marker))
+				out := append(append(append([]byte{}, src[:at]...), text...), src[at:]...)
+				pt := func(b []byte, off int) gts.Point {
+					row := bytes.Count(b[:off], []byte{'\n'})
+					return gts.Point{Row: uint32(row), Column: uint32(off - (bytes.LastIndexByte(b[:off], '\n') + 1))}
+				}
+				return out, gts.InputEdit{StartByte: uint32(at), OldEndByte: uint32(at), NewEndByte: uint32(at + len(text)),
+					StartPoint: pt(src, at), OldEndPoint: pt(src, at), NewEndPoint: pt(out, at+len(text))}
+			}
+			src1b, e1 := insert(src1, "func b", "// note\n")
+			old.Edit(e1)
+			t1, p1, err := parser.ParseIncrementalProfiled(src1b, old)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !p1.OldTreeReuseRoute {
+				t.Fatal("first parse did not take the old-tree reuse route")
+			}
+			if !gts.ParentLinksLentForTest(old) {
+				t.Fatal("old tree is not marked as lent after the first parse")
+			}
+			if bad := v1InvariantWrongParents(t1.RootNode()); len(bad) != 0 {
+				t.Fatalf("first result: %s", bad[0])
+			}
+			if releaseFirst {
+				t1.Release()
+			} else {
+				defer t1.Release()
+			}
+			// The repair a second parse runs on the old tree.
+			gts.EnsureParentLinksForTest(old)
+			if gts.ParentLinksLentForTest(old) {
+				t.Fatal("repair did not clear the lent mark")
+			}
+			root := old.RootNode()
+			for i := 0; i < root.ChildCount(); i++ {
+				if root.Child(i).Parent() != root {
+					t.Fatalf("after the repair, old root child %d does not report the old root", i)
+				}
+			}
+			src2, e2 := insert(src1b, "func c", "// other\n")
+			old.Edit(gts.InputEdit{StartByte: e2.StartByte, OldEndByte: e2.OldEndByte, NewEndByte: e2.NewEndByte,
+				StartPoint: e2.StartPoint, OldEndPoint: e2.OldEndPoint, NewEndPoint: e2.NewEndPoint})
+			t2, p2, err := parser.ParseIncrementalProfiled(src2, old)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer t2.Release()
+			if !p2.OldTreeReuseRoute {
+				t.Fatal("second parse did not take the old-tree reuse route")
+			}
+			if !gts.ParentLinksLentForTest(old) {
+				t.Fatal("old tree is not marked as lent after the second parse")
+			}
+			if bad := v1InvariantWrongParents(t2.RootNode()); len(bad) != 0 {
+				t.Fatalf("second result: %s", bad[0])
+			}
+			fresh, err := gts.NewParser(lang).Parse(src2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			if t2.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
+				t.Fatal("second result differs from a fresh parse")
+			}
+		})
 	}
 }
