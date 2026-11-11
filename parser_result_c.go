@@ -187,7 +187,7 @@ func cRecoverTopLevelChunkNodesFromRange(source []byte, start, end uint32, p *Pa
 		errorRoot := parsedRoot
 		if start != 0 {
 			startPoint := advancePointByBytes(Point{}, source[:start])
-			errorRoot = tree.RootNodeWithOffset(start, startPoint)
+			errorRoot = tree.rootNodeWithRecoveryOffset(start, startPoint)
 		}
 		if errorRoot != nil && errorRoot.Type(p.language) == "ERROR" {
 			if node, ok := cRecoverTypedefStructDefinitionFromErrorRoot(errorRoot, source, start, end, p.language, arena); ok {
@@ -208,7 +208,7 @@ func cRecoverTopLevelChunkNodesFromRange(source []byte, start, end uint32, p *Pa
 	}
 	offsetRoot := parsedRoot
 	if arena == nil && offset != nil {
-		offsetRoot = tree.RootNodeWithOffset(start, offset.point)
+		offsetRoot = tree.rootNodeWithRecoveryOffset(start, offset.point)
 		if offsetRoot == nil {
 			return nil, false
 		}

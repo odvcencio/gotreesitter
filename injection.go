@@ -693,6 +693,10 @@ func rebaseInjectionTree(tree *Tree, source []byte, span Range) {
 		}
 	}
 	tree.source = source
+	// The tree now describes the whole document but only the span was parsed:
+	// record it, so that a parser given this tree and source does not take the
+	// tree as an unchanged parse of the full document.
+	tree.setIncludedRanges([]Range{span})
 
 	rt := tree.ParseRuntime()
 	rt.SourceLen = uint32(len(source))
@@ -713,7 +717,6 @@ func shiftNodePoints(root *Node, offset Point) {
 	if root == nil || offset == (Point{}) {
 		return
 	}
-	baseRow := root.startPoint.Row
 	stack := []*Node{root}
 	for len(stack) > 0 {
 		last := len(stack) - 1
@@ -722,13 +725,13 @@ func shiftNodePoints(root *Node, offset Point) {
 
 		startRow := n.startPoint.Row
 		n.startPoint.Row = addUint32Delta(n.startPoint.Row, int64(offset.Row))
-		if offset.Row == 0 || startRow == baseRow {
+		if startRow == 0 {
 			n.startPoint.Column = addUint32Delta(n.startPoint.Column, int64(offset.Column))
 		}
 
 		endRow := n.endPoint.Row
 		n.endPoint.Row = addUint32Delta(n.endPoint.Row, int64(offset.Row))
-		if offset.Row == 0 || endRow == baseRow {
+		if endRow == 0 {
 			n.endPoint.Column = addUint32Delta(n.endPoint.Column, int64(offset.Column))
 		}
 

@@ -830,7 +830,7 @@ jobs:
             package_filter: '/parser_result_test$'
             test_filter: ''
           - name: support
-            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|benchorder|scannerstate|grammarpatch|sched|incr|reducechoice|declarationfacts|syntaxfacts|lexrun)$|/corpuscheck$|/roottest/bench$'
+            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|benchorder|scannerstate|grammarpatch|sched|incr|reducechoice|declarationfacts|syntaxfacts|lexrun|lexexact)$|/corpuscheck$|/roottest/bench$'
             test_filter: ''
           - name: grammar-support
             package_filter: '/grammars/(grammar_blobs|internal/[^/]+|lean|python|swift)$'
@@ -2165,7 +2165,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestIssue1106BashEmptyAssignmentsCParity|TestCompactPackedGSSVersionOrderIssue984MatchesC)$'
+            --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestIssue1106BashEmptyAssignmentsCParity|TestCompactPackedGSSVersionOrderIssue984MatchesC|TestRootNodeWithOffsetPointsMatchC)$'
 
       - name: YAML scanner cursor and document stream parity against locked C
         run: |
