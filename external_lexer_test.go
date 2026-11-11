@@ -1,9 +1,15 @@
 package gotreesitter
 
 import (
+	"bytes"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
+
+	"github.com/odvcencio/gotreesitter/internal/ccore"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 func tokenAfterResult(t *testing.T, l *ExternalLexer, sym Symbol) Token {
@@ -425,5 +431,780 @@ func TestExternalLexerHasPreviousBytes(t *testing.T) {
 				t.Fatalf("HasPreviousBytes(%q) = %v, want %v", tc.text, got, tc.want)
 			}
 		})
+	}
+}
+
+// --- scanner mode: probes, delivery, wrappers, pass-through ---
+
+// TestScanmodeProbes pins the three questions the public lexer cannot answer:
+// a NUL byte is not the end of the input; an invalid UTF-8 byte is -1 for C where
+// Lookahead returns U+FFFD (a literal U+FFFD stays 0xFFFD); the cursor is at an
+// included range's start only at byte 0 of a non-empty parse over the whole input
+// (C's lexer has no range start for an empty source: lexer.c:97, :356).
+func TestScanmodeProbes(t *testing.T) {
+	l := newExternalLexer([]byte("\x00\xffa"), 0, 0, 0)
+	if l.Lookahead() != 0 || scanmode.AtEOF(l) {
+		t.Fatal("a NUL byte must read as lookahead 0 and not as the end")
+	}
+	if !scanmode.AtRangeStart(l) {
+		t.Fatal("byte 0 is the start of the range")
+	}
+	l.Advance(false)
+	if scanmode.AtRangeStart(l) {
+		t.Fatal("byte 1 is not the start of the range")
+	}
+	if l.Lookahead() != utf8.RuneError || scanmode.CLookahead(l) != -1 {
+		t.Fatalf("invalid byte: Lookahead %U, CLookahead %d, want U+FFFD and -1", l.Lookahead(), scanmode.CLookahead(l))
+	}
+	l.Advance(false)
+	l.Advance(false)
+	if l.Lookahead() != 0 || !scanmode.AtEOF(l) {
+		t.Fatal("past the last byte the lexer must be at the end")
+	}
+	if got := scanmode.CLookahead(newExternalLexer([]byte("\xef\xbf\xbd"), 0, 0, 0)); got != 0xFFFD {
+		t.Fatalf("literal U+FFFD: CLookahead %d, want 65533", got)
+	}
+	empty := newExternalLexer(nil, 0, 0, 0)
+	if scanmode.AtRangeStart(empty) || !scanmode.AtEOF(empty) {
+		t.Fatal("an empty source is at its end and has no range start")
+	}
+}
+
+// TestScanmodeFlagPayload: the payload of a port without scanner state reads as
+// off until the mode is turned on; a typed-nil flag neither panics nor takes it.
+func TestScanmodeFlagPayload(t *testing.T) {
+	var nilFlag *scanmode.Flag
+	if nilFlag.On() || scanmode.Of(nil) || scanmode.Of(&scanmode.Flag{}) {
+		t.Fatal("the mode must read as off for a nil flag, a missing payload and a fresh flag")
+	}
+	f := &scanmode.Flag{}
+	var m scanmode.CFaithful = f
+	m.SetCFaithful(true)
+	if !f.On() || !scanmode.Of(f) {
+		t.Fatal("SetCFaithful(true) did not turn the mode on")
+	}
+	nilFlag.SetCFaithful(true) // a typed-nil flag must not panic
+}
+
+func init() {
+	scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), true)
+	scanmode.RegisterScanner(emittingScanner{}, nil, false)
+	scanmode.RegisterScanner(pooledScanner{}, (*modeProbe)(nil), true)
+	scanmode.RegisterScanner(panicScanner{}, (*modeProbe)(nil), true)
+	scanmode.RegisterScanner(lyingScanner{}, (*modeProbe)(nil), true)
+	scanmode.RegisterScanner(panickyEntryScanner{}, (*panickyProbe)(nil), true)
+	scanmode.RegisterScanner(recordingScanner{}, nil, false)
+	scanmode.RegisterScanner(clearsThenPanicsScanner{}, (*offPanicProbe)(nil), true)
+	scanmode.RegisterScanner(panicsBeforeClearingScanner{}, (*offPanicProbe)(nil), true)
+	scanmode.RegisterScanner(noModeScanner{}, (*countingProbe)(nil), false)
+	scanmode.RegisterScanner(lyingCountingScanner{}, (*modeProbe)(nil), true)
+	scanmode.RegisterScanner(destroyPanicScanner{}, (*modeProbe)(nil), true)
+	scanmode.RegisterScanner((*pointerScanner)(nil), nil, false)
+}
+
+// modeProbe is a scanner payload that records whether the mode is on.
+type modeProbe struct{ on, set bool }
+
+func (p *modeProbe) SetCFaithful(on bool) { p.on, p.set = on, on || p.set }
+
+// modeProbeScanner is a registered scanner with a behavioural mode whose payload
+// is a *modeProbe.
+type modeProbeScanner struct{ payload *modeProbe }
+
+func (s modeProbeScanner) Create() any {
+	if s.payload == nil {
+		return (*modeProbe)(nil)
+	}
+	return s.payload
+}
+func (modeProbeScanner) Destroy(any)                           {}
+func (modeProbeScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+func (modeProbeScanner) Serialize(any, []byte) int             { return 0 }
+func (modeProbeScanner) Deserialize(any, []byte)               {}
+
+// scanThroughCore binds sc as the core does and runs one scan with the valid mask.
+func scanThroughCore(t *testing.T, sc ExternalScanner, valid []bool) (*ccoreExtScanner, ccore.ExtScan, bool) {
+	t.Helper()
+	a, err := newCcoreExtScanner(sc)
+	if err != nil {
+		t.Fatalf("binding failed: %v", err)
+	}
+	var out ccore.ExtScan
+	ok := a.scan([]byte("x"), 0, 0, 0, nil, valid, make([]byte, 16), &out)
+	return a, out, ok
+}
+
+// identityOrderAdapter wraps inner in an order adapter with an identity mapping
+// over one external whose result symbol is 5.
+func identityOrderAdapter(inner ExternalScanner) *externalScannerOrderAdapter {
+	return &externalScannerOrderAdapter{
+		inner:                inner,
+		targetToSource:       []int{0},
+		sourceCount:          1,
+		sourceSymbolToIndex:  map[Symbol]int{5: 0},
+		sourceResultToTarget: map[Symbol]Symbol{5: 5},
+	}
+}
+
+// forwardingWrapper embeds a scanner: it forwards the five scanner methods and
+// hides everything else the wrapped value has. The core must not serve it.
+type forwardingWrapper struct{ ExternalScanner }
+
+// lyingScanner is registered with payload type *modeProbe but its Create returns
+// a payload of another type that carries a mode of its own and holds the
+// payload that should have been returned.
+type lyingScanner struct{}
+
+type opaqueModePayload struct {
+	scanmode.Flag
+	inner any
+}
+
+func (lyingScanner) Create() any                           { return &opaqueModePayload{inner: &modeProbe{}} }
+func (lyingScanner) Destroy(any)                           {}
+func (lyingScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+func (lyingScanner) Serialize(any, []byte) int             { return 0 }
+func (lyingScanner) Deserialize(any, []byte)               {}
+
+// unregisteredScanner is not on the list.
+type unregisteredScanner struct{ modeProbeScanner }
+
+// TestCcoreAdapterTurnsCFaithfulModeOn: the mode is on while the core uses a
+// payload and off after release.
+func TestCcoreAdapterTurnsCFaithfulModeOn(t *testing.T) {
+	p := &modeProbe{}
+	a, _, _ := scanThroughCore(t, modeProbeScanner{payload: p}, []bool{true})
+	if !p.on {
+		t.Fatalf("payload mode on=%v while the core uses it, want true", p.on)
+	}
+	a.close()
+	if p.on {
+		t.Fatal("the mode is still on after the core released the payload")
+	}
+}
+
+// TestModeReachesInnermostPayloadThroughOrderAdapters: zero to three order adapters.
+func TestModeReachesInnermostPayloadThroughOrderAdapters(t *testing.T) {
+	for layers := 0; layers <= 3; layers++ {
+		p := &modeProbe{}
+		var sc ExternalScanner = modeProbeScanner{payload: p}
+		for i := 0; i < layers; i++ {
+			sc = identityOrderAdapter(sc)
+		}
+		a, _, _ := scanThroughCore(t, sc, []bool{true})
+		if !p.on {
+			t.Errorf("%d layers: the mode did not reach the innermost payload", layers)
+		}
+		a.close()
+		if p.on {
+			t.Errorf("%d layers: the mode is on after close", layers)
+		}
+	}
+}
+
+// TestBindingFailsForScannersAndPayloadsThatAreNotKnown: nothing is discovered. A
+// scanner that is not registered, a struct that embeds a registered scanner and
+// forwards only the scanner methods, a wrapper of another type around an adapter,
+// and a registered scanner whose payload is not the registered type (even one that
+// carries a mode of its own) all fail binding with a named reason.
+func TestBindingFailsForScannersAndPayloadsThatAreNotKnown(t *testing.T) {
+	probe := func() ExternalScanner { return modeProbeScanner{payload: &modeProbe{}} }
+	cases := map[string]struct {
+		sc   ExternalScanner
+		want string
+	}{
+		"unregistered scanner":         {unregisteredScanner{}, errScannerNotRegistered},
+		"embedding wrapper":            {forwardingWrapper{probe()}, errScannerNotRegistered},
+		"order(embedding wrapper)":     {identityOrderAdapter(forwardingWrapper{probe()}), errScannerNotRegistered},
+		"embedding wrapper(order)":     {forwardingWrapper{identityOrderAdapter(probe())}, errScannerNotRegistered},
+		"nil adapter inner":            {&externalScannerOrderAdapter{}, errScannerNil},
+		"payload of another type":      {lyingScanner{}, errPayloadNotRegistered},
+		"order(payload another type)":  {identityOrderAdapter(lyingScanner{}), errPayloadNotRegistered},
+		"needs a mode, payload is nil": {modeProbeScanner{}, errScanModeNotDelivered},
+	}
+	for name, c := range cases {
+		if _, err := newCcoreExtScanner(c.sc); err == nil || err.Error() != c.want {
+			t.Errorf("%s: bind error %v, want %q", name, err, c.want)
+		}
+	}
+	if _, err := ccoreConfig(&Language{ExternalScanner: unregisteredScanner{}}); err == nil {
+		t.Error("ccoreConfig must fail for an unknown scanner")
+	}
+}
+
+// TestRunPathPanicsWithTheNamedReasonWhenTheChainIsNotKnown: even if a scanner got
+// past the bind check, the core adapter does not run it: the first scan panics with
+// the named reason.
+func TestRunPathPanicsWithTheNamedReasonWhenTheChainIsNotKnown(t *testing.T) {
+	a := &ccoreExtScanner{sc: lyingScanner{}, reg: scanmode.Registered{Payload: reflect.TypeOf((*modeProbe)(nil)), NeedsMode: true}, layers: 0}
+	defer func() {
+		if r := recover(); r != errPayloadNotRegistered {
+			t.Fatalf("recovered %v, want the named reason", r)
+		}
+	}()
+	a.scan([]byte("x"), 0, 0, 0, nil, []bool{true}, make([]byte, 16), new(ccore.ExtScan))
+	t.Fatal("scan returned")
+}
+
+// pooledScanner keeps a free list of payloads, as a scanner might: Destroy
+// publishes the payload, Create takes it back.
+type pooledScanner struct {
+	pool *[]*modeProbe
+	// onInDestroy, when set, records the payload's mode as Destroy starts, before
+	// the payload is published.
+	onInDestroy *[]bool
+}
+
+func (s pooledScanner) Create() any {
+	if n := len(*s.pool); n > 0 {
+		p := (*s.pool)[n-1]
+		*s.pool = (*s.pool)[:n-1]
+		return p
+	}
+	return &modeProbe{}
+}
+func (s pooledScanner) Destroy(p any) {
+	if s.onInDestroy != nil {
+		*s.onInDestroy = append(*s.onInDestroy, p.(*modeProbe).on)
+	}
+	*s.pool = append(*s.pool, p.(*modeProbe))
+}
+func (pooledScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+func (pooledScanner) Serialize(any, []byte) int             { return 0 }
+func (pooledScanner) Deserialize(any, []byte)               {}
+
+// panicScanner panics in Scan.
+type panicScanner struct{ pooledScanner }
+
+func (panicScanner) Scan(any, *ExternalLexer, []bool) bool { panic("scanner failure") }
+
+// TestPayloadUsedByTheCoreHasTheModeOffForTheDefaultEngine: after a core parse ends
+// by close or by a panic in the scanner, the payload that the scanner pooled and the
+// default engine then obtains has the mode off.
+func TestPayloadUsedByTheCoreHasTheModeOffForTheDefaultEngine(t *testing.T) {
+	var pool []*modeProbe
+	var onInDestroy []bool
+	base := pooledScanner{pool: &pool, onInDestroy: &onInDestroy}
+	check := func(name string) {
+		t.Helper()
+		if len(pool) != 1 {
+			t.Fatalf("%s: %d payloads pooled, want 1", name, len(pool))
+		}
+		// The mode must already be off when Destroy publishes the payload.
+		if len(onInDestroy) == 0 {
+			t.Fatalf("%s: Destroy was not reached", name)
+		}
+		for _, on := range onInDestroy {
+			if on {
+				t.Fatalf("%s: the mode was on inside Destroy (before the payload was published): %v", name, onInDestroy)
+			}
+		}
+		if got := base.Create().(*modeProbe); got.on {
+			t.Errorf("%s: the default engine received a payload with the mode on", name)
+		}
+	}
+	a, _, _ := scanThroughCore(t, identityOrderAdapter(base), []bool{true})
+	a.close()
+	check("close")
+	func() {
+		defer func() { _ = recover() }()
+		a, err := newCcoreExtScanner(identityOrderAdapter(panicScanner{base}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.scan([]byte("x"), 0, 0, 0, nil, []bool{true}, make([]byte, 16), new(ccore.ExtScan))
+	}()
+	check("panic")
+}
+
+// panickyProbe sets its flag and then panics when the mode is turned on.
+type panickyProbe struct{ on bool }
+
+func (p *panickyProbe) SetCFaithful(on bool) {
+	p.on = on
+	if on {
+		panic("mode entry failure")
+	}
+}
+
+// panickyEntryScanner pools its payload and records destruction.
+type panickyEntryScanner struct {
+	payload   *panickyProbe
+	destroyed *int
+}
+
+func (s panickyEntryScanner) Create() any                         { return s.payload }
+func (s panickyEntryScanner) Destroy(any)                         { *s.destroyed++ }
+func (panickyEntryScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+func (panickyEntryScanner) Serialize(any, []byte) int             { return 0 }
+func (panickyEntryScanner) Deserialize(any, []byte)               {}
+
+// TestPanicDuringModeEntryLeavesFlagsOffAndDestroysThePayload: at bind time and in
+// the scan hook, a panic while the mode is turned on, alone or behind adapters,
+// leaves the flag off and the payload destroyed.
+func TestPanicDuringModeEntryLeavesFlagsOffAndDestroysThePayload(t *testing.T) {
+	for _, layers := range []int{0, 2} {
+		build := func(p *panickyProbe, destroyed *int) ExternalScanner {
+			var sc ExternalScanner = panickyEntryScanner{payload: p, destroyed: destroyed}
+			for i := 0; i < layers; i++ {
+				sc = identityOrderAdapter(sc)
+			}
+			return sc
+		}
+		// bind time
+		p, destroyed := &panickyProbe{}, new(int)
+		func() {
+			defer func() { _ = recover() }()
+			newCcoreExtScanner(build(p, destroyed))
+		}()
+		if p.on || *destroyed != 1 {
+			t.Errorf("%d layers, bind: flag on=%v destroyed=%d, want off and 1", layers, p.on, *destroyed)
+		}
+		// scan hook
+		p, destroyed = &panickyProbe{}, new(int)
+		a := &ccoreExtScanner{sc: build(p, destroyed), reg: scanmode.Registered{Payload: reflect.TypeOf((*panickyProbe)(nil)), NeedsMode: true}, layers: layers}
+		func() {
+			defer func() { _ = recover() }()
+			a.scan([]byte("x"), 0, 0, 0, nil, []bool{true}, make([]byte, 16), new(ccore.ExtScan))
+		}()
+		if p.on || *destroyed != 1 {
+			t.Errorf("%d layers, scan: flag on=%v destroyed=%d, want off and 1", layers, p.on, *destroyed)
+		}
+	}
+}
+
+// emittingScanner has one behaviour, no mode and no payload: it returns result
+// symbol sym whatever the valid-symbol mask says, as a C scanner may.
+type emittingScanner struct{ sym Symbol }
+
+func (emittingScanner) Create() any               { return nil }
+func (emittingScanner) Destroy(any)               {}
+func (emittingScanner) Serialize(any, []byte) int { return 0 }
+func (emittingScanner) Deserialize(any, []byte)   {}
+func (s emittingScanner) Scan(_ any, l *ExternalLexer, _ []bool) bool {
+	l.SetResultSymbol(s.sym)
+	l.MarkEnd()
+	return true
+}
+
+// mappedAdapter has two source externals (symbols 5 and 6) and one target
+// external (symbol 9): source 5 maps to target 9; source 6 has no target and keeps
+// only the identity entry that the adapter adds for unmatched externals.
+func mappedAdapter(inner ExternalScanner) *externalScannerOrderAdapter {
+	return &externalScannerOrderAdapter{
+		inner:                inner,
+		targetToSource:       []int{0},
+		sourceCount:          2,
+		sourceSymbolToIndex:  map[Symbol]int{5: 0, 6: 1},
+		sourceResultToTarget: map[Symbol]Symbol{5: 9, 6: 6},
+	}
+}
+
+// identityOverMapped wraps a mappedAdapter in a second layer that maps the first
+// layer's target external (symbol 9) to itself.
+func identityOverMapped(inner ExternalScanner) *externalScannerOrderAdapter {
+	return &externalScannerOrderAdapter{
+		inner:                inner,
+		targetToSource:       []int{0},
+		sourceCount:          1,
+		sourceSymbolToIndex:  map[Symbol]int{9: 0},
+		sourceResultToTarget: map[Symbol]Symbol{9: 9},
+	}
+}
+
+// TestOrderAdapterPassThroughDependsOnlyOnTheCoreBeingTheCaller: a scanner with one
+// behaviour and no mode (nothing to turn on) returns a symbol while the validity
+// mask is false or true. The default engine keeps a result only when its bit was
+// true. The core keeps a mapped result whatever the bit and drops a source symbol
+// with no target external; through one and two layers.
+func TestOrderAdapterPassThroughDependsOnlyOnTheCoreBeingTheCaller(t *testing.T) {
+	for _, layers := range []int{1, 2} {
+		build := func(sym Symbol) ExternalScanner {
+			var sc ExternalScanner = mappedAdapter(emittingScanner{sym: sym})
+			if layers == 2 {
+				sc = identityOverMapped(sc)
+			}
+			return sc
+		}
+		for _, bit := range []bool{false, true} {
+			for _, sym := range []Symbol{5, 6} {
+				sc := build(sym)
+				got := sc.Scan(sc.Create(), newExternalLexer([]byte("x"), 0, 0, 0), []bool{bit})
+				if want := sym == 5 && bit; got != want {
+					t.Errorf("%d layers, symbol %d, bit %v: default engine accepted=%v, want %v", layers, sym, bit, got, want)
+				}
+			}
+			a, out, ok := scanThroughCore(t, build(5), []bool{bit})
+			if !ok || out.Token.Symbol != 9 {
+				t.Errorf("%d layers, bit %v: the core lost a mapped result (ok=%v symbol %d, want 9)", layers, bit, ok, out.Token.Symbol)
+			}
+			a.close()
+			a, _, ok = scanThroughCore(t, build(6), []bool{bit})
+			if ok {
+				t.Errorf("%d layers, bit %v: the core accepted a source symbol with no target mapping", layers, bit)
+			}
+			a.close()
+		}
+	}
+}
+
+// TestOrderAdapterDefaultPathKeepsTheValidityRule: for a payload the core never
+// marked, the adapter accepts a result exactly when the symbol is mapped and its
+// validity bit was true, for every combination.
+func TestOrderAdapterDefaultPathKeepsTheValidityRule(t *testing.T) {
+	for _, sym := range []Symbol{5, 6, 7} {
+		for _, bit := range []bool{false, true} {
+			sc := mappedAdapter(emittingScanner{sym: sym})
+			_, exists := sc.sourceResultToTarget[sym]
+			idx, known := sc.sourceSymbolToIndex[sym]
+			want := exists && known && idx == 0 && bit
+			got := sc.Scan(sc.Create(), newExternalLexer([]byte("x"), 0, 0, 0), []bool{bit})
+			if got != want {
+				t.Errorf("symbol %d, validity bit %v: accepted=%v, want %v", sym, bit, got, want)
+			}
+		}
+	}
+}
+
+// recordingScanner counts lifecycle calls and keeps the bytes it was given.
+type recordingScanner struct {
+	nilPayload bool
+	log        *[]string
+	saved      *[]byte
+}
+
+func (s recordingScanner) Create() any {
+	*s.log = append(*s.log, "create")
+	return nil
+}
+func (s recordingScanner) Destroy(any) { *s.log = append(*s.log, "destroy") }
+func (s recordingScanner) Serialize(_ any, buf []byte) int {
+	*s.log = append(*s.log, "serialize")
+	return copy(buf, []byte{1, 2, 3})
+}
+func (s recordingScanner) Deserialize(_ any, buf []byte) {
+	*s.log = append(*s.log, "deserialize")
+	*s.saved = append([]byte(nil), buf...)
+}
+func (recordingScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+
+// TestWrappedLifecycleCallsReachTheInnerScannerOnce: Serialize, Deserialize and
+// Destroy through three layers each reach the innermost scanner exactly once with
+// the right bytes.
+func TestWrappedLifecycleCallsReachTheInnerScannerOnce(t *testing.T) {
+	var log []string
+	var saved []byte
+	sc := ExternalScanner(identityOrderAdapter(identityOrderAdapter(identityOrderAdapter(recordingScanner{log: &log, saved: &saved}))))
+	p := sc.Create()
+	sc.Deserialize(p, []byte{7, 8})
+	buf := make([]byte, 8)
+	n := sc.Serialize(p, buf)
+	sc.Destroy(p)
+	if !bytes.Equal(buf[:n], []byte{1, 2, 3}) || !bytes.Equal(saved, []byte{7, 8}) {
+		t.Errorf("saved %v, restored %v", buf[:n], saved)
+	}
+	if want := []string{"create", "deserialize", "serialize", "destroy"}; !reflect.DeepEqual(log, want) {
+		t.Errorf("inner calls %v, want %v", log, want)
+	}
+}
+
+// offPanicProbe takes the mode and panics when it is switched off. The flag is
+// cleared first in one scanner (clearsThenPanicsScanner) and left on in the other
+// (panicsBeforeClearingScanner), as a defective port might.
+type offPanicProbe struct {
+	on        bool
+	clearsOff bool
+	offCalls  int
+}
+
+func (p *offPanicProbe) SetCFaithful(on bool) {
+	if on {
+		p.on = true
+		return
+	}
+	p.offCalls++
+	if p.clearsOff {
+		p.on = false
+	}
+	panic("mode exit failure")
+}
+
+type clearsThenPanicsScanner struct {
+	payload   *offPanicProbe
+	destroyed *int
+	calls     *int // Create, Deserialize and Scan calls
+}
+
+func (s clearsThenPanicsScanner) Create() any {
+	*s.calls++
+	s.payload.clearsOff = true
+	return s.payload
+}
+func (s clearsThenPanicsScanner) Destroy(any)                           { *s.destroyed++ }
+func (s clearsThenPanicsScanner) Scan(any, *ExternalLexer, []bool) bool { *s.calls++; return false }
+func (clearsThenPanicsScanner) Serialize(any, []byte) int               { return 0 }
+func (s clearsThenPanicsScanner) Deserialize(any, []byte)               { *s.calls++ }
+
+type panicsBeforeClearingScanner struct {
+	payload   *offPanicProbe
+	destroyed *int
+	calls     *int
+}
+
+func (s panicsBeforeClearingScanner) Create() any                           { *s.calls++; return s.payload }
+func (s panicsBeforeClearingScanner) Destroy(any)                           { *s.destroyed++ }
+func (s panicsBeforeClearingScanner) Scan(any, *ExternalLexer, []bool) bool { *s.calls++; return false }
+func (panicsBeforeClearingScanner) Serialize(any, []byte) int               { return 0 }
+func (s panicsBeforeClearingScanner) Deserialize(any, []byte)               { *s.calls++ }
+
+// TestPanicWhileSwitchingTheModeOffEndsCleanupAndStillDestroys: a setter that panics
+// when the mode goes off (after clearing its flag, or before) must not make cleanup
+// retry it: the walk ends, Destroy is reached once, the setter is called once, and
+// the failure is reported with its named reason, at bind time and when the core
+// releases a payload it used.
+func TestPanicWhileSwitchingTheModeOffEndsCleanupAndStillDestroys(t *testing.T) {
+	builders := map[string]func(p *offPanicProbe, destroyed, calls *int) ExternalScanner{
+		"clears then panics":     func(p *offPanicProbe, d, c *int) ExternalScanner { return clearsThenPanicsScanner{p, d, c} },
+		"panics before clearing": func(p *offPanicProbe, d, c *int) ExternalScanner { return panicsBeforeClearingScanner{p, d, c} },
+	}
+	within := func(name string, f func()) {
+		t.Helper()
+		done := make(chan struct{})
+		go func() { defer close(done); f() }()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s: cleanup did not end", name)
+		}
+	}
+	for name, build := range builders {
+		for _, layers := range []int{0, 2} {
+			wrap := func(sc ExternalScanner) ExternalScanner {
+				for i := 0; i < layers; i++ {
+					sc = identityOrderAdapter(sc)
+				}
+				return sc
+			}
+			// bind time
+			p, destroyed, calls := &offPanicProbe{}, new(int), new(int)
+			var err error
+			within(name+" bind", func() { _, err = newCcoreExtScanner(wrap(build(p, destroyed, calls))) })
+			if err == nil || err.Error() != errModeNotReset {
+				t.Errorf("%s, %d layers, bind: error %v, want %q", name, layers, err, errModeNotReset)
+			}
+			if p.offCalls != 1 || *destroyed != 1 {
+				t.Errorf("%s, %d layers, bind: setter calls %d, Destroy calls %d, want 1 and 1", name, layers, p.offCalls, *destroyed)
+			}
+			// release of a payload the core used
+			p, destroyed, calls = &offPanicProbe{}, new(int), new(int)
+			a := &ccoreExtScanner{sc: wrap(build(p, destroyed, calls)), reg: scanmode.Registered{Payload: reflect.TypeOf((*offPanicProbe)(nil)), NeedsMode: true}, layers: layers}
+			a.scan([]byte("x"), 0, 0, 0, nil, []bool{true}, make([]byte, 16), new(ccore.ExtScan))
+			var got any
+			within(name+" close", func() {
+				defer func() { got = recover() }()
+				a.close()
+			})
+			if got != errModeNotReset {
+				t.Errorf("%s, %d layers, close: recovered %v, want %q", name, layers, got, errModeNotReset)
+			}
+			within(name+" second close", a.close)
+			// The hook is ended: a caller that recovered the panic and scans again
+			// reaches no callback of the scanner.
+			before := *calls
+			var again any
+			within(name+" scan after failed reset", func() {
+				defer func() { again = recover() }()
+				a.scan([]byte("x"), 0, 0, 0, nil, []bool{true}, make([]byte, 16), new(ccore.ExtScan))
+			})
+			if again != errModeNotReset {
+				t.Errorf("%s, %d layers: scan after a failed reset recovered %v, want %q", name, layers, again, errModeNotReset)
+			}
+			if *calls != before || *destroyed != 1 || p.offCalls != 1 {
+				t.Errorf("%s, %d layers: scan after a failed reset reached the scanner: calls %d -> %d, Destroy %d, setter %d", name, layers, before, *calls, *destroyed, p.offCalls)
+			}
+			if p.offCalls != 1 || *destroyed != 1 {
+				t.Errorf("%s, %d layers, close: setter calls %d, Destroy calls %d, want 1 and 1", name, layers, p.offCalls, *destroyed)
+			}
+		}
+	}
+}
+
+// countingProbe counts SetCFaithful calls of any value.
+type countingProbe struct{ calls int }
+
+func (p *countingProbe) SetCFaithful(bool) { p.calls++ }
+
+// noModeScanner is registered without a behavioural mode, but its payload happens
+// to have a SetCFaithful method.
+type noModeScanner struct{ payload *countingProbe }
+
+func (s noModeScanner) Create() any                         { return s.payload }
+func (noModeScanner) Destroy(any)                           {}
+func (noModeScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+func (noModeScanner) Serialize(any, []byte) int             { return 0 }
+func (noModeScanner) Deserialize(any, []byte)               {}
+
+// lyingCountingScanner is registered with payload type *modeProbe and a mode, but
+// its Create returns a *countingProbe.
+type lyingCountingScanner struct{ payload *countingProbe }
+
+func (s lyingCountingScanner) Create() any                         { return s.payload }
+func (lyingCountingScanner) Destroy(any)                           {}
+func (lyingCountingScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+func (lyingCountingScanner) Serialize(any, []byte) int             { return 0 }
+func (lyingCountingScanner) Deserialize(any, []byte)               {}
+
+// TestCleanupNeverCallsAnOptionalModeMethod: the mode method of a payload is called
+// only on the exact registered payload type of a registration that declares the
+// mode. A scanner registered without a mode never receives it, and a payload that
+// validation rejected receives nothing, at bind time and at close.
+func TestCleanupNeverCallsAnOptionalModeMethod(t *testing.T) {
+	for _, layers := range []int{0, 2} {
+		wrap := func(sc ExternalScanner) ExternalScanner {
+			for i := 0; i < layers; i++ {
+				sc = identityOrderAdapter(sc)
+			}
+			return sc
+		}
+		p := &countingProbe{}
+		a, err := newCcoreExtScanner(wrap(noModeScanner{payload: p}))
+		if err != nil {
+			t.Fatalf("%d layers: a scanner without a mode must bind: %v", layers, err)
+		}
+		a.scan([]byte("x"), 0, 0, 0, nil, []bool{true}, make([]byte, 16), new(ccore.ExtScan))
+		a.close()
+		if p.calls != 0 {
+			t.Errorf("%d layers: the mode method of a scanner registered without a mode was called %d times", layers, p.calls)
+		}
+		q := &countingProbe{}
+		if _, err := newCcoreExtScanner(wrap(lyingCountingScanner{payload: q})); err == nil || err.Error() != errPayloadNotRegistered {
+			t.Errorf("%d layers: bind error %v, want %q", layers, err, errPayloadNotRegistered)
+		}
+		if q.calls != 0 {
+			t.Errorf("%d layers: a payload rejected by validation received %d mode calls", layers, q.calls)
+		}
+	}
+}
+
+// TestRegisterScannerRejectsDuplicatesAndLateRegistrations: a registration never
+// changes: registering a type twice panics and leaves the first registration, and
+// so does registering after binding has started.
+func TestRegisterScannerRejectsDuplicatesAndLateRegistrations(t *testing.T) {
+	panics := func(f func()) (r any) {
+		defer func() { r = recover() }()
+		f()
+		return nil
+	}
+	before, ok := scanmode.Lookup(modeProbeScanner{})
+	if !ok || !before.NeedsMode {
+		t.Fatal("the test scanner is not registered with a mode")
+	}
+	if r := panics(func() { scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), false) }); r == nil || !strings.Contains(r.(string), "twice") {
+		t.Errorf("a duplicate registration: recovered %v, want the duplicate panic", r)
+	}
+	if after, _ := scanmode.Lookup(modeProbeScanner{}); after != before {
+		t.Errorf("a rejected duplicate changed the registration: %+v, was %+v", after, before)
+	}
+	// Binding starts: from here no registration is accepted.
+	if _, err := newCcoreExtScanner(modeProbeScanner{payload: &modeProbe{}}); err != nil {
+		t.Fatal(err)
+	}
+	type lateScanner struct{ modeProbeScanner }
+	if r := panics(func() { scanmode.RegisterScanner(lateScanner{}, nil, false) }); r == nil || !strings.Contains(r.(string), "after binding started") {
+		t.Errorf("a late registration: recovered %v, want the late panic", r)
+	}
+	if _, ok := scanmode.Lookup(lateScanner{}); ok {
+		t.Error("a registration after binding started took effect")
+	}
+}
+
+// pointerScanner has pointer methods that do not dereference the receiver; Create
+// counts its calls.
+type pointerScanner struct{}
+
+var pointerScannerCreates int
+
+func (*pointerScanner) Create() any                           { pointerScannerCreates++; return nil }
+func (*pointerScanner) Destroy(any)                           {}
+func (*pointerScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+func (*pointerScanner) Serialize(any, []byte) int             { return 0 }
+func (*pointerScanner) Deserialize(any, []byte)               {}
+
+// TestBindingRefusesANilScannerValueBeforeCreate: a nil interface, a typed nil
+// scanner and an adapter without an inner scanner are refused with the named
+// reason, directly and under adapters, without calling Create.
+func TestBindingRefusesANilScannerValueBeforeCreate(t *testing.T) {
+	var typedNil *pointerScanner
+	var nilScanner ExternalScanner
+	cases := map[string]ExternalScanner{
+		"nil interface":              nilScanner,
+		"typed nil":                  typedNil,
+		"adapter(typed nil)":         identityOrderAdapter(typedNil),
+		"adapter(adapter(typed))":    identityOrderAdapter(identityOrderAdapter(typedNil)),
+		"adapter(nil interface)":     &externalScannerOrderAdapter{},
+		"typed nil adapter":          (*externalScannerOrderAdapter)(nil),
+		"adapter(typed nil adapter)": identityOrderAdapter((*externalScannerOrderAdapter)(nil)),
+	}
+	for name, sc := range cases {
+		if _, err := newCcoreExtScanner(sc); err == nil || err.Error() != errScannerNil {
+			t.Errorf("%s: bind error %v, want %q", name, err, errScannerNil)
+		}
+	}
+	if pointerScannerCreates != 0 {
+		t.Errorf("Create was called %d times on a nil scanner value", pointerScannerCreates)
+	}
+	// A non-nil value of the same registered type binds.
+	if _, err := newCcoreExtScanner(&pointerScanner{}); err != nil {
+		t.Errorf("a non-nil value of the registered type must bind: %v", err)
+	}
+}
+
+// destroyPanicScanner panics in Scan, and in Destroy once armed.
+type destroyPanicScanner struct {
+	destroyed *int
+	armed     *bool
+}
+
+func (destroyPanicScanner) Create() any { return &modeProbe{} }
+func (s destroyPanicScanner) Destroy(any) {
+	*s.destroyed++
+	if *s.armed {
+		panic("destroy failure")
+	}
+}
+func (destroyPanicScanner) Scan(any, *ExternalLexer, []bool) bool { panic("scanner failure") }
+func (destroyPanicScanner) Serialize(any, []byte) int             { return 0 }
+func (destroyPanicScanner) Deserialize(any, []byte)               {}
+
+// TestScanPanicThenDestroyPanicDestroysTheRuntimePayloadOnce: a scan panics, the
+// panic handler releases the payload, Destroy publishes it and panics; the parser's
+// own deferred release must not destroy the payload a second time.
+func TestScanPanicThenDestroyPanicDestroysTheRuntimePayloadOnce(t *testing.T) {
+	for _, layers := range []int{0, 2} {
+		destroyed, armed := new(int), new(bool)
+		var sc ExternalScanner = destroyPanicScanner{destroyed: destroyed, armed: armed}
+		for i := 0; i < layers; i++ {
+			sc = identityOrderAdapter(sc)
+		}
+		a, err := newCcoreExtScanner(sc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		*destroyed, *armed = 0, true // the bind probe has been destroyed; count the runtime payload
+		var got any
+		func() {
+			defer func() { got = recover() }()
+			a.scan([]byte("x"), 0, 0, 0, nil, []bool{true}, make([]byte, 16), new(ccore.ExtScan))
+		}()
+		if got != "destroy failure" {
+			t.Fatalf("%d layers: recovered %v, want the destruction failure", layers, got)
+		}
+		func() { // the parser's deferred release
+			defer func() { _ = recover() }()
+			a.close()
+		}()
+		if *destroyed != 1 {
+			t.Errorf("%d layers: Destroy was attempted %d times for one payload, want 1", layers, *destroyed)
+		}
 	}
 }

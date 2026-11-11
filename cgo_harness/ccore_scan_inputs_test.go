@@ -133,6 +133,7 @@ func ccoreExtraFiles(lang string) []string {
 			ccoreFrozen + "python/scripts__test_w5_private_oracle.py",
 			ccoreFrozen + "python/scripts__test_w5_private_oracle_parent.py",
 			ccoreFrozen + "python/scripts__w5_private_oracle.py",
+			ccoreFrozen + "python/scanner_state_indents.py",
 		}
 	case "bash":
 		return []string{"testdata/incremental_gate/bash_clean_old.sh", "testdata/compact_converged_split/bash.sh"}
