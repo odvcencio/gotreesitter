@@ -15,7 +15,7 @@ import (
 )
 
 // This file implements the R2 "census and remove inert language passes" step
-// of docs/root-normalization-retirement.md for the per-language
+// of https://github.com/odvcencio/gotreesitter/blob/9c955f3d29b126973da657124438f7c0aeddce5b/docs/root-normalization-retirement.md for the per-language
 // result-normalization dispatcher (runLanguageResultCompatibility's switch in
 // parser_result_compat.go), which is registered as "dispatcher_arm" /
 // "dispatcher_predicate" entries in testdata/result_compat_ownership_v1.json.
@@ -119,7 +119,7 @@ func parseRealCorpusFile(entry grammars.LangEntry, backend grammars.ParseBackend
 // This is a receipt, not a gate: it does not assert zero rewrites, and it
 // does not delete anything. Turning an INERT receipt into a deletion needs
 // the production, compact, forest, incremental, and C-oracle route parity
-// the retirement plan requires (docs/root-normalization-retirement.md, R2).
+// the retirement plan requires (https://github.com/odvcencio/gotreesitter/blob/9c955f3d29b126973da657124438f7c0aeddce5b/docs/root-normalization-retirement.md, R2).
 func TestDispatcherArmCensusOverRealCorpus(t *testing.T) {
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 

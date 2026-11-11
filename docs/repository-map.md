@@ -10,7 +10,7 @@ The facade preserves the public application programming interface (API).
 Use one pull request (PR) per lane, as the design requires.
 
 The tables below describe current ownership. They do not claim that the planned moves have landed.
-Use [package-layout.md](package-layout.md) to find current files by subsystem.
+Use the [root file-name prefix tables](#root-file-name-prefixes) to find current files by subsystem.
 
 ## Layout phases and root budget
 
@@ -58,11 +58,133 @@ Provide internal helpers for scanner tests that use `go:linkname` before moving 
 | Allocation and storage | `arena*.go`, `raw_shape*.go`, `no_tree_node.go`, `node_field_metadata.go` | Arena lifetime, compact/raw node storage, and memory accounting |
 
 The result-compatibility tier has its own retirement rules in
-[compat-tier.md](compat-tier.md), with the ordered root-cleanup program in
-[root-normalization-retirement.md](root-normalization-retirement.md). External
+[compat-tier.md](compat-tier.md). External
 scanner certification and fallback policy live in
-[external-scanners.md](external-scanners.md). Compact admission breadth is
-tracked in [compact-route-coverage-census.md](compact-route-coverage-census.md).
+[external-scanners.md](external-scanners.md).
+
+## Root file-name prefixes
+
+The root `gotreesitter` package holds the engine and the public API in one package, so a reader finds a file by its name prefix. The tables map each prefix to what it owns. They are orientation, not a package boundary; the prefixes group by naming convention. Use `rg` for the references to a symbol, or `git log -p -- <file>`, instead of guessing from a prefix.
+
+### Lexer and token sources
+
+| Prefix | Owns |
+| --- | --- |
+| `lexer*` | The DFA lexer, `Token` and `Point`, and included-range positioning in the lexer |
+| `token*` | Token-invariant proofs and their dependencies (reuse of tokens across edits); `Token` itself is declared in `lexer.go` and `TokenSource` in `parser_api.go` |
+| `external*` | External-scanner state, lexer, adapters, checkpoints, quiescence, and symbol resolution |
+| `scanner*` | Scanner checkpoint and reuse tests (no production file) |
+| `utf16*` | UTF-16 code-unit input and coordinate conversion |
+
+### Parser core (scheduler, reductions, retries)
+
+| Prefix | Owns |
+| --- | --- |
+| `parser_api*`, `parser_pool*`, `parser_config*` | Public parser construction, pooling, and configuration |
+| `parser_reduce*` | Reduction application and ownership |
+| `parser_recover*`, `parser_recovery*` | Recovery election, costs, spans, aliases, cycle-debug tracing |
+| `parser_stop*`, `parser_timeout*`, `parser_limits*`, `parser_max*` | Stop reasons, timeouts, and safety caps |
+| `parser_retry*` | Full-parse retry and certified accepted-error retry |
+| `parser_relex*`, `parser_dfa*` | The DFA token source binding (`parser_dfa_token_source.go`) and relex tests |
+| `parser_incremental*`, `parser_reuse*` | Incremental-support glue used by `incremental*.go` |
+| `parser_scratch*`, `parser_memory*`, `parser_tables*` | Parser-lifetime scratch buffers, memory accounting, table caches |
+| `parser_<language>*` (`parser_go`, `parser_typescript`, `parser_csharp`, `parser_powershell`, `parser_scala`, `parser_sql`, `parser_objc`, `parser_markdown`, `parser_html`, `parser_cpp`) | Language-specific parser regression tests that are not part of the `parser_result_*` compat tier |
+| `parsercore_phase0*` | The compact scheduler (`internal/parsercorephase0`-backed), admission, replay, and parity ratchets. It is compiled by default (the `gts_no_parsercorephase0` tag removes it); routing to it is opt-in |
+| `parsercore_c4*` | The C4 stage-2 table-shape analyzer and program/VM |
+| `ccore_*` | Adapters from a `*Language` to `internal/ccore` (`ccore_bind.go`, `ccore_scanner.go`). They export nothing |
+| `parsestate_*` | Parse-state replay and compact-differential support |
+| `work_*` | GLR/GSS work-count instrumentation, gated by `gts_workcount` |
+| `admission_switch*` | The compact-vs-production admission decision and candidate scoring |
+| `admission_census*`, `admission_scorecard*` | Admission census counters (`admission_census.go`) and scorecard tests |
+| `admission_route*` | Route-equality regression coverage between engines |
+| other `admission_*` | Targeted admission regressions (corpus, recovery, zero-width, and so on) |
+
+### GLR and forest
+
+| Prefix | Owns |
+| --- | --- |
+| `glr*` | GLR stack, GSS (`glr_gss.go`), merge, and forest identity |
+| `forest*` | Forest regression tests (cap pinning, incremental admission, scanner-width edits); the implementation is in `glr_forest*` |
+| `transient_*` | Transient reduce-parent ownership before materialization |
+| `pending_parent*`, `no_tree_node*` | Non-materialized payload representations shared by reduce-time code |
+| `conflict_*` | Conflict-policy resolution |
+| `ambiguity_profile*` | Ambiguity profiling |
+
+### Incremental parsing
+
+`Language.CompactPackedGSSVersionOrderCertified` permits certified physical
+stack-version ordering. Old-tree reuse also requires a C-equivalent frontier
+proof for that parse. `ConflictActionVersionOrderCertified` preserves the last
+conflict action's source-version priority while retaining the alternatives.
+Both flags default to false for custom languages. Unproven frontiers retain
+fresh-tree verification.
+
+| Prefix | Owns |
+| --- | --- |
+| `incremental*` | Edit application, reuse admission, splice/settle paths |
+| `w1*` | Incremental splice correctness gates (block, leading, sibling) |
+| `compact_incremental*`, `compact_nested_reuse*`, `compact_reuse*`, `compact_recovery*` | Compact-route incremental reuse and dependency proofs |
+| `oedit_*` | Differential sweep tests for leading-splice and range normalization |
+| `included_ranges*` | Injection-aware included-range tracking |
+
+### Result compatibility tier
+
+| Prefix | Owns |
+| --- | --- |
+| `parser_result*` | The C-faithful post-parse compatibility tier; see [docs/compat-tier.md](compat-tier.md) and the machine-checked registry at `testdata/result_compat_ownership_v1.json` |
+| `compat_ownership*` | Tests that check the compat-tier ownership registry and its provenance |
+
+### Query, highlight, tags, and understanding
+
+| Prefix | Owns |
+| --- | --- |
+| `query*` | Query compilation, execution, predicates, and directives |
+| `highlight*` | Highlight query execution and incremental highlight support |
+| `tagger*` | Tags-query execution |
+| `outline*` | `Outliner` symbol-outline projection |
+| `understanding*`, `fact_*` | `FactProgram` code-understanding extraction |
+| `injection*` | Multi-language injection orchestration |
+| `imports.go` | Import-fact extraction shared by understanding and tags |
+
+### Language and blob loading
+
+| Prefix | Owns |
+| --- | --- |
+| `language*` | `Language`, symbol metadata, and blob-identity caching |
+| `load_language.go`, `language_blob_envelope.go` | Blob deserialization and envelope parsing |
+| `intern*` | Node interning |
+
+### Tree, node, cursor, and rewriting
+
+| Prefix | Owns |
+| --- | --- |
+| `tree.go`, `bound_tree*` | `Tree`, `Node`, released-tree safety, and the pooled `BoundTree`. The `tree_*` files are tests |
+| `node_field_metadata.go` | The `Node` field-metadata sidecar. `Node` itself is declared in `tree.go` |
+| `cursor*` | `TreeCursor` |
+| `rewrite*` | Source-level edit collection (`Rewriter`) |
+| `missing_*` | Padding and lookahead metadata for recovery-inserted missing leaves |
+
+### Allocation and storage
+
+| Prefix | Owns |
+| --- | --- |
+| `arena*` | Slab arena allocation and lifetime |
+| `raw_shape*` | Compact/raw node storage shape |
+| `merge_event*` | GSS merge-event census |
+| `reference_atlas*` | `gts_workcount`-gated reference-atlas tracing |
+
+### Test, benchmark, and census support
+
+| Prefix | Owns |
+| --- | --- |
+| `benchmark*` | In-package benchmarks (see [BENCH.md](../BENCH.md) for the canonical results) |
+| `fuzz_*` | Fuzz targets (`go test -fuzz`) |
+| `race_*` | Race-lane build-tag stubs |
+| `perf_*` | Perf-counter and perf-metrics instrumentation |
+| `issue380_*` | Regression coverage for a specific numbered issue |
+| `large_*` | The blob wire form of large-state goto tables and its test |
+| `walk*` | Tree-walk helper and its test |
+| `runtime_audit.go` | Parser and GLR diagnostic instrumentation (`EnableRuntimeAudit`, `EnableGLREquivAudit`) |
 
 ## Package and tool directories
 

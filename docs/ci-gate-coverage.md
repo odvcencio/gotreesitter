@@ -59,13 +59,6 @@ fails the receipt. The affected files are:
 - `sql_n31v_dispatcher_blocker_receipt_test.go` (this one only logged the
   stale hash; it had no comparison to fail)
 
-`docs/root-normalization-retirement.md` keeps its historical
-`9ddb6324af...` markers unchanged. That document is a dated log of past
-receipt states. Two of its guard tests
-(`TestDartNextLiveArmReceiptDocument`, `TestCooklangNextLiveArmReceiptDocument`)
-check that the log text still contains those historical entries. Neither
-guard test hashes a live file. Lock drift never affected either one.
-
 ### Docker results and why four receipts stay out of the gate
 
 A Docker run confirmed the fix on all ten receipts against the current

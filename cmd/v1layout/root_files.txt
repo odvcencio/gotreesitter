@@ -80,8 +80,6 @@ compact_reuse_dependency.go
 compact_reuse_dependency_test.go
 compact_reuse_lazy_edit_test.go
 compact_reuse_proof_scratch_test.go
-compact_route_campaign_inventory_test.go
-compact_route_campaign_lifecycle_test.go
 compat_ownership_provenance_test.go
 compat_ownership_test.go
 conflict_policy.go
@@ -227,7 +225,6 @@ parser_api_internal_test.go
 parser_arena_density_cap_test.go
 parser_big3_incremental_correctness_test.go
 parser_cold_state.go
-parser_cold_state_recovery_telemetry.go
 parser_collapsed_child_policy.go
 parser_collapsed_child_policy_external_test.go
 parser_collapsed_child_policy_test.go
@@ -608,12 +605,8 @@ raw_shape_elision_recovery_test.go
 raw_shape_elision_test.go
 raw_shape_reclaim_test.go
 raw_shape_test.go
-recovery_runtime_detailed_common.go
 recovery_runtime_detailed_disabled.go
 recovery_runtime_detailed_disabled_test.go
-recovery_runtime_detailed_enabled.go
-recovery_runtime_detailed_enabled_test.go
-recovery_runtime_swift_telemetry_tagged_test.go
 recovery_runtime_telemetry.go
 recovery_runtime_telemetry_test.go
 reference_atlas_trace.go

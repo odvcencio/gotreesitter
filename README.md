@@ -107,7 +107,7 @@ Agents working with gotreesitter should use the [using-gotreesitter](https://git
 | Engine requirements and validation | [docs/v1-design.md](docs/v1-design.md) |
 | Docs site and playground | <https://gotreesitter.m31labs.dev>, <https://gotreesitter.m31labs.dev/playground> |
 | Root package file map and ownership | [docs/repository-map.md](docs/repository-map.md) |
-| Root-package file group map by subsystem | [docs/package-layout.md](docs/package-layout.md) |
+| Root-package file group map by subsystem | [docs/repository-map.md](docs/repository-map.md#root-file-name-prefixes) |
 | Result-compatibility tier (`parser_result_*.go`) | [docs/compat-tier.md](docs/compat-tier.md) |
 | Adding a grammar outside this repo | [docs/authoring-languages.md](docs/authoring-languages.md) |
 | External scanner certification and fallback | [docs/external-scanners.md](docs/external-scanners.md) |

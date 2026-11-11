@@ -23,8 +23,7 @@ lock change moves. It writes the lock SHA-256 into the A0 census manifest,
 then writes the manifest SHA-256 into the four `*A0ManifestSHA256` receipt
 constants under `cgo_harness`. Pass `--tracked` to refresh the four
 `*TrackedManifestSHA256` constants from the tracked census manifest. Pass
-`--check` to report drift without an edit; CI runs that mode. The script never
-edits `docs/root-normalization-retirement.md`.
+`--check` to report drift without an edit; CI runs that mode.
 
 `run_randomized_benchmarks.sh` runs the production, incremental, recovery,
 replay, compact-core, and corridor benchmarks once per explicit shuffle seed.

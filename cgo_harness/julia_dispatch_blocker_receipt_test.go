@@ -262,30 +262,6 @@ func TestJuliaDispatchBlockerReceiptRoutes(t *testing.T) {
 	}
 }
 
-func TestJuliaDispatchBlockerReceiptDocument(t *testing.T) {
-	doc, err := os.ReadFile("../docs/root-normalization-retirement.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	changelog, err := os.ReadFile("../CHANGELOG.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, marker := range []string{
-		"## 2026-08-24 Julia dispatcher blocker receipt",
-		"Status: `KEEP LIVE / NO-GO`. Keep `dispatch.julia` live.",
-		"The recovered witness flips the root error flag from false to true.",
-		"Keep `dispatch.julia` live.",
-	} {
-		if !strings.Contains(string(doc), marker) {
-			t.Fatalf("retirement document lacks marker %q", marker)
-		}
-	}
-	if !strings.Contains(string(changelog), "Recorded the unreceipted `dispatch.julia` blocker") {
-		t.Fatal("changelog lacks Julia blocker entry")
-	}
-}
-
 func juliaDispatchCheckStaticEvidence(t *testing.T, identity COracleBuildIdentity) {
 	t.Helper()
 	if identity.Contract != COracleContractVersion || identity.Transport != "cgo_parity_binding" || identity.BindingModule != COracleBindingModule || identity.BindingVersion != COracleBindingVersion || identity.BindingCommit != COracleBindingCommit || identity.RuntimeVersion != COracleRuntimeVersion || identity.RuntimeCommit != COracleRuntimeCommit || identity.RuntimeLinkage != "static_cgo_test_binary" || identity.Language != "julia" || identity.GrammarRepo != juliaGrammarRepo || identity.GrammarCommit != juliaGrammarCommit || identity.GrammarLinkage != "shared_dlopen" || identity.GrammarCompileFlags != COracleGrammarCFlags || identity.CompilerPath != "/usr/bin/cc" || identity.CompilerVersion != "cc (Debian 12.2.0-14+deb12u1) 12.2.0" || identity.GrammarArtifactSHA256 != juliaCArtifactSHA256 {

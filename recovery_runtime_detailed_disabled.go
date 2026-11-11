@@ -1,5 +1,3 @@
-//go:build !gts_recovery_telemetry
-
 package gotreesitter
 
 const recoveryRuntimeDetailedBuildEnabled = false
@@ -37,5 +35,6 @@ func (p *Parser) cCondenseAndResumeDetailed(
 	return p.cCondenseAndResume(stacks, source, ts, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, parseScratch, trackChildErrors, condenseClean...)
 }
 
-// DebugRecoveryRuntimeAttempts returns no attempt receipt in production builds.
+// DebugRecoveryRuntimeAttempts is kept for compatibility. It reports nothing
+// and returns nil in every build.
 func (p *Parser) DebugRecoveryRuntimeAttempts() RecoveryRuntimeAttempts { return nil }

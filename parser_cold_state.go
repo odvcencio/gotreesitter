@@ -1,5 +1,3 @@
-//go:build !gts_recovery_telemetry
-
 package gotreesitter
 
 // parserColdState shares the Parser's existing lazy sidecar slot between

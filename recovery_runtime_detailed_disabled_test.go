@@ -1,5 +1,3 @@
-//go:build !gts_recovery_telemetry
-
 package gotreesitter
 
 import (

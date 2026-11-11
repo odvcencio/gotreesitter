@@ -10,8 +10,7 @@
 #      becomes the *TrackedManifestSHA256 constant in the same four tests.
 # Every hash is the plain SHA-256 of the file bytes.
 #
-# The script edits only the files listed below. It never touches
-# docs/root-normalization-retirement.md, which is a historical log.
+# The script edits only the files listed below.
 #
 # Usage:
 #   scripts/refresh_a0_manifest_cascade.sh             rewrite stale values

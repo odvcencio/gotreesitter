@@ -198,40 +198,6 @@ func TestCooklangNextLiveArmLockedCRoutes(t *testing.T) {
 	}
 }
 
-// TestCooklangNextLiveArmReceiptDocument guards the blocker receipt markers.
-func TestCooklangNextLiveArmReceiptDocument(t *testing.T) {
-	raw, err := os.ReadFile("../docs/root-normalization-retirement.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	document := strings.Join(strings.Fields(string(raw)), " ")
-	for _, marker := range []string{
-		"The Cooklang dispatcher arm remains live.",
-		"Evidence base: `7498a678c52029a82f312e9637ecb66b15defa0b`. Publication base: `675697a1144fad306489c5142aedaae0825545d9`.",
-		"The grammar lock SHA-256 is `9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb`.",
-		"The embedded Go grammar blob SHA-256 is `2fd57f20461bcc0830fd14420cd06ad08750dd3cbbc440670e63056d59b3692a`.",
-		"The A0 (authenticated dispatcher census) manifest has 14 languages, 42 files, and 14 receipts. Cooklang has three files, three checked, three run, 1037 nodes visited, 1021 rewrites, two error roots, and zero parse errors.",
-		"The tracked census has seven fixtures across six languages. It omits Cooklang. Its aggregate has nine checked, nine run, 26022 nodes visited, 2107 rewrites, and zero error roots. The authenticated real-corpus census is unavailable.",
-		"The worktree lacks `cgo_harness/corpus_real`, `corpus_sources.lock`, and `cgo_harness/perf_scan/corpus_sources.lock`.",
-		"The three raw-digest controls from rejected pull request (PR) #793 are retained.",
-		"The focused receipt covers nine witnesses. It covers raw, production, compact, forest, incremental, and locked-C routes.",
-		"Every Go tree reports `NativeRecoveredStructureAuthoritative=false`.",
-		"Forest declines seven witnesses and accepts two controls.",
-		"Compact falls back for seven witnesses. It accepts the clean and no-op controls.",
-		"A fallback keeps the routed counter unchanged and increments the fallback counter by one.",
-		"Incremental parsing reports `external_scanner_unsupported` for every witness. It reuses zero subtrees and zero bytes.",
-		"Forest returns nil when it declines and returns a non-nil tree when it accepts.",
-		"The successful focused Docker route receipt is under `/tmp/gts-n31i-cooklang-rebased-artifacts/20260823T105932Z-final-rebased-routes`.",
-		"The successful document guard receipt is under `/tmp/gts-n31i-cooklang-rebased-artifacts/20260823T105956Z-final-rebased-document`.",
-		"Keep dispatch.cooklang live until scheduler_action_semantics emits the locked-C tree on every route.",
-	} {
-		marker = strings.Join(strings.Fields(marker), " ")
-		if !strings.Contains(document, marker) {
-			t.Fatalf("Cooklang blocker receipt lacks marker %q", marker)
-		}
-	}
-}
-
 func cooklangNextWitnesses(t *testing.T) []cooklangNextWitness {
 	t.Helper()
 	pass := func(rewritten uint64) *cooklangNextPass {

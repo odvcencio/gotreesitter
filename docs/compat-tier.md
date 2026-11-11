@@ -30,8 +30,7 @@ interpolated-call, Bash generated-command assignment, Ninja recovery, and
 Ledger recovery, and JSDoc recovery arms.
 The bitbake, corn, dtd, templ, and wolfram arms are retired; see
 [inert arms](#current-progress-inert-arms). The 2026-08-22 normalization
-checkpoint kept the DTD entry live at that time. See the
-[checkpoint receipt](root-normalization-retirement.md#2026-08-22-normalization-checkpoint).
+checkpoint kept the DTD entry live at that time.
 The registry covers
 only this documented internal result-compatibility tier. Scheduler experiments
 and other engine research belong in their owning subsystem's durable traces.
@@ -46,7 +45,7 @@ token. The JavaScript arm remains live for its other registered repairs.
 Generic reduction preserves the hidden named Kotlin call wrapper. The Kotlin
 arm remains live for its other registered repairs.
 
-R2 of `docs/root-normalization-retirement.md` retired three dispatcher arms:
+The R2 step of the retirement program retired three dispatcher arms:
 OCaml's collapsed named-leaf restoration, Ruby's top-level module bound
 shrink, and half of HTML's arm (the ERROR-root nested-custom-tag
 reconstruction). At that checkpoint, HTML's range function stayed live.

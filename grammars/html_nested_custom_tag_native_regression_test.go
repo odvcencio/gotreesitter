@@ -9,7 +9,7 @@ import (
 
 // TestHTMLNestedCustomTagReconstructionRetiredDispatchArm is the R2
 // retirement receipt for dispatch.html
-// (docs/root-normalization-retirement.md,
+// (https://github.com/odvcencio/gotreesitter/blob/9c955f3d29b126973da657124438f7c0aeddce5b/docs/root-normalization-retirement.md,
 // testdata/result_compat_ownership_v1.json).
 // normalizeHTMLRecoveredNestedCustomTags (parser_result_html.go, now
 // deleted) rebuilt a flat ERROR root of bare unclosed start_tag siblings
