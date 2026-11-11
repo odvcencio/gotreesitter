@@ -166,55 +166,292 @@ func extractKeywordCaptureToken(source string, enums map[string]int) (SymbolID, 
 	return 0, false
 }
 
+// characterRangeDeclRe matches the head of a character range array as the
+// tree-sitter generator writes it: at the start of a line, one of three
+// storage prefixes, the type, one array name, empty brackets and the opening
+// brace. Group 1 is the prefix and group 2 is the array name. It is applied
+// to a copy of the source in which comments and the bodies of string and
+// character literals are blanked.
+var characterRangeDeclRe = regexp.MustCompile(`(?m)^(static const |static |const )TSCharacterRange ([A-Za-z_][A-Za-z0-9_]*)\[\] = \{`)
+
+// characterRangeTypeRe matches the type name as a whole identifier.
+var characterRangeTypeRe = regexp.MustCompile(`\bTSCharacterRange\b`)
+
+// characterRangeArray is one array read from a parser.c.
+type characterRangeArray struct {
+	name   string
+	offset int // byte offset of the declaration
+	ranges []lexRange
+}
+
+// precheckCharacterRangeSource refuses text that changes the meaning of the
+// source before comments and tokens are recognized: a backslash followed by a
+// line break, a NUL byte, a carriage return that does not start a CRLF pair,
+// and a trigraph. The error gives the byte offset and no array name.
+func precheckCharacterRangeSource(source string) error {
+	for i := 0; i < len(source); i++ {
+		switch source[i] {
+		case '\\':
+			if i+1 < len(source) && (source[i+1] == '\n' || source[i+1] == '\r') {
+				return fmt.Errorf("byte offset %d: a backslash followed by a line break is not supported", i)
+			}
+		case 0:
+			return fmt.Errorf("byte offset %d: NUL byte", i)
+		case '\r':
+			if i+1 >= len(source) || source[i+1] != '\n' {
+				return fmt.Errorf("byte offset %d: carriage return without a line feed", i)
+			}
+		case '?':
+			if i+2 < len(source) && source[i+1] == '?' && strings.IndexByte("=/'()!<>-", source[i+2]) >= 0 {
+				return fmt.Errorf("byte offset %d: trigraph", i)
+			}
+		}
+	}
+	return nil
+}
+
+// blankCommentsAndLiterals returns a copy of source with the same length in
+// which every comment, and the characters between the quotes of every string
+// and character literal, are replaced by spaces (line feeds stay). Byte
+// offsets are therefore the same as in source. It returns an error that gives
+// the byte offset when a comment or literal is not closed.
+func blankCommentsAndLiterals(source string) (string, error) {
+	out := []byte(source)
+	blank := func(from, to int) {
+		for k := from; k < to; k++ {
+			if out[k] != '\n' && out[k] != '\r' {
+				out[k] = ' '
+			}
+		}
+	}
+	for i := 0; i < len(source); {
+		switch c := source[i]; {
+		case c == '/' && i+1 < len(source) && source[i+1] == '/':
+			end := strings.IndexByte(source[i:], '\n')
+			if end < 0 {
+				end = len(source) - i
+			}
+			blank(i, i+end)
+			i += end
+		case c == '/' && i+1 < len(source) && source[i+1] == '*':
+			end := strings.Index(source[i+2:], "*/")
+			if end < 0 {
+				return "", fmt.Errorf("byte offset %d: comment is not closed", i)
+			}
+			blank(i, i+end+4)
+			i += end + 4
+		case c == '"' || c == '\'':
+			if c == '\'' && i > 0 && isIdentPart(source[i-1]) {
+				return "", fmt.Errorf("byte offset %d: an apostrophe after a letter, digit or underscore (a digit separator or a prefixed character literal) is not supported", i)
+			}
+			j := i + 1
+			for j < len(source) && source[j] != c {
+				if source[j] == '\n' {
+					return "", fmt.Errorf("byte offset %d: quoted literal is not closed", i)
+				}
+				if source[j] == '\\' {
+					j++
+				}
+				j++
+			}
+			if j >= len(source) {
+				return "", fmt.Errorf("byte offset %d: quoted literal is not closed", i)
+			}
+			blank(i+1, j)
+			i = j + 1
+		default:
+			i++
+		}
+	}
+	return string(out), nil
+}
+
+// readCharacterRangeArrays reads every character range array in source.
+//
+// It accepts only the text that the generator wrote in the pinned sources:
+//
+//	array = head "\n  " line { ",\n  " line } ",\n};\n"
+//	head  = ("static const " | "static " | "const ") "TSCharacterRange " name "[] = {"
+//	line  = entry { ", " entry }          (8 entries; the last line has 1 to 8)
+//	entry = "{" bound ", " bound "}"
+//	bound = char | "0x" hexdigit{2,6} | "0"
+//	char  = "'" ( printable ASCII except ' and \ | "\\" | "\'" | "\t" | "\r" | "\n" | "\f" ) "'"
+//	name  = [A-Za-z_][A-Za-z0-9_]*       hexdigit = 0-9 or a-f
+//
+// Line breaks are LF. Values lie in 0..0x10ffff and lo is not above hi.
+// Character literals are read as ASCII, which is their value when the source
+// is compiled for an ASCII-compatible execution character set. A head is
+// looked for only outside comments and quoted literals. The source is refused
+// when the type name occurs anywhere else, and before any array is read when
+// it holds a backslash-newline, a NUL, a lone carriage return, a trigraph, or
+// an apostrophe that follows a letter, digit or underscore. A declaration
+// starts at column zero. Two arrays with one name refuse the source; the error
+// gives the byte offset of the second declaration.
+// Errors from inside an array name the array and give a byte offset; errors
+// from the checks before and between arrays give only a byte offset.
+func readCharacterRangeArrays(source string) ([]characterRangeArray, error) {
+	if err := precheckCharacterRangeSource(source); err != nil {
+		return nil, err
+	}
+	blanked, err := blankCommentsAndLiterals(source)
+	if err != nil {
+		return nil, err
+	}
+	matches := characterRangeDeclRe.FindAllStringSubmatchIndex(blanked, -1)
+	declared := make(map[int]bool, len(matches))
+	for _, m := range matches {
+		declared[m[3]] = true // offset of the type name after the prefix
+	}
+	for _, loc := range characterRangeTypeRe.FindAllStringIndex(source, -1) {
+		if !declared[loc[0]] {
+			return nil, fmt.Errorf("byte offset %d: TSCharacterRange is not part of a recognized array declaration", loc[0])
+		}
+	}
+	arrays := make([]characterRangeArray, 0, len(matches))
+	for _, m := range matches {
+		name := source[m[4]:m[5]]
+		ranges, err := readCharacterRangeArray(source, name, m[1])
+		if err != nil {
+			return nil, err
+		}
+		arrays = append(arrays, characterRangeArray{name: name, offset: m[0], ranges: ranges})
+	}
+	return arrays, nil
+}
+
+// extractCharacterSets reads every character range array in source and
+// returns the normalized ranges by array name. See readCharacterRangeArrays
+// for the accepted text.
 func extractCharacterSets(source string) (map[string][]lexRange, error) {
-	re := regexp.MustCompile(`(?m)(?:static\s+)?(?:const\s+)?TSCharacterRange\s+(\w+)\s*\[[^\]]*\]\s*=\s*\{`)
-	matches := re.FindAllStringSubmatch(source, -1)
-	if len(matches) == 0 {
+	arrays, err := readCharacterRangeArrays(source)
+	if err != nil {
+		return nil, err
+	}
+	if len(arrays) == 0 {
 		return nil, nil
 	}
-
-	sets := make(map[string][]lexRange, len(matches))
-	entryRe := regexp.MustCompile(`\{\s*([^,}]+)\s*,\s*([^}]+)\s*\}`)
-	for _, m := range matches {
-		name := m[1]
-		body, err := findArrayBody(source, name)
-		if err != nil {
-			continue
+	sets := make(map[string][]lexRange, len(arrays))
+	for _, a := range arrays {
+		if _, dup := sets[a.name]; dup {
+			return nil, fmt.Errorf("byte offset %d: character range array %q is declared twice", a.offset, a.name)
 		}
-
-		entries := entryRe.FindAllStringSubmatch(body, -1)
-		if len(entries) == 0 {
-			continue
-		}
-
-		ranges := make([]lexRange, 0, len(entries))
-		for _, e := range entries {
-			lo, ok := parseCLookaheadLiteral(strings.TrimSpace(e[1]))
-			if !ok {
-				continue
-			}
-			hi, ok := parseCLookaheadLiteral(strings.TrimSpace(e[2]))
-			if !ok {
-				continue
-			}
-			if lo > hi {
-				lo, hi = hi, lo
-			}
-			if hi < 0 || lo > maxLookaheadRune {
-				continue
-			}
-			if lo < 0 {
-				lo = 0
-			}
-			if hi > maxLookaheadRune {
-				hi = maxLookaheadRune
-			}
-			ranges = append(ranges, lexRange{lo: lo, hi: hi})
-		}
-		sets[name] = normalizeRanges(ranges)
+		sets[a.name] = normalizeRanges(a.ranges)
 	}
-
 	return sets, nil
+}
+
+// readCharacterRangeArray reads the entries of one array. pos is the byte
+// offset just after the opening brace of the array.
+func readCharacterRangeArray(source, name string, pos int) ([]lexRange, error) {
+	fail := func(at int, format string, args ...any) error {
+		return fmt.Errorf("character range array %q: byte offset %d: %s", name, at, fmt.Sprintf(format, args...))
+	}
+	expect := func(at int, text string) bool { return strings.HasPrefix(source[at:], text) }
+	if !expect(pos, "\n  {") {
+		return nil, fail(pos, "expected a line break, two spaces and '{' after the opening brace")
+	}
+	pos += len("\n  ")
+	var ranges []lexRange
+	onLine := 0
+	for {
+		entryStart := pos
+		pos++ // '{'
+		lo, next, err := readCRangeValue(source, pos)
+		if err != nil {
+			return nil, fail(pos, "first value: %v", err)
+		}
+		pos = next
+		if !expect(pos, ", ") {
+			return nil, fail(pos, "expected ', ' after the first value")
+		}
+		pos += 2
+		hi, next, err := readCRangeValue(source, pos)
+		if err != nil {
+			return nil, fail(pos, "second value: %v", err)
+		}
+		pos = next
+		if !expect(pos, "}") {
+			return nil, fail(pos, "expected '}' after the second value")
+		}
+		pos++
+		if lo > hi {
+			return nil, fail(entryStart, "range start %#x is above range end %#x", lo, hi)
+		}
+		ranges = append(ranges, lexRange{lo: lo, hi: hi})
+		onLine++
+
+		switch {
+		case onLine < 8 && expect(pos, ", {"):
+			pos += 2
+		case onLine == 8 && expect(pos, ",\n  {"):
+			pos += 4
+			onLine = 0
+		case expect(pos, ",\n};\n"):
+			return ranges, nil
+		default:
+			return nil, fail(pos, "expected ', {' (fewer than 8 entries on the line), ',' and a new line with two spaces and '{' (after 8 entries), or ',' then '};' and a line break")
+		}
+	}
+}
+
+// readCRangeValue reads one bound at pos and returns its value and the offset
+// after it. The accepted spellings are listed at readCharacterRangeArrays.
+func readCRangeValue(s string, pos int) (rune, int, error) {
+	if pos >= len(s) {
+		return 0, pos, fmt.Errorf("end of input")
+	}
+	switch c := s[pos]; {
+	case c == '\'':
+		return readCCharLiteral(s, pos)
+	case strings.HasPrefix(s[pos:], "0x"):
+		end := pos + 2
+		for end < len(s) && (s[end] >= '0' && s[end] <= '9' || s[end] >= 'a' && s[end] <= 'f') {
+			end++
+		}
+		if n := end - pos - 2; n < 2 || n > 6 {
+			return 0, pos, fmt.Errorf("hexadecimal literal must have 2 to 6 lower-case digits")
+		}
+		v, _ := strconv.ParseInt(s[pos+2:end], 16, 32)
+		if v > maxLookaheadRune {
+			return 0, pos, fmt.Errorf("value %#x is above %#x", v, maxLookaheadRune)
+		}
+		return rune(v), end, nil
+	case c == '0':
+		return 0, pos + 1, nil
+	}
+	return 0, pos, fmt.Errorf("no bound at %q", s[pos:min(len(s), pos+8)])
+}
+
+// readCCharLiteral reads a character literal whose opening quote is at pos:
+// one printable ASCII character other than the quote and the backslash, or
+// one of the escapes \\ \' \t \r \n \f. The value is the ASCII code. That is
+// the value a C compiler gives when the execution character set is
+// ASCII-compatible; the tool supports generated sources compiled that way.
+func readCCharLiteral(s string, pos int) (rune, int, error) {
+	i := pos + 1
+	if i >= len(s) {
+		return 0, pos, fmt.Errorf("unterminated character literal")
+	}
+	var v rune
+	switch c := s[i]; {
+	case c == '\\':
+		if i+1 >= len(s) {
+			return 0, pos, fmt.Errorf("unterminated escape")
+		}
+		e, ok := map[byte]rune{'\\': '\\', '\'': '\'', 't': '\t', 'r': '\r', 'n': '\n', 'f': '\f'}[s[i+1]]
+		if !ok {
+			return 0, pos, fmt.Errorf("escape \\%c is not accepted", s[i+1])
+		}
+		v, i = e, i+2
+	case c >= 0x20 && c <= 0x7e && c != '\'':
+		v, i = rune(c), i+1
+	default:
+		return 0, pos, fmt.Errorf("character %#x is not accepted inside quotes", c)
+	}
+	if i >= len(s) || s[i] != '\'' {
+		return 0, pos, fmt.Errorf("character literal is not closed")
+	}
+	return v, i + 1, nil
 }
 
 // extractCharacterSetFunctions finds `static inline bool xxx_character_set_N(int32_t c)`
