@@ -3,6 +3,8 @@ package gotreesitter
 import (
 	"fmt"
 	"sort"
+	"sync"
+	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
@@ -555,4 +557,124 @@ func SnippetRootMemoProbeForTest(parser *Parser, source []byte, start, end uint3
 		probe.release = tree.Release
 	}
 	return probe
+}
+
+// stackScratchPool is a deterministic scratchPool: Get pops the last object
+// that Put pushed and returns nil when the pool is empty. It never drops
+// objects, unlike sync.Pool.
+type stackScratchPool struct {
+	mu    sync.Mutex
+	items []any
+	gets  int
+}
+
+// Gets returns how many times Get was called.
+func (p *stackScratchPool) Gets() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.gets
+}
+
+func (p *stackScratchPool) Get() any {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.gets++
+	if len(p.items) == 0 {
+		return nil
+	}
+	x := p.items[len(p.items)-1]
+	p.items = p.items[:len(p.items)-1]
+	return x
+}
+
+func (p *stackScratchPool) Put(x any) {
+	p.mu.Lock()
+	p.items = append(p.items, x)
+	p.mu.Unlock()
+}
+
+// Items returns the pooled objects, oldest first.
+func (p *stackScratchPool) Items() []any {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]any(nil), p.items...)
+}
+
+func (p *stackScratchPool) Len() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.items)
+}
+
+// swapScratchPoolsForTest replaces the pools that tiny-source hand-out reads
+// with empty deterministic stacks. The returned function restores the previous
+// pools. Release and the path for larger sources use the real pools.
+func swapScratchPoolsForTest() (shared, large, heavy *stackScratchPool, restore func()) {
+	shared, large, heavy = &stackScratchPool{}, &stackScratchPool{}, &stackScratchPool{}
+	previous := tinyScratchPools
+	tinyScratchPools = &tinyScratchPoolSet{shared: shared, large: large, heavy: heavy}
+	return shared, large, heavy, func() { tinyScratchPools = previous }
+}
+
+// ScratchPoolProbe gives the external test package access to the swapped
+// scratch pools.
+type ScratchPoolProbe struct {
+	shared *stackScratchPool
+}
+
+// SwapScratchPoolsForTest replaces the scratch pools with empty deterministic
+// stacks and returns a probe and a function that restores the previous pools.
+func SwapScratchPoolsForTest() (*ScratchPoolProbe, func()) {
+	shared, _, _, restore := swapScratchPoolsForTest()
+	return &ScratchPoolProbe{shared: shared}, restore
+}
+
+// PutSharedWithAccountedBytes adds a scratch object that holds more than target
+// accounted bytes to the shared pool and returns its accounted bytes.
+func (p *ScratchPoolProbe) PutSharedWithAccountedBytes(target int64) int64 {
+	s := newScratchWithAccountedBytesForTest(target)
+	p.shared.Put(s)
+	return s.allocatedBytes()
+}
+
+// SharedLen returns the number of objects in the shared pool.
+func (p *ScratchPoolProbe) SharedLen() int { return p.shared.Len() }
+
+// KeepOnlyLargestShared drops every shared-pool object except the one with the
+// most accounted bytes and returns that object's accounted bytes.
+func (p *ScratchPoolProbe) KeepOnlyLargestShared() int64 {
+	p.shared.mu.Lock()
+	defer p.shared.mu.Unlock()
+	var best *parserScratch
+	for _, x := range p.shared.items {
+		if s := x.(*parserScratch); best == nil || s.allocatedBytes() > best.allocatedBytes() {
+			best = s
+		}
+	}
+	p.shared.items = nil
+	if best == nil {
+		return 0
+	}
+	p.shared.items = append(p.shared.items, best)
+	return best.allocatedBytes()
+}
+
+func newScratchWithGSSNodesForTest(nodes int) *parserScratch {
+	s := &parserScratch{}
+	s.gss.slabs = []gssNodeSlab{{data: make([]gssNode, nodes), reachMarks: make([]uint32, nodes)}}
+	s.gss.recomputeAllocatedBytes()
+	return s
+}
+
+// newScratchWithAccountedBytesForTest returns scratch whose accounted capacity
+// is above target, however large a GSS node is on the target architecture.
+func newScratchWithAccountedBytesForTest(target int64) *parserScratch {
+	nodes := int(target/int64(unsafe.Sizeof(gssNode{})+unsafe.Sizeof(uint32(0)))) + 1
+	for {
+		s := newScratchWithGSSNodesForTest(nodes)
+		if s.allocatedBytes() > target {
+			return s
+		}
+		nodes += nodes/64 + 1
+	}
 }

@@ -181,12 +181,16 @@ func buildCcoreTables(lang *Language) *ccore.Tables {
 
 // ccoreConfig returns the ccore configuration of a language. Each call gets
 // its own scanner hook, so that parsers do not share scanner state.
-func ccoreConfig(lang *Language) ccore.Config {
+func ccoreConfig(lang *Language) (ccore.Config, error) {
 	cfg := ccore.Config{Tables: ccoreTablesFor(lang)}
 	if lang.ExternalScanner != nil {
-		cfg.Scanner = (&ccoreExtScanner{sc: lang.ExternalScanner}).hook()
+		a, err := newCcoreExtScanner(lang.ExternalScanner)
+		if err != nil {
+			return ccore.Config{}, err
+		}
+		cfg.Scanner = a.hook()
 	}
-	return cfg
+	return cfg, nil
 }
 
 // ccoreBindConfig is bind.Adapter.Config.
@@ -198,7 +202,7 @@ func ccoreBindConfig(lang any) (ccore.Config, error) {
 	if _, ok := l.GrammarBlobSHA256(); !ok {
 		return ccore.Config{}, errors.New("ccore: language has no blob identity (a hand-built or generated table)")
 	}
-	return ccoreConfig(l), nil
+	return ccoreConfig(l)
 }
 
 // ccoreBindCheckTables is bind.Adapter.CheckTables: it compares the ccore

@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the tsx grammar.
@@ -121,7 +122,8 @@ func (TsxExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language
 	return s
 }
 
-func (TsxExternalScanner) Create() any                           { return nil }
+// Create returns a payload that holds only the C-faithful mode (internal/scanmode).
+func (TsxExternalScanner) Create() any                           { return &scanmode.Flag{} }
 func (TsxExternalScanner) Destroy(payload any)                   {}
 func (TsxExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (TsxExternalScanner) Deserialize(payload any, buf []byte)   {}
@@ -168,6 +170,10 @@ func (s TsxExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	var semanticValid [tsxTokenCount]bool
 	validSymbols = s.remapValidSymbols(validSymbols, &semanticValid)
 	symbols := s.symbolTable()
+
+	if scanmode.Of(payload) {
+		return s.scanC(lexer, validSymbols, symbols)
+	}
 
 	if tsxValid(validSymbols, tsxTokTemplateChars) {
 		if tsxValid(validSymbols, tsxTokAutoSemicolon) {
