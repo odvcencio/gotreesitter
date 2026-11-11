@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-const rootBudget = 691
+const rootBudget = 687
 
 // adapterFiles is the named exception to "root files may only shrink" (owner
 // decision 6 of the ccore route design). Exactly these root file names may be
