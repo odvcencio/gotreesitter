@@ -67,7 +67,7 @@ func TestPythonA3CompactCertificationFullCorpusSweep(t *testing.T) {
 // pattern_list/expression_list ambiguity). C-ordered clean-tie selection now
 // emits expression_list for the exact Python artifact, so these entries are
 // retired from the active known-divergence list. The historical values remain
-// in docs/root-normalization-retirement.md and the blocker receipt.
+// in https://github.com/odvcencio/gotreesitter/blob/9c955f3d29b126973da657124438f7c0aeddce5b/docs/root-normalization-retirement.md and the blocker receipt.
 var pythonA3KnownDivergences = []a3KnownDivergence{}
 
 // pythonA3AdversarialSources gathers Python's tied-election witnesses, the

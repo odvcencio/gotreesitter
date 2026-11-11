@@ -6,8 +6,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -256,33 +254,6 @@ func TestApexDispatchBlockerLockedCRoutes(t *testing.T) {
 
 			t.Logf("witness=%s bytes=%d source_sha256=%x c_digest=%s compact=%s forest=%s forest_rewrites=%d incremental_reuse=%t reuse_unsupported=%t reuse_reason=%s reused_subtrees=%d reused_bytes=%d raw_rewrites=%d production_rewrites=%d compact_rewrites=%d incremental_rewrites=%d error_root=%t", witness.name, len(target), sha256.Sum256(target), cDigest, compactRoute, forestRoute, forestRewrite, profile.OldTreeReuseRoute, profile.ReuseUnsupported, profile.ReuseUnsupportedReason, profile.ReusedSubtrees, profile.ReusedBytes, raw.ParseRuntime().NormalizationNodesRewritten, production.ParseRuntime().NormalizationNodesRewritten, compact.ParseRuntime().NormalizationNodesRewritten, incremental.ParseRuntime().NormalizationNodesRewritten, witness.wantError)
 		})
-	}
-}
-
-// TestApexDispatchBlockerReceiptDocument guards the A0 and route scope markers.
-func TestApexDispatchBlockerReceiptDocument(t *testing.T) {
-	raw, err := os.ReadFile("../docs/root-normalization-retirement.md")
-	if err != nil {
-		t.Fatalf("read Apex blocker receipt: %v", err)
-	}
-	document := strings.Join(strings.Fields(string(raw)), " ")
-	for _, marker := range []string{
-		"The A0 manifest has 14 languages and 14 receipts. It includes Apex with three files, three checked, three run, and zero rewrites. Only the seven-fixture tracked census excludes Apex.",
-		"The raw, production, compact, and incremental routes report zero `dispatch.apex` rewrites for every clean witness.",
-		"`registered-class-literal-alias`: `dispatch.apex` rewrites 3 nodes.",
-	} {
-		marker = strings.Join(strings.Fields(marker), " ")
-		if !strings.Contains(document, marker) {
-			t.Fatalf("Apex blocker receipt lacks marker %q", marker)
-		}
-	}
-	for _, marker := range []string{
-		"The A0 manifest has 14 languages and 14 receipts. It excludes Apex.",
-		"Each clean route reports zero `dispatch.apex` rewrites.",
-	} {
-		if strings.Contains(document, marker) {
-			t.Fatalf("Apex blocker receipt retains stale marker %q", marker)
-		}
 	}
 }
 

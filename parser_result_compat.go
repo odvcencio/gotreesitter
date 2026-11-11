@@ -280,7 +280,7 @@ func nativeRecoveredStructureHasIsolatedErrorReceipt(root *Node) bool {
 	return valid && explicitErrors == 1
 }
 
-// --- R2 dispatcher-arm census (docs/root-normalization-retirement.md) ---
+// --- R2 dispatcher-arm census (https://github.com/odvcencio/gotreesitter/blob/9c955f3d29b126973da657124438f7c0aeddce5b/docs/root-normalization-retirement.md) ---
 //
 // runLanguageResultCompatibility's switch is the per-language dispatcher arm
 // registry described in testdata/result_compat_ownership_v1.json

@@ -3,8 +3,7 @@
 Campaign v7 tranche A5 (compatibility retirement) and tranche C1 (perf,
 cross-listed). This document defines the elision, the eligibility mechanism,
 and the equivalence proof for each elided step. Tranche C0's
-[perf-attribution board](perf-attribution.md) names the `compat-tail`
-component this tranche narrows.
+attribution board named the `compat-tail` component this tranche narrows.
 
 **Status: correctness-neutral simplification, not a confirmed performance
 lever.** An earlier draft of this document and of the code comments in

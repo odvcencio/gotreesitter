@@ -6,8 +6,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -197,27 +195,6 @@ func TestHLSLNextLiveArmLockedCRoutes(t *testing.T) {
 
 			t.Logf("witness=%s bytes=%d source_sha256=%x c_digest=%s compact=%s counters=%d/%d->%d/%d forest=%s incremental_reuse=%t incremental_fallback=%t reason=%q raw_rewrite=%t production_rewrite=%t compact_rewrite=%t forest_rewrite=%t incremental_rewrite=%t", witness.name, len(witness.source), sha256.Sum256(witness.source), cDigest, compactRoute, routedBefore, fallbackBefore, routedAfter, fallbackAfter, forestRoute, profile.OldTreeReuseRoute, profile.ReuseUnsupported, profile.ReuseUnsupportedReason, witness.wantRewrite && hasHLSLCastRewrite(raw.RootNode(), goLanguage), witness.wantRewrite && hasHLSLCastRewrite(production.RootNode(), goLanguage), witness.wantRewrite && hasHLSLCastRewrite(compact.RootNode(), goLanguage), witness.wantRewrite && forest != nil && hasHLSLCastRewrite(forest.RootNode(), goLanguage), witness.wantRewrite && hasHLSLCastRewrite(incremental.RootNode(), goLanguage))
 		})
-	}
-}
-
-// TestHLSLNextLiveArmReceiptDocument guards the blocker receipt markers.
-func TestHLSLNextLiveArmReceiptDocument(t *testing.T) {
-	raw, err := os.ReadFile("../docs/root-normalization-retirement.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	document := strings.Join(strings.Fields(string(raw)), " ")
-	for _, marker := range []string{
-		"The HLSL arm remains live.",
-		"A0 has three HLSL files, three checked, three run, and zero rewrites.",
-		"The clean cast witness rewrites one cast_expression node on production, compact, forest, and incremental routes.",
-		"The normalized routes diverge from locked C at the missing left field.",
-		"Keep dispatch.hlsl live until scheduler_action_semantics emits the C field.",
-	} {
-		marker = strings.Join(strings.Fields(marker), " ")
-		if !strings.Contains(document, marker) {
-			t.Fatalf("HLSL blocker receipt lacks marker %q", marker)
-		}
 	}
 }
 

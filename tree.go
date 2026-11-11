@@ -1425,7 +1425,8 @@ type RecoveryRuntimeStats struct {
 }
 
 // RecoveryRuntimeAttempts contains attempt-local facts for one parse
-// operation. Use Parser.DebugRecoveryRuntimeAttempts to read this receipt.
+// operation. No build fills it any more: Parser.DebugRecoveryRuntimeAttempts
+// is kept for compatibility and always returns nil.
 type RecoveryRuntimeAttempts []RecoveryRuntimeAttemptStats
 
 // ParseRuntime captures parser-loop diagnostics for a completed tree.
