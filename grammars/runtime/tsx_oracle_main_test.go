@@ -2,7 +2,9 @@
 
 package grammarruntime
 
-// Code generated from the pre-change scanner source as a test oracle; DO NOT EDIT.
+// This file is a copy of the scanner source as it was before the C-faithful
+// mode was added. The differential tests use it as their oracle for the default
+// mode. It is not generated; do not edit it by hand.
 
 import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
