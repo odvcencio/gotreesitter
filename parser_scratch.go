@@ -105,6 +105,9 @@ func reclaimLargeScratchForSmallParse(s *parserScratch) {
 }
 
 func acquireParserScratchForSource(sourceBytes int, parser *Parser) *parserScratch {
+	if sourceBytes < tinyParserScratchSourceBytes {
+		return acquireTinyParserScratch(sourceBytes, parser)
+	}
 	var s *parserScratch
 	if sourceBytes >= largeParserScratchSourceBytes {
 		if cached := largeParserScratchPool.Get(); cached != nil {
@@ -139,6 +142,131 @@ func acquireParserScratchForSource(sourceBytes int, parser *Parser) *parserScrat
 		if s == nil {
 			s = acquireParserScratch()
 		}
+	}
+	s.sourceBytes = sourceBytes
+	return s
+}
+
+// Hand-out bound for tiny sources. A parse of fewer than
+// tinyParserScratchSourceBytes bytes (the node count of one default GSS slab;
+// a policy cutoff, not a derived memory limit) takes a pooled object only if
+// the object's accounted capacity (allocatedBytes: entries, GSS, merge,
+// transient slabs and replay pages) plus tinyParserScratchGrowthBytes is at
+// most tinyParserScratchCeilingBytes, the scratch that roottest/parse
+// TestParseScratchIsolationSmallLargeSmall allows a tiny parse to hold. An
+// object that does not fit is neither used nor discarded: it returns to the
+// pool it came from after the parse has its scratch, and at most
+// maxScratchHandOutTries shared-pool objects are tried before the parse
+// allocates a fresh one.
+//
+// This bounds accounted capacity at hand-out for that size class: at most
+// tinyParserScratchCeilingBytes - tinyParserScratchGrowthBytes (7 MiB). It does
+// not bound memory outside allocatedBytes (nodeLinks, tmpEntries, reduction
+// scratch), what a parse grows to after it has its scratch (the memory budgets
+// govern that growth; one fresh full-parse GSS slab alone is 2 MiB on 64-bit
+// targets), or sources of tinyParserScratchSourceBytes and above, which take
+// any object through the unchanged path. What each pool keeps at release is
+// unchanged.
+//
+// Two cases lose reuse compared with taking the next object unchecked:
+//   - A burst of tiny parses that meets oversized shared objects allocates
+//     fresh scratch where an unchecked hand-out would reuse them, because each
+//     parse tries at most maxScratchHandOutTries objects.
+//   - A tiny input that keeps more than 7 MiB of accounted capacity after a
+//     parse is rejected for its own next parse and rebuilds its scratch each
+//     time.
+const (
+	tinyParserScratchSourceBytes  = 4 << 10
+	tinyParserScratchCeilingBytes = 8 << 20
+	tinyParserScratchGrowthBytes  = 1 << 20
+	maxScratchHandOutTries        = 3
+)
+
+// scratchPool is the part of sync.Pool that tiny hand-out uses.
+type scratchPool interface {
+	Get() any
+	Put(any)
+}
+
+type tinyScratchPoolSet struct {
+	shared, large, heavy scratchPool
+}
+
+// tinyScratchPools is read only by acquireTinyParserScratch. Tests replace it
+// with deterministic stacks; larger sources and release use the pool variables
+// directly.
+var tinyScratchPools = &tinyScratchPoolSet{
+	shared: &parserScratchPool,
+	large:  &largeParserScratchPool,
+	heavy:  &heavySmallParserScratchPool,
+}
+
+// parserScratchFitsHandOut reports whether a pooled object may be given to a
+// parse of sourceBytes: always for sources of tinyParserScratchSourceBytes and
+// above, otherwise only within the tiny hand-out bound.
+func parserScratchFitsHandOut(s *parserScratch, sourceBytes int) bool {
+	if sourceBytes >= tinyParserScratchSourceBytes {
+		return true
+	}
+	return s.allocatedBytes()+tinyParserScratchGrowthBytes <= tinyParserScratchCeilingBytes
+}
+
+// acquireTinyParserScratch is acquireParserScratchForSource for sources below
+// tinyParserScratchSourceBytes, with the hand-out bound applied to every
+// candidate. Objects that match but exceed the bound are held locally and go
+// back to the pool they came from once this parse has its scratch.
+//
+//go:noinline
+func acquireTinyParserScratch(sourceBytes int, parser *Parser) *parserScratch {
+	pools := tinyScratchPools
+	// Reclaim the transient slabs of an idle large scratch, as for any small
+	// parse; the large object is not borrowed.
+	if cached := pools.large.Get(); cached != nil {
+		large := cached.(*parserScratch)
+		reclaimLargeScratchForSmallParse(large)
+		pools.large.Put(large)
+	}
+	var s *parserScratch
+	var rejected [maxScratchHandOutTries]*parserScratch
+	rejectedCount := 0
+	var rejectedHeavy *parserScratch
+	if parser != nil {
+		if _, ok := scratchKeyForLanguage(parser.language); ok {
+			if cached := pools.heavy.Get(); cached != nil {
+				heavy := cached.(*parserScratch)
+				if parserHeavySmallScratchFits(heavy, parser, sourceBytes) {
+					if parserScratchFitsHandOut(heavy, sourceBytes) {
+						s = heavy
+					} else {
+						rejectedHeavy = heavy
+					}
+				}
+				// A candidate for another grammar or source size is
+				// discarded, as on the path for larger sources.
+			}
+		}
+	}
+	for tries := 0; s == nil && tries < maxScratchHandOutTries; tries++ {
+		cached := pools.shared.Get()
+		if cached == nil {
+			break
+		}
+		candidate := cached.(*parserScratch)
+		if parserScratchFitsHandOut(candidate, sourceBytes) {
+			s = candidate
+		} else {
+			rejected[rejectedCount] = candidate
+			rejectedCount++
+		}
+	}
+	if s == nil {
+		s = &parserScratch{}
+	}
+	if rejectedHeavy != nil {
+		pools.heavy.Put(rejectedHeavy)
+	}
+	for i := 0; i < rejectedCount; i++ {
+		pools.shared.Put(rejected[i])
 	}
 	s.sourceBytes = sourceBytes
 	return s
