@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the javascript grammar.
@@ -86,6 +87,7 @@ var jsExternalScannerSpec = ExternalScannerSpec{
 }
 
 func init() {
+	scanmode.RegisterScanner(JavaScriptExternalScanner{}, (*scanmode.Flag)(nil), true)
 	RegisterExternalScannerSpec(jsExternalScannerSpec)
 }
 
@@ -119,7 +121,8 @@ func (JavaScriptExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.L
 	return s
 }
 
-func (JavaScriptExternalScanner) Create() any                           { return nil }
+// Create returns a payload that holds only the C-faithful mode (internal/scanmode).
+func (JavaScriptExternalScanner) Create() any                           { return &scanmode.Flag{} }
 func (JavaScriptExternalScanner) Destroy(payload any)                   {}
 func (JavaScriptExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (JavaScriptExternalScanner) Deserialize(payload any, buf []byte)   {}
@@ -175,19 +178,31 @@ func (s JavaScriptExternalScanner) Scan(payload any, lexer *gotreesitter.Externa
 		return jsScanTemplateChars(lexer, symbols)
 	}
 
-	preferAutoSemicolon := jsPreferAutoSemicolonOverJsxText(lexer, validSymbols)
+	// The C-faithful mode follows C's order: JSX text first (scanner.c:339), and no
+	// preference for the automatic semicolon (a rule of the default engine).
+	cf := scanmode.Of(payload)
+	preferAutoSemicolon := !cf && jsPreferAutoSemicolonOverJsxText(lexer, validSymbols)
 
 	if jsValid(validSymbols, jsTokJsxText) && !preferAutoSemicolon {
-		if jsScanJsxText(lexer, symbols) {
+		if cf {
+			if jsScanJsxTextC(lexer, symbols) {
+				return true
+			}
+		} else if jsScanJsxText(lexer, symbols) {
 			return true
 		}
 	}
 
 	if jsValid(validSymbols, jsTokAutoSemicolon) {
 		scannedComment := false
-		ret := jsScanAutoSemicolon(lexer, validSymbols, symbols, &scannedComment)
+		var ret bool
+		if cf {
+			ret = jsScanAutoSemicolonC(lexer, !jsValid(validSymbols, jsTokLogicalOr), symbols, &scannedComment)
+		} else {
+			ret = jsScanAutoSemicolon(lexer, validSymbols, symbols, &scannedComment)
+		}
 		if !ret && !scannedComment && jsValid(validSymbols, jsTokTernaryQmark) && lexer.Lookahead() == '?' {
-			return jsScanTernaryQmark(lexer, symbols)
+			return jsScanTernaryQmark(lexer, symbols, cf)
 		}
 		if !ret && !scannedComment && preferAutoSemicolon && jsValid(validSymbols, jsTokJsxText) {
 			return jsScanJsxText(lexer, symbols)
@@ -200,13 +215,16 @@ func (s JavaScriptExternalScanner) Scan(payload any, lexer *gotreesitter.Externa
 	}
 
 	if jsValid(validSymbols, jsTokTernaryQmark) {
-		return jsScanTernaryQmark(lexer, symbols)
+		return jsScanTernaryQmark(lexer, symbols, cf)
 	}
 
 	if jsValid(validSymbols, jsTokHtmlComment) &&
 		!jsValid(validSymbols, jsTokLogicalOr) &&
 		!jsValid(validSymbols, jsTokEscapeSequence) &&
 		!jsValid(validSymbols, jsTokRegexPattern) {
+		if cf {
+			return jsScanClosingCommentC(lexer, symbols)
+		}
 		return jsScanClosingComment(lexer, symbols)
 	}
 
@@ -436,7 +454,16 @@ func jsScanWSAndComments(lexer *gotreesitter.ExternalLexer, scannedComment *bool
 	}
 }
 
-func jsScanTernaryQmark(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]gotreesitter.Symbol) bool {
+// jsScanTernaryQmark is the default engine's ternary scan; the C-faithful mode
+// uses jsScanTernaryQmarkC.
+func jsScanTernaryQmark(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]gotreesitter.Symbol, cf bool) bool {
+	if cf {
+		return jsScanTernaryQmarkC(lexer, symbols)
+	}
+	return jsScanTernaryQmarkDefault(lexer, symbols)
+}
+
+func jsScanTernaryQmarkDefault(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]gotreesitter.Symbol) bool {
 	for unicode.IsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
@@ -465,6 +492,38 @@ func jsScanTernaryQmark(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCoun
 	if lexer.Lookahead() == '.' {
 		lexer.Advance(false)
 		return unicode.IsDigit(lexer.Lookahead())
+	}
+	return true
+}
+
+// jsScanTernaryQmark mirrors scan_ternary_qmark in tree-sitter-javascript at
+// the pinned commit (src/scanner.c:225-253). After "?" the C scanner marks the
+// token end and returns at once; it does not skip whitespace and does not test
+// for ":", ")" or "," (that longer lookahead belongs to the TypeScript
+// scanner, common/scanner.h:195-236). "?." is a ternary mark only when a digit
+// follows the dot, and "??" is never one.
+func jsScanTernaryQmarkC(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]gotreesitter.Symbol) bool {
+	// C calls iswspace in the C locale: six ASCII characters (scanner.c:226-231).
+	for cIsSpace(lexer.Lookahead()) {
+		lexer.Advance(true)
+	}
+
+	if lexer.Lookahead() != '?' {
+		return false
+	}
+	lexer.Advance(false)
+
+	if lexer.Lookahead() == '?' {
+		return false
+	}
+
+	lexer.MarkEnd()
+	lexer.SetResultSymbol(symbols[jsTokTernaryQmark])
+
+	if lexer.Lookahead() == '.' {
+		lexer.Advance(false)
+		// iswdigit accepts only 0-9 (scanner.c:245).
+		return lexer.Lookahead() >= '0' && lexer.Lookahead() <= '9'
 	}
 	return true
 }
@@ -503,6 +562,30 @@ func jsScanClosingComment(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCo
 	lexer.SetResultSymbol(symbols[jsTokHtmlComment])
 	lexer.MarkEnd()
 	return true
+}
+
+// jsScanJsxTextC is scan_jsx_text of the pinned C scanner (scanner.c:291-329): the
+// text ends before "<", ">", "{", "}" and "&", and it is a token only when some
+// character in it is not white space or follows white space on its line. The
+// default engine's version treats a bare "&" as text (a deliberate difference).
+func jsScanJsxTextC(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]gotreesitter.Symbol) bool {
+	sawText := false
+	atNewline := false
+	for lexer.Lookahead() != 0 && lexer.Lookahead() != '<' && lexer.Lookahead() != '>' &&
+		lexer.Lookahead() != '{' && lexer.Lookahead() != '}' && lexer.Lookahead() != '&' {
+		isWspace := cIsSpace(lexer.Lookahead())
+		if lexer.Lookahead() == '\n' {
+			atNewline = true
+		} else {
+			atNewline = atNewline && isWspace
+			if !atNewline {
+				sawText = true
+			}
+		}
+		lexer.Advance(false)
+	}
+	lexer.SetResultSymbol(symbols[jsTokJsxText])
+	return sawText
 }
 
 func jsScanJsxText(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]gotreesitter.Symbol) bool {
@@ -649,4 +732,167 @@ func jsPreferAutoSemicolonOverJsxText(lexer *gotreesitter.ExternalLexer, validSy
 	default:
 		return false
 	}
+}
+
+// The functions below are the pinned C scanner's (tree-sitter-javascript
+// src/scanner.c) with its character classes: iswspace and iswdigit/iswalpha in
+// the C locale (ASCII), explicit comparisons with U+2028 and U+2029 where C has
+// them. Only the C-faithful mode runs them.
+
+// jsWhitespaceAndCommentsC is scan_whitespace_and_comments (scanner.c:61-100).
+func jsWhitespaceAndCommentsC(lexer *gotreesitter.ExternalLexer, scannedComment *bool, consume bool) jsWhitespaceResult {
+	sawBlockNewline := false
+	for {
+		for cIsSpace(lexer.Lookahead()) {
+			lexer.Advance(true)
+		}
+		if lexer.Lookahead() != '/' {
+			return jsWhitespaceAccept
+		}
+		lexer.Advance(true)
+		switch lexer.Lookahead() {
+		case '/':
+			lexer.Advance(true)
+			for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' && lexer.Lookahead() != 0x2028 && lexer.Lookahead() != 0x2029 {
+				lexer.Advance(true)
+			}
+			*scannedComment = true
+		case '*':
+			lexer.Advance(true)
+		block:
+			for lexer.Lookahead() != 0 {
+				switch lexer.Lookahead() {
+				case '*':
+					lexer.Advance(true)
+					if lexer.Lookahead() == '/' {
+						lexer.Advance(true)
+						*scannedComment = true
+						if lexer.Lookahead() != '/' && !consume {
+							if sawBlockNewline {
+								return jsWhitespaceAccept
+							}
+							return jsWhitespaceNoNewline
+						}
+						break block
+					}
+				case '\n', 0x2028, 0x2029:
+					sawBlockNewline = true
+					lexer.Advance(true)
+				default:
+					lexer.Advance(true)
+				}
+			}
+		default:
+			return jsWhitespaceReject
+		}
+	}
+}
+
+func jsIsAsciiDigit(ch rune) bool { return ch >= '0' && ch <= '9' }
+func jsIsAsciiAlpha(ch rune) bool { return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') }
+
+// jsScanAutoSemicolonC is scan_automatic_semicolon (scanner.c:102-221).
+func jsScanAutoSemicolonC(lexer *gotreesitter.ExternalLexer, commentCondition bool, symbols *[jsTokenCount]gotreesitter.Symbol, scannedComment *bool) bool {
+	lexer.SetResultSymbol(symbols[jsTokAutoSemicolon])
+	lexer.MarkEnd()
+	for {
+		if lexer.Lookahead() == 0 {
+			return true
+		}
+		if lexer.Lookahead() == '/' {
+			result := jsWhitespaceAndCommentsC(lexer, scannedComment, false)
+			if result == jsWhitespaceReject {
+				return false
+			}
+			if result == jsWhitespaceAccept && commentCondition && lexer.Lookahead() != ',' && lexer.Lookahead() != '=' {
+				return true
+			}
+		}
+		if lexer.Lookahead() == '}' {
+			return true
+		}
+		// scanner.c:133-135: an automatic semicolon at the first byte of an included range.
+		if scanmode.AtRangeStart(lexer) {
+			return true
+		}
+		if lexer.Lookahead() == '\n' || lexer.Lookahead() == 0x2028 || lexer.Lookahead() == 0x2029 {
+			break
+		}
+		if !cIsSpace(lexer.Lookahead()) {
+			return false
+		}
+		lexer.Advance(true)
+	}
+	lexer.Advance(true)
+	if jsWhitespaceAndCommentsC(lexer, scannedComment, true) == jsWhitespaceReject {
+		return false
+	}
+	switch lexer.Lookahead() {
+	case '`', ',', ':', ';', '*', '%', '>', '<', '=', '[', '(', '?', '^', '|', '&', '/':
+		return false
+	case '.':
+		lexer.Advance(true)
+		return jsIsAsciiDigit(lexer.Lookahead())
+	case '+':
+		lexer.Advance(true)
+		return lexer.Lookahead() == '+'
+	case '-':
+		lexer.Advance(true)
+		return lexer.Lookahead() == '-'
+	case '!':
+		lexer.Advance(true)
+		return lexer.Lookahead() != '='
+	case 'i':
+		lexer.Advance(true)
+		if lexer.Lookahead() != 'n' {
+			return true
+		}
+		lexer.Advance(true)
+		if !jsIsAsciiAlpha(lexer.Lookahead()) {
+			return false
+		}
+		const rest = "stanceof"
+		for i := 0; i < 8; i++ {
+			if lexer.Lookahead() != rune(rest[i]) {
+				return true
+			}
+			lexer.Advance(true)
+		}
+		if !jsIsAsciiAlpha(lexer.Lookahead()) {
+			return false
+		}
+	}
+	return true
+}
+
+// jsScanClosingCommentC is scan_html_comment (scanner.c:255-291).
+func jsScanClosingCommentC(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]gotreesitter.Symbol) bool {
+	for cIsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0x2028 || lexer.Lookahead() == 0x2029 {
+		lexer.Advance(true)
+	}
+	const commentStart, commentEnd = "<!--", "-->"
+	switch lexer.Lookahead() {
+	case '<':
+		for i := 0; i < 4; i++ {
+			if lexer.Lookahead() != rune(commentStart[i]) {
+				return false
+			}
+			lexer.Advance(false)
+		}
+	case '-':
+		for i := 0; i < 3; i++ {
+			if lexer.Lookahead() != rune(commentEnd[i]) {
+				return false
+			}
+			lexer.Advance(false)
+		}
+	default:
+		return false
+	}
+	for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' && lexer.Lookahead() != 0x2028 && lexer.Lookahead() != 0x2029 {
+		lexer.Advance(false)
+	}
+	lexer.SetResultSymbol(symbols[jsTokHtmlComment])
+	lexer.MarkEnd()
+	return true
 }
