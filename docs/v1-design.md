@@ -1,6 +1,7 @@
 # gotreesitter v1 design
 
 The owner's design, dated 2026-09-25, governs engine work.
+This document summarizes that design. It does not replace it.
 The design supersedes Campaign v7 where they conflict.
 It fully supersedes `specs/spec.compact-graduation-rider.v1.md`.
 

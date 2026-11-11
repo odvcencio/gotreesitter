@@ -40,7 +40,7 @@ func loadGLRScalingLanguage(tb testing.TB) *Language {
 
 // nestedParenSource builds a valid rule whose "when" condition is
 // wrapped in `depth` levels of parenthesized grouping: "rule R { when {
-// (((...x > 1...))) } then A {} }". that grammar's paren_expr = "(" expr ")" lets
+// (((...x > 1...))) } then A {} }". The grammar's paren_expr = "(" expr ")" lets
 // this nest to any depth, and the grammar's ambiguity in disambiguating a
 // grouping paren from the surrounding expression forks and re-collapses the
 // GLR stack close to once per '(' and ')'.

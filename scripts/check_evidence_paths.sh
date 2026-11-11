@@ -107,10 +107,9 @@ fi
 if ((fail_count > 0)); then
 	cat >&2 <<'EOF'
 
-Evidence stays out of the repository. Put numbers and verdicts in the PR body,
-raw files in the "evidence" GitHub release (gh release upload evidence <file>
---repo odvcencio/gotreesitter), and written receipts in the Hyphae space
-hypha://m31labs/gotreesitter under reports/receipts/.
+Evidence stays out of the repository. Put numbers and verdicts in the PR body.
+Attach raw files to the "evidence" GitHub release:
+gh release upload evidence <file> --repo odvcencio/gotreesitter
 EOF
 	exit 1
 fi

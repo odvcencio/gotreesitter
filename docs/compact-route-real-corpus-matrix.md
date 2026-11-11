@@ -4862,7 +4862,7 @@ not produce. The divergence is therefore in token production and grammar-table
 behavior, before generic error materialization. The direct structural queries
 were:
 
-- `canopy search symbols parser_recover_c.go --limit 120 --no-cache`
+- `scripts/canopy_query.sh search symbols parser_recover_c.go --limit 120 --no-cache`
 - `canopy graph calls 'pushLexErrorRunLeaf' parser_reduce.go --no-cache --depth 3`
 - `canopy graph calls 'cRecoverAcquireToken' parser_recover_c.go --no-cache --depth 3`
 - `canopy graph calls --reverse 'cRecoverResumeLookahead' parser_recover_c.go --no-cache --depth 2`
@@ -5817,8 +5817,8 @@ Canopy version `v0.18.0-19-g01a5f95-dirty` traced these generic paths:
 The scoped commands were:
 
 ```text
-canopy search symbols parser_dfa_token_source.go --limit 120
-canopy search symbols parser_recover_c.go --limit 120
+scripts/canopy_query.sh search symbols parser_dfa_token_source.go --limit 120
+scripts/canopy_query.sh search symbols parser_recover_c.go --limit 120
 canopy graph calls 'nextExternalToken' parser_dfa_token_source.go --no-cache --reverse --depth 3
 canopy graph calls 'scanPreferredTokenForState' parser_dfa_token_source.go --no-cache --reverse --depth 3
 canopy graph calls 'cRecoverAcquireToken' parser_recover_c.go --no-cache --depth 3

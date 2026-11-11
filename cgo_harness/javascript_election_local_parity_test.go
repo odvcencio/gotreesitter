@@ -70,7 +70,7 @@ func TestJavaScriptElectionRawCOracleParity(t *testing.T) {
 			// freshly regenerated javascript blob (early truncation, exposed
 			// supertype nodes) through the production loading path
 			// (grammars.JavascriptLanguage / grammars.LoadLanguage). This
-			// reproduces with no table-generation change at all. See
+			// reproduces with no table-generation change at all.
 			// wantDivergence stays true until both the blob resync and the
 			// scanner fix land.
 			name:           "corpus_real_small_functions",

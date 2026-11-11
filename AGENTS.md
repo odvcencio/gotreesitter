@@ -5,7 +5,7 @@ It says how to make a change safely, what a pull request (PR) must show, and wha
 [CONTRIBUTING.md](CONTRIBUTING.md) covers setup and first steps. [docs/repository-map.md](docs/repository-map.md) says where things live.
 
 The correctness and performance requirements apply to everyone.
-Contributors use `rg` and direct source reads, sign their commits, and put their results in the PR body. Raw evidence goes where section 6 describes.
+Contributors use `rg` and direct source reads, sign their commits, and put their results in the PR body; maintainers archive raw evidence as section 6 describes.
 
 ### Where engine work goes
 

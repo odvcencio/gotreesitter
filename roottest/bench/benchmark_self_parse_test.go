@@ -11,8 +11,8 @@ package bench_test
 //           -memprofile=/tmp/self_mem.out -memprofilerate=1 ./...
 //
 // The benchmark intentionally recreates the Parser each iteration so peak
-// allocation is observed, not steady-state (this mirrors how a code indexer
-// like a code indexer uses the parser).
+// allocation is observed, not steady-state. This mirrors how a code indexer
+// uses the parser.
 
 import (
 	"os"
