@@ -192,28 +192,4 @@ func TestParityIssue454PHPWholeTreeFallback(t *testing.T) {
 	}
 	t.Logf("deep_digest format=%s raw=%s production=%s compact=%s locked_c=%s raw_root_has_error=%t production_root_has_error=%t compact_root_has_error=%t locked_c_root_has_error=%t exact_locked_c=true fields=type+named,field,byte+point,extra+missing+error+has_error,child_order", benchfixtures.DeepTreeDigestVersion, rawInspection.SHA256, productionInspection.SHA256, compactInspection.SHA256, cDeepDigest, rawTree.RootNode().HasError(), goTree.RootNode().HasError(), compactTree.RootNode().HasError(), cTree.RootNode().HasError())
 	t.Logf("PHP issue #454 compact route source_sha256=%x bytes=%d routed=%d fallback=%d reason=%q", sha256.Sum256(edited), len(edited), routedAfter-routedBefore, fallbackAfter-fallbackBefore, gotreesitter.AdmissionCandidateLastFallbackReason())
-	document, err := os.ReadFile("../docs/issue-454-compact-correctness-blocker.md")
-	if err != nil {
-		t.Fatalf("read issue #454 compact receipt: %v", err)
-	}
-	documentText := strings.Join(strings.Fields(string(document)), " ")
-	for _, marker := range []string{
-		"## 2026-08-24 PHP recovery-leaf correction",
-		"Candidate base: `55681868d3a23971d042f9f79083fd6d39c7e33b`.",
-		"The locked-C artifact SHA-256 is `1daea60ac1ee31227b8e1ed3cbd76b841435fe693e95af65cc61dad447d27891`.",
-		issue454PHPRawDeepDigest,
-		issue454PHPProductionDeepDigest,
-		issue454PHPCompactDeepDigest,
-		issue454PHPLockedCDeepDigest,
-		"The `gts-deep-tree-v1` stream covers type and named identity, incoming fields, byte and point spans, and child order. It also covers extra and missing flags, error flags, and the `HasError` flag.",
-		"The raw, production, compact fallback, and locked-C deep digests are equal.",
-		"All four roots report `HasError=true`.",
-		"The compact route recorded `routed=0` and `fallback=1`.",
-		"This correction does not graduate PHP compact admission.",
-	} {
-		marker = strings.Join(strings.Fields(marker), " ")
-		if !strings.Contains(documentText, marker) {
-			t.Fatalf("issue #454 compact receipt is missing marker %q", marker)
-		}
-	}
 }

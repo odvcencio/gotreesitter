@@ -6,8 +6,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -407,55 +405,4 @@ func dartNextReceipt(tree *gotreesitter.Tree, language *gotreesitter.Language, c
 	}
 	diff := FirstDivergenceDumpV1(tree.RootNode(), language, cTree.RootNode())
 	return fmt.Sprintf("error_root=%t digest=%s c_digest=%s exact=%t rewrites=%d native_authoritative=%t passes=%s divergence=%+v", tree.RootNode().HasError(), inspection.SHA256, cDigest, diff == nil && inspection.SHA256 == cDigest, tree.ParseRuntime().NormalizationNodesRewritten, tree.ParseRuntime().NativeRecoveredStructureAuthoritative, normalizationPassesSummary(tree), diff)
-}
-
-// TestDartNextLiveArmReceiptDocument guards the Dart blocker receipt.
-func TestDartNextLiveArmReceiptDocument(t *testing.T) {
-	raw, err := os.ReadFile("../docs/root-normalization-retirement.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	document := strings.Join(strings.Fields(string(raw)), " ")
-	markers := []string{
-		"The Dart arm remains live.",
-		"Evidence base: `7b6f40fe089283674f5d0d19408d2380f77caf68`.",
-		"Publication base: `09cb5faa41af35a6bc84fefccbab1a17850d38cc`.",
-		"The grammar lock SHA-256 is `9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb`.",
-		"A0 means the initial dispatcher census.",
-		"A0 has 14 languages and 42 files.",
-		"The tracked census has seven fixtures across six languages.",
-		"The authenticated corpus is unavailable because `cgo_harness/corpus_real` and `cgo_harness/perf_scan/corpus_sources.lock` are absent.",
-		"The focused probe uses eight clean witnesses and one malformed recovery witness.",
-		"The single-type witness differs from locked C on raw, production, compact, and incremental routes.",
-		"The forest route rewrites 10 nodes and matches C.",
-		"The generic-return witness differs from C on raw, production, compact, and incremental routes.",
-		"The forest route rewrites 44 nodes and matches C.",
-		"The void and nested function-type witnesses differ from C on raw only.",
-		"The relational control compact route is accepted without a `dispatch.dart` pass.",
-		"The malformed `library;` witness matches C on raw, production, compact, and incremental routes.",
-		"The Dart external scanner is present and supports incremental reuse.",
-		"Keep `dispatch.dart` live.",
-		"Do not add a Dart-specific parser branch.",
-	}
-	for _, marker := range markers {
-		marker = strings.Join(strings.Fields(marker), " ")
-		if !strings.Contains(document, marker) {
-			t.Errorf("document is missing marker %q", marker)
-		}
-	}
-	changelogRaw, err := os.ReadFile("../CHANGELOG.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	changelog := strings.Join(strings.Fields(string(changelogRaw)), " ")
-	for _, marker := range []string{
-		"Recorded the N31h Dart dispatcher blocker at evidence base `7b6f40fe089283674f5d0d19408d2380f77caf68` and publication base `09cb5faa41af35a6bc84fefccbab1a17850d38cc`.",
-		"Keep `dispatch.dart` live.",
-		"No safe shared producer invariant was identified.",
-	} {
-		marker = strings.Join(strings.Fields(marker), " ")
-		if !strings.Contains(changelog, marker) {
-			t.Errorf("changelog is missing marker %q", marker)
-		}
-	}
 }

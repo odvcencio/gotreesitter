@@ -85,8 +85,7 @@ truncation-prone benchmark baselines. Keep it unset on current branches.
   select additional phase0 selected-store and admission behavior; see
   [docs/compact-parser-maintenance.md](compact-parser-maintenance.md).
 - `gts_workcount` enables the optional GLR/GSS work-count instrumentation
-  used for perf attribution; see
-  [docs/perf-attribution.md](perf-attribution.md). It is not part of the
+  used for perf attribution (`cgo_harness/attribution`). It is not part of the
   default or CI-gated build.
 
 See [.github/workflows/ci.yml](../.github/workflows/ci.yml) for the exact

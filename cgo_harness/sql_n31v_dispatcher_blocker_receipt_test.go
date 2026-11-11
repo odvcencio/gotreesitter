@@ -5,8 +5,6 @@ package cgoharness
 import (
 	"crypto/sha256"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 
 	gots "github.com/odvcencio/gotreesitter"
@@ -158,42 +156,6 @@ func TestSQLN31vDispatcherBlockerRoutes(t *testing.T) {
 		t.Fatalf("incremental receipt changed: digest=%s error=%t divergence=%+v dispatch=%s profile=%+v", inspection.SHA256, incremental.RootNode().HasError(), FirstDivergenceDumpV1(incremental.RootNode(), goLang, cTree.RootNode()), sqlN31vDispatch(incremental), profile)
 	}
 	t.Logf("route=incremental digest=%s c_digest=%s error=%t divergence=%+v dispatch=%s rewrites=%d profile=%+v runtime=%s", inspection.SHA256, cDigest, incremental.RootNode().HasError(), FirstDivergenceDumpV1(incremental.RootNode(), goLang, cTree.RootNode()), sqlN31vDispatch(incremental), incremental.ParseRuntime().NormalizationNodesRewritten, profile, incremental.ParseRuntime().Summary())
-}
-
-func TestSQLN31vDispatcherBlockerReceiptDocument(t *testing.T) {
-	doc, err := os.ReadFile("../docs/root-normalization-retirement.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	changelog, err := os.ReadFile("../CHANGELOG.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, marker := range []string{
-		"## 2026-08-24 SQL dispatcher blocker receipt",
-		"Status: `KEEP LIVE / NO-GO`. Keep `dispatch.sql` live.",
-		"ac90e46ace3c4ac6fb6bbc9f0897e449c949cfad",
-		sqlN31vSourceSHA,
-		sqlN31vRawDigest,
-		sqlN31vNormalizedDigest,
-		"The compact route falls back.",
-		"The forest route declines.",
-		"The container inspection record contains `GOMAXPROCS=1`.",
-		"No parser or registry change ships.",
-	} {
-		if !strings.Contains(string(doc), marker) {
-			t.Fatalf("retirement document lacks marker %q", marker)
-		}
-	}
-	for _, marker := range []string{
-		"Recorded the SQL dispatcher blocker",
-		"Keep `dispatch.sql` live",
-		"No parser or registry change ships.",
-	} {
-		if !strings.Contains(string(changelog), marker) {
-			t.Fatalf("changelog lacks marker %q", marker)
-		}
-	}
 }
 
 func sqlN31vDispatch(tree *gots.Tree) string {

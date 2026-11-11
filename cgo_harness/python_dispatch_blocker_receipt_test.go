@@ -6,8 +6,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -248,77 +246,6 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 
 			t.Logf("route-summary compact=%s raw=%s production=%s forest=%s incremental=%s reuse=%t unsupported=%t reason=%q", compactMode, pythonDispatchPassSummary(raw), pythonDispatchPassSummary(production), pythonDispatchPassSummary(forest), pythonDispatchPassSummary(incremental), profile.OldTreeReuseRoute, profile.ReuseUnsupported, profile.ReuseUnsupportedReason)
 		})
-	}
-}
-
-// TestPythonDispatchBlockerReceiptDocument guards the durable receipt markers.
-func TestPythonDispatchBlockerReceiptDocument(t *testing.T) {
-	doc, err := os.ReadFile("../docs/root-normalization-retirement.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	changelog, err := os.ReadFile("../CHANGELOG.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	document := strings.Join(strings.Fields(string(doc)), " ")
-	// The retirement doc is a hand-kept historical log (do not edit it from
-	// a test). Its heading for this section has appeared both with and
-	// without the 2026-09-13 date prefix across past edits. Accept either
-	// form instead of pinning one exact string.
-	if !strings.Contains(document, "## 2026-09-13 Python interpolation subpass retirement") &&
-		!strings.Contains(document, "## Python interpolation subpass retirement") {
-		t.Fatal("retirement document lacks the Python interpolation subpass retirement heading")
-	}
-	for _, marker := range []string{
-		"Status: `GO` for `dispatch.python.interpolation-patterns`. Keep `dispatch.python` live.",
-		"The forest route matches both f-string witnesses.",
-		"Forest local links now retain raw-shape ordering when compact primary derivation selection is certified.",
-		"## 2026-09-02 Python dispatcher certification update",
-		"Status: `PARTIAL-GO`. The compact route matches locked C on all three current blocker witnesses. Keep `dispatch.python` live.",
-		"Candidate base commit: `06afb3c881d4064bf367f970614e5120ec0abbfd`.",
-		"This update adds mixed physical graph-head merging and C-ordered clean-tie selection for the exact Python grammar artifact.",
-		"The compact counters advance by `1/0` for each witness. No compact fallback occurs.",
-		"The forest splat result remains a `pattern_list` instead of C's `expression_list`.",
-		"This forest-only gap stays outside the compact route gate.",
-		"Incremental parsing now preserves authenticated scanner reuse on all three witnesses.",
-		"Each route reports `reuse=true` and no unsupported reason.",
-		"The generated Python corpus from the pinned grammar source also passes the A3 sweep: `real=3`, `constructed=30`, `total=33`, with zero divergences.",
-		"The external corpus-source lock remains unavailable, so this is not a release certification receipt.",
-		"Keep the historical 2026-08-24 receipt below unchanged.",
-		"Reopen the retirement review after the forest splat tie has a separate proof, the authenticated corpus becomes available, and every route passes again.",
-		"## 2026-08-24 Python dispatcher blocker receipt",
-		"Status: `NO-GO`. Keep `dispatch.python` live.",
-		"Base commit: `14f6692fac65eab817f65af8cc6072e423ca6563`.",
-		"The raw positive witness differs from locked C, but production, compact, forest, and incremental routes match locked C.",
-		"The two f-string witnesses differ from locked C on every route.",
-		"external_scanner_unsupported",
-		"native_authoritative=false",
-		"The authenticated Python corpus and corpus lock are unavailable.",
-		"The sidecar records the expected corpus lock SHA, but it does not provide the corpus.",
-		"The A0 (initial dispatcher census) manifest has 14 languages, 42 files, and 14 receipts. It excludes Python.",
-		"The tracked census has seven fixtures. Its Python fixture is",
-		"20260823T052051Z-n31c-python-blocker-final5",
-		"20260823T052108Z-n31c-python-document-final6",
-		"20260823T051420Z-n31c-python-receipts-final",
-		"20260823T051431Z-n31c-python-census-final",
-		"20260823T051442Z-n31c-python-a3-corpus-absence",
-		"Canopy traces `runLanguageResultCompatibility` to `dispatcherArmCensus` and then to `normalizePythonCompatibilityWithParser`.",
-		"Keep dispatch.python live until scheduler_action_semantics emits the locked-C tree for every witness and route.",
-	} {
-		marker = strings.Join(strings.Fields(marker), " ")
-		if !strings.Contains(document, marker) {
-			t.Fatalf("retirement document lacks marker %q", marker)
-		}
-	}
-	for _, marker := range []string{
-		"Record the N31c Python dispatcher blocker at main commit",
-		"14f6692fac65eab817f65af8cc6072e423ca6563",
-		"Keep `dispatch.python` live.",
-	} {
-		if !strings.Contains(string(changelog), marker) {
-			t.Fatalf("changelog lacks marker %q", marker)
-		}
 	}
 }
 

@@ -321,64 +321,6 @@ func TestTypeScriptMergeCapOneTypedArrowReceipt(t *testing.T) {
 	t.Logf("cap=1 source_sha256=%x go_digest=%s c_digest=%s first_divergence=%+v", sha256.Sum256([]byte(source)), inspection.SHA256, cDigest, diff)
 }
 
-// TestTypeScriptDispatchBlockerReceiptDocument guards the durable receipt.
-func TestTypeScriptDispatchBlockerReceiptDocument(t *testing.T) {
-	doc, err := os.ReadFile("../docs/root-normalization-retirement.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	changelog, err := os.ReadFile("../CHANGELOG.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	document := strings.Join(strings.Fields(string(doc)), " ")
-	for _, marker := range []string{
-		"## 2026-08-24 TypeScript dispatcher blocker receipt",
-		"Status: `KEEP LIVE / NO-GO`. Keep `dispatch.typescript` live.",
-		"Base commit: `731f8a9d9440a006b2cc6b56ef5b31c0ff3b5ce7`.",
-		"cgo_harness/typescript_dispatch_blocker_receipt_test.go",
-		"40b4a7a06fde353d8c2b726acb16f59aab44d49d1b6257c37345c2a1f56b9fb7",
-		"1,462 visited nodes, 15 rewritten nodes",
-		"The A0 (initial dispatcher census) manifest has 14 languages and 42 files.",
-		"It excludes TypeScript and TSX.",
-		"The full authenticated TypeScript and TSX corpus is unavailable.",
-		"supports_incremental_reuse=true",
-		"0c29d566e57e5bdee435a7c8f17578bc2b0e5ff53c8dfea720655fec2b9f7f39",
-		"GOT_GLR_MAX_MERGE_PER_KEY=1",
-		"The existing ternary generic-call selection test remains skipped.",
-		"webworker.generated.d.ts",
-		"was not rerun locally",
-		"Keep `dispatch.typescript` live until",
-		`## 2026-08-24 TypeScript current-main follow-up`,
-		`ab84e809297e945a6debd52ec3e211956b497893`,
-		`20260824T102012Z-typescript-current-main-ab84`,
-		`5ed6103ec1d94a21570c02dd5e27067024383b61b59040c3a670a40109a40085`,
-		`2f53f7d3d13f66545d55f7ac6f19d2398c0403bb663757704a15650b4fc84015`,
-		`75c98fc9f46ab991c18d9660dd9dfb08d5cfd52b25f1d379e948392f87c56a0e`,
-		`46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126`,
-		`bf8c490b0bbeb6d4150abce2edc193552e44b093893665dde69bd39e9e940e85`,
-		`All shipping witnesses retain their locked-C deep digests.`,
-		`The tracked witness retains 15 production rewrites and 10 incremental rewrites.`,
-		`406 subtrees, 2,289 bytes`,
-		`GOT_GLR_MAX_MERGE_PER_KEY=1`,
-	} {
-		marker = strings.Join(strings.Fields(marker), " ")
-		if !strings.Contains(document, marker) {
-			t.Fatalf("retirement document lacks marker %q", marker)
-		}
-	}
-	for _, marker := range []string{
-		"Record the N31b TypeScript dispatcher blocker",
-		"731f8a9d9440a006b2cc6b56ef5b31c0ff3b5ce7",
-		"Keep `dispatch.typescript` live.",
-		"No production code changed.",
-	} {
-		if !strings.Contains(string(changelog), marker) {
-			t.Fatalf("changelog lacks marker %q", marker)
-		}
-	}
-}
-
 func typescriptDispatchAssertExact(t *testing.T, route string, tree *gotreesitter.Tree, language *gotreesitter.Language, cTree *sitter.Tree, wantDigest string) {
 	t.Helper()
 	if tree == nil || tree.RootNode() == nil {

@@ -8,7 +8,7 @@ import (
 
 // TestOCamlCollapsedNamedLeafChildrenNativeRetiredDispatchArm is the R2
 // retirement receipt for dispatch.ocaml
-// (docs/root-normalization-retirement.md,
+// (https://github.com/odvcencio/gotreesitter/blob/9c955f3d29b126973da657124438f7c0aeddce5b/docs/root-normalization-retirement.md,
 // testdata/result_compat_ownership_v1.json).
 // normalizeOCamlCollapsedNamedLeafChildren (parser_result_ocaml.go, now
 // deleted) restored a missing anonymous token child under childless
