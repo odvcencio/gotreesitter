@@ -231,6 +231,8 @@ func corridorExperimentalDispositionEnabled() bool {
 // stream, so corridor control flow never consults a state-to-offset index. The
 // index exists only for corridor entry and for re-entry after a boundary
 // opcode.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type ParserCoreCorridorProgram struct {
 	// prog is the validated instruction stream. Word 0 is the halt guard.
 	prog []uint32
@@ -263,6 +265,8 @@ type ParserCoreCorridorProgram struct {
 // ParserCoreCorridorCensus counts compiled dispositions. Reduce includes the
 // fused REDUCE_CHAIN and REDUCE_SHIFT subtypes; the subtype fields report them
 // separately.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type ParserCoreCorridorCensus struct {
 	Shift            uint64
 	ShiftExtra       uint64
@@ -769,6 +773,8 @@ func (t *corridorTables) unsupportedReason(row core.ActionRow) parserCoreCorrido
 // CompileParserCoreCorridorProgram is the one compiler (spec section 5, S1).
 // grammargen's assemble step and the runtime load path both feed the same
 // decoded table set into this function; there is no second implementation.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func CompileParserCoreCorridorProgram(lang *Language) (*ParserCoreCorridorProgram, error) {
 	tables, err := newCorridorTables(lang)
 	if err != nil {
@@ -1287,6 +1293,8 @@ func corridorDispatch(prog []uint32, base uint32, sym Symbol) uint32 {
 // ParserCoreCorridorDecodedCell is the decode-back form of one compiled cell
 // (spec section 5, S2). It names the disposition and carries enough operand
 // detail to reconstruct the constituent table cell.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type ParserCoreCorridorDecodedCell struct {
 	State         StateID
 	Symbol        Symbol
