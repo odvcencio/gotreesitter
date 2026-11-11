@@ -173,3 +173,44 @@ func issue380PointForOffset(src []byte, off int) gotreesitter.Point {
 	}
 	return gotreesitter.Point{Row: uint32(row), Column: uint32(col)}
 }
+
+// TestArenaBreakdownOnProductionRouteGoWorkloads checks that the production
+// route parses a generated 500-function Go source and parser.go without error
+// and records an arena breakdown for each.
+func TestArenaBreakdownOnProductionRouteGoWorkloads(t *testing.T) {
+	entry := grammars.DetectLanguage("main.go")
+	if entry == nil {
+		t.Skip("Go grammar not available")
+	}
+	large, err := os.ReadFile("parser.go")
+	if err != nil {
+		t.Fatalf("read parser.go: %v", err)
+	}
+
+	gotreesitter.EnableArenaBreakdown(true)
+	defer gotreesitter.EnableArenaBreakdown(false)
+
+	workloads := []struct {
+		name string
+		src  []byte
+	}{
+		{name: "generated-500-functions", src: makeGoBenchmarkSource(500)},
+		{name: "parser.go", src: large},
+	}
+	for _, wl := range workloads {
+		parser := gotreesitter.NewParser(entry.Language())
+		parser.SetAdmissionCandidateRoute(false)
+		tree, err := parser.Parse(wl.src)
+		if err != nil {
+			t.Fatalf("[%s] parse error: %v", wl.name, err)
+		}
+		if tree.RootNode() == nil {
+			t.Fatalf("[%s] nil root", wl.name)
+		}
+		if _, ok := tree.ArenaBreakdown(); !ok {
+			t.Fatalf("[%s] arena breakdown unavailable", wl.name)
+		}
+		tree.Release()
+	}
+	gotreesitter.DrainArenaPools()
+}
