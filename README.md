@@ -25,12 +25,11 @@ The current release is **v0.57.0**. It adds a pure-Go parser command and
 grammar-entry helpers, corrects highlight priorities and inheritance, fixes
 Make, Kotlin and TypeScript parsing, and reduces YAML scanner work and compact
 allocation. See [CHANGELOG.md](CHANGELOG.md) for changes and upgrade notes,
-and [docs/v1-design.md](docs/v1-design.md) for the v1 plan.
+and [docs/v1-design.md](docs/v1-design.md) for engine requirements and validation gates.
 
 On `main`, not yet released: `internal/ccore`, a C-faithful parser core that CI
-compares with pinned C. Only tests parse through it; the next release follows
-when the first grammars run on it. See the Unreleased section of the changelog
-and [docs/roadmap.md](docs/roadmap.md).
+compares with pinned C. Only tests parse through it. See the Unreleased section
+of the changelog.
 
 ## Quick start
 
@@ -105,7 +104,7 @@ Agents working with gotreesitter should use the [using-gotreesitter](https://git
 | Supported languages, query feature matrix, adding a language | [docs/languages.md](docs/languages.md) |
 | Building, testing, and sending a pull request | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Benchmarks and methodology | [BENCH.md](BENCH.md) |
-| v1 plan | [docs/v1-design.md](docs/v1-design.md), [docs/roadmap.md](docs/roadmap.md) |
+| Engine requirements and validation | [docs/v1-design.md](docs/v1-design.md) |
 | Docs site and playground | <https://gotreesitter.m31labs.dev>, <https://gotreesitter.m31labs.dev/playground> |
 | Root package file map and ownership | [docs/repository-map.md](docs/repository-map.md) |
 | Root-package file group map by subsystem | [docs/package-layout.md](docs/package-layout.md) |

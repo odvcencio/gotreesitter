@@ -53,8 +53,8 @@ Provide internal helpers for scanner tests that use `go:linkname` before moving 
 | Incremental parsing | `incremental*.go`, `parser_incremental_support.go`, `parser_relex*.go`, `w1*.go` tests | Edit application, reuse admission, splice/settle paths, and correctness gates |
 | Result compatibility | `parser_result*.go` | Oracle-gated language compatibility that remains after engine-level selection |
 | Queries and analysis | `query*.go`, `highlight*.go`, `tagger*.go`, `injection*.go`, `imports.go`, `understanding.go` | Query compilation/execution and higher-level syntax services |
-| Compact parser candidate | `internal/parsercorephase0/`, root `parsercore_phase0*.go` files | Compact scheduler, selected store, admission, replay, and parity ratchets. Frozen by the owner decision of 2026-11-10 (see the [v1 design](v1-design.md#decision-of-2026-11-10-a-c-faithful-core)) |
-| C-faithful core | `internal/ccore/`, `internal/ccore/bind/`, root `ccore_bind.go` and `ccore_scanner.go`, `cgo_harness/ccore_*_test.go` | The parser core that replaces the compact scheduler, its adapters from a `*Language`, and its equality tests against pinned C 0.27.1. No public API reaches it |
+| Compact parser candidate | `internal/parsercorephase0/`, root `parsercore_phase0*.go` files | Compact scheduler, selected store, admission, replay, and parity ratchets. Frozen: do not extend |
+| C-faithful core | `internal/ccore/`, `internal/ccore/bind/`, root `ccore_bind.go` and `ccore_scanner.go`, `cgo_harness/ccore_*_test.go` | The C-faithful parser core, its adapters from a `*Language`, and its equality tests against pinned C 0.27.1. No public API reaches it |
 | Allocation and storage | `arena*.go`, `raw_shape*.go`, `no_tree_node.go`, `node_field_metadata.go` | Arena lifetime, compact/raw node storage, and memory accounting |
 
 The result-compatibility tier has its own retirement rules in

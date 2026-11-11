@@ -9,7 +9,8 @@ It fully supersedes `specs/spec.compact-graduation-rider.v1.md`.
 
 ## Goal and baseline
 
-Make compact the only engine, then delete legacy.
+Put new engine work in `internal/ccore`. Do not extend the compact scheduler. Change the legacy engine only to fix defects.
+The compact-specific implementation prescriptions in D2–D5 do not apply to `internal/ccore`; its functions follow pinned C. Apply D6–D13 and all correctness, performance, graduation, and release gates to the core.
 Reduce parsing cost and repository size while preserving strict parity with the locked C oracle.
 Publish a stable version 1 application programming interface (API) and an independently versioned grammar format.
 
@@ -27,7 +28,7 @@ The reset phase establishes reproducible evidence before optimization.
 
 | ID | Decision |
 | --- | --- |
-| D1 | Make compact the only engine. Keep its index arenas and C-style head merge; rebuild the remaining mechanisms. |
+| D1 | Put new engine work in `internal/ccore` and follow the corresponding functions of the pinned C tree-sitter 0.27.1 runtime. |
 | D2 | Do not build another legacy merge. Limit legacy work to Q fixes. Q0 runs as a two-week experiment (owner decision O-Q4). |
 | D3 | Move proofs and detailed telemetry into tests and the `gts_diag` build. Remove them from the hot path. |
 | D4 | Use one representation per phase: an index graph, then a structure-of-arrays tree. Create stable `*Node` views lazily. |
@@ -43,24 +44,9 @@ The reset phase establishes reproducible evidence before optimization.
 
 ## Target architecture
 
-Every public parse method builds one `internal/sched.Request` and calls `sched.Parse`.
-`Supports` and a capability table identify unsupported modes before parsing starts.
-All capability flags must close before legacy deletion.
-
-The scheduler uses these packages:
-
-- `lex` supplies tokens with a cache for each version and lexer mode.
-- `gss` stores the graph and merges heads.
-- `recover` performs generic recovery.
-- `incr` selects reusable subtrees.
-- `tree` stores output in parallel arrays.
-- `compat` reads the same output through a shared reader interface.
-
-Transactions mark arena lengths and truncate on rollback.
-Hot version headers occupy at most 32 bytes; cold state uses indexed sidecars.
-Dependency records use dense arrays. At most five counters remain always on.
-A single live version uses direct lexing, shifts, and reductions.
-Only a budgeted recovery rung can parse the same bytes twice within one request.
+`internal/ccore` implements the C-faithful parser core and imports only the standard library.
+The root adapters build its tables and scanner bindings from a `*Language`.
+No public API reaches the core; only tests parse through it.
 
 The root facade uses defined types and generated forwarding methods.
 `facadegen` generates those methods; continuous integration (CI) checks its output.
@@ -92,14 +78,7 @@ D-B compatibility adapters and D-E editor tooling follow v1.0.
 
 ### Lanes and sequence
 
-Keep one active pull request (PR) per lane:
-
-- Core: `sched`, `gss`, and `recover`.
-- Incremental: `incr`.
-- Output: `tree` and `compat`.
-- Legacy fixes: Q items.
-
-The design calls for a CODEOWNERS path check to enforce these lanes.
+Use the [lanes in AGENTS.md](../AGENTS.md#lanes).
 PRs that change only graduation allowlists and receipts do not occupy the core lane.
 
 1. Pass the E-A exit gate before starting E-G graduation.
@@ -253,14 +232,6 @@ The owner decided O-Q1 to O-Q7 on 2026-09-26. Where a decision differs from the 
 | O-Q5 | Yes, in a separate module only: `grammargen` may use an embedded JavaScript engine. The runtime module keeps zero third-party dependencies. |
 | O-Q6 | No module split before v1.0. Revisit after grammar format v1 ships. |
 | O-Q7 | No release-cadence cap before v1.0. A regular cadence starts after v1.0. The global default still flips only in `v1.0.0-rc.1` (D7). |
-
-### Decision of 2026-11-10: a C-faithful core
-
-On 2026-11-10 the owner decided that a C-faithful core replaces the present compact scheduler, which is frozen. Scheduling differently from C needed proofs, guards, and declines wherever the design differed. The core follows C's control flow, so equality tests compare its decision trace line for line with C's logger. The core is `internal/ccore` ([#1592](https://github.com/odvcencio/gotreesitter/pull/1592)). No public API reaches it yet. CI compares it with pinned C on every pull request that changes code ([#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
-
-This entry replaces D1's choice of engine: the C-faithful core, not compact, becomes the only engine. Legacy and the compact scheduler are deleted after every grammar that legacy supports has graduated to the core. The entry also supersedes the engine lanes and the package list that name the compact scheduler's packages (`sched`, `gss`, `recover`, `incr`, `tree`, `compat`) in Target architecture and in Lanes and sequence. It does not restate D2 to D5, the milestone table, or the work-item names; where they describe the compact engine, they describe the earlier plan.
-
-These parts stay in force: the four gates, D6 to D13, the v1.0 release gate, O-Q1 to O-Q7, and the cohorts as the list of grammars to graduate.
 
 ## Graduation cohorts
 

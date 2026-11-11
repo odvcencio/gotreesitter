@@ -10,7 +10,7 @@ nonterminals with authenticated compact dependency proofs. Length or point chang
 still require coordinate updates in affected trailing subtrees. This is not an
 absolute `O(edit)` guarantee. The v0.52.0 release disables the unsafe same-length
 token-invariant shortcut while preserving ordinary subtree reuse and no-edit reuse.
-The unreleased implementation restores this shortcut with authenticated lexical dependencies.
+Authenticated lexical dependencies guard same-length token-invariant reuse.
 [Pull request #1093](https://github.com/odvcencio/gotreesitter/pull/1093) closed
 [issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
 General reuse with external scanners requires explicit certification, with
@@ -29,7 +29,7 @@ See the [per-language matrix](external-scanners.md#incremental-reuse-certificati
 
 **Arena allocator** — Nodes are allocated from slab-based arenas to reduce GC pressure. Arenas are released in bulk when a tree is freed.
 
-**C-faithful core (`internal/ccore`)** — A second parser core, built to make the same decisions as the C tree-sitter 0.27.1 runtime: parser, stack, subtrees, lexer walk, error recovery, external-scanner protocol, tree edits, and node reuse. It imports only the standard library. No public API reaches it; only tests parse through it. The required CI job `ccore-equality-cgo` compares it with pinned C for json, python, c, and typescript on every pull request that changes code; see [ci-gate-coverage.md](ci-gate-coverage.md). Routing grammars to it is planned work; see the [roadmap](roadmap.md).
+**C-faithful core (`internal/ccore`)** — A second parser core, built to make the same decisions as the C tree-sitter 0.27.1 runtime: parser, stack, subtrees, lexer walk, error recovery, external-scanner protocol, tree edits, and node reuse. It imports only the standard library. No public API reaches it; only tests parse through it. The required CI job `ccore-equality-cgo` compares it with pinned C for json, python, c, and typescript on every pull request that changes code; see [ci-gate-coverage.md](ci-gate-coverage.md).
 
 **Query engine** — S-expression pattern compiler with predicate evaluation and streaming cursor iteration. It supports all standard tree-sitter predicates (`#eq?`, `#match?`, `#any-of?`, `#has-ancestor?`, and similar predicates) and directive annotations (`#set!`, `#offset!`, `#select-adjacent!`, `#strip!`).
 

@@ -1,26 +1,21 @@
 ## Working in gotreesitter
 
-This file is for everyone who changes this repository: contributors, coding agents, reviewers, and the owner.
-It says where the project is going, how to make a change safely, what a pull request (PR) must show, and which decisions belong to the owner.
+This file is for everyone who changes this repository: contributors, coding agents, and reviewers.
+It says how to make a change safely, what a pull request (PR) must show, and what to ask a maintainer before you do it.
 [CONTRIBUTING.md](CONTRIBUTING.md) covers setup and first steps. [docs/repository-map.md](docs/repository-map.md) says where things live.
 
 The correctness and performance requirements apply to everyone.
 The Canopy, Buckley, and Hyphae steps apply to maintainers who have those tools configured. Other contributors may use `rg`, direct source reads, and signed plain-Git commits, and put their results in the PR body; maintainers archive raw evidence as section 6 describes.
 
-### Where the project is going
+### Where engine work goes
 
-gotreesitter is a tree-sitter runtime in pure Go, with no CGo. It loads the same grammars as the C runtime and aims for the same trees, on every target Go builds for.
+gotreesitter is a tree-sitter runtime in pure Go, with no CGo. It loads the same grammars as the C runtime and aims for the same trees.
 
-The owner's [v1 design](docs/v1-design.md) governs engine work and supersedes conflicting campaign guidance.
-The full design is `hypha://m31labs/gotreesitter/specs/spec.gotreesitter-v1-design`.
-The owner's [decision of 2026-11-10](docs/v1-design.md#decision-of-2026-11-10-a-c-faithful-core) sets the engine plan:
+- Put new engine work in `internal/ccore`.
+- Do not extend the compact scheduler (`internal/parsercorephase0` and the root `parsercore_phase0*.go` files).
+- Change the legacy engine only to fix a defect.
 
-- `internal/ccore`, the C-faithful core, becomes the only engine. Put new engine work there.
-- The compact scheduler (`internal/parsercorephase0` and the root `parsercore_phase0*.go` files) is frozen. Do not extend it.
-- The legacy engine gets Q fixes only.
-- Every grammar that the legacy engine supports graduates to the core. Then the legacy engine and the compact scheduler are deleted.
-
-[docs/roadmap.md](docs/roadmap.md) says what is done and what comes next. Put status there and in PRs, not in this file.
+[docs/v1-design.md](docs/v1-design.md) holds the gates that engine work must pass. Put status in PRs, not in this file.
 
 ### Rules that always hold
 
@@ -40,9 +35,8 @@ Run the invariant gate for every language that an engine PR can affect:
 - The root covers the input, or the stop reason explains the gap.
 - A reparse without edits allocates nothing.
 
-Graduate each language through the allowlist after the E-A exit gate.
-Flip the global default only after all top-50 languages graduate, and only in a release candidate (D7).
-The owner decided O-Q1 through O-Q7 on 2026-09-26; see the owner decisions in [the v1 design](docs/v1-design.md#owner-decisions). Every grammar that the legacy engine supports graduates before legacy is deleted. Section 8 implements O11 under organization decision 0012.
+Add a language to the allowlist only after the E-A exit gate and the [graduation gate](docs/v1-design.md#graduation-gate-one-language) pass. Put the results in the PR body.
+Change the global default engine only after all top-50 languages graduate, and only in a release candidate (D7).
 
 ### Lanes
 
@@ -84,15 +78,15 @@ Facts that a first change often misses:
 
 Reviewers check the same five points. Review the claim against the code, not against the PR text.
 
-### Decisions that belong to the owner
+### Ask a maintainer first
 
-Ask; do not decide these yourself.
+Do not decide these yourself.
 
 - An exception to the counter ledger (R3, [v1 design](docs/v1-design.md#r3-counter-ledger-changes)). Agents never approve one.
-- A known difference from C for a grammar (O-Q1). It requires proof that the grammar cannot graduate, a witness, the blocking mechanism, the reason no generic mechanism serves it, and the owner's approval. It does not authorize intentional divergence from C.
-- A change to the approved plan for the default switch and the engine deletions. The approved plan flips the default in `v1.0.0-rc.1` after the top 50 graduate, and deletes legacy and the compact scheduler after every grammar that legacy supports has graduated to the core.
-- Publishing a release. It requires the owner's approval of the protected `release` environment. While the tag-creation rule gap remains without a standing owner decision, it also requires the owner's separate authorization of that version's tag-rule exception ([docs/releasing.md](docs/releasing.md)).
-- A change to the v1 design's gates or decisions.
+- Recording a known difference from C for a grammar. It requires proof that the grammar cannot graduate, a witness, the blocking mechanism, an explanation of why no generic mechanism serves it, and the repository owner's approval. A known difference does not authorize intentional divergence from C.
+- Changing the default engine for a grammar, or deleting an engine.
+- Publishing a release ([docs/releasing.md](docs/releasing.md)).
+- Changing a gate in the v1 design.
 
 ### 1) Non-negotiables
 - Do not run repository-wide `go test ./...`, `go test ./... -race`, or `go build ./...` on the host. Broad host sweeps can OOM developer machines and make attribution harder.
@@ -160,15 +154,7 @@ Release-blocking performance safety requirements:
 Use the [v1 performance gate](docs/v1-design.md#performance-gate-one-language)
 for hard failures and per-language ratchets.
 Track work counters and reuse counters before timing.
-D13 defines three target layers:
-
-- An engine floor for all 206 grammars.
-- Tuned targets for the top 50.
-- Stretch targets for the top 20.
-
-The `2x` full-parse goal and edits at or below C apply to the top-20 stretch layer.
-The owner decided O-Q3: the v1.0 speed targets block the v1.0 release only.
-Hard failures and ratchets remain mandatory. Record every directional regression and explain its tradeoff.
+Hard failures and ratchets are mandatory. Record every directional regression and explain its tradeoff.
 
 ### 5) Attribution for Incremental Hot Path
 When profiling incremental edits, split attribution into:
@@ -241,7 +227,7 @@ Full-parse non-truncation probe:
 
 ### 8) Prose Standard: Plain language
 
-Write plainly: lead with the point, use common words and the active voice, keep each term consistent, back claims with evidence (numbers, links, test output), and say what you did not verify. M31 agents: see decision 0012 and the `writing-plainly` skill in hypha://m31labs/hyphae.
+Write plainly: lead with the point, use common words and the active voice, keep each term consistent, back claims with evidence (numbers, links, test output), and say what you did not verify. Maintainers' agents: use the `writing-plainly` skill.
 
 Use numbers from pinned benchmarks or CI runs as receipts. Cite them in the PR body; do not commit them.
 
@@ -259,4 +245,4 @@ Follow [docs/releasing.md](docs/releasing.md), including these checks:
 
 1. The date in the candidate's changelog heading must equal the `America/Los_Angeles` date when verification and when publication each collect their evidence. If the date changes before publication, update the candidate documents and repeat the required validation.
 2. Nothing may merge to `main` between the full manual CI run on the candidate commit and the tag.
-3. Publication requires the owner's approval of the protected `release` environment, and the version's tag-rule exception while `docs/releasing.md` requires one.
+3. Publication requires approval of the protected `release` environment, and the version's tag-rule exception while `docs/releasing.md` requires one.
