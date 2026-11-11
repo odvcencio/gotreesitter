@@ -10,7 +10,7 @@ It fully supersedes `specs/spec.compact-graduation-rider.v1.md`.
 ## Goal and baseline
 
 Put new engine work in `internal/ccore`. Do not extend the compact scheduler. Change the legacy engine only to fix defects.
-Where a decision or gate in this document names compact as the candidate engine, apply it to `internal/ccore`.
+The compact-specific implementation prescriptions in D2–D5 do not apply to `internal/ccore`; its functions follow pinned C. Apply D6–D13 and all correctness, performance, graduation, and release gates to the core.
 Reduce parsing cost and repository size while preserving strict parity with the locked C oracle.
 Publish a stable version 1 application programming interface (API) and an independently versioned grammar format.
 
