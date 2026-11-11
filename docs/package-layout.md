@@ -34,7 +34,7 @@ would map onto `internal/` packages.
 | `parser_incremental*`, `parser_reuse*` | 5 | Incremental-support glue used by `incremental*.go` |
 | `parser_scratch*`, `parser_memory*`, `parser_tables*` | 8 | Parser-lifetime scratch buffers, memory accounting, table caches |
 | `parser_<language>*` (`parser_go`, `parser_typescript`, `parser_csharp`, `parser_powershell`, `parser_scala`, `parser_sql`, `parser_objc`, `parser_markdown`, `parser_html`, `parser_cpp`) | ~20 | Parser-core-level language-specific fixes that are not part of the `parser_result_*` compat tier (keyword promotion, lexer state, and similar upstream-owned repairs) |
-| `parsercore_phase0*` | 123 | The default compact scheduler (`internal/parsercorephase0`-backed), admission, replay, and parity ratchets, gated by `!gts_no_parsercorephase0` |
+| `parsercore_phase0*` | 126 | The default compact scheduler (`internal/parsercorephase0`-backed), admission, replay, and parity ratchets, gated by `!gts_no_parsercorephase0` |
 | `parsercore_c4*` | 6 | The C4 stage-2 table-shape analyzer and program/VM |
 | `ccore_*` | 2 | Adapters from a `*Language` to `internal/ccore` (`ccore_bind.go`, `ccore_scanner.go`). They export nothing |
 | `parsestate_*` | 7 | Parse-state replay and compact-differential support |

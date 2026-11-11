@@ -32,7 +32,7 @@ const rootBudget = 687
 // know, so TestAdapterFilesBudgetAndTags checks that the files of this list
 // that exist carry no //go:build line. The first two arrive with the adapters and equality
 // tests; the others arrive with the route and public tree. The budget above
-// counts only the files that exist: 689 before the exception plus the two
+// counts only the files that exist: 685 before the exception plus the two
 // files that have landed.
 var adapterFiles = []string{
 	"ccore_bind.go",
