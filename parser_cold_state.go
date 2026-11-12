@@ -4,6 +4,8 @@ package gotreesitter
 // uncommon features. It preserves the hot Parser layout for ordinary parses.
 type parserColdState struct {
 	forestDeclineMemoState
+	// retryPassObserver is a test seam; it is nil in production.
+	retryPassObserver               func(p *Parser, logicalRung string)
 	cNodeMemoRetainedCache          []cNodeMemoCacheEntry
 	pendingForkStackReserve         []glrStack
 	pendingFrontierForkStackReserve []glrStack
