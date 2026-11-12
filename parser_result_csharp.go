@@ -973,7 +973,7 @@ func csharpRecoverTopLevelChunkNodesFromRange(source []byte, start, end uint32, 
 	tree, err := p.parseForRecovery(chunk)
 	if err == nil && tree != nil && tree.RootNode() != nil {
 		startPoint := advancePointByBytes(Point{}, source[:start])
-		offsetRoot := tree.RootNodeWithOffset(start, startPoint)
+		offsetRoot := tree.rootNodeWithRecoveryOffset(start, startPoint)
 		if offsetRoot != nil && !offsetRoot.HasError() {
 			nodes := csharpExtractRecoveredTopLevelNodes(offsetRoot, p.language, arena)
 			tree.Release()
@@ -1282,7 +1282,7 @@ func csharpRecoverNamespaceNodeFromRange(source []byte, start, end uint32, p *Pa
 	}
 	defer tree.Release()
 	startPoint := advancePointByBytes(Point{}, source[:start])
-	offsetRoot := tree.RootNodeWithOffset(start, startPoint)
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start, startPoint)
 	if offsetRoot == nil {
 		return nil, false
 	}

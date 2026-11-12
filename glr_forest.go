@@ -460,14 +460,19 @@ func (p *Parser) maybeReplaceRecoveredTreeWithForest(source []byte, tree *Tree) 
 
 	candidate, ok := p.parseForestCleanRescue(source)
 	if !ok || candidate == nil {
+		// The rescue is optional work. A decline on timeout or cancellation
+		// records the cause that the forest observed (its decline reason).
+		p.noteRetryCut(ParseStopReason(p.forestDeclineReason))
 		return tree, false
 	}
 	p.normalizeReturnedTreeForParse(candidate, source)
 	candidateRoot := rawRootOrNil(candidate)
 	if candidate.rawParseStoppedEarly() || candidateRoot == nil || candidateRoot.StartByte() != 0 || candidateRoot.EndByte() != uint32(len(source)) || candidateRoot.HasErrorOrMissing() {
+		p.noteRetryCut(candidate.rawParseStopReason())
 		candidate.Release()
 		return tree, false
 	}
+	carryRetryStopReason(candidate, tree)
 	tree.Release()
 	return candidate, true
 }

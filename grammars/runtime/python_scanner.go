@@ -5,6 +5,7 @@ package grammarruntime
 import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars/internal/pythonruntime"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 var pythonExternalScannerSpec = ExternalScannerSpec{
@@ -27,6 +28,8 @@ var pythonExternalScannerSpec = ExternalScannerSpec{
 }
 
 func init() {
+	// A checked port with a behavioural mode: the core serves it (internal/scanmode).
+	scanmode.RegisterScanner(PythonExternalScanner{}, (*pythonScannerState)(nil), true)
 	RegisterExternalScannerSpec(pythonExternalScannerSpec)
 }
 

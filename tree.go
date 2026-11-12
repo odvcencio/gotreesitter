@@ -1185,7 +1185,10 @@ func nodeFieldIDAt(n *Node, i int) FieldID {
 type ParseStopReason string
 
 const (
-	ParseStopNone     ParseStopReason = "none"
+	ParseStopNone ParseStopReason = "none"
+	// ParseStopAccepted means the parser accepted a tree. With a timeout set,
+	// that tree can still come from an earlier pass when the timeout cut the
+	// error-recovery retry work short; Tree.RetryStopReason reports that case.
 	ParseStopAccepted ParseStopReason = "accepted"
 	// ParseStopAcceptedPrefix means the parser accepted a tree before real input ended.
 	ParseStopAcceptedPrefix  ParseStopReason = "accepted_prefix"
@@ -1431,8 +1434,26 @@ type RecoveryRuntimeAttempts []RecoveryRuntimeAttemptStats
 
 // ParseRuntime captures parser-loop diagnostics for a completed tree.
 type ParseRuntime struct {
-	StopReason     ParseStopReason
-	ForestFastPath bool
+	StopReason ParseStopReason
+	// RetryStopReason tells whether a timeout or the cancellation flag kept the
+	// parser from finishing its error-recovery retry passes and the fallback
+	// work that follows them.
+	//
+	// A parse with a timeout (Parser.SetTimeoutMicros, WithParserPoolTimeoutMicros)
+	// may run several retry passes after its first pass. When the timeout
+	// expires between or during those passes, the parse returns the best tree
+	// found so far. StopReason is the stop reason of the pass that produced
+	// that tree (usually ParseStopAccepted), unchanged from before; it does not
+	// say that the retry work was cut short, and the tree can differ from the
+	// tree of a parse that had no timeout. RetryStopReason is ParseStopTimeout
+	// when the timeout cut that work short and ParseStopCancelled when the
+	// cancellation flag did. It is ParseStopNone when there was nothing to cut,
+	// when the work ran to its end, and when it stopped at its fixed pass limit
+	// (that limit does not depend on time). A first pass that times out reports
+	// StopReason ParseStopTimeout and leaves RetryStopReason at ParseStopNone.
+	// ParseForestExperimental runs no retry passes and reports ParseStopNone.
+	RetryStopReason ParseStopReason
+	ForestFastPath  bool
 	// IncrementalAcceptedErrorRetryAttempts records the bounded second
 	// incremental pass used when an accepted, full-span ERROR tree was produced
 	// under the wider incremental merge policy. The retry keeps the edited old
@@ -1442,6 +1463,10 @@ type ParseRuntime struct {
 	// IncrementalAcceptedErrorRetryAdopted is true only when that retry produced
 	// a strictly better tree and replaced the first incremental result.
 	IncrementalAcceptedErrorRetryAdopted bool
+	// The two Captured flags sit here, not beside their fields, so that they fill
+	// padding and ParseRuntime keeps its size with RetryStopReason added.
+	StopDiagnosticActionCaptured     bool
+	StopDiagnosticLastReduceCaptured bool
 	// IncrementalAcceptedErrorRetryMergePerKey is the exact merge-per-key cap
 	// used by the bounded retry.
 	IncrementalAcceptedErrorRetryMergePerKey int
@@ -1565,7 +1590,6 @@ type ParseRuntime struct {
 	StopDiagnosticFrontierActions                 string
 	StopDiagnosticSameHeaderGroups                string
 	StopDiagnosticCondenseGating                  string
-	StopDiagnosticActionCaptured                  bool
 	StopDiagnosticActionPhase                     string
 	StopDiagnosticActionStackState                StateID
 	StopDiagnosticActionStackByte                 uint32
@@ -1595,7 +1619,6 @@ type ParseRuntime struct {
 	StopDiagnosticActionDispatchAcceptActions     int
 	StopDiagnosticActionDispatchRecoverActions    int
 	StopDiagnosticActionDispatchOtherActions      int
-	StopDiagnosticLastReduceCaptured              bool
 	StopDiagnosticLastReducePhase                 string
 	StopDiagnosticLastReduceStackState            StateID
 	StopDiagnosticLastReduceStackByte             uint32
@@ -4237,12 +4260,32 @@ func (t *Tree) RootNodeWithOffset(offsetBytes uint32, offsetExtent Point) *Node 
 	if offsetBytes == 0 && offsetExtent == (Point{}) {
 		return t.root
 	}
+	return t.rootNodeWithOffsetMode(offsetBytes, offsetExtent, true)
+}
+
+// rootNodeWithRecoveryOffset is RootNodeWithOffset with the point rule that the
+// internal recovery wrappers have always used (see cloneOffset.offsetPoint).
+func (t *Tree) rootNodeWithRecoveryOffset(offsetBytes uint32, offsetExtent Point) *Node {
+	if t == nil {
+		return nil
+	}
+	t.ensureResultCompatibility()
+	if t.root == nil {
+		return nil
+	}
+	if offsetBytes == 0 && offsetExtent == (Point{}) {
+		return t.root
+	}
+	return t.rootNodeWithOffsetMode(offsetBytes, offsetExtent, false)
+}
+
+func (t *Tree) rootNodeWithOffsetMode(offsetBytes uint32, offsetExtent Point, followPointAdd bool) *Node {
 	if views := nodeViews(t.root); views != nil {
 		copy := views.copyTree(t)
 		defer copy.Release()
-		return cloneTreeNodesWithOffset(copy.root, offsetBytes, offsetExtent)
+		return cloneTreeNodesWithOffsetMode(copy.root, offsetBytes, offsetExtent, followPointAdd)
 	}
-	return cloneTreeNodesWithOffset(t.root, offsetBytes, offsetExtent)
+	return cloneTreeNodesWithOffsetMode(t.root, offsetBytes, offsetExtent, followPointAdd)
 }
 
 // Source returns the original source text. Returns nil for a nil tree.
@@ -4607,9 +4650,17 @@ type cloneOffset struct {
 	byteDelta uint32
 	point     Point
 	baseRow   uint32
+	// followPointAdd selects C tree-sitter's point_add rule: the offset column
+	// is added only to points on row zero of the tree. The default rule is the
+	// one the internal recovery wrappers use (see offsetPoint).
+	followPointAdd bool
 }
 
 func cloneTreeNodesWithOffset(root *Node, offsetBytes uint32, offsetExtent Point) *Node {
+	return cloneTreeNodesWithOffsetMode(root, offsetBytes, offsetExtent, false)
+}
+
+func cloneTreeNodesWithOffsetMode(root *Node, offsetBytes uint32, offsetExtent Point, followPointAdd bool) *Node {
 	if root == nil {
 		return nil
 	}
@@ -4622,6 +4673,8 @@ func cloneTreeNodesWithOffset(root *Node, offsetBytes uint32, offsetExtent Point
 		byteDelta: offsetBytes,
 		point:     offsetExtent,
 		baseRow:   root.startPoint.Row,
+
+		followPointAdd: followPointAdd,
 	}
 
 	type clonePair struct {
@@ -4677,8 +4730,8 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	*dst = *src
 	dst.errorRankCache = 0
 	if offset != nil {
-		dst.startByte = addUint32Delta(src.startByte, int64(offset.byteDelta))
-		dst.endByte = addUint32Delta(src.endByte, int64(offset.byteDelta))
+		dst.startByte = offset.offsetByte(src.startByte)
+		dst.endByte = offset.offsetByte(src.endByte)
 		dst.startPoint = offset.offsetPoint(src.startPoint)
 		dst.endPoint = offset.offsetPoint(src.endPoint)
 	}
@@ -4717,11 +4770,30 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	}
 }
 
+// offsetByte shifts a byte position by the clone's byte offset. The public
+// mode wraps like C's unsigned addition; the recovery mode saturates.
+func (o *cloneOffset) offsetByte(b uint32) uint32 {
+	if o.followPointAdd {
+		return b + o.byteDelta
+	}
+	return addUint32Delta(b, int64(o.byteDelta))
+}
+
 func (o *cloneOffset) offsetPoint(p Point) Point {
 	if o == nil {
 		return p
 	}
 	originalRow := p.Row
+	if o.followPointAdd {
+		// point_add in C tree-sitter: only a point on row zero of the tree
+		// takes the offset column; a point on a later row keeps its column.
+		// The additions wrap like C's unsigned arithmetic.
+		p.Row += o.point.Row
+		if originalRow == 0 {
+			p.Column += o.point.Column
+		}
+		return p
+	}
 	p.Row = addUint32Delta(p.Row, int64(o.point.Row))
 	// When adding a multi-line prefix, only nodes on the original first row
 	// of this tree receive the column offset. Rows after that keep columns.
@@ -4960,8 +5032,8 @@ func applyCloneOffsetToNoTreeNode(n *noTreeNode, offset *cloneOffset) {
 	if n == nil || offset == nil {
 		return
 	}
-	n.startByte = addUint32Delta(n.startByte, int64(offset.byteDelta))
-	n.endByte = addUint32Delta(n.endByte, int64(offset.byteDelta))
+	n.startByte = offset.offsetByte(n.startByte)
+	n.endByte = offset.offsetByte(n.endByte)
 	if perfCountersEnabled {
 		perfRecordCloneOffsetShifted()
 	}
@@ -5021,6 +5093,24 @@ func (t *Tree) ParseStopReason() ParseStopReason {
 	}
 	t.ensureResultCompatibility()
 	return t.rawParseStopReason()
+}
+
+// RetryStopReason reports whether a timeout or the cancellation flag kept the
+// parser from finishing the error-recovery retry passes and fallback work of
+// the parse that built this tree. It returns ParseStopTimeout,
+// ParseStopCancelled, or ParseStopNone. ParseStopReason is not changed by this
+// case: it stays the stop reason of the pass that produced the tree (usually
+// ParseStopAccepted). See ParseRuntime. A tree from ParseForestExperimental
+// reads ParseStopNone: that entry point runs no retry passes.
+func (t *Tree) RetryStopReason() ParseStopReason {
+	if t == nil {
+		return ParseStopNone
+	}
+	t.ensureResultCompatibility()
+	if t.parseRuntime == nil || t.parseRuntime.RetryStopReason == "" {
+		return ParseStopNone
+	}
+	return t.parseRuntime.RetryStopReason
 }
 
 // NodeAtByte returns the smallest root descendant that contains byteOffset.
@@ -5088,7 +5178,7 @@ func (t *Tree) rawParseEligibleForFreshRetryLadder() bool {
 // ParseRuntime returns parser-loop diagnostics captured when this tree was built.
 func (t *Tree) ParseRuntime() ParseRuntime {
 	if t == nil {
-		return ParseRuntime{StopReason: ParseStopNone}
+		return ParseRuntime{StopReason: ParseStopNone, RetryStopReason: ParseStopNone}
 	}
 	t.ensureResultCompatibility()
 	out := *t.rawParseRuntime()
@@ -5102,6 +5192,9 @@ func (t *Tree) ParseRuntime() ParseRuntime {
 	}
 	if out.StopReason == "" {
 		out.StopReason = ParseStopNone
+	}
+	if out.RetryStopReason == "" {
+		out.RetryStopReason = ParseStopNone
 	}
 	return out
 }

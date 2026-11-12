@@ -2,6 +2,7 @@ package pythonruntime
 
 import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes must match the generated Python grammar ExternalSymbols order.
@@ -160,7 +161,9 @@ func (p PythonExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 	if len(s.Indents) == 0 {
 		s.Indents = append(s.Indents, 0)
 	}
-	s.SyncInsideInterpolatedString()
+	if !s.IsCFaithful() {
+		s.SyncInsideInterpolatedString()
+	}
 	symbols := p.symbolTable()
 	if len(p.externalToToken) > 0 {
 		var semanticValid [pyTokenCount]bool
@@ -310,7 +313,15 @@ func (p PythonExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 				if firstCommentIndentLength == -1 {
 					firstCommentIndentLength = int32(indentLength)
 				}
-				lexer.AdvanceUntilNewline(true)
+				if s.IsCFaithful() {
+					// C stops the comment at a NUL byte (scanner.c:243-246); the bulk
+					// helper reads on past it.
+					for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' {
+						lexer.Advance(true)
+					}
+				} else {
+					lexer.AdvanceUntilNewline(true)
+				}
 				lexer.Advance(true)
 				indentLength = 0
 				continue
@@ -321,12 +332,15 @@ func (p PythonExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 			if lexer.Lookahead() == '\r' {
 				lexer.Advance(true)
 			}
-			if lexer.Lookahead() == '\n' || lexer.Lookahead() == 0 {
+			if lexer.Lookahead() == '\n' || lexer.Lookahead() == 0 && (!s.IsCFaithful() || scanmode.AtEOF(lexer)) {
 				lexer.Advance(true)
 			} else {
 				return false
 			}
 		case 0:
+			if s.IsCFaithful() && !scanmode.AtEOF(lexer) {
+				goto afterIndentLoop // a NUL byte is not the end of the input (lexer->eof)
+			}
 			indentLength = 0
 			foundEndOfLine = true
 			goto afterIndentLoop

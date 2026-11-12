@@ -942,6 +942,82 @@ func TestTreeRootNodeWithOffsetShiftsDescendants(t *testing.T) {
 	}
 }
 
+// offsetPointRef is C tree-sitter's point_add(offset, p): a point on a row above
+// zero keeps its column; only a point on row zero adds the offset column.
+func offsetPointRef(offset, p Point) Point {
+	if p.Row > 0 {
+		return Point{Row: offset.Row + p.Row, Column: p.Column}
+	}
+	return Point{Row: offset.Row, Column: offset.Column + p.Column}
+}
+
+func TestTreeRootNodeWithOffsetFollowsPointAdd(t *testing.T) {
+	lang := testLanguage()
+	// Source "x\n\n  ab cd\n  ef\n" shape: with leadingRows=2 the first token
+	// is on row 2, so the root starts on a row above zero.
+	build := func(leadingRows uint32) *Tree {
+		r := leadingRows
+		a := NewLeafNode(Symbol(1), true, 4, 6, Point{Row: r, Column: 2}, Point{Row: r, Column: 4})
+		b := NewLeafNode(Symbol(2), true, 7, 9, Point{Row: r, Column: 5}, Point{Row: r, Column: 7})
+		c := NewLeafNode(Symbol(1), true, 12, 14, Point{Row: r + 1, Column: 2}, Point{Row: r + 1, Column: 4})
+		root := NewParentNode(Symbol(3), true, []*Node{a, b, c}, nil, 0)
+		return NewTree(root, []byte("x\n\n  ab cd\n  ef\n"), lang)
+	}
+	offsets := []Point{{Row: 0, Column: 5}, {Row: 2, Column: 5}, {Row: 2, Column: 0}, {Row: 1}}
+	for _, leadingRows := range []uint32{0, 2} {
+		for _, offset := range offsets {
+			tree := build(leadingRows)
+			got := tree.RootNodeWithOffset(10, offset)
+			var walk func(want, n *Node, path string)
+			walk = func(want, n *Node, path string) {
+				ws, we := offsetPointRef(offset, want.StartPoint()), offsetPointRef(offset, want.EndPoint())
+				if n.StartPoint() != ws || n.EndPoint() != we {
+					t.Errorf("rows=%d offset=%+v %s: got %+v-%+v want %+v-%+v", leadingRows, offset, path,
+						n.StartPoint(), n.EndPoint(), ws, we)
+				}
+				if n.StartByte() != want.StartByte()+10 || n.EndByte() != want.EndByte()+10 {
+					t.Errorf("%s: bytes %d-%d", path, n.StartByte(), n.EndByte())
+				}
+				for i := 0; i < want.ChildCount(); i++ {
+					walk(want.Child(i), n.Child(i), fmt.Sprintf("%s/%d", path, i))
+				}
+			}
+			walk(tree.RootNode(), got, "root")
+		}
+	}
+}
+
+// C adds positions as unsigned 32-bit values, so they wrap on overflow.
+func TestTreeRootNodeWithOffsetWrapsLikeC(t *testing.T) {
+	const max = ^uint32(0)
+	leaf := NewLeafNode(Symbol(1), true, 0, 1, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 1})
+	next := NewLeafNode(Symbol(2), true, 2, 3, Point{Row: 1, Column: 0}, Point{Row: 1, Column: 1})
+	root := NewParentNode(Symbol(3), true, []*Node{leaf, next}, nil, 0)
+	tree := NewTree(root, []byte("1\n2"), testLanguage())
+	for _, tc := range []struct {
+		name         string
+		bytes        uint32
+		offset       Point
+		start, end   Point
+		sb, eb       uint32
+		nStart, nEnd Point
+	}{
+		{"column", 0, Point{Column: max}, Point{Column: max}, Point{Column: 0}, 0, 1, Point{Row: 1}, Point{Row: 1, Column: 1}},
+		{"bytes", max, Point{}, Point{}, Point{Column: 1}, max, 0, Point{Row: 1}, Point{Row: 1, Column: 1}},
+		{"row", 1, Point{Row: max}, Point{Row: max}, Point{Row: max, Column: 1}, 1, 2, Point{Row: 0}, Point{Row: 0, Column: 1}},
+	} {
+		got := tree.RootNodeWithOffset(tc.bytes, tc.offset)
+		first, second := got.Child(0), got.Child(1)
+		if first.StartPoint() != tc.start || first.EndPoint() != tc.end || first.StartByte() != tc.sb || first.EndByte() != tc.eb {
+			t.Errorf("%s: first child %+v-%+v bytes %d-%d, want %+v-%+v bytes %d-%d", tc.name,
+				first.StartPoint(), first.EndPoint(), first.StartByte(), first.EndByte(), tc.start, tc.end, tc.sb, tc.eb)
+		}
+		if second.StartPoint() != tc.nStart || second.EndPoint() != tc.nEnd {
+			t.Errorf("%s: second child %+v-%+v, want %+v-%+v", tc.name, second.StartPoint(), second.EndPoint(), tc.nStart, tc.nEnd)
+		}
+	}
+}
+
 func TestTreeWriteDOT(t *testing.T) {
 	lang := testLanguage()
 	left := NewLeafNode(Symbol(1), true, 0, 3, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 3})
