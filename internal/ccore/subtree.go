@@ -842,6 +842,16 @@ func (p *Parser) shared(h Handle) bool {
 func (p *Parser) findMulti() {
 	p.balanceChecks++
 	p.multi = nil
+	if p.fresh && p.findMultiBits() {
+		return
+	}
+	p.findMultiWalk()
+}
+
+// findMultiWalk is the walk of findMulti: it marks the records it visits in
+// their flags word, so it also serves an incremental parse, where only new
+// records are visited. A fresh parse uses findMultiBits, which gives the same result.
+func (p *Parser) findMultiWalk() {
 	stack := append(p.scratch[:0], p.finished)
 	seen := p.seen[:0]
 	for len(stack) > 0 {
@@ -872,6 +882,59 @@ func (p *Parser) findMulti() {
 		p.rec(h).flags &^= heapMark
 	}
 	p.scratch, p.seen = stack[:0], seen[:0]
+}
+
+// maxMarkIndex bounds the record index for which findMultiBits keeps its marks
+// in a bit set (one bit per slot: 2 MiB at the bound). A fresh parse that has
+// handed out more slots takes the walk with flag marks.
+var maxMarkIndex uint32 = 1 << 24 // a variable so that a test can lower it
+
+// findMultiBits is findMultiWalk for a fresh parse, with the marks kept in a bit
+// set indexed by record slot instead of in the flags word of each record. It
+// visits the same records in the same order and counts the same owners, so p.multi
+// is the same map. It writes nothing in the store (the flag walk dirties the line
+// of every record twice, once to mark and once to clear) and needs no list of the
+// visited records. Every record of a fresh parse is new. It reports false, having
+// changed nothing, when the slot count is over maxMarkIndex.
+func (p *Parser) findMultiBits() bool {
+	wm := p.recWatermark()
+	if wm > maxMarkIndex {
+		return false
+	}
+	words := int(wm>>6) + 1
+	if cap(p.reachBits) < words {
+		p.reachBits = make([]uint64, words)
+	}
+	marks := p.reachBits[:words]
+	clear(marks)
+	stack := append(p.scratch[:0], p.finished)
+	for len(stack) > 0 {
+		h := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if h == 0 || h&1 != 0 {
+			continue
+		}
+		idx := uint32(h >> 1)
+		bit := uint64(1) << (idx & 63)
+		if marks[idx>>6]&bit != 0 {
+			if p.multi == nil {
+				p.multi = map[Handle]uint32{}
+			}
+			p.multi[h]++
+			continue
+		}
+		marks[idx>>6] |= bit
+		r := p.rec(h)
+		if r.childCount > 0 {
+			for _, k := range p.kidSpan(r.childrenStart, r.childCount) {
+				if k&1 == 0 && k != 0 {
+					stack = append(stack, k)
+				}
+			}
+		}
+	}
+	p.scratch = stack[:0]
+	return true
 }
 
 // countFreshShared gives the owners that findMulti found to the reference words
@@ -914,7 +977,7 @@ func (p *Parser) balance() {
 	if p.childCount(p.finished) > 0 && !p.shared(p.finished) {
 		stack = append(stack, p.finished)
 	}
-	var tmp []Handle
+	tmp := p.compressTmp[:0] // the compress stack: kept on the parser, so a balance step allocates nothing in steady state
 	for len(stack) > 0 {
 		tree := stack[len(stack)-1]
 		if p.rec(tree).repeatDepth > 0 {
@@ -935,6 +998,7 @@ func (p *Parser) balance() {
 		}
 	}
 	p.scratch = stack[:0]
+	p.compressTmp = tmp[:0]
 }
 
 // copyHeapLeaf returns a new record with the content of the heap leaf h and

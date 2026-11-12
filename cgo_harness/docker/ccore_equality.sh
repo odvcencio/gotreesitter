@@ -6,7 +6,8 @@
 #
 # The checks are the tests in cgo_harness/ccore_*_test.go: parse log (trace),
 # visible-tree digest, subtree records, edit sessions, lookup tables and the
-# committed goldens. Every input is a file under a testdata folder (named in
+# committed goldens; for json also lexprobe_test.go (the exact-lexer record
+# against the compiled C lexer). Every input is a file under a testdata folder (named in
 # the tests) or a literal or generated input in the tests; no private input is
 # read. A difference fails the run. Nothing here parses through internal/ccore
 # outside tests.
@@ -36,6 +37,12 @@ check_output() {
   if [ "$n" -le 0 ]; then
     echo "no positive 'CCCOUNT test=${test} set=${set}' line (checked ${n})" >&2; return 1
   fi
+  # The exact-lexer probe must have compared the committed record: a grammar
+  # without a registered record prints "committed_record=none" and still passes
+  # the test itself, which would let the gate lose that comparison silently.
+  if [ "$test" = TestLexProbe ] && ! grep -q '^CCLEXPROBE .* committed_record=equal ok=true' "$file"; then
+    echo "no 'CCLEXPROBE ... committed_record=equal ok=true' line (is the record registered?)" >&2; return 1
+  fi
   echo "$n"
 }
 
@@ -54,7 +61,15 @@ if [ "${1:-}" = "--self-test" ]; then
   printf '%s\n' '=== RUN   TestX' '--- SKIP: TestX (0.00s)' 'PASS' >"$d/skip"
   printf '%s\n' 'testing: warning: no tests to run' 'PASS' >"$d/norun"
   printf '%s\n' '=== RUN   TestX' 'CCCOUNT test=TestX set=other checked=9' '--- PASS: TestX (0.01s)' 'PASS' >"$d/otherset"
+  printf '%s\n' '=== RUN   TestLexProbe' 'CCLEXPROBE language=json main_states=44 record_bytes=208 committed_record=equal ok=true' 'CCCOUNT test=TestLexProbe set=json checked=88' '--- PASS: TestLexProbe (1.00s)' 'PASS' >"$d/probe-good"
+  printf '%s\n' '=== RUN   TestLexProbe' 'CCLEXPROBE language=json main_states=44 record_bytes=208 committed_record=equal ok=false' 'CCCOUNT test=TestLexProbe set=json checked=88' '--- FAIL: TestLexProbe (1.00s)' 'FAIL' >"$d/probe-differs"
+  printf '%s\n' '=== RUN   TestLexProbe' '--- SKIP: TestLexProbe (0.00s)' 'PASS' >"$d/probe-unset"
+  printf '%s\n' '=== RUN   TestLexProbe' 'CCLEXPROBE language=json main_states=44 record_bytes=208 committed_record=none ok=true' 'CCCOUNT test=TestLexProbe set=json checked=88' '--- PASS: TestLexProbe (1.00s)' 'PASS' >"$d/probe-norecord"
   expect "good output is accepted" 0 TestX json "$d/good"
+  expect "lex probe output that passed is accepted" 0 TestLexProbe json "$d/probe-good"
+  expect "lex probe that found a difference fails" 1 TestLexProbe json "$d/probe-differs"
+  expect "lex probe that passed without a registered record (committed_record=none) fails" 1 TestLexProbe json "$d/probe-norecord"
+  expect "lex probe without LEXPROBE_LANG (skipped) fails" 1 TestLexProbe json "$d/probe-unset"
   expect "missing PASS line fails" 1 TestX json "$d/nopass"
   expect "zero count fails" 1 TestX json "$d/zero"
   expect "no count line fails" 1 TestX json "$d/nocount"
@@ -132,6 +147,9 @@ if [ -n "$inc" ]; then
   run TestCcoreIncremental "$inc" CCINC "$norm" CCORE_INC_SET=$inc; total_inc=$((total_inc + last_n))
 fi
 run TestCcoreTables "$lang" CCTABLES CCORE_LANGS=$lang
+# The exact-lexer record against the compiled C lexer: every lex state at the end
+# of input and on lookahead -1, and every code point against the shipped blob.
+if [ "$lang" = json ]; then run TestLexProbe json CCLEXPROBE LEXPROBE_LANG=json LEXPROBE_REQUIRE_RECORD=1 LEXPROBE_FULL=1 LEXPROBE_BLOB_STRICT=1; fi
 run TestCcoreScannerIsolation "$lang" CCCOUNT "$norm" CCORE_LANG=$lang
 # The value-node readers against C (every node of the language's samples: flags, positions,
 # counts, children by index, field names, cursor field, supertype mask), fresh and after

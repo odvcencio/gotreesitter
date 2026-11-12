@@ -36,8 +36,10 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
 			old = nil // the store of old is poisoned: parse afresh in a new store
 			c = newStoreCore()
 			c.cells.Store(1) // the running parse counts as one cell
+			c.presize(p.pageHint(len(src)))
 			p.applyTestLimits(c)
 		}
+		c.fire("parse-wait") // test hook: the released check is behind this parse, the lease is not yet taken
 		c.lease.Lock()
 		if old != nil {
 			if old.c.released.Load() { // released while this parse waited for the lease
@@ -86,12 +88,34 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
 	if !done {
 		return nil, stop
 	}
+	if old == nil { // remember how many pages a parse of this size took, for the next fresh store
+		c.mu.Lock()
+		p.hintRec, p.hintKid = len(c.recs), len(c.kids)
+		c.mu.Unlock()
+	}
 	t := &Tree{c: c.newCell(p.finished), rd: p.Store}
 	t.rd.fresh, t.rd.logging = false, false
 	t.rd.owner = t.c
 	published = true
 	runtime.KeepAlive(old)
 	return t, stop
+}
+
+// pageHint is the number of record pages and child pages to reserve in the
+// tables of a new store: what the last fresh parse of this parser took, or a
+// guess from the source length (a page per 4 KiB of source; a count that is too
+// high costs 8 bytes a slot, one that is too low costs the doubling it saves).
+// Both are capped.
+func (p *Parser) pageHint(srcLen int) (recPages, kidPages int) {
+	const capPages = 1 << 14
+	recPages, kidPages = p.hintRec, p.hintKid
+	if g := srcLen >> 12; recPages < g {
+		recPages = g
+	}
+	if g := srcLen >> 12; kidPages < g {
+		kidPages = g
+	}
+	return min(recPages, capPages), min(kidPages, capPages)
 }
 
 // drainAtStart is the drain at the start of a parse. A drain that fails (a limit

@@ -25,7 +25,10 @@ package ccore
 //     parse loop in parser.go). setSymbol (the keyword switch) and setExtra make
 //     a mutable copy of every heap leaf they change. So a leaf sits in one slot
 //     of a tree. Before the balance step, every parse that finished a tree walks it
-//     for new records that it reaches more than once (findMulti, subtree.go); the
+//     for new records that it reaches more than once (findMulti, subtree.go; a fresh
+//     parse keeps the marks of the walk in a bit set, one bit per record slot, and
+//     an incremental parse in the flags word of the records it visits; both give
+//     the same counts); the
 //     balance step treats them as shared, and a fresh parse, which has no
 //     publication walk, adds the extra owners to the reference words
 //     (countFreshShared).
@@ -161,6 +164,11 @@ func (s *Store) drain() {
 	s.syncLocked()
 	c.mu.Unlock()
 	if len(ops) == 0 {
+		c.mu.Lock()
+		if c.spare == nil { // keep the capacity of the empty buffer: the next drain would otherwise leave the queue without a spare
+			c.spare = ops[:0]
+		}
+		c.mu.Unlock()
 		return
 	}
 	done := 0

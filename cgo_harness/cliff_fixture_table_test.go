@@ -292,7 +292,7 @@ func TestCliffFixtureTable(t *testing.T) {
 		})
 	}
 
-	// Tier 1 is the first 20 names in the top-50 list (docs/v1-design.md, P1).
+	// Tier 1 is the first 20 names in the top-50 list.
 	list, err := os.ReadFile(filepath.Join("..", "grammars", "update_tier1_top50.txt"))
 	if err != nil {
 		t.Fatal(err)

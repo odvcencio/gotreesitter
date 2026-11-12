@@ -41,6 +41,8 @@ func parserCoreEagerMaterializationEnabled() bool {
 // SetParserCoreEagerMaterializationEnabledForTest overrides the eager gate
 // for one test process. Restore the previous value (the returned func) when
 // done.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func SetParserCoreEagerMaterializationEnabledForTest(on bool) func() {
 	previous := parserCoreEagerMaterializationEnabled()
 	parserCoreEagerMaterializationVal = on

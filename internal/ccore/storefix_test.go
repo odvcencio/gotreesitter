@@ -640,6 +640,15 @@ func TestParseWithWhenStoreEndsWhileWaiting(t *testing.T) {
 	for round := 0; round < 100; round++ {
 		o, _ := p.Parse(g.Src)
 		ccore.LockLease(o)
+		waiting := make(chan struct{}, 1)
+		ccore.SetTestHook(o, func(point string) {
+			if point == "parse-wait" { // the parse is past its check of the old tree and has not taken the lease
+				select {
+				case waiting <- struct{}{}:
+				default:
+				}
+			}
+		})
 		done := make(chan string, 1)
 		go func() {
 			nt, stop := p2.ParseWith(g.Src, o)
@@ -648,8 +657,8 @@ func TestParseWithWhenStoreEndsWhileWaiting(t *testing.T) {
 			}
 			done <- stop
 		}()
-		time.Sleep(3 * time.Millisecond) // the parse is waiting for the lease (it must be past its first check of the old tree, or no parse is left to end the store)
-		o.Release()                      // the lease is held: the end of the store is left to the holder
+		<-waiting   // without this signal the release could come before the parse looks at the tree, and then no parse is left to end the store
+		o.Release() // the lease is held: the end of the store is left to the holder
 		ccore.UnlockLease(o)
 		if stop := <-done; stop != "" && stop != "old tree released" {
 			t.Fatalf("round %d: stop %q", round, stop)
@@ -1094,6 +1103,9 @@ func TestReleasedTreeHoldsNoPage(t *testing.T) {
 	if ccore.ViewPages(b) == 0 {
 		t.Fatal("a live tree holds pages")
 	}
+	if ccore.StoreInlinePages(b) == 0 {
+		t.Fatal("a small live store holds no page in the core's inline page tables")
+	}
 	b.Release()
 	if n := ccore.ViewPages(b); n != 0 {
 		t.Fatalf("a released tree holds %d page pointers", n)
@@ -1101,6 +1113,21 @@ func TestReleasedTreeHoldsNoPage(t *testing.T) {
 	a.Release()
 	if n := ccore.ViewPages(a); n != 0 {
 		t.Fatalf("a released tree holds %d page pointers", n)
+	}
+	// The store has ended. The tree keeps its store core reachable; the core must
+	// hold no page, in its slices or in its inline arrays.
+	if n := ccore.StoreInlinePages(a); n != 0 {
+		t.Fatalf("the core of an ended store still holds %d page pointers in its inline page tables", n)
+	}
+	if !ccore.Ended(a) {
+		t.Fatal("the store did not end")
+	}
+	if pe, sp, rel, walk, taken, fr := ccore.StoreRetained(a); pe+sp+rel+walk+taken+fr != 0 {
+		t.Fatalf("the core of an ended store keeps lists: pending %d spare %d rel %d walk %d taken %d freed %d", pe, sp, rel, walk, taken, fr)
+	}
+	// The parser, which stays reachable too, holds no page and no scratch of records.
+	if pg, _ := ccore.ParserRetained(p); pg != 0 {
+		t.Fatalf("the parser holds %d page pointers between parses", pg)
 	}
 }
 

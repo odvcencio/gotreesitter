@@ -4,6 +4,7 @@ package grammarruntime
 
 import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the Mojo grammar
@@ -164,6 +165,313 @@ func (MojoExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {
 }
 
 func (sc MojoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	// With the mode off this is main's scan, unchanged (mojoScanLegacy below); the mode selects the C-faithful scan.
+	if payload.(*pythonScannerState).IsCFaithful() {
+		return sc.scanC(payload, lexer, validSymbols)
+	}
+	return sc.scanLegacy(payload, lexer, validSymbols)
+}
+
+func (sc MojoExternalScanner) scanC(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	// The valid-symbol mask is in external-index order of the bound language;
+	// map it to the scanner's token order, as the python and starlark ports do
+	// (docs/external-scanners.md).
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [mojoTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			if tokenIdx := sc.externalToToken[externalIdx]; tokenIdx >= 0 && tokenIdx < mojoTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
+	s := payload.(*pythonScannerState)
+	if len(s.Indents) == 0 {
+		s.Indents = append(s.Indents, 0)
+	}
+	// C keeps the string flag as state of its own; only the legacy mode
+	// derives it from the delimiter stack.
+	if !s.IsCFaithful() {
+		s.SyncInsideInterpolatedString()
+	}
+
+	isValid := func(idx int) bool {
+		return idx >= 0 && idx < len(validSymbols) && validSymbols[idx]
+	}
+
+	errorRecoveryMode := isValid(mojoTokStringContent) && isValid(mojoTokIndent)
+	withinBrackets := isValid(mojoTokCloseBrace) || isValid(mojoTokCloseParen) || isValid(mojoTokCloseBracket)
+
+	advancedOnce := false
+	if isValid(mojoTokEscapeInterpolation) && len(s.Delimiters) > 0 &&
+		(lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && !errorRecoveryMode {
+		delimiter := s.Delimiters[len(s.Delimiters)-1]
+		if delimiter.IsFormat() {
+			lexer.MarkEnd()
+			isLeftBrace := lexer.Lookahead() == '{'
+			lexer.Advance(false)
+			advancedOnce = true
+			if (lexer.Lookahead() == '{' && isLeftBrace) || (lexer.Lookahead() == '}' && !isLeftBrace) {
+				lexer.Advance(false)
+				lexer.MarkEnd()
+				lexer.SetResultSymbol(syms[mojoTokEscapeInterpolation])
+				return true
+			}
+			return false
+		}
+	}
+
+	if isValid(mojoTokStringContent) && len(s.Delimiters) > 0 && !errorRecoveryMode {
+		delimiter := s.Delimiters[len(s.Delimiters)-1]
+		EndChar := delimiter.EndChar()
+		hasContent := advancedOnce
+
+		for lexer.Lookahead() != 0 {
+			if (advancedOnce || lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && delimiter.IsFormat() {
+				lexer.MarkEnd()
+				lexer.SetResultSymbol(syms[mojoTokStringContent])
+				return hasContent
+			}
+
+			if lexer.Lookahead() == '\\' {
+				if delimiter.IsRaw() {
+					lexer.Advance(false)
+					if lexer.Lookahead() == EndChar || lexer.Lookahead() == '\\' {
+						lexer.Advance(false)
+					}
+					if lexer.Lookahead() == '\r' {
+						lexer.Advance(false)
+						if lexer.Lookahead() == '\n' {
+							lexer.Advance(false)
+						}
+					} else if lexer.Lookahead() == '\n' {
+						lexer.Advance(false)
+					}
+					continue
+				}
+
+				if delimiter.IsBytes() {
+					lexer.MarkEnd()
+					lexer.Advance(false)
+					if lexer.Lookahead() == 'N' || lexer.Lookahead() == 'u' || lexer.Lookahead() == 'U' {
+						lexer.Advance(false)
+					} else {
+						lexer.SetResultSymbol(syms[mojoTokStringContent])
+						return hasContent
+					}
+				} else {
+					lexer.MarkEnd()
+					lexer.SetResultSymbol(syms[mojoTokStringContent])
+					return hasContent
+				}
+			} else if lexer.Lookahead() == EndChar {
+				if delimiter.IsTriple() {
+					lexer.MarkEnd()
+					lexer.Advance(false)
+					if lexer.Lookahead() == EndChar {
+						lexer.Advance(false)
+						if lexer.Lookahead() == EndChar {
+							if hasContent {
+								lexer.SetResultSymbol(syms[mojoTokStringContent])
+							} else {
+								lexer.Advance(false)
+								lexer.MarkEnd()
+								s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
+								lexer.SetResultSymbol(syms[mojoTokStringEnd])
+								s.InsideInterpolatedString = false
+							}
+							return true
+						}
+						lexer.MarkEnd()
+						lexer.SetResultSymbol(syms[mojoTokStringContent])
+						return true
+					}
+					lexer.MarkEnd()
+					lexer.SetResultSymbol(syms[mojoTokStringContent])
+					return true
+				}
+
+				if hasContent {
+					lexer.SetResultSymbol(syms[mojoTokStringContent])
+				} else {
+					lexer.Advance(false)
+					s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
+					lexer.SetResultSymbol(syms[mojoTokStringEnd])
+					s.InsideInterpolatedString = false
+				}
+				lexer.MarkEnd()
+				return true
+			} else if lexer.Lookahead() == '\n' && hasContent && !delimiter.IsTriple() {
+				return false
+			}
+
+			lexer.Advance(false)
+			hasContent = true
+		}
+	}
+
+	lexer.MarkEnd()
+
+	foundEndOfLine := false
+	var indentLength uint16
+	firstCommentIndentLength := int32(-1)
+
+	for {
+		switch lexer.Lookahead() {
+		case '\n':
+			foundEndOfLine = true
+			indentLength = 0
+			lexer.Advance(true)
+		case ' ':
+			indentLength++
+			lexer.Advance(true)
+		case '\r', '\f':
+			indentLength = 0
+			lexer.Advance(true)
+		case '\t':
+			indentLength += 8
+			lexer.Advance(true)
+		case '#':
+			if isValid(mojoTokIndent) || isValid(mojoTokDedent) || isValid(mojoTokNewline) || isValid(mojoTokExcept) {
+				if !foundEndOfLine {
+					return false
+				}
+				if firstCommentIndentLength == -1 {
+					firstCommentIndentLength = int32(indentLength)
+				}
+				for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' {
+					lexer.Advance(true)
+				}
+				lexer.Advance(true)
+				indentLength = 0
+				continue
+			}
+			goto afterIndentLoop
+		case '\\':
+			lexer.Advance(true)
+			if lexer.Lookahead() == '\r' {
+				lexer.Advance(true)
+			}
+			if lexer.Lookahead() == '\n' || lexer.Lookahead() == 0 && (!s.IsCFaithful() || scanmode.AtEOF(lexer)) {
+				lexer.Advance(true)
+			} else {
+				return false
+			}
+		case 0:
+			if s.IsCFaithful() && !scanmode.AtEOF(lexer) {
+				goto afterIndentLoop // a NUL byte is not the end of the input (lexer->eof)
+			}
+			indentLength = 0
+			foundEndOfLine = true
+			goto afterIndentLoop
+		default:
+			goto afterIndentLoop
+		}
+	}
+
+afterIndentLoop:
+	if foundEndOfLine {
+		currentIndent := s.Indents[len(s.Indents)-1]
+
+		if isValid(mojoTokIndent) && indentLength > currentIndent {
+			s.Indents = append(s.Indents, indentLength)
+			lexer.SetResultSymbol(syms[mojoTokIndent])
+			return true
+		}
+
+		// The pinned C scanner counts only quotes here (scanner.c:298-300, no backtick). The
+		// legacy mode keeps the backtick in this test: with it removed, a backtick at a
+		// dedent position yields a DEDENT whose validity bit may be false.
+		nextTokIsStringStart := lexer.Lookahead() == '"' || lexer.Lookahead() == '\'' || (!s.IsCFaithful() && lexer.Lookahead() == '`')
+		if (isValid(mojoTokDedent) ||
+			(!isValid(mojoTokNewline) && !(isValid(mojoTokStringStart) && nextTokIsStringStart) && !withinBrackets)) &&
+			indentLength < currentIndent &&
+			!s.InsideInterpolatedString &&
+			firstCommentIndentLength < int32(currentIndent) {
+			s.Indents = s.Indents[:len(s.Indents)-1]
+			lexer.SetResultSymbol(syms[mojoTokDedent])
+			return true
+		}
+
+		if isValid(mojoTokNewline) && !errorRecoveryMode {
+			lexer.SetResultSymbol(syms[mojoTokNewline])
+			return true
+		}
+	}
+
+	if firstCommentIndentLength == -1 && isValid(mojoTokStringStart) {
+		var delimiter pyDelimiter
+		hasFlags := false
+
+		for lexer.Lookahead() != 0 {
+			switch lexer.Lookahead() {
+			case 'f', 'F', 't', 'T':
+				delimiter |= pyDelimFormat
+			case 'r', 'R':
+				delimiter |= pyDelimRaw
+			case 'b', 'B':
+				delimiter |= pyDelimBytes
+			case 'u', 'U':
+				// accepted prefix, no scanner flag
+			default:
+				goto afterFlags
+			}
+			hasFlags = true
+			lexer.Advance(false)
+		}
+
+		// Only "'" and '"' start a string. The pinned C scanner has no backtick
+		// case (tree-sitter-mojo src/scanner.c:285-360, next_tok_is_string_start
+		// at :300), so a backtick is not a string start here.
+	afterFlags:
+		switch lexer.Lookahead() {
+		case '\'':
+			delimiter |= pyDelimSingleQuote
+			lexer.Advance(false)
+			lexer.MarkEnd()
+			if lexer.Lookahead() == '\'' {
+				lexer.Advance(false)
+				if lexer.Lookahead() == '\'' {
+					lexer.Advance(false)
+					lexer.MarkEnd()
+					delimiter |= pyDelimTriple
+				}
+			}
+		case '"':
+			delimiter |= pyDelimDoubleQuote
+			lexer.Advance(false)
+			lexer.MarkEnd()
+			if lexer.Lookahead() == '"' {
+				lexer.Advance(false)
+				if lexer.Lookahead() == '"' {
+					lexer.Advance(false)
+					lexer.MarkEnd()
+					delimiter |= pyDelimTriple
+				}
+			}
+		}
+
+		if delimiter.EndChar() != 0 {
+			s.Delimiters = append(s.Delimiters, delimiter)
+			lexer.SetResultSymbol(syms[mojoTokStringStart])
+			s.InsideInterpolatedString = delimiter.IsFormat()
+			return true
+		}
+		if hasFlags {
+			return false
+		}
+	}
+
+	return false
+}
+
+// scanLegacy is the scan of main, kept verbatim for the default engine.
+func (sc MojoExternalScanner) scanLegacy(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	syms := sc.symbolTable()
 
 	s := payload.(*pythonScannerState)
@@ -435,4 +743,9 @@ afterIndentLoop:
 	}
 
 	return false
+}
+
+func init() {
+	// A port with a behavioural mode (internal/scanmode); registered with the rest of its set.
+	scanmode.RegisterScanner(MojoExternalScanner{}, (*pythonScannerState)(nil), true)
 }

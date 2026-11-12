@@ -4,13 +4,7 @@ This guide is for grammar authors who have a working tree-sitter grammar (a
 `grammar.js` that `tree-sitter generate` accepts) and want gotreesitter to
 parse it — as a library dependency, not as a fork.
 
-Historical context, because it shaped this document: a downstream project
-(pawnkit, a Pawn toolchain) once forked this repo and renamed the module
-just to add one line to a then-unexported language-name switch that
-controlled the GLR forest fast path. v0.20.8 (#134) closed that gap: forest
-opt-in is now a public `Language.WantsForest` field, a
-`grammargen.Grammar.WantsForest` flag, and a declarative `"gotreesitter"`
-object in `grammar.json`. Everything in this document works from your own
+Everything in this document works from your own
 module against an unmodified `github.com/odvcencio/gotreesitter`.
 
 The in-tree workflow (README "Adding a language") is for grammars shipped
@@ -508,24 +502,3 @@ This is hard-learned; treat it as policy.
   `grammars` loader both run `InferGeneratedRepeatAuxMetadata`, but only
   the `grammars` loader applies its additional repair passes and scanner
   attachment. Load through one door consistently.
-
-## Appendix: gaps (for maintainers)
-
-This is an honest list of what an out-of-tree author still cannot do
-cleanly, kept here so the docs and the backlog agree:
-
-1. **No scanner-skeleton generation.** `grammargen` knows the externals
-   list, but there is no `emit -scanner-skeleton` command to produce a Go
-   `ExternalScanner` stub with the token-index constants and symbol
-   resolution boilerplate from `docs/external-scanners.md`. Every author
-   hand-writes the same 60 lines.
-2. **TokenSource-by-name registry is unexported**
-   (`grammars/runtime/token_source_factory_registry.go`). The workaround is
-   documented above (`LangEntry.TokenSourceFactory`); exporting a
-   `RegisterTokenSourceFactory` function would remove the need to
-   re-`Register` the whole entry.
-3. **The error-mode token source capability is package-private.**
-   `errorModeLexingTokenSource` (`parser_api.go`) uses an unexported
-   method, so third-party token sources cannot declare C-equivalent
-   error-mode lexing even if they implement it. See external-scanners.md,
-   contract (c).

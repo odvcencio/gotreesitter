@@ -19,6 +19,7 @@ import (
 	g "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	"github.com/odvcencio/gotreesitter/internal/benchorder"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind/bindtest"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
@@ -483,10 +484,11 @@ func BenchmarkCcore(b *testing.B) {
 		}
 	}
 	arms := strings.Split(os.Getenv("CCORE_ARMS"), ",")
+	var cases []benchorder.Case
 	for _, in := range inputs {
 		for _, arm := range arms {
 			in, arm := in, arm
-			b.Run(strings.ReplaceAll(in.ID, "/", "_")+"/"+arm, func(b *testing.B) {
+			cases = append(cases, benchorder.Case{Label: strings.ReplaceAll(in.ID, "/", "_") + "_" + arm, Run: func(b *testing.B) {
 				b.SetBytes(int64(len(in.Src)))
 				switch arm {
 				case "spike", "spikewalk":
@@ -504,6 +506,18 @@ func BenchmarkCcore(b *testing.B) {
 						}
 						sp.ReleaseLast()
 					}
+				case "paired": // Go-C-C-Go cycles (ccore_bench_seed_c_test.go)
+					sp := ccoreNew(gl)
+					if stop := sp.Parse(in.Src, nil); stop != "" {
+						b.Skipf("spike stop %q", stop)
+					}
+					ccoreReleaseLast(sp)
+					cp := sitter.NewParser()
+					defer cp.Close()
+					if err := cp.SetLanguage(cl); err != nil {
+						b.Fatal(err)
+					}
+					ccorePairedFresh(b, sp, cp, in.Src)
 				case "legacy":
 					p := g.NewParser(gl)
 					p.SetAdmissionCandidateRoute(false)
@@ -547,9 +561,10 @@ func BenchmarkCcore(b *testing.B) {
 						tree.Close()
 					}
 				}
-			})
+			}})
 		}
 	}
+	benchorder.Run(b, cases, ccoreBenchSeed(b))
 }
 
 // BenchmarkCcoreSet times one parse of every input of a set per
