@@ -132,7 +132,7 @@ func TestScannerFuzzTop20NamesAreRegistered(t *testing.T) {
 // scannerFuzzAllocationKnownExceptions honest: every excepted grammar must
 // have at least one committed regression corpus file under
 // testdata/fuzz/FuzzScanner_<Name>/, so the exception is a verified,
-// reproducible finding (replayed on every `go test .`) rather than a
+// reproducible finding (replayed on every `go test ./roottest/parse`) rather than a
 // standing, unverifiable waiver that quietly suppresses future findings too.
 func TestFuzzScannerKnownExceptionsHaveCorpusEntries(t *testing.T) {
 	for name := range scannerFuzzAllocationKnownExceptions {

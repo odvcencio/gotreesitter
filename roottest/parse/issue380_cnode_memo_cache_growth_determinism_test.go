@@ -6,7 +6,7 @@ package parse_test
 //
 // Unlike the retired issue380 wall-clock repro files (env-gated
 // demonstrations of the ORIGINAL bug; they remain in git history), these
-// tests always run as part of `go test .` and assert only on the deterministic,
+// tests always run as part of `go test ./roottest/parse` and assert only on the deterministic,
 // collision-count-driven growth DECISION exposed via
 // (*Parser).DebugCNodeMemoCacheStats -- never on wall-clock timing. They are
 // cheap (well under a second) and are the permanent guard against the W2
