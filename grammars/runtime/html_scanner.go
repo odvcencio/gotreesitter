@@ -2,7 +2,10 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+)
 
 // External token indexes for the HTML grammar. This is the external index
 // (the position of the token in the grammar's `externals: [...]` list),
@@ -75,11 +78,15 @@ var htmlExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(htmlExternalScannerSpec)
+	// A port with a behavioural mode (internal/scanmode).
+	scanmode.RegisterScanner(HTMLExternalScanner{}, (*htmlScannerState)(nil), true)
 }
 
 // htmlScannerState holds the tag stack for the HTML scanner.
 type htmlScannerState struct {
-	tags []htmlTag
+	scanmode.Flag // the C-faithful mode, set by the core adapter
+	tags          []htmlTag
+	ctags         []htmlCTag // the tag stack of the C-faithful mode (html_scanner_c.go)
 }
 
 // HTMLExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-html.
@@ -118,11 +125,18 @@ func (HTMLExternalScanner) Destroy(payload any) {}
 
 func (HTMLExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*htmlScannerState)
+	if s.On() {
+		return htmlSerializeC(s.ctags, buf)
+	}
 	return htmlSerializeTags(s.tags, buf)
 }
 
 func (HTMLExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*htmlScannerState)
+	if s.On() {
+		s.ctags = htmlDeserializeC(buf)
+		return
+	}
 	s.tags = htmlDeserializeTagsInto(s.tags, buf)
 }
 
@@ -164,6 +178,9 @@ func (s HTMLExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 		validSymbols = semanticValid[:]
 	}
 	symbols := s.symbolTable()
+	if st.On() {
+		return htmlScanC(st, lexer, validSymbols, symbols)
+	}
 
 	// Raw text mode: inside <script> or <style>, scan until closing tag.
 	if htmlV(validSymbols, htmlTokRawText) &&
