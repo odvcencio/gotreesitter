@@ -1185,7 +1185,10 @@ func nodeFieldIDAt(n *Node, i int) FieldID {
 type ParseStopReason string
 
 const (
-	ParseStopNone     ParseStopReason = "none"
+	ParseStopNone ParseStopReason = "none"
+	// ParseStopAccepted means the parser accepted a tree. With a timeout set,
+	// that tree can still come from an earlier pass when the timeout cut the
+	// error-recovery retry work short; Tree.RetryStopReason reports that case.
 	ParseStopAccepted ParseStopReason = "accepted"
 	// ParseStopAcceptedPrefix means the parser accepted a tree before real input ended.
 	ParseStopAcceptedPrefix  ParseStopReason = "accepted_prefix"
@@ -1431,8 +1434,26 @@ type RecoveryRuntimeAttempts []RecoveryRuntimeAttemptStats
 
 // ParseRuntime captures parser-loop diagnostics for a completed tree.
 type ParseRuntime struct {
-	StopReason     ParseStopReason
-	ForestFastPath bool
+	StopReason ParseStopReason
+	// RetryStopReason tells whether a timeout or the cancellation flag kept the
+	// parser from finishing its error-recovery retry passes and the fallback
+	// work that follows them.
+	//
+	// A parse with a timeout (Parser.SetTimeoutMicros, WithParserPoolTimeoutMicros)
+	// may run several retry passes after its first pass. When the timeout
+	// expires between or during those passes, the parse returns the best tree
+	// found so far. StopReason is the stop reason of the pass that produced
+	// that tree (usually ParseStopAccepted), unchanged from before; it does not
+	// say that the retry work was cut short, and the tree can differ from the
+	// tree of a parse that had no timeout. RetryStopReason is ParseStopTimeout
+	// when the timeout cut that work short and ParseStopCancelled when the
+	// cancellation flag did. It is ParseStopNone when there was nothing to cut,
+	// when the work ran to its end, and when it stopped at its fixed pass limit
+	// (that limit does not depend on time). A first pass that times out reports
+	// StopReason ParseStopTimeout and leaves RetryStopReason at ParseStopNone.
+	// ParseForestExperimental runs no retry passes and reports ParseStopNone.
+	RetryStopReason ParseStopReason
+	ForestFastPath  bool
 	// IncrementalAcceptedErrorRetryAttempts records the bounded second
 	// incremental pass used when an accepted, full-span ERROR tree was produced
 	// under the wider incremental merge policy. The retry keeps the edited old
@@ -1442,6 +1463,10 @@ type ParseRuntime struct {
 	// IncrementalAcceptedErrorRetryAdopted is true only when that retry produced
 	// a strictly better tree and replaced the first incremental result.
 	IncrementalAcceptedErrorRetryAdopted bool
+	// The two Captured flags sit here, not beside their fields, so that they fill
+	// padding and ParseRuntime keeps its size with RetryStopReason added.
+	StopDiagnosticActionCaptured     bool
+	StopDiagnosticLastReduceCaptured bool
 	// IncrementalAcceptedErrorRetryMergePerKey is the exact merge-per-key cap
 	// used by the bounded retry.
 	IncrementalAcceptedErrorRetryMergePerKey int
@@ -1565,7 +1590,6 @@ type ParseRuntime struct {
 	StopDiagnosticFrontierActions                 string
 	StopDiagnosticSameHeaderGroups                string
 	StopDiagnosticCondenseGating                  string
-	StopDiagnosticActionCaptured                  bool
 	StopDiagnosticActionPhase                     string
 	StopDiagnosticActionStackState                StateID
 	StopDiagnosticActionStackByte                 uint32
@@ -1595,7 +1619,6 @@ type ParseRuntime struct {
 	StopDiagnosticActionDispatchAcceptActions     int
 	StopDiagnosticActionDispatchRecoverActions    int
 	StopDiagnosticActionDispatchOtherActions      int
-	StopDiagnosticLastReduceCaptured              bool
 	StopDiagnosticLastReducePhase                 string
 	StopDiagnosticLastReduceStackState            StateID
 	StopDiagnosticLastReduceStackByte             uint32
@@ -2827,6 +2850,8 @@ func (n *Node) NamedDescendantForPointRange(startPoint, endPoint Point) *Node {
 }
 
 // NewLeafNode creates a terminal/leaf node.
+//
+// Deprecated: NewLeafNode builds a pointer tree by hand. Parse source with a Parser and read nodes from the resulting Tree instead. The function may be removed in a future release.
 func NewLeafNode(sym Symbol, named bool, startByte, endByte uint32, startPoint, endPoint Point) *Node {
 	n := &Node{
 		symbol:     sym,
@@ -3624,6 +3649,8 @@ func newParentNode(arena *nodeArena, sym Symbol, named bool, children []*Node, f
 // is marked as having an error too. A nil entry in children is dropped,
 // along with the matching entry in fieldIDs at the same index, before the
 // parent node is built.
+//
+// Deprecated: NewParentNode builds a pointer tree by hand. Parse source with a Parser and read nodes from the resulting Tree instead. The function may be removed in a future release.
 func NewParentNode(sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {
 	children, fieldIDs = dropNilChildren(children, fieldIDs)
 	return newParentNode(nil, sym, named, children, fieldIDs, productionID)
@@ -4044,6 +4071,8 @@ func markPublishedRootError(root *Node) {
 }
 
 // NewTree creates a new Tree.
+//
+// Deprecated: NewTree wraps a hand-built pointer tree. Parse source with a Parser to get a Tree instead. The function may be removed in a future release.
 func NewTree(root *Node, source []byte, lang *Language) *Tree {
 	markPublishedRootError(root)
 	return &Tree{
@@ -5066,6 +5095,24 @@ func (t *Tree) ParseStopReason() ParseStopReason {
 	return t.rawParseStopReason()
 }
 
+// RetryStopReason reports whether a timeout or the cancellation flag kept the
+// parser from finishing the error-recovery retry passes and fallback work of
+// the parse that built this tree. It returns ParseStopTimeout,
+// ParseStopCancelled, or ParseStopNone. ParseStopReason is not changed by this
+// case: it stays the stop reason of the pass that produced the tree (usually
+// ParseStopAccepted). See ParseRuntime. A tree from ParseForestExperimental
+// reads ParseStopNone: that entry point runs no retry passes.
+func (t *Tree) RetryStopReason() ParseStopReason {
+	if t == nil {
+		return ParseStopNone
+	}
+	t.ensureResultCompatibility()
+	if t.parseRuntime == nil || t.parseRuntime.RetryStopReason == "" {
+		return ParseStopNone
+	}
+	return t.parseRuntime.RetryStopReason
+}
+
 // NodeAtByte returns the smallest root descendant that contains byteOffset.
 func (t *Tree) NodeAtByte(byteOffset uint32) *Node {
 	if t == nil {
@@ -5131,7 +5178,7 @@ func (t *Tree) rawParseEligibleForFreshRetryLadder() bool {
 // ParseRuntime returns parser-loop diagnostics captured when this tree was built.
 func (t *Tree) ParseRuntime() ParseRuntime {
 	if t == nil {
-		return ParseRuntime{StopReason: ParseStopNone}
+		return ParseRuntime{StopReason: ParseStopNone, RetryStopReason: ParseStopNone}
 	}
 	t.ensureResultCompatibility()
 	out := *t.rawParseRuntime()
@@ -5145,6 +5192,9 @@ func (t *Tree) ParseRuntime() ParseRuntime {
 	}
 	if out.StopReason == "" {
 		out.StopReason = ParseStopNone
+	}
+	if out.RetryStopReason == "" {
+		out.RetryStopReason = ParseStopNone
 	}
 	return out
 }

@@ -18,12 +18,16 @@ import (
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreBoundaryKind string
 
 const (
-	DiagnosticParserCoreExtra      DiagnosticParserCoreBoundaryKind = "extra"
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
+	DiagnosticParserCoreExtra DiagnosticParserCoreBoundaryKind = "extra"
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 	DiagnosticParserCoreExtraChain DiagnosticParserCoreBoundaryKind = "extra_chain"
-	DiagnosticParserCoreNoAction   DiagnosticParserCoreBoundaryKind = "no_action"
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
+	DiagnosticParserCoreNoAction DiagnosticParserCoreBoundaryKind = "no_action"
 	// DiagnosticParserCoreRecovery marks every dispatch shape where only
 	// locked-C production's recovery semantics can continue: an explicit
 	// ActionRecover cell, an unexpected recover action inside a generic
@@ -31,11 +35,18 @@ const (
 	// mirrors C's cPaused trigger (glr.go: "the stack hit a no-action
 	// point"). Dispatch classification only -- every one of these shapes
 	// still declines and falls back to production unchanged.
-	DiagnosticParserCoreRecovery      DiagnosticParserCoreBoundaryKind = "recovery"
-	DiagnosticParserCoreAccept        DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
-	DiagnosticParserCoreCap           DiagnosticParserCoreBoundaryKind = "cap"
-	DiagnosticParserCoreIdentity      DiagnosticParserCoreBoundaryKind = "identity"
-	DiagnosticParserCoreRoute         DiagnosticParserCoreBoundaryKind = "unsupported_route"
+	//
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
+	DiagnosticParserCoreRecovery DiagnosticParserCoreBoundaryKind = "recovery"
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
+	DiagnosticParserCoreAccept DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
+	DiagnosticParserCoreCap DiagnosticParserCoreBoundaryKind = "cap"
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
+	DiagnosticParserCoreIdentity DiagnosticParserCoreBoundaryKind = "identity"
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
+	DiagnosticParserCoreRoute DiagnosticParserCoreBoundaryKind = "unsupported_route"
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 	DiagnosticParserCoreGenericClosed DiagnosticParserCoreBoundaryKind = "generic_scheduler_closed"
 )
 
@@ -43,13 +54,18 @@ const (
 // never changes parser-core scheduling or selection semantics. The zero value
 // preserves the complete historical receipt; summary mode retains only the
 // authenticated result and aggregate work needed for larger-fixture study.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreReceiptMode uint8
 
 const (
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 	DiagnosticParserCoreReceiptFull DiagnosticParserCoreReceiptMode = iota
+	// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 	DiagnosticParserCoreReceiptSummary
 )
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCorePrefixOptions struct {
 	// compactIncrementalReuse belongs to one public incremental attempt.
 	compactIncrementalReuse *compactIncrementalReuseSession
@@ -340,11 +356,13 @@ var (
 	compactEOFRecoveryAdmissionCensusHook   func(compactEOFRecoveryAdmissionReceipt)
 )
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreScannerCheckpoint struct {
 	Length int
 	SHA256 [32]byte
 }
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreElection struct {
 	States                 []StateID
 	Token                  Token
@@ -360,6 +378,8 @@ type DiagnosticParserCoreElection struct {
 // request. The pair is the scanner state before and after the token, not a
 // cursor-only approximation. Full receipts retain these records so a caller
 // can audit straddled token spans and their authenticated checkpoints.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreVersionLexerRequest struct {
 	ElectionIndex     int
 	HeaderCreationSeq uint64
@@ -370,6 +390,7 @@ type DiagnosticParserCoreVersionLexerRequest struct {
 	ScannerAfter      DiagnosticParserCoreScannerCheckpoint
 }
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreHeaderReceipt struct {
 	CreationSeq uint64
 	State       StateID
@@ -381,6 +402,7 @@ type DiagnosticParserCoreHeaderReceipt struct {
 	Checkpoint  [32]byte
 }
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreRoundAction struct {
 	HeaderIndex int
 	State       StateID
@@ -390,6 +412,7 @@ type DiagnosticParserCoreRoundAction struct {
 	BranchOrder uint64
 }
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreDispatchRound struct {
 	Index   int
 	Before  []DiagnosticParserCoreHeaderReceipt
@@ -397,12 +420,14 @@ type DiagnosticParserCoreDispatchRound struct {
 	After   []DiagnosticParserCoreHeaderReceipt
 }
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCorePackedDerivation struct {
 	Score          int64
 	BranchOrder    uint64
 	HasBranchOrder bool
 }
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreTerminalPayloadView struct {
 	ID                uint32
 	Symbol            Symbol
@@ -418,6 +443,7 @@ type DiagnosticParserCoreTerminalPayloadView struct {
 	Terminal          bool
 }
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreHeaderPathReceipt struct {
 	Header               DiagnosticParserCoreHeaderReceipt
 	Derivations          []DiagnosticParserCorePackedDerivation
@@ -426,6 +452,8 @@ type DiagnosticParserCoreHeaderPathReceipt struct {
 
 // DiagnosticParserCoreGenericWork records semantic scheduler work separately
 // from the compact core's physical arena storage.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreGenericWork struct {
 	Passes uint64
 	// PotentialReductionActions counts C-style any-terminal reduction actions
@@ -558,6 +586,8 @@ func (w *DiagnosticParserCoreGenericWork) add(counter *uint64, delta uint64) {
 // certified selection may represent more than one live derivation when every
 // candidate publishes the same public tree. Payloads are the selected
 // bottom-to-top compact stack; materialization does not mutate that graph.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreGenericAcceptance struct {
 	ElectionIndex  int
 	Token          Token
@@ -585,6 +615,8 @@ type DiagnosticParserCoreGenericAcceptance struct {
 
 // DiagnosticParserCoreGenericConflict records one table-driven conflict cell.
 // Actions preserve execution order: secondary ordinals first, then primary.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreGenericConflictArm struct {
 	Ordinal     int
 	BranchOrder uint64
@@ -593,6 +625,7 @@ type DiagnosticParserCoreGenericConflictArm struct {
 	Adopted     bool
 }
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreGenericConflict struct {
 	ElectionIndex            int
 	Token                    Token
@@ -614,6 +647,8 @@ type DiagnosticParserCoreGenericConflict struct {
 
 // DiagnosticParserCoreGenericNoActionDrop records a paused scheduler head
 // removed only after a sibling made real progress in the same token epoch.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreGenericNoActionDrop struct {
 	ElectionIndex int
 	Token         Token
@@ -625,6 +660,8 @@ type DiagnosticParserCoreGenericNoActionDrop struct {
 // scanner-authenticated election without embedding scanner state in the
 // compact graph. The round may be an ordinary or extra shift cohort, or a
 // conflict with one or more shift arms.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreGenericExternalShift struct {
 	ElectionIndex int
 	Token         Token
@@ -636,6 +673,8 @@ type DiagnosticParserCoreGenericExternalShift struct {
 
 // DiagnosticParserCoreGenericStop is the first semantic the table-driven
 // clean scheduler deliberately does not implement.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreGenericStop struct {
 	Boundary      DiagnosticParserCoreBoundaryKind
 	Detail        string
@@ -652,6 +691,8 @@ type DiagnosticParserCoreGenericStop struct {
 // DiagnosticParserCoreGenericCompletion is a caller-selected, successfully
 // closed scheduler frontier. LastToken is consumed; no pending lookahead has
 // been read.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreGenericCompletion struct {
 	TargetByte    uint32
 	ElectionIndex int
@@ -664,6 +705,8 @@ type DiagnosticParserCoreGenericCompletion struct {
 
 // DiagnosticParserCoreGenericScheduler records one committed compact scheduler
 // run from the sole authenticated seed lifecycle before its first election.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreGenericScheduler struct {
 	ReceiptMode                      DiagnosticParserCoreReceiptMode
 	StartCheckpoint                  DiagnosticParserCoreScannerCheckpoint
@@ -697,6 +740,7 @@ type DiagnosticParserCoreGenericScheduler struct {
 	RecoveryCeilingDeclines          uint64
 }
 
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCorePrefixResult struct {
 	Boundary          DiagnosticParserCoreBoundaryKind
 	Detail            string
@@ -1040,6 +1084,8 @@ func configureParserCoreScannerProvenance(compact *core.Core, lang *Language) {
 // DiagnosticParseParserCorePrefix independently schedules one compact seed
 // against the complete production DFA/scanner election stream. Unsupported
 // boundaries remain fail-closed. It never calls the production parser.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, options DiagnosticParserCorePrefixOptions) (DiagnosticParserCorePrefixResult, error) {
 	result := DiagnosticParserCorePrefixResult{SourceSHA256: sha256.Sum256(source)}
 	if options.ReceiptMode != DiagnosticParserCoreReceiptFull && options.ReceiptMode != DiagnosticParserCoreReceiptSummary {
@@ -6262,6 +6308,8 @@ const diagnosticParserCoreOwnedDispatchPendingDetail = "generic scheduler owned 
 
 // DiagnosticParserCoreOwnedDispatchPendingDetailForTest exposes the stable
 // activation prefix without exposing scheduler internals.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParserCoreOwnedDispatchPendingDetailForTest() string {
 	return diagnosticParserCoreOwnedDispatchPendingDetail
 }
@@ -8657,6 +8705,8 @@ const diagnosticParserCoreNoTableActionDetail = "generic scheduler has no table 
 // diagnosticParserCoreNoTableActionDetail so the external test package can
 // assert on the genuinely-empty-row decline's exact detail. This proves that
 // DisablePerHeaderSpanUnlockedRelex restores the legacy route.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParserCoreNoTableActionDetailForTest() string {
 	return diagnosticParserCoreNoTableActionDetail
 }
@@ -8673,6 +8723,8 @@ const diagnosticParserCoreContextualCloseAngleDeferralDetail = "generic schedule
 // diagnosticParserCoreContextualCloseAngleDeferralDetail so the external
 // test package can assert on the issue #983 deferral's decline detail
 // without duplicating the literal string.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParserCoreContextualCloseAngleDeferralDetailForTest() string {
 	return diagnosticParserCoreContextualCloseAngleDeferralDetail
 }
@@ -8709,6 +8761,8 @@ const diagnosticParserCoreRaggedRelexDeclineDetail = "generic scheduler declined
 // diagnosticParserCoreRaggedRelexDeclineDetail so the external test package
 // can assert on the ragged-end decline's detail prefix without duplicating
 // the literal string.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParserCoreRaggedRelexDeclineDetailForTest() string {
 	return diagnosticParserCoreRaggedRelexDeclineDetail
 }
@@ -8731,6 +8785,8 @@ func diagnosticParserCoreRaggedRelexDeclineDetailFor(relexedWitness, shared Toke
 // diagnosticParserCoreRaggedRelexDeclineDetailFor so the external test
 // package can assert on the exact ragged-end decline detail a given
 // (relexed, shared) token pair produces.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParserCoreRaggedRelexDeclineDetailFormatForTest(relexedWitness, shared Token) string {
 	return diagnosticParserCoreRaggedRelexDeclineDetailFor(relexedWitness, shared)
 }
