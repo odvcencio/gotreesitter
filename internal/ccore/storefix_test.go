@@ -640,6 +640,15 @@ func TestParseWithWhenStoreEndsWhileWaiting(t *testing.T) {
 	for round := 0; round < 100; round++ {
 		o, _ := p.Parse(g.Src)
 		ccore.LockLease(o)
+		waiting := make(chan struct{}, 1)
+		ccore.SetTestHook(o, func(point string) {
+			if point == "parse-wait" { // the parse is past its check of the old tree and has not taken the lease
+				select {
+				case waiting <- struct{}{}:
+				default:
+				}
+			}
+		})
 		done := make(chan string, 1)
 		go func() {
 			nt, stop := p2.ParseWith(g.Src, o)
@@ -648,8 +657,8 @@ func TestParseWithWhenStoreEndsWhileWaiting(t *testing.T) {
 			}
 			done <- stop
 		}()
-		time.Sleep(3 * time.Millisecond) // the parse is waiting for the lease (it must be past its first check of the old tree, or no parse is left to end the store)
-		o.Release()                      // the lease is held: the end of the store is left to the holder
+		<-waiting   // without this signal the release could come before the parse looks at the tree, and then no parse is left to end the store
+		o.Release() // the lease is held: the end of the store is left to the holder
 		ccore.UnlockLease(o)
 		if stop := <-done; stop != "" && stop != "old tree released" {
 			t.Fatalf("round %d: stop %q", round, stop)

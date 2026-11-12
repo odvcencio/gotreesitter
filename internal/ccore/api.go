@@ -38,6 +38,7 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
 			c.cells.Store(1) // the running parse counts as one cell
 			p.applyTestLimits(c)
 		}
+		c.fire("parse-wait") // test hook: the released check is behind this parse, the lease is not yet taken
 		c.lease.Lock()
 		if old != nil {
 			if old.c.released.Load() { // released while this parse waited for the lease

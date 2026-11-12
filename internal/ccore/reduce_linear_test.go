@@ -25,7 +25,10 @@ func TestReduceLinearCheck(t *testing.T) {
 		if stop != g.Stop {
 			t.Errorf("%s: stop %q differs from the golden", g.Name, stop)
 		}
-		if tr != nil { // a stopped parse returns no tree
+		if g.Stop == "" && tr == nil { // a finished parse must return its tree: the comparisons below must not be skipped
+			t.Errorf("%s: no tree for a golden that finishes", g.Name)
+		}
+		if tr != nil {
 			if p.Digest(tr) != g.Digest {
 				t.Errorf("%s: digest differs from the golden", g.Name)
 			}
