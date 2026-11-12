@@ -8,7 +8,7 @@ Use the [root file-name prefix tables](#root-file-name-prefixes) to find current
 
 ## Root file limits
 
-`cmd/v1layout` fails when the root holds more than `rootBudget` Go files (680 now).
+`cmd/v1layout` fails when the root holds more than `rootBudget` Go files (661 now).
 A PR that completes one of these moves (or, for 500, makes the first such move) must lower `rootBudget` to the matching limit or below:
 
 | Root `.go` files at most | Applies after |
