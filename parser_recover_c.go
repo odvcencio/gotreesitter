@@ -6330,38 +6330,44 @@ func (p *Parser) scanTokenInStackLexState(source []byte, state StateID, tok Toke
 // whitespace differently from bytes right after the previous token; read from
 // the token's own start, Julia's `:` in `c ? a : b` would take a reading C
 // never makes there.
-func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from uint32, lexicalReadSpan *uint32, dts *dfaTokenSource) (Token, bool) {
+//
+// A reading that starts at the same byte but ends later cannot be shared
+// with the other stacks. It is returned with wider set instead, so the
+// caller can fall back to it if every stack dies on the shared token.
+func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from uint32, lexicalReadSpan *uint32, dts *dfaTokenSource) (own Token, ok, wider bool) {
 	lang := p.language
 	if lang == nil || dts == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
-		return tok, false
-	}
-	if !dts.electionHadSameNameRival(tok) {
-		return tok, false
+		return tok, false, false
 	}
 	if tok.Symbol == 0 || tok.Symbol == errorSymbol || tok.Missing || tok.NoLookahead || tok.ExternalScannerToken ||
 		tok.StartByte >= tok.EndByte || int(tok.StartByte) >= len(source) ||
 		tok.Symbol == lang.KeywordCaptureToken || languageKeywordReservedInState(lang, state, tok.Symbol) {
-		return tok, false
+		return tok, false, false
 	}
 	if p.electedTokenReusable(dts, state, tok) {
-		return tok, false
+		return tok, false, false
 	}
 	// This probe does not model included ranges with an external scanner.
 	// Decline the optional reading rather than inspect excluded source bytes.
 	if len(p.included) != 0 && (lang.ExternalScanner != nil || len(lang.ExternalSymbols) != 0) {
-		return tok, false
+		return tok, false, false
 	}
-	relexed, ok, abort := p.scanTokenInStackLexState(source, state, tok, from, lexicalReadSpan, dts)
-	if abort || !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol || relexed.Symbol == lang.KeywordCaptureToken ||
-		relexed.StartByte != tok.StartByte || relexed.EndByte != tok.EndByte || !dts.sameSymbolName(relexed.Symbol, tok.Symbol) ||
-		!p.stateHasActionForSymbol(state, relexed.Symbol) {
-		return tok, false
+	relexed, scanned, abort := p.scanTokenInStackLexState(source, state, tok, from, lexicalReadSpan, dts)
+	if abort || !scanned || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol || relexed.Symbol == lang.KeywordCaptureToken ||
+		relexed.StartByte != tok.StartByte || relexed.EndByte < tok.EndByte || !p.stateHasActionForSymbol(state, relexed.Symbol) {
+		return tok, false, false
 	}
 	// The reading covers the shared token's bytes after the same gap. A read
 	// that restarted after a whole skip token has no record of that gap.
 	relexed.setLexFlag(tokenFlagSkippedPrefix, tok.lexerSkippedPrefix())
 	relexed.lexerSkippedPrefixStart = tok.lexerSkippedPrefixStart
-	return relexed, true
+	if relexed.EndByte > tok.EndByte {
+		return relexed, false, true
+	}
+	if !dts.sameSymbolName(relexed.Symbol, tok.Symbol) || !dts.electionHadSameNameRival(tok) {
+		return tok, false, false
+	}
+	return relexed, true, false
 }
 
 // electedTokenReusable is ts_parser__can_reuse_first_leaf (C/parser.c:470-503)

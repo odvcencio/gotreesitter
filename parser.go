@@ -5918,8 +5918,21 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	tryMissingSingleShift := func(stackIndex int, s *glrStack, currentState StateID) bool {
 		return missingShift.tryInsert(p, source, stackIndex, s, currentState, tok, ts, &nodeCount, arena, scratch, trackChildErrors)
 	}
+	var widerReadings []widerStackReading
 
 	for iter := 0; iter < maxIter; iter++ {
+		if len(widerReadings) > 0 {
+			if wide, ok := reviveWiderStackReading(stacks, widerReadings); ok {
+				if p.glrTrace {
+					fmt.Printf("  WIDER-REVIVE: sym=%d [%d-%d]\n", wide.Symbol, wide.StartByte, wide.EndByte)
+				}
+				tok = wide
+				needToken = false
+				dts.lexer.pos, dts.lexer.row, dts.lexer.col = int(wide.EndByte), wide.EndPoint.Row, wide.EndPoint.Column
+				workCountRefreshConvergenceLookahead(tok)
+			}
+			widerReadings = widerReadings[:0]
+		}
 		reusedLookaheadThisPass := !needToken
 		passStartTokensConsumed := perfTokensConsumed
 		if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
@@ -6588,7 +6601,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			ownReading := false
 			ownReadingRetries := 0
 			if !stackRelexActive && len(stacks) > 1 {
-				if ownTok, ok := p.ownLexModeToken(source, currentState, tok, s.byteOffset, lexicalReadSpan, dts); ok {
+				ownTok, ok, wider := p.ownLexModeToken(source, currentState, tok, s.byteOffset, lexicalReadSpan, dts)
+				if ok {
 					if p.glrTrace {
 						fmt.Printf("  stack[%d] OWN-LEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
 							si, tok.Symbol, ownTok.Symbol, ownTok.StartByte, ownTok.EndByte, currentState)
@@ -6596,6 +6610,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					tok = ownTok
 					stackRelexActive = true
 					ownReading = true
+				} else if wider && len(p.included) == 0 {
+					widerReadings = append(widerReadings, widerStackReading{stack: si, state: currentState, depth: s.depth(), tok: ownTok})
 				}
 			}
 			noteStopDiagnosticStack(s)
@@ -8584,6 +8600,47 @@ func allParseStacksDead(stacks []glrStack) bool {
 		}
 	}
 	return true
+}
+
+// widerStackReading is a stack's own-lex-mode reading of the shared lookahead
+// that starts at the same byte but ends later, recorded at dispatch start
+// before the stack reduced.
+type widerStackReading struct {
+	stack int
+	state StateID
+	depth int
+	tok   Token
+}
+
+// reviveWiderStackReading handles the one case lockstep lexing cannot: the
+// shared token killed every stack, but some stack's own lex mode had read a
+// longer token (C++ `i[] >> 8`: the election picks the template `>` and the
+// `>>` version dies). C lexes each version separately, so that version would
+// have lived. When every stack is dead, it revives the stacks still at the
+// state and depth where they recorded the first such reading, and returns
+// that reading as the next lookahead.
+func reviveWiderStackReading(stacks []glrStack, readings []widerStackReading) (Token, bool) {
+	if !allParseStacksDead(stacks) {
+		return Token{}, false
+	}
+	var chosen Token
+	found := false
+	for _, r := range readings {
+		if r.stack >= len(stacks) {
+			continue
+		}
+		s := &stacks[r.stack]
+		if s.depth() != r.depth || s.top().state != r.state {
+			continue
+		}
+		if !found {
+			chosen, found = r.tok, true
+		} else if !tokensSameLexForGLRCandidate(r.tok, chosen) {
+			continue
+		}
+		s.dead = false
+	}
+	return chosen, found
 }
 
 func allLiveUnacceptedStacksShifted(stacks []glrStack) bool {
