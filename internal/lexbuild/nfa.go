@@ -44,6 +44,11 @@ type nfaTransition struct {
 type nfaCursor struct {
 	stateIDs []uint32
 	n        *nfa
+	work     int // automaton states visited while closing sets (bClosureWork)
+	gwork    int // steps of groupTransitions (bGroupWork), over all calls on this cursor
+
+	mark []uint32 // mark[id] == gen when id is in the list being closed
+	gen  uint32
 }
 
 // newNfaCursor is nfa.rs: fn NfaCursor::new.
@@ -85,7 +90,7 @@ func (c *nfaCursor) rawTransitions() []rawTransition {
 
 // transitions is nfa.rs: fn NfaCursor::transitions.
 func (c *nfaCursor) transitions() []nfaTransition {
-	return groupTransitions(c.rawTransitions())
+	return groupTransitions(c.rawTransitions(), &c.gwork)
 }
 
 // transitionsAndAnySep is nfa.rs: fn NfaCursor::transitions_and_any_sep.
@@ -95,7 +100,7 @@ func (c *nfaCursor) transitionsAndAnySep() ([]nfaTransition, bool) {
 	for _, r := range raw {
 		anySep = anySep || r.isSep
 	}
-	return groupTransitions(raw), anySep
+	return groupTransitions(raw, &c.gwork), anySep
 }
 
 // transitionChars is nfa.rs: fn NfaCursor::transition_chars.
@@ -118,11 +123,13 @@ func equalU32(a, b []uint32) bool {
 // here sets are copied where Rust copies and moved where Rust moves. The
 // final sort is by character set; the sets are disjoint, so the sort order is
 // total and the unstable sort of Rust gives the same order as any sort.
-func groupTransitions(raw []rawTransition) []nfaTransition {
+func groupTransitions(raw []rawTransition, gwork *int) []nfaTransition {
 	var result []nfaTransition
 	var chars CharSet
 	copied := 0 // automaton state ids copied into transitions (bTransIDs)
 	for _, rt := range raw {
+		*gwork += len(result) + 1
+		bGroupWork.check(*gwork)
 		chars.assign(*rt.chars)
 		i := 0
 		for i < len(result) && !chars.isEmpty() {
@@ -174,6 +181,8 @@ func groupTransitions(raw []rawTransition) []nfaTransition {
 
 	i := 0
 	for i < len(result) {
+		*gwork += i + 1
+		bGroupWork.check(*gwork)
 		for j := 0; j < i; j++ {
 			if equalU32(result[j].states, result[i].states) &&
 				result[j].isSeparator == result[i].isSeparator &&
@@ -211,37 +220,65 @@ func (c *nfaCursor) completions() [][2]int {
 // addStates is nfa.rs: fn NfaCursor::add_states. It closes the given state
 // ids over split states and inserts the non-split ids into the sorted
 // stateIDs.
+//
+// Go shape: the Rust code asks, for each split, whether its left and right
+// are already in the list that is being extended (a scan of the list), and
+// inserts each non-split id at its place in stateIDs. Here a set answers the
+// first question and the new ids are merged into stateIDs once, after the
+// closure. The list ids grows in the same order and the sorted result is the
+// same set, so the output equals the generator's. The work is counted against
+// bClosureWork.
 func (c *nfaCursor) addStates(newIDs *[]uint32) {
 	ids := *newIDs
-	i := 0
-	for i < len(ids) {
+	if len(c.mark) < len(c.n.states) {
+		c.mark = make([]uint32, len(c.n.states))
+		c.gen = 0
+	}
+	c.gen++
+	if c.gen == 0 { // wrapped: clear
+		for i := range c.mark {
+			c.mark[i] = 0
+		}
+		c.gen = 1
+	}
+	for _, x := range ids {
+		c.mark[x] = c.gen
+	}
+	c.work += len(ids)
+	bClosureWork.check(c.work)
+	var adds []uint32
+	for i := 0; i < len(ids); i++ {
 		id := ids[i]
 		st := &c.n.states[id]
 		if st.kind == nfaSplit {
-			hasLeft, hasRight := false, false
-			for _, x := range ids {
-				if x == st.left {
-					hasLeft = true
-				}
-				if x == st.right {
-					hasRight = true
-				}
-			}
-			if !hasLeft {
+			if c.mark[st.left] != c.gen {
+				c.mark[st.left] = c.gen
 				ids = append(ids, st.left)
+				c.work++
 			}
-			if !hasRight {
+			if c.mark[st.right] != c.gen {
+				c.mark[st.right] = c.gen
 				ids = append(ids, st.right)
+				c.work++
 			}
+			bClosureWork.check(c.work)
 		} else {
 			j := sort.Search(len(c.stateIDs), func(k int) bool { return c.stateIDs[k] >= id })
 			if j == len(c.stateIDs) || c.stateIDs[j] != id {
-				c.stateIDs = append(c.stateIDs, 0)
-				copy(c.stateIDs[j+1:], c.stateIDs[j:])
-				c.stateIDs[j] = id
+				adds = append(adds, id)
 			}
 		}
-		i++
+	}
+	if len(adds) > 0 {
+		c.stateIDs = append(c.stateIDs, adds...)
+		sort.Slice(c.stateIDs, func(a, b int) bool { return c.stateIDs[a] < c.stateIDs[b] })
+		out := c.stateIDs[:1]
+		for _, x := range c.stateIDs[1:] {
+			if x != out[len(out)-1] {
+				out = append(out, x)
+			}
+		}
+		c.stateIDs = out
 	}
 	*newIDs = ids
 }

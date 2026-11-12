@@ -13,13 +13,17 @@ type coincidentTokenIndex struct {
 // newCoincidentTokenIndex is coincident_tokens.rs: fn CoincidentTokenIndex::new.
 // states are the valid tokens of each parse state.
 func newCoincidentTokenIndex(states []TokenSet, n int, word Symbol, hasWord bool) *coincidentTokenIndex {
+	bSymbolCells.check(cells(n, n)) // two boolean matrices
 	c := &coincidentTokenIndex{n: n, contains: make([][]bool, n), withoutWord: make([][]bool, n)}
 	for i := 0; i < n; i++ {
 		c.contains[i] = make([]bool, n)
 		c.withoutWord[i] = make([]bool, n)
 	}
+	var work int64
 	for _, st := range states {
 		idx := st.terminalIndices()
+		work += int64(len(idx))*int64(len(idx)+1)/2 + 1
+		bCoincidentWork.checkWork(work)
 		has := hasWord && st.Contains(word)
 		for i, a := range idx {
 			for _, b := range idx[i:] {

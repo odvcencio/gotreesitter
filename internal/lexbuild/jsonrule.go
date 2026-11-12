@@ -108,10 +108,18 @@ func decodeObject(raw []byte) (keys []string, vals []json.RawMessage, dups map[s
 				return nil, nil, nil, fmt.Errorf("key: %v", err)
 			}
 		}
-		var v json.RawMessage
-		if err := dec.Decode(&v); err != nil {
+		// The value is a slice of raw, not a copy: a copy at each level of nesting
+		// would hold the document once for each level (128 times at the limit).
+		start := dec.InputOffset()
+		var skip skipValue
+		if err := dec.Decode(&skip); err != nil {
 			return nil, nil, nil, err
 		}
+		a := start
+		for a < dec.InputOffset() && (raw[a] == ':' || raw[a] == ' ' || raw[a] == '\t' || raw[a] == '\n' || raw[a] == '\r') {
+			a++
+		}
+		v := json.RawMessage(raw[a:dec.InputOffset():dec.InputOffset()])
 		ks := k.(string)
 		if i, dup := idx[ks]; dup {
 			dups[ks] = true
@@ -130,6 +138,11 @@ func decodeObject(raw []byte) (keys []string, vals []json.RawMessage, dups map[s
 	}
 	return keys, vals, dups, nil
 }
+
+// skipValue reads one JSON value and keeps nothing.
+type skipValue struct{}
+
+func (*skipValue) UnmarshalJSON([]byte) error { return nil }
 
 // objView is the members of one JSON object. dupErr records how a repeated key
 // was treated: as an error (serde reading a struct) or by keeping the last value

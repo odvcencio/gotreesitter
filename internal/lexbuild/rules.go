@@ -144,6 +144,7 @@ type MetadataParams struct {
 type RulePool struct {
 	nodes  []Rule
 	params []MetadataParams
+	eqWork int // rule nodes compared by subtreeEq (bTreeEqWork)
 }
 
 func (p *RulePool) node(id RuleID) Rule                 { return p.nodes[id] }
@@ -275,6 +276,8 @@ func (p *RulePool) subtreeEq(a, b RuleID) bool {
 	for len(stack) > 0 {
 		pr := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
+		p.eqWork++
+		bTreeEqWork.check(p.eqWork)
 		x, y := p.node(pr.a), p.node(pr.b)
 		if x.Kind != y.Kind {
 			return false

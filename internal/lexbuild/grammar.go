@@ -243,6 +243,16 @@ func readGrammarJSON(input []byte) (*grammarJSON, error) {
 // ParseGrammar is parse_grammar.rs: fn parse_grammar. Diagnostics (empty
 // string matches, unary choices, unsupported pattern flags) are not produced.
 func ParseGrammar(input []byte) (*InputGrammar, error) {
+	var g *InputGrammar
+	var perr error
+	if err := guardSize(func() { g, perr = parseGrammar(input) }); err != nil {
+		return nil, err
+	}
+	return g, perr
+}
+
+func parseGrammar(input []byte) (*InputGrammar, error) {
+	bInputBytes.check(len(input))
 	gj, err := readGrammarJSON(input)
 	if err != nil {
 		return nil, fmt.Errorf("lexbuild: grammar.json: %v", err)
@@ -328,6 +338,7 @@ func ParseGrammar(input []byte) (*InputGrammar, error) {
 		g.WordName, g.HasWord = *gj.Word, true
 	}
 	g.Ident = gj.Ident
+	checkShape(g)
 	g.normalize()
 	return g, nil
 }
@@ -381,6 +392,8 @@ func (g *InputGrammar) normalize() {
 		}
 	}
 	g.Variables = kept
+	// The loop below scans, for each dropped rule, the lists and rule trees that may mention it.
+	bNormalizeWork.check(cells2(len(dropped), len(pool.nodes)+len(g.PrecedenceOrderings)+len(g.ConflictNames)+len(g.InlineNames)+len(g.SupertypeNames)))
 	for _, name := range dropped {
 		g.ConflictNames = retainConflicts(g.ConflictNames, name)
 		g.SupertypeNames = retainStrings(g.SupertypeNames, name)

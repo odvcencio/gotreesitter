@@ -24,6 +24,15 @@ type Prepared struct {
 // validate_indirect_recursion and process_inlines. Not run: extract_default_aliases
 // and the inline expansion itself (they change no token, FIRST set or LAST set).
 func Prepare(grammarJSON []byte) (*Prepared, error) {
+	var p *Prepared
+	var perr error
+	if err := guardSize(func() { p, perr = prepare(grammarJSON) }); err != nil {
+		return nil, err
+	}
+	return p, perr
+}
+
+func prepare(grammarJSON []byte) (*Prepared, error) {
 	g, err := ParseGrammar(grammarJSON)
 	if err != nil {
 		return nil, err
@@ -68,8 +77,8 @@ func Prepare(grammarJSON []byte) (*Prepared, error) {
 	// tokens, following tokens) and rule by token (first and last sets).
 	n, ext := len(lex.Variables), len(syn.ExternalTokens)
 	if err := guardSize(func() {
-		bSymbolCells.check(n * n)
-		bSymbolCells.check(len(syn.Variables) * (n + ext))
+		bSymbolCells.check(cells(n, n))
+		bSymbolCells.check(cells(len(syn.Variables), addCells(n, ext)))
 	}); err != nil {
 		return nil, err
 	}
@@ -102,13 +111,23 @@ type Table struct {
 }
 
 func (p *Prepared) newTable(t lexTable) (*Table, error) {
+	var tb *Table
+	var nerr error
+	if err := guardSize(func() { tb, nerr = p.newTableUnguarded(t) }); err != nil {
+		return nil, err
+	}
+	return tb, nerr
+}
+
+func (p *Prepared) newTableUnguarded(t lexTable) (*Table, error) {
 	tb := &Table{t: t}
 	large, err := p.largeSets()
 	if err != nil {
 		return nil, err
 	}
+	work := 0
 	for i := range t.states {
-		tb.plans = append(tb.plans, planState(&t.states[i], large))
+		tb.plans = append(tb.plans, planState(&t.states[i], large, &work))
 	}
 	return tb, nil
 }

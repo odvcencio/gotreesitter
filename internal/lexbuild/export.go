@@ -133,8 +133,13 @@ type FirstLastSets struct{ fl *firstLast }
 
 // NewFirstLastSets is the part of item_set_builder.rs: fn
 // ParseItemSetBuilder::new that fills first_sets and last_sets.
-func NewFirstLastSets(sg *SyntaxGrammar, lg *LexicalGrammar) *FirstLastSets {
-	return &FirstLastSets{newFirstLast(sg, lg)}
+// It returns a *SizeError if the sets would pass the size limit.
+func NewFirstLastSets(sg *SyntaxGrammar, lg *LexicalGrammar) (*FirstLastSets, error) {
+	var fl *firstLast
+	if err := guardSize(func() { fl = newFirstLast(sg, lg) }); err != nil {
+		return nil, err
+	}
+	return &FirstLastSets{fl}, nil
 }
 
 // First returns the FIRST set of a terminal, external or non-terminal symbol.

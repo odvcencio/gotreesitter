@@ -2,6 +2,7 @@ package lexbuild
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -73,11 +74,22 @@ func parsePattern(pattern string, caseInsensitive bool) (*hir, error) {
 	return h, err
 }
 
+// parsePatternCounting is parsePattern with a count of class ranges shared by
+// all the patterns of one grammar (bPatternRanges).
+func parsePatternCounting(pattern string, caseInsensitive bool, total *int) (*hir, error) {
+	h, _, err := parsePatternShared(pattern, caseInsensitive, total)
+	return h, err
+}
+
 // parsePatternWith is parsePattern; it also returns the parser, so that a test
 // can read how far the parser got (pos) and how many class set operations it
 // evaluated (classOps).
 func parsePatternWith(pattern string, caseInsensitive bool) (*hir, *patParser, error) {
-	p := &patParser{src: []rune(pattern), orig: pattern, capNames: map[string]bool{}}
+	return parsePatternShared(pattern, caseInsensitive, new(int))
+}
+
+func parsePatternShared(pattern string, caseInsensitive bool, total *int) (*hir, *patParser, error) {
+	p := &patParser{src: []rune(pattern), orig: pattern, capNames: map[string]bool{}, total: total}
 	p.flags.i = caseInsensitive
 	h, ht, err := p.parseAlternation()
 	if err != nil {
@@ -105,8 +117,8 @@ type patParser struct {
 	orig     string
 	caps     int
 	capNames map[string]bool
-	classOps int // class set operations evaluated (a test reads it)
-	ranges   int // character ranges read into classes and escapes of this pattern (bPatternRanges)
+	classOps int  // class set operations evaluated (a test reads it)
+	total    *int // character ranges read into classes and escapes, over the patterns of the grammar (bPatternRanges)
 }
 
 func (p *patParser) more() bool { return p.pos < len(p.src) }
@@ -114,8 +126,8 @@ func (p *patParser) peek() rune { return p.src[p.pos] }
 
 // noteRanges counts n character ranges against bPatternRanges before they are kept.
 func (p *patParser) noteRanges(n int) {
-	p.ranges += n
-	bPatternRanges.check(p.ranges)
+	*p.total += n
+	bPatternRanges.check(*p.total)
 }
 
 func (p *patParser) nestErr() error {
@@ -332,6 +344,18 @@ func (p *patParser) parseDecimal() (v uint32, ok bool, err error) {
 // parseCounted parses {n}, {n,} and {n,m} at p.pos (ast/parse.rs: fn
 // parse_counted_repetition, with empty_min_range off).
 func (p *patParser) parseCounted() (min, max uint32, hasMax bool, err error) {
+	defer func() {
+		if err == nil {
+			big := max
+			if min > big {
+				big = min
+			}
+			if big > math.MaxInt32 {
+				big = math.MaxInt32
+			}
+			bRepeatCount.check(int(big))
+		}
+	}()
 	unclosed := p.errf("unclosed counted repetition")
 	p.pos++ // {
 	if !p.more() {

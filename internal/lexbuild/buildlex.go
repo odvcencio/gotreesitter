@@ -14,6 +14,7 @@ type Analysis struct {
 	conflicts *TokenConflictMap
 	coinc     *coincidentTokenIndex
 	keywords  TokenSet
+	work      int64 // steps of the grouping of parse states (bGroupingWork)
 }
 
 // Analyze is the part of build_tables.rs: fn build_tables that runs between the
@@ -87,9 +88,13 @@ func identifyKeywords(lg *LexicalGrammar, sg *SyntaxGrammar, cm *TokenConflictMa
 
 	// Exclude keyword candidates that shadow another keyword candidate.
 	var shadowFree TokenSet
-	for _, tok := range candidates.symbols() {
+	work := 0 // steps of the loops below (bKeywordWork)
+	candList := candidates.symbols()
+	for _, tok := range candList {
 		keep := true
-		for _, other := range candidates.symbols() {
+		work += len(candList)
+		bKeywordWork.check(work)
+		for _, other := range candList {
 			if other != tok && cm.doesMatchSameString(int(other.Index), int(tok.Index)) {
 				keep = false
 				break
@@ -104,6 +109,8 @@ func identifyKeywords(lg *LexicalGrammar, sg *SyntaxGrammar, cm *TokenConflictMa
 	// would introduce new lexical conflicts with other tokens.
 	for _, tok := range shadowFree.symbols() {
 		keep := true
+		work += len(lg.Variables)
+		bKeywordWork.check(work)
 		for other := 0; other < len(lg.Variables); other++ {
 			if candidates.Contains(terminalSym(other)) {
 				continue
@@ -252,6 +259,16 @@ type LexTables struct {
 // the lex table (after the error state is filled in and parse states are
 // merged). Reserved words are not ported.
 func (p *Prepared) BuildLexTables(a *Analysis, states []TokenSet) (*LexTables, error) {
+	var lt *LexTables
+	var lerr error
+	if err := guardSize(func() { lt, lerr = p.buildLexTables(a, states) }); err != nil {
+		return nil, err
+	}
+	return lt, lerr
+}
+
+func (p *Prepared) buildLexTables(a *Analysis, states []TokenSet) (*LexTables, error) {
+	a.work = 0
 	lg, sg := p.Lex, p.Syntax
 	var keywordTable lexTable
 	if sg.HasWord {
@@ -330,7 +347,10 @@ func (p *Prepared) BuildLexTables(a *Analysis, states []TokenSet) (*LexTables, e
 
 // checkTokenConflicts is build_lex_table.rs: fn check_token_conflicts.
 func (a *Analysis) checkTokenConflicts(i int, set *TokenSet) bool {
-	for _, j := range set.terminalIndices() {
+	idx := set.terminalIndices()
+	a.work += int64(2*len(idx) + 1)
+	bGroupingWork.checkWork(a.work)
+	for _, j := range idx {
 		if a.conflicts.conflictOrPrefix[i][j] {
 			return true
 		}
@@ -345,6 +365,8 @@ func (a *Analysis) checkTokenConflicts(i int, set *TokenSet) bool {
 
 // mergeTokenSet is build_lex_table.rs: fn merge_token_set.
 func (a *Analysis) mergeTokenSet(tokens, other *TokenSet) bool {
+	a.work += 2
+	bGroupingWork.checkWork(a.work)
 	for _, t := range tokens.terminalIndices() {
 		if other.containsTerminal(t) {
 			continue
@@ -487,7 +509,7 @@ func splitStateIDGroups(states []lexState, groups *[][]uint32, groupOf []uint32,
 			if isSplit[left] {
 				continue
 			}
-			*compares += len(ids) - i - 1
+			*compares += (len(ids) - i - 1) * (1 + len(states[left].advances))
 			bMinCompares.check(*compares)
 			for j := i + 1; j < len(ids); j++ {
 				right := ids[j]
@@ -600,8 +622,24 @@ func sortStates(t *lexTable, parseLex []uint32) {
 		oldIDsByNew[i] = i
 	}
 	rest := oldIDsByNew[1:]
+	// A comparison costs at most the size of the smaller state: its transitions and their ranges.
+	size := make([]int, n)
+	for i := range t.states {
+		size[i] = 1 + len(t.states[i].advances)
+		for _, ca := range t.states[i].advances {
+			size[i] += ca.chars.rangeCount()
+		}
+	}
+	sortWork := 0
 	sort.SliceStable(rest, func(i, j int) bool {
-		return compareLexState(&t.states[rest[i]], &t.states[rest[j]]) < 0
+		a, b := rest[i], rest[j]
+		if size[a] < size[b] {
+			sortWork += size[a]
+		} else {
+			sortWork += size[b]
+		}
+		bSortWork.check(sortWork)
+		return compareLexState(&t.states[a], &t.states[b]) < 0
 	})
 	newIDsByOld := make([]uint32, n)
 	for id, old := range oldIDsByNew {

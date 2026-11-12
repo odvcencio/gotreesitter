@@ -481,7 +481,10 @@ func (w *width) merge(o width) bool {
 // Go shape: eval is recursive. The Rust version uses an explicit stack with
 // the same per-node rules; Choice and Seq combine their children's results
 // with commutative operations, so the visiting order does not reach the output.
-type zeroWidth struct{ byVariable []width }
+type zeroWidth struct {
+	byVariable []width
+	work       int // rule nodes evaluated (bRepeatWork)
+}
 
 // newZeroWidth is expand_repeats.rs: fn ZeroWidth::new.
 func newZeroWidth(pool *RulePool, vars []Variable) *zeroWidth {
@@ -503,6 +506,8 @@ func newZeroWidth(pool *RulePool, vars []Variable) *zeroWidth {
 
 // eval is expand_repeats.rs: fn ZeroWidth::eval.
 func (z *zeroWidth) eval(pool *RulePool, id RuleID) width {
+	z.work++
+	bRepeatWork.check(z.work)
 	n := pool.node(id)
 	switch n.Kind {
 	case RSeq:
@@ -789,14 +794,30 @@ type flattenState struct {
 	dynPrec     int32
 	dead        bool
 
-	seen     map[string]bool // productions of the variable in progress (the duplicate check of emit_ready)
-	retained int             // production steps kept so far (bFlattenSteps)
+	seen     map[string]bool   // productions of the variable in progress (the duplicate check of emit_ready)
+	retained int               // production steps kept so far (bFlattenSteps)
+	keyBytes int               // bytes of the keys in seen (bFlattenKeyBytes)
+	ids      map[string]uint32 // one id for each distinct metadata string
+}
+
+// id is the interned id of a metadata string: keys hold ids, not the strings.
+func (s *flattenState) id(v string) uint32 {
+	if s.ids == nil {
+		s.ids = map[string]uint32{}
+	}
+	n, ok := s.ids[v]
+	if !ok {
+		n = uint32(len(s.ids))
+		s.ids[v] = n
+	}
+	return n
 }
 
 func (s *flattenState) resetVariable() {
 	s.choices.reset()
 	s.resetPath()
 	s.seen = map[string]bool{}
+	s.keyBytes = 0
 }
 func (s *flattenState) resetPath() {
 	s.steps, s.dynPrec, s.dead = s.steps[:0], 0, false
@@ -887,12 +908,15 @@ func (s *flattenState) apply(pool *RulePool, id RuleID, ctx flattenCtx, atEnd bo
 	return false
 }
 
+// productionKeyBytes is the length of the key of a production with n steps.
+func productionKeyBytes(n int) int { return 5 + 31*n }
+
 // productionKey encodes the fields that emit_ready compares, so that two
-// productions have the same key exactly when they are equal.
-func productionKey(dynPrec int32, requiresEOF bool, steps []ProductionStep) string {
-	buf := make([]byte, 0, 8+40*len(steps))
+// productions have the same key exactly when they are equal. A string is
+// encoded as its interned id, so the key does not grow with the strings.
+func (s *flattenState) productionKey(dynPrec int32, requiresEOF bool, steps []ProductionStep) string {
+	buf := make([]byte, 0, productionKeyBytes(len(steps)))
 	u32 := func(v uint32) { buf = append(buf, byte(v), byte(v>>8), byte(v>>16), byte(v>>24)) }
-	str := func(v string) { u32(uint32(len(v))); buf = append(buf, v...) }
 	flag := func(b bool) {
 		if b {
 			buf = append(buf, 1)
@@ -907,12 +931,12 @@ func productionKey(dynPrec int32, requiresEOF bool, steps []ProductionStep) stri
 		u32(st.Symbol.Index)
 		buf = append(buf, byte(st.Precedence.Kind))
 		u32(uint32(st.Precedence.Int))
-		str(st.Precedence.Ident)
+		u32(s.id(st.Precedence.Ident))
 		buf = append(buf, byte(st.Associativity))
 		flag(st.Alias.Set)
-		str(st.Alias.Value)
+		u32(s.id(st.Alias.Value))
 		flag(st.Alias.Named)
-		str(st.Field)
+		u32(s.id(st.Field))
 		flag(st.HasField)
 		u32(uint32(st.Reserved))
 	}
@@ -942,10 +966,12 @@ func (s *flattenState) emit(out *SyntaxGrammar, prodStart int) bool {
 func (s *flattenState) emitReady(out *SyntaxGrammar, prodStart int, requiresEOF bool) bool {
 	// emit_ready compares the new production with every earlier production of the
 	// variable; the set of their keys gives the same answer without the scan.
-	key := productionKey(s.dynPrec, requiresEOF, s.steps)
+	bFlattenKeyBytes.check(s.keyBytes + productionKeyBytes(len(s.steps))) // before the key is built
+	key := s.productionKey(s.dynPrec, requiresEOF, s.steps)
 	if s.seen[key] {
 		return true
 	}
+	s.keyBytes += len(key)
 	s.retained += len(s.steps)
 	bFlattenSteps.check(s.retained)
 	s.seen[key] = true

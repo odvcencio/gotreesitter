@@ -15,6 +15,12 @@ type firstLast struct {
 // non-terminals by an explicit stack. The reserved set id of a non-terminal is
 // the largest id found at the first steps that the walk reaches.
 func newFirstLast(sg *SyntaxGrammar, lg *LexicalGrammar) *firstLast {
+	// The one check of the sizes that this function allocates. FIRST and LAST hold
+	// one bit set for each terminal and each external symbol (a singleton whose
+	// vector reaches the symbol's own index: n*n and e*e bits in all) and one for
+	// each rule (v*(n+e) bits).
+	n, e, v := len(lg.Variables), len(sg.ExternalTokens), len(sg.Variables)
+	bSymbolCells.check(addCells(addCells(cells(n, n), cells(e, e)), cells(v, addCells(n, e))))
 	fl := &firstLast{first: map[Symbol]*TokenSet{}, last: map[Symbol]*TokenSet{}, reserved: map[Symbol]uint16{}}
 	for i := range lg.Variables {
 		s := terminalSym(i)
@@ -84,6 +90,7 @@ func newFirstLast(sg *SyntaxGrammar, lg *LexicalGrammar) *firstLast {
 // terminal, the terminals that can follow it in some production.
 func getFollowingTokens(sg *SyntaxGrammar, lg *LexicalGrammar, fl *firstLast) []TokenSet {
 	n := len(lg.Variables)
+	bSymbolCells.check(cells(n, n)) // one set of terminals for each terminal
 	result := make([]TokenSet, n)
 	var all TokenSet
 	for i := 0; i < n; i++ {

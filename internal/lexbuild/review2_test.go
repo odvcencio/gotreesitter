@@ -141,6 +141,9 @@ func TestNestLimitCountsTheSyntaxTree(t *testing.T) {
 // bounds clamped to 1; x{0} is empty; x{1} is x), ast/parse.rs:1017 and :1103 (a repetition needs a
 // previous item that is not a flag directive; a group with an empty body is one).
 func TestZeroLengthRepetition(t *testing.T) {
+	// The generator accepts these counts; the cap on the count of a repetition (a deliberate difference,
+	// see doc.go) is raised for this test.
+	withLimit(t, bRepeatCount, 1<<32)
 	if got := mustHir(t, `(){4294967295}a`); got != `Cat(C(E) L"a")` {
 		t.Errorf("got %s", got)
 	}

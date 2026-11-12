@@ -47,6 +47,7 @@ type nfaBuilder struct {
 	isSep           bool
 	precedenceStack []int32
 	ranges          int // character ranges summed over advance states (bNFARanges)
+	patRanges       int // character ranges read into the classes of all patterns (bPatternRanges)
 }
 
 // getImplicitPrecedence is expand_tokens.rs: fn get_implicit_precedence.
@@ -199,7 +200,7 @@ func (b *nfaBuilder) expandRule(pool *RulePool, id RuleID, next uint32) (bool, e
 	switch n.Kind {
 	case RPattern:
 		s := perlClassRewrite(n.Str)
-		h, err := parsePattern(s, containsByte(n.Flags, 'i'))
+		h, err := parsePatternCounting(s, containsByte(n.Flags, 'i'), &b.patRanges)
 		if err != nil {
 			return false, err
 		}

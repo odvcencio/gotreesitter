@@ -382,6 +382,10 @@ func TestLexCensus(t *testing.T) {
 	}
 	for _, b := range allBudgets {
 		fmt.Printf("LEXBUDGET %s | largest %d | limit %d\n", b.what, b.peak.Load(), b.limit)
+		// The limits are more than ten times the largest value over the grammars measured here.
+		if b.peak.Load()*10 > int64(b.limit) {
+			t.Errorf("budget %q: largest value %d is not ten times below the limit %d", b.what, b.peak.Load(), b.limit)
+		}
 	}
 	for _, n := range names {
 		if _, err := os.Stat(filepath.Join(root, n, "parser-noopt.c")); err != nil {

@@ -35,6 +35,7 @@ func newTokenConflictMap(g *LexicalGrammar, following []TokenSet) *TokenConflict
 		nfaStateToVar[id] = g.variableIndexForNFAState(uint32(id))
 	}
 	n := len(g.Variables)
+	bSymbolCells.check(cells(n, n)) // the status matrix and the two boolean matrices
 	m := &TokenConflictMap{n: n, status: make([]conflictStatus, n*n)}
 	for i := 0; i < n; i++ {
 		for j := 0; j < i; j++ {

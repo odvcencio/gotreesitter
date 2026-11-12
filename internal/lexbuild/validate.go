@@ -41,6 +41,7 @@ func validatePrecedences(g *InputGrammar) error {
 					e1, e2 = e2, e1
 				}
 				if prev, ok := pairs[pair{e1, e2}]; !ok {
+					bPrecPairs.check(len(pairs) + 1)
 					pairs[pair{e1, e2}] = less
 				} else if prev != less {
 					return fmt.Errorf("Conflicting orderings for precedences %s and %s", display(e1), display(e2))
@@ -107,8 +108,11 @@ func validateIndirectRecursion(g *InputGrammar, sg *SyntaxGrammar) error {
 		edges[v.Ident] = lst
 	}
 	visited := map[string]bool{}
+	work := 0
 	var getCycle func(cur string, path *[]string) bool
 	getCycle = func(cur string, path *[]string) bool {
+		work += len(*path) + 1
+		bCycleWork.check(work)
 		for _, s := range *path {
 			if s == cur {
 				*path = append(*path, cur)

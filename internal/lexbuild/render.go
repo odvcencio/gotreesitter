@@ -24,7 +24,10 @@ type largeSet struct {
 // ranges.
 func collectLargeCharacterSets(b *lexTableBuilder, g *LexicalGrammar) []largeSet {
 	var out []largeSet
+	work := 0
 	has := func(c CharSet) bool {
+		work += len(out) * (1 + c.rangeCount())
+		bRenderWork.check(work)
 		for _, s := range out {
 			if equalCharSet(s.set, c) {
 				return true
@@ -155,7 +158,7 @@ type statePlan struct {
 
 // planState is render.rs: fn add_lex_state, from the first line after the
 // accept and end-of-input statements to END_STATE.
-func planState(st *lexState, large []largeSet) statePlan {
+func planState(st *lexState, large []largeSet, work *int) statePlan {
 	var plan statePlan
 	var ruledOut CharSet
 	leadingCount, leadingRanges := 0, 0
@@ -191,11 +194,15 @@ func planState(st *lexState, large []largeSet) statePlan {
 	}
 	var charsCopy, largeCopy CharSet
 	for _, ca := range st.advances[leadingCount:] {
+		*work += 1 + ruledOut.rangeCount() + ca.chars.rangeCount()
+		bRenderWork.check(*work)
 		simplified := ca.chars.simplifyIgnoring(ruledOut)
 
 		bestIx := -1
 		var bestAdd, bestRem CharSet
 		if simplified.rangeCount() >= largeCharacterRangeCount {
+			*work += len(large) * (1 + simplified.rangeCount())
+			bRenderWork.check(*work)
 			for ix, ls := range large {
 				charsCopy.assign(simplified)
 				largeCopy.assign(ls.set)
