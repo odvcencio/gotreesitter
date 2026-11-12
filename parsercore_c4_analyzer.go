@@ -23,6 +23,8 @@ import (
 
 // ParserCoreCorridorTableShape is one grammar's committed table-shape receipt.
 // Field names are the analyzer rows the spec cites by name.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type ParserCoreCorridorTableShape struct {
 	Grammar string `json:"grammar"`
 	// BlobSHA256 pins the exact grammar blob the row was measured against.
@@ -139,6 +141,8 @@ type ParserCoreCorridorTableShape struct {
 
 // AnalyzeParserCoreCorridorTables measures one grammar's static table shape
 // and compiles its corridor program, returning the committed receipt row.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func AnalyzeParserCoreCorridorTables(lang *Language) (ParserCoreCorridorTableShape, error) {
 	tables, err := newCorridorTables(lang)
 	if err != nil {

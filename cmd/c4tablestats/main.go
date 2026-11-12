@@ -35,8 +35,9 @@ import (
 // receipt is the committed artifact. Schema and blob digests are part of it so
 // a row can never be read as describing tables it was not measured against.
 type receipt struct {
-	Schema   string                             `json:"schema"`
-	Spec     string                             `json:"spec"`
+	Schema string `json:"schema"`
+	Spec   string `json:"spec"`
+	//lint:ignore SA1019 this tool reports on the compact scheduler that these names belong to
 	Grammars []gts.ParserCoreCorridorTableShape `json:"grammars"`
 }
 
@@ -94,20 +95,25 @@ func main() {
 	}
 }
 
+//lint:ignore SA1019 this tool reports on the compact scheduler that these names belong to
 func analyze(path string) (gts.ParserCoreCorridorTableShape, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
+		//lint:ignore SA1019 this tool reports on the compact scheduler that these names belong to
 		return gts.ParserCoreCorridorTableShape{}, err
 	}
 	lang, err := gts.LoadLanguage(data)
 	if err != nil {
+		//lint:ignore SA1019 this tool reports on the compact scheduler that these names belong to
 		return gts.ParserCoreCorridorTableShape{}, fmt.Errorf("decode blob: %w", err)
 	}
 	if lang.Name == "" {
 		lang.Name = strings.TrimSuffix(filepath.Base(path), ".bin")
 	}
+	//lint:ignore SA1019 this tool reports on the compact scheduler that these names belong to
 	shape, err := gts.AnalyzeParserCoreCorridorTables(lang)
 	if err != nil {
+		//lint:ignore SA1019 this tool reports on the compact scheduler that these names belong to
 		return gts.ParserCoreCorridorTableShape{}, err
 	}
 	shape.BlobSHA256 = fmt.Sprintf("%x", sha256.Sum256(data))

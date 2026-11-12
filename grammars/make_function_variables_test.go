@@ -57,6 +57,35 @@ func TestMakeFunctionVariables(t *testing.T) {
 	}
 }
 
+// +spec=`A backslash before a comma stays inside a word in names, prerequisites and lists.`
+// +case:id=make_escaped_comma,desc=`Escaped comma inside a word`,expect=`One word per name and no error, as the C parser gives`
+func TestMakeEscapedCommaStaysInWord(t *testing.T) {
+	lang := grammars.MakeLanguage()
+	for _, tc := range []struct{ name, source, want string }{
+		{"prerequisite", "a: b\\,c\n", "(makefile (rule (targets (word)) (prerequisites (word))))"},
+		{"target", "a\\,b: c\n", "(makefile (rule (targets (word)) (prerequisites (word))))"},
+		{"include", "include a\\,b\n", "(makefile (include_directive (list (word))))"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tree, err := gotreesitter.NewParser(lang).Parse([]byte(tc.source))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			if root.HasError() {
+				t.Fatalf("unexpected error: %s", root.SExpr(lang))
+			}
+			if root.EndByte() != uint32(len(tc.source)) {
+				t.Fatalf("root ends at %d, want %d", root.EndByte(), len(tc.source))
+			}
+			if got := root.SExpr(lang); got != tc.want {
+				t.Fatalf("tree = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestMakeFunctionVariableEditsMatchFresh(t *testing.T) {
 	lang := grammars.MakeLanguage()
 	parser := gotreesitter.NewParser(lang)

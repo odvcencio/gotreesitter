@@ -18,6 +18,8 @@ import (
 
 // DerivationSetCensusBuilt reports whether this binary carries the
 // derivation-set census. The shipped build never does.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DerivationSetCensusBuilt() bool { return false }
 
 func (s *diagnosticParserCoreGenericScheduler) censusAcceptanceDerivationSet(
