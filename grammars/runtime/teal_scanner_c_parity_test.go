@@ -118,3 +118,22 @@ func TestTealCommentRunsPastNUL(t *testing.T) {
 		portWantScan(t, c.name+", mode off", portScan(scanner, scanner.Create(), c.src, valid), c.offOK, sym, c.offEnd)
 	}
 }
+
+// TestTealFailedLongStringOpenerFallsThroughToCommentLikeC: scan() tries the long-string opener and,
+// when it fails, goes on to the comment (tree-sitter-teal src/scanner.c:152-160 and :205:
+// `return valid_symbols[COMMENT] && scan_comment(lexer)`); the opener has consumed its characters and
+// reset the state by then. So with COMMENT and LONG_STRING_START valid, "[--" is a comment over bytes 0 to 3
+// in C (checked with a mock lexer over the C source: ok=1 end=3 symbol=COMMENT). With the mode off the port
+// is main's: it returns false after the failed opener.
+func TestTealFailedLongStringOpenerFallsThroughToCommentLikeC(t *testing.T) {
+	scanner := TealExternalScanner{}
+	valid := make([]bool, tealTokenCount)
+	valid[tealTokComment], valid[tealTokLongStringStart] = true, true
+	sym := tealDefaultSymTable[tealTokComment]
+	portWantScan(t, "[-- mode on", portScan(scanner, tealCFaithful(scanner), "[--", valid), true, sym, 3)
+	portWantScan(t, "[=- mode on (the comment then fails at its first dash)", portScan(scanner, tealCFaithful(scanner), "[=-", valid), false, sym, 0)
+	portWantScan(t, "[-- mode off", portScan(scanner, scanner.Create(), "[--", valid), false, sym, 0)
+	// A long-string opener that succeeds is unchanged in both modes.
+	portWantScan(t, "[[ mode on", portScan(scanner, tealCFaithful(scanner), "[[x", valid), true, tealDefaultSymTable[tealTokLongStringStart], 2)
+	portWantScan(t, "[[ mode off", portScan(scanner, scanner.Create(), "[[x", valid), true, tealDefaultSymTable[tealTokLongStringStart], 2)
+}

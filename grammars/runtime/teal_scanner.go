@@ -266,7 +266,12 @@ func (sc TealExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 				lexer.SetResultSymbol(syms[tealTokLongStringStart])
 				return true
 			}
-			return false
+			// Main stops here. The pinned C scanner goes on to the comment alternative after a failed
+			// long-string opener (scan_long_string_start, scanner.c:152-160, then scanner.c:205), so with the
+			// mode on a COMMENT that is valid is still scanned, from where the opener stopped.
+			if !s.On() {
+				return false
+			}
 		}
 	}
 
