@@ -1,6 +1,6 @@
-# R7 cliff fixtures
+# Cliff fixtures
 
-These files pin the seven inputs from the gotreesitter v1 design, Workstream R7.
+These files pin the seven inputs of the cliff detector (see the performance gate in docs/v1-design.md).
 The detector decompresses each archive and verifies the source SHA-256 before parsing.
 The archives use gzip with no timestamp. The listed digests name the decompressed bytes.
 

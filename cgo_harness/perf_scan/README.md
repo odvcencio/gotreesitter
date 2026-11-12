@@ -196,7 +196,7 @@ GOWORK=off GTS_PARITY_ALLOW_HOST=1 GTS_PERF_SCAN=1 \
 
 Repeat for every language in the authenticated lock. Completed shard
 scoreboards are durable checkpoints; the reducer reads them without invoking a
-parser, so an interrupted campaign resumes from the missing languages rather
+parser, so an interrupted run resumes from the missing languages rather
 than restarting the fleet. When each shard runs in its own Docker container,
 pass the same `--hostname` value to `run_parity_in_docker.sh` for every
 container on one physical host (for example `--hostname gts-perf-quiet-01`).
@@ -204,7 +204,7 @@ Container-generated hostnames are unique and therefore cannot authenticate as
 one measurement host. Once every shard exists, run the reducer:
 
 A shard with a measured hard-gate FAIL writes its scoreboard and then returns
-nonzero. The campaign coordinator must validate and retain that scoreboard,
+nonzero. Whoever runs the fleet must validate and retain that scoreboard,
 record the failed gate, and continue with the next language; do not let a bare
 `set -e` stop the fleet at its first valid cliff. Process crashes or missing,
 stale, or unauthenticated scoreboards remain retry conditions.
@@ -477,15 +477,3 @@ normal comparator on scoreboards produced with their exact recorded basis.
 Older `gts-perf-scan/v1` scoreboards remain historical analysis only. They do
 not carry the fully static oracle identity or per-file cgo/static admission and
 cannot establish a new hard-gate pass or enter the v2 shard reducer.
-
-## Phase 2 (documented, not built)
-
-- Correctness-verified `edit` axis: verify structural parity of the
-  incremental result against a fresh parse before timing (the machinery exists
-  in `benchmark_real_corpus_parity_test.go`; it roughly doubles cost, so it
-  stays out of the default sweep).
-- Multi-site edit sampling (median over K edit sites per file instead of the
-  first verified site).
-- Allocation / RSS axes (Go `ReportAllocs` analogue vs C arena growth).
-- Trend storage across nightly artifacts and issue updates when a language
-  worsens after budget comparison — see CI_PROPOSAL.md.

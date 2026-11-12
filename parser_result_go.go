@@ -633,7 +633,7 @@ func goReparsedTopLevelChunks(source []byte, start uint32, p *Parser, arena *nod
 			tree.Release()
 			return nil, false
 		}
-		offsetRoot := tree.RootNodeWithOffset(
+		offsetRoot := tree.rootNodeWithRecoveryOffset(
 			chunkStart-uint32(len(prefix)),
 			Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column},
 		)
@@ -693,7 +693,7 @@ func goRecoverWrappedFunctionChunk(source []byte, chunkStart, chunkEnd uint32, p
 	if startPoint.Row < prefixPoint.Row {
 		return nil, false
 	}
-	offsetRoot := tree.RootNodeWithOffset(
+	offsetRoot := tree.rootNodeWithRecoveryOffset(
 		chunkStart-uint32(len(prefix)),
 		Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column},
 	)
@@ -757,7 +757,7 @@ func goRecoverStatementNodesFromRange(source []byte, start, end uint32, p *Parse
 		startPoint := advancePointByBytes(Point{}, source[:start])
 		prefixPoint := advancePointByBytes(Point{}, []byte(prefix))
 		if startPoint.Row >= prefixPoint.Row {
-			offsetRoot := tree.RootNodeWithOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
+			offsetRoot := tree.rootNodeWithRecoveryOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
 			if offsetRoot != nil {
 				if !offsetRoot.HasError() {
 					nodes := goExtractRecoveredStatementNodes(offsetRoot, source, p.language, arena)
@@ -1104,7 +1104,7 @@ func parseGoForHeaderSkeleton(source []byte, start, openBrace uint32, p *Parser)
 		tree.Release()
 		return nil, nil, false
 	}
-	offsetRoot := tree.RootNodeWithOffset(
+	offsetRoot := tree.rootNodeWithRecoveryOffset(
 		start-uint32(len(prefix)),
 		Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column},
 	)
@@ -1473,7 +1473,7 @@ func goRecoverExpressionNodeFromRange(source []byte, start, end uint32, p *Parse
 	if startPoint.Row < prefixPoint.Row {
 		return nil, false
 	}
-	offsetRoot := tree.RootNodeWithOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
 	if offsetRoot == nil || offsetRoot.HasError() {
 		return nil, false
 	}

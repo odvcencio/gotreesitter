@@ -9,7 +9,7 @@ type CliffFrontier struct {
 	Measured   bool    `json:"measured"`
 }
 
-// CliffFailures applies the cliff rule in the v1 design, Workstream P3 and Gates.
+// CliffFailures applies the cliff rule of the performance gate in docs/v1-design.md.
 // MultiShare is a fraction in [0, 1]. A declined route has no frontier verdict.
 func CliffFailures(goRoute, cOracle CliffFrontier) []string {
 	if !goRoute.Measured || !cOracle.Measured {
