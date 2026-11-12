@@ -1393,7 +1393,7 @@ func splitResultRootExtras(nodes []*Node, lang *Language) resultRootExtraSplit {
 	for _, n := range nodes {
 		if n.isExtra() {
 			split.allExtras = append(split.allExtras, n)
-			if symbolIsVisible(lang, n.symbol) && n.endByte > n.startByte {
+			if resultRootExtraIsPublished(n, lang) {
 				split.visibleExtras = append(split.visibleExtras, n)
 			}
 			continue
@@ -1407,38 +1407,41 @@ func splitResultRootExtras(nodes []*Node, lang *Language) resultRootExtraSplit {
 	return split
 }
 
-func (s resultRootExtraSplit) canFoldVisibleExtras() bool {
-	if len(s.visibleExtras) == 0 {
-		return false
-	}
-	for _, extra := range s.allExtras {
-		if extra != nil && (extra.IsError() || extra.HasError()) {
-			return false
-		}
-	}
-	return true
-}
-
 func classifyResultRootExtras(extras []*Node, lang *Language) resultRootExtraSplit {
 	split := resultRootExtraSplit{allExtras: extras}
 	for _, extra := range extras {
-		if extra != nil && symbolIsVisible(lang, extra.symbol) && extra.endByte > extra.startByte {
+		if extra != nil && resultRootExtraIsPublished(extra, lang) {
 			split.visibleExtras = append(split.visibleExtras, extra)
 		}
 	}
 	return split
 }
 
+// resultRootExtraIsPublished reports whether an extra becomes a root child.
+// ERROR lies outside the symbol metadata but is always visible.
+func resultRootExtraIsPublished(n *Node, lang *Language) bool {
+	return (n.symbol == errorSymbol || symbolIsVisible(lang, n.symbol)) && n.endByte > n.startByte
+}
+
 // attachResultRootExtraSplit publishes only visible, positive-width extras as
 // root children. All extras still contribute their source range. This keeps
 // production and forest materialization aligned for scanner synchronization
-// tokens that carry state but no source bytes.
+// tokens that carry state but no source bytes. ERROR extras fold in like any
+// other, as tree-sitter C's ts_parser__accept splices every subtree around
+// the root into its children; dropping them would publish an error-free root
+// over bytes it no longer holds.
 func attachResultRootExtraSplit(root *Node, split resultRootExtraSplit, arena *nodeArena) {
 	if root == nil || len(split.allExtras) == 0 {
 		return
 	}
-	if split.canFoldVisibleExtras() {
+	if len(split.visibleExtras) > 0 {
 		foldResultRootExtras(root, split.visibleExtras, arena)
+		for _, extra := range split.visibleExtras {
+			if extra.IsError() || extra.HasError() {
+				root.setHasError(true)
+				break
+			}
+		}
 	}
 	extendResultRootRangeToExtras(root, split.allExtras)
 }
