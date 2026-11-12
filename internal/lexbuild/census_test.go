@@ -37,7 +37,29 @@ func oneLine(s string, n int) string {
 
 // censusLine runs the L1 comparison for one grammar folder and returns the
 // LEXCENSUS line. It never fails: every problem becomes the result field.
-func censusLine(root, name string) (line string) {
+func censusLine(root, name string) string {
+	line, _ := censusLineCat(root, name)
+	return line
+}
+
+// Categories that censusLineCat returns besides "" (an ordinary result).
+const (
+	catSizeLimit       = "size limit"           // the port refused the grammar for a size budget
+	catReferenceUnread = "reference unreadable" // the reference parser.c could not be read
+)
+
+// censusLineCat is censusLine with a category: catSizeLimit when the port
+// refused the grammar for a size budget at any stage, catReferenceUnread when
+// the reference could not be read, "" otherwise.
+func censusLineCat(root, name string) (line, cat string) {
+	sizeRefusal := func(err error) bool {
+		var se *SizeError
+		if errors.As(err, &se) {
+			cat = catSizeLimit
+			return true
+		}
+		return false
+	}
 	res := func(states, starts, reuse [2]int, kw, result string) string {
 		return fmt.Sprintf("LEXCENSUS %s states %d/%d lexstarts %d/%d reusable %d/%d keyword-lexer %s result %s",
 			name, states[0], states[1], starts[0], starts[1], reuse[0], reuse[1], kw, result)
@@ -47,6 +69,7 @@ func censusLine(root, name string) (line string) {
 		if r := recover(); r != nil {
 			msg := fmt.Sprint(r)
 			if strings.Contains(msg, "lexexact.Parse") {
+				cat = catReferenceUnread
 				line = res(z, z, z, "none", "differs:reference-unreadable:"+oneLine(msg, 120))
 			} else {
 				line = res(z, z, z, "none", "differs:panic:"+oneLine(msg, 120))
@@ -56,20 +79,21 @@ func censusLine(root, name string) (line string) {
 	dir := filepath.Join(root, name)
 	if _, err := os.Stat(filepath.Join(dir, "parser.c")); err != nil {
 		msg, _ := os.ReadFile(filepath.Join(dir, "gen.log"))
-		return res(z, z, z, "none", "generator-failed:"+oneLine(string(msg), 160))
+		return res(z, z, z, "none", "generator-failed:"+oneLine(string(msg), 160)), cat
 	}
 	ref := loadRef(panicT{}, root, name)
 	p, err := Prepare(ref.jsonBytes)
 	if err != nil {
 		var np *NotPortedError
 		if errors.As(err, &np) {
-			return res(z, z, z, "none", "refused:"+oneLine(np.Construct, 90))
+			return res(z, z, z, "none", "refused:"+oneLine(np.Construct, 90)), cat
 		}
-		return res(z, z, z, "none", "refused:error:"+oneLine(err.Error(), 120))
+		sizeRefusal(err)
+		return res(z, z, z, "none", "refused:error:"+oneLine(err.Error(), 120)), cat
 	}
 	toSym, _, err := ref.symbolMap(p)
 	if err != nil {
-		return res(z, z, z, "none", "differs:symbolmap:"+oneLine(err.Error(), 100))
+		return res(z, z, z, "none", "differs:symbolmap:"+oneLine(err.Error(), 100)), cat
 	}
 	states := ref.parseStates(toSym)
 	final := make([]TokenSet, len(states))
@@ -92,7 +116,8 @@ func censusLine(root, name string) (line string) {
 	_ = noopt
 	a, err := p.Analyze(coinc)
 	if err != nil {
-		return res(z, z, z, "none", "differs:analyze:"+oneLine(err.Error(), 100))
+		sizeRefusal(err)
+		return res(z, z, z, "none", "differs:analyze:"+oneLine(err.Error(), 100)), cat
 	}
 	errTokens, recoverSet := a.ErrorStateTokens(pre0)
 	if censusVerbose != nil {
@@ -116,12 +141,13 @@ func censusLine(root, name string) (line string) {
 	ids := p.TokenSymbolIDs(final)
 	lt, err := p.BuildLexTables(a, ref.withReserved(final, toSym))
 	if err != nil {
-		return res(z, z, z, "none", "differs:build:"+oneLine(err.Error(), 100))
+		sizeRefusal(err)
+		return res(z, z, z, "none", "differs:build:"+oneLine(err.Error(), 100)), cat
 	}
 	symID := func(s Symbol) (uint32, bool) { id, ok := ids[s]; return id, ok }
 	rec, err := lt.Main.Record(symID, lt.LexState)
 	if err != nil {
-		return res(z, z, z, "none", "differs:record:"+oneLine(err.Error(), 100))
+		return res(z, z, z, "none", "differs:record:"+oneLine(err.Error(), 100)), cat
 	}
 	want := ref.tables.Main
 	total := len(want.Accept)
@@ -310,7 +336,7 @@ func censusLine(root, name string) (line string) {
 	if equal != total || sE != sN || rE != rN || !kwEqual || !extra {
 		result = "differs"
 	}
-	return res([2]int{equal, total}, [2]int{sE, sN}, [2]int{rE, rN}, kw, result)
+	return res([2]int{equal, total}, [2]int{sE, sN}, [2]int{rE, rN}, kw, result), cat
 }
 
 // TestLexCensus is report mode: one LEXCENSUS line per grammar folder in the
@@ -354,7 +380,9 @@ func TestLexCensus(t *testing.T) {
 	for _, l := range lines {
 		fmt.Println(l)
 	}
-	fmt.Printf("LEXDFA largest sums in one construction over %d grammars: lex states %d, automaton states over lex states %d, character transitions %d\n", len(names), peakLexStates.Load(), peakLexNFAIDs.Load(), peakLexAdvances.Load())
+	for _, b := range allBudgets {
+		fmt.Printf("LEXBUDGET %s | largest %d | limit %d\n", b.what, b.peak.Load(), b.limit)
+	}
 	for _, n := range names {
 		if _, err := os.Stat(filepath.Join(root, n, "parser-noopt.c")); err != nil {
 			fmt.Printf("LEXCENSUS-NOTE %s coincident-index merged-table (the generator refuses to build the table without merging parse states)\n", n)

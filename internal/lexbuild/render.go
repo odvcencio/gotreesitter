@@ -32,12 +32,15 @@ func collectLargeCharacterSets(b *lexTableBuilder, g *LexicalGrammar) []largeSet
 		}
 		return false
 	}
+	total := 0
 	for ix := range g.Variables {
 		sym := terminalSym(ix)
 		b.reset()
 		var ts TokenSet
 		ts.Insert(sym)
 		b.addStateForTokens(&ts)
+		total += len(b.table.states)
+		bLargeStates.check(total)
 		for _, st := range b.table.states {
 			var characters CharSet
 			for _, ca := range st.advances {

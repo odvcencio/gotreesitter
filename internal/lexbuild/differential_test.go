@@ -260,9 +260,12 @@ func diffOne(ctx context.Context, bin, root string, id int, text string) diffOut
 	}
 	_, perr := Prepare([]byte(text))
 	var np *NotPortedError
+	var se *SizeError
 	switch {
 	case errors.As(perr, &np):
 		return diffOutcome{"not ported", text, np.Error()}
+	case errors.As(perr, &se) && genOK:
+		return diffOutcome{"port refuses: size limit", text, se.Error()}
 	case perr != nil && !genOK:
 		return diffOutcome{"both refuse", text, ""}
 	case perr != nil && genOK:
@@ -270,15 +273,21 @@ func diffOne(ctx context.Context, bin, root string, id int, text string) diffOut
 	case perr == nil && !genOK:
 		return diffOutcome{"generator refuses only", text, oneLine(genMsg, 200)}
 	}
-	line := censusLine(root, name)
+	line, cat := censusLineCat(root, name)
+	return classifyCensus(line, cat, text)
+}
+
+// classifyCensus maps a census result to a differential bucket. The category
+// comes from the result of the port, not from its text.
+func classifyCensus(line, cat, text string) diffOutcome {
 	switch {
-	case strings.HasSuffix(line, "result equal"):
-		return diffOutcome{"equal", text, ""}
-	case strings.Contains(line, "size limit"):
+	case cat == catSizeLimit:
 		// A deliberate difference: the generator has no size limit (see doc.go).
 		return diffOutcome{"port refuses: size limit", text, line}
-	case strings.Contains(line, "reference-unreadable"):
+	case cat == catReferenceUnread:
 		return diffOutcome{"reference unreadable", text, line}
+	case strings.HasSuffix(line, "result equal"):
+		return diffOutcome{"equal", text, ""}
 	}
 	return diffOutcome{"differ", text, line}
 }

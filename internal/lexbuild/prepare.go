@@ -788,15 +788,23 @@ type flattenState struct {
 	choices     choiceCursor
 	dynPrec     int32
 	dead        bool
+
+	seen     map[string]bool // productions of the variable in progress (the duplicate check of emit_ready)
+	retained int             // production steps kept so far (bFlattenSteps)
 }
 
-func (s *flattenState) resetVariable() { s.choices.reset(); s.resetPath() }
+func (s *flattenState) resetVariable() {
+	s.choices.reset()
+	s.resetPath()
+	s.seen = map[string]bool{}
+}
 func (s *flattenState) resetPath() {
 	s.steps, s.dynPrec, s.dead = s.steps[:0], 0, false
 	s.choices.beginPath()
 }
 
 func (s *flattenState) pushStep(sym Symbol, c flattenCtx) {
+	bFlattenPath1.check(len(s.steps) + 1)
 	s.steps = append(s.steps, ProductionStep{Symbol: sym, Precedence: c.prec, Associativity: c.assoc, Alias: c.alias, Field: c.field, HasField: c.hasField, Reserved: c.reserved})
 }
 
@@ -879,16 +887,36 @@ func (s *flattenState) apply(pool *RulePool, id RuleID, ctx flattenCtx, atEnd bo
 	return false
 }
 
-func stepsEqual(a, b []ProductionStep) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
+// productionKey encodes the fields that emit_ready compares, so that two
+// productions have the same key exactly when they are equal.
+func productionKey(dynPrec int32, requiresEOF bool, steps []ProductionStep) string {
+	buf := make([]byte, 0, 8+40*len(steps))
+	u32 := func(v uint32) { buf = append(buf, byte(v), byte(v>>8), byte(v>>16), byte(v>>24)) }
+	str := func(v string) { u32(uint32(len(v))); buf = append(buf, v...) }
+	flag := func(b bool) {
+		if b {
+			buf = append(buf, 1)
+		} else {
+			buf = append(buf, 0)
 		}
 	}
-	return true
+	u32(uint32(dynPrec))
+	flag(requiresEOF)
+	for _, st := range steps {
+		buf = append(buf, byte(st.Symbol.Kind))
+		u32(st.Symbol.Index)
+		buf = append(buf, byte(st.Precedence.Kind))
+		u32(uint32(st.Precedence.Int))
+		str(st.Precedence.Ident)
+		buf = append(buf, byte(st.Associativity))
+		flag(st.Alias.Set)
+		str(st.Alias.Value)
+		flag(st.Alias.Named)
+		str(st.Field)
+		flag(st.HasField)
+		u32(uint32(st.Reserved))
+	}
+	return string(buf)
 }
 
 // emit is flatten_grammar.rs: fn emit.
@@ -912,11 +940,15 @@ func (s *flattenState) emit(out *SyntaxGrammar, prodStart int) bool {
 
 // emitReady is flatten_grammar.rs: fn emit_ready.
 func (s *flattenState) emitReady(out *SyntaxGrammar, prodStart int, requiresEOF bool) bool {
-	for _, p := range out.Productions[prodStart:] {
-		if p.DynamicPrecedence == s.dynPrec && p.RequiresEOF == requiresEOF && stepsEqual(p.Steps, s.steps) {
-			return true
-		}
+	// emit_ready compares the new production with every earlier production of the
+	// variable; the set of their keys gives the same answer without the scan.
+	key := productionKey(s.dynPrec, requiresEOF, s.steps)
+	if s.seen[key] {
+		return true
 	}
+	s.retained += len(s.steps)
+	bFlattenSteps.check(s.retained)
+	s.seen[key] = true
 	out.Productions = append(out.Productions, Production{append([]ProductionStep(nil), s.steps...), s.dynPrec, requiresEOF})
 	return true
 }
@@ -925,6 +957,8 @@ func (s *flattenState) emitReady(out *SyntaxGrammar, prodStart int, requiresEOF 
 func flattenGrammar(g *InputGrammar, m *extractedMeta) (*SyntaxGrammar, error) {
 	out := &SyntaxGrammar{}
 	st := &flattenState{reservedIDs: map[string]uint16{}}
+	paths := 0 // choice paths explored over all variables (bFlattenPaths)
+	bSymbolCells.check(len(m.reservedSets) * (len(m.lexicalVariables) + len(m.externalTokens)))
 	if len(m.reservedSets) > 65535 {
 		return nil, fmt.Errorf("Reserved word set count %d exceeds the maximum of 65535", len(m.reservedSets))
 	}
@@ -936,6 +970,8 @@ func flattenGrammar(g *InputGrammar, m *extractedMeta) (*SyntaxGrammar, error) {
 		dropped := false
 		st.resetVariable()
 		for {
+			paths++
+			bFlattenPaths.check(paths)
 			st.apply(g.Pool, v.Root, flattenCtx{}, true)
 			if st.failed != nil {
 				return nil, st.failed
@@ -955,16 +991,17 @@ func flattenGrammar(g *InputGrammar, m *extractedMeta) (*SyntaxGrammar, error) {
 		}
 		out.VarProds = append(out.VarProds, [2]int{prodStart, len(out.Productions)})
 	}
+	// The variables that some production mentions (one pass; the Rust code scans
+	// every production once for each variable, with the same result).
+	mentioned := map[Symbol]bool{}
+	for _, p := range out.Productions {
+		for _, s := range p.Steps {
+			mentioned[s.Symbol] = true
+		}
+	}
 	for i, vp := range out.VarProds {
 		sym := nonTerminalSym(i)
-		used := false
-		for _, p := range out.Productions {
-			for _, s := range p.Steps {
-				if s.Symbol == sym {
-					used = true
-				}
-			}
-		}
+		used := mentioned[sym]
 		inlined := false
 		for _, s := range m.inline {
 			if s == sym {

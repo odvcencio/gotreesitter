@@ -42,18 +42,35 @@ func Prepare(grammarJSON []byte) (*Prepared, error) {
 	if err := expandRepeats(g, m); err != nil {
 		return nil, err
 	}
-	syn, err := flattenGrammar(g, m)
-	if err != nil {
+	var syn *SyntaxGrammar
+	var ferr error
+	if err := guardSize(func() { syn, ferr = flattenGrammar(g, m) }); err != nil {
 		return nil, err
+	}
+	if ferr != nil {
+		return nil, ferr
 	}
 	if err := validateIndirectRecursion(g, syn); err != nil {
 		return nil, err
 	}
-	if err := checkInlines(g, m, syn); err != nil {
+	var ierr error
+	if err := guardSize(func() { ierr = checkInlines(g, m, syn) }); err != nil {
 		return nil, err
+	}
+	if ierr != nil {
+		return nil, ierr
 	}
 	lex, err := expandTokens(g.Pool, m.lexicalVariables, m.separatorRoots)
 	if err != nil {
+		return nil, err
+	}
+	// The matrices that Analyze builds: token by token (conflicts, coincident
+	// tokens, following tokens) and rule by token (first and last sets).
+	n, ext := len(lex.Variables), len(syn.ExternalTokens)
+	if err := guardSize(func() {
+		bSymbolCells.check(n * n)
+		bSymbolCells.check(len(syn.Variables) * (n + ext))
+	}); err != nil {
 		return nil, err
 	}
 	return &Prepared{Syntax: syn, Lex: lex}, nil

@@ -46,6 +46,7 @@ type nfaBuilder struct {
 	nfa             nfa
 	isSep           bool
 	precedenceStack []int32
+	ranges          int // character ranges summed over advance states (bNFARanges)
 }
 
 // getImplicitPrecedence is expand_tokens.rs: fn get_implicit_precedence.
@@ -82,8 +83,8 @@ func getCompletionPrecedence(pool *RulePool, id RuleID) int32 {
 func expandTokens(pool *RulePool, lexical []LexicalToken, separatorRoots []RuleID) (lg *LexicalGrammar, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if _, ok := r.(nfaTooLarge); ok {
-				lg, err = nil, fmt.Errorf("lexbuild: the automaton of the lexical grammar has more than %d states", maxNFAStates)
+			if l, ok := r.(lexTooLarge); ok {
+				lg, err = nil, l.err
 				return
 			}
 			panic(r)
@@ -156,20 +157,19 @@ func buildSeparator(pool *RulePool, roots []RuleID) RuleID {
 	return pool.pushNode(Rule{Kind: RRepeat, Inner: choice})
 }
 
-// maxNFAStates bounds the automaton of a grammar. The generator has no bound; a pattern like b{0,4294967295}
-// asks it for billions of states and it runs until it is killed. The port refuses such a pattern.
-const maxNFAStates = 3000000
-
-type nfaTooLarge struct{}
-
-func (b *nfaBuilder) checkSize() {
-	if len(b.nfa.states) > maxNFAStates {
-		panic(nfaTooLarge{})
+// checkSize applies the automaton budgets before a state is added. The
+// generator has no bound; a pattern like b{0,4294967295} asks it for billions
+// of states and it runs until it is killed.
+func (b *nfaBuilder) checkSize(ranges int) {
+	bNFAStates.check(len(b.nfa.states) + 1)
+	if ranges > 0 {
+		b.ranges += ranges
+		bNFARanges.check(b.ranges)
 	}
 }
 
 func (b *nfaBuilder) pushAdvance(chars CharSet, stateID uint32) {
-	b.checkSize()
+	b.checkSize(chars.rangeCount())
 	b.nfa.states = append(b.nfa.states, nfaState{
 		kind: nfaAdvance, chars: chars, stateID: stateID,
 		precedence: b.precedenceStack[len(b.precedenceStack)-1], isSep: b.isSep,
@@ -177,7 +177,7 @@ func (b *nfaBuilder) pushAdvance(chars CharSet, stateID uint32) {
 }
 
 func (b *nfaBuilder) pushSplit(stateID uint32) {
-	b.checkSize()
+	b.checkSize(0)
 	last := b.nfa.lastStateID()
 	b.nfa.states = append(b.nfa.states, nfaState{kind: nfaSplit, left: stateID, right: last})
 }

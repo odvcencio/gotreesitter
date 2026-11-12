@@ -130,6 +130,7 @@ func getFollowingChars(starting []CharSet, following []TokenSet) []CharSet {
 // the result flags only accumulate.
 func computeConflictStatus(cursor *nfaCursor, g *LexicalGrammar, followingChars []CharSet, nfaStateToVar []int, i, j int) (conflictStatus, conflictStatus) {
 	visited := map[string]bool{}
+	retained := 0 // automaton state ids held by visited and queue (bConflictIDs)
 	queue := [][]uint32{{g.Variables[i].StartState, g.Variables[j].StartState}}
 	var r0, r1 conflictStatus
 
@@ -253,6 +254,10 @@ func computeConflictStatus(cursor *nfaCursor, g *LexicalGrammar, followingChars 
 			if canAdvance {
 				key := nfaSetKey(tr.states, false)
 				if !visited[key] {
+					// Size limits, checked before the set is inserted.
+					bConflictSets.check(len(visited) + 1)
+					retained += len(tr.states)
+					bConflictIDs.check(retained)
 					visited[key] = true
 					queue = append(queue, tr.states)
 				}

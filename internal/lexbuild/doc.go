@@ -11,14 +11,35 @@
 //
 // # Differences from the generator
 //
-// The port refuses an automaton of more than 3,000,000 states (the generator
-// has no bound: b{0,4294967295} runs until it is killed). It also refuses a
-// lex table construction that passes a size limit (a *SizeError, returned by
-// BuildUnmerged and BuildLexTables): more than 131,072 lex states, more than
-// 33,554,432 automaton states summed over lex states, or more than 4,194,304
-// character transitions summed over lex states. The pattern [ab]*a[ab]{24}
-// has 29 automaton states and 33,554,432 reachable lex states; the generator
-// builds them until memory is gone. The 206 bundled grammars need at most
-// 11,785 lex states in one construction. Constructs not ported yet return
-// a *NotPortedError.
+// The generator has no size limits: some inputs of a few hundred bytes ask it
+// for billions of automaton states, productions or state sets, and it runs
+// until memory is gone. The port counts what it builds in every place where the
+// result or the working state can grow faster than the grammar, and refuses the
+// grammar with a *SizeError before it builds the item that passes a limit.
+// Prepare, Analyze, BuildUnmerged and BuildLexTables return the error. The
+// limits (see budget.go; a test lowers them) are each more than ten times the
+// largest value measured over the 204 bundled grammars that could be measured
+// (the grammars move and wat were not measured: the generator writes no
+// reference parser for them). They are:
+//
+//	automaton states in the lexical grammar         3,000,000
+//	character ranges read into one pattern's classes 4,194,304
+//	character ranges summed over automaton states   4,194,304
+//	choice paths explored while flattening rules      131,072
+//	production steps retained while flattening      1,048,576
+//	steps in one flattened production                   4,096
+//	cells of a token-by-token or rule-by-token matrix 16,777,216
+//	expansion steps / symbols copied, inline check    200,000 / 16,777,216
+//	state sets in one token-pair conflict search      131,072
+//	automaton states retained by that search        2,097,152
+//	lex states in one construction                    131,072
+//	automaton states summed over lex states         8,388,608
+//	character transitions summed over lex states    1,048,576
+//	character ranges summed over lex transitions    8,388,608
+//	automaton states over the transitions of a state   65,536
+//	state comparisons while minimizing             67,108,864
+//	lex states over the single-token constructions    262,144
+//
+// For example, [ab]*a[ab]{24} has 29 automaton states and 33,554,432 reachable
+// lex states. Constructs not ported yet return a *NotPortedError.
 package lexbuild

@@ -121,6 +121,7 @@ func equalU32(a, b []uint32) bool {
 func groupTransitions(raw []rawTransition) []nfaTransition {
 	var result []nfaTransition
 	var chars CharSet
+	copied := 0 // automaton state ids copied into transitions (bTransIDs)
 	for _, rt := range raw {
 		chars.assign(*rt.chars)
 		i := 0
@@ -133,6 +134,8 @@ func groupTransitions(raw []rawTransition) []nfaTransition {
 					interStates = result[i].states
 					result[i].states = nil
 				} else {
+					copied += len(result[i].states) + 1
+					bTransIDs.check(copied)
 					interStates = append([]uint32(nil), result[i].states...)
 				}
 				if j := sort.Search(len(interStates), func(k int) bool { return interStates[k] >= rt.state }); j == len(interStates) || interStates[j] != rt.state {

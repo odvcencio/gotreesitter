@@ -106,10 +106,17 @@ type patParser struct {
 	caps     int
 	capNames map[string]bool
 	classOps int // class set operations evaluated (a test reads it)
+	ranges   int // character ranges read into classes and escapes of this pattern (bPatternRanges)
 }
 
 func (p *patParser) more() bool { return p.pos < len(p.src) }
 func (p *patParser) peek() rune { return p.src[p.pos] }
+
+// noteRanges counts n character ranges against bPatternRanges before they are kept.
+func (p *patParser) noteRanges(n int) {
+	p.ranges += n
+	bPatternRanges.check(p.ranges)
+}
 
 func (p *patParser) nestErr() error {
 	return fmt.Errorf("pattern parse error: exceeded the nest limit (%d) in %q", nestLimit, p.orig)
@@ -415,6 +422,7 @@ func (p *patParser) parseAtom() (*hir, int, bool, error) {
 			return &hir{kind: hirLook}, 0, false, nil
 		}
 		if e.isClass {
+			p.noteRanges(len(e.cls))
 			return hirClassOf(e.cls), 0, false, nil
 		}
 		return p.literalHir(e.r), 0, false, nil
@@ -728,6 +736,7 @@ func (p *patParser) parseClass() ([]classRng, int, error) {
 	var items []classRng // the union read so far
 	nItems, itemH := 0, 0
 	addItem := func(rs []classRng, h int) {
+		p.noteRanges(len(rs))
 		items = append(items, rs...)
 		nItems++
 		itemH = max1(itemH, h)

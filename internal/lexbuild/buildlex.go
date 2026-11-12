@@ -27,12 +27,16 @@ func (p *Prepared) Analyze(coincident []TokenSet) (*Analysis, error) {
 	if p.Syntax == nil {
 		return nil, fmt.Errorf("lexbuild: no syntax grammar")
 	}
-	fl := newFirstLast(p.Syntax, p.Lex)
-	following := getFollowingTokens(p.Syntax, p.Lex, fl)
 	a := &Analysis{p: p}
-	a.conflicts = newTokenConflictMap(p.Lex, following)
-	a.coinc = newCoincidentTokenIndex(coincident, len(p.Lex.Variables), p.Syntax.WordToken, p.Syntax.HasWord)
-	a.keywords = identifyKeywords(p.Lex, p.Syntax, a.conflicts, a.coinc)
+	if err := guardSize(func() {
+		fl := newFirstLast(p.Syntax, p.Lex)
+		following := getFollowingTokens(p.Syntax, p.Lex, fl)
+		a.conflicts = newTokenConflictMap(p.Lex, following)
+		a.coinc = newCoincidentTokenIndex(coincident, len(p.Lex.Variables), p.Syntax.WordToken, p.Syntax.HasWord)
+		a.keywords = identifyKeywords(p.Lex, p.Syntax, a.conflicts, a.coinc)
+	}); err != nil {
+		return nil, err
+	}
 	return a, nil
 }
 
@@ -304,8 +308,12 @@ func (p *Prepared) BuildLexTables(a *Analysis, states []TokenSet) (*LexTables, e
 	}
 	main := b.table
 	b.table = lexTable{}
-	minimizeLexTable(&main, lexState)
-	sortStates(&main, lexState)
+	if err := guardSize(func() {
+		minimizeLexTable(&main, lexState)
+		sortStates(&main, lexState)
+	}); err != nil {
+		return nil, err
+	}
 
 	out := &LexTables{LexState: lexState}
 	var err error
@@ -390,6 +398,7 @@ func signatureOf(i int, st *lexState) lexSignature {
 // and then sorts them (Vec<Vec<u32>> compares element by element), which fixes
 // their order; that sort is reproduced.
 func minimizeLexTable(t *lexTable, parseLex []uint32) {
+	compares := 0
 	bySig := map[lexSignature][]uint32{}
 	var sigOrder []lexSignature
 	for i := range t.states {
@@ -428,7 +437,7 @@ func minimizeLexTable(t *lexTable, parseLex []uint32) {
 			groupOf[id] = uint32(gi)
 		}
 	}
-	for splitStateIDGroups(t.states, &groups, groupOf, 1, lexStatesDiffer) {
+	for splitStateIDGroups(t.states, &groups, groupOf, 1, lexStatesDiffer, &compares) {
 	}
 
 	newStates := make([]lexState, 0, len(groups))
@@ -466,7 +475,7 @@ func lexStatesDiffer(left, right *lexState, groupOf []uint32) bool {
 }
 
 // splitStateIDGroups is dedup.rs: fn split_state_id_groups.
-func splitStateIDGroups(states []lexState, groups *[][]uint32, groupOf []uint32, startGroup uint32, shouldSplit func(l, r *lexState, groupOf []uint32) bool) bool {
+func splitStateIDGroups(states []lexState, groups *[][]uint32, groupOf []uint32, startGroup uint32, shouldSplit func(l, r *lexState, groupOf []uint32) bool, compares *int) bool {
 	result := false
 	isSplit := make([]bool, len(states))
 	gid := startGroup
@@ -478,6 +487,8 @@ func splitStateIDGroups(states []lexState, groups *[][]uint32, groupOf []uint32,
 			if isSplit[left] {
 				continue
 			}
+			*compares += len(ids) - i - 1
+			bMinCompares.check(*compares)
 			for j := i + 1; j < len(ids); j++ {
 				right := ids[j]
 				if isSplit[right] {

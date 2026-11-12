@@ -169,7 +169,7 @@ func checkInlines(g *InputGrammar, m *extractedMeta, sg *SyntaxGrammar) error {
 	for _, s := range m.inline {
 		inline[s] = true
 	}
-	budget := 200000
+	calls, copied := 0, 0
 	var survives func(steps []Symbol, eof bool, idx int) (bool, error)
 	survives = func(steps []Symbol, eof bool, idx int) (bool, error) {
 		for idx < len(steps) && !inline[steps[idx]] {
@@ -178,15 +178,15 @@ func checkInlines(g *InputGrammar, m *extractedMeta, sg *SyntaxGrammar) error {
 		if idx >= len(steps) {
 			return true, nil
 		}
-		budget--
-		if budget < 0 {
-			return false, &NotPortedError{Construct: "inline rules whose expansion is very large (reachability check)"}
-		}
+		calls++
+		bInlineCalls.check(calls)
 		vp := sg.VarProds[steps[idx].Index]
 		for _, q := range sg.Productions[vp[0]:vp[1]] {
 			if q.RequiresEOF && idx+1 < len(steps) {
 				continue
 			}
+			copied += len(steps) - 1 + len(q.Steps)
+			bInlineSymbols.check(copied)
 			ns := append(append(append([]Symbol(nil), steps[:idx]...), symsOf(q.Steps)...), steps[idx+1:]...)
 			ok, err := survives(ns, eof || q.RequiresEOF, idx)
 			if err != nil {
