@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 type recordingParserStateTokenSource struct {
 	parserStates []StateID
@@ -852,5 +855,108 @@ func TestRelexTokenForStackLexStateNoAction(t *testing.T) {
 		&f.nodeCount, f.arena, f.scratch, &f.trackChildErrors, &f.rescueBudget)
 	if !ok || state != 3 || got != f.tok {
 		t.Fatalf("rescue: got (%+v, %d, %v), want the shared token in rescued state 3", got, state, ok)
+	}
+}
+
+// A stack on its own reading retries after each reduction. A zero-child
+// reduction that returns to the same state must not retry without end: Q
+// reduces n on its own x and n's goto leads back to Q.
+func TestOwnReadingRetryIsBounded(t *testing.T) {
+	lang := keptTokenLanguage()
+	lang.ParseActions[3] = ParseActionEntry{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 4, ChildCount: 0}}}
+	lang.ParseActions = append(lang.ParseActions, ParseActionEntry{Actions: []ParseAction{{Type: ParseActionShift, State: 1}}})
+	lang.ParseTable[1][4] = uint16(len(lang.ParseActions) - 1)
+	p := NewParser(lang)
+	p.SetTimeoutMicros(2_000_000)
+	source := []byte("ax")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+		if tree := p.parseInternal(source, ts, nil, nil, arenaClassFull, nil, 0, 0, 0, false); tree != nil {
+			tree.Release()
+		}
+	}()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("parse did not return: the own-reading retry after a zero-child reduction has no bound")
+	}
+}
+
+// conflictOwnTokenLanguage extends keptTokenLanguage: Q reduces n on its own
+// reading x_b, and n's state T then meets a reduce/reduce cell on x_b (m or
+// k). Both forks, U and V, shift x_b to the rule_xb tail and x_a to the
+// rule_xa tail.
+func conflictOwnTokenLanguage() *Language {
+	return &Language{
+		Name: "conflict_own_token", SymbolCount: 9, TokenCount: 4, StateCount: 11, ProductionIDCount: 1,
+		SymbolNames: []string{"end", "a", "x", "x", "n", "rule_xa", "rule_xb", "m", "k"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end"}, {Name: "a", Visible: true}, {Name: "x", Visible: true}, {Name: "x"},
+			{Name: "n", Visible: true, Named: true}, {Name: "rule_xa", Visible: true, Named: true}, {Name: "rule_xb", Visible: true, Named: true},
+			{Name: "m", Visible: true, Named: true}, {Name: "k", Visible: true, Named: true},
+		},
+		LexStates: []LexState{
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 2}, {Lo: 'x', Hi: 'x', NextState: 3}}},
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'x', Hi: 'x', NextState: 4}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+			{AcceptToken: 3, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{{LexState: 0}, {LexState: 1}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}, {Type: ParseActionShift, State: 2}}},                                   // 1: `a` forks into Q and P
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 8}}},                                                                       // 2: P on the shared reading
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 4, ChildCount: 1}}},                                                      // 3: Q reduces on its own reading
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 4}}},                                                                       // 4: U or V on the shared reading
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 5}}},                                                                       // 5: U or V on Q's reading
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 5, ChildCount: 2}}},                                                      // 6
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 6, ChildCount: 2}}},                                                      // 7
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}},                                                                       // 8: goto n -> T
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 6}}},                                                                       // 9: goto rule_xa
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 7}}},                                                                       // 10: goto rule_xb
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},                                                                                // 11
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 7, ChildCount: 1}, {Type: ParseActionReduce, Symbol: 8, ChildCount: 1}}}, // 12: T on Q's reading meets reduce/reduce
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 9}}},                                                                       // 13: goto m -> U
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 10}}},                                                                      // 14: goto k -> V
+		},
+		ParseTable: [][]uint16{
+			{0, 1, 0, 0, 8, 9, 10, 13, 14},
+			{0, 0, 0, 3, 0, 0, 0, 0, 0},  // Q (lex mode 1)
+			{0, 0, 2, 0, 0, 0, 0, 0, 0},  // P
+			{0, 0, 0, 12, 0, 0, 0, 0, 0}, // T
+			{6, 0, 0, 0, 0, 0, 0, 0, 0},
+			{7, 0, 0, 0, 0, 0, 0, 0, 0},
+			{11, 0, 0, 0, 0, 0, 0, 0, 0},
+			{11, 0, 0, 0, 0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0, 0, 0, 0, 0},
+			{0, 0, 4, 5, 0, 0, 0, 0, 0}, // U
+			{0, 0, 4, 5, 0, 0, 0, 0, 0}, // V
+		},
+	}
+}
+
+// A stack that reduced on its own reading and then meets a reduce/reduce cell
+// still dispatches that reading: the conflict forks reduce with x_b and shift
+// it inside the same action, so the root is rule_xb, as tree-sitter C keeps
+// the version's lookahead through its reductions (ts_parser__advance,
+// C/parser.c:1720-1745). Pins this path; a conflict whose frontier returns
+// unshifted is not covered here.
+func TestOwnReadingIsKeptThroughAConflictReduce(t *testing.T) {
+	lang := conflictOwnTokenLanguage()
+	p := NewParser(lang)
+	p.SetTimeoutMicros(2_000_000)
+	source := []byte("ax")
+	ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+	tree := p.parseInternal(source, ts, nil, nil, arenaClassFull, nil, 0, 0, 0, false)
+	if tree == nil {
+		t.Fatal("nil tree")
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if got := root.Type(lang); got != "rule_xb" || root.HasError() {
+		t.Fatalf("root = %s (error %v), want rule_xb without error: the conflict forks must shift Q's own x_b", root.SExpr(lang), root.HasError())
 	}
 }
