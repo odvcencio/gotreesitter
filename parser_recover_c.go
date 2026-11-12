@@ -6352,6 +6352,10 @@ func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from u
 		!p.stateHasActionForSymbol(state, relexed.Symbol) {
 		return tok, false
 	}
+	// The reading covers the shared token's bytes after the same gap. A read
+	// that restarted after a whole skip token has no record of that gap.
+	relexed.setLexFlag(tokenFlagSkippedPrefix, tok.lexerSkippedPrefix())
+	relexed.lexerSkippedPrefixStart = tok.lexerSkippedPrefixStart
 	return relexed, true
 }
 

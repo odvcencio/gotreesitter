@@ -672,7 +672,8 @@ func TestOwnLexModeTokenSkipsAReusableSharedToken(t *testing.T) {
 // stack's position 1, before the space, as C lexes that version. Q's lex mode
 // reads x_b only if it skips the space itself.
 func TestOwnLexModeTokenReadsFromStackPosition(t *testing.T) {
-	shared := Token{Symbol: 2, StartByte: 2, EndByte: 3, StartPoint: Point{Column: 2}, EndPoint: Point{Column: 3}}
+	shared := Token{Symbol: 2, StartByte: 2, EndByte: 3, StartPoint: Point{Column: 2}, EndPoint: Point{Column: 3}, lexerSkippedPrefixStart: 1}
+	shared.setLexFlag(tokenFlagSkippedPrefix, true)
 	skipSpace := func(lang *Language) {
 		lang.LexStates[1].Transitions = append(lang.LexStates[1].Transitions, LexTransition{Lo: ' ', Hi: ' ', NextState: 1, Skip: true})
 	}
@@ -717,6 +718,11 @@ func TestOwnLexModeTokenReadsFromStackPosition(t *testing.T) {
 			}
 			if !ok || got.Symbol != tc.want || got.StartByte != shared.StartByte || got.EndByte != shared.EndByte || got.StartPoint != shared.StartPoint {
 				t.Fatalf("got (%+v, %v), want symbol %d over [%d,%d) at %v", got, ok, tc.want, shared.StartByte, shared.EndByte, shared.StartPoint)
+			}
+			// The reading replaces the shared token, so it keeps its record
+			// of the skipped space.
+			if !got.lexerSkippedPrefix() || got.lexerSkippedPrefixStart != shared.lexerSkippedPrefixStart {
+				t.Fatalf("got skipped prefix (%v, %d), want (true, %d)", got.lexerSkippedPrefix(), got.lexerSkippedPrefixStart, shared.lexerSkippedPrefixStart)
 			}
 		})
 	}
