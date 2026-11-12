@@ -16,10 +16,10 @@ import (
 )
 
 // registeredScanners are the languages whose external scanner is registered with
-// scanmode.RegisterScanner (python, javascript, typescript, tsx). The core serves
+// scanmode.RegisterScanner (python, javascript, typescript, tsx, css, scss, racket, mojo, starlark, teal, templ, hcl). The core serves
 // them; every other language that has an external scanner is refused with the
 // named reason.
-var registeredScanners = map[string]bool{"python": true, "javascript": true, "typescript": true, "tsx": true}
+var registeredScanners = map[string]bool{"python": true, "javascript": true, "typescript": true, "tsx": true, "css": true, "scss": true, "racket": true, "mojo": true, "starlark": true, "teal": true, "templ": true, "hcl": true}
 
 // TestEveryRegisteredLanguageBinds builds a parser with bind.New for every
 // registered language and checks the exact outcome for each: a language without an

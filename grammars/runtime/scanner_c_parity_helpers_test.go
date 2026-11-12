@@ -21,6 +21,16 @@ func portParityLexerToken(*gotreesitter.ExternalLexer) (gotreesitter.Token, bool
 //go:linkname portLookaheadEnd github.com/odvcencio/gotreesitter.(*ExternalLexer).lookaheadEndByteAtCursor
 func portLookaheadEnd(*gotreesitter.ExternalLexer) uint32
 
+// cFaithfulPayload is a new payload of sc with the C-faithful mode on, when the payload has a mode:
+// the tests that compare a port with its C scanner run the mode the core turns on.
+func cFaithfulPayload(sc gotreesitter.ExternalScanner) any {
+	p := sc.Create()
+	if m, ok := p.(interface{ SetCFaithful(bool) }); ok {
+		m.SetCFaithful(true)
+	}
+	return p
+}
+
 // portScanResult is the outcome of one Scan call. Every observation is taken from
 // the lexer's fields without calling a method that records a read or a column use,
 // so that taking it does not change what a later observation shows.
