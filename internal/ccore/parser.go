@@ -51,6 +51,11 @@ type Parser struct {
 	// a backslash that C's table does not).
 	NormNames bool
 
+	// linear reduction (reduce_linear.go)
+	reduceCheck    bool
+	fastReductions int
+	noLinear       bool // tests: take the general path
+
 	// Counters, always on.
 	shifts, reductions, lexCalls, tokens, maxVersions, multiTokens int
 }
@@ -145,6 +150,11 @@ func (p *Parser) selectTree(left, right Handle) bool {
 // C/parser.c:937 ts_parser__reduce.
 func (p *Parser) reduce(version int, sym Symbol, count uint32, dynPrec int32, productionID uint16, isFragile, endOfNonTerminalExtra bool) int {
 	initialCount := len(p.heads)
+	if initialCount == 1 && !p.noLinear {
+		if r, ok := p.reduceLinear(version, sym, count, dynPrec, productionID, isFragile, endOfNonTerminalExtra); ok {
+			return r
+		}
+	}
 	pop := p.iter(version, popCount, count)
 	removed := 0
 	halted := p.haltedCount()

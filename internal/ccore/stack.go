@@ -57,8 +57,17 @@ func (p *Parser) nodeNew(prev int32, sub Handle, pending bool, state uint16) int
 		id = int32(len(p.nodes) - 1)
 	}
 	node := &p.nodes[id]
-	*node = stackNode{refCount: 1, state: state}
-	if prev >= 0 {
+	// Write the scalar fields and link 0 only. links[1:] keep the bytes of a
+	// freed node: every reader of links[i] for i >= 1 is bounded by linkCount
+	// (nodeRelease, addLink, merge, iter, iterCB, popError). The one reader of
+	// links[0] on a node that may have no link is errorCostOf (state 0 and
+	// links[0].sub == 0); link 0 is written in both branches below.
+	node.refCount, node.state = 1, state
+	if prev < 0 {
+		node.linkCount = 0
+		node.links[0] = stackLink{}
+		node.position, node.errorCost, node.dynPrec, node.nodeCount = Length{}, 0, 0, 0
+	} else {
 		pn := &p.nodes[prev]
 		node.linkCount = 1
 		node.links[0] = stackLink{node: prev, sub: sub, pending: pending}

@@ -135,7 +135,7 @@ func findScalaProducedSpanNode(
 // The parent now keeps one zero-offset copy of the snippet root per parse
 // operation and clones it on later calls. Both calls must return the same
 // tree, field for field, as an independent snippet parse shifted with
-// Tree.RootNodeWithOffset, and the memo must be empty once the operation ends.
+// Tree.rootNodeWithRecoveryOffset (the internal twin of RootNodeWithOffset), and the memo must be empty once the operation ends.
 func TestScalaSnippetRootMemoMatchesDirectSnippetParse(t *testing.T) {
 	lang := grammars.ScalaLanguage()
 	cases := []struct {

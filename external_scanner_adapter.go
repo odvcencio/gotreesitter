@@ -18,6 +18,10 @@ type externalScannerOrderAdapter struct {
 type externalScannerOrderAdapterPayload struct {
 	inner       any
 	sourceValid []bool
+	// coreMode is set by the core's binding on every adapter layer: the caller is
+	// the core. A C parser takes whatever symbol its scanner returns, so then a
+	// result whose validity bit is false is passed through (see mapResultSymbol).
+	coreMode bool
 }
 
 func externalSymbolName(lang *Language, sym Symbol) string {
@@ -143,14 +147,14 @@ func (a *externalScannerOrderAdapter) Scan(payload any, lexer *ExternalLexer, va
 		return false
 	}
 
-	_, innerPayload, sourceValid := a.prepareScanPayload(payload)
+	adapterPayload, innerPayload, sourceValid := a.prepareScanPayload(payload)
 	a.mapValidSymbols(validSymbols, sourceValid)
 	ok := a.inner.Scan(innerPayload, lexer, sourceValid)
 	if !ok {
 		return false
 	}
 
-	if !a.mapResultSymbol(lexer, sourceValid) {
+	if !a.mapResultSymbol(lexer, sourceValid, adapterPayload != nil && adapterPayload.coreMode) {
 		if lexer != nil {
 			lexer.resultSymbol = 0
 			lexer.hasResult = false
@@ -185,11 +189,16 @@ func (a *externalScannerOrderAdapter) mapValidSymbols(validSymbols []bool, sourc
 	}
 }
 
-func (a *externalScannerOrderAdapter) mapResultSymbol(lexer *ExternalLexer, sourceValid []bool) bool {
+// mapResultSymbol maps the scanner's result symbol to the target language. A
+// result whose validity bit was false is dropped, unless the core is the caller
+// (passThrough) and the symbol is one of the source externals that has a target
+// external: then it is kept, as a C parser would keep it. A symbol with no target
+// external is dropped in both cases.
+func (a *externalScannerOrderAdapter) mapResultSymbol(lexer *ExternalLexer, sourceValid []bool, passThrough bool) bool {
 	if lexer == nil || !lexer.hasResult {
 		return true
 	}
-	if mapped, exists := a.sourceResultToTarget[lexer.resultSymbol]; exists && a.sourceResultWasValid(lexer.resultSymbol, sourceValid) {
+	if mapped, exists := a.sourceResultToTarget[lexer.resultSymbol]; exists && ((passThrough && a.sourceSymbolHasTarget(lexer.resultSymbol)) || a.sourceResultWasValid(lexer.resultSymbol, sourceValid)) {
 		lexer.resultSymbol = mapped
 		return true
 	}
@@ -202,6 +211,22 @@ func (a *externalScannerOrderAdapter) sourceResultWasValid(sym Symbol, sourceVal
 	}
 	idx, ok := a.sourceSymbolToIndex[sym]
 	return ok && idx >= 0 && idx < len(sourceValid) && sourceValid[idx]
+}
+
+// sourceSymbolHasTarget reports whether sym is a source external that some target
+// external maps to. The identity entries that sourceResultToTarget holds for
+// unmatched source externals do not count.
+func (a *externalScannerOrderAdapter) sourceSymbolHasTarget(sym Symbol) bool {
+	idx, ok := a.sourceSymbolToIndex[sym]
+	if !ok {
+		return false
+	}
+	for _, src := range a.targetToSource {
+		if src == idx {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *externalScannerOrderAdapter) innerPayload(payload any) any {

@@ -148,9 +148,10 @@ jobs:
         # overwritten before use), and SA1019 (deprecated use). Test files
         # are in scope: the SA4006 findings that once lived in
         # internal/parsercorephase0 test fixtures are fixed, so the gate now
-        # covers both production and test code. ./grammars/ and ./cmd/...
-        # are clean under the same checks and stay in the gate.
-        run: staticcheck -checks 'SA4000,SA4003,SA5011,SA4006,SA4009,SA1019' . ./internal/... ./grammargen/ ./grammars/ ./cmd/...
+        # covers both production and test code. ./grammars/, ./cmd/... and
+        # the roottest packages that received root test files are clean
+        # under the same checks and stay in the gate.
+        run: staticcheck -checks 'SA4000,SA4003,SA5011,SA4006,SA4009,SA1019' . ./internal/... ./grammargen/ ./grammars/ ./cmd/... ./roottest/bench ./roottest/parse
 
       - name: Test Compile
         run: go test ./... -run '^$' -count=1
@@ -830,7 +831,7 @@ jobs:
             package_filter: '/parser_result_test$'
             test_filter: ''
           - name: support
-            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|benchorder|scannerstate|grammarpatch|sched|incr|reducechoice|declarationfacts|syntaxfacts|lexrun)$|/corpuscheck$|/roottest/bench$'
+            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|benchorder|scannerstate|grammarpatch|sched|incr|reducechoice|declarationfacts|syntaxfacts|lexrun|lexexact)$|/corpuscheck$|/roottest/bench$'
             test_filter: ''
           - name: grammar-support
             package_filter: '/grammars/(grammar_blobs|internal/[^/]+|lean|python|swift)$'
@@ -1725,7 +1726,7 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
-      - name: Draft Correctness Suite (root + grammars, no -race)
+      - name: Draft Correctness Suite (root + grammars + roottest, no -race)
         run: |
           # No -race: trades race detection for speed so this is cheap
           # enough to run on every draft push. The full -race suite still
@@ -1738,7 +1739,7 @@ jobs:
           # timeout and failing. The non-draft race suite does not
           # special-case them either, so mirror that behavior here and give
           # the whole draft visibility run a generous budget.
-          go test . ./grammars ./grammars/runtime -count=1 -timeout 25m
+          go test . ./grammars ./grammars/runtime ./roottest/bench ./roottest/parse -count=1 -timeout 25m
 
   freshness:
     needs: exhaustive_parity_scope
@@ -2165,7 +2166,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestIssue1106BashEmptyAssignmentsCParity|TestCompactPackedGSSVersionOrderIssue984MatchesC)$'
+            --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestIssue1106BashEmptyAssignmentsCParity|TestCompactPackedGSSVersionOrderIssue984MatchesC|TestRootNodeWithOffsetPointsMatchC)$'
 
       - name: YAML scanner cursor and document stream parity against locked C
         run: |

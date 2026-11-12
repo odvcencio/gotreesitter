@@ -1,8 +1,10 @@
 package gotreesitter
 
 import (
-	"github.com/odvcencio/gotreesitter/internal/scannerspan"
 	"unicode/utf8"
+
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+	"github.com/odvcencio/gotreesitter/internal/scannerspan"
 )
 
 // byteOrderMarkRune is the decoded rune value of a UTF-8 byte order mark
@@ -517,4 +519,37 @@ func (l *ExternalLexer) token() (Token, bool) {
 		lexerLookaheadEndByte: lookaheadEndByte,
 		lexFlags:              lexFlagIf(l.didGetColumn, tokenFlagDependsOnColumn),
 	}, true
+}
+
+// atEOF reports whether the cursor is at the end of the source. It records no
+// read, as C's lexer->eof(lexer) reads no character.
+func (l *ExternalLexer) atEOF() bool { return l.pos >= len(l.source) }
+
+// cLookahead is the lookahead as C sees it: -1 (TS_DECODE_ERROR) for a byte that
+// is not valid UTF-8, where Lookahead returns U+FFFD.
+func (l *ExternalLexer) cLookahead() int32 {
+	r := l.Lookahead()
+	if r == utf8.RuneError && l.pos < len(l.source) {
+		if _, size := utf8.DecodeRune(l.source[l.pos:]); size == 1 {
+			return -1
+		}
+	}
+	return int32(r)
+}
+
+// atRangeStart is C's is_at_included_range_start for a parse over the whole
+// source: the single range starts at byte 0, and there is none for an empty source.
+func (l *ExternalLexer) atRangeStart() bool { return l.pos == 0 && !l.atEOF() }
+
+func init() {
+	scanmode.SetProbes(
+		func(lexer any) bool { el, ok := lexer.(*ExternalLexer); return ok && el.atEOF() },
+		func(lexer any) int32 {
+			if el, ok := lexer.(*ExternalLexer); ok {
+				return el.cLookahead()
+			}
+			return int32(lexer.(interface{ Lookahead() rune }).Lookahead())
+		},
+		func(lexer any) bool { el, ok := lexer.(*ExternalLexer); return ok && el.atRangeStart() },
+	)
 }
