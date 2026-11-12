@@ -1089,4 +1089,18 @@ func (c *storeCore) endLocked() {
 	c.ended.Store(true)
 	c.mu.Unlock()
 	putPages(recs, refs, kids, state)
+	// The first page-table slots live in the core (recsIn, refsIn, kidsIn). The
+	// tables above alias them, and putPages has now copied the pointers, so the
+	// arrays are cleared here and not before. A parser or a released tree that
+	// stays reachable keeps the core; without this it would keep every page of a
+	// small store alive after the pool dropped them.
+	c.mu.Lock()
+	clear(c.recsIn[:])
+	clear(c.refsIn[:])
+	clear(c.kidsIn[:])
+	c.mu.Unlock()
+	// The lease holder's lists of an ended store are dropped too: they can be as
+	// long as the store was large, and a reachable core would keep them.
+	c.rel, c.walk, c.taken, c.sortTmp, c.freedRecs, c.freedEditRecs, c.spans = nil, nil, nil, nil, nil, nil, nil
+	c.freedEditSt = [numStClasses][]uint32{}
 }

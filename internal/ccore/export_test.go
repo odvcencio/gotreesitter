@@ -245,3 +245,41 @@ func FailureText(t *Tree) string { return t.c.store.failureText() }
 func ViewPages(t *Tree) int {
 	return len(t.rd.recs) + len(t.rd.refs) + len(t.rd.kids) + len(t.rd.state) + len(t.rd.large)
 }
+
+// StoreInlinePages is the number of page pointers that the store core of t still
+// holds in its inline page-table arrays.
+func StoreInlinePages(t *Tree) int {
+	c := t.c.store
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := 0
+	for i := range c.recsIn {
+		if c.recsIn[i] != nil {
+			n++
+		}
+		if c.refsIn[i] != nil {
+			n++
+		}
+		if c.kidsIn[i] != nil {
+			n++
+		}
+	}
+	return n
+}
+
+// StoreRetained is the capacity of what the store core of t holds after the store ended and is not a page
+// table: the pending and spare queues, the free-list state and the release stack.
+func StoreRetained(t *Tree) (pending, spare, rel, walk, taken, freedRecs int) {
+	c := t.c.store
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return cap(c.pending), cap(c.spare), cap(c.rel), cap(c.walk), cap(c.taken), cap(c.freedRecs)
+}
+
+// ParserRetained counts the page pointers and record slices that the parser p holds
+// between parses: the view of its last store, its handle and node slices, and its scratch.
+func ParserRetained(p *Parser) (pages, handles int) {
+	pages = len(p.recs) + len(p.refs) + len(p.kids) + len(p.state) + len(p.large)
+	handles = len(p.nodes) + len(p.free) + len(p.heads) + len(p.scratch) + len(p.seen) + len(p.compressTmp)
+	return
+}
