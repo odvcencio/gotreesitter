@@ -1,0 +1,2 @@
+# Grammars that have an exact-lexer record. Written by cmd/ts2go -lexexact-only; do not edit by hand.
+json
