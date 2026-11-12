@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the scss grammar (must match grammar.js
@@ -63,6 +64,8 @@ var scssExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(scssExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) with the mode on; the mode selects the C-faithful scan, no saved state.
+	scanmode.RegisterScanner(ScssExternalScanner{}, (*scanmode.Flag)(nil), true)
 }
 
 // ScssExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-scss.
@@ -109,7 +112,7 @@ func (s ScssExternalScanner) symbolTable() *[scssTokenCount]gotreesitter.Symbol 
 	return &s.symbols
 }
 
-func (ScssExternalScanner) Create() any                           { return nil }
+func (ScssExternalScanner) Create() any                           { return &scanmode.Flag{} } // the payload carries the C-faithful mode only
 func (ScssExternalScanner) Destroy(payload any)                   {}
 func (ScssExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (ScssExternalScanner) Deserialize(payload any, buf []byte)   {}
@@ -120,6 +123,119 @@ func (ScssExternalScanner) SupportsIncrementalReuse() bool        { return true 
 func (ScssExternalScanner) ExternalScannerIsStateless() bool { return true }
 
 func (s ScssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	// With the mode off this is main's scan, unchanged (scssScanLegacy below); the mode selects the C-faithful scan.
+	if scanmode.Of(payload) {
+		return s.scanC(payload, lexer, validSymbols)
+	}
+	return s.scanLegacy(payload, lexer, validSymbols)
+}
+
+func (s ScssExternalScanner) scanC(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(s.externalToToken) > 0 {
+		var semanticValid [scssTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(s.externalToToken) {
+				continue
+			}
+			tokenIdx := s.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < scssTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := s.symbolTable()
+
+	// When error recovery is active, all valid_symbols are true including
+	// ERROR_RECOVERY. Bail out immediately to avoid producing spurious tokens.
+	if scssValid(validSymbols, scssTokErrorRecovery) {
+		return false
+	}
+
+	// CONCAT: adjacent selector concatenation (e.g., #foo.bar).
+	// Must be checked before DESCENDANT_OP because both can start with alnum.
+	if scssValid(validSymbols, scssTokConcat) {
+		ch := lexer.Lookahead()
+		if scssIsAlnum(ch) || ch == '#' || ch == '-' {
+			lexer.SetResultSymbol(syms[scssTokConcat])
+			if ch == '#' {
+				lexer.MarkEnd()
+				lexer.Advance(false)
+				return lexer.Lookahead() == '{'
+			}
+			return true
+		}
+	}
+
+	// DESCENDANT_OP: whitespace between selectors.
+	if isScssSpace(lexer.Lookahead()) && scssValid(validSymbols, scssTokDescendantOp) {
+		lexer.SetResultSymbol(syms[scssTokDescendantOp])
+
+		// Skip all whitespace.
+		lexer.Advance(true)
+		for isScssSpace(lexer.Lookahead()) {
+			lexer.Advance(true)
+		}
+		lexer.MarkEnd()
+
+		ch := lexer.Lookahead()
+		// These characters indicate a selector follows.
+		if ch == '#' || ch == '.' || ch == '[' || ch == '-' ||
+			ch == '*' || ch == '&' || scssIsAlnum(ch) {
+			return true
+		}
+
+		// If ':' follows, disambiguate: pseudo-class (selector context) vs
+		// property-value separator. Scan forward — if we hit '{' before ';' or '}',
+		// it's a selector context.
+		if ch == ':' {
+			lexer.Advance(false)
+			if isScssSpace(lexer.Lookahead()) {
+				return false
+			}
+			for {
+				ch = lexer.Lookahead()
+				if ch == ';' || ch == '}' || ch == 0 && scanmode.AtEOF(lexer) {
+					return false
+				}
+				if ch == '{' {
+					return true
+				}
+				lexer.Advance(false)
+			}
+		}
+	}
+
+	// PSEUDO_CLASS_SELECTOR_COLON: disambiguate ':' in selector vs property.
+	if scssValid(validSymbols, scssTokColon) {
+		// Skip leading whitespace.
+		for isScssSpace(lexer.Lookahead()) {
+			lexer.Advance(true)
+		}
+		if lexer.Lookahead() == ':' {
+			lexer.Advance(false)
+			if lexer.Lookahead() == ':' {
+				// '::' is a pseudo-element, not handled here.
+				return false
+			}
+			lexer.MarkEnd()
+			// Scan forward: '{' means selector context, ';' or '}' means property.
+			for lexer.Lookahead() != ';' && lexer.Lookahead() != '}' && !(lexer.Lookahead() == 0 && scanmode.AtEOF(lexer)) {
+				lexer.Advance(false)
+				if lexer.Lookahead() == '{' {
+					lexer.SetResultSymbol(syms[scssTokColon])
+					return true
+				}
+			}
+			return false
+		}
+	}
+
+	return false
+}
+
+// scanLegacy is the scan of main, kept verbatim for the default engine.
+func (s ScssExternalScanner) scanLegacy(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(s.externalToToken) > 0 {
 		var semanticValid [scssTokenCount]bool
 		for externalIdx, valid := range validSymbols {
@@ -157,12 +273,12 @@ func (s ScssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	}
 
 	// DESCENDANT_OP: whitespace between selectors.
-	if isScssSpace(lexer.Lookahead()) && scssValid(validSymbols, scssTokDescendantOp) {
+	if isScssSpaceLegacy(lexer.Lookahead()) && scssValid(validSymbols, scssTokDescendantOp) {
 		lexer.SetResultSymbol(syms[scssTokDescendantOp])
 
 		// Skip all whitespace.
 		lexer.Advance(true)
-		for isScssSpace(lexer.Lookahead()) {
+		for isScssSpaceLegacy(lexer.Lookahead()) {
 			lexer.Advance(true)
 		}
 		lexer.MarkEnd()
@@ -179,7 +295,7 @@ func (s ScssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 		// it's a selector context.
 		if ch == ':' {
 			lexer.Advance(false)
-			if isScssSpace(lexer.Lookahead()) {
+			if isScssSpaceLegacy(lexer.Lookahead()) {
 				return false
 			}
 			for {
@@ -198,7 +314,7 @@ func (s ScssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	// PSEUDO_CLASS_SELECTOR_COLON: disambiguate ':' in selector vs property.
 	if scssValid(validSymbols, scssTokColon) {
 		// Skip leading whitespace.
-		for isScssSpace(lexer.Lookahead()) {
+		for isScssSpaceLegacy(lexer.Lookahead()) {
 			lexer.Advance(true)
 		}
 		if lexer.Lookahead() == ':' {
@@ -224,9 +340,21 @@ func (s ScssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 }
 
 func isScssSpace(ch rune) bool {
-	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '\f'
+	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '\f' || ch == '\v'
 }
 
 func scssValid(validSymbols []bool, idx int) bool {
 	return idx >= 0 && idx < len(validSymbols) && validSymbols[idx]
+}
+
+// scssIsAlnum mirrors iswalnum in the C locale, which the pinned C scanner
+// calls (tree-sitter-scss src/scanner.c:32 and :53). The C locale knows only
+// ASCII letters and digits: a letter such as "é" is not alphanumeric.
+func scssIsAlnum(ch rune) bool {
+	return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+}
+
+// isScssSpaceLegacy is main's isScssSpace, kept for the default engine.
+func isScssSpaceLegacy(ch rune) bool {
+	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '\f'
 }
