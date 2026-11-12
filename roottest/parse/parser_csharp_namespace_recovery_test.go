@@ -1,4 +1,4 @@
-package gotreesitter_test
+package parse_test
 
 import (
 	"os"
@@ -197,7 +197,7 @@ func TestCSharpLargeShreddedNamespaceRecoversMethods(t *testing.T) {
 		t.Skip("skip heavyweight C# JsonTextReader realworld recovery parse under -race: race instrumentation overhead trips the parser's internal wall-clock timeout; non-race coverage keeps the full recovery assertions")
 	}
 	lang := grammars.CSharpLanguage()
-	src, err := os.ReadFile("testdata/parser_result/csharp/jsontextreader_excerpt.cs")
+	src, err := os.ReadFile("../../testdata/parser_result/csharp/jsontextreader_excerpt.cs")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}

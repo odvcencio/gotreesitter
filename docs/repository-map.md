@@ -8,7 +8,7 @@ Use the [root file-name prefix tables](#root-file-name-prefixes) to find current
 
 ## Root file limits
 
-`cmd/v1layout` fails when the root holds more than `rootBudget` Go files (661 now).
+`cmd/v1layout` fails when the root holds more than `rootBudget` Go files (650 now).
 A PR that completes one of these moves (or, for 500, makes the first such move) must lower `rootBudget` to the matching limit or below:
 
 | Root `.go` files at most | Applies after |
@@ -85,7 +85,7 @@ The root `gotreesitter` package holds the engine and the public API in one packa
 | `parser_relex*`, `parser_dfa*` | The DFA token source binding (`parser_dfa_token_source.go`) and relex tests |
 | `parser_incremental*`, `parser_reuse*` | Incremental-support glue used by `incremental*.go` |
 | `parser_scratch*`, `parser_memory*`, `parser_tables*` | Parser-lifetime scratch buffers, memory accounting, table caches |
-| `parser_<language>*` (`parser_go`, `parser_typescript`, `parser_csharp`, `parser_powershell`, `parser_scala`, `parser_sql`, `parser_objc`, `parser_markdown`, `parser_html`, `parser_cpp`) | Language-specific parser regression tests that are not part of the `parser_result_*` compat tier. Selected black-box files are in `roottest/parse`: the HTML, Markdown, PowerShell and Scala incremental certification tests, the PowerShell command-name and continuation tests, the Go scanner-quiescence test, the leaf-token regression and the JavaScript/TypeScript clean-memory test. The other files of these groups stay here |
+| `parser_<language>*` (`parser_go`, `parser_typescript`, `parser_csharp`, `parser_powershell`, `parser_scala`, `parser_sql`, `parser_objc`, `parser_markdown`, `parser_html`, `parser_cpp`) | Language-specific parser regression tests that are not part of the `parser_result_*` compat tier. Selected black-box files are in `roottest/parse`: the HTML, Markdown, PowerShell and Scala incremental certification tests, the PowerShell command-name and continuation tests, the Go scanner-quiescence test, the leaf-token regression, the JavaScript/TypeScript clean-memory test, the C# namespace-recovery test, the Go regression and new/make fix tests, the recovery memory-bound test and the TypeScript destructured-cap test. The other files of these groups stay here |
 | `parsercore_phase0*` | The compact scheduler (`internal/parsercorephase0`-backed), admission, replay, and parity ratchets. It is compiled by default (the `gts_no_parsercorephase0` tag removes it); routing to it is opt-in |
 | `parsercore_c4*` | The C4 stage-2 table-shape analyzer and program/VM |
 | `ccore_*` | Adapters from a `*Language` to `internal/ccore` (`ccore_bind.go`, `ccore_scanner.go`). They export nothing |
@@ -175,10 +175,9 @@ fresh-tree verification.
 | Prefix | Owns |
 | --- | --- |
 | `benchmark*` | In-package benchmarks (see [BENCH.md](../BENCH.md) for the canonical results) |
-| `fuzz_*` | Fuzz targets (`go test -fuzz`) |
+| `fuzz_*` | Fuzz targets (`go test -fuzz`). The parser and scanner-grammar fuzz targets are in `roottest/parse` |
 | `race_*` | Race-lane build-tag stubs |
 | `perf_*` | Perf-counter and perf-metrics instrumentation |
-| `issue380_*` | Regression coverage for a specific numbered issue |
 | `large_*` | The blob wire form of large-state goto tables and its test |
 | `walk*` | Tree-walk helper and its test |
 | `runtime_audit.go` | Parser and GLR diagnostic instrumentation (`EnableRuntimeAudit`, `EnableGLREquivAudit`) |
@@ -194,7 +193,7 @@ fresh-tree verification.
 | `cgo_harness/` | C oracle, parity, race, corpus, work-count, and certified timing harnesses |
 | `cmd/` | Maintainer and user CLIs such as `ts2go`, `tsquery`, `benchgate`, and `parity_report` |
 | `taproot/`, `grep/` | Higher-level consumers and helper packages |
-| `roottest/` | Root-package black-box test packages (`bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package. A root test file moves here when it uses only the exported API, needs no hook from `export_test.go`, reads no path relative to the root, and is not named by a CI step |
+| `roottest/` | Root-package black-box test packages (`bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package. A root test file moves here when it uses only the exported API, needs no hook from `export_test.go`, and is not named by a CI step that runs the root package. Files that read the root's `testdata/` or source files use a `../../` path |
 | `parser_result_test/` | Black-box tests (`package parserresult_test`) for the result-compatibility tier; kept separate from the root package so census and dispatcher tests cannot depend on unexported internals |
 | `pgo/` | Current profile-guided optimization (PGO) input: `default.pgo`. CI uses `-pgo=pgo/default.pgo`. |
 | `policy/` | The release policy (`release.arb`, `release.test.arb`) that `.github/workflows/release.yml` runs directly by path |

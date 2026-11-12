@@ -1,4 +1,4 @@
-package gotreesitter_test
+package parse_test
 
 import (
 	"os"
@@ -75,7 +75,7 @@ var recoveryMemoryBoundWitnesses = []struct {
 }
 
 func mustReadRecoveryWitnessFile(name string) []byte {
-	src, err := os.ReadFile("testdata/recovery_memory_bound_witnesses/" + name)
+	src, err := os.ReadFile("../../testdata/recovery_memory_bound_witnesses/" + name)
 	if err != nil {
 		panic("mustReadRecoveryWitnessFile: " + name + ": " + err.Error())
 	}

@@ -1,4 +1,4 @@
-package gotreesitter_test
+package bench_test
 
 import (
 	"testing"

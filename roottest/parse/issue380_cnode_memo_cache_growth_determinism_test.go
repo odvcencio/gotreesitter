@@ -1,4 +1,4 @@
-package gotreesitter_test
+package parse_test
 
 // Non-env-gated regression coverage for campaign O(edit) workstream W2: the
 // cNodeMemoCache adaptive growth trigger (parser_recover_c.go's
@@ -44,7 +44,7 @@ import (
 // retired issue380 repro files in git history for the full mechanism.
 func issue380CNodeMemoGrowthScenario(t *testing.T) (cacheLen int, thrash uint32) {
 	t.Helper()
-	src, err := os.ReadFile("tree.go")
+	src, err := os.ReadFile("../../tree.go")
 	if err != nil {
 		t.Fatalf("read tree.go: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestCNodeMemoCacheStaysSmallForCleanFullParse(t *testing.T) {
 	for _, f := range files {
 		f := f
 		t.Run(f, func(t *testing.T) {
-			src, err := os.ReadFile(f)
+			src, err := os.ReadFile("../../" + f)
 			if err != nil {
 				t.Skipf("read %s: %v", f, err)
 			}
@@ -182,7 +182,7 @@ func TestArenaBreakdownOnProductionRouteGoWorkloads(t *testing.T) {
 	if entry == nil {
 		t.Skip("Go grammar not available")
 	}
-	large, err := os.ReadFile("parser.go")
+	large, err := os.ReadFile("../../parser.go")
 	if err != nil {
 		t.Fatalf("read parser.go: %v", err)
 	}
