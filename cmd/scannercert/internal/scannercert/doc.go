@@ -6,9 +6,8 @@
 // scanner states to decide whether a subtree is reusable, and the checkpoint
 // route here restores a scanner from recorded bytes. Both are sound only if
 // Scan(s) equals Scan(Deserialize(Serialize(s))) for every state s the parser
-// reaches. This package samples the property. It is the report-only first
-// slice of item E-E1 in the v1 design: it grants nothing and changes no
-// scanner's declared capabilities.
+// reaches. This package samples the property. It is report-only: it grants
+// nothing and changes no scanner's declared capabilities.
 //
 // # What Certify does
 //

@@ -1,4 +1,4 @@
-package gotreesitter_test
+package parse_test
 
 // Campaign O(edit) workstream W4 (spec.campaign.oedit): the Go external-scanner
 // quiescence proof. Go's automatic-semicolon scanner carries no cross-token

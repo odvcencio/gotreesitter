@@ -1,7 +1,5 @@
 # Grammar ownership policy
 
-Status: proposed
-
 ## Decision
 
 gotreesitter ships local grammar corrections when upstream maintenance does
@@ -76,7 +74,7 @@ cannot advertise `GrammarSourceGrammargenBlob` without a matching Own row.
 An Own row cannot go stale against a registry entry that stops advertising
 `GrammarSourceGrammargenBlob`.
 
-## YAML ownership pilot
+## YAML ownership
 
 YAML is Tier 1 and Own. Its canonical grammar source is
 [yaml_grammar.go](../grammargen/yaml_grammar.go). Its canonical external scanner
@@ -90,14 +88,6 @@ is the release source. The checked-in blob is an output, not an editable input.
 [yaml_scanner.go](../grammars/runtime/yaml_scanner.go) pins that commit and the
 SHA-256 of each upstream scanner source file the Go port tracks. Update those
 pins with every YAML grammar bump.
-
-The bump from `4463985dfccc640f3d6991e3396a2047610cf5f8` to
-`a1c4812a73ec5e089de8e441fdea3a921e8d5079` changed only `src/scanner.c`. That
-commit replaced three preprocessor defines with a `ScanStatus` enum and changed
-four sub-scanner return types from `char` to `ScanStatus`. The change removes
-the `-Wswitch-outside-range` warnings on targets where `char` is unsigned. The
-status values stay -1, 0, and 1. The Go port already returns `int8`, so the
-port needed no behavior change and `yaml.bin` did not move.
 
 The owned scanner accepts quoted scalar continuation and closing delimiters
 after a line break. The equivalent pinned C overlay is
@@ -150,7 +140,7 @@ Do not pass `-lr-split`. Go declares one external symbol
 (`_automatic_semicolon`). An external symbol switches `-lr-split` to
 `usePreciseExternalBuilder` in `grammargen/lr.go`. That builder produces a
 table that misparses ordinary single-line if-statements, for example
-`if err != nil { foo() }` (confirmed 2026-09-20). The statement's `{ foo() }`
+`if err != nil { foo() }`. The statement's `{ foo() }`
 block attaches as an orphaned sibling, not as the `if` statement's body. See
 [grammargen/README.md](../grammargen/README.md#authoring-commands) for the
 mechanism.
@@ -221,8 +211,7 @@ go run ./cmd/grammargen -json grammargen/testdata/regex_upstream_grammar.json \
   -bin grammars/grammar_blobs/regex.bin
 ```
 
-Do not set `BinaryRepeatMode` or `EnableLRSplitting`. `regex.bin` was
-regenerated on 2026-09-20 with that plain recipe; the shipped grammar.json
+Do not set `BinaryRepeatMode` or `EnableLRSplitting`. The shipped `regex.bin` comes from that plain recipe; the pinned grammar.json
 is already the *resolved* form `tree-sitter generate` produces, so repeats
 are already lowered and the DSL-only `BinaryRepeatMode` flag does not apply.
 `TestRegexImportCharacterClassRangeParity` separately sets
@@ -264,8 +253,7 @@ go run ./cmd/grammargen -bin grammars/grammar_blobs/swift.bin swift
 
 Do not pass `-lr-split` for Swift: it regresses the real-corpus board on the
 current grammar (see `grammargen/blob_reproducibility_test.go`, which pins
-`lrSplit: false` for swift). The shipped `swift.bin` was regenerated on
-2026-09-20 with that plain recipe.
+`lrSplit: false` for swift). The shipped `swift.bin` comes from that plain recipe.
 
 Run the focused evidence with:
 

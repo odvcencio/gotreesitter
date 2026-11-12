@@ -1,4 +1,4 @@
-package gotreesitter_test
+package parse_test
 
 import (
 	"strings"

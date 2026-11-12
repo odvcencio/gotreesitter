@@ -839,8 +839,7 @@ RUNS=7 SIZES="500 2000 10000" CFLAGS_EXTRA="-march=native -flto" ./pure_c/run_cl
 ## Run the Derivation-Set Differential (Opt-In)
 
 The derivation-set differential compares, at every accept, the compact core's
-live derivation set against the reference runtime's live version set. It is
-stage D0 of `spec.derivation-set-equivalence.v1`.
+live derivation set against the reference runtime's live version set.
 
 The compact side records the set behind the `gts_derivation_set_census` build
 tag. The default build carries no census code at all, so the shipped parse
@@ -860,7 +859,7 @@ go test -tags "cgo treesitter_c_parity gts_derivation_set_census" \
 Two receipts run:
 
 - `TestDerivationSetDifferentialWitnessReproduction` pins the classification
-  of the eight witnesses the R2 measurement falsified.
+  of eight known witnesses.
 - `TestDerivationSetDifferentialBaselineCensus` publishes the per-language
   baseline: EXTRA, MISSING, DIFFERENT and ORDER counts, plus the mechanism
   attribution. The constructed-source totals are pinned and reproduce on any

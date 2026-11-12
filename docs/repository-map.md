@@ -1,34 +1,29 @@
 # Repository map
 
-Decision D9 in the [v1 design](v1-design.md) supersedes the one-root-package rule.
-The engine moves into `internal/`. New engine code starts there.
-The root keeps a generated facade of defined types, with forwarding methods from `facadegen`.
-Continuous integration (CI) checks the generated facade.
-Scanner-facing `ExternalScanner`, `ExternalLexer`, and `Symbol` move into a leaf package below the root and engine.
-The root aliases those scanner-facing types.
-The facade preserves the public application programming interface (API).
-Use one pull request (PR) per lane, as the design requires.
+New engine code starts in `internal/` (D9 in the [engine requirements](v1-design.md#rules)).
+Use one pull request (PR) per lane, as [AGENTS.md](../AGENTS.md#lanes) describes.
 
-The tables below describe current ownership. They do not claim that the planned moves have landed.
+The tables below describe current ownership.
 Use the [root file-name prefix tables](#root-file-name-prefixes) to find current files by subsystem.
 
-## Layout phases and root budget
+## Root file limits
 
-Workstream L ratchets the number of root `.go` files through these phases:
+`cmd/v1layout` fails when the root holds more than `rootBudget` Go files (661 now).
+A PR that completes one of these moves (or, for 500, makes the first such move) must lower `rootBudget` to the matching limit or below:
 
-| Phase | Milestone | Work | Root budget |
-| --- | --- | --- | --- |
-| L0 | M0 | Add the file budget and allowlist. Snapshot the API for each build-tag set. Check test selectors and discover fuzz tests across packages. Record test inventories and ignored blame revisions. | 756 |
-| L1 | M1 | Move non-Go files to their owning directories. Reorganize documentation and move test directories. | 756 |
-| L2 | M1 | Move 107 external tests into `tests/api/`. Move benchmark helpers into `internal/benchfixtures` to unblock the 49-file cluster. | 650 |
-| L3 | M2 | Build `tests/regress/` and a corpus store. Convert one language per PR; remove converted codename tests. | 550 |
-| L4 | M2 | Merge generated grammar shims by build constraint. Generate subset registration files and relocate public grammar tests. | 550; at most 60 top-level files in `grammars/` |
-| L5 | M3–M4 | Move each existing engine subsystem into `internal/` after its engine phase closes. Move its supporting root files with it. | 500 at M3 |
-| L6 | M4 | Delete legacy files and their tests through E-H. | 120 |
-| L7 | M4 | Keep the generated facade, examples, and a contract test. Move diagnostics into `internal/diag`. | 25 |
+| Root `.go` files at most | Applies after |
+| --- | --- |
+| 650 | The external tests move into `tests/api/`, and the benchmark helpers move into `internal/benchfixtures`. |
+| 550 | `tests/regress/` and a corpus store exist. Each converted language drops its codename tests, one language per PR. |
+| 550, and at most 60 top-level files in `grammars/` | Generated grammar shims are merged by build constraint, subset registration files are generated, and the public grammar tests are relocated. |
+| 500 | A PR moves an existing engine subsystem into `internal/` (its engine phase has closed) with its supporting root files. The root holds at most 500 `.go` files after that PR and after every later one. |
+| 120 | The legacy files and their tests are deleted. |
+| 25 | The root keeps only the generated facade, examples, and a contract test, and diagnostics live in `internal/diag`. |
 
-The design records 756 root Go files at baseline commit `e436c82`.
-The budgets are phase limits, rather than a claim about the current file count.
+The limits are ceilings, not a claim about the current file count.
+D9's supporting requirements (generated facade, scanner leaf package, scanner-test helper) are in [v1-design.md](v1-design.md#d9-supporting-requirements).
+
+## Moving files
 
 For each move:
 
@@ -37,9 +32,11 @@ For each move:
 3. Land large moves after a release tag and provide active lanes with a rebase script.
 4. Preserve the test inventory and update package-aware selectors.
 5. Lower the budget in the same PR.
+   Convert one language per PR when moving language tests into `tests/regress/`, and remove the converted codename tests in that PR.
+6. Move an existing engine subsystem into `internal/` only after its engine phase closes, and move its supporting root files with it.
 
 Copy benchmark inputs into `internal/benchfixtures/testdata` before moving source files that benchmarks read.
-Provide internal helpers for scanner tests that use `go:linkname` before moving `ExternalLexer`.
+Provide the internal scanner-test helper for `go:linkname` before moving `ExternalLexer`.
 
 ## Current subsystem ownership
 
@@ -88,7 +85,7 @@ The root `gotreesitter` package holds the engine and the public API in one packa
 | `parser_relex*`, `parser_dfa*` | The DFA token source binding (`parser_dfa_token_source.go`) and relex tests |
 | `parser_incremental*`, `parser_reuse*` | Incremental-support glue used by `incremental*.go` |
 | `parser_scratch*`, `parser_memory*`, `parser_tables*` | Parser-lifetime scratch buffers, memory accounting, table caches |
-| `parser_<language>*` (`parser_go`, `parser_typescript`, `parser_csharp`, `parser_powershell`, `parser_scala`, `parser_sql`, `parser_objc`, `parser_markdown`, `parser_html`, `parser_cpp`) | Language-specific parser regression tests that are not part of the `parser_result_*` compat tier |
+| `parser_<language>*` (`parser_go`, `parser_typescript`, `parser_csharp`, `parser_powershell`, `parser_scala`, `parser_sql`, `parser_objc`, `parser_markdown`, `parser_html`, `parser_cpp`) | Language-specific parser regression tests that are not part of the `parser_result_*` compat tier. Selected black-box files are in `roottest/parse`: the HTML, Markdown, PowerShell and Scala incremental certification tests, the PowerShell command-name and continuation tests, the Go scanner-quiescence test, the leaf-token regression and the JavaScript/TypeScript clean-memory test. The other files of these groups stay here |
 | `parsercore_phase0*` | The compact scheduler (`internal/parsercorephase0`-backed), admission, replay, and parity ratchets. It is compiled by default (the `gts_no_parsercorephase0` tag removes it); routing to it is opt-in |
 | `parsercore_c4*` | The C4 stage-2 table-shape analyzer and program/VM |
 | `ccore_*` | Adapters from a `*Language` to `internal/ccore` (`ccore_bind.go`, `ccore_scanner.go`). They export nothing |
@@ -104,7 +101,7 @@ The root `gotreesitter` package holds the engine and the public API in one packa
 | Prefix | Owns |
 | --- | --- |
 | `glr*` | GLR stack, GSS (`glr_gss.go`), merge, and forest identity |
-| `forest*` | Forest regression tests (cap pinning, incremental admission, scanner-width edits); the implementation is in `glr_forest*` |
+| `forest*` | Forest regression test for incremental admission; the implementation is in `glr_forest*`. The cap-pinning and scanner-width tests are in `roottest/parse` |
 | `transient_*` | Transient reduce-parent ownership before materialization |
 | `pending_parent*`, `no_tree_node*` | Non-materialized payload representations shared by reduce-time code |
 | `conflict_*` | Conflict-policy resolution |
@@ -122,7 +119,7 @@ fresh-tree verification.
 | Prefix | Owns |
 | --- | --- |
 | `incremental*` | Edit application, reuse admission, splice/settle paths |
-| `w1*` | Incremental splice correctness gates (block, leading, sibling) |
+| `w1*` | Incremental splice correctness gates (leading, sibling). The block-splice test is in `roottest/parse` |
 | `compact_incremental*`, `compact_nested_reuse*`, `compact_reuse*`, `compact_recovery*` | Compact-route incremental reuse and dependency proofs |
 | `oedit_*` | Differential sweep tests for leading-splice and range normalization |
 | `included_ranges*` | Injection-aware included-range tracking |
@@ -197,9 +194,9 @@ fresh-tree verification.
 | `cgo_harness/` | C oracle, parity, race, corpus, work-count, and certified timing harnesses |
 | `cmd/` | Maintainer and user CLIs such as `ts2go`, `tsquery`, `benchgate`, and `parity_report` |
 | `taproot/`, `grep/` | Higher-level consumers and helper packages |
-| `roottest/` | Root-package black-box test packages (`bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package |
+| `roottest/` | Root-package black-box test packages (`bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package. A root test file moves here when it uses only the exported API, needs no hook from `export_test.go`, reads no path relative to the root, and is not named by a CI step |
 | `parser_result_test/` | Black-box tests (`package parserresult_test`) for the result-compatibility tier; kept separate from the root package so census and dispatcher tests cannot depend on unexported internals |
-| `pgo/` | Current profile-guided optimization (PGO) input: `default.pgo`. CI uses `-pgo=pgo/default.pgo`; L1 moves the profile beside its consuming commands. |
+| `pgo/` | Current profile-guided optimization (PGO) input: `default.pgo`. CI uses `-pgo=pgo/default.pgo`. |
 | `policy/` | The release policy (`release.arb`, `release.test.arb`) that `.github/workflows/release.yml` runs directly by path |
 | `wasm/` | Browser runtimes and grammargen WebAssembly targets |
 | `scripts/` | Bounded host-side maintenance helpers; heavy correctness work stays in Docker or CI |
@@ -216,7 +213,7 @@ the smallest relevant correctness gate first, followed by the appropriate
 single-grammar parity lane. Performance evidence comes after correctness.
 
 Put new behavior in the subsystem that owns the invariant, under `internal/`.
-Use grammar-owned hooks for language rules (D6 and E-A8).
+Use grammar-owned hooks for language rules (D6).
 Add no language-name comparisons in engine files.
 The graduation allowlist controls routing; it does not authorize language-specific engine rules.
 
@@ -241,7 +238,7 @@ Ignored data is local state, not repository structure:
 - `.parity_seed/`, generated corpus directories, and grammar seeds are caches.
 - `harness_out/`, parity outputs, reports, and benchmark-run directories can
   contain durable correctness, performance, or certified-run receipts.
-- `.gts/`, `.tiller/`, and other private agent state are never cleanup targets.
+- Private agent state and notes are never cleanup targets.
 
 Run `scripts/prune_harness_artifacts.sh` for a size-labelled dry run.
 `--delete` removes only root build artifacts and reproducible caches. Receipt
