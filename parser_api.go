@@ -1004,7 +1004,14 @@ func manageTokenSourceLifetime(ts TokenSource) func() {
 	return closer.Close
 }
 
-func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFactory TokenSourceFactory) (*Tree, error) {
+// parseWithTokenSource stamps the retry stop signal of the operation on its result.
+func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFactory TokenSourceFactory) (tree *Tree, err error) {
+	p.retryCutBegin()
+	defer func() { p.retryCutEnd(tree) }()
+	return p.parseWithTokenSourceRun(source, ts, reparseFactory)
+}
+
+func (p *Parser) parseWithTokenSourceRun(source []byte, ts TokenSource, reparseFactory TokenSourceFactory) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
@@ -1042,10 +1049,13 @@ func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFact
 	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	workCountSetNextParseAttempt("initial_full", "fresh_token_source_full_parse")
 	tree := p.parseInternal(source, p.wrapIncludedRanges(ts), nil, nil, arenaClassFull, nil, initialMaxStacks, 0, 0, deterministicExternalConflicts)
-	if !p.recoveryInitialOnly && tree != nil && tree.rawParseEligibleForFreshRetryLadder() && !parseStopReasonIsActive(p.activeParseStopReason()) {
-		tree = p.retryFullParseWithTokenSource(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
-		if tree != nil && !tree.rawParseStoppedEarly() && !parseStopReasonIsActive(p.activeParseStopReason()) && shouldRepeatExternalScannerFullParse(p.language, tree) {
-			tree = p.retryFullParseWithTokenSource(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
+	if observe := p.retryPassObserverFunc(); observe != nil {
+		observe(p, "first_pass")
+	}
+	if !p.recoveryInitialOnly && tree != nil && tree.rawParseEligibleForFreshRetryLadder() {
+		tree = p.freshRetryLadderStep(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
+		if tree != nil && !tree.rawParseStoppedEarly() && shouldRepeatExternalScannerFullParse(p.language, tree) {
+			tree = p.freshRetryLadderStep(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
 		}
 	}
 	p.normalizeReturnedTreeForParse(tree, source)
@@ -1055,7 +1065,14 @@ func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFact
 	return tree, nil
 }
 
-func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, ts TokenSource, reparseFactory TokenSourceFactory) (*Tree, error) {
+// parseIncrementalWithTokenSource stamps the retry stop signal of the operation on its result.
+func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, ts TokenSource, reparseFactory TokenSourceFactory) (tree *Tree, err error) {
+	p.retryCutBegin()
+	defer func() { p.retryCutEnd(tree) }()
+	return p.parseIncrementalWithTokenSourceRun(source, oldTree, ts, reparseFactory)
+}
+
+func (p *Parser) parseIncrementalWithTokenSourceRun(source []byte, oldTree *Tree, ts TokenSource, reparseFactory TokenSourceFactory) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
@@ -1233,6 +1250,13 @@ func (p *Parser) Logger() ParserLogger {
 // behavior on timeout: they return a tree and nil error, with
 // tree.ParseStopReason() == ParseStopTimeout and tree.ParseStoppedEarly() true.
 // Use ParseStrict or another strict parse method to treat early stops as errors.
+//
+// The timeout also covers the error-recovery retry passes that follow the first
+// pass. If it expires during that work, the parse returns the best tree found
+// so far with the stop reason of the pass that produced it (usually
+// ParseStopAccepted), and that tree can differ from the tree of a parse without
+// a timeout. Check tree.RetryStopReason(): it is ParseStopTimeout when the
+// timeout kept the parser from finishing its retry and fallback work.
 func (p *Parser) SetTimeoutMicros(timeoutMicros uint64) {
 	if p == nil {
 		return
@@ -1525,7 +1549,14 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 }
 
 // parse runs Parse after the engine seam.
-func (p *Parser) parse(source []byte) (*Tree, error) {
+// parse stamps the retry stop signal of the operation on its result.
+func (p *Parser) parse(source []byte) (tree *Tree, err error) {
+	p.retryCutBegin()
+	defer func() { p.retryCutEnd(tree) }()
+	return p.parseRun(source)
+}
+
+func (p *Parser) parseRun(source []byte) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
@@ -1609,6 +1640,9 @@ func (p *Parser) parse(source []byte) (*Tree, error) {
 	}
 	workCountSetNextParseAttempt("initial_full", "fresh_dfa_full_parse")
 	tree := p.parseInternal(source, p.wrapIncludedRanges(ts), nil, nil, arenaClassFull, nil, initialMaxStacks, 0, 0, deterministicExternalConflicts)
+	if observe := p.retryPassObserverFunc(); observe != nil {
+		observe(p, "first_pass")
+	}
 	if progress.enabled {
 		progress.emit(time.Now(), "parse_internal_end", 0, 0, Token{}, false, nil, 0, 0, 0, false, 0, 0, "")
 	}
@@ -1616,10 +1650,10 @@ func (p *Parser) parse(source []byte) (*Tree, error) {
 		if progress.enabled {
 			progress.emit(time.Now(), "retry_begin", 0, 0, Token{}, false, nil, 0, 0, 0, false, 0, 0, "")
 		}
-		if !p.recoveryInitialOnly && tree != nil && tree.rawParseEligibleForFreshRetryLadder() && !parseStopReasonIsActive(p.activeParseStopReason()) {
-			tree = p.retryFullParseWithDFA(source, initialMaxStacks, deterministicExternalConflicts, tree)
-			if tree != nil && !tree.rawParseStoppedEarly() && !parseStopReasonIsActive(p.activeParseStopReason()) && shouldRepeatExternalScannerFullParse(p.language, tree) {
-				tree = p.retryFullParseWithDFA(source, initialMaxStacks, deterministicExternalConflicts, tree)
+		if !p.recoveryInitialOnly && tree != nil && tree.rawParseEligibleForFreshRetryLadder() {
+			tree = p.freshRetryLadderStep(source, nil, initialMaxStacks, deterministicExternalConflicts, tree)
+			if tree != nil && !tree.rawParseStoppedEarly() && shouldRepeatExternalScannerFullParse(p.language, tree) {
+				tree = p.freshRetryLadderStep(source, nil, initialMaxStacks, deterministicExternalConflicts, tree)
 			}
 		}
 		if progress.enabled {
@@ -1729,6 +1763,8 @@ func (p *Parser) resolveCRecoverySwallowedError(source []byte, tree *Tree) *Tree
 	// This reparse is a production-only correctness oracle (the resync engine
 	// with C-recovery disabled): keep it off the compact candidate route.
 	defer p.suppressAdmissionCandidateRoute()()
+	// The fallback is a nested parse of the same operation: it does not reset
+	// the signal, and its retry passes add to it.
 	fallback, err := p.parse(source)
 	if err != nil || fallback == nil {
 		return tree
@@ -1738,7 +1774,15 @@ func (p *Parser) resolveCRecoverySwallowedError(source []byte, tree *Tree) *Tree
 	// resync fallback is running. Adopting a truncated fallback tree with
 	// err == nil would be worse than the swallowed-error bug this safety net
 	// exists to fix, so reject it outright and keep the original result.
-	if fallback.rawParseStoppedEarly() || parseStopReasonIsActive(p.activeParseStopReason()) {
+	if reason := p.activeParseStopReason(); fallback.rawParseStoppedEarly() || parseStopReasonIsActive(reason) {
+		// Record the fallback's own timeout or cancellation when it has one.
+		// Otherwise record the shared stop only when the fallback was not
+		// already rejected for an independent reason (for example a node limit).
+		if own := fallback.rawParseStopReason(); parseStopReasonIsActive(own) {
+			p.noteRetryCut(own)
+		} else if !fallback.rawParseStoppedEarly() {
+			p.noteRetryCut(reason)
+		}
 		fallback.Release()
 		return tree
 	}
@@ -2116,7 +2160,14 @@ func (p *Parser) incrementalAppendRequiresFreshParse(oldTree *Tree) bool {
 
 // parseIncrementalChangedSource runs the part of ParseIncremental that
 // parses: the source differs from oldTree's source.
-func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (*Tree, error) {
+// parseIncrementalChangedSource stamps the retry stop signal of the operation on its result.
+func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (tree *Tree, err error) {
+	p.retryCutBegin()
+	defer func() { p.retryCutEnd(tree) }()
+	return p.parseIncrementalChangedSourceRun(source, oldTree)
+}
+
+func (p *Parser) parseIncrementalChangedSourceRun(source []byte, oldTree *Tree) (*Tree, error) {
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
@@ -2482,7 +2533,14 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 // parseIncrementalProfiledChangedSource runs the part of
 // ParseIncrementalProfiled that parses: the source differs from oldTree's
 // source.
-func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
+// parseIncrementalProfiledChangedSource stamps the retry stop signal of the operation on its result.
+func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (tree *Tree, profile IncrementalParseProfile, err error) {
+	p.retryCutBegin()
+	defer func() { p.retryCutEnd(tree) }()
+	return p.parseIncrementalProfiledChangedSourceRun(source, oldTree)
+}
+
+func (p *Parser) parseIncrementalProfiledChangedSourceRun(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
@@ -2643,7 +2701,14 @@ func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	return p.parseIncrementalWithTokenSourceChangedProfiled(source, oldTree, ts)
 }
 
-func (p *Parser) parseIncrementalWithTokenSourceChangedProfiled(source []byte, oldTree *Tree, ts TokenSource) (*Tree, IncrementalParseProfile, error) {
+// parseIncrementalWithTokenSourceChangedProfiled stamps the retry stop signal of the operation on its result.
+func (p *Parser) parseIncrementalWithTokenSourceChangedProfiled(source []byte, oldTree *Tree, ts TokenSource) (tree *Tree, profile IncrementalParseProfile, err error) {
+	p.retryCutBegin()
+	defer func() { p.retryCutEnd(tree) }()
+	return p.parseIncrementalWithTokenSourceChangedProfiledRun(source, oldTree, ts)
+}
+
+func (p *Parser) parseIncrementalWithTokenSourceChangedProfiledRun(source []byte, oldTree *Tree, ts TokenSource) (*Tree, IncrementalParseProfile, error) {
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
 	p.fullParseRetryPassesTaken = 0

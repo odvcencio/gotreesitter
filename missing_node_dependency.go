@@ -292,7 +292,7 @@ func copyMissingNodeDependency(dst, src *Node, offset *cloneOffset) bool {
 		return false
 	}
 	if offset != nil {
-		dependency.stackByte = addUint32Delta(dependency.stackByte, int64(offset.byteDelta))
+		dependency.stackByte = offset.offsetByte(dependency.stackByte)
 		dependency.stackPoint = offset.offsetPoint(dependency.stackPoint)
 	}
 	return dst.ownerArena.setMissingNodeDependency(dst, dependency)

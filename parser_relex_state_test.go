@@ -183,37 +183,7 @@ func TestNoLiveStackCanAcceptLookaheadRequiresEveryEligibleVersionToReject(t *te
 }
 
 func TestTryRelexSingleParserStateAcceptsOnlyZeroWidthExternalShift(t *testing.T) {
-	lang := &Language{
-		Name:            "javascript",
-		StateCount:      4,
-		SymbolCount:     4,
-		TokenCount:      4,
-		SymbolNames:     []string{"end", "original", "candidate", "_automatic_semicolon"},
-		ExternalSymbols: []Symbol{3},
-		ExternalScanner: zeroWidthRelexExternalScanner{},
-		LexStates: []LexState{
-			{
-				Default: -1,
-				EOF:     -1,
-				Transitions: []LexTransition{
-					{Lo: 'x', Hi: 'x', NextState: 1},
-				},
-			},
-			{AcceptToken: 2, Default: -1, EOF: -1},
-		},
-		LexModes: []LexMode{{LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}},
-		ParseTable: [][]uint16{
-			make([]uint16, 4),
-			make([]uint16, 4),
-			make([]uint16, 4),
-			make([]uint16, 4),
-		},
-		ParseActions: []ParseActionEntry{
-			{},
-			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}},
-		},
-	}
-	lang.ParseTable[1][3] = 1
+	lang := zeroWidthRelexLanguage()
 	p := NewParser(lang)
 	stacks := []glrStack{
 		{entries: []stackEntry{{state: 1}}},
@@ -234,7 +204,7 @@ func TestTryRelexSingleParserStateAcceptsOnlyZeroWidthExternalShift(t *testing.T
 		t.Fatal("generic relex rejected a stateless external scanner")
 	}
 
-	got, ok := p.tryRelexSingleParserState(original, 1, ts, stacks, &parserScratch{})
+	got, ok := p.tryRelexSingleParserState(original, 1, ts, stacks, &parserScratch{}, nil)
 	if !ok {
 		t.Fatal("zero-width external shift was rejected")
 	}
@@ -394,7 +364,7 @@ func TestTryRelexSingleParserStateRejectedCandidateRestoresDFATransaction(t *tes
 	ts.zeroWidthPos = 13
 	ts.zeroWidthCount = 3
 
-	if _, ok := p.tryRelexSingleParserState(original, 1, ts, stacks, &parserScratch{}); ok {
+	if _, ok := p.tryRelexSingleParserState(original, 1, ts, stacks, &parserScratch{}, nil); ok {
 		t.Fatal("non-zero-width replacement was accepted")
 	}
 	if ts.lexer.pos != 1 || ts.lexer.row != 4 || ts.lexer.col != 7 {
@@ -420,5 +390,137 @@ func TestTryRelexSingleParserStateRejectedCandidateRestoresDFATransaction(t *tes
 	}
 	if ts.state != 1 || len(ts.glrStates) != 2 || ts.glrStates[0] != 1 || ts.glrStates[1] != 2 {
 		t.Fatalf("parser/GLR states = %d/%v, want current frontier 1/[1 2]", ts.state, ts.glrStates)
+	}
+}
+
+// refusedRelexLanguage lexes `x` as symbol 2, which state 1 shifts as an
+// extra, so both DFA re-lex helpers find symbol 2 for a lookahead lexed as 1.
+func refusedRelexLanguage() *Language {
+	lang := &Language{
+		Name:        "refused_relex",
+		StateCount:  4,
+		SymbolCount: 3,
+		TokenCount:  3,
+		SymbolNames: []string{"end", "original", "candidate"},
+		LexStates: []LexState{
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'x', Hi: 'x', NextState: 1}}},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+		},
+		LexModes:   []LexMode{{LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}},
+		ParseTable: [][]uint16{make([]uint16, 3), make([]uint16, 3), make([]uint16, 3), make([]uint16, 3)},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1, Extra: true}}},
+		},
+	}
+	lang.ParseTable[1][2] = 1
+	return lang
+}
+
+// zeroWidthRelexLanguage gives state 1 a single shift on the zero-width
+// external symbol 3 that the scanner emits before `x`.
+func zeroWidthRelexLanguage() *Language {
+	lang := &Language{
+		Name:            "javascript",
+		StateCount:      4,
+		SymbolCount:     4,
+		TokenCount:      4,
+		SymbolNames:     []string{"end", "original", "candidate", "_automatic_semicolon"},
+		ExternalSymbols: []Symbol{3},
+		ExternalScanner: zeroWidthRelexExternalScanner{},
+		LexStates: []LexState{
+			{
+				Default: -1,
+				EOF:     -1,
+				Transitions: []LexTransition{
+					{Lo: 'x', Hi: 'x', NextState: 1},
+				},
+			},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{{LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}},
+		ParseTable: [][]uint16{
+			make([]uint16, 4),
+			make([]uint16, 4),
+			make([]uint16, 4),
+			make([]uint16, 4),
+		},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}},
+		},
+	}
+	lang.ParseTable[1][3] = 1
+	return lang
+}
+
+// A reading the stack has already dispatched is refused, and the refusal must
+// leave the lexer where it was, as a candidate the helper rejects itself
+// does; otherwise the next token starts at the refused candidate's end.
+func TestDFARelexRefusedReadingRestoresLexer(t *testing.T) {
+	lang := refusedRelexLanguage()
+	p := NewParser(lang)
+	original := Token{Symbol: 1, StartByte: 0, EndByte: 1, EndPoint: Point{Column: 1}}
+	reading := Token{Symbol: 2, StartByte: 0, EndByte: 1}
+	helpers := []struct {
+		name  string
+		relex func(Token, StateID, TokenSource, *stackRelexReadings) (Token, bool)
+	}{
+		{"current state", p.tryRelexCurrentStateDFA},
+		{"broad", p.tryRelexBroadDFA},
+	}
+	for _, h := range helpers {
+		for _, seen := range []bool{false, true} {
+			ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, []byte("xx")), lang, p.lookupActionIndex, nil, nil, nil)
+			ts.lexer.pos, ts.lexer.row, ts.lexer.col = 2, 3, 4
+			var readings stackRelexReadings
+			if seen {
+				readings.admit(1, reading)
+			}
+			got, ok := h.relex(original, 1, ts, &readings)
+			if seen {
+				if ok {
+					t.Fatalf("%s: an already dispatched reading was returned: %+v", h.name, got)
+				}
+				if ts.lexer.pos != 2 || ts.lexer.row != 3 || ts.lexer.col != 4 {
+					t.Fatalf("%s: lexer = %d/%d/%d after a refused reading, want 2/3/4", h.name, ts.lexer.pos, ts.lexer.row, ts.lexer.col)
+				}
+				continue
+			}
+			if !ok || got.Symbol != 2 || ts.lexer.pos != 1 {
+				t.Fatalf("%s: ok=%v got %+v with lexer at %d, want symbol 2 with lexer at 1", h.name, ok, got, ts.lexer.pos)
+			}
+			if readings.n != 1 {
+				t.Fatalf("%s: %d readings recorded, want 1", h.name, readings.n)
+			}
+		}
+	}
+}
+
+// A zero-width shift the stack has already dispatched is refused, and the
+// refusal must roll the scanner transaction back like any rejected probe.
+func TestTryRelexSingleParserStateRefusedReadingRestoresDFATransaction(t *testing.T) {
+	lang := zeroWidthRelexLanguage()
+	p := NewParser(lang)
+	stacks := []glrStack{
+		{entries: []stackEntry{{state: 1}}},
+		{entries: []stackEntry{{state: 2}}},
+	}
+	original := Token{Symbol: 1, StartByte: 0, EndByte: 1, EndPoint: Point{Column: 1}}
+	externalValidByState := make([][]uint16, 4)
+	externalValidByState[1] = []uint16{0}
+	ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, []byte("x")), lang, p.lookupActionIndex, nil, externalValidByState, nil)
+	ts.lexer.pos = 1
+	ts.lexer.col = 1
+	ts.state = 2
+	ts.glrStates = []StateID{1, 2}
+
+	var readings stackRelexReadings
+	readings.admit(1, Token{Symbol: 3})
+	if got, ok := p.tryRelexSingleParserState(original, 1, ts, stacks, &parserScratch{}, &readings); ok {
+		t.Fatalf("an already dispatched reading was returned: %+v", got)
+	}
+	if ts.lexer.pos != 1 || ts.lexer.col != 1 {
+		t.Fatalf("lexer = pos %d col %d, want restored 1/1", ts.lexer.pos, ts.lexer.col)
 	}
 }

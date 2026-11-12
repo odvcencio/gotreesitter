@@ -53,6 +53,8 @@ var knownHeaders = map[string]header{
 	"8f5ea110cbeb7bd849322bddc9815ad18dc550611b5331317da774c2f4047a92": {eofDeclared: true, eofSet: false, hasMap: false, hasSet: false},
 	// 1 grammar; no ADVANCE_MAP, no set_contains
 	"5a51af1cca99044757923e22ae1f8597dd7a2c7313248b40cfb6947a9fdf3e55": {eofDeclared: true, eofSet: false, hasMap: false, hasSet: false},
+	// 1 grammar; the standard header of the 180b893c8734 group with the two lines "// @generated" and an empty line added at the top (a diff against that header shows only those two lines)
+	"f1d32ece598a2dc68abc4f735f84c243484e1126ee9b23288522c23b07b73651": {eofDeclared: true, eofSet: false, hasMap: true, hasSet: true},
 	// 1 grammar; eof is not declared
 	"ed3abc20269b10767556429deb6fab6ec91e3cbc5476218b871e802e2a1a70c5": {eofDeclared: false, eofSet: false, hasMap: false, hasSet: false},
 }

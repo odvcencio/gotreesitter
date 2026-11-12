@@ -117,6 +117,8 @@ var (
 // DerivationSetCensusBuilt reports whether this binary carries the
 // derivation-set census. It is true only under the gts_derivation_set_census
 // build tag; the shipped build's stub returns false.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DerivationSetCensusBuilt() bool { return true }
 
 // DerivationSetCensusReset drops every recorded accept. Call it before each

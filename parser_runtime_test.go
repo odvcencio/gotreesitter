@@ -1360,24 +1360,7 @@ func assertParseRuntimeArenaBreakdown(t *testing.T, tree *Tree, rt ParseRuntime)
 	if !ok {
 		t.Fatal("ArenaBreakdown = nil, want populated")
 	}
-	breakdown := arenaBreakdown.NodeStructBytesAllocated +
-		arenaBreakdown.NodeFieldMetadataBytesAllocated +
-		arenaBreakdown.NoTreeNodeBytesAllocated +
-		arenaBreakdown.CompactFullLeafBytesAllocated +
-		arenaBreakdown.PendingParentBytesAllocated +
-		arenaBreakdown.PendingChildEntryBytesAllocated +
-		arenaBreakdown.RawShapeBytesAllocated +
-		arenaBreakdown.RawShapeChildBytesAllocated +
-		arenaBreakdown.RawShapeHashCacheBytesAllocated +
-		arenaBreakdown.FinalChildSidecarBytesAllocated +
-		arenaBreakdown.MissingNodeDependencyBytesAllocated +
-		arenaBreakdown.CompactReuseDependencyBytesAllocated +
-		arenaBreakdown.LegacyReuseDependencyBytesAllocated +
-		arenaBreakdown.CompactCheckpointLeafBytesAllocated +
-		arenaBreakdown.ChildSliceBytesAllocated +
-		arenaBreakdown.FieldIDBytesAllocated +
-		arenaBreakdown.FieldSourceBytesAllocated +
-		rt.ExternalScannerCheckpointBytesAllocated
+	breakdown := arenaBreakdownByteSum(&arenaBreakdown) + rt.ExternalScannerCheckpointBytesAllocated
 	if rt.ArenaBytesAllocated != breakdown {
 		t.Fatalf("arena bytes = %d, breakdown sum = %d", rt.ArenaBytesAllocated, breakdown)
 	}

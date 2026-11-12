@@ -22,10 +22,16 @@ func main() {
 	lexStatesOnly := flag.Bool("lexstates-only", false, "batch mode: only (re)generate *_external_lex_states_gen.go sidecars; never touch blobs, register stubs, or the embedded loader aggregate")
 	reservedWordsOnly := flag.Bool("reservedwords-only", false, "batch mode: only (re)generate *_reserved_words_gen.go sidecars; never touch blobs, register stubs, or the embedded loader aggregate")
 	aliasMapOnly := flag.Bool("alias-map-only", false, "refresh only nonterminal alias metadata in the existing -output blob from -input parser.c")
+	lexExactOnly := flag.Bool("lexexact-only", false, "write the exact-lexer record (-outdir/lex_exact/<name>.lexx and <name>_lex_exact_gen.go) of the shipped blob at -output from -input parser.c; never writes the blob")
 	only := flag.String("only", "", "-lexstates-only/-reservedwords-only mode: comma-separated list of manifest language names to restrict to (ignored by plain batch mode, which always processes every manifest entry)")
 	flag.Parse()
 	if *aliasMapOnly && (*manifest != "" || *lexStatesOnly || *reservedWordsOnly) {
 		fmt.Fprintln(os.Stderr, "-alias-map-only requires single-file -input and -output")
+		os.Exit(2)
+	}
+
+	if *lexExactOnly && (*manifest != "" || *lexStatesOnly || *reservedWordsOnly || *aliasMapOnly || *input == "" || *output == "" || *outdir == "") {
+		fmt.Fprintln(os.Stderr, "-lexexact-only requires -input parser.c, -output <blob path> and -outdir, and no other mode")
 		os.Exit(2)
 	}
 
@@ -73,6 +79,19 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "read %s: %v\n", *input, err)
 		os.Exit(1)
+	}
+
+	if *lexExactOnly {
+		header, err := os.ReadFile(filepath.Join(filepath.Dir(*input), "tree_sitter", "parser.h"))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "lexexact-only: the grammar's own parser.h is needed (it defines the lexer macros): %v\n", err)
+			os.Exit(1)
+		}
+		if err := RunLexExactOnly(string(source), string(header), *output, *outdir, *name); err != nil {
+			fmt.Fprintf(os.Stderr, "lexexact-only: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	grammar, err := ExtractGrammar(string(source))

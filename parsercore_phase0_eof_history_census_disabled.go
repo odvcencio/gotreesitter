@@ -8,4 +8,6 @@ func (s *diagnosticParserCoreGenericScheduler) censusEOFAcceptHistoryFrontier(_ 
 
 // EOFAcceptHistoryCensusBuilt reports whether this binary includes the G2
 // diagnostic census.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func EOFAcceptHistoryCensusBuilt() bool { return false }

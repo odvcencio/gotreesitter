@@ -9,6 +9,19 @@
 // bytes of its saved state. Where the two differ, a port keeps its default
 // behaviour and switches to the C behaviour when the core turns the mode on.
 //
+// The reference of the mode is one scanner: the pinned C scanner compiled with
+// signed char for a little-endian target (the C oracle of CI is linux/amd64). A
+// port follows it on every Go target, so a pure-Go parse gives the same tree on
+// every platform. C itself gives other results on other targets where a scanner
+// depends on the signedness of char or on native byte order; a port does not copy
+// that. Where a port depends on either: hcl uses CHAR_MAX 127 and little-endian
+// state fields; teal reads opening_quote as a signed char and keeps its state
+// little-endian; racket builds the strcmp buffers of its here-string comparison
+// little-endian. An unsigned-char target differs from the reference for an hcl
+// heredoc identifier of 128 or more letters and for a teal quote byte at or above
+// 0x80; a big-endian target differs for racket's here-string comparison and for
+// the hcl and teal state layouts.
+//
 // Nothing is discovered. A port that has been checked against its C scanner
 // registers its scanner type and the type of the payload its Create returns, with
 // whether it has a behavioural mode. The core serves a grammar only when its

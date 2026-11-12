@@ -185,3 +185,33 @@ func TestTrailingEOFEagerWiringSelfLoopFailsClosedAsInvariantViolation(t *testin
 		t.Fatal("validator repaired or mutated the historical self-loop")
 	}
 }
+
+func TestStackRelexReadingsAdmitsEachReadingOnce(t *testing.T) {
+	var r stackRelexReadings
+	ident := Token{Symbol: 1, StartByte: 4, EndByte: 12}
+	keyword := Token{Symbol: 189, StartByte: 4, EndByte: 12}
+	if !r.admit(113, ident) || !r.admit(113, keyword) {
+		t.Fatal("first readings must be admitted")
+	}
+	if r.admit(113, ident) || r.admit(113, keyword) {
+		t.Fatal("a repeated reading must be refused")
+	}
+	if !r.admit(114, ident) {
+		t.Fatal("the same token in another state is a new reading")
+	}
+	if !r.admit(113, Token{Symbol: 1, StartByte: 4, EndByte: 13}) {
+		t.Fatal("the same symbol over another span is a new reading")
+	}
+}
+
+func TestStackRelexReadingsRefusesOnceFull(t *testing.T) {
+	var r stackRelexReadings
+	for i := range len(r.seen) {
+		if !r.admit(StateID(i), Token{Symbol: 1}) {
+			t.Fatalf("reading %d refused before capacity", i)
+		}
+	}
+	if r.admit(StateID(len(r.seen)), Token{Symbol: 1}) {
+		t.Fatal("a new reading beyond capacity must be refused")
+	}
+}

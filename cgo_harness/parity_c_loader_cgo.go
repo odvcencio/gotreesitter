@@ -122,7 +122,7 @@ const (
 	COracleRuntimeVersion  = "0.27.1"
 	COracleRuntimeCommit   = "10eb5ac119eec9cb4267a8e035066473983f5f3a"
 	COracleWorkCountPatch  = "tree_sitter_v0_27_1.patch"
-	COracleGrammarCFlags   = "-std=c11 -fPIC -O2 -I ."
+	COracleGrammarCFlags   = "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I ."
 )
 
 // COracleBuildIdentity describes the in-process cgo parity transport. The
@@ -1156,6 +1156,25 @@ func clonePinnedCheckout(commit, dest string) error {
 	return runCommandRetry("", 2, "git", "-C", dest, "checkout", "--detach", "FETCH_HEAD")
 }
 
+// parityGrammarCCompileArgs returns the arguments for compiling one C source of a grammar oracle.
+// The first seven match COracleGrammarCFlags (a test checks this). -fsigned-char makes the oracle
+// the pinned C source compiled with signed char on every architecture (char is unsigned by default
+// on linux/arm64, so a scanner that compares or widens char values could answer differently there).
+// -fno-strict-aliasing is part of
+// them because tree-sitter's array.h casts a scanner's own array structs to its Array type; a
+// compiler that assumes strict aliasing may then keep a stale "contents" pointer across the
+// growing realloc and write an element into the freed block (tree-sitter-haskell scanner.c:651).
+// Upstream's own builds do not pass the flag, so an oracle must not depend on the compiler's
+// choice there.
+func parityGrammarCCompileArgs(sourceName, obj string) []string {
+	return []string{"-std=c11", "-fPIC", "-O2", "-fno-strict-aliasing", "-fsigned-char", "-I", ".", "-c", sourceName, "-o", obj}
+}
+
+// parityGrammarCXXCompileArgs is the same for a C++ scanner.
+func parityGrammarCXXCompileArgs(sourceName, obj string) []string {
+	return []string{"-std=c++17", "-fPIC", "-O2", "-fno-strict-aliasing", "-fsigned-char", "-I", ".", "-c", sourceName, "-o", obj}
+}
+
 func compileParserShared(entry parityLockEntry, repoDir, outSO, objDir string, capture *paritySourceCapture) error {
 	srcDir, parserPath, regenerated, err := resolveParserSourceWithCapture(entry, repoDir)
 	if err != nil {
@@ -1185,35 +1204,11 @@ func compileParserShared(entry parityLockEntry, repoDir, outSO, objDir string, c
 		switch ext {
 		case ".cc", ".cpp", ".cxx":
 			hasCXX = true
-			if err := runCommand(
-				srcDir,
-				"c++",
-				"-std=c++17",
-				"-fPIC",
-				"-O2",
-				"-I",
-				".",
-				"-c",
-				sourceName,
-				"-o",
-				obj,
-			); err != nil {
+			if err := runCommand(srcDir, "c++", parityGrammarCXXCompileArgs(sourceName, obj)...); err != nil {
 				return err
 			}
 		default:
-			if err := runCommand(
-				srcDir,
-				"cc",
-				"-std=c11",
-				"-fPIC",
-				"-O2",
-				"-I",
-				".",
-				"-c",
-				sourceName,
-				"-o",
-				obj,
-			); err != nil {
+			if err := runCommand(srcDir, "cc", parityGrammarCCompileArgs(sourceName, obj)...); err != nil {
 				return err
 			}
 		}

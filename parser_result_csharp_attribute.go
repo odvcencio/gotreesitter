@@ -67,7 +67,7 @@ func csharpRecoverAttributedTopLevelTypeDeclarationFromRange(source []byte, decl
 		return nil, false
 	}
 	defer tree.Release()
-	offsetRoot := tree.RootNodeWithOffset(declStart, advancePointByBytes(Point{}, source[:declStart]))
+	offsetRoot := tree.rootNodeWithRecoveryOffset(declStart, advancePointByBytes(Point{}, source[:declStart]))
 	if offsetRoot == nil {
 		return nil, false
 	}
