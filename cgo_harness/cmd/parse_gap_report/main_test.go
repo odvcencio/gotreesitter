@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -308,29 +309,26 @@ func TestStatsFromRuntimeReportsScratchAndTransientMemory(t *testing.T) {
 }
 
 func TestArenaLiveBytesIncludesEveryRuntimeArenaComponent(t *testing.T) {
-	breakdown := gotreesitter.ArenaBreakdown{
-		LegacyReuseDependencyBytesAllocated:  17,
-		CompactReuseDependencyBytesAllocated: 16,
-
-		NodeStructBytesAllocated:            1,
-		NodeFieldMetadataBytesAllocated:     14,
-		NoTreeNodeBytesAllocated:            2,
-		CompactFullLeafBytesAllocated:       3,
-		PendingParentBytesAllocated:         4,
-		PendingChildEntryBytesAllocated:     5,
-		RawShapeBytesAllocated:              6,
-		RawShapeChildBytesAllocated:         7,
-		RawShapeHashCacheBytesAllocated:     13,
-		FinalChildSidecarBytesAllocated:     8,
-		MissingNodeDependencyBytesAllocated: 15,
-		CompactCheckpointLeafBytesAllocated: 9,
-		ChildSliceBytesAllocated:            10,
-		FieldIDBytesAllocated:               11,
-		FieldSourceBytesAllocated:           12,
+	// Give every int64 byte field of ArenaBreakdown a distinct value, so a
+	// field that arenaLiveBytes leaves out changes the comparison. The merge
+	// scratch is not part of the arena total.
+	var breakdown gotreesitter.ArenaBreakdown
+	v := reflect.ValueOf(&breakdown).Elem()
+	var want int64
+	next := int64(1)
+	for i := 0; i < v.NumField(); i++ {
+		name := v.Type().Field(i).Name
+		if v.Field(i).Kind() != reflect.Int64 || !strings.HasSuffix(name, "BytesAllocated") || name == "MergeScratchBytesAllocated" {
+			continue
+		}
+		v.Field(i).SetInt(next)
+		want += next
+		next++
 	}
+	const checkpointBytes = 1000
 	runtime := gotreesitter.ParseRuntime{
-		ExternalScannerCheckpointBytesAllocated: 13,
-		ArenaBytesAllocated:                     149 + 17,
+		ExternalScannerCheckpointBytesAllocated: checkpointBytes,
+		ArenaBytesAllocated:                     want + checkpointBytes,
 	}
 	if got, want := arenaLiveBytes(breakdown, runtime.ExternalScannerCheckpointBytesAllocated), runtime.ArenaBytesAllocated; got != want {
 		t.Fatalf("arenaLiveBytes = %d, runtime arena total = %d", got, want)

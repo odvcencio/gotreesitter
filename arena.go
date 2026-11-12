@@ -1987,38 +1987,101 @@ func (a *nodeArena) compactCheckpointLeafBytesAllocated() int64 {
 	return total
 }
 
+// Components of nodeArena.allocatedBytes. recomputeAllocatedBytes adds them up
+// and collectArenaBreakdown reports them, both through arenaByteComponents, so
+// a component has one place to be added. arenaByteComponentFields names the
+// field that reports each one (ParseRuntime for the scanner checkpoints,
+// ArenaBreakdown for the rest); TestArenaByteComponentsHaveBreakdownFields
+// fails when a component has no such field.
+const (
+	arenaByteNodeStruct = iota
+	arenaByteViews
+	arenaByteNodeFieldMetadata
+	arenaByteNoTreeNode
+	arenaByteCompactFullLeaf
+	arenaBytePendingParent
+	arenaBytePendingChildEntry
+	arenaByteRawShape
+	arenaByteRawShapeChild
+	arenaByteRawShapeHashCache
+	arenaByteFinalChildSidecar
+	arenaByteMissingNodeDependency
+	arenaByteCompactReuseDependency
+	arenaByteLegacyReuseDependency
+	arenaByteCompactCheckpointLeaf
+	arenaByteChildSlice
+	arenaByteFieldID
+	arenaByteFieldSource
+	arenaByteColumnDependentSpan
+	arenaByteScannerCheckpoint
+	arenaByteScannerCheckpointIdentity
+	arenaByteComponentCount
+)
+
+var arenaByteComponentFields = [arenaByteComponentCount]string{
+	arenaByteNodeStruct:                "NodeStructBytesAllocated",
+	arenaByteViews:                     "ViewBytesAllocated",
+	arenaByteNodeFieldMetadata:         "NodeFieldMetadataBytesAllocated",
+	arenaByteNoTreeNode:                "NoTreeNodeBytesAllocated",
+	arenaByteCompactFullLeaf:           "CompactFullLeafBytesAllocated",
+	arenaBytePendingParent:             "PendingParentBytesAllocated",
+	arenaBytePendingChildEntry:         "PendingChildEntryBytesAllocated",
+	arenaByteRawShape:                  "RawShapeBytesAllocated",
+	arenaByteRawShapeChild:             "RawShapeChildBytesAllocated",
+	arenaByteRawShapeHashCache:         "RawShapeHashCacheBytesAllocated",
+	arenaByteFinalChildSidecar:         "FinalChildSidecarBytesAllocated",
+	arenaByteMissingNodeDependency:     "MissingNodeDependencyBytesAllocated",
+	arenaByteCompactReuseDependency:    "CompactReuseDependencyBytesAllocated",
+	arenaByteLegacyReuseDependency:     "LegacyReuseDependencyBytesAllocated",
+	arenaByteCompactCheckpointLeaf:     "CompactCheckpointLeafBytesAllocated",
+	arenaByteChildSlice:                "ChildSliceBytesAllocated",
+	arenaByteFieldID:                   "FieldIDBytesAllocated",
+	arenaByteFieldSource:               "FieldSourceBytesAllocated",
+	arenaByteColumnDependentSpan:       "ColumnDependentSpanBytesAllocated",
+	arenaByteScannerCheckpoint:         "ExternalScannerCheckpointBytesAllocated",
+	arenaByteScannerCheckpointIdentity: "CheckpointIdentityBytesAllocated",
+}
+
+// arenaByteComponents returns the bytes of every component counted in
+// allocatedBytes. It returns an array so the reset path allocates nothing.
+func (a *nodeArena) arenaByteComponents() (c [arenaByteComponentCount]int64) {
+	if a == nil {
+		return c
+	}
+	if a.views != nil {
+		c[arenaByteViews] = int64(a.views.retainedBytes())
+	}
+	c[arenaByteNodeStruct] = a.nodeStructBytesAllocated()
+	c[arenaByteNodeFieldMetadata] = a.nodeFieldMetadataBytesAllocated()
+	c[arenaByteNoTreeNode] = a.noTreeNodeBytesAllocated()
+	c[arenaByteCompactFullLeaf] = a.compactFullLeafBytesAllocated()
+	c[arenaBytePendingParent] = a.pendingParentBytesAllocated()
+	c[arenaBytePendingChildEntry] = a.pendingChildEntryBytesAllocated()
+	c[arenaByteRawShape] = a.rawShapeBytesAllocated()
+	c[arenaByteRawShapeChild] = a.rawShapeChildBytesAllocated()
+	c[arenaByteRawShapeHashCache] = a.rawShapeHashCacheBytesAllocated()
+	c[arenaByteFinalChildSidecar] = a.finalChildSidecarBytesAllocated()
+	c[arenaByteMissingNodeDependency] = missingNodeDependencyEntryBytesForCap(cap(a.missingNodeDependencies))
+	c[arenaByteCompactReuseDependency] = a.compactReuseDependencyBytesAllocated()
+	c[arenaByteLegacyReuseDependency] = a.legacyReuseDependencyBytesAllocated()
+	c[arenaByteCompactCheckpointLeaf] = a.compactCheckpointLeafBytesAllocated()
+	c[arenaByteChildSlice] = a.childSliceBytesAllocated()
+	c[arenaByteFieldID] = a.fieldIDBytesAllocated()
+	c[arenaByteFieldSource] = a.fieldSourceBytesAllocated()
+	c[arenaByteColumnDependentSpan] = columnDependentSpanBytesForCap(cap(a.columnDependentSpans))
+	c[arenaByteScannerCheckpoint] = a.externalScannerCheckpointBytesAllocated()
+	c[arenaByteScannerCheckpointIdentity] = a.externalScannerCheckpointIdentity.bytesAllocated()
+	return c
+}
+
 func (a *nodeArena) recomputeAllocatedBytes() {
 	if a == nil {
 		return
 	}
-	viewBytes := int64(0)
-	if a.views != nil {
-		viewBytes = int64(a.views.retainedBytes())
+	var total int64
+	for _, n := range a.arenaByteComponents() {
+		total += n
 	}
-	total := a.nodeStructBytesAllocated() +
-		viewBytes +
-		a.nodeFieldMetadataBytesAllocated() +
-		a.noTreeNodeBytesAllocated() +
-		a.compactFullLeafBytesAllocated() +
-		a.pendingParentBytesAllocated() +
-		a.pendingChildEntryBytesAllocated() +
-		a.rawShapeBytesAllocated() +
-		a.rawShapeChildBytesAllocated() +
-		a.rawShapeHashCacheBytesAllocated() +
-		a.finalChildSidecarBytesAllocated() +
-		missingNodeDependencyEntryBytesForCap(cap(a.missingNodeDependencies)) +
-		a.compactReuseDependencyBytesAllocated() +
-		a.legacyReuseDependencyBytesAllocated() +
-		a.compactCheckpointLeafBytesAllocated() +
-		a.childSliceBytesAllocated() +
-		a.fieldIDBytesAllocated() +
-		a.fieldSourceBytesAllocated() +
-		columnDependentSpanBytesForCap(cap(a.columnDependentSpans))
-	total += a.externalScannerNodeCheckpoints.bytesAllocated()
-	for i := range a.externalScannerNodeCheckpointSlabs {
-		total += a.externalScannerNodeCheckpointSlabs[i].checkpoints.bytesAllocated()
-	}
-	total += a.externalScannerCheckpointIdentity.bytesAllocated()
 	a.allocatedBytes = total
 }
 
@@ -2352,6 +2415,7 @@ func (a *nodeArena) collectArenaBreakdown() *ArenaBreakdown {
 	if a == nil {
 		return nil
 	}
+	components := a.arenaByteComponents()
 	nodeUsage := a.nodeUsageStats()
 	fieldSourceElements := a.fieldSourceElementsUsed()
 	if payload := a.externalScannerSnapshotPayloadBytes; fieldSourceElements >= payload {
@@ -2360,28 +2424,31 @@ func (a *nodeArena) collectArenaBreakdown() *ArenaBreakdown {
 		fieldSourceElements = 0
 	}
 	breakdown := &ArenaBreakdown{
-		LegacyReuseDependencyBytesAllocated:  a.legacyReuseDependencyBytesAllocated(),
-		CompactReuseDependencyBytesAllocated: a.compactReuseDependencyBytesAllocated(),
+		LegacyReuseDependencyBytesAllocated:  components[arenaByteLegacyReuseDependency],
+		CompactReuseDependencyBytesAllocated: components[arenaByteCompactReuseDependency],
 
-		NodeStructBytesAllocated:            a.nodeStructBytesAllocated(),
-		NodeFieldMetadataBytesAllocated:     a.nodeFieldMetadataBytesAllocated(),
-		NoTreeNodeBytesAllocated:            a.noTreeNodeBytesAllocated(),
-		CompactFullLeafBytesAllocated:       a.compactFullLeafBytesAllocated(),
-		PendingParentBytesAllocated:         a.pendingParentBytesAllocated(),
-		PendingChildEntryBytesAllocated:     a.pendingChildEntryBytesAllocated(),
-		RawShapeBytesAllocated:              a.rawShapeBytesAllocated(),
-		RawShapeChildBytesAllocated:         a.rawShapeChildBytesAllocated(),
-		RawShapeHashCacheBytesAllocated:     a.rawShapeHashCacheBytesAllocated(),
-		FinalChildSidecarBytesAllocated:     a.finalChildSidecarBytesAllocated(),
-		MissingNodeDependencyBytesAllocated: missingNodeDependencyEntryBytesForCap(cap(a.missingNodeDependencies)),
-		CompactCheckpointLeafBytesAllocated: a.compactCheckpointLeafBytesAllocated(),
+		NodeStructBytesAllocated:            components[arenaByteNodeStruct],
+		NodeFieldMetadataBytesAllocated:     components[arenaByteNodeFieldMetadata],
+		NoTreeNodeBytesAllocated:            components[arenaByteNoTreeNode],
+		CompactFullLeafBytesAllocated:       components[arenaByteCompactFullLeaf],
+		PendingParentBytesAllocated:         components[arenaBytePendingParent],
+		PendingChildEntryBytesAllocated:     components[arenaBytePendingChildEntry],
+		RawShapeBytesAllocated:              components[arenaByteRawShape],
+		RawShapeChildBytesAllocated:         components[arenaByteRawShapeChild],
+		RawShapeHashCacheBytesAllocated:     components[arenaByteRawShapeHashCache],
+		FinalChildSidecarBytesAllocated:     components[arenaByteFinalChildSidecar],
+		MissingNodeDependencyBytesAllocated: components[arenaByteMissingNodeDependency],
+		CompactCheckpointLeafBytesAllocated: components[arenaByteCompactCheckpointLeaf],
+		ColumnDependentSpanBytesAllocated:   components[arenaByteColumnDependentSpan],
+		ViewBytesAllocated:                  components[arenaByteViews],
+		CheckpointIdentityBytesAllocated:    components[arenaByteScannerCheckpointIdentity],
 		MissingNodeDependencyCount:          uint64(len(a.missingNodeDependencies)),
 		PendingChildEntriesAllocated:        a.pendingChildEntriesAllocated,
 		PendingChildEntryCapacity:           a.pendingChildEntryCapacity(),
 		PendingChildEntryWaste:              a.pendingChildEntryWaste(),
-		ChildSliceBytesAllocated:            a.childSliceBytesAllocated(),
-		FieldIDBytesAllocated:               a.fieldIDBytesAllocated(),
-		FieldSourceBytesAllocated:           a.fieldSourceBytesAllocated(),
+		ChildSliceBytesAllocated:            components[arenaByteChildSlice],
+		FieldIDBytesAllocated:               components[arenaByteFieldID],
+		FieldSourceBytesAllocated:           components[arenaByteFieldSource],
 		ArenaNodesConstructed:               nodeUsage.live,
 		NodeLiveCount:                       nodeUsage.live,
 		NodeCapacityCount:                   nodeUsage.capacity,
