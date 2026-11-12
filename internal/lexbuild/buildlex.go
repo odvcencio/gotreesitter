@@ -423,7 +423,7 @@ func signatureOf(i int, st *lexState) lexSignature {
 // and then sorts them (Vec<Vec<u32>> compares element by element), which fixes
 // their order; that sort is reproduced.
 func minimizeLexTable(t *lexTable, parseLex []uint32) {
-	compares := 0
+	var compares int64
 	bySig := map[lexSignature][]uint32{}
 	var sigOrder []lexSignature
 	for i := range t.states {
@@ -500,12 +500,12 @@ func lexStatesDiffer(left, right *lexState, groupOf []uint32) bool {
 }
 
 // splitStateIDGroups is dedup.rs: fn split_state_id_groups.
-func splitStateIDGroups(states []lexState, groups *[][]uint32, groupOf []uint32, startGroup uint32, shouldSplit func(l, r *lexState, groupOf []uint32) bool, compares *int) bool {
+func splitStateIDGroups(states []lexState, groups *[][]uint32, groupOf []uint32, startGroup uint32, shouldSplit func(l, r *lexState, groupOf []uint32) bool, compares *int64) bool {
 	result := false
 	// Each call reads every group and clears one flag for each state, however
 	// few groups split: count that before the flags are made.
-	*compares += len(states) + len(*groups)
-	bMinCompares.check(*compares)
+	*compares += int64(len(states) + len(*groups))
+	bMinCompares.checkWork(*compares)
 	isSplit := make([]bool, len(states))
 	gid := startGroup
 	for int(gid) < len(*groups) {
@@ -516,8 +516,8 @@ func splitStateIDGroups(states []lexState, groups *[][]uint32, groupOf []uint32,
 			if isSplit[left] {
 				continue
 			}
-			*compares += (len(ids) - i - 1) * (1 + len(states[left].advances))
-			bMinCompares.check(*compares)
+			*compares += mulWork(len(ids)-i-1, 1+len(states[left].advances))
+			bMinCompares.checkWork(*compares)
 			for j := i + 1; j < len(ids); j++ {
 				right := ids[j]
 				if isSplit[right] {

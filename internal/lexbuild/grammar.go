@@ -613,6 +613,7 @@ func (p *RulePool) parseRule(j ruleJSON, isToken bool) (RuleID, error) {
 // buffer: appending to a string in a loop copies the prefix each time.
 func filterPatternFlags(flags string) string {
 	n := strings.Count(flags, "i")
+	ops.flagBytes.add(len(flags) + n) // bytes read, bytes written
 	if n == 0 {
 		return ""
 	}

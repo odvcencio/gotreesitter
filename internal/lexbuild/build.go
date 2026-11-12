@@ -123,12 +123,21 @@ func (p *Prepared) newTable(t lexTable) (*Table, error) {
 // transition: it evaluates the state at 2R+4 points (R is the number of ranges
 // of the state), and an evaluation reads the transitions in order until one
 // holds. One evaluation of a transition is a few binary searches.
-func rangesCost(st *lexState, plan *statePlan) int {
-	r := 0
+//
+// The product is formed in int64, after the operands are converted: with the
+// caps, a state of 80,500 ranges and 15,001 transitions costs 2,415,382,008,
+// which is above the largest 32-bit int.
+func rangesCost(st *lexState, plan *statePlan) int64 {
+	var r int64
 	for i := range st.advances {
-		r += st.advances[i].chars.rangeCount()
+		r += int64(st.advances[i].chars.rangeCount())
 	}
-	return (2*r + 4) * (len(plan.transitions) + 1)
+	return rangesCostOf(r, len(plan.transitions))
+}
+
+// rangesCostOf is (2r+4)(t+1) with the operands converted before the product.
+func rangesCostOf(ranges int64, transitions int) int64 {
+	return (2*ranges + 4) * (int64(transitions) + 1)
 }
 
 func (p *Prepared) newTableUnguarded(t lexTable) (*Table, error) {
@@ -137,11 +146,11 @@ func (p *Prepared) newTableUnguarded(t lexTable) (*Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	work, rangesWork := 0, 0
+	var work, rangesWork int64
 	for i := range t.states {
 		tb.plans = append(tb.plans, planState(&t.states[i], large, &work))
 		rangesWork += rangesCost(&t.states[i], &tb.plans[i])
-		bRangesWork.check(rangesWork)
+		bRangesWork.checkWork(rangesWork)
 	}
 	return tb, nil
 }

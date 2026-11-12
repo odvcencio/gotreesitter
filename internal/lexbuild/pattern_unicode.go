@@ -52,6 +52,7 @@ func classDifference(a, b []classRng) []classRng {
 	// stays at 0 and the scan is the generator's.
 	forward := classFast(a) && classFast(b)
 	start := 0
+	steps := 0 // ranges of b passed or compared (ops.classSteps)
 	var out []classRng
 	for _, r := range a {
 		cur := r
@@ -59,9 +60,11 @@ func classDifference(a, b []classRng) []classRng {
 		if forward {
 			for start < len(b) && b[start].hi < r.lo {
 				start++
+				steps++
 			}
 		}
 		for _, s := range b[start:] {
+			steps++
 			if s.hi < cur.lo {
 				continue
 			}
@@ -99,6 +102,7 @@ func classDifference(a, b []classRng) []classRng {
 			out = append(out, cur)
 		}
 	}
+	ops.classSteps.add(steps + len(a))
 	return out
 }
 

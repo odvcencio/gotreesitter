@@ -112,18 +112,18 @@ func getStartingChars(cursor *nfaCursor, g *LexicalGrammar) []CharSet {
 // getFollowingChars is token_conflicts.rs: fn get_following_chars.
 func getFollowingChars(starting []CharSet, following []TokenSet) []CharSet {
 	out := make([]CharSet, len(following))
-	work := 0 // ranges joined, over all tokens (bFollowChars)
+	var work int64 // ranges joined, over all tokens (bFollowChars)
 	for i := range following {
 		var sets []*CharSet
-		joined := 0
+		var joined int64
 		for _, tok := range following[i].symbols() {
 			if tok.IsTerminal() {
 				sets = append(sets, &starting[tok.Index])
-				joined += starting[tok.Index].rangeCount()
+				joined += int64(starting[tok.Index].rangeCount())
 			}
 		}
-		work += joined + len(sets) + 1
-		bFollowChars.check(work)
+		work += joined + int64(len(sets)) + 1
+		bFollowChars.checkWork(work)
 		out[i] = unionOf(sets)
 	}
 	return out

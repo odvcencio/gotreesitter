@@ -1,6 +1,9 @@
 package lexbuild
 
-import "sort"
+import (
+	"math/bits"
+	"sort"
+)
 
 // This file ports the part of render.rs that decides what each lex state does
 // on input: the choice between ADVANCE_MAP and conditions, the large
@@ -24,10 +27,10 @@ type largeSet struct {
 // ranges.
 func collectLargeCharacterSets(b *lexTableBuilder, g *LexicalGrammar) []largeSet {
 	var out []largeSet
-	work := 0
+	var work int64
 	has := func(c CharSet) bool {
-		work += len(out) * (1 + c.rangeCount())
-		bRenderWork.check(work)
+		work += mulWork(len(out), 1+c.rangeCount())
+		bRenderWork.checkWork(work)
 		for _, s := range out {
 			if equalCharSet(s.set, c) {
 				return true
@@ -162,19 +165,19 @@ type statePlan struct {
 
 // planState is render.rs: fn add_lex_state, from the first line after the
 // accept and end-of-input statements to END_STATE.
-func planState(st *lexState, large []largeSet, work *int) statePlan {
+func planState(st *lexState, large []largeSet, work *int64) statePlan {
 	var plan statePlan
 	var ruledOut CharSet
 	// Each comparison with the large sets reads all of them (assign and
 	// remove_intersection read the whole set, not only the ranges of the
 	// advance): count their ranges once for the state, and once more for each
 	// advance that is compared (below).
-	largeRanges := 0
+	var largeRanges int64
 	for _, ls := range large {
-		largeRanges += ls.set.rangeCount()
+		largeRanges += int64(ls.set.rangeCount())
 	}
-	*work += len(large)
-	bRenderWork.check(*work)
+	*work += int64(len(large))
+	bRenderWork.checkWork(*work)
 	leadingCount, leadingRanges := 0, 0
 	for _, ca := range st.advances {
 		simple := ca.action.inMainToken
@@ -211,15 +214,15 @@ func planState(st *lexState, large []largeSet, work *int) statePlan {
 	}
 	var charsCopy, largeCopy CharSet
 	for _, ca := range st.advances[leadingCount:] {
-		*work += 1 + ruledOut.rangeCount() + ca.chars.rangeCount()
-		bRenderWork.check(*work)
+		*work += int64(1 + ruledOut.rangeCount() + ca.chars.rangeCount())
+		bRenderWork.checkWork(*work)
 		simplified := ca.chars.simplifyIgnoring(ruledOut)
 
 		bestIx := -1
 		var bestAdd, bestRem CharSet
 		if simplified.rangeCount() >= largeCharacterRangeCount {
-			*work += len(large)*(1+simplified.rangeCount()) + largeRanges
-			bRenderWork.check(*work)
+			*work += mulWork(len(large), 1+simplified.rangeCount()) + largeRanges
+			bRenderWork.checkWork(*work)
 			for ix, ls := range large {
 				charsCopy.assign(simplified)
 				largeCopy.assign(ls.set)
@@ -314,6 +317,7 @@ func rangeConditionAt(rs []classRng, isIncluded bool, eof bool, look int64) bool
 
 // rangesContain reports whether look is in one of the sorted, disjoint ranges.
 func rangesContain(rs []classRng, look int64) bool {
+	ops.condProbes.add(bits.Len(uint(len(rs))) + 1)
 	i := sort.Search(len(rs), func(i int) bool { return int64(rs[i].hi) >= look })
 	return i < len(rs) && int64(rs[i].lo) <= look
 }
@@ -321,6 +325,13 @@ func rangesContain(rs []classRng, look int64) bool {
 // stepAt evaluates the rendered state at (eof, look): the first statement that
 // holds gives the step. ok is false if no statement holds.
 func (st *lexState) stepAt(plan *statePlan, eof bool, look int64) (target uint32, skip bool, ok bool) {
+	evals := 0
+	target, skip, ok = st.stepAtCount(plan, eof, look, &evals)
+	ops.transEvals.add(evals)
+	return
+}
+
+func (st *lexState) stepAtCount(plan *statePlan, eof bool, look int64, evals *int) (target uint32, skip bool, ok bool) {
 	if eof && st.hasEOF {
 		return st.eof.state, false, true
 	}
@@ -331,6 +342,7 @@ func (st *lexState) stepAt(plan *statePlan, eof bool, look int64) (target uint32
 		}
 	}
 	for _, t := range plan.transitions {
+		*evals++
 		cond := true
 		if t.hasCondition {
 			positive := false

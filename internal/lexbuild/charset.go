@@ -1,6 +1,9 @@
 package lexbuild
 
-import "sort"
+import (
+	"math/bits"
+	"sort"
+)
 
 // charEnd is nfa.rs: const END, one past char::MAX.
 const charEnd uint32 = 0x110000
@@ -103,6 +106,7 @@ func (c CharSet) add(other CharSet) CharSet {
 		return c
 	}
 	tail := c.r[p:]
+	ops.addSteps.add(len(tail) + len(other.r))
 	out := make([]urange, 0, len(tail)+len(other.r))
 	i, j := 0, 0
 	for i < len(tail) || j < len(other.r) {
@@ -142,6 +146,7 @@ func unionOf(sets []*CharSet) CharSet {
 	for _, s := range sets {
 		all = append(all, s.r...)
 	}
+	ops.unionRanges.add(n * (bits.Len(uint(n)) + 1)) // collected, and compared by the sort
 	sort.Slice(all, func(i, j int) bool { return all[i].start < all[j].start })
 	out := all[:1]
 	for _, r := range all[1:] {
@@ -192,26 +197,32 @@ func minU32(a, b uint32) uint32 {
 // pointer in effect: c.r is reassigned through the caller's copy, so callers
 // that keep using the value must use the returned set (add and addRange do).
 func (c *CharSet) addIntRange(i int, start, end uint32) int {
+	first := i
 	for i < len(c.r) {
 		rg := &c.r[i]
 		if rg.start > end {
 			c.r = append(c.r, urange{})
 			copy(c.r[i+1:], c.r[i:])
 			c.r[i] = urange{start, end}
+			ops.rangeSteps.add(i - first + 1 + len(c.r) - i) // passes, and the ranges moved
 			return i
 		}
 		if rg.end >= start {
 			rg.end = maxU32(rg.end, end)
 			rg.start = minU32(rg.start, start)
+			moved := 0
 			for i+1 < len(c.r) && c.r[i+1].start <= c.r[i].end {
 				c.r[i].end = maxU32(c.r[i].end, c.r[i+1].end)
 				c.r = append(c.r[:i+1], c.r[i+2:]...)
+				moved += len(c.r) - i
 			}
+			ops.rangeSteps.add(i - first + 1 + moved)
 			return i
 		}
 		i++
 	}
 	c.r = append(c.r, urange{start, end})
+	ops.rangeSteps.add(i - first + 1)
 	return i
 }
 
@@ -357,6 +368,7 @@ func (c *CharSet) removeIntersectionSteps(other *CharSet) (CharSet, int) {
 		steps += len(other.r) - ri
 	}
 	c.r, other.r = outC, outO
+	ops.mergeSteps.add(steps)
 	return CharSet{inter}, steps
 }
 

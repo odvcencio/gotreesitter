@@ -29,12 +29,21 @@
 // NewFirstLastSets. Each is more than ten times the largest value measured over
 // the same grammars.
 //
-// 3. Within the caps and budgets, the audit of the package (every place where
-// the result or the working state can grow faster than the grammar) bounds
-// memory by about one gibibyte and the number of simple steps by about
-// 6x10^10 (6.05x10^10, the sum of the limits below and of the caps; no single
-// input reaches every term). Both are computed from the limits, not measured
-// at the limits.
+// 3. Memory. The memory that a construction holds is bounded by the budgets.
+// The audit of the package (growth-audit in the pull request) takes every place
+// where the result or the working state can grow faster than the grammar,
+// multiplies the limit that counts the items there by an estimated size of one
+// item (a rule node 112 bytes, a production step 112 bytes, an automaton state
+// 80 bytes, a character range 8 bytes), and adds the constructions that are
+// held at the same time: about one gibibyte. The figure is computed from the
+// limits and the estimated sizes; it was not measured at the limits.
+//
+// 4. Work. What is enforced is this: each pass named in the list of budgets
+// below counts its work (steps, comparisons, evaluations or items, as the name
+// says) against its budget before it does that work, and stops with a
+// *SizeError when the count passes the limit. A pass without a budget in that
+// list is polynomial in the capped sizes of the input. The package claims no
+// bound on the total number of steps.
 //
 // Caps on the shape of the input:
 //

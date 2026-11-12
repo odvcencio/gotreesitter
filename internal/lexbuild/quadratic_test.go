@@ -13,8 +13,9 @@ import (
 // input (the review of draft pull request 1618, 4th round, and the search that
 // followed it). Each rewritten function is compared with a copy of the earlier
 // function kept here (the "Old" functions), on random inputs; and each input
-// that made an earlier version quadratic inside the caps is run with a time
-// limit that the earlier version missed by a factor of 100 or more.
+// that made an earlier version quadratic inside the caps is run and its
+// operation counter (opcount.go) is compared with a bound that the earlier
+// version missed by a factor of 20 or more. No test here asserts elapsed time.
 
 // ---- the earlier functions ----
 
@@ -621,6 +622,13 @@ func TestGetFollowingTokensMatchesPairwiseAdd(t *testing.T) {
 }
 
 // ---- inputs that made an earlier version quadratic inside the caps ----
+//
+// Each test runs the input, reads the operation counters of opcount.go and
+// compares the count with a bound. The bound is a small multiple of the size of
+// the input (a linear version meets it) and far below the count of the earlier
+// version (the figure is in the comment of each test). The elapsed time is
+// printed for the reader and never asserted: a paused or loaded runner must not
+// fail a test.
 
 func jsonPatternGrammar(pattern string) []byte { return sizeGrammar(pattern) }
 
@@ -634,42 +642,60 @@ func classOfSingleCodePoints(n int) string {
 	return sb.String()
 }
 
-func within(t *testing.T, what string, limit time.Duration, f func()) time.Duration {
+// counted runs f with the counters at zero, prints its elapsed time, and
+// returns the value of the counter c afterwards.
+func counted(t *testing.T, what string, c *opCounter, f func()) int64 {
 	t.Helper()
+	resetOps()
 	start := time.Now()
 	f()
 	d := time.Since(start)
-	t.Logf("%s: %v (limit %v)", what, d, limit)
-	if d > limit {
-		t.Fatalf("%s took %v, limit %v", what, d, limit)
-	}
-	return d
+	n := c.n.Load()
+	t.Logf("%s: count %d (elapsed %v, printed only); all counters: flags %d, insert %d, merge %d, add %d, union %d, concat %d, classdiff %d, groups %d, errbytes %d, evals %d, probes %d",
+		what, n, d, ops.flagBytes.n.Load(), ops.rangeSteps.n.Load(), ops.mergeSteps.n.Load(), ops.addSteps.n.Load(), ops.unionRanges.n.Load(), ops.concatRunes.n.Load(),
+		ops.classSteps.n.Load(), ops.groupRunes.n.Load(), ops.errBytes.n.Load(), ops.transEvals.n.Load(), ops.condProbes.n.Load())
+	return n
 }
 
-// Finding 1: a PATTERN with 1,000,000 flag characters.
+// atMost fails if n is above bound. oldCount is the figure of the earlier version, for the message.
+func atMost(t *testing.T, what string, n, bound, oldCount int64) {
+	t.Helper()
+	if n > bound {
+		t.Fatalf("%s: count %d is above the bound %d (the earlier quadratic version counted %d)", what, n, bound, oldCount)
+	}
+	if bound*20 > oldCount {
+		t.Fatalf("%s: the bound %d is not 20 times below the earlier count %d; the test cannot tell the two apart", what, bound, oldCount)
+	}
+}
+
+// Finding 1 (3rd round): a PATTERN with 1,000,000 flag characters. The earlier
+// loop copied the prefix for each flag: 5 x 10^11 bytes.
 func TestPatternFlagsAreLinear(t *testing.T) {
-	g := []byte(`{"name":"t","rules":{"source":{"type":"PATTERN","value":"a","flags":"` + strings.Repeat("i", 1000000) + `"}}}`)
-	within(t, "Prepare, 1,000,000 flags", time.Second, func() {
+	const n = 1000000
+	g := []byte(`{"name":"t","rules":{"source":{"type":"PATTERN","value":"a","flags":"` + strings.Repeat("i", n) + `"}}}`)
+	got := counted(t, "Prepare, 1,000,000 flags", &ops.flagBytes, func() {
 		if _, err := Prepare(g); err != nil {
 			t.Fatal(err)
 		}
 	})
+	atMost(t, "bytes read and written", got, 4*n, int64(n)*int64(n)/2)
 }
 
-// Finding 2: a class of 65,500 separate code points, repeated 64 times. The
-// earlier scan from index 0 made 64 x 65,500 x 65,499 / 2 = 137,285,904,000
-// iterations in Prepare.
+// Finding 2 (3rd round): a class of 65,500 separate code points, repeated 64
+// times. The earlier scan from index 0 made 64 x 65,500 x 65,499 / 2 =
+// 137,285,904,000 iterations in Prepare.
 func TestClassOfManyRangesIsLinear(t *testing.T) {
 	const n = 65500
 	g := jsonPatternGrammar(classOfSingleCodePoints(n) + "{64}")
 	if len(g)-len(`{"name":"t","rules":{"source":{"type":"PATTERN","value":""}}}`) > 1<<18 {
 		t.Fatal("the pattern is over the cap")
 	}
-	within(t, "Prepare, class of 65,500 ranges x 64", 10*time.Second, func() {
+	got := counted(t, "Prepare, class of 65,500 ranges x 64", &ops.rangeSteps, func() {
 		if _, err := Prepare(g); err != nil {
 			t.Fatal(err)
 		}
 	})
+	atMost(t, "range insertion steps", got, 8*n*64, 64*int64(n)*int64(n-1)/2)
 	// The iterations of the earlier scan for one copy, counted on a smaller class
 	// (the count is n(n-1)/2 for n separate ranges, so for the review's class it
 	// is 2,145,092,250 for one copy and 137,285,904,000 for 64).
@@ -682,15 +708,15 @@ func TestClassOfManyRangesIsLinear(t *testing.T) {
 	}
 }
 
-// Finding 3: rendering the 64 advancing states of the same input. The
-// earlier removal copied 274,571,808,000 range elements.
+// Finding 3 (3rd round): rendering the 64 advancing states of the same input.
+// The earlier removal copied 274,571,808,000 range elements.
 func TestRenderingManyRangesIsLinear(t *testing.T) {
 	g := jsonPatternGrammar(classOfSingleCodePoints(65500) + "{64}")
 	p, err := Prepare(g)
 	if err != nil {
 		t.Fatal(err)
 	}
-	within(t, "BuildUnmerged, class of 65,500 ranges x 64", 20*time.Second, func() {
+	got := counted(t, "BuildUnmerged, class of 65,500 ranges x 64", &ops.mergeSteps, func() {
 		tb, _, err := p.BuildUnmerged(tokenZero())
 		if err != nil {
 			t.Fatal(err)
@@ -699,19 +725,24 @@ func TestRenderingManyRangesIsLinear(t *testing.T) {
 			t.Fatalf("%d states", tb.NumStates())
 		}
 	})
+	atMost(t, "range merge steps", got, 16*65500*64, 274571808000)
 }
 
 // A pattern of 262,000 literal characters: the earlier join of literals copied
 // the run for each character (3.4 x 10^10 runes).
 func TestLongLiteralIsLinear(t *testing.T) {
-	within(t, "Prepare, 262,000 literal characters", 2*time.Second, func() {
-		if _, err := Prepare(jsonPatternGrammar(strings.Repeat("a", 262000))); err != nil {
+	const n = 262000
+	got := counted(t, "Prepare, 262,000 literal characters", &ops.concatRunes, func() {
+		if _, err := Prepare(jsonPatternGrammar(strings.Repeat("a", n))); err != nil {
 			t.Fatal(err)
 		}
 	})
+	atMost(t, "runes and nodes copied", got, 4*n, int64(n)*int64(n)/2)
 }
 
-// A class difference of two classes of 32,000 ranges that interleave.
+// A class difference of two classes of 30,000 ranges that interleave. The
+// earlier scan from the start of the right operand made 30,000 x 30,000 / 2 =
+// 4.5 x 10^8 passes.
 func TestClassDifferenceIsLinear(t *testing.T) {
 	var a, b strings.Builder
 	a.WriteString("[")
@@ -722,16 +753,18 @@ func TestClassDifferenceIsLinear(t *testing.T) {
 	}
 	a.WriteString("--")
 	b.WriteString("]]")
-	within(t, "Prepare, difference of classes of 30,000 ranges", 5*time.Second, func() {
+	got := counted(t, "Prepare, difference of classes of 30,000 ranges", &ops.classSteps, func() {
 		if _, err := Prepare(jsonPatternGrammar(a.String() + b.String())); err != nil {
 			t.Fatal(err)
 		}
 	})
+	atMost(t, "ranges passed or compared", got, 8*30000, 30000*30000/2)
 }
 
 // Many one-character alternatives of two characters each, whose starting
 // characters arrive in descending order: the earlier insertion moved the
-// ranges above the place for each of them.
+// ranges above the place for each of them (n^2 / 2 = 1.25 x 10^7 moves for the
+// starting sets of 5,000 alternatives; 2.6 x 10^10 for 32 patterns of 40,000).
 func TestStartingCharsAreLinear(t *testing.T) {
 	var sb strings.Builder
 	const n = 5000
@@ -746,20 +779,35 @@ func TestStartingCharsAreLinear(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	within(t, "Analyze, 5,000 alternatives", 10*time.Second, func() {
+	// The sets are joined by unionOf (a sort of m ranges, m log m comparisons).
+	got := counted(t, "Analyze, 5,000 alternatives", &ops.unionRanges, func() {
 		if _, err := p.Analyze(nil); err != nil {
 			t.Fatal(err)
 		}
 	})
-	within(t, "BuildUnmerged, 5,000 alternatives", 10*time.Second, func() {
+	atMost(t, "ranges joined (Analyze)", got, 2*n*14, n*n/2)
+	moves := counted(t, "BuildUnmerged, 5,000 alternatives", &ops.addSteps, func() {
 		if _, _, err := p.BuildUnmerged(tokenZero()); err != nil {
 			t.Fatal(err)
 		}
 	})
+	atMost(t, "ranges read by add (BuildUnmerged)", moves, 16*n, n*n/2)
+	// The grouping of the transitions compares each new transition with the
+	// entries before it, as the generator does (n^2 / 2 pairs, 6 steps for a
+	// pair of one-range sets): counted by bGroupWork, which is why this count is
+	// quadratic and is not bounded here. The insertions in the middle of a vector
+	// that made the earlier version slow (the sum of ranges moved) are none.
+	if ins := ops.rangeSteps.n.Load(); ins > 16*n {
+		t.Fatalf("%d insertion steps, want at most %d", ins, 16*n)
+	}
+	t.Logf("pairwise merge steps of the generator's grouping: %d (%d pairs)", ops.mergeSteps.n.Load(), n*(n-1)/2)
 }
 
 // A table whose ranges are listed from many ranges: Ranges evaluates the state
-// at about twice as many points as it has ranges.
+// at about twice as many points as it has ranges. An evaluation tests the
+// transitions in order and each test is a few binary searches. The earlier
+// version read every range of every condition for an evaluation (65,000 ranges
+// and three conditions: 8.6 x 10^9 steps).
 func TestRangesOfStateAreLinearInPoints(t *testing.T) {
 	// Two tokens that split each other's class: the combined state holds
 	// transitions of 10,000 ranges that no single-token set matches.
@@ -780,15 +828,27 @@ func TestRangesOfStateAreLinearInPoints(t *testing.T) {
 	var s TokenSet
 	s.Insert(terminalSym(0))
 	s.Insert(terminalSym(1))
-	within(t, "BuildUnmerged and Record", 10*time.Second, func() {
+	var evals, probes int64
+	counted(t, "BuildUnmerged and Record", &ops.transEvals, func() {
 		tb, _, err := p.BuildUnmerged([]TokenSet{s})
 		if err != nil {
 			t.Fatal(err)
 		}
+		resetOps()
 		for i := 0; i < tb.NumStates(); i++ {
 			_ = tb.Ranges(i)
 		}
+		evals, probes = ops.transEvals.n.Load(), ops.condProbes.n.Load()
 	})
+	t.Logf("transition evaluations %d, binary search probes %d", evals, probes)
+	// 10,000 ranges of the second token and 20,000 of the first: about 2 x
+	// 30,000 points, each tested against at most a few transitions.
+	atMost(t, "transition evaluations", evals, 8*30000*4, 30000*30000)
+	// A binary search over at most 30,000 ranges probes at most 16 times, and an
+	// evaluation makes at most three of them.
+	if probes > 64*evals {
+		t.Fatalf("%d probes for %d evaluations: more than 64 for each", probes, evals)
+	}
 }
 
 // A deep chain of equal states: each round of the minimization splits one

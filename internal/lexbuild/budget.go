@@ -123,6 +123,11 @@ func guardSize(f func()) (err error) {
 	return nil
 }
 
+// mulWork is a*b for a work estimate. Both operands are converted before the
+// multiplication, so the product does not wrap on a 32-bit int (sizes of
+// 65,536 and 65,536 give 4.3 x 10^9).
+func mulWork(a, b int) int64 { return int64(a) * int64(b) }
+
 // cells is a*b for a dimension check. It cannot overflow: a product above the
 // limit of bSymbolCells is returned as one more than that limit.
 func cells(a, b int) int {

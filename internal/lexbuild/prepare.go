@@ -984,7 +984,7 @@ func flattenGrammar(g *InputGrammar, m *extractedMeta) (*SyntaxGrammar, error) {
 	out := &SyntaxGrammar{}
 	st := &flattenState{reservedIDs: map[string]uint16{}}
 	paths := 0 // choice paths explored over all variables (bFlattenPaths)
-	bSymbolCells.check(len(m.reservedSets) * (len(m.lexicalVariables) + len(m.externalTokens)))
+	bSymbolCells.check(cells(len(m.reservedSets), addCells(len(m.lexicalVariables), len(m.externalTokens))))
 	if len(m.reservedSets) > 65535 {
 		return nil, fmt.Errorf("Reserved word set count %d exceeds the maximum of 65535", len(m.reservedSets))
 	}

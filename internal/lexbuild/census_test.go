@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/odvcencio/gotreesitter/internal/lexexact"
 )
@@ -366,14 +365,8 @@ func TestLexCensus(t *testing.T) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			done := make(chan string, 1)
-			go func() { done <- censusLine(root, n) }()
-			select {
-			case l := <-done:
-				lines[i] = l
-			case <-time.After(8 * time.Minute):
-				lines[i] = fmt.Sprintf("LEXCENSUS %s states 0/0 lexstarts 0/0 reusable 0/0 keyword-lexer none result differs:timeout", n)
-			}
+			// No per-grammar time limit: a hang ends with the timeout of the test binary.
+			lines[i] = censusLine(root, n)
 		}(i, n)
 	}
 	wg.Wait()

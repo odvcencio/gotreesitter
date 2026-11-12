@@ -131,14 +131,17 @@ func (p *patParser) noteRanges(n int) {
 }
 
 func (p *patParser) nestErr() error {
+	ops.errBytes.add(len(p.orig))
 	return fmt.Errorf("pattern parse error: exceeded the nest limit (%d) in %q", nestLimit, p.orig)
 }
 
 func (p *patParser) notPorted(what string) error {
+	ops.errBytes.add(len(p.orig))
 	return &NotPortedError{Construct: what, Where: "pattern " + strconv.Quote(p.orig)}
 }
 
 func (p *patParser) errf(format string, a ...any) error {
+	ops.errBytes.add(len(p.orig))
 	return fmt.Errorf("pattern parse error: "+format+" in %q", append(a, p.orig)...)
 }
 
@@ -356,22 +359,25 @@ func (p *patParser) parseCounted() (min, max uint32, hasMax bool, err error) {
 			bRepeatCount.check(int(big))
 		}
 	}()
-	unclosed := p.errf("unclosed counted repetition")
+	// The message quotes the whole pattern: make it only when it is returned,
+	// not for each counted repetition (a pattern of 65,000 of them would quote
+	// 262,000 bytes 65,000 times).
+	unclosed := func() error { return p.errf("unclosed counted repetition") }
 	p.pos++ // {
 	if !p.more() {
-		return 0, 0, false, unclosed
+		return 0, 0, false, unclosed()
 	}
 	n, nok, err := p.parseDecimal()
 	if err != nil {
 		return 0, 0, false, err
 	}
 	if !p.more() {
-		return 0, 0, false, unclosed
+		return 0, 0, false, unclosed()
 	}
 	if p.peek() == ',' {
 		p.pos++
 		if !p.more() {
-			return 0, 0, false, unclosed
+			return 0, 0, false, unclosed()
 		}
 		if p.peek() != '}' {
 			if !nok {
@@ -401,7 +407,7 @@ func (p *patParser) parseCounted() (min, max uint32, hasMax bool, err error) {
 		min, max, hasMax = n, n, true
 	}
 	if !p.more() || p.peek() != '}' {
-		return 0, 0, false, unclosed
+		return 0, 0, false, unclosed()
 	}
 	p.pos++
 	return min, max, hasMax, nil
@@ -639,13 +645,16 @@ func liftCommonPrefix(hirs []*hir) *hir {
 
 func hirConcatOf(items []*hir) *hir {
 	var flat []*hir
+	copies := 0 // runes and nodes copied (ops.concatRunes)
 	for _, it := range items {
 		switch it.kind {
 		case hirEmpty:
 		case hirConcat:
 			flat = append(flat, it.subs...)
+			copies += len(it.subs)
 		default:
 			flat = append(flat, it)
+			copies++
 		}
 	}
 	// Runs of literals are joined into one literal. The runes of a run are
@@ -672,16 +681,20 @@ func hirConcatOf(items []*hir) *hir {
 				first = it
 			case 1:
 				run = append(append([]rune(nil), first.lit...), it.lit...)
+				copies += len(first.lit) + len(it.lit)
 			default:
 				run = append(run, it.lit...)
+				copies += len(it.lit)
 			}
 			n++
 			continue
 		}
 		flush()
 		merged = append(merged, it)
+		copies++
 	}
 	flush()
+	ops.concatRunes.add(copies)
 	switch len(merged) {
 	case 0:
 		return &hir{kind: hirEmpty}
@@ -1071,6 +1084,23 @@ func isCaptureChar(c rune, first bool) bool {
 	return c == '_' || c == '.' || c == '[' || c == ']' || isRustAlphabetic(uint32(c)) || isRustNumeric(uint32(c))
 }
 
+// groupHead is the text that parseGroup tests after "(": the next three runes,
+// which is as many as the longest prefix it looks for ("?<!", "?<=", "?P<").
+// Converting the whole remainder of the pattern for each group costs the
+// length of the pattern for each group.
+func (p *patParser) groupHead() string {
+	end := p.pos + 3
+	if end > len(p.src) {
+		end = len(p.src)
+	}
+	ops.groupRunes.add(end - p.pos)
+	return string(p.src[p.pos:end])
+}
+
+// groupHeadOf is groupHead; a variable so that a test can put the earlier
+// version (the whole remainder) in its place and compare the parses.
+var groupHeadOf = (*patParser).groupHead
+
 // parseGroup parses what follows "(" (ast/parse.rs: fn parse_group): a capture
 // group, (?:...), (?P<name>...), (?<name>...), (?flags) and (?flags:...). Flags
 // set by (?flags) last to the end of the enclosing group. The results are the
@@ -1079,7 +1109,7 @@ func (p *patParser) parseGroup() (*hir, int, bool, error) {
 	saved := p.flags
 	capture := false
 	capName := ""
-	rest := string(p.src[p.pos:])
+	rest := groupHeadOf(p)
 	switch {
 	case strings.HasPrefix(rest, "?=") || strings.HasPrefix(rest, "?!") || strings.HasPrefix(rest, "?<=") || strings.HasPrefix(rest, "?<!"):
 		return nil, 0, false, p.errf("look-around is not supported")

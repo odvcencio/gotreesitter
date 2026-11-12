@@ -53,9 +53,32 @@ func wantSize(t *testing.T, err error, what string) {
 	}
 }
 
+// resetPeaks sets the largest value seen of every budget to zero.
+func resetPeaks() {
+	for _, b := range allBudgets {
+		b.peak.Store(0)
+	}
+}
+
+// budgetsStayBounded is the deterministic form of "the construction was
+// refused early": since the last resetPeaks, no budget counted more than twice
+// its limit. A check records the value an item would reach before it refuses
+// the item, so the largest value is the limit plus one step. A construction
+// that went on to the billions of items that the generator builds would have
+// counted far more.
+func budgetsStayBounded(t *testing.T) {
+	t.Helper()
+	for _, b := range allBudgets {
+		if peak := b.peak.Load(); peak > 2*b.limit {
+			t.Errorf("budget %q: counted %d, more than twice its limit %d", b.what, peak, b.limit)
+		}
+	}
+}
+
 // measure runs f and returns its time and its peak live heap above the heap before it (sampled every 2 ms;
 // the sample can miss a peak shorter than that).
 func measure(f func()) (time.Duration, uint64) {
+	resetPeaks()
 	runtime.GC()
 	var base runtime.MemStats
 	runtime.ReadMemStats(&base)
@@ -184,9 +207,10 @@ func TestLexSizeBlowupRefused(t *testing.T) {
 	d, alloc := measure(func() { _, _, err = p.BuildUnmerged(tokenZero()) })
 	wantSize(t, err, "lex states")
 	t.Logf("BLOWUP lex table refused after %v, %d MiB peak heap, limit %d lex states: %v", d, alloc>>20, bLexStates.limit, err)
-	if d > 60*time.Second || alloc > blowupAllocBudget {
-		t.Errorf("took %v and peak heap %d MiB; want at most 60 s and %d MiB", d, alloc>>20, blowupAllocBudget>>20)
+	if alloc > blowupAllocBudget {
+		t.Errorf("peak heap %d MiB; want at most %d MiB", alloc>>20, blowupAllocBudget>>20)
 	}
+	budgetsStayBounded(t)
 	a, err := p.Analyze(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -224,9 +248,10 @@ func TestConflictSearchBlowupRefused(t *testing.T) {
 	d, alloc := measure(func() { _, err = p.Analyze(nil) })
 	wantSize(t, err, "token-pair conflict search")
 	t.Logf("BLOWUP conflict search refused after %v, %d MiB peak heap: %v", d, alloc>>20, err)
-	if d > 60*time.Second || alloc > blowupAllocBudget {
-		t.Errorf("took %v and peak heap %d MiB; want at most 60 s and %d MiB", d, alloc>>20, blowupAllocBudget>>20)
+	if alloc > blowupAllocBudget {
+		t.Errorf("peak heap %d MiB; want at most %d MiB", alloc>>20, blowupAllocBudget>>20)
 	}
+	budgetsStayBounded(t)
 }
 
 // Flattening a SEQ of k independent two-way CHOICEs gives 2^k productions.
@@ -258,9 +283,10 @@ func TestFlattenBlowupRefused(t *testing.T) {
 	d, alloc := measure(func() { _, err = Prepare(seqChoiceGrammar(24)) })
 	wantSize(t, err, "while flattening rules")
 	t.Logf("BLOWUP flatten refused after %v, %d MiB peak heap: %v", d, alloc>>20, err)
-	if d > 60*time.Second || alloc > blowupAllocBudget {
-		t.Errorf("took %v and peak heap %d MiB; want at most 60 s and %d MiB", d, alloc>>20, blowupAllocBudget>>20)
+	if alloc > blowupAllocBudget {
+		t.Errorf("peak heap %d MiB; want at most %d MiB", alloc>>20, blowupAllocBudget>>20)
 	}
+	budgetsStayBounded(t)
 }
 
 // The automaton of the lexical grammar: states and ranges.
@@ -469,9 +495,11 @@ func TestFirstLastBudget(t *testing.T) {
 		_, err := NewFirstLastSets(sg, lg)
 		wantSize(t, err, "matrix")
 	})
-	if d > 5*time.Second || alloc > 64<<20 {
-		t.Errorf("NewFirstLastSets: %v and %d MiB before it refused", d, alloc>>20)
+	t.Logf("NewFirstLastSets refused after %v (printed only)", d)
+	if alloc > 64<<20 {
+		t.Errorf("NewFirstLastSets: %d MiB before it refused", alloc>>20)
 	}
+	budgetsStayBounded(t)
 	// Overflow: dimensions whose product does not fit.
 	maxInt := int(^uint(0) >> 1)
 	if got := cells(maxInt, maxInt); int64(got) <= bSymbolCells.limit {
@@ -602,9 +630,10 @@ func TestClosureWorkBudget(t *testing.T) {
 	if err != nil {
 		wantSize(t, err, "lex states")
 	}
-	if d > 60*time.Second || alloc > blowupAllocBudget {
-		t.Errorf("took %v and peak heap %d MiB", d, alloc>>20)
+	if alloc > blowupAllocBudget {
+		t.Errorf("peak heap %d MiB", alloc>>20)
 	}
+	budgetsStayBounded(t)
 }
 
 // The work counters of the passes behind the caps: each stops its pass when lowered to zero.
@@ -722,6 +751,28 @@ func TestDocListsTheLimits(t *testing.T) {
 		want := fmt.Sprintf("//\t%s: %s\n", b.what, commas(b.limit))
 		if !strings.Contains(string(doc), want) {
 			t.Errorf("doc.go does not list %q", strings.TrimSpace(want))
+		}
+	}
+	// The other way: every line of the two tables is a limit of the code.
+	listed := map[string]bool{}
+	for _, b := range allBudgets {
+		listed[fmt.Sprintf("//\t%s: %s", b.what, commas(b.limit))] = true
+	}
+	for _, line := range strings.Split(string(doc), "\n") {
+		if strings.HasPrefix(line, "//\t") && !listed[line] {
+			t.Errorf("doc.go lists %q, which is not a limit of the code", strings.TrimSpace(line))
+		}
+	}
+	// No total of work is claimed: the audit's total was wrong in three reviews.
+	for _, banned := range []string{"6x10^10", "6.05", "10^10", "simple steps"} {
+		if strings.Contains(string(doc), banned) {
+			t.Errorf("doc.go claims a total of work (%q)", banned)
+		}
+	}
+	flat := strings.ReplaceAll(string(doc), "\n// ", " ")
+	for _, need := range []string{"claims no bound on the total number of steps", "was not otherwise hardened against hostile input"} {
+		if !strings.Contains(flat, need) {
+			t.Errorf("doc.go lacks %q", need)
 		}
 	}
 }
