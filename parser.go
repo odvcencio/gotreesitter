@@ -6585,6 +6585,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if relexKeyword(currentState) {
 				stackRelexActive = true
 			}
+			ownReading := false
 			if !stackRelexActive && len(stacks) > 1 {
 				if ownTok, ok := p.ownLexModeToken(source, currentState, tok, s.byteOffset, lexicalReadSpan, dts); ok {
 					if p.glrTrace {
@@ -6593,6 +6594,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					tok = ownTok
 					stackRelexActive = true
+					ownReading = true
 				}
 			}
 			noteStopDiagnosticStack(s)
@@ -7441,6 +7443,18 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					ns := time.Since(actionKindStart).Nanoseconds()
 					actionTiming.actionSingleReduceNanos += ns
 					recordActionTiming(currentState, tok.Symbol, actions, ambiguityActionSingleReduce, ns)
+				}
+				// C keeps a version's lookahead through its reductions
+				// (ts_parser__advance, C/parser.c:1720-1745). A stack on its
+				// own reading goes on with it here: the shared token is
+				// restored before the next dispatch, and this stack would
+				// read again in its post-reduction state.
+				if ownReading {
+					s = &stacks[si]
+					if !s.dead && !s.accepted && !s.shifted && !s.cPaused {
+						currentState = s.top().state
+						goto retryAction
+					}
 				}
 			} else {
 				switch act.Type {

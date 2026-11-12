@@ -710,6 +710,65 @@ func TestOwnLexModeTokenAtDispatch(t *testing.T) {
 	}
 }
 
+func keptTokenLanguage() *Language {
+	return &Language{
+		Name: "kept_token", SymbolCount: 7, TokenCount: 4, StateCount: 9, ProductionIDCount: 1,
+		SymbolNames: []string{"end", "a", "x", "x", "n", "rule_xa", "rule_xb"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end"}, {Name: "a", Visible: true}, {Name: "x", Visible: true}, {Name: "x"},
+			{Name: "n", Visible: true, Named: true}, {Name: "rule_xa", Visible: true, Named: true}, {Name: "rule_xb", Visible: true, Named: true},
+		},
+		LexStates: []LexState{
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 2}, {Lo: 'x', Hi: 'x', NextState: 3}}},
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'x', Hi: 'x', NextState: 4}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+			{AcceptToken: 3, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{{LexState: 0}, {LexState: 1}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}, {Type: ParseActionShift, State: 2}}}, // 1: `a` forks into Q and P
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 8}}},                                     // 2: P on the shared reading
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 4, ChildCount: 1}}},                    // 3: Q reduces on its own reading
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 4}}},                                     // 4: T on the shared reading
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 5}}},                                     // 5: T on Q's reading
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 5, ChildCount: 2}}},                    // 6
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 6, ChildCount: 2}}},                    // 7
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}},                                     // 8: goto n -> T
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 6}}},                                     // 9: goto rule_xa
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 7}}},                                     // 10: goto rule_xb
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},                                              // 11
+		},
+		ParseTable: [][]uint16{
+			{0, 1, 0, 0, 8, 9, 10},
+			{0, 0, 0, 3, 0, 0, 0}, // Q (lex mode 1)
+			{0, 0, 2, 0, 0, 0, 0}, // P
+			{0, 0, 4, 5, 0, 0, 0}, // T
+			{6, 0, 0, 0, 0, 0, 0},
+			{7, 0, 0, 0, 0, 0, 0},
+			{11, 0, 0, 0, 0, 0, 0},
+			{11, 0, 0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0, 0, 0},
+		},
+	}
+}
+
+func TestOwnTokenIsKeptThroughAReduction(t *testing.T) {
+	lang := keptTokenLanguage()
+	p := NewParser(lang)
+	source := []byte("ax")
+	ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+	tree := p.parseInternal(source, ts, nil, nil, arenaClassFull, nil, 0, 0, 0, false)
+	if tree == nil {
+		t.Fatal("nil tree")
+	}
+	defer tree.Release()
+	if got := tree.RootNode().Type(lang); got != "rule_xb" {
+		t.Fatalf("root = %s, want rule_xb: Q reduced on its own reading and must shift it too", got)
+	}
+}
+
 // TestRelexTokenForStackLexStateNoAction covers the no-action re-lex that
 // shares its scan with ownLexModeToken: P (lex mode 0) has no action for a
 // shared x_b, so it takes its own x_a when it has an action for it and keeps
