@@ -6209,7 +6209,7 @@ func (p *Parser) relexTokenForStackLexState(
 	if languageKeywordReservedInState(lang, state, tok.Symbol) {
 		return tok, state, false
 	}
-	relexed, ok, abort := p.scanTokenInStackLexState(source, state, tok, lexicalReadSpan, dts)
+	relexed, ok, abort := p.scanTokenInStackLexState(source, state, tok, tok.StartByte, lexicalReadSpan, dts)
 	if abort {
 		return tok, state, false
 	}
@@ -6224,14 +6224,33 @@ func (p *Parser) relexTokenForStackLexState(
 	return p.relexZeroWidthExternalTokenForStackLexState(source, dts, s, state, tok, nodeCount, arena, scratch, trackChildErrors, rescueBudget)
 }
 
-// scanTokenInStackLexState lexes tok's bytes again with state's own lex mode,
-// using the internal DFA only. ok reports a scanned token; abort reports a
-// shape the probe cannot judge, which callers treat as "no other reading".
-func (p *Parser) scanTokenInStackLexState(source []byte, state StateID, tok Token, lexicalReadSpan *uint32, dts *dfaTokenSource) (relexed Token, ok, abort bool) {
+// scanTokenInStackLexState lexes again with state's own lex mode, using the
+// internal DFA only, starting at from: tok.StartByte, or an earlier position
+// whose bytes up to tok.StartByte the mode must skip itself. ok reports a
+// scanned token; abort reports a shape the probe cannot judge, which callers
+// treat as "no other reading".
+func (p *Parser) scanTokenInStackLexState(source []byte, state StateID, tok Token, from uint32, lexicalReadSpan *uint32, dts *dfaTokenSource) (relexed Token, ok, abort bool) {
 	lang := p.language
-	ls := lang.LexModes[state].LexStateIndex()
+	mode := lang.LexModes[state]
+	ls := mode.LexStateIndex()
 	if ls == noLookaheadLexState || int(ls) >= len(lang.LexStates) {
 		return tok, false, false
+	}
+	if from > tok.StartByte {
+		return tok, false, true
+	}
+	row, col := tok.StartPoint.Row, tok.StartPoint.Column
+	gap := from < tok.StartByte
+	if gap {
+		// The probe models one start state; a mode with its own after-whitespace
+		// start state, or a gap across included ranges, is left alone.
+		if mode.AfterWhitespaceLexStateIndex() != 0 || len(p.included) != 0 {
+			return tok, false, true
+		}
+		var valid bool
+		if row, col, valid = sharedrecover.RelexPrefixPoint(source, from, tok.StartByte, row, col); !valid {
+			return tok, false, true
+		}
 	}
 	// GLR prunes branches at no-action points constantly during ordinary
 	// parses, so this probe runs often even on grammars that never need a
@@ -6244,9 +6263,9 @@ func (p *Parser) scanTokenInStackLexState(source []byte, state StateID, tok Toke
 		states:          lang.LexStates,
 		asciiTable:      lang.LexAsciiTable(),
 		source:          source,
-		pos:             int(tok.StartByte),
-		row:             tok.StartPoint.Row,
-		col:             tok.StartPoint.Column,
+		pos:             int(from),
+		row:             row,
+		col:             col,
 		immediateTokens: lang.ImmediateTokens,
 		zeroWidthTokens: lang.ZeroWidthTokens,
 	}
@@ -6257,7 +6276,20 @@ func (p *Parser) scanTokenInStackLexState(source []byte, state StateID, tok Toke
 	probeStart := probe.pos
 	relexed, ok = probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
 	frontier := relexed.lexerLookaheadEndByte
-	if ok && int(relexed.Symbol) < len(lang.ImmediateTokens) && lang.ImmediateTokens[relexed.Symbol] && dts != nil && dts.language == lang && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart < tok.StartByte {
+	// A whole-token skip ends one DFA run; the lexer restarts in the same lex
+	// state after it, as Lexer.next does. The restart hides the skipped bytes
+	// from the next run, so an immediate token after it is not a reading.
+	restarted := false
+	for gap && ok && relexed.Symbol == 0 && probe.pos > int(relexed.StartByte) && probe.pos <= int(tok.StartByte) {
+		restarted = true
+		relexed, ok = probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
+		frontier = maxUint32(frontier, relexed.lexerLookaheadEndByte)
+		relexed.lexerLookaheadEndByte = frontier
+	}
+	if restarted && ok && int(relexed.Symbol) < len(lang.ImmediateTokens) && lang.ImmediateTokens[relexed.Symbol] {
+		ok = false
+	}
+	if !gap && ok && int(relexed.Symbol) < len(lang.ImmediateTokens) && lang.ImmediateTokens[relexed.Symbol] && dts != nil && dts.language == lang && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart < tok.StartByte {
 		if len(p.included) != 0 {
 			return tok, false, true
 		}
@@ -6291,7 +6323,13 @@ func (p *Parser) scanTokenInStackLexState(source []byte, state StateID, tok Toke
 // reading has tok's name too. Grammars that tell many tokens apart by lex
 // state alone (earthfile's plain and immediate string words) otherwise get
 // their stacks re-routed everywhere, away from C's trees.
-func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, lexicalReadSpan *uint32, dts *dfaTokenSource) (Token, bool) {
+//
+// The read starts where C lexes the version: at the stack's position from,
+// before any whitespace the shared lexer skipped. Lex modes read bytes after
+// whitespace differently from bytes right after the previous token; read from
+// the token's own start, Julia's `:` in `c ? a : b` would take a reading C
+// never makes there.
+func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from uint32, lexicalReadSpan *uint32, dts *dfaTokenSource) (Token, bool) {
 	lang := p.language
 	if lang == nil || dts == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
 		return tok, false
@@ -6304,7 +6342,7 @@ func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, lexica
 		tok.Symbol == lang.KeywordCaptureToken || languageKeywordReservedInState(lang, state, tok.Symbol) {
 		return tok, false
 	}
-	relexed, ok, abort := p.scanTokenInStackLexState(source, state, tok, lexicalReadSpan, dts)
+	relexed, ok, abort := p.scanTokenInStackLexState(source, state, tok, from, lexicalReadSpan, dts)
 	if abort || !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol || relexed.Symbol == lang.KeywordCaptureToken ||
 		relexed.StartByte != tok.StartByte || relexed.EndByte != tok.EndByte || !dts.sameSymbolName(relexed.Symbol, tok.Symbol) ||
 		!p.stateHasActionForSymbol(state, relexed.Symbol) {

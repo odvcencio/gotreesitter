@@ -609,7 +609,7 @@ func TestOwnLexModeTokenGuards(t *testing.T) {
 			defer dts.Close()
 			// The union election for the shared token scanned Q's own x_b.
 			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0], glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
-			got, ok := p.ownLexModeToken(source, 1, tok, nil, dts)
+			got, ok := p.ownLexModeToken(source, 1, tok, tok.StartByte, nil, dts)
 			if tc.want == 0 {
 				if ok || got != tok {
 					t.Fatalf("got (%+v, %v), want the shared token back unchanged", got, ok)
@@ -618,6 +618,58 @@ func TestOwnLexModeTokenGuards(t *testing.T) {
 			}
 			if !ok || got.Symbol != tc.want || got.StartByte != tok.StartByte || got.EndByte != tok.EndByte {
 				t.Fatalf("got (%+v, %v), want symbol %d over [%d,%d)", got, ok, tc.want, tok.StartByte, tok.EndByte)
+			}
+		})
+	}
+}
+
+// TestOwnLexModeTokenReadsFromStackPosition re-reads "x" in "a x" from the
+// stack's position 1, before the space, as C lexes that version. Q's lex mode
+// reads x_b only if it skips the space itself.
+func TestOwnLexModeTokenReadsFromStackPosition(t *testing.T) {
+	shared := Token{Symbol: 2, StartByte: 2, EndByte: 3, StartPoint: Point{Column: 2}, EndPoint: Point{Column: 3}}
+	skipSpace := func(lang *Language) {
+		lang.LexStates[1].Transitions = append(lang.LexStates[1].Transitions, LexTransition{Lo: ' ', Hi: ' ', NextState: 1, Skip: true})
+	}
+	skipSpaceToken := func(lang *Language) {
+		lang.LexStates = append(lang.LexStates, LexState{Skip: true, Default: -1, EOF: -1})
+		lang.LexStates[1].Transitions = append(lang.LexStates[1].Transitions, LexTransition{Lo: ' ', Hi: ' ', NextState: len(lang.LexStates) - 1})
+	}
+	immediateXB := func(lang *Language) { lang.ImmediateTokens = []bool{false, false, false, true} }
+	for _, tc := range []struct {
+		name string
+		from uint32
+		edit []func(*Language)
+		want Symbol // 0: rejected, the shared token comes back
+	}{
+		{"mode skips the space", 1, []func(*Language){skipSpace}, 3},
+		{"mode does not skip the space", 1, nil, 0},
+		{"stack past the token start", 3, []func(*Language){skipSpace}, 0},
+		{"mode has its own after-whitespace start", 1, []func(*Language){skipSpace, func(lang *Language) { lang.LexModes[1].AfterWhitespaceLexState = 1 }}, 0},
+		{"skip token, then a reading", 1, []func(*Language){skipSpaceToken}, 3},
+		{"skip token, then an immediate reading", 1, []func(*Language){skipSpaceToken, immediateXB}, 0},
+		{"skipped space, then an immediate reading", 1, []func(*Language){skipSpace, immediateXB}, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := ownLexModeLanguage()
+			for _, edit := range tc.edit {
+				edit(lang)
+			}
+			p := NewParser(lang)
+			source := []byte("a x")
+			dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+			defer dts.Close()
+			// The union election for the shared token scanned Q's own x_b.
+			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0], glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 2, EndByte: 3}})
+			got, ok := p.ownLexModeToken(source, 1, shared, tc.from, nil, dts)
+			if tc.want == 0 {
+				if ok || got != shared {
+					t.Fatalf("got (%+v, %v), want the shared token back unchanged", got, ok)
+				}
+				return
+			}
+			if !ok || got.Symbol != tc.want || got.StartByte != shared.StartByte || got.EndByte != shared.EndByte || got.StartPoint != shared.StartPoint {
+				t.Fatalf("got (%+v, %v), want symbol %d over [%d,%d) at %v", got, ok, tc.want, shared.StartByte, shared.EndByte, shared.StartPoint)
 			}
 		})
 	}
