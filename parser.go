@@ -2113,6 +2113,42 @@ func (p *Parser) allowStringContentWhitespaceBroadRelex(candidate Symbol) bool {
 	return hasEscBlob && hasHexBlob
 }
 
+// stackRelexReading is one reading of the shared lookahead that a stack has
+// dispatched: the parse state and the token's symbol and byte span.
+type stackRelexReading struct {
+	state      StateID
+	symbol     Symbol
+	start, end uint32
+}
+
+// stackRelexReadings records the readings one stack has dispatched for one
+// shared lookahead. The no-action re-lex steps each verify only that the
+// state has an action for their new symbol, not that dispatching it gets
+// anywhere, so two of them can hand the same span back and forth (for
+// example keyword promotion and the stack-lex-state re-lex) without ever
+// consuming input. Admitting each reading once turns such a cycle into an
+// ordinary no-action dead end; the fixed capacity bounds longer chains.
+type stackRelexReadings struct {
+	n    int
+	seen [8]stackRelexReading
+}
+
+// admit records the reading and reports whether it is new.
+func (r *stackRelexReadings) admit(state StateID, tok Token) bool {
+	reading := stackRelexReading{state: state, symbol: tok.Symbol, start: tok.StartByte, end: tok.EndByte}
+	for _, seen := range r.seen[:r.n] {
+		if seen == reading {
+			return false
+		}
+	}
+	if r.n == len(r.seen) {
+		return false
+	}
+	r.seen[r.n] = reading
+	r.n++
+	return true
+}
+
 // tryRelexCurrentStateDFA re-lexes from the current token start using the
 // current parser state's DFA lex mode. This helps when a lookahead token was
 // originally lexed under a pre-reduce state, but a reduce chain changes the
@@ -6557,6 +6593,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			// index and shared across every live stack, so it cannot tell
 			// this stack's rescue from a sibling stack's unrelated one.
 			zeroWidthRescueBudget := maxConsecutiveZeroWidthTokens
+			var relexReadings stackRelexReadings
+			relexReadings.admit(currentState, tok)
 		retryAction:
 			if packedVersionOrder {
 				// A transaction can append reduction versions and then remove its
@@ -6774,7 +6812,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				}
 				if tok.Symbol == 0 {
 					if sameState {
-						if reTok, ok := p.tryRelexCurrentStateDFA(tok, currentState, ts); ok {
+						if reTok, ok := p.tryRelexCurrentStateDFA(tok, currentState, ts); ok && relexReadings.admit(currentState, reTok) {
 							tok = reTok
 							workCountRefreshConvergenceLookahead(tok)
 							needToken = false
@@ -6858,7 +6896,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					continue
 				}
 				if canRelexNoLiveAction {
-					if reTok, ok := p.tryRelexSingleParserState(tok, currentState, ts, stacks, scratch); ok {
+					if reTok, ok := p.tryRelexSingleParserState(tok, currentState, ts, stacks, scratch); ok && relexReadings.admit(currentState, reTok) {
 						tok = reTok
 						workCountRefreshConvergenceLookahead(tok)
 						needToken = false
@@ -6870,7 +6908,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 				}
 				if sameState {
-					if reTok, ok := p.tryRelexCurrentStateDFA(tok, currentState, ts); ok {
+					if reTok, ok := p.tryRelexCurrentStateDFA(tok, currentState, ts); ok && relexReadings.admit(currentState, reTok) {
 						tok = reTok
 						workCountRefreshConvergenceLookahead(tok)
 						needToken = false
@@ -6880,7 +6918,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						}
 						goto retryAction
 					}
-					if reTok, ok := p.tryRelexBroadDFA(tok, currentState, ts); ok {
+					if reTok, ok := p.tryRelexBroadDFA(tok, currentState, ts); ok && relexReadings.admit(currentState, reTok) {
 						tok = reTok
 						workCountRefreshConvergenceLookahead(tok)
 						needToken = false
@@ -6954,7 +6992,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// re-enters the external scanner for a zero-width probe
 					// scoped to this one stack, restored before it returns on
 					// every path.
-					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors, &zeroWidthRescueBudget); ok {
+					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors, &zeroWidthRescueBudget); ok && (newState != currentState || relexReadings.admit(currentState, reTok)) {
 						if p.glrTrace {
 							fmt.Printf("  stack[%d] C-STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d -> state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState, newState)
@@ -7040,7 +7078,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// different, action-bearing symbol at the identical byte
 					// span, so a stack that genuinely has no other reading is
 					// killed exactly as before.
-					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors, &zeroWidthRescueBudget); ok {
+					if reTok, newState, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan, dts, s, &nodeCount, arena, scratch, trackChildErrors, &zeroWidthRescueBudget); ok && (newState != currentState || relexReadings.admit(currentState, reTok)) {
 						if p.glrTrace {
 							fmt.Printf("  stack[%d] STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d -> state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState, newState)
