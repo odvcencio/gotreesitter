@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-const rootBudget = 680
+const rootBudget = 661
 
 // adapterFiles is the named exception to "root files may only shrink" (owner
 // decision 6 of the ccore route design). Exactly these root file names may be
@@ -32,7 +32,7 @@ const rootBudget = 680
 // know, so TestAdapterFilesBudgetAndTags checks that the files of this list
 // that exist carry no //go:build line. The first two arrive with the adapters and equality
 // tests; the others arrive with the route and public tree. The budget above
-// counts only the files that exist: 678 before the exception plus the two
+// counts only the files that exist: 659 before the exception plus the two
 // files that have landed.
 var adapterFiles = []string{
 	"ccore_bind.go",
