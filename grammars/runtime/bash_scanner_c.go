@@ -17,17 +17,17 @@ import (
 // Differences from main that the mode removes (each pinned by a test in
 // bash_scanner_c_parity_test.go):
 //   - C has no OPENING_PAREN or ESAC scan: both tokens are declared but never
-//     produced (scanner.c:11-41; the enum), so the mode never returns them.
+//     produced (scanner.c:9-39; the enum), so the mode never returns them.
 //   - C tests lexer->eof for the end of the input in some places and
 //     lexer->lookahead == 0 in others; a NUL byte is not the end of the input.
 //   - Character classes are those of the C locale (iswspace, iswalpha, iswalnum,
 //     iswdigit: ASCII only), and a byte that is not valid UTF-8 is -1.
 //   - The heredoc delimiter is a signed char array; it is compared with the
 //     lookahead as a signed value (scanner.c:233).
-//   - advance_word appends to the delimiter instead of replacing it (:164-190).
+//   - advance_word appends to the delimiter instead of replacing it (:164-193).
 //   - The saved state is limited by TREE_SITTER_SERIALIZATION_BUFFER_SIZE (1024),
 //     and a state with fewer heredocs does not shorten the scanner's heredoc
-//     array (deserialize, :121-157).
+//     array (deserialize, :121-155).
 
 // bshCSerializationBufferSize is TREE_SITTER_SERIALIZATION_BUFFER_SIZE of the C
 // runtime (parser.h:14).
@@ -74,7 +74,7 @@ func bshSerializeC(s *bshState, buf []byte) int {
 	for i := range s.heredocs {
 		h := &s.heredocs[i]
 		needed := 3 + 4 + len(h.delimiter)
-		// C refuses a state that would reach the serialization buffer size (:101); the
+		// C refuses a state that would reach the serialization buffer size (:103); the
 		// limit is C's constant, and a buffer shorter than that is respected as well.
 		if size+needed >= bshCSerializationBufferSize || size+needed > len(buf) {
 			return 0
@@ -100,7 +100,7 @@ func bshCBool(b bool) byte {
 	return 0
 }
 
-// bshDeserializeC is C's deserialize (scanner.c:121-157). A state with fewer
+// bshDeserializeC is C's deserialize (scanner.c:121-155). A state with fewer
 // heredocs than the scanner holds leaves the extra ones in place (C never shortens
 // the array here), and current_leading_word is not touched.
 func bshDeserializeC(s *bshState, buf []byte) {
@@ -153,7 +153,7 @@ func bshDeserializeC(s *bshState, buf []byte) {
 	}
 }
 
-// advanceWord is C's advance_word (:164-190): it appends the unquoted word and a
+// advanceWord is C's advance_word (:164-193): it appends the unquoted word and a
 // NUL to *word and reports whether the word was not empty.
 func (c *bshC) advanceWord(word *[]byte) bool {
 	empty := true
@@ -328,7 +328,7 @@ func (c *bshC) scanHeredocContent(middle, end int) bool {
 	}
 }
 
-// bshScanC is C's scan (:349-1167). The goto labels regex, extglob_pattern,
+// bshScanC is C's scan (:349-1185). The goto labels regex, extglob_pattern,
 // expansion_word and brace_start become the sections of tail; each returns whether
 // it decided the scan, the way a C label falls through to the next one.
 func bshScanC(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[bshTokenCount]gotreesitter.Symbol) bool {
@@ -1071,7 +1071,7 @@ func (c *bshC) expansionWord() (bool, bool) {
 	}
 }
 
-// braceStart is the section of the label brace_start (:1145-1186). It is the last
+// braceStart is the section of the label brace_start (:1145-1184). It is the last
 // section: it always decides.
 func (c *bshC) braceStart() (bool, bool) {
 	if !(c.valid(bshTokBraceStart) && !c.errRec()) {

@@ -17,10 +17,16 @@ import (
 // and which stays as it is: it numbers the tags in another order (so the saved
 // state differs), lacks some tags (COMMAND, ISINDEX, NEXTID, AUDIO, ...) and
 // has another content model for <p>.
+//
+// Byte order: the pinned C scanner copies the two uint16_t counts of its saved state in native
+// byte order (scanner.c:33-34, :58, :73-77): with one AREA tag it writes 01 00 01 00 00 on a
+// little-endian target and 00 01 00 01 00 on a big-endian one. The mode fixes the reference to
+// little-endian (internal/scanmode), so the counts are little-endian on every target; a C build
+// for a big-endian target differs from the reference in the layout of the saved state.
 
-// htmlCTagNames is TAG_TYPES_BY_TAG_NAME of tag.h:140-267 (126 entries). The tag
+// htmlCTagNames is TAG_TYPES_BY_TAG_NAME of tag.h:151-278 (126 entries). The tag
 // type of an entry is its index, plus one from the entry after the last void tag
-// (the enum has END_OF_VOID_TAGS between the void tags and A, tag.h:27).
+// (the enum has END_OF_VOID_TAGS between the void tags and A, tag.h:29).
 var htmlCTagNames = [...]string{
 	"AREA", "BASE", "BASEFONT", "BGSOUND", "BR", "COL", "COMMAND", "EMBED", "FRAME", "HR", "IMAGE", "IMG",
 	"INPUT", "ISINDEX", "KEYGEN", "LINK", "MENUITEM", "META", "NEXTID", "PARAM", "SOURCE", "TRACK", "WBR",
@@ -35,7 +41,7 @@ var htmlCTagNames = [...]string{
 	"TR", "U", "UL", "VAR", "VIDEO", "CUSTOM",
 }
 
-const htmlCEndOfVoidTags = 23 // END_OF_VOID_TAGS (tag.h:27)
+const htmlCEndOfVoidTags = 23 // END_OF_VOID_TAGS (tag.h:29)
 
 // htmlCType returns the TagType of a tag name of the table.
 func htmlCType(name string) uint32 {
@@ -52,13 +58,13 @@ func htmlCType(name string) uint32 {
 
 var (
 	htmlCCustom   = htmlCType("CUSTOM")
-	htmlCEnd      = htmlCCustom + 1 // END_ (tag.h:164)
+	htmlCEnd      = htmlCCustom + 1 // END_ (tag.h:136)
 	htmlCScript   = htmlCType("SCRIPT")
 	htmlCStyle    = htmlCType("STYLE")
 	htmlCHTML     = htmlCType("HTML")
 	htmlCHead     = htmlCType("HEAD")
 	htmlCBody     = htmlCType("BODY")
-	htmlCNotInPar = func() map[uint32]bool { // TAG_TYPES_NOT_ALLOWED_IN_PARAGRAPHS (tag.h:271-276)
+	htmlCNotInPar = func() map[uint32]bool { // TAG_TYPES_NOT_ALLOWED_IN_PARAGRAPHS (tag.h:280-285)
 		m := map[uint32]bool{}
 		for _, n := range []string{"ADDRESS", "ARTICLE", "ASIDE", "BLOCKQUOTE", "DETAILS", "DIV", "DL",
 			"FIELDSET", "FIGCAPTION", "FIGURE", "FOOTER", "FORM", "H1", "H2",
@@ -70,13 +76,13 @@ var (
 	}()
 )
 
-// htmlCTag is the Tag of tag.h:171-174.
+// htmlCTag is the Tag of tag.h:146-149.
 type htmlCTag struct {
 	typ  uint32
 	name []byte // custom_tag_name, for CUSTOM only
 }
 
-// htmlCTypeForName is tag_type_for_name (tag.h:278-290).
+// htmlCTypeForName is tag_type_for_name (tag.h:287-298).
 func htmlCTypeForName(name []byte) uint32 {
 	for i, n := range htmlCTagNames {
 		if string(name) == n {
@@ -89,7 +95,7 @@ func htmlCTypeForName(name []byte) uint32 {
 	return htmlCCustom
 }
 
-// htmlCTagForName is tag_for_name (tag.h:298-307).
+// htmlCTagForName is tag_for_name (tag.h:307-316).
 func htmlCTagForName(name []byte) htmlCTag {
 	t := htmlCTag{typ: htmlCTypeForName(name)}
 	if t.typ == htmlCCustom {
@@ -98,7 +104,7 @@ func htmlCTagForName(name []byte) htmlCTag {
 	return t
 }
 
-func htmlCTagEq(a, b *htmlCTag) bool { // tag_eq (tag.h:319-333)
+func htmlCTagEq(a, b *htmlCTag) bool { // tag_eq (tag.h:328-343)
 	if a.typ != b.typ {
 		return false
 	}
@@ -108,7 +114,7 @@ func htmlCTagEq(a, b *htmlCTag) bool { // tag_eq (tag.h:319-333)
 	return true
 }
 
-// htmlCCanContain is tag_can_contain (tag.h:335-380).
+// htmlCCanContain is tag_can_contain (tag.h:345-385).
 func htmlCCanContain(self *htmlCTag, other *htmlCTag) bool {
 	child := other.typ
 	switch self.typ {
@@ -132,7 +138,7 @@ func htmlCCanContain(self *htmlCTag, other *htmlCTag) bool {
 	return true
 }
 
-// htmlSerializeC is serialize (scanner.c:36-72). The first two bytes hold the number of
+// htmlSerializeC is serialize (scanner.c:28-60). The first two bytes hold the number of
 // tags written, the next two the number held; a tag that does not fit ends the list.
 func htmlSerializeC(tags []htmlCTag, buf []byte) int {
 	const limit = 1024 // TREE_SITTER_SERIALIZATION_BUFFER_SIZE
@@ -174,7 +180,7 @@ func htmlSerializeC(tags []htmlCTag, buf []byte) int {
 	return size
 }
 
-// htmlDeserializeC is deserialize (scanner.c:74-110). Tags that the buffer had no room for come
+// htmlDeserializeC is deserialize (scanner.c:62-101). Tags that the buffer had no room for come
 // back as END_ tags.
 func htmlDeserializeC(buf []byte) []htmlCTag {
 	var tags []htmlCTag
@@ -238,7 +244,7 @@ func htmlCUpper(ch int32) int32 {
 	return ch
 }
 
-// scanTagName is scan_tag_name (scanner.c:112-119).
+// scanTagName is scan_tag_name (scanner.c:103-110).
 func (c *htmlC) scanTagName() []byte {
 	var name []byte
 	for cIsAlnum(rune(c.la())) || c.la() == '-' || c.la() == ':' {
@@ -248,7 +254,7 @@ func (c *htmlC) scanTagName() []byte {
 	return name
 }
 
-// scanComment is scan_comment (scanner.c:121-150).
+// scanComment is scan_comment (scanner.c:112-141).
 func (c *htmlC) scanComment() bool {
 	if c.la() != '-' {
 		return false
@@ -279,7 +285,7 @@ func (c *htmlC) scanComment() bool {
 	return false
 }
 
-// scanRawText is scan_raw_text (scanner.c:152-180).
+// scanRawText is scan_raw_text (scanner.c:143-169).
 func (c *htmlC) scanRawText() bool {
 	if len(c.s.ctags) == 0 {
 		return false
@@ -307,7 +313,7 @@ func (c *htmlC) scanRawText() bool {
 	return true
 }
 
-// scanImplicitEndTag is scan_implicit_end_tag (scanner.c:187-245).
+// scanImplicitEndTag is scan_implicit_end_tag (scanner.c:176-231).
 func (c *htmlC) scanImplicitEndTag() bool {
 	var parent *htmlCTag
 	if n := len(c.s.ctags); n > 0 {
@@ -350,7 +356,7 @@ func (c *htmlC) scanImplicitEndTag() bool {
 	return false
 }
 
-// scanStartTagName is scan_start_tag_name (scanner.c:247-270).
+// scanStartTagName is scan_start_tag_name (scanner.c:233-254).
 func (c *htmlC) scanStartTagName() bool {
 	name := c.scanTagName()
 	if len(name) == 0 {
@@ -369,7 +375,7 @@ func (c *htmlC) scanStartTagName() bool {
 	return true
 }
 
-// scanEndTagName is scan_end_tag_name (scanner.c:272-291).
+// scanEndTagName is scan_end_tag_name (scanner.c:256-274).
 func (c *htmlC) scanEndTagName() bool {
 	name := c.scanTagName()
 	if len(name) == 0 {
@@ -385,7 +391,7 @@ func (c *htmlC) scanEndTagName() bool {
 	return true
 }
 
-// scanSelfClosing is scan_self_closing_tag_delimiter (scanner.c:293-304). With an empty stack C
+// scanSelfClosing is scan_self_closing_tag_delimiter (scanner.c:276-287). With an empty stack C
 // returns true with the result symbol it started with (0).
 func (c *htmlC) scanSelfClosing() bool {
 	c.adv()
@@ -404,7 +410,7 @@ func (c *htmlC) scanSelfClosing() bool {
 	return false
 }
 
-// htmlScanC is scan (scanner.c:306-346).
+// htmlScanC is scan (scanner.c:289-333).
 func htmlScanC(s *htmlScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[htmlTokenCount]gotreesitter.Symbol) bool {
 	c := &htmlC{lx: lexer, vs: validSymbols, syms: syms, s: s}
 	if c.valid(htmlTokRawText) && !c.valid(htmlTokStartTagName) && !c.valid(htmlTokEndTagName) {

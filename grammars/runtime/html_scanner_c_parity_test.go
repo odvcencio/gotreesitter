@@ -23,7 +23,7 @@ func htmlValid(toks ...int) []bool {
 func htmlSymOf(tok int) gotreesitter.Symbol { return htmlDefaultSymTable[tok] }
 
 // TestHTMLSelfClosingWithNoOpenTagReturnsStartTagNameLikeC: scan_self_closing_tag_delimiter
-// (scanner.c:293-304) returns true without setting a result symbol when the stack is empty; the
+// (scanner.c:276-287) returns true without setting a result symbol when the stack is empty; the
 // C lexer starts a scan with result_symbol 0, the external START_TAG_NAME. Main returned no
 // token.
 func TestHTMLSelfClosingWithNoOpenTagReturnsStartTagNameLikeC(t *testing.T) {
@@ -35,7 +35,7 @@ func TestHTMLSelfClosingWithNoOpenTagReturnsStartTagNameLikeC(t *testing.T) {
 	}
 }
 
-// TestHTMLTagTableAndStateFollowC: the saved state is the C layout (scanner.c:36-72): two counts
+// TestHTMLTagTableAndStateFollowC: the saved state is the C layout (scanner.c:28-60): two counts
 // (written, held) then one byte per tag with the tag.h enum (AREA 0 ... WBR 22, END_OF_VOID_TAGS
 // 23, A 24, ...). <audio> is a known tag in C (AUDIO) and a custom tag in main's table.
 func TestHTMLTagTableAndStateFollowC(t *testing.T) {
@@ -60,7 +60,7 @@ func TestHTMLTagTableAndStateFollowC(t *testing.T) {
 	}
 }
 
-// TestHTMLParagraphContentModelFollowsC: tag_can_contain for P (tag.h:350-356) forbids exactly the
+// TestHTMLParagraphContentModelFollowsC: tag_can_contain for P (tag.h:356-362) forbids exactly the
 // 26 listed tags. HGROUP, NOSCRIPT, SCRIPT, TABLE, TEMPLATE, UL are block tags in main's table
 // and not in C's list; HR and... are in both. A <p> followed by <ul> stays open in C.
 func TestHTMLParagraphContentModelFollowsC(t *testing.T) {
@@ -79,7 +79,7 @@ func TestHTMLParagraphContentModelFollowsC(t *testing.T) {
 	}
 }
 
-// TestHTMLWhiteSpaceIsTheCLocale: iswspace (scanner.c:322) is ASCII-only in the C locale;
+// TestHTMLWhiteSpaceIsTheCLocale: iswspace (scanner.c:294) is ASCII-only in the C locale;
 // vertical tab and form feed are white space, U+0085 is not.
 func TestHTMLWhiteSpaceIsTheCLocale(t *testing.T) {
 	sc := HTMLExternalScanner{}
@@ -91,7 +91,7 @@ func TestHTMLWhiteSpaceIsTheCLocale(t *testing.T) {
 }
 
 // TestHTMLSerializeLimitIs1024LikeC: a custom tag that would take the state to 1024 bytes ends
-// the list (scanner.c:49-52), with the written count in the first two bytes.
+// the list (scanner.c:43-45, :51-53), with the written count in the first two bytes.
 func TestHTMLSerializeLimitIs1024LikeC(t *testing.T) {
 	sc := HTMLExternalScanner{}
 	st := sc.Create().(*htmlScannerState)

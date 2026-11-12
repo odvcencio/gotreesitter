@@ -22,7 +22,7 @@ func bashValid(toks ...int) []bool {
 }
 
 // TestBashExtglobReadsNoByteBeyondC: ")\n" with TEST_OPERATOR, EXTGLOB_PATTERN and BRACE_START valid (the reproducer of the 1,908 differences). C
-// (:859-880) marks the end, advances over ")" and sees white space at byte 1: it returns false
+// (:879-884) marks the end, advances over ")" and sees white space at byte 1: it returns false
 // having examined bytes 0-1 (lookahead end 2). Main also advanced over the newline.
 func TestBashExtglobReadsNoByteBeyondC(t *testing.T) {
 	sc := BashExternalScanner{}
@@ -67,7 +67,7 @@ func TestBashWhiteSpaceIsTheCLocale(t *testing.T) {
 	}
 }
 
-// TestBashNeverProducesOpeningParenOrEsac: C declares OPENING_PAREN and ESAC (:11-41) and never
+// TestBashNeverProducesOpeningParenOrEsac: C declares OPENING_PAREN and ESAC (:9-39) and never
 // returns them. Main scans them.
 func TestBashNeverProducesOpeningParenOrEsac(t *testing.T) {
 	sc := BashExternalScanner{}
@@ -104,7 +104,7 @@ func TestBashDelimiterIsSignedLikeC(t *testing.T) {
 	}
 }
 
-// TestBashAdvanceWordAppendsLikeC: advance_word pushes onto the delimiter (:164-190) and
+// TestBashAdvanceWordAppendsLikeC: advance_word pushes onto the delimiter (:164-193) and
 // scan_heredoc_start does not clear it first (:210-224). Main replaced it.
 func TestBashAdvanceWordAppendsLikeC(t *testing.T) {
 	sc := BashExternalScanner{}
@@ -125,7 +125,7 @@ func TestBashAdvanceWordAppendsLikeC(t *testing.T) {
 }
 
 // TestBashSerializeStopsAtC1024: serialize refuses a state that reaches
-// TREE_SITTER_SERIALIZATION_BUFFER_SIZE, 1024 bytes (:101). Main refused only above the buffer.
+// TREE_SITTER_SERIALIZATION_BUFFER_SIZE, 1024 bytes (:103). Main refused only above the buffer.
 func TestBashSerializeStopsAtC1024(t *testing.T) {
 	sc := BashExternalScanner{}
 	for _, on := range []bool{true, false} {
@@ -143,7 +143,7 @@ func TestBashSerializeStopsAtC1024(t *testing.T) {
 	}
 }
 
-// TestBashDeserializeKeepsExtraHeredocsLikeC: deserialize (:121-157) never shortens the heredoc
+// TestBashDeserializeKeepsExtraHeredocsLikeC: deserialize (:121-155) never shortens the heredoc
 // array, so a state with fewer heredocs leaves the older ones in the scanner. Main truncated.
 func TestBashDeserializeKeepsExtraHeredocsLikeC(t *testing.T) {
 	sc := BashExternalScanner{}
