@@ -8,6 +8,7 @@ import (
 	"unicode"
 	"unsafe"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
 	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 )
@@ -6342,6 +6343,9 @@ func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from u
 		tok.Symbol == lang.KeywordCaptureToken || languageKeywordReservedInState(lang, state, tok.Symbol) {
 		return tok, false
 	}
+	if p.electedTokenReusable(dts, state, tok) {
+		return tok, false
+	}
 	relexed, ok, abort := p.scanTokenInStackLexState(source, state, tok, from, lexicalReadSpan, dts)
 	if abort || !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol || relexed.Symbol == lang.KeywordCaptureToken ||
 		relexed.StartByte != tok.StartByte || relexed.EndByte != tok.EndByte || !dts.sameSymbolName(relexed.Symbol, tok.Symbol) ||
@@ -6349,6 +6353,23 @@ func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from u
 		return tok, false
 	}
 	return relexed, true
+}
+
+// electedTokenReusable is ts_parser__can_reuse_first_leaf (C/parser.c:470-503)
+// for the shared token in state, with the election's winning state as the
+// state the token was lexed in. Where C would reuse the token, it lexes no
+// version of its own. The caller has ruled out an empty and a keyword-capture
+// token, so C's keyword and empty-token clauses do not apply.
+func (p *Parser) electedTokenReusable(dts *dfaTokenSource, state StateID, tok Token) bool {
+	lang := p.language
+	lexedIn, ok := dts.electedScan(tok)
+	if !ok || int(lexedIn) >= len(lang.LexModes) {
+		return false
+	}
+	mode := lang.LexModes[state]
+	entry := p.lookupAction(state, tok.Symbol)
+	return incr.FirstLeaf(mode.LexStateIndex() == noLookaheadLexState, entry != nil && len(entry.Actions) != 0,
+		mode == lang.LexModes[lexedIn], false, false, false, false, mode.ExternalLexState != 0, entry != nil && entry.Reusable)
 }
 
 // relexZeroWidthExternalTokenForStackLexState is the zero-width-external

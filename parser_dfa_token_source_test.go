@@ -2541,10 +2541,11 @@ func TestElectionHadSameNameRival(t *testing.T) {
 	}{
 		{"same-named rival", []glrUnionDFAScan{scan(1, opClose, 6, 7), scan(2, tmplClose, 6, 7)}, true},
 		{"only the elected symbol", []glrUnionDFAScan{scan(1, opClose, 6, 7)}, false},
-		{"rival under another name", []glrUnionDFAScan{scan(2, other, 6, 7)}, false},
-		{"rival from an earlier token", []glrUnionDFAScan{scan(2, tmplClose, 3, 4)}, false},
-		{"rival with a wider span", []glrUnionDFAScan{scan(2, tmplClose, 6, 8)}, false},
-		{"rival its state cannot take", []glrUnionDFAScan{scan(9, tmplClose, 6, 7)}, false},
+		{"rival under another name", []glrUnionDFAScan{scan(1, opClose, 6, 7), scan(2, other, 6, 7)}, false},
+		{"rival from an earlier token", []glrUnionDFAScan{scan(1, opClose, 6, 7), scan(2, tmplClose, 3, 4)}, false},
+		{"rival with a wider span", []glrUnionDFAScan{scan(1, opClose, 6, 7), scan(2, tmplClose, 6, 8)}, false},
+		{"rival its state cannot take", []glrUnionDFAScan{scan(1, opClose, 6, 7), scan(9, tmplClose, 6, 7)}, false},
+		{"token did not win the last election", []glrUnionDFAScan{scan(2, tmplClose, 6, 7), scan(1, opClose, 6, 7)}, false},
 	}
 	for _, tc := range cases {
 		d.glrUnionScanScratch = tc.scans

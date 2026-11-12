@@ -607,8 +607,10 @@ func TestOwnLexModeTokenGuards(t *testing.T) {
 			source := []byte(tc.source)
 			dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
 			defer dts.Close()
-			// The union election for the shared token scanned Q's own x_b.
-			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0], glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
+			// P's lex mode won the union election; it also scanned Q's own x_b.
+			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0],
+				glrUnionDFAScan{state: 2, tok: tok},
+				glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
 			got, ok := p.ownLexModeToken(source, 1, tok, tok.StartByte, nil, dts)
 			if tc.want == 0 {
 				if ok || got != tok {
@@ -618,6 +620,49 @@ func TestOwnLexModeTokenGuards(t *testing.T) {
 			}
 			if !ok || got.Symbol != tc.want || got.StartByte != tok.StartByte || got.EndByte != tok.EndByte {
 				t.Fatalf("got (%+v, %v), want symbol %d over [%d,%d)", got, ok, tc.want, tok.StartByte, tok.EndByte)
+			}
+		})
+	}
+}
+
+// TestOwnLexModeTokenSkipsAReusableSharedToken: P's lex mode elected x_a, and
+// Q reads no token of its own where ts_parser__can_reuse_first_leaf lets C
+// reuse x_a in Q's state.
+func TestOwnLexModeTokenSkipsAReusableSharedToken(t *testing.T) {
+	shared := Token{Symbol: 2, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+	for _, tc := range []struct {
+		name string
+		edit func(*Language)
+		want Symbol // 0: rejected, the shared token comes back
+	}{
+		{"lexed in another lex mode", func(*Language) {}, 3},
+		{"lexed in the stack's lex mode", func(lang *Language) { lang.LexModes[2] = lang.LexModes[1] }, 0},
+		{"reusable entry", func(lang *Language) { lang.ParseActions[lang.ParseTable[1][2]].Reusable = true }, 0},
+		{"reusable entry, external lex state", func(lang *Language) {
+			lang.ParseActions[lang.ParseTable[1][2]].Reusable = true
+			lang.LexModes[1].ExternalLexState = 1
+		}, 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := ownLexModeLanguage()
+			lang.ParseTable[1][2] = 2 // Q has an action for x_a too
+			tc.edit(lang)
+			p := NewParser(lang)
+			source := []byte("ax")
+			dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+			defer dts.Close()
+			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0],
+				glrUnionDFAScan{state: 2, tok: shared},
+				glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
+			got, ok := p.ownLexModeToken(source, 1, shared, shared.StartByte, nil, dts)
+			if tc.want == 0 {
+				if ok || got != shared {
+					t.Fatalf("got (%+v, %v), want the shared token back unchanged", got, ok)
+				}
+				return
+			}
+			if !ok || got.Symbol != tc.want {
+				t.Fatalf("got (%+v, %v), want symbol %d", got, ok, tc.want)
 			}
 		})
 	}
@@ -659,8 +704,10 @@ func TestOwnLexModeTokenReadsFromStackPosition(t *testing.T) {
 			source := []byte("a x")
 			dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
 			defer dts.Close()
-			// The union election for the shared token scanned Q's own x_b.
-			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0], glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 2, EndByte: 3}})
+			// P's lex mode won the union election; it also scanned Q's own x_b.
+			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0],
+				glrUnionDFAScan{state: 2, tok: shared},
+				glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 2, EndByte: 3}})
 			got, ok := p.ownLexModeToken(source, 1, shared, tc.from, nil, dts)
 			if tc.want == 0 {
 				if ok || got != shared {
