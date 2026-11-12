@@ -268,6 +268,15 @@ type Parser struct {
 	// wall-clock deadline, holds even when the caller never configured
 	// SetTimeoutMicros.
 	fullParseRetryPassesTaken int
+	// retryCut records, for the current public parse operation, the first
+	// cause (ParseStopTimeout or ParseStopCancelled) that kept the parser from
+	// finishing optional retry or fallback work after a tree existed.
+	// retryCutDepth counts nested parse calls so that only the outermost entry
+	// resets the value. The exits stamp the value on the returned tree.
+	retryCut      ParseStopReason
+	retryCutDepth int
+	// retryPassObserver is a test seam; it is nil in production.
+	retryPassObserver func(p *Parser, logicalRung string)
 	// cRecoverSharedTokenErrorModeLexed records whether the CURRENT shared
 	// token was produced by C-equivalent error-mode lexing (the DFA token
 	// source lexing with the ERROR-state primary because every live stack is

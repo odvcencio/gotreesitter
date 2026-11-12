@@ -63,6 +63,7 @@ func (p *Parser) newIncrementalFreshVerifier() *Parser {
 	verifier.errorCostCompetition = p.errorCostCompetition
 	verifier.recoveryInitialOnly = p.recoveryInitialOnly
 	verifier.skipRecoveryReparse = p.skipRecoveryReparse
+	verifier.retryPassObserver = p.retryPassObserver
 	return verifier
 }
 
@@ -155,7 +156,9 @@ func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tre
 // verifyIncrementalFreshResult authenticates the final public shape after
 // recovery and compatibility normalization.
 func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts TokenSource, tree *Tree, timing *incrementalParseTiming) (*Tree, error) {
-	if parseStopReasonIsTerminal(p.parseStopReasonNow()) {
+	if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+		// The verification is skipped: the shared stop is active.
+		p.noteRetryCutSkipped(reason, tree)
 		if tree == nil {
 			return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 		}
@@ -200,6 +203,9 @@ func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts T
 	if parseStopReasonIsActive(fresh.rawParseStopReason()) {
 		p.markActiveParseStopped(fresh.rawParseStopReason())
 	}
+	// The fresh parse ran its own retry passes. Keep their signal even when
+	// the fresh tree is released below.
+	p.noteRetryCutFromTree(fresh)
 	fresh.setIncrementalFreshVerified(true)
 	freshNanos := time.Since(started).Nanoseconds()
 	if tree != nil {

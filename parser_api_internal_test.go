@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -4171,5 +4172,206 @@ func TestIncrementalWorkLimitsMatchFreshSchedule(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+// retryStopLadderRun runs retryFullParse with a stub runner and returns the
+// parser, the returned tree and the number of retry passes. end runs after the
+// pass with the given 1-based index.
+func retryStopLadderRun(t *testing.T, parser *Parser, endAfterPass int, end func()) (*Tree, int) {
+	t.Helper()
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
+	t.Setenv("GOT_PARSE_NODE_LIMIT_SCALE", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	const sourceLen = 256 * 1024
+	calls := 0
+	initial := duplicateWideRetryTestTree(sourceLen, 100, 18, false)
+	got := parser.retryFullParse(make([]byte, sourceLen), 8, initial, func(maxStacks, maxMergePerKeyOverride, maxNodes int) *Tree {
+		calls++
+		tree := duplicateWideRetryTestTree(sourceLen, 90-calls, 36+calls, false)
+		if calls == endAfterPass && end != nil {
+			defer end()
+		}
+		return tree
+	})
+	return got, calls
+}
+
+func TestRetryStopReasonLadderCases(t *testing.T) {
+	t.Run("no timeout runs to the end", func(t *testing.T) {
+		tree, calls := retryStopLadderRun(t, &Parser{}, 0, nil)
+		if calls < 2 {
+			t.Fatalf("retry passes = %d, want at least 2", calls)
+		}
+		if tree.RetryStopReason() != ParseStopNone || tree.ParseRuntime().RetryStopReason != ParseStopNone {
+			t.Fatalf("RetryStopReason = %q, want none", tree.RetryStopReason())
+		}
+	})
+	t.Run("cancellation after the first pass", func(t *testing.T) {
+		var flag uint32
+		parser := &Parser{cancellationFlag: &flag}
+		tree, calls := retryStopLadderRun(t, parser, 1, func() { atomic.StoreUint32(&flag, 1) })
+		if calls != 1 {
+			t.Fatalf("retry passes = %d, want 1", calls)
+		}
+		if tree.RetryStopReason() != ParseStopCancelled || tree.ParseStopReason() != ParseStopAccepted {
+			t.Fatalf("RetryStopReason = %q stop = %q, want cancelled and accepted", tree.RetryStopReason(), tree.ParseStopReason())
+		}
+	})
+	t.Run("timeout after the first pass", func(t *testing.T) {
+		parser := &Parser{timeoutMicros: 60_000_000}
+		defer parser.enterParseBudget()()
+		tree, calls := retryStopLadderRun(t, parser, 1, func() { parser.parseDeadline = time.Now().Add(-time.Second) })
+		if calls != 1 {
+			t.Fatalf("retry passes = %d, want 1", calls)
+		}
+		if tree.RetryStopReason() != ParseStopTimeout || tree.ParseStopReason() != ParseStopAccepted {
+			t.Fatalf("RetryStopReason = %q stop = %q, want timeout and accepted", tree.RetryStopReason(), tree.ParseStopReason())
+		}
+	})
+	t.Run("pass limit is deterministic and reports none", func(t *testing.T) {
+		parser := &Parser{timeoutMicros: 60_000_000}
+		defer parser.enterParseBudget()()
+		parser.fullParseRetryPassesTaken = fullParseRetryMaxTotalPasses - 1
+		tree, calls := retryStopLadderRun(t, parser, 0, nil)
+		if calls != 1 {
+			t.Fatalf("retry passes = %d, want 1 (limit reached)", calls)
+		}
+		if tree.RetryStopReason() != ParseStopNone {
+			t.Fatalf("RetryStopReason = %q, want none at the pass limit", tree.RetryStopReason())
+		}
+	})
+	t.Run("pass limit with an expired timeout reports none", func(t *testing.T) {
+		parser := &Parser{timeoutMicros: 60_000_000}
+		defer parser.enterParseBudget()()
+		parser.fullParseRetryPassesTaken = fullParseRetryMaxTotalPasses - 1
+		tree, _ := retryStopLadderRun(t, parser, 1, func() { parser.parseDeadline = time.Now().Add(-time.Second) })
+		if tree.RetryStopReason() != ParseStopNone {
+			t.Fatalf("RetryStopReason = %q, want none: the pass limit had used up all passes", tree.RetryStopReason())
+		}
+	})
+	t.Run("a pass that itself stopped on timeout is recorded at the pass limit", func(t *testing.T) {
+		t.Setenv("GOT_GLR_MAX_STACKS", "")
+		parser := &Parser{timeoutMicros: 60_000_000}
+		defer parser.enterParseBudget()()
+		parser.fullParseRetryPassesTaken = fullParseRetryMaxTotalPasses - 1
+		initial := duplicateWideRetryTestTree(256*1024, 100, 18, false)
+		got := parser.retryFullParse(make([]byte, 256*1024), 8, initial, func(int, int, int) *Tree {
+			interrupted := duplicateWideRetryTestTree(256*1024, 90, 36, false)
+			interrupted.ensureParseRuntime().StopReason = ParseStopTimeout
+			return interrupted
+		})
+		if got.RetryStopReason() != ParseStopTimeout {
+			t.Fatalf("RetryStopReason = %q, want timeout: the final pass was interrupted", got.RetryStopReason())
+		}
+	})
+}
+
+func TestRetryStopReasonUnsetFieldReportsNone(t *testing.T) {
+	trees := map[string]*Tree{
+		"zero tree":        {},
+		"bare runtime":     {parseRuntime: &ParseRuntime{StopReason: ParseStopAccepted}},
+		"certified helper": duplicateWideRetryTestTree(1024, 10, 2, false),
+		"runtime set by hand": func() *Tree {
+			tr := &Tree{}
+			tr.setParseRuntime(ParseRuntime{StopReason: ParseStopAccepted})
+			return tr
+		}(),
+	}
+	for name, tree := range trees {
+		if got := tree.RetryStopReason(); got != ParseStopNone {
+			t.Errorf("%s: RetryStopReason() = %q, want none", name, got)
+		}
+		if got := tree.ParseRuntime().RetryStopReason; got != ParseStopNone {
+			t.Errorf("%s: ParseRuntime().RetryStopReason = %q, want none", name, got)
+		}
+	}
+}
+
+func TestRetryLadderHasWorkUsesTheEffectivePassLimit(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
+	t.Setenv("GOT_PARSE_NODE_LIMIT_SCALE", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	const sourceLen = 256 * 1024
+	source := make([]byte, sourceLen)
+	tree := duplicateWideRetryTestTree(sourceLen, 100, 18, false)
+	tree.ensureParseRuntime().StopReason = ParseStopNoStacksAlive
+	tree.language.FullParseAcceptedErrorRetryProfile.FreshErrorNoStacksMaxPasses = 1
+
+	fresh := &Parser{}
+	if !fresh.retryLadderHasWork(tree, source, 8) {
+		t.Fatal("control: the ladder has work before any pass ran")
+	}
+	// One certified pass was taken. The repeat would run zero passes, so an
+	// expired deadline at the repeat gate prevented no work.
+	used := &Parser{fullParseRetryPassesTaken: 1}
+	if used.retryLadderHasWork(tree, source, 8) {
+		t.Fatal("the certified limit of one pass is used up; there is no work left")
+	}
+	used.noteRetryCutIfWork(ParseStopCancelled, source, 8, tree)
+	if used.retryCut != "" && used.retryCut != ParseStopNone {
+		t.Fatalf("recorded %q for a completed certified schedule, want none", used.retryCut)
+	}
+	fresh.noteRetryCutIfWork(ParseStopCancelled, source, 8, tree)
+	if fresh.retryCut != ParseStopCancelled {
+		t.Fatalf("recorded %q when the ladder was prevented, want cancelled", fresh.retryCut)
+	}
+}
+
+func TestRetryLadderHasWorkMirrorsNamespaceRecovery(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
+	t.Setenv("GOT_PARSE_NODE_LIMIT_SCALE", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	source := append([]byte("using X;\nnamespace N { class C { } }\n"), make([]byte, 256*1024)...)
+	nsStart := uint32(bytes.Index(source, []byte("namespace")))
+	nsEnd := uint32(bytes.Index(source, []byte("}\n")) + 1)
+	lang := &Language{
+		Name:        "c_sharp",
+		SymbolNames: []string{"EOF", "compilation_unit", "namespace_declaration"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF"},
+			{Name: "compilation_unit", Visible: true, Named: true},
+			{Name: "namespace_declaration", Visible: true, Named: true},
+		},
+	}
+	arena := newNodeArena(arenaClassFull)
+	namespace := newLeafNodeInArena(arena, 2, true, nsStart, nsEnd, Point{}, Point{})
+	namespace.setHasError(true)
+	root := newParentNodeInArena(arena, 1, true, []*Node{namespace}, nil, 0)
+	tree := &Tree{
+		language: lang,
+		root:     root,
+		parseRuntime: &ParseRuntime{
+			StopReason:      ParseStopAccepted,
+			SourceLen:       uint32(len(source)),
+			ExpectedEOFByte: uint32(len(source)),
+			RootEndByte:     uint32(len(source)),
+			MaxStacksSeen:   18,
+			NodesAllocated:  100,
+		},
+	}
+	if !csharpAcceptedErrorTreeCanUseNamespaceRecovery(tree, source) {
+		t.Fatal("test setup: namespace recovery must apply")
+	}
+	p := &Parser{}
+	if p.retryLadderHasWork(tree, source, 8) {
+		t.Fatal("namespace recovery returns before any pass; there is no work to prevent")
+	}
+	// Control: without the namespace shape the same tree has retry work.
+	root.ownerArena = nil
+	if csharpAcceptedErrorTreeCanUseNamespaceRecovery(tree, source) {
+		t.Fatal("test setup: namespace recovery must not apply without an arena")
+	}
+	if !p.retryLadderHasWork(tree, source, 8) {
+		t.Skip("control tree has no retry work; the namespace case is not distinguishable here")
 	}
 }

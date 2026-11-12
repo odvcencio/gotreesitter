@@ -22,7 +22,11 @@ func WithParserPoolLogger(logger ParserLogger) ParserPoolOption {
 	}
 }
 
-// WithParserPoolTimeoutMicros sets the parse timeout for pooled parsers.
+// WithParserPoolTimeoutMicros sets the parse timeout for pooled parsers. It has
+// the effect of Parser.SetTimeoutMicros, including for the retry passes: when
+// the timeout cuts that work short, the tree keeps the stop reason of the pass
+// that produced it (usually ParseStopAccepted) and tree.RetryStopReason()
+// returns ParseStopTimeout.
 func WithParserPoolTimeoutMicros(timeoutMicros uint64) ParserPoolOption {
 	return func(cfg *parserPoolConfig) {
 		cfg.timeoutMicros = timeoutMicros

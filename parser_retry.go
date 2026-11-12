@@ -1847,6 +1847,118 @@ func certifiedAcceptedErrorRetryReusesCleanWide(p *Parser, tree *Tree, sourceLen
 		retryTreeCoversExpectedEOF(tree)
 }
 
+// retryCutBegin opens a public parse operation. Only the outermost call
+// resets the signal, so a nested parse of the same operation keeps it.
+func (p *Parser) retryCutBegin() {
+	if p == nil {
+		return
+	}
+	if p.retryCutDepth == 0 {
+		p.retryCut = ParseStopNone
+	}
+	p.retryCutDepth++
+}
+
+// retryCutEnd closes a public parse operation and stamps its signal on the
+// tree that the operation returns, whichever route produced that tree. A
+// tree that already holds a signal (an unchanged-source reparse returns the
+// old tree) keeps it when this operation has none.
+func (p *Parser) retryCutEnd(tree *Tree) {
+	if p == nil {
+		return
+	}
+	if p.retryCutDepth > 0 {
+		p.retryCutDepth--
+	}
+	if p.retryCut != "" && p.retryCut != ParseStopNone && tree != nil {
+		tree.ensureParseRuntime().RetryStopReason = p.retryCut
+	}
+}
+
+// noteRetryCut records the first cause that stopped optional retry or
+// fallback work. Only a timeout or a cancellation counts.
+func (p *Parser) noteRetryCut(reason ParseStopReason) {
+	if p == nil || !parseStopReasonIsActive(reason) || (p.retryCut != "" && p.retryCut != ParseStopNone) {
+		return
+	}
+	p.retryCut = reason
+}
+
+// noteRetryCutFromTree takes over the signal of a tree built by a nested
+// parser or a discarded attempt, before that tree is released or replaced.
+func (p *Parser) noteRetryCutFromTree(tree *Tree) {
+	if p == nil || tree == nil {
+		return
+	}
+	p.noteRetryCut(tree.rawParseRuntime().RetryStopReason)
+}
+
+// noteRetryCutSkipped records a skipped step. A tree that already reports the
+// same stop as its own stop reason needs no extra signal.
+func (p *Parser) noteRetryCutSkipped(reason ParseStopReason, tree *Tree) {
+	if tree == nil || parseStopReasonIsActive(tree.rawParseStopReason()) {
+		return
+	}
+	p.noteRetryCut(reason)
+}
+
+// noteRetryCutIfWork records a stop that prevented the retry ladder from
+// starting, but only when the ladder had a pass to run for this tree.
+func (p *Parser) noteRetryCutIfWork(reason ParseStopReason, source []byte, initialMaxStacks int, tree *Tree) {
+	if p == nil || tree == nil || !p.retryLadderHasWork(tree, source, initialMaxStacks) {
+		return
+	}
+	p.noteRetryCut(reason)
+}
+
+// retryLadderHasWork reports whether retryFullParse would start at least one
+// pass for a fresh-origin tree. It repeats the scheduling checks at the top of
+// that function (the effective pass limit, including the certified smaller
+// one, and the early return for C# namespace recovery) and starts no parse.
+//
+// Rule for every place that records RetryStopReason: record a timeout or a
+// cancellation only when the operation without that stop would have done work
+// that the stop prevented.
+func (p *Parser) retryLadderHasWork(tree *Tree, source []byte, initialMaxStacks int) bool {
+	origin := fullParseRetryOriginFresh
+	sourceLen := len(source)
+	passLimit := fullParseRetryMaxTotalPasses
+	if certified := certifiedFreshErrorNoStacksRetryPassLimit(tree, sourceLen, origin); certified > 0 && certified < passLimit {
+		passLimit = certified
+	}
+	if p != nil && p.fullParseRetryPassesTaken >= passLimit {
+		return false
+	}
+	if certifiedGSSConvergenceAcceptedErrorMergePerKey(tree, sourceLen) == 0 &&
+		csharpAcceptedErrorTreeCanUseNamespaceRecovery(tree, source) {
+		return false
+	}
+	if certifiedAcceptedErrorRetrySkipsFresh(tree, sourceLen, origin) {
+		return false
+	}
+	if shouldRunInitialFullParseMergeRetry(tree, sourceLen, origin) &&
+		fullParseRetryMergePerKeyOverride(tree, sourceLen, initialMaxStacks) != 0 {
+		return true
+	}
+	if fullParseRetryMaxStacksOverrideForOrigin(tree, sourceLen, initialMaxStacks, origin) > 0 {
+		return true
+	}
+	// An explicit node limit turns the widened-node pass off (see retryFullParseForOrigin).
+	return !(p != nil && p.parseWorkLimits.NodeLimit > 0) && fullParseRetryNodeLimitOverride(tree, sourceLen) > 0
+}
+
+// carryRetryStopReason copies the retry stop signal of a tree that is about to
+// be released onto the tree that the caller keeps in its place. Both trees
+// describe the same retry phase.
+func carryRetryStopReason(dst, src *Tree) {
+	if dst == nil || src == nil || dst == src {
+		return
+	}
+	if reason := src.rawParseRuntime().RetryStopReason; reason != "" && reason != ParseStopNone {
+		dst.ensureParseRuntime().RetryStopReason = reason
+	}
+}
+
 func (p *Parser) retryFullParse(source []byte, initialMaxStacks int, tree *Tree, runRetry fullParseRetryRunner) *Tree {
 	return p.retryFullParseForOrigin(source, initialMaxStacks, tree, fullParseRetryOriginFresh, runRetry)
 }
@@ -1892,8 +2004,30 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 	retryPassLimitReached := func() bool {
 		return p != nil && p.fullParseRetryPassesTaken >= retryPassLimit
 	}
+	// retryStop records why the retry phase ended before it finished: the
+	// timeout or the cancellation flag, never the pass limit. It is stored on
+	// the returned tree (see Tree.RetryStopReason). lastDeadlineReason holds
+	// the cause seen by the latest retryDeadlineExceeded call so that a caller
+	// can record it only when a retry pass was really skipped.
+	retryStop := ParseStopNone
+	lastDeadlineReason := ParseStopNone
+	noteRetryStop := func(reason ParseStopReason) {
+		if retryStop == ParseStopNone && parseStopReasonIsActive(reason) {
+			retryStop = reason
+		}
+		p.noteRetryCut(reason)
+	}
+	// A checkpoint that finds the deadline only counts when the fixed pass
+	// limit still had passes to give; at the limit the ladder is complete.
+	markRetryCutShort := func() {
+		if !retryPassLimitReached() {
+			noteRetryStop(lastDeadlineReason)
+		}
+	}
 	retryDeadlineExceeded := func() bool {
+		lastDeadlineReason = ParseStopNone
 		if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+			lastDeadlineReason = reason
 			return true
 		}
 		// Hard pass-count bound, independent of any wall-clock budget (which
@@ -1938,12 +2072,17 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 			return false
 		}
 		if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
+			lastDeadlineReason = reason
 			return true
 		}
 		if p.parseBudgetDepth > 0 {
 			return false
 		}
-		return time.Since(retryStart) > time.Duration(p.timeoutMicros)*time.Microsecond
+		if time.Since(retryStart) > time.Duration(p.timeoutMicros)*time.Microsecond {
+			lastDeadlineReason = ParseStopTimeout
+			return true
+		}
+		return false
 	}
 
 	// Each runRetry() produces a fresh Tree + arena. When a candidate loses
@@ -2023,11 +2162,25 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 		}
 		p.recordRecoveryRuntimeRetryTree(result, logicalRung)
 		p.recordRecoveryRuntimeRetryTreeDetailed(result, logicalRung, operationCause)
+		// A pass that the timeout or the cancellation flag cut short ends the
+		// retry phase early, even when no later checkpoint runs.
+		if result != nil {
+			noteRetryStop(result.rawParseStopReason())
+		}
+		if p != nil && p.retryPassObserver != nil {
+			p.retryPassObserver(p, logicalRung)
+		}
 		return result
 	}
 
 	bestTree := tree
 	defer func() {
+		// Publish the signal on the tree that the caller receives. The tree is
+		// the same object after the return statement runs, so one write here
+		// covers every return path below.
+		if retryStop != ParseStopNone && bestTree != nil {
+			bestTree.ensureParseRuntime().RetryStopReason = retryStop
+		}
 		p.finishRecoveryRuntimeRetryTelemetry(bestTree, len(source))
 		p.clearRecoveryRuntimeRetryTreesDetailed()
 		p.clearRecoveryRuntimeRetryTrees()
@@ -2050,6 +2203,10 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 		}
 	}
 	if retryDeadlineExceeded() {
+		if maxStacksOverride != 0 || maxNodesOverride != 0 {
+			// Widened retry passes were still to come.
+			markRetryCutShort()
+		}
 		return bestTree
 	}
 
@@ -2090,7 +2247,11 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 			if retryTreeCoversExpectedEOF(bestTree) {
 				return bestTree
 			}
-			if cleanMergePerKey != 0 && !retryDeadlineExceeded() {
+			cleanMergeSkipped := cleanMergePerKey != 0 && retryDeadlineExceeded()
+			if cleanMergeSkipped {
+				markRetryCutShort()
+			}
+			if cleanMergePerKey != 0 && !cleanMergeSkipped {
 				p.forceCleanRetryPass = true
 				cleanMergeTree := runRetryAttempt(
 					"clean_wide_merge",
@@ -2111,6 +2272,7 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 			release(cleanRetryTree)
 		}
 		if retryDeadlineExceeded() {
+			markRetryCutShort()
 			return bestTree
 		}
 	}
@@ -2138,6 +2300,13 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 		// it at function exit via the sentinel below.
 		nodeRetryTree = retryTree
 		if retryDeadlineExceeded() {
+			// Later passes (secondary node budget, final merge) are skipped
+			// only when the retry tree asks for them.
+			if fullParseRetrySecondaryNodeLimitOverride(retryTree, len(source)) > 0 ||
+				(!treeParseClean(retryTree) && !treeParseClean(bestTree) &&
+					fullParseRetryMergePerKeyOverride(retryTree, len(source), initialMaxStacks) != 0) {
+				markRetryCutShort()
+			}
 			replaceBest(&bestTree, retryTree)
 			return bestTree
 		}
@@ -2211,6 +2380,7 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 		return bestTree
 	}
 	if retryDeadlineExceeded() {
+		markRetryCutShort()
 		return bestTree
 	}
 	mergeRetryTree := runRetryAttempt(
@@ -2220,7 +2390,12 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 		maxMergePerKeyOverride,
 		maxNodesOverride,
 	)
-	if shouldRetryCertifiedNoStacksPressure(tree, mergeRetryTree, len(source), initialMaxStacks, retryMaxStacks, origin) && !retryDeadlineExceeded() {
+	pressureRetryWanted := shouldRetryCertifiedNoStacksPressure(tree, mergeRetryTree, len(source), initialMaxStacks, retryMaxStacks, origin)
+	pressureRetrySkipped := pressureRetryWanted && retryDeadlineExceeded()
+	if pressureRetrySkipped {
+		markRetryCutShort()
+	}
+	if pressureRetryWanted && !pressureRetrySkipped {
 		pressureRetryTree := runRetryAttempt(
 			"certified_no_stacks_pressure",
 			"default_and_bounded_stack_caps_exhausted",
@@ -2278,6 +2453,7 @@ func (p *Parser) retryFullParseWithDFAForOrigin(source []byte, initialMaxStacks 
 		// with a quality-tied fresh tree would falsely report
 		// incremental_parse_full_retry and discard a good tree over parse-run
 		// bookkeeping (NodesAllocated).
+		carryRetryStopReason(tree, result)
 		result.Release()
 		return tree
 	}
@@ -2305,7 +2481,8 @@ func (p *Parser) retryFullParseWithDFAForOrigin(source []byte, initialMaxStacks 
 // reaches a clean accept, and the caller must not see that failure as a
 // successful, drastically-truncated tree.
 func (p *Parser) retryIncrementalParseAsFullWithDFA(source []byte, initialMaxStacks int, tree *Tree, timing *incrementalParseTiming) *Tree {
-	if tree == nil || parseStopReasonIsTerminal(p.parseStopReasonNow()) {
+	if reason := p.parseStopReasonNow(); tree == nil || parseStopReasonIsTerminal(reason) {
+		p.noteRetryCutSkipped(reason, tree)
 		return tree
 	}
 	// An abandoned reuse attempt is not the fresh first pass. Starting the
@@ -2318,6 +2495,7 @@ func (p *Parser) retryIncrementalParseAsFullWithDFA(source []byte, initialMaxSta
 	if result != nil && parseStopReasonIsActive(result.rawParseStopReason()) {
 		p.markActiveParseStopped(result.rawParseStopReason())
 	}
+	p.noteRetryCutFromTree(result)
 	if err != nil || result == nil {
 		result.Release()
 		return tree
@@ -2360,6 +2538,7 @@ func (p *Parser) retryFullParseWithTokenSourceForOrigin(source []byte, ts TokenS
 		// with a quality-tied fresh tree would falsely report
 		// incremental_parse_full_retry and discard a good tree over parse-run
 		// bookkeeping (NodesAllocated).
+		carryRetryStopReason(tree, result)
 		result.Release()
 		return tree
 	}
