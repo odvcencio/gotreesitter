@@ -40,6 +40,13 @@ check_output() {
   [ -n "$sk" ] && [ "$sk" -eq 0 ] || { echo "skipped calls: ${sk:-missing}" >&2; return 1; }
 }
 
+# print_log <exit status> <file>: a passing run prints only its summary lines; a failing run prints the whole
+# log, because the reason of a failure (a missing scanner, an unmatched difference, a failed reset) is an
+# indented line that the summary filter would drop.
+print_log() {
+  if [ "$1" -eq 0 ]; then grep -E '^(SCANDIFF|--- |FAIL|PASS|ok )' "$2"; else cat "$2"; fi
+}
+
 # refuse_mutant: the mutant switches exist only in self-test builds (tag scandiff_mutants); this script never
 # builds with that tag, so a set SCANDIFF_MUTANT is a mistake or an attempt to weaken a run.
 refuse_mutant() {
@@ -67,6 +74,10 @@ if [ "${1:-}" = "--self-test" ]; then
   printf '%s\n' "${sum/c_crashes=0/c_crashes=3}" '--- PASS: TestScannerDiff (0.10s)' | sed 's/report_mode=false/report_mode=true/' >"$d/crashreport"
   printf '%s\n' "${sum/report_mode=false /}" '--- PASS: TestScannerDiff (0.10s)' >"$d/noreport"
   if (SCANDIFF_MUTANT=len; refuse_mutant) 2>/dev/null; then echo "FAIL self-test: a mutant variable must be refused"; fails=1; else echo "ok   self-test: a mutant variable is refused"; fi
+  printf '%s\n' '=== RUN   TestScannerDiff' '    scandiff_test.go:1: reason-line' '--- FAIL: TestScannerDiff (0.00s)' 'FAIL' >"$d/failing"
+  if print_log 1 "$d/failing" | grep -q 'reason-line'; then echo "ok   self-test: a failing run prints its whole log"; else echo "FAIL self-test: a failing run hid its reason"; fails=1; fi
+  printf '%s\n' '    detail-line' "$sum" '--- PASS: TestScannerDiff (0.10s)' >"$d/passing"
+  if print_log 0 "$d/passing" | grep -q 'detail-line'; then echo "FAIL self-test: a passing run must print only its summary lines"; fails=1; else echo "ok   self-test: a passing run prints only its summary lines"; fi
   expect "good output is accepted" 0 css "$d/good"
   expect "missing PASS line fails" 1 css "$d/nopass"
   expect "skipped test fails" 1 css "$d/skip"
@@ -102,10 +113,10 @@ for try in 1 2 3 4 5 6; do
     n=$(sed -n 's/^SCANDIFF_HANG .* call=\([0-9]*\)$/\1/p' "$log" | tail -1)
     skip="$skip,$n"; echo "hang at call $n; restarting without it"; rm -f "$log"; continue
   fi
-  grep -E '^(SCANDIFF|--- |FAIL|PASS|ok )' "$log"
   if [ "$rc" -eq 0 ] && ! check_output "$lang" "$log"; then rc=4; fi
   # a run that needed a hang to be skipped never passes
   if [ "$rc" -eq 0 ] && [ -n "$skip" ]; then echo "hang skipped: $skip" >&2; rc=5; fi
+  print_log "$rc" "$log"
   rm -f "$log"
   exit "$rc"
 done

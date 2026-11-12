@@ -35,6 +35,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -171,17 +172,20 @@ func TestScandiffSelfLength(t *testing.T) {
 	if got := sdCompare(neg, o); !sdHasKind(got, kOverflow) {
 		t.Fatalf("a negative length is an overflow, got %v", got)
 	}
-	// the Go side keeps the reported length without conversion: 2^32+1024 must not become 1024
-	big := 1<<32 + 1024
-	gs := mkGoSide(&fakeScan{extra: big})
-	src := newSdSource(1, "s", []byte("abc"))
-	rec, pan := gs.call(src, 0, 0, 0, nil, nil, nil)
-	if pan != "" || rec.StateLen != int64(big) || len(rec.State) != sdMaxState {
-		t.Fatalf("Go length: panic %q, reported %d (want %d), kept %d bytes", pan, rec.StateLen, int64(big), len(rec.State))
-	}
-	cEq := scandiff.Record{Found: true, Symbol: 1, State: rec.State, StateLen: 1024}
-	if got := sdCompare(cEq, rec); !sdHasKind(got, kOverflow) {
-		t.Fatalf("C 1024 against Go 2^32+1024 with equal bytes must differ, got %v", got)
+	// the Go side keeps the reported length without conversion: 2^32+1024 must not become 1024.
+	// ExtScan.StateLen is an int, so this value exists only where int has 64 bits.
+	if strconv.IntSize == 64 {
+		big := int64(1)<<32 + 1024
+		gs := mkGoSide(&fakeScan{extra: int(big)})
+		src := newSdSource(1, "s", []byte("abc"))
+		rec, pan := gs.call(src, 0, 0, 0, nil, nil, nil)
+		if pan != "" || rec.StateLen != big || len(rec.State) != sdMaxState {
+			t.Fatalf("Go length: panic %q, reported %d (want %d), kept %d bytes", pan, rec.StateLen, big, len(rec.State))
+		}
+		cEq := scandiff.Record{Found: true, Symbol: 1, State: rec.State, StateLen: 1024}
+		if got := sdCompare(cEq, rec); !sdHasKind(got, kOverflow) {
+			t.Fatalf("C 1024 against Go 2^32+1024 with equal bytes must differ, got %v", got)
+		}
 	}
 }
 
