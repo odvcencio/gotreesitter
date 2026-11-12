@@ -4,6 +4,7 @@ package grammarruntime
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -169,5 +170,95 @@ func TestBashDeserializeKeepsExtraHeredocsLikeC(t *testing.T) {
 		if on && !bytes.Equal(st.heredocs[0].delimiter, []byte("c\x00")) {
 			t.Errorf("first heredoc not replaced: %q", st.heredocs[0].delimiter)
 		}
+	}
+}
+
+// Truncated checkpoints can end in the heredoc flags or length, including in
+// a later heredoc. The C-mode scanner must not slice past the supplied bytes.
+func TestBashDeserializeCTruncatedCheckpoints(t *testing.T) {
+	sc := BashExternalScanner{}
+	cases := []struct {
+		name  string
+		count int
+		state []byte
+	}{
+		{"single", 1, []byte{0, 0, 0, 1, 1, 1, 1, 3, 0, 0, 0, 'e', 'n', 'd'}},
+		{"two", 2, []byte{7, 1, 0, 2, 1, 0, 1, 3, 0, 0, 0, 'e', 'n', 'd', 0, 1, 0, 2, 0, 0, 0, 'x', 'y'}},
+	}
+	for _, tc := range cases {
+		for cut := 0; cut < len(tc.state); cut++ {
+			t.Run(fmt.Sprintf("%s/prefix_%d", tc.name, cut), func(t *testing.T) {
+				st := sc.Create().(*bshState)
+				st.SetCFaithful(true)
+				sc.Deserialize(st, tc.state[:cut:cut])
+				if cut >= 4 && len(st.heredocs) != tc.count {
+					t.Fatalf("got %d heredocs, want %d", len(st.heredocs), tc.count)
+				}
+				if cut >= 14 && !bytes.Equal(st.heredocs[0].delimiter, []byte("end")) {
+					t.Fatalf("first delimiter = %q, want end", st.heredocs[0].delimiter)
+				}
+				if tc.count == 2 && cut >= 21 && !bytes.Equal(st.heredocs[1].delimiter, tc.state[21:cut]) {
+					t.Fatalf("second delimiter = %q, want %q", st.heredocs[1].delimiter, tc.state[21:cut])
+				}
+			})
+		}
+	}
+}
+
+// Every complete checkpoint must retain its exact wire representation, from
+// the shortest states through the largest state C's serializer accepts.
+func TestBashDeserializeCValidCheckpointsRoundTrip(t *testing.T) {
+	maximum := []byte{0, 0, 0, 1, 1, 1, 1, 0xf4, 0x03, 0, 0} // delimiter length 1012
+	maximum = append(maximum, bytes.Repeat([]byte{'z'}, 1012)...)
+	cases := []struct {
+		name  string
+		state []byte
+	}{
+		{"empty", []byte{0, 0, 0, 0}},
+		{"empty delimiter", []byte{7, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0}},
+		{"single heredoc", []byte{0, 0, 0, 1, 1, 1, 1, 3, 0, 0, 0, 'e', 'n', 'd'}},
+		{"two heredocs", []byte{7, 1, 0, 2, 1, 0, 1, 3, 0, 0, 0, 'e', 'n', 'd', 0, 1, 0, 2, 0, 0, 0, 'x', 'y'}},
+		{"maximum", maximum},
+	}
+	sc := BashExternalScanner{}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st := sc.Create().(*bshState)
+			st.SetCFaithful(true)
+			sc.Deserialize(st, tc.state)
+			got := make([]byte, 1024)
+			n := sc.Serialize(st, got)
+			if !bytes.Equal(got[:n], tc.state) {
+				t.Fatalf("round-trip mismatch: got %x, want %x", got[:n], tc.state)
+			}
+		})
+	}
+}
+
+func TestBashDeserializeCOversizedDelimiterAndHeredocCount(t *testing.T) {
+	sc := BashExternalScanner{}
+	st := sc.Create().(*bshState)
+	st.SetCFaithful(true)
+	st.heredocs = []bshHeredoc{
+		{delimiter: []byte("old first")},
+		{isRaw: true, delimiter: []byte("old second")},
+		{delimiter: []byte("kept")},
+	}
+	// The first length claims 2^32-1 bytes, but only "ab" remains. The
+	// second heredoc is absent; the third predates this shorter checkpoint.
+	checkpoint := []byte{0, 0, 0, 2, 1, 0, 1, 0xff, 0xff, 0xff, 0xff, 'a', 'b'}
+	sc.Deserialize(st, checkpoint)
+	if len(st.heredocs) != 3 || string(st.heredocs[0].delimiter) != "ab" ||
+		len(st.heredocs[1].delimiter) != 0 || st.heredocs[1].isRaw ||
+		string(st.heredocs[2].delimiter) != "kept" {
+		t.Fatalf("unexpected heredocs after oversized length: %+v", st.heredocs)
+	}
+
+	// The one-byte count is bounded even if no heredoc header follows it.
+	st = sc.Create().(*bshState)
+	st.SetCFaithful(true)
+	sc.Deserialize(st, []byte{0, 0, 0, 255})
+	if len(st.heredocs) != 255 {
+		t.Fatalf("got %d heredocs, want 255", len(st.heredocs))
 	}
 }

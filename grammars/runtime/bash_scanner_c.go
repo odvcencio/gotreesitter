@@ -141,10 +141,10 @@ func bshDeserializeC(s *bshState, buf []byte) {
 			n = binary.LittleEndian.Uint32(buf[size:])
 		}
 		size += 4
-		avail := len(buf) - size
-		if avail < 0 {
-			avail = 0
+		if size > len(buf) { // a damaged state can end inside the header
+			size = len(buf)
 		}
+		avail := len(buf) - size
 		if int64(n) > int64(avail) { // a damaged state: C would read past its buffer
 			n = uint32(avail)
 		}
