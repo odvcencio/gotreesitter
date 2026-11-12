@@ -1552,3 +1552,42 @@ func TestBuildResultFromNodesRejectsSingleValueRootWithMultipleFragments(t *test
 		t.Fatalf("root symbol = %d, want ERROR", got)
 	}
 }
+
+func TestAttachResultRootExtraSplitReportsUnfoldedErrorExtras(t *testing.T) {
+	lang := &Language{
+		SymbolNames: []string{"EOF", "source_file", "comment"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF"},
+			{Name: "source_file", Visible: true, Named: true},
+			{Name: "comment", Visible: true, Named: true},
+		},
+	}
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	root := newParentNodeInArena(arena, 1, true, nil, nil, 0)
+	leading := newParentNodeInArena(arena, errorSymbol, true, []*Node{newLeafNodeInArena(arena, 2, true, 0, 2, Point{}, Point{Column: 2})}, nil, 0)
+	leading.setExtra(true)
+	leading.setHasError(true)
+	comment := newLeafNodeInArena(arena, 2, true, 2, 4, Point{Column: 2}, Point{Column: 4})
+	comment.setExtra(true)
+
+	split := classifyResultRootExtras([]*Node{leading, comment}, lang)
+	attachResultRootExtraSplit(root, split, arena)
+
+	if !root.HasError() {
+		t.Fatal("root HasError=false, want true when an ERROR extra is left beside it")
+	}
+	if got := len(resultChildSliceForMutation(root)); got != 0 {
+		t.Fatalf("root children=%d, want 0: extras are not folded while one carries an error", got)
+	}
+	if root.startByte != 0 || root.endByte != 4 {
+		t.Fatalf("root span=%d..%d, want 0..4", root.startByte, root.endByte)
+	}
+
+	clean := newParentNodeInArena(arena, 1, true, nil, nil, 0)
+	attachResultRootExtraSplit(clean, classifyResultRootExtras([]*Node{comment}, lang), arena)
+	if clean.HasError() {
+		t.Fatal("root HasError=true for a clean extra")
+	}
+}

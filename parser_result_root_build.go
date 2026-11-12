@@ -1408,15 +1408,16 @@ func splitResultRootExtras(nodes []*Node, lang *Language) resultRootExtraSplit {
 }
 
 func (s resultRootExtraSplit) canFoldVisibleExtras() bool {
-	if len(s.visibleExtras) == 0 {
-		return false
-	}
+	return len(s.visibleExtras) > 0 && !s.hasErrorExtras()
+}
+
+func (s resultRootExtraSplit) hasErrorExtras() bool {
 	for _, extra := range s.allExtras {
 		if extra != nil && (extra.IsError() || extra.HasError()) {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 func classifyResultRootExtras(extras []*Node, lang *Language) resultRootExtraSplit {
@@ -1439,6 +1440,13 @@ func attachResultRootExtraSplit(root *Node, split resultRootExtraSplit, arena *n
 	}
 	if split.canFoldVisibleExtras() {
 		foldResultRootExtras(root, split.visibleExtras, arena)
+	}
+	// Extras that carry an error are not folded, but their span still joins
+	// the root's. The root must then report that error, or a recovered
+	// parse (trailing-EOF recovery leaves its ERROR wrappers beside the root)
+	// publishes a clean tree over erroneous bytes.
+	if split.hasErrorExtras() {
+		root.setHasError(true)
 	}
 	extendResultRootRangeToExtras(root, split.allExtras)
 }
