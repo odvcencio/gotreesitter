@@ -34,6 +34,8 @@ func TestLexExactRecordsMatchList(t *testing.T) {
 		t.Fatal("lex_exact_list.txt names no grammar")
 	}
 	var found, bytes, languages int
+	var peak uint64 // highest heap in use after a collection, between two grammars
+	var ms runtime.MemStats
 	for _, entry := range grammars.AllLanguages() {
 		lang := entry.Language()
 		if lang == nil {
@@ -66,8 +68,17 @@ func TestLexExactRecordsMatchList(t *testing.T) {
 			found++
 			bytes += len(enc)
 		}
+		// The loader keeps every decoded grammar in its cache: drop it, as the
+		// memory-ceiling test of the grammars package does, so that the loop
+		// holds one grammar at a time.
 		lang, enc = nil, nil
+		grammars.PurgeEmbeddedLanguageCache()
 		runtime.GC()
+		runtime.ReadMemStats(&ms)
+		if ms.HeapAlloc > peak {
+			peak = ms.HeapAlloc
+		}
 	}
 	t.Logf("%d languages in this build, %d records, %d bytes", languages, found, bytes)
+	t.Logf("highest heap in use after a collection: %d bytes", peak)
 }

@@ -24,7 +24,8 @@ import (
 // an error that names the first differing state. The grammar name is the blob
 // file name without ".bin" unless name is set. If outDir has a "runtime"
 // folder (the catalog root "grammars"), the files go there, as for the other
-// generated sidecars.
+// generated sidecars. If outDir is that runtime folder, the files go there too.
+// In both cases the list lex_exact_list.txt is the one at the catalog root.
 func RunLexExactOnly(parserC, parserH, blobPath, outDir, name string) error {
 	blob, err := os.ReadFile(blobPath)
 	if err != nil {
@@ -46,10 +47,7 @@ func RunLexExactOnly(parserC, parserH, blobPath, outDir, name string) error {
 		return fmt.Errorf("%s: %w", name, err)
 	}
 
-	listDir := outDir
-	if info, err := os.Stat(filepath.Join(outDir, "runtime")); err == nil && info.IsDir() {
-		outDir = filepath.Join(outDir, "runtime")
-	}
+	outDir, listDir := lexExactDirs(outDir)
 	base := safeFileBase(name)
 	dataDir := filepath.Join(outDir, "lex_exact")
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
@@ -68,6 +66,21 @@ func RunLexExactOnly(parserC, parserH, blobPath, outDir, name string) error {
 	fmt.Printf("lexexact %s: %d bytes, main %d states, keyword %d states; %s\n",
 		name, len(data), len(rec.Main.Accept), len(rec.Keyword.Accept), stats)
 	return nil
+}
+
+// lexExactDirs resolves where the generated files and the list go. The list
+// always sits at the catalog root (grammars/lex_exact_list.txt) and the files
+// at the catalog's runtime folder (grammars/runtime), whichever of the two the
+// caller names: the root (it has a "runtime" folder), the runtime folder itself
+// (its name is "runtime"), or any other folder, which then holds both.
+func lexExactDirs(outDir string) (filesDir, listDir string) {
+	if info, err := os.Stat(filepath.Join(outDir, "runtime")); err == nil && info.IsDir() {
+		return filepath.Join(outDir, "runtime"), outDir
+	}
+	if abs, err := filepath.Abs(outDir); err == nil && filepath.Base(abs) == "runtime" {
+		return outDir, filepath.Dir(abs)
+	}
+	return outDir, outDir
 }
 
 // lexExactStats counts, over the states of the blob, the places where the

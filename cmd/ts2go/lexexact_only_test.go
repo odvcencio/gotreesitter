@@ -251,3 +251,43 @@ func TestRunLexExactOnlyKeepsList(t *testing.T) {
 		t.Error("the list names a grammar whose check failed")
 	}
 }
+
+// With -outdir naming the runtime folder itself, the files go there and the
+// list is still the one at the catalog root, the file that the catalog test
+// reads (grammars/lex_exact_list.txt), not a second list inside runtime.
+func TestRunLexExactOnlyDirectRuntimeOutputKeepsRootList(t *testing.T) {
+	root := t.TempDir()
+	runtimeDir := filepath.Join(root, "runtime")
+	if err := os.MkdirAll(runtimeDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	blobPath := filepath.Join(t.TempDir(), "demo.bin")
+	if err := os.WriteFile(blobPath, lexExactBlob(t, lexExactSource, nil), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// First through the root, then directly through the runtime folder.
+	if err := RunLexExactOnly(lexExactSource, lexExactHeader, blobPath, root, "first"); err != nil {
+		t.Fatal(err)
+	}
+	if err := RunLexExactOnly(lexExactSource, lexExactHeader, blobPath, runtimeDir, "second"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(runtimeDir, "lex_exact_list.txt")); err == nil {
+		t.Error("a second list was written inside the runtime folder")
+	}
+	got, err := os.ReadFile(filepath.Join(root, "lex_exact_list.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := lexExactListHeader + "first\nsecond\n"; string(got) != want {
+		t.Errorf("root list = %q, want %q", got, want)
+	}
+	for _, name := range []string{"first", "second"} {
+		if _, err := os.Stat(filepath.Join(runtimeDir, "lex_exact", name+".lexx")); err != nil {
+			t.Errorf("%s: record missing: %v", name, err)
+		}
+		if _, err := os.Stat(filepath.Join(runtimeDir, name+"_lex_exact_gen.go")); err != nil {
+			t.Errorf("%s: generated file missing: %v", name, err)
+		}
+	}
+}
