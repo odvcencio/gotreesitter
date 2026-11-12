@@ -1,4 +1,4 @@
-package gotreesitter_test
+package bench_test
 
 // Benchmarks for critical paths not covered by the existing benchmark suite.
 // Targets: LoadLanguage, Query compilation, Node.SExpr, Rewriter, InjectionParser.
@@ -17,7 +17,7 @@ import (
 // This path runs once per language per process; hot in multi-tenant servers
 // that spin up new language pools on demand.
 func BenchmarkLoadLanguage(b *testing.B) {
-	blob, err := os.ReadFile("grammars/grammar_blobs/go.bin") //nolint:gocritic
+	blob, err := os.ReadFile("../../grammars/grammar_blobs/go.bin") //nolint:gocritic
 	if err != nil {
 		b.Skipf("grammar blob not accessible: %v", err)
 	}

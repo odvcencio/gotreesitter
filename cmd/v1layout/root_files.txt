@@ -53,13 +53,10 @@ benchmark_admission_candidate_route_test.go
 benchmark_admission_fresh_test.go
 benchmark_big3_test.go
 benchmark_family_test.go
-benchmark_highlight_test.go
-benchmark_query_test.go
 benchmark_real_go_test.go
 benchmark_recovery_test.go
 benchmark_tagger_test.go
 benchmark_test.go
-benchmark_uncovered_test.go
 benchmark_warm_reuse_test.go
 bound_tree.go
 bound_tree_test.go
@@ -114,8 +111,6 @@ final_tree_compaction.go
 final_tree_compaction_test.go
 forest_incremental_admission_test.go
 fuzz_admission_route_equality_test.go
-fuzz_scanner_grammars_test.go
-fuzz_scanner_grammars_wrappers_test.go
 generated_repeat_metadata.go
 glr.go
 glr_forest.go
@@ -158,7 +153,6 @@ injection.go
 injection_test.go
 intern.go
 intern_test.go
-issue380_cnode_memo_cache_growth_determinism_test.go
 issue454_incremental_repro_test.go
 issue454_session_matrix_test.go
 issue728_incremental_reuse_regression_test.go
@@ -229,7 +223,6 @@ parser_config.go
 parser_config_test.go
 parser_conflict_decode_test.go
 parser_csharp_boundedness_test.go
-parser_csharp_namespace_recovery_test.go
 parser_default_reduce.go
 parser_default_reduce_test.go
 parser_derived_tables_internal_test.go
@@ -245,9 +238,7 @@ parser_external_scanner_incremental_test.go
 parser_external_scanner_prefix_frontier_compact_test.go
 parser_extra_shift_test.go
 parser_go_newmake_edge_test.go
-parser_go_newmake_fix_test.go
 parser_go_newmake_residual_test.go
-parser_go_regression_test.go
 parser_go_test.go
 parser_http_comment_run.go
 parser_incremental_profile_schema_test.go
@@ -274,7 +265,6 @@ parser_recover_memo_reuse_test.go
 parser_recover_prefix_agg_test.go
 parser_recover_tables_test.go
 parser_recovery.go
-parser_recovery_memory_bound_test.go
 parser_reduce.go
 parser_reduce_alias_nest_test.go
 parser_reduce_alias_test.go
@@ -409,7 +399,6 @@ parser_test.go
 parser_test_helpers_test.go
 parser_timeout.go
 parser_timeout_cache_test.go
-parser_typescript_destructured_cap_two_test.go
 parser_typescript_merge_cap_race_test.go
 parser_typescript_merge_cap_subsumption_test.go
 parser_typescript_merge_cap_variant_b_test.go

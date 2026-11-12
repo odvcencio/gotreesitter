@@ -1,4 +1,4 @@
-package gotreesitter_test
+package parse_test
 
 import (
 	"os"
@@ -27,7 +27,7 @@ import (
 //
 // Run one target directly, e.g.:
 //
-//	go test . -run '^$' -fuzz 'FuzzScanner_Python$' -fuzztime 60s
+//	go test ./roottest/parse -run '^$' -fuzz 'FuzzScanner_Python$' -fuzztime 60s
 //
 // scannerFuzzTop20 (below) lists the 20 most-used scanner grammars this
 // slice actually ran on a benchmark host; every other target exists and works the
@@ -132,7 +132,7 @@ func TestScannerFuzzTop20NamesAreRegistered(t *testing.T) {
 // scannerFuzzAllocationKnownExceptions honest: every excepted grammar must
 // have at least one committed regression corpus file under
 // testdata/fuzz/FuzzScanner_<Name>/, so the exception is a verified,
-// reproducible finding (replayed on every `go test .`) rather than a
+// reproducible finding (replayed on every `go test ./roottest/parse`) rather than a
 // standing, unverifiable waiver that quietly suppresses future findings too.
 func TestFuzzScannerKnownExceptionsHaveCorpusEntries(t *testing.T) {
 	for name := range scannerFuzzAllocationKnownExceptions {

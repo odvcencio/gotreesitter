@@ -1,4 +1,4 @@
-package gotreesitter_test
+package parse_test
 
 import (
 	"os"
@@ -13,7 +13,7 @@ func TestIssue490GoGrammarRegression(t *testing.T) {
 	// The fixture is a frozen copy of the parser-core test source that first
 	// reproduced issue #490. It lives in testdata so unrelated edits to the
 	// live test file cannot move the fragment boundary and change the input.
-	fragment, err := os.ReadFile(filepath.Join("testdata", "issue490_go_fragment.go.txt"))
+	fragment, err := os.ReadFile(filepath.Join("..", "..", "testdata", "issue490_go_fragment.go.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
