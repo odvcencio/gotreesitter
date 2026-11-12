@@ -6585,6 +6585,16 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if relexKeyword(currentState) {
 				stackRelexActive = true
 			}
+			if !stackRelexActive && len(stacks) > 1 {
+				if ownTok, ok := p.ownLexModeToken(source, currentState, tok, lexicalReadSpan, dts); ok {
+					if p.glrTrace {
+						fmt.Printf("  stack[%d] OWN-LEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
+							si, tok.Symbol, ownTok.Symbol, ownTok.StartByte, ownTok.EndByte, currentState)
+					}
+					tok = ownTok
+					stackRelexActive = true
+				}
+			}
 			noteStopDiagnosticStack(s)
 			packedVersionReductionSteps := 0
 			packedVersionMinDepth := s.depth()
