@@ -19,9 +19,13 @@ import (
 
 // ---- the earlier functions ----
 
-func (c *CharSet) removeAtOld(i int) { c.r = append(c.r[:i], c.r[i+1:]...) }
+func (c *CharSet) removeAtOld(i int) {
+	ops.mergeSteps.add(len(c.r) - i) // ranges moved
+	c.r = append(c.r[:i], c.r[i+1:]...)
+}
 func (c *CharSet) insertAtOld(i int, r urange) {
 	c.r = append(c.r, urange{})
+	ops.mergeSteps.add(len(c.r) - i) // ranges moved
 	copy(c.r[i+1:], c.r[i:])
 	c.r[i] = r
 }
@@ -135,6 +139,7 @@ func addRangeLoopOld(cls []classRng) (CharSet, int) {
 			c.r = append(c.r, urange{start, end})
 		}
 	}
+	ops.rangeSteps.add(iters)
 	return c, iters
 }
 
@@ -142,6 +147,7 @@ func filterPatternFlagsOld(flags string) string {
 	out := ""
 	for _, c := range flags {
 		if c == 'i' {
+			ops.flagBytes.add(len(out) + 1) // bytes copied by the concatenation
 			out += "i"
 		}
 	}
@@ -163,6 +169,7 @@ func hirConcatOfOld(items []*hir) *hir {
 	for _, it := range flat {
 		if it.kind == hirLiteral && len(merged) > 0 && merged[len(merged)-1].kind == hirLiteral {
 			last := merged[len(merged)-1]
+			ops.concatRunes.add(len(last.lit) + len(it.lit)) // runes copied by the join
 			merged[len(merged)-1] = &hir{kind: hirLiteral, lit: append(append([]rune(nil), last.lit...), it.lit...)}
 			continue
 		}
@@ -189,6 +196,7 @@ func classDifferenceOld(a, b []classRng) []classRng {
 		cur := r
 		gone := false
 		for _, s := range b {
+			ops.classSteps.add(1)
 			if s.hi < cur.lo {
 				continue
 			}
@@ -232,6 +240,7 @@ func classDifferenceOld(a, b []classRng) []classRng {
 // evaluated before the fix: one test for each range.
 func rangeConditionAtOld(chars CharSet, isIncluded bool, eof bool, look int64) bool {
 	rs := chars.validRanges()
+	ops.condProbes.add(len(rs)) // every range is read
 	if isIncluded {
 		res := false
 		for _, r := range rs {
@@ -657,15 +666,29 @@ func counted(t *testing.T, what string, c *opCounter, f func()) int64 {
 	return n
 }
 
-// atMost fails if n is above bound. oldCount is the figure of the earlier version, for the message.
-func atMost(t *testing.T, what string, n, bound, oldCount int64) {
+// inRange fails unless lo <= n <= hi, and unless hi is at least 20 times below
+// oldCount, the figure of the earlier version. The lower bound is a count that
+// the input guarantees: a counter that reads zero because the instrumentation
+// is missing fails here. A test that expects zero says so and passes lo = 0.
+func inRange(t *testing.T, what string, n, lo, hi, oldCount int64) {
 	t.Helper()
-	if n > bound {
-		t.Fatalf("%s: count %d is above the bound %d (the earlier quadratic version counted %d)", what, n, bound, oldCount)
+	if err := workRange(what, n, lo, hi); err != nil {
+		t.Fatalf("%v (the earlier quadratic version counted %d)", err, oldCount)
 	}
-	if bound*20 > oldCount {
-		t.Fatalf("%s: the bound %d is not 20 times below the earlier count %d; the test cannot tell the two apart", what, bound, oldCount)
+	if hi*20 > oldCount {
+		t.Fatalf("%s: the bound %d is not 20 times below the earlier count %d; the test cannot tell the two apart", what, hi, oldCount)
 	}
+}
+
+// workRange is the deterministic check of a work count: lo <= n <= hi.
+func workRange(what string, n, lo, hi int64) error {
+	if n < lo {
+		return fmt.Errorf("%s: count %d is below %d, which the input guarantees (missing instrumentation?)", what, n, lo)
+	}
+	if n > hi {
+		return fmt.Errorf("%s: count %d is above the bound %d", what, n, hi)
+	}
+	return nil
 }
 
 // Finding 1 (3rd round): a PATTERN with 1,000,000 flag characters. The earlier
@@ -678,7 +701,7 @@ func TestPatternFlagsAreLinear(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	atMost(t, "bytes read and written", got, 4*n, int64(n)*int64(n)/2)
+	inRange(t, "bytes read and written", got, n, 4*n, int64(n)*int64(n)/2)
 }
 
 // Finding 2 (3rd round): a class of 65,500 separate code points, repeated 64
@@ -695,7 +718,7 @@ func TestClassOfManyRangesIsLinear(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	atMost(t, "range insertion steps", got, 8*n*64, 64*int64(n)*int64(n-1)/2)
+	inRange(t, "range insertion steps", got, 64*n, 8*n*64, 64*int64(n)*int64(n-1)/2)
 	// The iterations of the earlier scan for one copy, counted on a smaller class
 	// (the count is n(n-1)/2 for n separate ranges, so for the review's class it
 	// is 2,145,092,250 for one copy and 137,285,904,000 for 64).
@@ -725,7 +748,7 @@ func TestRenderingManyRangesIsLinear(t *testing.T) {
 			t.Fatalf("%d states", tb.NumStates())
 		}
 	})
-	atMost(t, "range merge steps", got, 16*65500*64, 274571808000)
+	inRange(t, "range merge steps", got, 32*65500, 16*65500*64, 274571808000)
 }
 
 // A pattern of 262,000 literal characters: the earlier join of literals copied
@@ -737,7 +760,7 @@ func TestLongLiteralIsLinear(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	atMost(t, "runes and nodes copied", got, 4*n, int64(n)*int64(n)/2)
+	inRange(t, "runes and nodes copied", got, n, 4*n, int64(n)*int64(n)/2)
 }
 
 // A class difference of two classes of 30,000 ranges that interleave. The
@@ -758,7 +781,7 @@ func TestClassDifferenceIsLinear(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	atMost(t, "ranges passed or compared", got, 8*30000, 30000*30000/2)
+	inRange(t, "ranges passed or compared", got, 30000, 8*30000, 30000*30000/2)
 }
 
 // Many one-character alternatives of two characters each, whose starting
@@ -785,13 +808,19 @@ func TestStartingCharsAreLinear(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	atMost(t, "ranges joined (Analyze)", got, 2*n*14, n*n/2)
+	inRange(t, "ranges joined (Analyze)", got, n, 2*n*14, n*n/2)
 	moves := counted(t, "BuildUnmerged, 5,000 alternatives", &ops.addSteps, func() {
 		if _, _, err := p.BuildUnmerged(tokenZero()); err != nil {
 			t.Fatal(err)
 		}
 	})
-	atMost(t, "ranges read by add (BuildUnmerged)", moves, 16*n, n*n/2)
+	// Zero is allowed here: this counter measures the absence of insertions in the
+	// middle of a vector, which the starting characters of this input never need.
+	// The positive count of the same run is the union of the starting characters.
+	inRange(t, "ranges read by add (BuildUnmerged)", moves, 0, 16*n, n*n/2)
+	if u := ops.unionRanges.n.Load(); u < n || u > 16*n*14 {
+		t.Fatalf("ranges joined (BuildUnmerged): %d, want between %d and %d", u, n, 16*n*14)
+	}
 	// The grouping of the transitions compares each new transition with the
 	// entries before it, as the generator does (n^2 / 2 pairs, 6 steps for a
 	// pair of one-range sets): counted by bGroupWork, which is why this count is
@@ -843,9 +872,12 @@ func TestRangesOfStateAreLinearInPoints(t *testing.T) {
 	t.Logf("transition evaluations %d, binary search probes %d", evals, probes)
 	// 10,000 ranges of the second token and 20,000 of the first: about 2 x
 	// 30,000 points, each tested against at most a few transitions.
-	atMost(t, "transition evaluations", evals, 8*30000*4, 30000*30000)
+	inRange(t, "transition evaluations", evals, 30000, 8*30000*4, 30000*30000)
 	// A binary search over at most 30,000 ranges probes at most 16 times, and an
 	// evaluation makes at most three of them.
+	if probes < 1 {
+		t.Fatalf("no binary search probes were counted")
+	}
 	if probes > 64*evals {
 		t.Fatalf("%d probes for %d evaluations: more than 64 for each", probes, evals)
 	}

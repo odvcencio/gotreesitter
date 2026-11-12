@@ -29,7 +29,9 @@ func collectLargeCharacterSets(b *lexTableBuilder, g *LexicalGrammar) []largeSet
 	var out []largeSet
 	var work int64
 	has := func(c CharSet) bool {
-		work += mulWork(len(out), 1+c.rangeCount())
+		// The comparison reads each set kept so far, and the caller copies c
+		// when it is new: charge both before either runs.
+		work += mulWork(len(out)+1, 1+c.rangeCount())
 		bRenderWork.checkWork(work)
 		for _, s := range out {
 			if equalCharSet(s.set, c) {
@@ -60,7 +62,14 @@ func collectLargeCharacterSets(b *lexTableBuilder, g *LexicalGrammar) []largeSet
 				}
 			}
 			// The union of the sets of the advances in the main token (the
-			// generator adds them one at a time).
+			// generator adds them one at a time). The join sorts the ranges of
+			// all of them: charge that before it runs.
+			mainRanges := 0
+			for _, s := range mainSets {
+				mainRanges += s.rangeCount()
+			}
+			work += int64(len(st.advances)) + mulWork(mainRanges, bits.Len(uint(mainRanges))+1)
+			bRenderWork.checkWork(work)
 			characters := unionOf(mainSets)
 			if characters.rangeCount() > largeCharacterRangeCount && !has(characters) {
 				out = append(out, largeSet{true, sym, characters})
@@ -166,6 +175,36 @@ type statePlan struct {
 // planState is render.rs: fn add_lex_state, from the first line after the
 // accept and end-of-input statements to END_STATE.
 func planState(st *lexState, large []largeSet, work *int64) statePlan {
+	return planStateWith(st, large, work, ruledOutOf)
+}
+
+// leadingRuledOut is the set of the characters of the leading advances (those
+// that go into the advance map): the union of their canonical character sets.
+// The generator adds them to the ruled-out set one at a time; the Go form joins
+// them once (unionOf: the same canonical union), so that the accumulated set is
+// not copied for each advance (8,000 advances of one range each copied
+// 8,000 x 7,999 / 2 ranges). The ranges collected are counted in
+// ops.ruledCopies, and planState charges the work to bRenderWork before it
+// calls this.
+func leadingRuledOut(advs []charAction) CharSet {
+	sets := make([]*CharSet, len(advs))
+	n := 0
+	for i := range advs {
+		sets[i] = &advs[i].chars
+		n += advs[i].chars.rangeCount()
+	}
+	ops.ruledCopies.add(n)
+	return unionOf(sets)
+}
+
+// ruledOutOf is leadingRuledOut; a variable so that a test can put the earlier
+// clone-and-add loop in its place.
+var ruledOutOf = leadingRuledOut
+
+// planStateWith is planState with the construction of the ruled-out set of
+// the leading advances as a parameter (tests put the earlier clone-and-add
+// loop in its place and compare the plans).
+func planStateWith(st *lexState, large []largeSet, work *int64, ruled func([]charAction) CharSet) statePlan {
 	var plan statePlan
 	var ruledOut CharSet
 	// Each comparison with the large sets reads all of them (assign and
@@ -197,6 +236,12 @@ func planState(st *lexState, large []largeSet, work *int64) statePlan {
 		}
 	}
 	if leadingRanges >= 8 {
+		// Charge the map before it is made: the pairs (two for each range), the
+		// sort of the pairs, and the join of the leading sets (a sort of the
+		// ranges).
+		pairs := 2 * leadingRanges
+		*work += int64(pairs) + mulWork(pairs, bits.Len(uint(pairs))+1) + mulWork(leadingRanges, bits.Len(uint(leadingRanges))+1)
+		bRenderWork.checkWork(*work)
 		for _, ca := range st.advances[:leadingCount] {
 			for _, r := range ca.chars.validRanges() {
 				plan.mapPairs = append(plan.mapPairs, [2]uint32{r.lo, ca.action.state})
@@ -204,8 +249,8 @@ func planState(st *lexState, large []largeSet, work *int64) statePlan {
 					plan.mapPairs = append(plan.mapPairs, [2]uint32{r.hi, ca.action.state})
 				}
 			}
-			ruledOut = ruledOut.clone().add(ca.chars)
 		}
+		ruledOut = ruled(st.advances[:leadingCount])
 		// The pairs are looked up by key (stepAt); the first pair of a key
 		// wins, so the sort keeps the order of equal keys.
 		sort.SliceStable(plan.mapPairs, func(i, j int) bool { return plan.mapPairs[i][0] < plan.mapPairs[j][0] })
@@ -244,6 +289,7 @@ func planState(st *lexState, large []largeSet, work *int64) statePlan {
 			}
 		}
 
+		ops.ruledCopies.add(ruledOut.rangeCount()) // the copy below, charged above
 		ruledOut = ruledOut.clone().add(ca.chars)
 
 		pt := plannedTransition{action: ca.action}

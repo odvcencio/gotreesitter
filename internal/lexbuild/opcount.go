@@ -20,6 +20,7 @@ var ops struct {
 	addSteps    opCounter // CharSet.add: ranges of the tail and of the added set that the merge reads
 	unionRanges opCounter // unionOf: ranges collected, plus n log n for the sort
 	concatRunes opCounter // hirConcatOf: runes copied into a joined literal, and nodes copied into the flat list
+	ruledCopies opCounter // planState: ranges of the ruled-out set collected or copied
 	classSteps  opCounter // classDifference: ranges of the right operand passed or compared
 	groupRunes  opCounter // parseGroup: runes inspected to classify a group
 	errBytes    opCounter // pattern errors: bytes of the pattern quoted into a message
@@ -30,7 +31,7 @@ var ops struct {
 // resetOps sets every counter to zero (for tests).
 func resetOps() {
 	for _, c := range []*opCounter{&ops.flagBytes, &ops.rangeSteps, &ops.mergeSteps, &ops.addSteps, &ops.unionRanges, &ops.concatRunes,
-		&ops.classSteps, &ops.groupRunes, &ops.errBytes, &ops.transEvals, &ops.condProbes} {
+		&ops.ruledCopies, &ops.classSteps, &ops.groupRunes, &ops.errBytes, &ops.transEvals, &ops.condProbes} {
 		c.n.Store(0)
 	}
 }

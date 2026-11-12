@@ -103,6 +103,7 @@ func expandTokens(pool *RulePool, lexical []LexicalToken, separatorRoots []RuleI
 			isImmediate = pool.paramsOf(n.Params).IsMainToken
 		}
 		b.isSep = false
+		b.checkSize(0) // the accept state is a state of the automaton
 		b.nfa.states = append(b.nfa.states, nfaState{kind: nfaAccept, variableIndex: i, precedence: getCompletionPrecedence(pool, v.Root)})
 		if _, err := b.expandRule(pool, v.Root, b.nfa.lastStateID()); err != nil {
 			return nil, fmt.Errorf("Error processing rule %s: %w", v.Ident, err)
@@ -249,6 +250,7 @@ func (b *nfaBuilder) expandRule(pool *RulePool, id RuleID, next uint32) (bool, e
 		}
 		return result, nil
 	case RRepeat:
+		b.checkSize(0)
 		b.nfa.states = append(b.nfa.states, nfaState{kind: nfaAccept}) // placeholder for split
 		split := b.nfa.lastStateID()
 		ok, err := b.expandRule(pool, n.Inner, split)
@@ -390,6 +392,7 @@ func (b *nfaBuilder) expandRegex(h *hir, next uint32) (bool, error) {
 
 // expandOneOrMore is expand_tokens.rs: fn expand_one_or_more.
 func (b *nfaBuilder) expandOneOrMore(h *hir, next uint32) (bool, error) {
+	b.checkSize(0)
 	b.nfa.states = append(b.nfa.states, nfaState{kind: nfaAccept}) // placeholder for split
 	split := b.nfa.lastStateID()
 	ok, err := b.expandRegex(h, split)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -142,6 +143,21 @@ func censusLineCat(root, name string) (line, cat string) {
 	if err != nil {
 		sizeRefusal(err)
 		return res(z, z, z, "none", "differs:build:"+oneLine(err.Error(), 100)), cat
+	}
+	// The advance-map plans equal the plans made with the earlier clone-and-add
+	// loop for the ruled-out set, state by state, in both tables.
+	if large, lerr := p.largeSets(); lerr == nil {
+		for _, tb := range []*Table{lt.Main, lt.Keyword} {
+			if tb == nil {
+				continue
+			}
+			for i := range tb.t.states {
+				var w int64
+				if want := planStateWith(&tb.t.states[i], large, &w, ruledOutOfOld); !reflect.DeepEqual(tb.plans[i], want) {
+					return res(z, z, z, "none", "differs:plan-differs-from-clone-loop"), cat
+				}
+			}
+		}
 	}
 	symID := func(s Symbol) (uint32, bool) { id, ok := ids[s]; return id, ok }
 	rec, err := lt.Main.Record(symID, lt.LexState)

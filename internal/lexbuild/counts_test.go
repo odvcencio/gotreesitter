@@ -1,9 +1,12 @@
 package lexbuild
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
+	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -14,7 +17,10 @@ import (
 // ---- groups: the next three runes, not the remainder ----
 
 // groupHeadOld is the earlier version of groupHead: the whole remainder.
-func groupHeadOld(p *patParser) string { return string(p.src[p.pos:]) }
+func groupHeadOld(p *patParser) string {
+	ops.groupRunes.add(len(p.src) - p.pos) // runes converted
+	return string(p.src[p.pos:])
+}
 
 // randGroupPattern draws a pattern of pieces that start groups, flags, repetitions and classes.
 func randGroupPattern(rng *rand.Rand) string {
@@ -116,7 +122,7 @@ func TestManyGroupsInspectThreeRunesEach(t *testing.T) {
 		t.Fatalf("%d runes inspected, want at most 3 for each of the %d groups", got, 4*groups)
 	}
 	const old int64 = 4 * groups * (groups + 1) // 68,644,524,000
-	atMost(t, "runes inspected by parseGroup", got, 3*4*groups, old)
+	inRange(t, "runes inspected by parseGroup", got, 4*groups, 3*4*groups, old)
 }
 
 // A counted repetition built its "unclosed" message, which quotes the whole
@@ -332,4 +338,161 @@ func TestMulWorkAtTheCaps(t *testing.T) {
 			t.Errorf("mulWork(%d, %d) = %d, want %s", c[0], c[1], got, want)
 		}
 	}
+}
+
+// ---- advance map: the leading sets are joined once (sixth review, finding 1) ----
+
+// ruledOutOfOld is the earlier loop: each advance clones the accumulated set.
+func ruledOutOfOld(advs []charAction) CharSet {
+	var r CharSet
+	for _, ca := range advs {
+		ops.ruledCopies.add(len(r.r) + len(ca.chars.r)) // ranges copied by the clone and the add
+		r = r.clone().add(ca.chars)
+	}
+	return r
+}
+
+// advanceMapGrammar is the review's grammar: five patterns, for each suffix of
+// "abcde" the alternatives string(rune(0x1000+2i)) + suffix for 0 <= i < n.
+func advanceMapGrammar(n int) []byte {
+	var members []string
+	for _, suf := range []string{"a", "b", "c", "d", "e"} {
+		var alts []string
+		for i := 0; i < n; i++ {
+			alts = append(alts, string(rune(0x1000+2*i))+suf)
+		}
+		members = append(members, `{"type":"PATTERN","value":"`+strings.Join(alts, "|")+`"}`)
+	}
+	return []byte(`{"name":"t","rules":{"source":{"type":"CHOICE","members":[` + strings.Join(members, ",") + `]}}}`)
+}
+
+func fiveSingletons() []TokenSet {
+	var sets []TokenSet
+	for i := 0; i < 5; i++ {
+		var ts TokenSet
+		ts.Insert(terminalSym(i))
+		sets = append(sets, ts)
+	}
+	return sets
+}
+
+// runAdvanceMap builds the table of the grammar of n alternatives and returns
+// the ranges copied or collected while the ruled-out sets were made.
+func runAdvanceMap(t *testing.T, n int) int64 {
+	t.Helper()
+	p, err := Prepare(advanceMapGrammar(n))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resetPeaks()
+	return counted(t, fmt.Sprintf("BuildUnmerged, 5 x %d alternatives", n), &ops.ruledCopies, func() {
+		if _, _, err := p.BuildUnmerged(fiveSingletons()); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+// Sixth review, finding 1: five advance maps of 8,000 separate ranges. The
+// earlier loop copied 5 x n x (n-1) / 2 ranges (159,980,000 for n = 8,000) without
+// charging bRenderWork. Now the sets are joined once and the work is charged
+// before it is done.
+func TestAdvanceMapJoinsLeadingSetsOnce(t *testing.T) {
+	n := 4000 // the review's size is 8,000 (set LEXBUILD_ADVANCE_N=8000); the generator's own pairwise grouping of 8,000 transitions takes about 10 s
+	if v, err := strconv.Atoi(os.Getenv("LEXBUILD_ADVANCE_N")); err == nil && v > 0 {
+		n = v
+	}
+	got := runAdvanceMap(t, n)
+	inRange(t, "ranges collected for the ruled-out sets", got, int64(5*n), int64(4*5*n), int64(5*n*(n-1)/2))
+	// The charge covers the copies: for each state, planState adds to its work
+	// counter at least as many steps as ranges it collects for the ruled-out set.
+	p, err := Prepare(advanceMapGrammar(n))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tb, _, err := p.BuildUnmerged(fiveSingletons())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var charged, collected int64
+	for i := range tb.t.states {
+		var w int64
+		resetOps()
+		planState(&tb.t.states[i], nil, &w)
+		c := ops.ruledCopies.n.Load()
+		if c > 0 && w < c {
+			t.Fatalf("state %d: planState charged %d steps for %d ranges collected", i, w, c)
+		}
+		charged += w
+		collected += c
+	}
+	t.Logf("planState charged %d steps and collected %d ranges", charged, collected)
+	if collected < int64(5*n) || charged < collected {
+		t.Fatalf("planState charged %d steps for %d ranges collected (want at least %d collected, and charged >= collected)", charged, collected, 5*n)
+	}
+}
+
+// The equal-output check on the earlier loop: the plans of random states are
+// the same with the clone-and-add loop and with the join.
+func TestRuledOutJoinMatchesCloneLoop(t *testing.T) {
+	rng := rand.New(rand.NewSource(11))
+	for n := 0; n < 300; n++ {
+		var st lexState
+		next := uint32(0)
+		for k := 1 + rng.Intn(12); k > 0; k-- {
+			cs := CharSet{}
+			for j := 1 + rng.Intn(4); j > 0; j-- {
+				lo := next + uint32(1+rng.Intn(3))
+				hi := lo + uint32(rng.Intn(2))
+				cs.r = append(cs.r, urange{lo, hi + 1})
+				next = hi + 2
+			}
+			st.advances = append(st.advances, charAction{chars: cs, action: advanceAction{state: uint32(k), inMainToken: rng.Intn(5) != 0}})
+		}
+		var w1, w2 int64
+		got := planStateWith(&st, nil, &w1, leadingRuledOut)
+		want := planStateWith(&st, nil, &w2, ruledOutOfOld)
+		if !reflect.DeepEqual(got, want) || w1 != w2 {
+			t.Fatalf("plan differs from the clone loop for state %d", n)
+		}
+	}
+}
+
+// ---- accept states count against the automaton budget (sixth review, finding 3) ----
+
+func TestAcceptStateIsChecked(t *testing.T) {
+	// The review's grammar: 262,143 letters take the automaton to its limit of
+	// 262,144 states; the accept state of the second token is the 262,145th.
+	g := []byte(`{"name":"t","rules":{"source":{"type":"CHOICE","members":[{"type":"PATTERN","value":"` +
+		strings.Repeat("a", 262143) + `"},{"type":"PATTERN","value":"()"}]}}}`)
+	_, err := Prepare(g)
+	wantSize(t, err, "automaton states in the lexical grammar")
+	// The small cases: the state limit at the number of states the grammar has
+	// builds it, one less refuses it, and zero refuses even an empty expression.
+	def := bNFAStates.limit
+	for _, pat := range []string{"a", "a()", "a*", "a+", "(ab)+", "a|b", "(a|b)*c"} {
+		for _, second := range []string{"", "()"} {
+			var g []byte
+			if second == "" {
+				g = sizeGrammar(pat)
+			} else {
+				g = choiceGrammar(pat, second)
+			}
+			withLimit(t, bNFAStates, def)
+			p, err := Prepare(g)
+			if err != nil {
+				t.Fatalf("%q %q: %v", pat, second, err)
+			}
+			N := int64(len(p.Lex.nfa.states))
+			withLimit(t, bNFAStates, N)
+			if _, err := Prepare(g); err != nil {
+				t.Errorf("%q %q: limit %d (the number of states) refused: %v", pat, second, N, err)
+			}
+			withLimit(t, bNFAStates, N-1)
+			_, err = Prepare(g)
+			wantSize(t, err, "automaton states in the lexical grammar")
+		}
+	}
+	withLimit(t, bNFAStates, 0)
+	_, err = Prepare(sizeGrammar("()"))
+	wantSize(t, err, "automaton states in the lexical grammar")
 }
