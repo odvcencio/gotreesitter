@@ -161,6 +161,11 @@ func (s *Store) drain() {
 	s.syncLocked()
 	c.mu.Unlock()
 	if len(ops) == 0 {
+		c.mu.Lock()
+		if c.spare == nil { // keep the capacity of the empty buffer: the next drain would otherwise leave the queue without a spare
+			c.spare = ops[:0]
+		}
+		c.mu.Unlock()
 		return
 	}
 	done := 0

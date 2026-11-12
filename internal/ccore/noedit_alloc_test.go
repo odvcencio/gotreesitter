@@ -44,16 +44,17 @@ func TestNoEditReparseAllocations(t *testing.T) {
 	}
 }
 
-// The bounds are the measured number (3 for both inputs, so the cost does not
-// grow with the input). The three allocations of one ParseWith plus Release
-// are: the new Tree value (api.go, `&Tree{...}`), its cell with the finalizer
-// (tree.go, newCell), and the mark list that findMulti builds from empty on each
-// parse (subtree.go, `seen = append(seen, h)`). The queued release of the old
-// root grows the pending list by amortized doubling and shows as 0 in the
-// average. Removing the last one means keeping that list on the Parser; removing
-// the first two means returning the same tree when nothing changed, which
-// changes who owns the root and is not done here.
+// The bounds are the measured number (2 for both inputs, so the cost does not
+// grow with the input). The two allocations of one ParseWith plus Release are
+// the new Tree value (api.go, `&Tree{...}`) and its cell, which carries the
+// finalizer (tree.go, newCell); an allocation profile of 1,000 reparses shows
+// exactly these two sites. The release queue and the mark list of findMulti
+// keep their capacity between calls and allocate nothing in steady state: an
+// empty drain used to drop the spare queue buffer, which made the next Release
+// allocate a third object (tree.go, the append to the pending list). Removing
+// the last two means returning the same tree when nothing changed, which changes
+// who owns the root and who releases it; that is not done here.
 const (
-	noEditBoundSmall = 3
-	noEditBound1MiB  = 3
+	noEditBoundSmall = 2
+	noEditBound1MiB  = 2
 )
