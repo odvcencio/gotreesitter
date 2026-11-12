@@ -27,7 +27,7 @@ import (
 //
 // Run one target directly, e.g.:
 //
-//	go test . -run '^$' -fuzz 'FuzzScanner_Python$' -fuzztime 60s
+//	go test ./roottest/parse -run '^$' -fuzz 'FuzzScanner_Python$' -fuzztime 60s
 //
 // scannerFuzzTop20 (below) lists the 20 most-used scanner grammars this
 // slice actually ran on a benchmark host; every other target exists and works the
