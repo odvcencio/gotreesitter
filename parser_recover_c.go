@@ -6285,9 +6285,18 @@ func (p *Parser) scanTokenInStackLexState(source []byte, state StateID, tok Toke
 // beats the template-closing `>` and the outer template is read as a
 // comparison. Only a same-span, action-bearing, non-keyword reading of an
 // internal-DFA token is taken, so the stacks stay in lockstep.
+//
+// The reading is taken only where the stacks disagreed about how to spell
+// the same bytes: the election scanned a same-named rival of tok, and the
+// reading has tok's name too. Grammars that tell many tokens apart by lex
+// state alone (earthfile's plain and immediate string words) otherwise get
+// their stacks re-routed everywhere, away from C's trees.
 func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, lexicalReadSpan *uint32, dts *dfaTokenSource) (Token, bool) {
 	lang := p.language
 	if lang == nil || dts == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
+		return tok, false
+	}
+	if !dts.electionHadSameNameRival(tok) {
 		return tok, false
 	}
 	if tok.Symbol == 0 || tok.Symbol == errorSymbol || tok.Missing || tok.NoLookahead || tok.ExternalScannerToken ||
@@ -6297,7 +6306,8 @@ func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, lexica
 	}
 	relexed, ok, abort := p.scanTokenInStackLexState(source, state, tok, lexicalReadSpan, dts)
 	if abort || !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol || relexed.Symbol == lang.KeywordCaptureToken ||
-		relexed.StartByte != tok.StartByte || relexed.EndByte != tok.EndByte || !p.stateHasActionForSymbol(state, relexed.Symbol) {
+		relexed.StartByte != tok.StartByte || relexed.EndByte != tok.EndByte || !dts.sameSymbolName(relexed.Symbol, tok.Symbol) ||
+		!p.stateHasActionForSymbol(state, relexed.Symbol) {
 		return tok, false
 	}
 	return relexed, true

@@ -525,19 +525,20 @@ func TestTryRelexSingleParserStateRefusedReadingRestoresDFATransaction(t *testin
 	}
 }
 
-// ownLexModeLanguage gives the byte "x" two readings: lex mode 0 reads it as
-// the visible x_a (symbol 2), lex mode 1 as the hidden x_b (symbol 3). After
-// `a`, state 0 forks into Q (state 1, lex mode 1, accepts both readings) and
-// P (state 2, lex mode 0, accepts only x_a). The shared election picks the
+// ownLexModeLanguage gives the byte "x" two readings with the same name "x",
+// like C++'s binary and template-closing `>`: lex mode 0 reads it as the
+// visible x_a (symbol 2), lex mode 1 as the hidden x_b (symbol 3). After `a`,
+// state 0 forks into Q (state 1, lex mode 1, accepts both readings) and P
+// (state 2, lex mode 0, accepts only x_a). The shared election picks the
 // visible x_a, so Q reaches its own x_b only through the per-stack re-read.
 // Each tail state reduces its two children and accepts at EOF; tests remove
 // the EOF action of the branches that must die.
 func ownLexModeLanguage() *Language {
 	return &Language{
 		Name: "own_lex_mode", SymbolCount: 7, TokenCount: 4, StateCount: 9, ProductionIDCount: 1,
-		SymbolNames: []string{"end", "a", "x_a", "x_b", "rule_qa", "rule_qb", "rule_p"},
+		SymbolNames: []string{"end", "a", "x", "x", "rule_qa", "rule_qb", "rule_p"},
 		SymbolMetadata: []SymbolMetadata{
-			{Name: "end"}, {Name: "a", Visible: true}, {Name: "x_a", Visible: true}, {Name: "x_b"},
+			{Name: "end"}, {Name: "a", Visible: true}, {Name: "x", Visible: true}, {Name: "x"},
 			{Name: "rule_qa", Visible: true, Named: true}, {Name: "rule_qb", Visible: true, Named: true}, {Name: "rule_p", Visible: true, Named: true},
 		},
 		LexStates: []LexState{
@@ -593,6 +594,10 @@ func TestOwnLexModeTokenGuards(t *testing.T) {
 		}, 0},
 		{"different span", "axx", func(_ *Language, tok *Token) { tok.EndByte, tok.EndPoint.Column = 3, 3 }, 0},
 		{"no action for own reading", "ax", func(lang *Language, _ *Token) { lang.ParseTable[1][3] = 0 }, 0},
+		{"own reading under another name", "ax", func(lang *Language, _ *Token) {
+			lang.SymbolNames[3], lang.SymbolMetadata[3].Name = "y", "y"
+		}, 0},
+		{"election scanned no rival at this span", "ax", func(_ *Language, tok *Token) { tok.StartByte, tok.StartPoint.Column = 0, 0 }, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			lang := ownLexModeLanguage()
@@ -602,6 +607,8 @@ func TestOwnLexModeTokenGuards(t *testing.T) {
 			source := []byte(tc.source)
 			dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
 			defer dts.Close()
+			// The union election for the shared token scanned Q's own x_b.
+			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0], glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
 			got, ok := p.ownLexModeToken(source, 1, tok, nil, dts)
 			if tc.want == 0 {
 				if ok || got != tok {

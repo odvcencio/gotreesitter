@@ -1,6 +1,8 @@
 package grammars
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	ts "github.com/odvcencio/gotreesitter"
@@ -57,5 +59,29 @@ func TestCppNestedTemplateCloseAngleMatchesC(t *testing.T) {
 		if got := root.SExpr(CppLanguage()); got != tc.want {
 			t.Errorf("%q:\n got  %s\n want %s", tc.src, got, tc.want)
 		}
+	}
+}
+
+// The per-stack own-lex-mode reading must stay limited to elections that
+// mixed up same-named symbols. Earthfile tells many tokens apart by lex state
+// alone; re-reading them per stack sends the committed sample, which C parses
+// cleanly, down an error path.
+func TestOwnLexModeReadingKeepsEarthfileSampleClean(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("..", "internal", "benchfixtures", "testdata", "real", "earthfile"))
+	if err != nil {
+		t.Fatalf("read earthfile sample: %v", err)
+	}
+	entry := DetectLanguageByName("earthfile")
+	if entry == nil {
+		t.Fatal("earthfile grammar not registered")
+	}
+	parser := ts.NewParser(entry.Language())
+	parser.SetTimeoutMicros(10_000_000)
+	tree, err := parser.Parse(src)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if root := tree.RootNode(); root.HasError() || root.EndByte() != uint32(len(src)) {
+		t.Fatalf("earthfile sample: has_error=%v end=%d/%d runtime=%s", root.HasError(), root.EndByte(), len(src), tree.ParseRuntime().Summary())
 	}
 }

@@ -1580,6 +1580,28 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 	return bestTok, true
 }
 
+// electionHadSameNameRival reports whether the GLR union election that
+// produced tok also scanned, in some live state's own lex mode, a different
+// symbol with tok's span and name that this state can take: in C++ `A<B<T>>`,
+// the template-closing `>` next to the elected binary `>`. Only then did the
+// stacks disagree about how to spell the same bytes. It reads the election's
+// scan cache, which holds one scan per live state; scanning again here would
+// start at the wrong byte. A cache left from an earlier token never matches
+// tok's span.
+func (d *dfaTokenSource) electionHadSameNameRival(tok Token) bool {
+	if d == nil || d.lookupActionIndex == nil {
+		return false
+	}
+	for i := range d.glrUnionScanScratch {
+		scan := &d.glrUnionScanScratch[i]
+		if scan.tok.Symbol != tok.Symbol && scan.tok.StartByte == tok.StartByte && scan.tok.EndByte == tok.EndByte &&
+			d.sameSymbolName(scan.tok.Symbol, tok.Symbol) && d.lookupActionIndex(scan.state, scan.tok.Symbol) != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (d *dfaTokenSource) glrUnionScanForState(state StateID) (Token, int, uint32, uint32) {
 	for i := range d.glrUnionScanScratch {
 		cached := &d.glrUnionScanScratch[i]

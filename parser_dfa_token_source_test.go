@@ -2514,3 +2514,45 @@ func TestNextDFATokenPreservesHiddenNewlineBeforeNULSentinel(t *testing.T) {
 		})
 	}
 }
+
+func TestElectionHadSameNameRival(t *testing.T) {
+	const (
+		opClose   Symbol = 1 // binary `>`
+		tmplClose Symbol = 2 // template-closing `>`
+		other     Symbol = 3 // a different spelling
+	)
+	d := &dfaTokenSource{
+		language: &Language{SymbolNames: []string{"end", ">", ">", "x"}},
+		lookupActionIndex: func(state StateID, sym Symbol) uint16 {
+			if state == 9 {
+				return 0 // state 9 cannot take its own reading
+			}
+			return 1
+		},
+	}
+	tok := Token{Symbol: opClose, StartByte: 6, EndByte: 7}
+	scan := func(state StateID, sym Symbol, start, end uint32) glrUnionDFAScan {
+		return glrUnionDFAScan{state: state, tok: Token{Symbol: sym, StartByte: start, EndByte: end}}
+	}
+	cases := []struct {
+		name  string
+		scans []glrUnionDFAScan
+		want  bool
+	}{
+		{"same-named rival", []glrUnionDFAScan{scan(1, opClose, 6, 7), scan(2, tmplClose, 6, 7)}, true},
+		{"only the elected symbol", []glrUnionDFAScan{scan(1, opClose, 6, 7)}, false},
+		{"rival under another name", []glrUnionDFAScan{scan(2, other, 6, 7)}, false},
+		{"rival from an earlier token", []glrUnionDFAScan{scan(2, tmplClose, 3, 4)}, false},
+		{"rival with a wider span", []glrUnionDFAScan{scan(2, tmplClose, 6, 8)}, false},
+		{"rival its state cannot take", []glrUnionDFAScan{scan(9, tmplClose, 6, 7)}, false},
+	}
+	for _, tc := range cases {
+		d.glrUnionScanScratch = tc.scans
+		if got := d.electionHadSameNameRival(tok); got != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
+		}
+	}
+	if (*dfaTokenSource)(nil).electionHadSameNameRival(tok) {
+		t.Error("nil token source must report no rival")
+	}
+}
