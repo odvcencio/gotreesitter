@@ -49,10 +49,10 @@ func (p *Parser) recordLine(buf []byte, h Handle, d uint32) []byte {
 	return append(buf, '\n')
 }
 
-// Records walks from the finished root. When w is not nil it receives the lines.
-func (p *Parser) Records(w io.Writer) (hash uint64, lines uint64) {
+// records walks from root. When w is not nil it receives the lines.
+func (p *Parser) records(root Handle, w io.Writer) (hash uint64, lines uint64) {
 	hash = fnvOffset
-	if p.finished == 0 {
+	if root == 0 {
 		return
 	}
 	var bw *bufio.Writer
@@ -64,7 +64,7 @@ func (p *Parser) Records(w io.Writer) (hash uint64, lines uint64) {
 		h Handle
 		d uint32
 	}
-	stack := []item{{p.finished, 0}}
+	stack := []item{{root, 0}}
 	var buf []byte
 	for len(stack) > 0 {
 		it := stack[len(stack)-1]

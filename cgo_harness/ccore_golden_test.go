@@ -88,7 +88,12 @@ func TestCcoreGolden(t *testing.T) {
 			t.Fatalf("%s: %v", in.name, err)
 		}
 		golden.Trace = append([]string(nil), clog...)
-		trace, digest, stop, rp := ccoretest.Replay(golden)
+		trace, digest, stop, rp, gtree := ccoretest.Replay(golden)
+		defer func() {
+			if gtree != nil {
+				gtree.Release()
+			}
+		}()
 		if stop != golden.Stop || digest != golden.Digest {
 			t.Fatalf("%s: replay differs from the recorded parse (stop %q/%q)", in.name, stop, golden.Stop)
 		}
@@ -107,7 +112,7 @@ func TestCcoreGolden(t *testing.T) {
 		if rc != 0 {
 			t.Fatalf("%s: C records failed (%d)", in.name, rc)
 		}
-		if gh, gn := rp.Records(nil); gh != ch || gn != cn {
+		if gh, gn := rp.Records(gtree, nil); gh != ch || gn != cn {
 			t.Fatalf("%s: records hash %016x over %d lines, C has %016x over %d", in.name, gh, gn, ch, cn)
 		}
 		golden.RecordHash, golden.RecordCount = ch, cn

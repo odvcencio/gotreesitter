@@ -77,6 +77,12 @@ if [ "${1:-}" = "--self-test" ]; then
   expect "pattern that matches no test fails" 1 TestX json "$d/norun"
   expect "count of another set fails" 1 TestX json "$d/otherset"
   expect "misspelled test name fails" 1 TestXx json "$d/good"
+  printf '%s\n' '=== RUN   TestCcoreKeyword' 'CCKWINC place=1 k=0' 'CCCOUNT test=TestCcoreKeyword set=typescript checked=241' '--- PASS: TestCcoreKeyword (4.80s)' 'PASS' >"$d/kw"
+  printf '%s\n' '=== RUN   TestCcoreKeyword' '--- SKIP: TestCcoreKeyword (0.00s)' 'PASS' >"$d/kwskip"
+  printf '%s\n' '=== RUN   TestCcoreStoreChain' 'CCCOUNT test=TestCcoreStoreChain set=python checked=0' '--- PASS: TestCcoreStoreChain (9.00s)' 'PASS' >"$d/chain0"
+  expect "keyword set output is accepted" 0 TestCcoreKeyword typescript "$d/kw"
+  expect "keyword set skipped (CCORE_KW unset) fails" 1 TestCcoreKeyword typescript "$d/kwskip"
+  expect "store chain that sampled nothing fails" 1 TestCcoreStoreChain python "$d/chain0"
   exit "$fails"
 fi
 
@@ -85,10 +91,10 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."   # cgo_harness
 
 # Input sets per language (CCORE_LANG values), and the edit-session set.
 case "$lang" in
-  json)       sets="json json-eof json-rec-d"; inc="json-session"; golden=1 ;;
-  python)     sets="python python-eof python-session"; inc="python-session"; golden=0 ;;
-  c)          sets="c c-eof c-session"; inc=""; golden=0 ;;
-  typescript) sets="typescript typescript-session"; inc="typescript-session"; golden=0 ;;
+  json)       sets="json json-eof json-rec-d"; inc="json-session"; golden=1; chain=""; kw="" ;;
+  python)     sets="python python-eof python-session"; inc="python-session"; golden=0; chain=python; kw="" ;;
+  c)          sets="c c-eof c-session"; inc=""; golden=0; chain=""; kw="" ;;
+  typescript) sets="typescript typescript-session"; inc="typescript-session"; golden=0; chain=""; kw=typescript ;;
   *) echo "ccore_equality.sh: no input sets for language '$lang'" >&2; exit 2 ;;
 esac
 
@@ -133,6 +139,18 @@ run TestCcoreTables "$lang" CCTABLES CCORE_LANGS=$lang
 if [ "$lang" = json ]; then run TestLexProbe json CCLEXPROBE LEXPROBE_LANG=json LEXPROBE_REQUIRE_RECORD=1 LEXPROBE_FULL=1 LEXPROBE_BLOB_STRICT=1; fi
 run TestCcoreScannerIsolation "$lang" CCCOUNT "$norm" CCORE_LANG=$lang
 if [ "$golden" = 1 ]; then run TestCcoreGolden json CCGOLDEN CCORE_LANG=$lang; fi
+# Store tests cheap enough for CI. The timing runs, the 10,000-edit chains and the
+# stopped-parse, handle and race tests are not run in CI.
+# TestCcoreStoreChain: 300 edits that keep a generated Python file valid, 31 of
+# them (step 1 and every 10th) compared with C (trace, digest, records, reuse, lexed and reduced counts).
+if [ -n "$chain" ]; then
+  run TestCcoreStoreChain "$chain" CCMEM "$norm" CCORE_CHAIN_LANG=$chain CCORE_CHAIN_STEPS=300 CCORE_CHAIN_SAMPLE=10
+fi
+# TestCcoreKeyword: the heap-keyword set (a generated TypeScript file whose keyword token
+# is a heap leaf while several versions are alive), fresh and in 240 edits.
+if [ -n "$kw" ]; then
+  run TestCcoreKeyword "$kw" CCKWINC "$norm" CCORE_KW=1 CCORE_KW_LANG=$kw
+fi
 
 echo "SUMMARY language=$lang trace_lines=$total_trace digest_lines=$total_digest record_lines=$total_records incremental_lines=$total_inc failed=$failed"
 # A run that skipped every input proves nothing.

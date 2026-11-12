@@ -96,8 +96,10 @@ func TestCcoreRecords(t *testing.T) {
 		ct.Close()
 		stop := spike.Parse(in.Src, nil)
 		gh, gn := spike.RecordsHash("")
+		spike.ReleaseLast()
 		spike.Parse(in.Src, nil)
 		gh2, gn2 := spike.RecordsHash("")
+		spike.ReleaseLast()
 		det := gh == gh2 && gn == gn2
 		same := rc == 0 && stop == "" && ch == gh && cn == gn
 		if same {
@@ -137,6 +139,7 @@ func TestCcoreRecords(t *testing.T) {
 		ct.Close()
 		spike.Parse(in.Src, nil)
 		spike.RecordsHash(gpath)
+		spike.ReleaseLast()
 		cLines, gLines := ccoreRecRead(cpath), ccoreRecRead(gpath)
 		first := -1
 		diffLines := 0
@@ -225,5 +228,7 @@ func TestCcoreRecords(t *testing.T) {
 		fmt.Printf("CCRECFIELD field=%s inputs=%d\n", k, n)
 	}
 	fmt.Printf("CCRECTOTAL lang=%s inputs=%d equal=%d differing=%d\n", name, total, equal, total-equal)
+	fmt.Printf("CCSTOREINT test=records lang=%s shared_in_tree=%d double_free=%d bad_retain=%d\n", name, spike.SharedInTree(), spike.DoubleFree(), spike.BadRetain())
+	ccoreExpectStore(t, "TestCcoreRecords "+name, spike)
 	ccoreCount("TestCcoreRecords", name, checked)
 }
