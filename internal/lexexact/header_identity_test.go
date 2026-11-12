@@ -567,3 +567,23 @@ func TestHelperFanOutIsBounded(t *testing.T) {
 		t.Errorf("took %v", d)
 	}
 }
+
+// A header that is the standard one with a "// @generated" line and an empty
+// line added at the top has the same lexer macros and the same set_contains,
+// and has its own entry in the list.
+func TestGeneratedCommentHeaderEntry(t *testing.T) {
+	text := "// @generated\n\n" + StandardHeader
+	if got := headerHash(text); got != "f1d32ece598a2dc68abc4f735f84c243484e1126ee9b23288522c23b07b73651" {
+		t.Fatalf("hash = %s", got)
+	}
+	h, err := parseHeader(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := factsOf(text); h != want {
+		t.Errorf("entry %+v differs from the facts read from the header: %+v", h, want)
+	}
+	if macroSection(text) != macroSection(StandardHeader) {
+		t.Error("the macro section differs from the standard header's")
+	}
+}
