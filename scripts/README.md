@@ -12,8 +12,8 @@ point built-in grammar loaders at local grammargen `.bin` overrides.
 `prune_harness_artifacts.sh` reports root build products, reproducible caches,
 and run receipts separately. It defaults to a dry run. `--delete` removes only
 root build products and reproducible caches; durable harness and benchmark
-receipts require the separate `--delete-receipts` opt-in. It never includes
-private `.gts/`, `.tiller/`, or other agent notes.
+receipts require the separate `--delete-receipts` opt-in. Private agent state and
+notes are never cleanup targets.
 
 `check_generated_ownership.sh` checks each tracked generated Go file. It
 requires one standard marker and a known generator command.
