@@ -33,6 +33,8 @@ const (
 
 	largeBit uint32 = 1 << 31 // childrenStart of a list that has a page of its own
 
+	inlinePages = 4 // page-table slots kept inside the store (see storeCore.recsIn)
+
 	numKidClasses = 17 // exact sizes 1 to 8, then 16 to 4,096
 	numStClasses  = 10 // 8, 16, ... 4,096 bytes
 )
@@ -124,6 +126,11 @@ type storeCore struct {
 	gen     uint64
 	rel     []Handle // release walk stack (lease)
 
+	// The first page-table slots live in the store itself, so a small parse
+	// allocates no table; a larger one takes a table sized by presize.
+	recsIn [inlinePages]*[recPageLen]rec
+	refsIn [inlinePages]*[recPageLen]uint32
+	kidsIn [inlinePages]*[kidPageLen]Handle
 	// pages claimed so far (tables may hold more pages, taken from the pool)
 	nextRec, nextKid, nextState int
 
@@ -235,11 +242,32 @@ var counters struct {
 
 func newStoreCore() *storeCore {
 	c := &storeCore{pc: newArenaCur(), ec: newArenaCur()}
+	c.recs, c.refs, c.kids = c.recsIn[:0:inlinePages], c.refsIn[:0:inlinePages], c.kidsIn[:0:inlinePages]
 	c.recLimit.Store(defaultRecLimit)
 	c.countLimit.Store(defaultCountLimit)
 	c.kidPageLimit.Store(defaultKidPageLimit)
 	c.statePageLimit.Store(defaultStatePageLimit)
 	return c
+}
+
+// presize gives the page tables of a store that has no page yet room for
+// recPages record pages and kidPages child pages, so that the tables do not
+// grow by doubling (one allocation each instead of one per doubling). The
+// tables are the same slices append would have made; only their capacity
+// differs. The caller holds the lease of a new store.
+func (c *storeCore) presize(recPages, kidPages int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.recs) != 0 || len(c.kids) != 0 {
+		return
+	}
+	if recPages > inlinePages {
+		c.recs = make([]*[recPageLen]rec, 0, recPages)
+		c.refs = make([]*[recPageLen]uint32, 0, recPages)
+	}
+	if kidPages > inlinePages {
+		c.kids = make([]*[kidPageLen]Handle, 0, kidPages)
+	}
 }
 
 // Store is a reader's and a writer's view of a storeCore: copies of the page

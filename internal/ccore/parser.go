@@ -17,6 +17,9 @@ type Parser struct {
 	zeroNodes, balanceChecks, balanceRefusals int
 	multi                                     map[Handle]uint32
 	seen                                      []Handle // scratch of findMulti
+	hintRec, hintKid                          int      // pages the last fresh store took (api.go, pageHint)
+	compressTmp                               []Handle // scratch of balance (compress's stack)
+	reachBits                                 []uint64 // scratch of findMultiBits: one mark bit per record slot
 	preBalance                                func()   // tests only: runs before the balance step
 	Store
 	t        *Tables

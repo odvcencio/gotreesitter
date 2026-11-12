@@ -18,6 +18,7 @@ import (
 
 	g "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	"github.com/odvcencio/gotreesitter/internal/benchorder"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind/bindtest"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
@@ -227,10 +228,11 @@ func TestCcoreBigChain(t *testing.T) {
 func BenchmarkCcoreBigEdit(b *testing.B) {
 	gl, cl := ccoreLanguages(b, "go")
 	src, names, srcs, edits := ccoreBigEdits(b)
+	var cases []benchorder.Case
 	for i := range edits {
 		for _, arm := range []string{"core", "legacy", "c"} {
 			i, arm := i, arm
-			b.Run(names[i]+"/"+arm, func(b *testing.B) {
+			cases = append(cases, benchorder.Case{Label: names[i] + "_" + arm, Run: func(b *testing.B) {
 				var editNs, parseNs, relNs int64
 				switch arm {
 				case "core":
@@ -311,7 +313,8 @@ func BenchmarkCcoreBigEdit(b *testing.B) {
 				if relNs > 0 {
 					b.ReportMetric(float64(relNs)/float64(b.N), "release-ns/op")
 				}
-			})
+			}})
 		}
 	}
+	benchorder.Run(b, cases, ccoreBenchSeed(b))
 }
