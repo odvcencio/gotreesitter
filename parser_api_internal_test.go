@@ -4452,6 +4452,6 @@ func TestRetryLadderHasWorkMirrorsNamespaceRecovery(t *testing.T) {
 		t.Fatal("test setup: namespace recovery must not apply without an arena")
 	}
 	if !p.retryLadderHasWork(tree, source, 8) {
-		t.Skip("control tree has no retry work; the namespace case is not distinguishable here")
+		t.Fatal("test setup: the control tree must have retry work, or this test no longer shows the namespace exception")
 	}
 }
