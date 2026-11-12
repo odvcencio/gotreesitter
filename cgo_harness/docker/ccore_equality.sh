@@ -67,6 +67,10 @@ if [ "${1:-}" = "--self-test" ]; then
   printf '%s\n' '=== RUN   TestCcoreStoreChain' 'CCCOUNT test=TestCcoreStoreChain set=python checked=0' '--- PASS: TestCcoreStoreChain (9.00s)' 'PASS' >"$d/chain0"
   expect "keyword set output is accepted" 0 TestCcoreKeyword typescript "$d/kw"
   expect "keyword set skipped (CCORE_KW unset) fails" 1 TestCcoreKeyword typescript "$d/kwskip"
+  printf '%s\n' '=== RUN   TestCcoreNodes' 'CCCOUNT test=TestCcoreNodes set=json checked=9' 'CCCOUNT test=TestCcoreNodes set=json-masks checked=4' '--- PASS: TestCcoreNodes (1.00s)' 'PASS' >"$d/nodes"
+  printf '%s\n' '=== RUN   TestCcoreNodes' 'CCCOUNT test=TestCcoreNodes set=json checked=9' 'CCCOUNT test=TestCcoreNodes set=json-masks checked=0' '--- PASS: TestCcoreNodes (1.00s)' 'PASS' >"$d/nodes0"
+  expect "node readers with masks are accepted" 0 TestCcoreNodes json-masks "$d/nodes"
+  expect "node readers with zero masks fail" 1 TestCcoreNodes json-masks "$d/nodes0"
   expect "store chain that sampled nothing fails" 1 TestCcoreStoreChain python "$d/chain0"
   exit "$fails"
 fi
@@ -91,6 +95,7 @@ go test -c -tags 'cgo treesitter_c_parity' -o "$bin" .
 failed=0
 total_trace=0 total_digest=0 total_records=0 total_inc=0
 last_n=0
+extra_set="" # when set, run() also requires a positive count line for this second set
 run() { # test-name, set name for the count line, output-line prefix to count, then NAME=value pairs
   local test=$1 set=$2 prefix=$3; shift 3
   local out; out=$(mktemp)
@@ -99,7 +104,15 @@ run() { # test-name, set name for the count line, output-line prefix to count, t
     local n
     if n=$(check_output "$test" "$set" "$out" 2>"$out.why"); then
       last_n=$(grep -c "^${prefix} " "$out" || true)
-      echo "ok   ${test} $* checked=${n} lines=${last_n}"
+      if [ -n "$extra_set" ]; then
+        if m=$(check_output "$test" "$extra_set" "$out" 2>"$out.why"); then
+          echo "ok   ${test} $* checked=${n} ${extra_set}=${m} lines=${last_n}"
+        else
+          echo "FAIL ${test} $*: $(cat "$out.why")"; tail -n 20 "$out"; failed=1
+        fi
+      else
+        echo "ok   ${test} $* checked=${n} lines=${last_n}"
+      fi
     else
       echo "FAIL ${test} $*: $(cat "$out.why")"; tail -n 20 "$out"; failed=1
     fi
@@ -120,6 +133,14 @@ if [ -n "$inc" ]; then
 fi
 run TestCcoreTables "$lang" CCTABLES CCORE_LANGS=$lang
 run TestCcoreScannerIsolation "$lang" CCCOUNT "$norm" CCORE_LANG=$lang
+# The value-node readers against C (every node of the language's samples: flags, positions,
+# counts, children by index, field names, cursor field, supertype mask), fresh and after
+# four ts_tree_edit edits. Each needs a positive node count; the fresh test also needs a
+# positive count of children with a non-zero supertype mask (all four languages have supertypes).
+extra_set="${lang}-masks"
+run TestCcoreNodes "$lang" CCNODE "$norm" CCORE_LANG=$lang
+extra_set=""
+run TestCcoreNodesEdited "$lang" CCNODEEDIT "$norm" CCORE_LANG=$lang
 if [ "$golden" = 1 ]; then run TestCcoreGolden json CCGOLDEN CCORE_LANG=$lang; fi
 # Store tests cheap enough for CI. The timing runs, the 10,000-edit chains and the
 # stopped-parse, handle and race tests are not run in CI.

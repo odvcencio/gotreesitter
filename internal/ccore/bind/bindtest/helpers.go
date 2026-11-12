@@ -258,3 +258,9 @@ func (c *Parser) syncNorm() {
 		c.p.NormNames = normNames
 	}
 }
+
+// NodeReader returns a reader of value nodes for t (read through the tree's own
+// view of the store) and the handle of its root.
+func (c *Parser) NodeReader(t Tree) (r ccore.NodeReader, root ccore.Handle) {
+	return ccore.NewNodeReader(t.t.Reader(), c.p.NodeTables()), t.t.Root()
+}

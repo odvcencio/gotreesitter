@@ -236,6 +236,74 @@ func (p *Store) Children(h Handle) []Handle {
 }
 func (p *Store) ErrorCost(h Handle) uint32 { return p.errorCost(h) }
 
+// VisibleChildCount is C ts_subtree_visible_child_count (C/subtree.h:323): the
+// visible children of h, with hidden children counted through. It is 0 for a leaf:
+// a leaf with scanner state stores other data in the field (C reads it only when
+// child_count > 0).
+func (p *Store) VisibleChildCount(h Handle) uint32 {
+	if h&1 != 0 || h == 0 {
+		return 0
+	}
+	r := p.rec(h)
+	if r.childCount == 0 {
+		return 0
+	}
+	return r.visibleChildCount
+}
+
+// NamedChildCount is the count that C ts_node_named_child_count reads (C/node.c:795):
+// named_child_count, 0 for a leaf (see VisibleChildCount).
+func (p *Store) NamedChildCount(h Handle) uint32 {
+	if h&1 != 0 || h == 0 {
+		return 0
+	}
+	r := p.rec(h)
+	if r.childCount == 0 {
+		return 0
+	}
+	return r.namedChildCount
+}
+
+// ProductionID is C ts_subtree_production_id (C/subtree.h:343): the production
+// that built h, and 0 for any record with no children.
+func (p *Store) ProductionID(h Handle) uint16 {
+	if h&1 != 0 || h == 0 {
+		return 0
+	}
+	r := p.rec(h)
+	if r.childCount == 0 {
+		return 0
+	}
+	return r.productionID
+}
+
+// ChildSlots returns where the child list of h starts and how many handles it
+// holds. start is a slot key: the position of the first handle in the child
+// pages, or, when the list is longer than a page, the index of the list with
+// the top bit set (see LargeSlot). n is 0 for a leaf.
+func (p *Store) ChildSlots(h Handle) (start, n uint32) {
+	if h&1 != 0 || h == 0 {
+		return 0, 0
+	}
+	r := p.rec(h)
+	return r.childrenStart, r.childCount
+}
+
+// HandleAt returns the handle in a slot of a list that is not large.
+func (p *Store) HandleAt(slot uint32) Handle { return p.kids[slot>>kidShift][slot&kidMask] }
+
+// ChildHandle returns child i of the list that starts at start and has n handles.
+func (p *Store) ChildHandle(start, n, i uint32) Handle {
+	if start&largeBit != 0 {
+		return p.large[start&^largeBit].h[i]
+	}
+	return p.kids[(start+i)>>kidShift][(start+i)&kidMask]
+}
+
+// LargeSlot reports whether a list start (see ChildSlots) names a list that
+// has a page of its own.
+func LargeSlot(start uint32) bool { return start&largeBit != 0 }
+
 // ExtState returns the scanner-state bytes of a heap leaf that has external
 // tokens (C ts_subtree_external_scanner_state); nil for any other handle. The
 // slice points into a page and is valid until the tree that the view belongs to
