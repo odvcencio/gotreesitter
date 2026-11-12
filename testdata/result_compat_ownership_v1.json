@@ -1172,7 +1172,7 @@
           "purpose": "Retag the leading new()/make() argument as its C type node. grammargen resolves the _simple_type versus _expression reduce/reduce conflict at run time by dynamic precedence; the C table generator resolves it at table-build time.",
           "authoritative_owner": "derivation_election_selection",
           "witnesses": [
-            "parser_go_newmake_fix_test.go",
+            "roottest/parse/parser_go_newmake_fix_test.go",
             "parser_go_newmake_residual_test.go",
             "cgo_harness/go_newmake_residual_parity_test.go"
           ]

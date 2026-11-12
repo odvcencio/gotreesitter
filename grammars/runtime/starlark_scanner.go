@@ -4,6 +4,8 @@ package grammarruntime
 
 import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars/internal/pythonruntime"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for starlark — same layout as Python.
@@ -120,12 +122,21 @@ func (StarlarkExternalScanner) Create() any {
 
 func (StarlarkExternalScanner) Destroy(payload any) {}
 
+// Serialize and Deserialize use the starlark wire layout: one byte per indent
+// (tree-sitter-starlark scanner.c:363-413), unlike Python's two.
 func (StarlarkExternalScanner) Serialize(payload any, buf []byte) int {
-	return serializePythonScannerState(payload.(*pythonScannerState), buf)
+	if s := payload.(*pythonScannerState); !s.IsCFaithful() {
+		return serializePythonScannerState(s, buf) // main's layout, mode off
+	}
+	return pythonruntime.SerializeStateByteIndents(payload.(*pythonScannerState), buf)
 }
 
 func (StarlarkExternalScanner) Deserialize(payload any, buf []byte) {
-	deserializePythonScannerState(payload.(*pythonScannerState), buf)
+	if s := payload.(*pythonScannerState); !s.IsCFaithful() {
+		deserializePythonScannerState(s, buf) // main's layout, mode off
+		return
+	}
+	pythonruntime.DeserializeStateByteIndents(payload.(*pythonScannerState), buf)
 }
 
 // SupportsIncrementalReuse remains disabled with Python's scanner: Starlark
@@ -159,6 +170,306 @@ func (StarlarkExternalScanner) ExternalScannerLengthNeutralASCIIClass(b byte) ui
 }
 
 func (sc StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	// With the mode off this is main's scan, unchanged (starlarkScanLegacy below); the mode selects the C-faithful scan.
+	if payload.(*pythonScannerState).IsCFaithful() {
+		return sc.scanC(payload, lexer, validSymbols)
+	}
+	return sc.scanLegacy(payload, lexer, validSymbols)
+}
+
+func (sc StarlarkExternalScanner) scanC(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [slTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if !valid || externalIdx >= len(sc.externalToToken) {
+				continue
+			}
+			tokenIdx := sc.externalToToken[externalIdx]
+			if tokenIdx >= 0 && tokenIdx < slTokenCount {
+				semanticValid[tokenIdx] = true
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
+	syms := sc.symbolTable()
+
+	s := payload.(*pythonScannerState)
+	if len(s.Indents) == 0 {
+		s.Indents = append(s.Indents, 0)
+	}
+
+	isValid := func(idx int) bool {
+		return idx >= 0 && idx < len(validSymbols) && validSymbols[idx]
+	}
+
+	errorRecoveryMode := isValid(slTokStringContent) && isValid(slTokIndent)
+	withinBrackets := isValid(slTokCloseBrace) || isValid(slTokCloseParen) || isValid(slTokCloseBracket)
+
+	advancedOnce := false
+	if isValid(slTokEscapeInterpolation) && len(s.Delimiters) > 0 &&
+		(lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && !errorRecoveryMode {
+		delimiter := s.Delimiters[len(s.Delimiters)-1]
+		if delimiter.IsFormat() {
+			lexer.MarkEnd()
+			isLeftBrace := lexer.Lookahead() == '{'
+			lexer.Advance(false)
+			advancedOnce = true
+			if (lexer.Lookahead() == '{' && isLeftBrace) || (lexer.Lookahead() == '}' && !isLeftBrace) {
+				lexer.Advance(false)
+				lexer.MarkEnd()
+				lexer.SetResultSymbol(syms[slTokEscapeInterpolation])
+				return true
+			}
+			return false
+		}
+	}
+
+	if isValid(slTokStringContent) && len(s.Delimiters) > 0 && !errorRecoveryMode {
+		delimiter := s.Delimiters[len(s.Delimiters)-1]
+		EndChar := delimiter.EndChar()
+		hasContent := advancedOnce
+
+		for lexer.Lookahead() != 0 {
+			if (advancedOnce || lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && delimiter.IsFormat() {
+				lexer.MarkEnd()
+				lexer.SetResultSymbol(syms[slTokStringContent])
+				return hasContent
+			}
+
+			if lexer.Lookahead() == '\\' {
+				if delimiter.IsRaw() {
+					lexer.Advance(false)
+					if lexer.Lookahead() == EndChar || lexer.Lookahead() == '\\' {
+						lexer.Advance(false)
+					}
+					if lexer.Lookahead() == '\r' {
+						lexer.Advance(false)
+						if lexer.Lookahead() == '\n' {
+							lexer.Advance(false)
+						}
+					} else if lexer.Lookahead() == '\n' {
+						lexer.Advance(false)
+					}
+					continue
+				}
+
+				if delimiter.IsBytes() {
+					lexer.MarkEnd()
+					lexer.Advance(false)
+					if lexer.Lookahead() == 'N' || lexer.Lookahead() == 'u' || lexer.Lookahead() == 'U' {
+						lexer.Advance(false)
+					} else {
+						lexer.SetResultSymbol(syms[slTokStringContent])
+						return hasContent
+					}
+				} else {
+					lexer.MarkEnd()
+					lexer.SetResultSymbol(syms[slTokStringContent])
+					return hasContent
+				}
+			} else if lexer.Lookahead() == EndChar {
+				if delimiter.IsTriple() {
+					lexer.MarkEnd()
+					lexer.Advance(false)
+					if lexer.Lookahead() == EndChar {
+						lexer.Advance(false)
+						if lexer.Lookahead() == EndChar {
+							if hasContent {
+								lexer.SetResultSymbol(syms[slTokStringContent])
+							} else {
+								lexer.Advance(false)
+								lexer.MarkEnd()
+								s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
+								lexer.SetResultSymbol(syms[slTokStringEnd])
+								s.InsideInterpolatedString = false
+							}
+							return true
+						}
+						lexer.MarkEnd()
+						lexer.SetResultSymbol(syms[slTokStringContent])
+						return true
+					}
+					lexer.MarkEnd()
+					lexer.SetResultSymbol(syms[slTokStringContent])
+					return true
+				}
+
+				if hasContent {
+					lexer.SetResultSymbol(syms[slTokStringContent])
+				} else {
+					lexer.Advance(false)
+					s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
+					lexer.SetResultSymbol(syms[slTokStringEnd])
+					s.InsideInterpolatedString = false
+				}
+				lexer.MarkEnd()
+				return true
+			} else if lexer.Lookahead() == '\n' && hasContent && !delimiter.IsTriple() {
+				return false
+			}
+
+			lexer.Advance(false)
+			hasContent = true
+		}
+	}
+
+	lexer.MarkEnd()
+
+	foundEndOfLine := false
+	// C keeps the width in a 32-bit variable (tree-sitter-starlark scanner.c:214) and
+	// compares it with the 16-bit stack entries after integer promotion.
+	var indentLength uint32
+	firstCommentIndentLength := int32(-1)
+
+	for {
+		switch lexer.Lookahead() {
+		case '\n':
+			foundEndOfLine = true
+			indentLength = 0
+			lexer.Advance(true)
+		case ' ':
+			indentLength++
+			lexer.Advance(true)
+		case '\r', '\f':
+			indentLength = 0
+			lexer.Advance(true)
+		case '\t':
+			indentLength += 8
+			lexer.Advance(true)
+		case '#':
+			if isValid(slTokIndent) || isValid(slTokDedent) || isValid(slTokNewline) || isValid(slTokExcept) {
+				if !foundEndOfLine {
+					return false
+				}
+				if firstCommentIndentLength == -1 {
+					firstCommentIndentLength = int32(indentLength)
+				}
+				for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' {
+					lexer.Advance(true)
+				}
+				lexer.Advance(true)
+				indentLength = 0
+				continue
+			}
+			goto slAfterIndentLoop
+		case '\\':
+			lexer.Advance(true)
+			if lexer.Lookahead() == '\r' {
+				lexer.Advance(true)
+			}
+			if lexer.Lookahead() == '\n' || lexer.Lookahead() == 0 && (!s.IsCFaithful() || scanmode.AtEOF(lexer)) {
+				lexer.Advance(true)
+			} else {
+				return false
+			}
+		case 0:
+			if s.IsCFaithful() && !scanmode.AtEOF(lexer) {
+				goto slAfterIndentLoop // a NUL byte is not the end of the input (lexer->eof)
+			}
+			indentLength = 0
+			foundEndOfLine = true
+			goto slAfterIndentLoop
+		default:
+			goto slAfterIndentLoop
+		}
+	}
+
+slAfterIndentLoop:
+	if foundEndOfLine {
+		currentIndent := s.Indents[len(s.Indents)-1]
+
+		if isValid(slTokIndent) && indentLength > uint32(currentIndent) {
+			s.Indents = append(s.Indents, uint16(indentLength))
+			lexer.SetResultSymbol(syms[slTokIndent])
+			return true
+		}
+
+		nextTokIsStringStart := lexer.Lookahead() == '"' || lexer.Lookahead() == '\'' || lexer.Lookahead() == '`'
+		if (isValid(slTokDedent) ||
+			(!isValid(slTokNewline) && !(isValid(slTokStringStart) && nextTokIsStringStart) && !withinBrackets)) &&
+			indentLength < uint32(currentIndent) &&
+			!s.InsideInterpolatedString &&
+			firstCommentIndentLength < int32(currentIndent) {
+			s.Indents = s.Indents[:len(s.Indents)-1]
+			lexer.SetResultSymbol(syms[slTokDedent])
+			return true
+		}
+
+		if isValid(slTokNewline) && !errorRecoveryMode {
+			lexer.SetResultSymbol(syms[slTokNewline])
+			return true
+		}
+	}
+
+	if firstCommentIndentLength == -1 && isValid(slTokStringStart) {
+		var delimiter pyDelimiter
+		hasFlags := false
+
+		for lexer.Lookahead() != 0 {
+			switch lexer.Lookahead() {
+			case 'f', 'F':
+				delimiter |= pyDelimFormat
+			case 'r', 'R':
+				delimiter |= pyDelimRaw
+			case 'b', 'B':
+				delimiter |= pyDelimBytes
+			case 'u', 'U':
+				// accepted prefix, no flag
+			default:
+				goto slAfterFlags
+			}
+			hasFlags = true
+			lexer.Advance(false)
+		}
+
+	slAfterFlags:
+		switch lexer.Lookahead() {
+		case '`':
+			delimiter |= pyDelimBackQuote
+			lexer.Advance(false)
+			lexer.MarkEnd()
+		case '\'':
+			delimiter |= pyDelimSingleQuote
+			lexer.Advance(false)
+			lexer.MarkEnd()
+			if lexer.Lookahead() == '\'' {
+				lexer.Advance(false)
+				if lexer.Lookahead() == '\'' {
+					lexer.Advance(false)
+					lexer.MarkEnd()
+					delimiter |= pyDelimTriple
+				}
+			}
+		case '"':
+			delimiter |= pyDelimDoubleQuote
+			lexer.Advance(false)
+			lexer.MarkEnd()
+			if lexer.Lookahead() == '"' {
+				lexer.Advance(false)
+				if lexer.Lookahead() == '"' {
+					lexer.Advance(false)
+					lexer.MarkEnd()
+					delimiter |= pyDelimTriple
+				}
+			}
+		}
+
+		if delimiter.EndChar() != 0 {
+			s.Delimiters = append(s.Delimiters, delimiter)
+			lexer.SetResultSymbol(syms[slTokStringStart])
+			s.InsideInterpolatedString = delimiter.IsFormat()
+			return true
+		}
+		if hasFlags {
+			return false
+		}
+	}
+
+	return false
+}
+
+// scanLegacy is the scan of main, kept verbatim for the default engine.
+func (sc StarlarkExternalScanner) scanLegacy(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	if len(sc.externalToToken) > 0 {
 		var semanticValid [slTokenCount]bool
 		for externalIdx, valid := range validSymbols {
@@ -442,4 +753,9 @@ slAfterIndentLoop:
 	}
 
 	return false
+}
+
+func init() {
+	// A port with a behavioural mode (internal/scanmode); registered with the rest of its set.
+	scanmode.RegisterScanner(StarlarkExternalScanner{}, (*pythonScannerState)(nil), true)
 }

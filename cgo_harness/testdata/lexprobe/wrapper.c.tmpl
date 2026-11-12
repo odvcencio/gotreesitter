@@ -1,0 +1,96 @@
+/* Wrapper of the lex probe (cgo_harness/lexprobe_test.go). It includes the
+ * grammar's parser.c, byte for byte, next to a copy of the grammar's own
+ * tree_sitter/parser.h in which the one statement `lexer->advance(lexer, skip);`
+ * of START_LEXER is replaced by "store the state and the skip flag, then
+ * return". A call of ts_lex then runs the generated code of ONE state up to
+ * its first step, and stops there. The accept symbol is whatever the state's
+ * ACCEPT_TOKEN wrote into the lexer.
+ *
+ * Usage: probe <main|keyword> <state count> <special|sweep>
+ *        probe <main|keyword> <state count> points   (pairs "state code-point" on stdin)
+ * Lines on stdout:
+ *   E <state> <accept|-1> <target|-1> <skip>     end of input (eof true, lookahead 0)
+ *   I <state> <accept|-1> <target|-1> <skip>     ill-formed byte (eof false, lookahead -1)
+ *   P <state> <code point> <target|-1> <skip>    one valid code point
+ *   R <state> <lo> <hi> <target|-1> <skip>       a run of code points with one answer
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+static int lp_state = -1;
+static int lp_skip = 0;
+
+#include "parser.c"
+
+static bool lp_eof_flag = false;
+static void lp_advance(TSLexer *l, bool skip) { (void)l; (void)skip; }
+static void lp_mark_end(TSLexer *l) { (void)l; }
+static uint32_t lp_get_column(TSLexer *l) { (void)l; return 0; }
+static bool lp_at_included_range_start(const TSLexer *l) { (void)l; return false; }
+{{if .HasEOF}}static bool lp_eof(const TSLexer *l) { (void)l; return lp_eof_flag; }{{end}}
+
+typedef bool (*lex_fn)(TSLexer *, TSStateId);
+
+typedef struct { int accept, target, skip; } answer;
+
+static answer ask(lex_fn fn, int state, int32_t lookahead, bool eof) {
+  TSLexer lexer;
+  memset(&lexer, 0, sizeof lexer);
+  lexer.lookahead = lookahead;
+  lexer.advance = lp_advance;
+  lexer.mark_end = lp_mark_end;
+  lexer.get_column = lp_get_column;
+  lexer.is_at_included_range_start = lp_at_included_range_start;
+{{if .HasEOF}}  lexer.eof = lp_eof;{{end}}
+  lp_eof_flag = eof;
+  lp_state = -1;
+  lp_skip = 0;
+  bool result = fn(&lexer, (TSStateId)state);
+  answer a;
+  a.accept = result ? (int)lexer.result_symbol : -1;
+  a.target = lp_state;
+  a.skip = lp_skip;
+  return a;
+}
+
+int main(int argc, char **argv) {
+  if (argc != 4) { fprintf(stderr, "usage: probe <main|keyword> <states> <special|sweep|points>\n"); return 2; }
+  lex_fn fn = ts_lex;
+  if (strcmp(argv[1], "keyword") == 0) {
+{{if .HasKeyword}}    fn = ts_lex_keywords;{{else}}    fprintf(stderr, "no ts_lex_keywords in this parser.c\n"); return 2;{{end}}
+  }
+  int n = atoi(argv[2]);
+  if (strcmp(argv[3], "special") == 0) {
+    for (int s = 0; s < n; s++) {
+      answer e = ask(fn, s, 0, true);
+      printf("E %d %d %d %d\n", s, e.accept, e.target, e.skip);
+      answer i = ask(fn, s, -1, false);
+      printf("I %d %d %d %d\n", s, i.accept, i.target, i.skip);
+    }
+  } else if (strcmp(argv[3], "points") == 0) {
+    int s; long c;
+    while (scanf("%d %ld", &s, &c) == 2) {
+      answer a = ask(fn, s, (int32_t)c, false);
+      printf("P %d %ld %d %d\n", s, c, a.target, a.skip);
+    }
+  } else if (strcmp(argv[3], "sweep") == 0) {
+    for (int s = 0; s < n; s++) {
+      answer prev = ask(fn, s, 0, false);
+      long lo = 0;
+      for (long c = 1; c <= 0x10FFFF; c++) {
+        answer a = ask(fn, s, (int32_t)c, false);
+        if (a.target != prev.target || a.skip != prev.skip) {
+          printf("R %d %ld %ld %d %d\n", s, lo, c - 1, prev.target, prev.skip);
+          lo = c; prev = a;
+        }
+      }
+      printf("R %d %ld %ld %d %d\n", s, lo, (long)0x10FFFF, prev.target, prev.skip);
+    }
+  } else {
+    fprintf(stderr, "unknown mode\n"); return 2;
+  }
+  return 0;
+}

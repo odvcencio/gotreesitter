@@ -30,6 +30,9 @@ expected_owner() {
     grammars/runtime/*_reserved_words_gen.go)
       printf '%s\n' 'cmd/ts2go'
       ;;
+    grammars/runtime/*_lex_exact_gen.go)
+      printf '%s\n' 'cmd/ts2go -lexexact-only'
+      ;;
     grammargen/fortran_grammar.go|grammargen/go_grammar.go|grammargen/javascript_grammar.go|grammargen/kotlin_grammar.go|grammargen/swift_grammar.go|grammargen/typescript_grammar.go)
       printf '%s\n' 'cmd/grammargen emit'
       ;;
@@ -47,7 +50,7 @@ owner_exists() {
     'cmd/grammargen emit')
       [[ -d cmd/grammargen ]]
       ;;
-    cmd/ts2go|'cmd/ts2go batch')
+    cmd/ts2go|'cmd/ts2go batch'|'cmd/ts2go -lexexact-only')
       [[ -d cmd/ts2go ]]
       ;;
     cmd/tsquery)

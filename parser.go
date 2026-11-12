@@ -268,6 +268,15 @@ type Parser struct {
 	// wall-clock deadline, holds even when the caller never configured
 	// SetTimeoutMicros.
 	fullParseRetryPassesTaken int
+	// retryCut records, for the current public parse operation, the first
+	// cause (ParseStopTimeout or ParseStopCancelled) that kept the parser from
+	// finishing optional retry or fallback work after a tree existed.
+	// retryCutDepth counts nested parse calls so that only the outermost entry
+	// resets the value. The exits stamp the value on the returned tree.
+	// Both fields sit in existing padding (see retryCutCode). The test seam
+	// that observes retry passes lives in the cold sidecar (retryPassObserver).
+	retryCut      retryCutCode
+	retryCutDepth uint8
 	// cRecoverSharedTokenErrorModeLexed records whether the CURRENT shared
 	// token was produced by C-equivalent error-mode lexing (the DFA token
 	// source lexing with the ERROR-state primary because every live stack is
@@ -3789,10 +3798,17 @@ const incrementalMissingEditForLengthChangeReason = "missing_edit_for_length_cha
 // ranges as the parser. Empty ranges select no bytes, so both sides skip them.
 // Tree.Edit moves the old tree ranges, so a caller that sets the edited ranges
 // again keeps incremental reuse.
+//
+// One case is not skipped: a tree whose stored ranges are all empty covers no
+// bytes of the source, so it does not match a parser with no ranges, which
+// covers all of it (C compares the stored and the parser ranges as given).
 func includedRangesMatchTree(oldTree *Tree, included []Range) bool {
 	var old []Range
 	if oldTree != nil {
 		old = oldTree.includedRanges
+	}
+	if len(old) != 0 && len(included) == 0 && allRangesEmpty(old) {
+		return false
 	}
 	i, j := 0, 0
 	for {
@@ -3811,6 +3827,16 @@ func includedRangesMatchTree(oldTree *Tree, included []Range) bool {
 		i++
 		j++
 	}
+}
+
+// allRangesEmpty reports whether every range selects no bytes.
+func allRangesEmpty(ranges []Range) bool {
+	for _, r := range ranges {
+		if r.EndByte > r.StartByte {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *Parser) logf(kind ParserLogType, format string, args ...any) {

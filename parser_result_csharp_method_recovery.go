@@ -374,7 +374,7 @@ func csharpReparseWrappedNamespaceMember(source []byte, start, end uint32, p *Pa
 		return nil, false
 	}
 	startPoint := advancePointByBytes(Point{}, source[:start])
-	offsetRoot := tree.RootNodeWithOffset(start, startPoint)
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start, startPoint)
 	if offsetRoot == nil || offsetRoot.HasError() {
 		tree.Release()
 		return nil, false

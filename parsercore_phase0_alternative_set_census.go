@@ -222,6 +222,8 @@ func alternativeSetEventOnlyContainsAll(dropped, survivor []uint32) bool {
 // while the census is enabled. Retained under its stage 1 name for callers
 // already reading it; see DiagnosticParserCoreThreeProofCensusTotals for the
 // full v1/v2/scalar breakdown stage 2a adds.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreShadowCensusTotals struct {
 	// Agree: both proofs reached the same verdict (both proved or both
 	// declined).
@@ -244,6 +246,8 @@ type DiagnosticParserCoreShadowCensusTotals struct {
 // observed while the census is enabled (spec.b4b-alternative-set.v2 section
 // 7). Every election increments exactly one of ScalarProved/false and one of
 // V1Proved/false and one of V2Proved/false, plus the derived classes below.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreThreeProofCensusTotals struct {
 	// Elections is the number of converged-split no-action drop elections
 	// observed (one call to dropGenericNoActionHeads with a non-empty
@@ -293,6 +297,8 @@ type DiagnosticParserCoreThreeProofCensusTotals struct {
 
 // DiagnosticParserCoreShadowCensusFalsifier captures one old-proved/new-
 // unproved drop context for root-causing a stop-rule hit.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreShadowCensusFalsifier struct {
 	Detail string
 }
@@ -303,6 +309,8 @@ type DiagnosticParserCoreShadowCensusFalsifier struct {
 // harness (or manual investigation) can re-run the owning file with v2 as
 // the opt-in decider and compare the resulting tree against production and,
 // per the campaign's C-oracle adjudication amendment, the locked C oracle.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 type DiagnosticParserCoreClass1Candidate struct {
 	Detail string
 }
@@ -473,6 +481,8 @@ func (s *diagnosticParserCoreGenericScheduler) diagnosticParserCoreShadowCensusF
 // stage 1 (scalar vs. v2) shadow-census totals since the last reset. A
 // harness resets around one language's corpus run to attribute totals to
 // that language.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParserCoreShadowCensusSnapshotForTest() DiagnosticParserCoreShadowCensusTotals {
 	diagnosticParserCoreShadowCensusMu.Lock()
 	defer diagnosticParserCoreShadowCensusMu.Unlock()
@@ -482,6 +492,8 @@ func DiagnosticParserCoreShadowCensusSnapshotForTest() DiagnosticParserCoreShado
 // DiagnosticParserCoreThreeProofCensusSnapshotForTest returns the
 // accumulated three-proof (scalar/v1/v2) census totals since the last
 // reset.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParserCoreThreeProofCensusSnapshotForTest() DiagnosticParserCoreThreeProofCensusTotals {
 	diagnosticParserCoreShadowCensusMu.Lock()
 	defer diagnosticParserCoreShadowCensusMu.Unlock()
@@ -491,6 +503,8 @@ func DiagnosticParserCoreThreeProofCensusSnapshotForTest() DiagnosticParserCoreT
 // DiagnosticParserCoreShadowCensusResetForTest clears every accumulated
 // census total (stage 1 and three-proof) and every captured falsifier or
 // class-1 candidate.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParserCoreShadowCensusResetForTest() {
 	diagnosticParserCoreShadowCensusMu.Lock()
 	defer diagnosticParserCoreShadowCensusMu.Unlock()
@@ -506,6 +520,8 @@ func DiagnosticParserCoreShadowCensusResetForTest() {
 // conservative), so a non-empty result documents class 2, not a stop rule by
 // itself; DiagnosticParserCoreClass1CandidatesForTest is the stage 2b stop
 // rule's own class.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParserCoreShadowCensusFalsifiersForTest() []DiagnosticParserCoreShadowCensusFalsifier {
 	diagnosticParserCoreShadowCensusMu.Lock()
 	defer diagnosticParserCoreShadowCensusMu.Unlock()
@@ -519,6 +535,8 @@ func DiagnosticParserCoreShadowCensusFalsifiersForTest() []DiagnosticParserCoreS
 // (spec.b4b-alternative-set.v2 section 7 class 1). The stage 2b gate: zero
 // of these may carry a differing tree from the C-oracle-adjudicated
 // production route across the corpora in scope.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func DiagnosticParserCoreClass1CandidatesForTest() []DiagnosticParserCoreClass1Candidate {
 	diagnosticParserCoreShadowCensusMu.Lock()
 	defer diagnosticParserCoreShadowCensusMu.Unlock()
@@ -532,6 +550,8 @@ func DiagnosticParserCoreClass1CandidatesForTest() []DiagnosticParserCoreClass1C
 // setParserCoreReplayParseStatesForTest's override pattern
 // (parsestate_replay_compact.go). Restore the previous value (the returned
 // func) when done.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func SetDiagnosticParserCoreShadowCensusEnabledForTest(on bool) func() {
 	diagnosticParserCoreShadowCensusEnabledOnce.Do(func() {})
 	previous := diagnosticParserCoreShadowCensusEnabledVal

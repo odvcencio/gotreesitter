@@ -3,6 +3,7 @@ package lexexact
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"sync"
 )
@@ -199,4 +200,16 @@ func Lookup(blobSHA256 [32]byte) ([]byte, bool) {
 	defer regMu.RUnlock()
 	b, ok := reg[blobSHA256]
 	return b, ok
+}
+
+// MustHash decodes a 64-digit hexadecimal SHA-256. The generated files of
+// cmd/ts2go use it to register a record; it panics on a malformed string.
+func MustHash(hexSHA256 string) [32]byte {
+	var h [32]byte
+	b, err := hex.DecodeString(hexSHA256)
+	if err != nil || len(b) != len(h) {
+		panic("lexexact: bad hash " + hexSHA256)
+	}
+	copy(h[:], b)
+	return h
 }

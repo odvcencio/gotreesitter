@@ -287,7 +287,7 @@ func csharpRecoverEnumDeclarationFromRange(source []byte, start, end uint32, p *
 	}
 	defer tree.Release()
 	startPoint := advancePointByBytes(Point{}, source[:start])
-	offsetRoot := tree.RootNodeWithOffset(start, startPoint)
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start, startPoint)
 	if offsetRoot == nil || offsetRoot.HasError() {
 		return nil, false
 	}

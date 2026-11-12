@@ -18,7 +18,7 @@ import (
 const (
 	doxygenNextGrammarCommit   = "ccd998f378c3f9345ea4eeb223f56d7b84d16687"
 	doxygenNextCGrammarRepo    = "https://github.com/amaanq/tree-sitter-doxygen"
-	doxygenNextCArtifactSHA256 = "1fe84dfe69da98a5860f2261fc8deb2cf250aa4ae07c2ecf3bace5dfe396d11e"
+	doxygenNextCArtifactSHA256 = "3df79781410adfeac10b2c5c57c1261d95acff3c67ed1787c1fcbddc372ff083"
 	doxygenNextCContract       = "tree-sitter-c-v1"
 	doxygenNextCRuntimeVersion = "0.27.1"
 	doxygenNextCRuntimeCommit  = "10eb5ac119eec9cb4267a8e035066473983f5f3a"

@@ -635,3 +635,125 @@ func TestSetValuesNilQuery(t *testing.T) {
 		t.Errorf("SetValues with nil query = %v, want nil", vals)
 	}
 }
+
+// TestInjectionShiftNodePointsFollowsPointAdd checks the point shift for an
+// injected range that starts on row 0 at a column above 0 and spans several
+// rows: points on later rows must keep their column (C point_add).
+func TestInjectionShiftNodePointsFollowsPointAdd(t *testing.T) {
+	build := func() *Node {
+		a := NewLeafNode(Symbol(1), true, 0, 3, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 3})
+		b := NewLeafNode(Symbol(2), true, 4, 6, Point{Row: 1, Column: 2}, Point{Row: 1, Column: 4})
+		c := NewLeafNode(Symbol(1), true, 8, 10, Point{Row: 2, Column: 1}, Point{Row: 2, Column: 3})
+		return NewParentNode(Symbol(3), true, []*Node{a, b, c}, nil, 0)
+	}
+	for _, offset := range []Point{{Row: 0, Column: 5}, {Row: 2, Column: 5}} {
+		root := build()
+		shiftNodePoints(root, offset)
+		want := []Point{
+			{Row: offset.Row, Column: 5}, {Row: offset.Row, Column: 8},
+			{Row: offset.Row + 1, Column: 2}, {Row: offset.Row + 1, Column: 4},
+			{Row: offset.Row + 2, Column: 1}, {Row: offset.Row + 2, Column: 3},
+		}
+		for i := 0; i < 3; i++ {
+			n := root.Child(i)
+			if n.StartPoint() != want[2*i] || n.EndPoint() != want[2*i+1] {
+				t.Errorf("offset %+v child %d: got %+v-%+v want %+v-%+v", offset, i,
+					n.StartPoint(), n.EndPoint(), want[2*i], want[2*i+1])
+			}
+		}
+	}
+}
+
+// TestInjectionRebasedTreeKeepsIncludedRange checks that an injected tree
+// records the span that was parsed. A plain parser given that tree and the
+// document source must parse the document again, not return the injected tree.
+func TestInjectionRebasedTreeKeepsIncludedRange(t *testing.T) {
+	parentLang := buildContainerLanguage()
+	childLang := buildArithmeticLanguage()
+
+	ip := NewInjectionParser()
+	ip.RegisterLanguage("container", parentLang)
+	ip.RegisterLanguage("arithmetic", childLang)
+	if err := ip.RegisterInjectionQuery("container",
+		`(content) @injection.content (#set! injection.language "arithmetic")`); err != nil {
+		t.Fatal(err)
+	}
+	source := []byte("\n[1+2]")
+	result, err := ip.Parse(source, "container")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Injections) != 1 {
+		t.Fatalf("expected 1 injection, got %d", len(result.Injections))
+	}
+	inj := result.Injections[0]
+	if got := inj.Tree.includedRanges; len(got) != 1 || got[0] != inj.Ranges[0] {
+		t.Fatalf("injected tree included ranges = %+v, want %+v", got, inj.Ranges)
+	}
+
+	p := NewParser(childLang)
+	again, err := p.ParseIncremental(inj.Tree.Source(), inj.Tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := NewParser(childLang).Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.RootNode() == inj.Tree.RootNode() {
+		t.Fatal("ParseIncremental returned the injected tree unchanged")
+	}
+	if a, f := again.RootNode(), fresh.RootNode(); a.StartByte() != f.StartByte() || a.EndByte() != f.EndByte() {
+		t.Fatalf("ParseIncremental root [%d,%d), fresh parse root [%d,%d)", a.StartByte(), a.EndByte(), f.StartByte(), f.EndByte())
+	}
+}
+
+// TestInjectionRebasedEmptySpanDoesNotReuseTree checks an injection whose span
+// is empty. The tree covers no bytes of the document, so a plain parser given
+// that tree and the document source must parse the document, as a fresh parse
+// does, and not return the empty tree unchanged.
+func TestInjectionRebasedEmptySpanDoesNotReuseTree(t *testing.T) {
+	childLang := buildArithmeticLanguage()
+	source := []byte("\n[1+2]")
+	span := Range{StartByte: 2, EndByte: 2, StartPoint: Point{Row: 1, Column: 1}, EndPoint: Point{Row: 1, Column: 1}}
+
+	injected, err := NewParser(childLang).ParseIncremental(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rebaseInjectionTree(injected, source, span)
+	if got := injected.includedRanges; len(got) != 1 || got[0] != span {
+		t.Fatalf("injected tree included ranges = %+v, want [%+v]", got, span)
+	}
+
+	again, err := NewParser(childLang).ParseIncremental(injected.Source(), injected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := NewParser(childLang).Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.RootNode() == injected.RootNode() {
+		t.Fatal("ParseIncremental returned the empty injected tree unchanged")
+	}
+	if a, f := again.RootNode(), fresh.RootNode(); a.StartByte() != f.StartByte() || a.EndByte() != f.EndByte() || a.Type(childLang) != f.Type(childLang) {
+		t.Fatalf("ParseIncremental root %s [%d,%d), fresh parse root %s [%d,%d)",
+			a.Type(childLang), a.StartByte(), a.EndByte(), f.Type(childLang), f.StartByte(), f.EndByte())
+	}
+}
+
+// TestIncludedRangesMatchTreeEmptyStored checks the comparison used by reuse:
+// stored ranges that are all empty differ from a parser with no ranges.
+func TestIncludedRangesMatchTreeEmptyStored(t *testing.T) {
+	empty := &Tree{includedRanges: []Range{{StartByte: 5, EndByte: 5}}}
+	if includedRangesMatchTree(empty, nil) {
+		t.Fatal("empty stored range must differ from unrestricted parsing")
+	}
+	if !includedRangesMatchTree(empty, []Range{{StartByte: 3, EndByte: 3}}) {
+		t.Fatal("empty stored range must match an empty parser range")
+	}
+	if !includedRangesMatchTree(&Tree{}, nil) {
+		t.Fatal("no ranges on either side must match")
+	}
+}
