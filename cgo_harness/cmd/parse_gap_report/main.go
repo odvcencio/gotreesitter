@@ -1300,6 +1300,9 @@ func arenaLiveBytes(b gotreesitter.ArenaBreakdown, externalScannerCheckpointByte
 		b.CompactReuseDependencyBytesAllocated +
 		b.LegacyReuseDependencyBytesAllocated +
 		b.CompactCheckpointLeafBytesAllocated +
+		b.ColumnDependentSpanBytesAllocated +
+		b.ViewBytesAllocated +
+		b.CheckpointIdentityBytesAllocated +
 		b.ChildSliceBytesAllocated +
 		b.FieldIDBytesAllocated +
 		b.FieldSourceBytesAllocated +

@@ -2437,3 +2437,36 @@ func TestCompactMaterializerHiddenPrecedenceAffectsReuse(t *testing.T) {
 		t.Fatalf("visible precedence=%d want 2", visible)
 	}
 }
+
+// A tree backed by compact node views holds the view store in its arena, and
+// the arena total counts it. The breakdown must report those bytes, before
+// and after the views are materialized into nodes.
+func TestArenaBreakdownAccountsForNodeViewBytes(t *testing.T) {
+	yaml, err := os.ReadFile("internal/benchfixtures/testdata/real/yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := newAdmissionCandidateRunner(NewParser(yamlSelectedProjectionLanguageForTest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.replayParseStates = true
+	r.scratch.nativeProjection = &nativeProjectionWorkspace{compactViews: true}
+	tree, err := r.parse(yaml)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	if tree.arena.views == nil {
+		t.Fatal("compact public route was not used")
+	}
+	assertArenaBreakdownMatchesTotal(t, "views", tree.arena)
+	if tree.arena.collectArenaBreakdown().ViewBytesAllocated == 0 {
+		t.Fatal("ViewBytesAllocated = 0 for a tree backed by node views")
+	}
+	clone := tree.Copy()
+	defer clone.Release()
+	assertArenaBreakdownMatchesTotal(t, "views copy", clone.arena)
+	materializeNodeViews(tree.root)
+	assertArenaBreakdownMatchesTotal(t, "views materialized", tree.arena)
+}

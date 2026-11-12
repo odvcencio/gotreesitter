@@ -321,6 +321,7 @@ jobs:
           TestAdmissionSwitchParseProductionWhenOff
           TestAdmissionSwitchParseRoutesCandidateWhenOn
           TestAdmissionSwitchRecoveryDoesNotLeakCompactTree
+          TestArenaBreakdownAccountsForNodeViewBytes
           TestB4bV2OptInDeciderDifferentialCanonicalFixtures
           TestB4bV2OptInDeciderDifferentialCertifiedLanguages
           TestB4bV2OptInDeciderDifferentialErlangProbes

@@ -2011,6 +2011,9 @@ type ArenaBreakdown struct {
 	FinalChildSidecarBytesAllocated     int64
 	MissingNodeDependencyBytesAllocated int64
 	CompactCheckpointLeafBytesAllocated int64
+	ColumnDependentSpanBytesAllocated   int64
+	ViewBytesAllocated                  int64
+	CheckpointIdentityBytesAllocated    int64
 	MissingNodeDependencyCount          uint64
 	PendingChildEntriesAllocated        uint64
 	PendingChildEntryCapacity           uint64
