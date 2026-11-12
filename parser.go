@@ -273,10 +273,10 @@ type Parser struct {
 	// finishing optional retry or fallback work after a tree existed.
 	// retryCutDepth counts nested parse calls so that only the outermost entry
 	// resets the value. The exits stamp the value on the returned tree.
-	retryCut      ParseStopReason
-	retryCutDepth int
-	// retryPassObserver is a test seam; it is nil in production.
-	retryPassObserver func(p *Parser, logicalRung string)
+	// Both fields sit in existing padding (see retryCutCode). The test seam
+	// that observes retry passes lives in the cold sidecar (retryPassObserver).
+	retryCut      retryCutCode
+	retryCutDepth uint8
 	// cRecoverSharedTokenErrorModeLexed records whether the CURRENT shared
 	// token was produced by C-equivalent error-mode lexing (the DFA token
 	// source lexing with the ERROR-state primary because every live stack is

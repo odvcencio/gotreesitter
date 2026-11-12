@@ -63,7 +63,9 @@ func (p *Parser) newIncrementalFreshVerifier() *Parser {
 	verifier.errorCostCompetition = p.errorCostCompetition
 	verifier.recoveryInitialOnly = p.recoveryInitialOnly
 	verifier.skipRecoveryReparse = p.skipRecoveryReparse
-	verifier.retryPassObserver = p.retryPassObserver
+	if observe := p.retryPassObserverFunc(); observe != nil {
+		verifier.ensureParserColdState().retryPassObserver = observe
+	}
 	return verifier
 }
 
@@ -121,11 +123,15 @@ func incrementalTreesStructurallyEqual(a, b *Tree, lang *Language) bool {
 // a fresh witness when all lexical decisions and source-sensitive merge policy
 // are unchanged. Comparing every public property also authenticates the edit's
 // coordinate projection and the rebuilt frontier; shared nodes need no walk.
-func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tree *Tree, ts TokenSource) bool {
-	// The old witness does not certify fresh allocation or elapsed work under
-	// explicit stop controls. Preserve the existing verifier for those callers.
+//
+// The old witness does not certify fresh allocation or elapsed work under
+// explicit stop controls, so a parser with a timeout or a cancellation flag
+// keeps the existing verifier. ignoreStopControls evaluates the proof as the
+// same parser would without those two controls; the retry stop signal uses it
+// to tell whether a skipped verification would have run.
+func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tree *Tree, ts TokenSource, ignoreStopControls bool) bool {
 	if oldTree == nil || tree == nil || oldTree.eofExtraTokenSourceProofID == 0 || len(oldTree.edits) != 1 || len(p.included) != 0 ||
-		p.MemoryBudgetBytes() != 0 || p.timeoutMicros != 0 || p.cancellationFlag != nil ||
+		p.MemoryBudgetBytes() != 0 || (!ignoreStopControls && (p.timeoutMicros != 0 || p.cancellationFlag != nil)) ||
 		oldTree.language != p.language || oldTree.sourceEncoding != InputEncodingUTF8 ||
 		!resultCompatibilityElisionEligible(p.language) ||
 		!oldTree.tokenInvariantReadSpanResultEligible() || !tree.tokenInvariantReadSpanResultEligible() ||
@@ -157,14 +163,18 @@ func (p *Parser) incrementalEOFExtraAppendMatchesOld(source []byte, oldTree, tre
 // recovery and compatibility normalization.
 func (p *Parser) verifyIncrementalFreshResult(source []byte, oldTree *Tree, ts TokenSource, tree *Tree, timing *incrementalParseTiming) (*Tree, error) {
 	if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
-		// The verification is skipped: the shared stop is active.
-		p.noteRetryCutSkipped(reason, tree)
+		// The verification is skipped: the shared stop is active. Without the
+		// stop, an EOF-append proof would also return the tree without a fresh
+		// parse, so the stop prevented nothing then.
+		if p.reuseCursor.smallFreshReuse || !p.incrementalEOFExtraAppendMatchesOld(source, oldTree, tree, ts, true) {
+			p.noteRetryCutSkipped(reason, tree)
+		}
 		if tree == nil {
 			return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 		}
 		return tree, nil
 	}
-	if !p.reuseCursor.smallFreshReuse && p.incrementalEOFExtraAppendMatchesOld(source, oldTree, tree, ts) {
+	if !p.reuseCursor.smallFreshReuse && p.incrementalEOFExtraAppendMatchesOld(source, oldTree, tree, ts, false) {
 		return tree, nil
 	}
 	// An error recovery frontier or a forced top-level settle can

@@ -4314,14 +4314,94 @@ func TestRetryLadderHasWorkUsesTheEffectivePassLimit(t *testing.T) {
 	if used.retryLadderHasWork(tree, source, 8) {
 		t.Fatal("the certified limit of one pass is used up; there is no work left")
 	}
-	used.noteRetryCutIfWork(ParseStopCancelled, source, 8, tree)
-	if used.retryCut != "" && used.retryCut != ParseStopNone {
-		t.Fatalf("recorded %q for a completed certified schedule, want none", used.retryCut)
+	used.noteRetryCutIfWork(ParseStopCancelled, source, 8, tree, true)
+	if used.retryCut != retryCutNone {
+		t.Fatalf("recorded %q for a completed certified schedule, want none", used.retryCut.reason())
 	}
-	fresh.noteRetryCutIfWork(ParseStopCancelled, source, 8, tree)
-	if fresh.retryCut != ParseStopCancelled {
-		t.Fatalf("recorded %q when the ladder was prevented, want cancelled", fresh.retryCut)
+	fresh.noteRetryCutIfWork(ParseStopCancelled, source, 8, tree, true)
+	if fresh.retryCut != retryCutCancelled {
+		t.Fatalf("recorded %q when the ladder was prevented, want cancelled", fresh.retryCut.reason())
 	}
+}
+
+// retryStepTokenSource has only Next. retryStepResettable adds Reset.
+type retryStepTokenSource struct{}
+
+func (retryStepTokenSource) Next() Token { return Token{} }
+
+type retryStepResettable struct{ retryStepTokenSource }
+
+func (retryStepResettable) Reset([]byte) {}
+
+// A token source without Reset makes the token-source ladder return at once,
+// so an active stop at either gate (first ladder or external-scanner repeat)
+// prevented no pass and must not be recorded. The DFA route and a resettable
+// source are the controls.
+func TestRetryStopReasonLadderStepNeedsAResettableTokenSource(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
+	t.Setenv("GOT_PARSE_NODE_LIMIT_SCALE", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	const sourceLen = 256 * 1024
+	source := make([]byte, sourceLen)
+	newTree := func() *Tree {
+		tree := duplicateWideRetryTestTree(sourceLen, 100, 18, false)
+		tree.ensureParseRuntime().StopReason = ParseStopNoStacksAlive
+		return tree
+	}
+	if !(&Parser{}).retryLadderHasWork(newTree(), source, 8) {
+		t.Fatal("control setup: the ladder has work for this tree")
+	}
+	cases := []struct {
+		name string
+		ts   TokenSource
+		want ParseStopReason
+	}{
+		{"dfa route", nil, ParseStopCancelled},
+		{"resettable token source", retryStepResettable{}, ParseStopCancelled},
+		{"token source without Reset", retryStepTokenSource{}, ParseStopNone},
+	}
+	for _, tc := range cases {
+		t.Run("first gate/"+tc.name, func(t *testing.T) {
+			var flag uint32 = 1
+			parser := &Parser{cancellationFlag: &flag, timeoutMicros: 60_000_000}
+			tree := newTree()
+			got := parser.freshRetryLadderStep(source, tc.ts, 8, false, tree)
+			if got != tree {
+				t.Fatal("a skipped ladder must return the tree it was given")
+			}
+			if parser.retryCut.reason() != tc.want {
+				t.Fatalf("retryCut = %q, want %q", parser.retryCut.reason(), tc.want)
+			}
+		})
+	}
+	// The repeat gate: the first ladder ran (here: returned at once, because
+	// the source has no Reset) while no stop was active, and the flag is set
+	// before the repeat gate looks at it.
+	t.Run("repeat gate/token source without Reset", func(t *testing.T) {
+		var flag uint32
+		parser := &Parser{cancellationFlag: &flag, timeoutMicros: 60_000_000}
+		tree := newTree()
+		ts := retryStepTokenSource{}
+		if got := parser.freshRetryLadderStep(source, ts, 8, false, tree); got != tree {
+			t.Fatal("the ladder of a source without Reset must return the tree unchanged")
+		}
+		atomic.StoreUint32(&flag, 1)
+		parser.freshRetryLadderStep(source, ts, 8, false, tree)
+		if parser.retryCut != retryCutNone {
+			t.Fatalf("retryCut = %q, want none: the repeat would run no pass", parser.retryCut.reason())
+		}
+	})
+	t.Run("repeat gate/resettable token source", func(t *testing.T) {
+		var flag uint32 = 1
+		parser := &Parser{cancellationFlag: &flag, timeoutMicros: 60_000_000}
+		parser.freshRetryLadderStep(source, retryStepResettable{}, 8, false, newTree())
+		if parser.retryCut != retryCutCancelled {
+			t.Fatalf("retryCut = %q, want cancelled", parser.retryCut.reason())
+		}
+	})
 }
 
 func TestRetryLadderHasWorkMirrorsNamespaceRecovery(t *testing.T) {

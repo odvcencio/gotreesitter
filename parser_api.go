@@ -1049,21 +1049,13 @@ func (p *Parser) parseWithTokenSourceRun(source []byte, ts TokenSource, reparseF
 	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth, source)
 	workCountSetNextParseAttempt("initial_full", "fresh_token_source_full_parse")
 	tree := p.parseInternal(source, p.wrapIncludedRanges(ts), nil, nil, arenaClassFull, nil, initialMaxStacks, 0, 0, deterministicExternalConflicts)
-	if p.retryPassObserver != nil {
-		p.retryPassObserver(p, "first_pass")
+	if observe := p.retryPassObserverFunc(); observe != nil {
+		observe(p, "first_pass")
 	}
 	if !p.recoveryInitialOnly && tree != nil && tree.rawParseEligibleForFreshRetryLadder() {
-		if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
-			p.noteRetryCutIfWork(reason, source, initialMaxStacks, tree)
-		} else {
-			tree = p.retryFullParseWithTokenSource(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
-			if tree != nil && !tree.rawParseStoppedEarly() && shouldRepeatExternalScannerFullParse(p.language, tree) {
-				if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
-					p.noteRetryCutIfWork(reason, source, initialMaxStacks, tree)
-				} else {
-					tree = p.retryFullParseWithTokenSource(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
-				}
-			}
+		tree = p.freshRetryLadderStep(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
+		if tree != nil && !tree.rawParseStoppedEarly() && shouldRepeatExternalScannerFullParse(p.language, tree) {
+			tree = p.freshRetryLadderStep(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
 		}
 	}
 	p.normalizeReturnedTreeForParse(tree, source)
@@ -1648,8 +1640,8 @@ func (p *Parser) parseRun(source []byte) (*Tree, error) {
 	}
 	workCountSetNextParseAttempt("initial_full", "fresh_dfa_full_parse")
 	tree := p.parseInternal(source, p.wrapIncludedRanges(ts), nil, nil, arenaClassFull, nil, initialMaxStacks, 0, 0, deterministicExternalConflicts)
-	if p.retryPassObserver != nil {
-		p.retryPassObserver(p, "first_pass")
+	if observe := p.retryPassObserverFunc(); observe != nil {
+		observe(p, "first_pass")
 	}
 	if progress.enabled {
 		progress.emit(time.Now(), "parse_internal_end", 0, 0, Token{}, false, nil, 0, 0, 0, false, 0, 0, "")
@@ -1659,17 +1651,9 @@ func (p *Parser) parseRun(source []byte) (*Tree, error) {
 			progress.emit(time.Now(), "retry_begin", 0, 0, Token{}, false, nil, 0, 0, 0, false, 0, 0, "")
 		}
 		if !p.recoveryInitialOnly && tree != nil && tree.rawParseEligibleForFreshRetryLadder() {
-			if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
-				p.noteRetryCutIfWork(reason, source, initialMaxStacks, tree)
-			} else {
-				tree = p.retryFullParseWithDFA(source, initialMaxStacks, deterministicExternalConflicts, tree)
-				if tree != nil && !tree.rawParseStoppedEarly() && shouldRepeatExternalScannerFullParse(p.language, tree) {
-					if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
-						p.noteRetryCutIfWork(reason, source, initialMaxStacks, tree)
-					} else {
-						tree = p.retryFullParseWithDFA(source, initialMaxStacks, deterministicExternalConflicts, tree)
-					}
-				}
+			tree = p.freshRetryLadderStep(source, nil, initialMaxStacks, deterministicExternalConflicts, tree)
+			if tree != nil && !tree.rawParseStoppedEarly() && shouldRepeatExternalScannerFullParse(p.language, tree) {
+				tree = p.freshRetryLadderStep(source, nil, initialMaxStacks, deterministicExternalConflicts, tree)
 			}
 		}
 		if progress.enabled {

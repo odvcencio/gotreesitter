@@ -630,6 +630,125 @@ func TestRetryStopReasonTokenSourceLadderNeverStarts(t *testing.T) {
 	}
 }
 
+// noResetTokenSource forwards the token methods that the parser loop uses
+// (Next, the parser state hints and SkipToByte) to a token source and hides its
+// Reset method. A retry pass cannot re-read the source through it, so the
+// token-source retry ladder returns at once.
+type noResetTokenSource struct {
+	inner gts.TokenSource
+}
+
+func (s *noResetTokenSource) Next() gts.Token { return s.inner.Next() }
+
+func (s *noResetTokenSource) SetParserState(state gts.StateID) {
+	s.inner.(interface{ SetParserState(gts.StateID) }).SetParserState(state)
+}
+
+func (s *noResetTokenSource) SetGLRStates(states []gts.StateID) {
+	s.inner.(interface{ SetGLRStates([]gts.StateID) }).SetGLRStates(states)
+}
+
+func (s *noResetTokenSource) SkipToByte(offset uint32) gts.Token {
+	return s.inner.(gts.ByteSkippableTokenSource).SkipToByte(offset)
+}
+
+func TestRetryStopReasonTokenSourceWithoutResetNeverCountsTheLadder(t *testing.T) {
+	t.Parallel()
+	lang := grammars.JavaLanguage()
+	src := []byte("class A { void f( { int a = ; return ) } int x }\n")
+	if _, ok := grammars.NewJavaTokenSourceOrEOF(src, lang).(interface{ Reset([]byte) }); !ok {
+		t.Fatal("control setup: the Java token source has no Reset")
+	}
+	if _, ok := gts.TokenSource(&noResetTokenSource{}).(interface{ Reset([]byte) }); ok {
+		t.Fatal("control setup: the wrapper must not expose Reset")
+	}
+
+	// Control: with no deadline the ladder cannot run through this source, so
+	// the unbudgeted operation runs no retry pass and reports none.
+	free := &retryStopRecorder{}
+	base := gts.NewParser(lang)
+	gts.SetRetryPassObserverForTests(base, free.observe)
+	tree, err := base.ParseWithTokenSource(src, &noResetTokenSource{grammars.NewJavaTokenSourceOrEOF(src, lang)})
+	if obs := observeTree(t, lang, tree, err); obs.retryStop != gts.ParseStopNone {
+		t.Fatalf("unbudgeted retry=%s, want none", obs.retryStop)
+	}
+	if got := free.passes(); len(got) != 0 {
+		t.Fatalf("unbudgeted retry passes = %v, want none: the source cannot be reset", got)
+	}
+
+	// The deadline expires after the first pass. The skipped ladder would have
+	// run no pass, so the stop prevented nothing.
+	rec := &retryStopRecorder{endAfter: "first_pass", end: gts.ExpireParseDeadlineForTests}
+	tree, err = newRetryStopParser(lang, rec).ParseWithTokenSource(src, &noResetTokenSource{grammars.NewJavaTokenSourceOrEOF(src, lang)})
+	obs := observeTree(t, lang, tree, err)
+	if got := rec.passes(); len(got) != 0 {
+		t.Fatalf("retry passes = %v, want none", got)
+	}
+	if obs.stop != gts.ParseStopAccepted || obs.retryStop != gts.ParseStopNone || obs.runtimeStop != gts.ParseStopNone {
+		t.Fatalf("stop=%s retry=%s runtime=%s, want accepted, none and none", obs.stop, obs.retryStop, obs.runtimeStop)
+	}
+}
+
+// An end-of-file append that the Java lexer proves equal to a fresh parse
+// needs no fresh verification when no timeout is set. With a timeout the proof
+// is off, so the verification runs, and a deadline that skips it prevented work
+// only when the proof would not have applied.
+func TestRetryStopReasonFreshVerificationSkippedWhereTheProofWouldSkipIt(t *testing.T) {
+	t.Parallel()
+	lang := grammars.JavaLanguage()
+	source := append([]byte("class Main {\n"), bytes.Repeat([]byte("int x = 2;\n"), 40)...)
+	source = append(source, []byte("}\n// ")...)
+	edited := append(bytes.Clone(source), 'w')
+
+	plain := gts.NewParser(lang)
+	old, err := plain.ParseWithTokenSource(source, grammars.NewJavaTokenSourceOrEOF(source, lang))
+	if err != nil || old == nil || old.RootNode().HasError() {
+		t.Fatalf("initial parse: %v", err)
+	}
+	defer old.Release()
+	old.Edit(gts.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+		StartPoint: gts.Point{Row: 42, Column: 3}, OldEndPoint: gts.Point{Row: 42, Column: 3}, NewEndPoint: gts.Point{Row: 42, Column: 4}})
+	next, err := plain.ParseIncrementalWithTokenSource(edited, old, grammars.NewJavaTokenSourceOrEOF(edited, lang))
+	if err != nil || next == nil {
+		t.Fatalf("incremental parse: %v", err)
+	}
+	defer next.Release()
+
+	freshStreams := 0
+	factory := func(src []byte) (gts.TokenSource, error) {
+		freshStreams++
+		return grammars.NewJavaTokenSourceOrEOF(src, lang), nil
+	}
+	verify := func(p *gts.Parser, expire bool) *gts.Tree {
+		freshStreams = 0
+		return gts.RetryCutOperationForTests(p, func() *gts.Tree {
+			if expire {
+				gts.ExpireParseDeadlineForTests(p)
+			}
+			ts, _ := grammars.NewJavaTokenSource(edited, lang)
+			tree, _ := gts.VerifyIncrementalFreshResultWithTokenSourceForTests(p, edited, old, next, ts, factory)
+			return tree
+		})
+	}
+
+	// Control: without a timeout the proof applies and no fresh stream is built.
+	if got := verify(gts.NewParser(lang), false); got.RetryStopReason() != gts.ParseStopNone || freshStreams != 0 {
+		t.Fatalf("unbudgeted: RetryStopReason=%s fresh streams=%d, want none and 0 (the proof applies)", got.RetryStopReason(), freshStreams)
+	}
+	// With a timeout the verification runs when no stop is active.
+	live := newRetryStopParser(lang, &retryStopRecorder{})
+	verify(live, false)
+	if freshStreams != 1 {
+		t.Fatalf("budgeted, no stop: fresh streams=%d, want 1 (the proof is off under a timeout)", freshStreams)
+	}
+	// An expired deadline skips it, but without the timeout the proof would have
+	// skipped it too, so nothing was prevented.
+	stopped := newRetryStopParser(lang, &retryStopRecorder{})
+	if got := verify(stopped, true); got.RetryStopReason() != gts.ParseStopNone || freshStreams != 0 {
+		t.Fatalf("expired deadline: RetryStopReason=%s fresh streams=%d, want none and 0", got.RetryStopReason(), freshStreams)
+	}
+}
+
 // cloneRetryStopLanguage copies the exported fields of a language into a new
 // value. A plain struct copy would also copy the sync.Once and the cache state
 // that parsers on the shared language use at the same time, which races with

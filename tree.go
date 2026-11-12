@@ -1463,6 +1463,10 @@ type ParseRuntime struct {
 	// IncrementalAcceptedErrorRetryAdopted is true only when that retry produced
 	// a strictly better tree and replaced the first incremental result.
 	IncrementalAcceptedErrorRetryAdopted bool
+	// The two Captured flags sit here, not beside their fields, so that they fill
+	// padding and ParseRuntime keeps its size with RetryStopReason added.
+	StopDiagnosticActionCaptured     bool
+	StopDiagnosticLastReduceCaptured bool
 	// IncrementalAcceptedErrorRetryMergePerKey is the exact merge-per-key cap
 	// used by the bounded retry.
 	IncrementalAcceptedErrorRetryMergePerKey int
@@ -1586,7 +1590,6 @@ type ParseRuntime struct {
 	StopDiagnosticFrontierActions                 string
 	StopDiagnosticSameHeaderGroups                string
 	StopDiagnosticCondenseGating                  string
-	StopDiagnosticActionCaptured                  bool
 	StopDiagnosticActionPhase                     string
 	StopDiagnosticActionStackState                StateID
 	StopDiagnosticActionStackByte                 uint32
@@ -1616,7 +1619,6 @@ type ParseRuntime struct {
 	StopDiagnosticActionDispatchAcceptActions     int
 	StopDiagnosticActionDispatchRecoverActions    int
 	StopDiagnosticActionDispatchOtherActions      int
-	StopDiagnosticLastReduceCaptured              bool
 	StopDiagnosticLastReducePhase                 string
 	StopDiagnosticLastReduceStackState            StateID
 	StopDiagnosticLastReduceStackByte             uint32

@@ -685,7 +685,7 @@ func newScratchWithAccountedBytesForTest(target int64) *parserScratch {
 // with the parser that ran the pass. The observer belongs to p, so tests that
 // use different parsers do not share it.
 func SetRetryPassObserverForTests(p *Parser, fn func(p *Parser, logicalRung string)) {
-	p.retryPassObserver = fn
+	p.ensureParserColdState().retryPassObserver = fn
 }
 
 // ExpireParseDeadlineForTests moves the active parse deadline of p into the
@@ -723,6 +723,16 @@ func RetryCutOperationForTests(p *Parser, fn func() *Tree) *Tree {
 func VerifyIncrementalFreshResultForTests(p *Parser, source []byte, oldTree, tree *Tree) (*Tree, error) {
 	ts := p.acquireParserDFATokenSource(source)
 	defer ts.Close()
+	return p.verifyIncrementalFreshResult(source, oldTree, p.wrapIncludedRanges(ts), tree, nil)
+}
+
+// VerifyIncrementalFreshResultWithTokenSourceForTests is
+// VerifyIncrementalFreshResultForTests with the caller's token source and
+// fresh-stream factory, so that a lexer-owned proof can apply.
+func VerifyIncrementalFreshResultWithTokenSourceForTests(p *Parser, source []byte, oldTree, tree *Tree, ts TokenSource, factory TokenSourceFactory) (*Tree, error) {
+	prev := p.reparseFactory
+	p.reparseFactory = factory
+	defer func() { p.reparseFactory = prev }()
 	return p.verifyIncrementalFreshResult(source, oldTree, p.wrapIncludedRanges(ts), tree, nil)
 }
 

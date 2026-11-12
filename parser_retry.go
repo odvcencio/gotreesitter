@@ -1847,14 +1847,44 @@ func certifiedAcceptedErrorRetryReusesCleanWide(p *Parser, tree *Tree, sourceLen
 		retryTreeCoversExpectedEOF(tree)
 }
 
-// retryCutBegin opens a public parse operation. Only the outermost call
-// resets the signal, so a nested parse of the same operation keeps it.
+// retryCutCode is the compact form of the retry stop signal in Parser: it
+// fits in padding that the Parser layout already has.
+type retryCutCode uint8
+
+const (
+	retryCutNone retryCutCode = iota
+	retryCutTimeout
+	retryCutCancelled
+)
+
+func (c retryCutCode) reason() ParseStopReason {
+	switch c {
+	case retryCutTimeout:
+		return ParseStopTimeout
+	case retryCutCancelled:
+		return ParseStopCancelled
+	}
+	return ParseStopNone
+}
+
+// retryPassObserverFunc returns the test seam that observes retry passes, or
+// nil. The seam lives in the cold sidecar, so the hot Parser layout does not
+// pay for it.
+func (p *Parser) retryPassObserverFunc() func(p *Parser, logicalRung string) {
+	if p == nil || p.forestDeclineMemo == nil {
+		return nil
+	}
+	return p.forestDeclineMemo.retryPassObserver
+}
+
+// retryCutBegin opens a public parse operation. The outermost parse entry
+// resets the signal; nested parses share it.
 func (p *Parser) retryCutBegin() {
 	if p == nil {
 		return
 	}
 	if p.retryCutDepth == 0 {
-		p.retryCut = ParseStopNone
+		p.retryCut = retryCutNone
 	}
 	p.retryCutDepth++
 }
@@ -1870,18 +1900,23 @@ func (p *Parser) retryCutEnd(tree *Tree) {
 	if p.retryCutDepth > 0 {
 		p.retryCutDepth--
 	}
-	if p.retryCut != "" && p.retryCut != ParseStopNone && tree != nil {
-		tree.ensureParseRuntime().RetryStopReason = p.retryCut
+	if p.retryCut != retryCutNone && tree != nil {
+		tree.ensureParseRuntime().RetryStopReason = p.retryCut.reason()
 	}
 }
 
 // noteRetryCut records the first cause that stopped optional retry or
 // fallback work. Only a timeout or a cancellation counts.
 func (p *Parser) noteRetryCut(reason ParseStopReason) {
-	if p == nil || !parseStopReasonIsActive(reason) || (p.retryCut != "" && p.retryCut != ParseStopNone) {
+	if p == nil || p.retryCut != retryCutNone {
 		return
 	}
-	p.retryCut = reason
+	switch reason {
+	case ParseStopTimeout:
+		p.retryCut = retryCutTimeout
+	case ParseStopCancelled:
+		p.retryCut = retryCutCancelled
+	}
 }
 
 // noteRetryCutFromTree takes over the signal of a tree built by a nested
@@ -1902,10 +1937,37 @@ func (p *Parser) noteRetryCutSkipped(reason ParseStopReason, tree *Tree) {
 	p.noteRetryCut(reason)
 }
 
+// freshRetryLadderStep runs one fresh-parse retry ladder, or, when a stop is
+// already active, records the stop if it prevented a ladder that would have
+// run. ts is the caller's token source, or nil for the DFA route. Both the
+// first ladder and the external-scanner repeat of every fresh entry point
+// come through here, so they share one rule.
+func (p *Parser) freshRetryLadderStep(source []byte, ts TokenSource, initialMaxStacks int, deterministicExternalConflicts bool, tree *Tree) *Tree {
+	if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
+		p.noteRetryCutIfWork(reason, source, initialMaxStacks, tree, ts == nil || tokenSourceCanRetry(ts))
+		return tree
+	}
+	if ts == nil {
+		return p.retryFullParseWithDFA(source, initialMaxStacks, deterministicExternalConflicts, tree)
+	}
+	return p.retryFullParseWithTokenSource(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
+}
+
+// tokenSourceCanRetry reports whether a retry pass can re-read the source from
+// this token source. Without Reset the token-source ladder returns at once
+// (see retryFullParseWithTokenSourceForOrigin).
+func tokenSourceCanRetry(ts TokenSource) bool {
+	_, ok := ts.(resettableTokenSource)
+	return ok
+}
+
 // noteRetryCutIfWork records a stop that prevented the retry ladder from
-// starting, but only when the ladder had a pass to run for this tree.
-func (p *Parser) noteRetryCutIfWork(reason ParseStopReason, source []byte, initialMaxStacks int, tree *Tree) {
-	if p == nil || tree == nil || !p.retryLadderHasWork(tree, source, initialMaxStacks) {
+// starting, but only when the unbudgeted operation would have run a pass:
+// routeCanRetry says whether the route's entry would get past its own checks
+// (a token source needs Reset), and retryLadderHasWork repeats the checks of
+// the ladder itself.
+func (p *Parser) noteRetryCutIfWork(reason ParseStopReason, source []byte, initialMaxStacks int, tree *Tree, routeCanRetry bool) {
+	if p == nil || tree == nil || !routeCanRetry || !p.retryLadderHasWork(tree, source, initialMaxStacks) {
 		return
 	}
 	p.noteRetryCut(reason)
@@ -1918,7 +1980,9 @@ func (p *Parser) noteRetryCutIfWork(reason ParseStopReason, source []byte, initi
 //
 // Rule for every place that records RetryStopReason: record a timeout or a
 // cancellation only when the operation without that stop would have done work
-// that the stop prevented.
+// that the stop prevented. So a place that records skipped work must test every
+// precondition that the skipped work tests before it does anything, and must
+// ignore the stop controls (timeout, cancellation) in those tests.
 func (p *Parser) retryLadderHasWork(tree *Tree, source []byte, initialMaxStacks int) bool {
 	origin := fullParseRetryOriginFresh
 	sourceLen := len(source)
@@ -2167,8 +2231,8 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 		if result != nil {
 			noteRetryStop(result.rawParseStopReason())
 		}
-		if p != nil && p.retryPassObserver != nil {
-			p.retryPassObserver(p, logicalRung)
+		if observe := p.retryPassObserverFunc(); observe != nil {
+			observe(p, logicalRung)
 		}
 		return result
 	}
