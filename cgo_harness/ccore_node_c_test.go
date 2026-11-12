@@ -7,10 +7,15 @@ package cgoharness
 // error, has_error, has_changes, start and end (byte and point), child count,
 // named child count, ts_node_child and ts_node_named_child for every index (for
 // the first and last 64 indices and every 97th one in between when a node has
-// more than 256 children), the index one past the end, and the field name of
+// more than 8,192 children), the index one past the end, and the field name of
 // every child (ts_node_field_name_for_child and _for_named_child). The one-pass
 // Children reader must equal the Child reader node for node, and a named child
-// must be the child at its ordinal. CCORE_LANG=<language>.
+// must be the child at its ordinal. The same reads are replayed in reverse and
+// in a shuffled order for a node with at most 256 children and 256 named
+// children. An input whose records differ from C's is left out; a selected
+// language with no input left fails. Symbol IDs are the grammar's internal
+// ones: where they differ from C's public symbol ID the place is counted and
+// is not a difference; type names are compared. CCORE_LANG=<language>.
 
 import (
 	"fmt"
