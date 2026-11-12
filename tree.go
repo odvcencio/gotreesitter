@@ -2850,6 +2850,8 @@ func (n *Node) NamedDescendantForPointRange(startPoint, endPoint Point) *Node {
 }
 
 // NewLeafNode creates a terminal/leaf node.
+//
+// Deprecated: NewLeafNode builds a pointer tree by hand. Parse source with a Parser and read nodes from the resulting Tree instead. The function may be removed in a future release.
 func NewLeafNode(sym Symbol, named bool, startByte, endByte uint32, startPoint, endPoint Point) *Node {
 	n := &Node{
 		symbol:     sym,
@@ -3647,6 +3649,8 @@ func newParentNode(arena *nodeArena, sym Symbol, named bool, children []*Node, f
 // is marked as having an error too. A nil entry in children is dropped,
 // along with the matching entry in fieldIDs at the same index, before the
 // parent node is built.
+//
+// Deprecated: NewParentNode builds a pointer tree by hand. Parse source with a Parser and read nodes from the resulting Tree instead. The function may be removed in a future release.
 func NewParentNode(sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {
 	children, fieldIDs = dropNilChildren(children, fieldIDs)
 	return newParentNode(nil, sym, named, children, fieldIDs, productionID)
@@ -4067,6 +4071,8 @@ func markPublishedRootError(root *Node) {
 }
 
 // NewTree creates a new Tree.
+//
+// Deprecated: NewTree wraps a hand-built pointer tree. Parse source with a Parser to get a Tree instead. The function may be removed in a future release.
 func NewTree(root *Node, source []byte, lang *Language) *Tree {
 	markPublishedRootError(root)
 	return &Tree{
