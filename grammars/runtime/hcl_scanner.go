@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the HCL grammar.
@@ -101,7 +102,18 @@ type hclContext struct {
 
 // hclState holds scanner state across parse calls.
 type hclState struct {
-	contextStack []hclContext
+	scanmode.Flag // the C-faithful mode, set by the core adapter
+	contextStack  []hclContext
+}
+
+// space is iswspace: the six ASCII characters of the C locale in the
+// C-faithful mode (tree-sitter-hcl src/scanner.c:198, :237, :337), Unicode white
+// space in the legacy mode.
+func (s *hclState) space(ch rune) bool {
+	if s.On() {
+		return cIsSpace(ch)
+	}
+	return unicode.IsSpace(ch)
 }
 
 func (s *hclState) back() *hclContext {
@@ -173,9 +185,24 @@ func (scanner HclExternalScanner) remapValidSymbols(validSymbols []bool, semanti
 	return semanticValid[:]
 }
 
+// charMax is CHAR_MAX as the C scanner sees it (tree-sitter-hcl src/scanner.c:126
+// and :137 test context counts and identifier lengths against it). CHAR_MAX
+// depends on the architecture the C scanner is built for: 127 where char is signed
+// (x86-64) and 255 where it is unsigned (Linux arm64); cCharIsSigned holds the rule.
+// With the mode off it is 127 on every architecture, as on main.
+func (s *hclState) charMax() int {
+	if s.On() && !cCharIsSigned {
+		return 255
+	}
+	return 127
+}
+
+// hclSerializationBufferSize is TREE_SITTER_SERIALIZATION_BUFFER_SIZE.
+const hclSerializationBufferSize = 1024
+
 func (HclExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*hclState)
-	if len(s.contextStack) > 127 {
+	if len(s.contextStack) > s.charMax() {
 		return 0
 	}
 
@@ -190,12 +217,16 @@ func (HclExternalScanner) Serialize(payload any, buf []byte) int {
 	for i := range s.contextStack {
 		ctx := &s.contextStack[i]
 		idLen := len(ctx.heredocIdentifier)
-		if idLen > 127 {
+		if idLen > s.charMax() {
 			return 0
 		}
 		// Need space for: uint32 type + uint32 idLen + id bytes.
 		needed := 4 + 4 + idLen
-		if size+needed > len(buf) {
+		// In the C-faithful mode, C gives up when the state would reach the serialization buffer size
+		// of 1024 bytes, so a state of exactly 1024 bytes is refused too
+		// (tree-sitter-hcl src/scanner.c:134-136). The limit is C's constant,
+		// not the length of buf.
+		if (s.On() && size+needed >= hclSerializationBufferSize) || size+needed > len(buf) {
 			return 0
 		}
 		binary.LittleEndian.PutUint32(buf[size:], uint32(ctx.ctxType))
@@ -260,7 +291,7 @@ func (scanner HclExternalScanner) Scan(payload any, lexer *gotreesitter.External
 
 	// Skip whitespace, tracking whether a newline was seen.
 	hasLeadingNewline := false
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for s.space(lexer.Lookahead()) {
 		if lexer.Lookahead() == '\n' {
 			hasLeadingNewline = true
 		}
@@ -351,7 +382,7 @@ func (scanner HclExternalScanner) Scan(payload any, lexer *gotreesitter.External
 	if hclValid(validSymbols, hclTokHeredocIdentifier) && !s.inHeredocContext() {
 		// Scan a new heredoc identifier.
 		var ident []byte
-		for hclIsIdentChar(lexer.Lookahead()) {
+		for s.identChar(lexer.Lookahead()) {
 			ident = append(ident, byte(lexer.Lookahead()))
 			lexer.Advance(false)
 		}
@@ -374,7 +405,7 @@ func (scanner HclExternalScanner) Scan(payload any, lexer *gotreesitter.External
 		}
 		// Check if the identifier is on a line of its own.
 		lexer.MarkEnd()
-		for unicode.IsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\n' {
+		for s.space(lexer.Lookahead()) && lexer.Lookahead() != '\n' {
 			lexer.Advance(false)
 		}
 		if lexer.Lookahead() == '\n' {
@@ -438,7 +469,18 @@ func (scanner HclExternalScanner) Scan(payload any, lexer *gotreesitter.External
 // hclValid checks whether a token index is valid in the current parse state.
 func hclValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
 
-// hclIsIdentChar returns true for characters allowed in HCL heredoc identifiers.
+// identChar reports whether ch may be part of an HCL heredoc identifier. In the
+// C-faithful mode it is iswalnum in the C locale, ASCII only (tree-sitter-hcl
+// src/scanner.c:315); with the mode off it is main's test.
+func (s *hclState) identChar(ch rune) bool {
+	if s.On() {
+		return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_' || ch == '-'
+	}
+	return hclIsIdentChar(ch)
+}
+
+// hclIsIdentChar returns true for characters allowed in HCL heredoc identifiers
+// (main's test, used with the mode off).
 func hclIsIdentChar(ch rune) bool {
 	return unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_' || ch == '-'
 }
@@ -446,4 +488,9 @@ func hclIsIdentChar(ch rune) bool {
 // hclIsHexDigit returns true for hexadecimal digit characters.
 func hclIsHexDigit(ch rune) bool {
 	return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
+}
+
+func init() {
+	// A port with a behavioural mode (internal/scanmode); registered with the rest of its set.
+	scanmode.RegisterScanner(HclExternalScanner{}, (*hclState)(nil), true)
 }
