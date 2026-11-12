@@ -21,10 +21,11 @@ import (
 const genEnv = "LEXBUILD_GEN"
 
 var (
-	diffN     = flag.Int("diffn", 300, "number of generated grammars for TestLexDifferential")
-	diffSeed  = flag.Int64("diffseed", 1, "first seed for TestLexDifferential")
-	diffJobs  = flag.Int("diffjobs", 4, "parallel jobs for TestLexDifferential")
-	diffTrace = flag.Bool("difftrace", false, "print each grammar before it runs (to find the one that kills the process)")
+	diffN      = flag.Int("diffn", 300, "number of generated grammars for TestLexDifferential")
+	diffSeed   = flag.Int64("diffseed", 1, "first seed for TestLexDifferential")
+	diffJobs   = flag.Int("diffjobs", 4, "parallel jobs for TestLexDifferential")
+	diffReport = flag.Bool("diffreport", false, "TestLexDifferential: report only, assert nothing (default: any disagreement fails)")
+	diffTrace  = flag.Bool("difftrace", false, "print each grammar before it runs (to find the one that kills the process)")
 )
 
 // pick returns one of the strings.
@@ -273,6 +274,9 @@ func diffOne(ctx context.Context, bin, root string, id int, text string) diffOut
 	switch {
 	case strings.HasSuffix(line, "result equal"):
 		return diffOutcome{"equal", text, ""}
+	case strings.Contains(line, "size limit"):
+		// A deliberate difference: the generator has no size limit (see doc.go).
+		return diffOutcome{"port refuses: size limit", text, line}
 	case strings.Contains(line, "reference-unreadable"):
 		return diffOutcome{"reference unreadable", text, line}
 	}
@@ -281,7 +285,10 @@ func diffOne(ctx context.Context, bin, root string, id int, text string) diffOut
 
 // TestLexDifferential generates grammars from a seed, runs the generator binary and the port on each, and
 // compares: accepted or refused by each, and, when both accept, the complete lexer transitions through the
-// reference reader as the census does. It reports buckets and the first disagreements and never fails on one.
+// reference reader as the census does. It prints the buckets and the first disagreements. It fails if any
+// grammar ends as "differ", "port refuses only", "generator refuses only" or "reference unreadable", and if
+// no grammar was compared. With -diffreport it only reports ("report only, nothing asserted"). Grammars that
+// the port refuses as not ported yet or for its size limit are counted and do not fail the test.
 func TestLexDifferential(t *testing.T) {
 	bin := os.Getenv(genEnv)
 	if bin == "" {
@@ -341,5 +348,19 @@ func TestLexDifferential(t *testing.T) {
 			break
 		}
 		fmt.Printf("DISAGREE %s | %s | %s\n", strings.ReplaceAll(o.bucket, " ", "_"), o.text, oneLine(o.detail, 160))
+	}
+	if *diffReport {
+		fmt.Println("DIFFERENTIAL report only, nothing asserted")
+		return
+	}
+	for i, o := range disagree {
+		if i >= 20 {
+			t.Errorf("... and %d more disagreements", len(disagree)-20)
+			break
+		}
+		t.Errorf("%s: %s | %s", o.bucket, o.text, oneLine(o.detail, 160))
+	}
+	if buckets["equal"] == 0 {
+		t.Errorf("no grammar was compared (-diffn %d): the test asserts nothing; use -diffreport to only report", *diffN)
 	}
 }

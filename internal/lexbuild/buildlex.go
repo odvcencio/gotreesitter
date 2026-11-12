@@ -253,7 +253,9 @@ func (p *Prepared) BuildLexTables(a *Analysis, states []TokenSet) (*LexTables, e
 	if sg.HasWord {
 		b := newLexTableBuilder(lg)
 		kw := a.keywords.clone()
-		b.addStateForTokens(&kw)
+		if err := guardSize(func() { b.addStateForTokens(&kw) }); err != nil {
+			return nil, err
+		}
 		keywordTable = b.table
 	}
 
@@ -290,11 +292,15 @@ func (p *Prepared) BuildLexTables(a *Analysis, states []TokenSet) (*LexTables, e
 
 	b := newLexTableBuilder(lg)
 	lexState := make([]uint32, len(states))
-	for _, g := range groups {
-		id := b.addStateForTokens(&g.tokens)
-		for _, pid := range g.ids {
-			lexState[pid] = id
+	if err := guardSize(func() {
+		for _, g := range groups {
+			id := b.addStateForTokens(&g.tokens)
+			for _, pid := range g.ids {
+				lexState[pid] = id
+			}
 		}
+	}); err != nil {
+		return nil, err
 	}
 	main := b.table
 	b.table = lexTable{}
@@ -302,9 +308,14 @@ func (p *Prepared) BuildLexTables(a *Analysis, states []TokenSet) (*LexTables, e
 	sortStates(&main, lexState)
 
 	out := &LexTables{LexState: lexState}
-	out.Main = p.newTable(main)
+	var err error
+	if out.Main, err = p.newTable(main); err != nil {
+		return nil, err
+	}
 	if sg.HasWord {
-		out.Keyword = p.newTable(keywordTable)
+		if out.Keyword, err = p.newTable(keywordTable); err != nil {
+			return nil, err
+		}
 	}
 	return out, nil
 }

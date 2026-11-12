@@ -59,12 +59,16 @@ func Prepare(grammarJSON []byte) (*Prepared, error) {
 	return &Prepared{Syntax: syn, Lex: lex}, nil
 }
 
-func (p *Prepared) largeSets() []largeSet {
+func (p *Prepared) largeSets() ([]largeSet, error) {
 	if !p.haveL {
-		p.large = collectLargeCharacterSets(newLexTableBuilder(p.Lex), p.Lex)
+		var large []largeSet
+		if err := guardSize(func() { large = collectLargeCharacterSets(newLexTableBuilder(p.Lex), p.Lex) }); err != nil {
+			return nil, err
+		}
+		p.large = large
 		p.haveL = true
 	}
-	return p.large
+	return p.large, nil
 }
 
 // ParseState is the input the lexer builder takes from a parse state: the
@@ -80,26 +84,38 @@ type Table struct {
 	plans []statePlan
 }
 
-func (p *Prepared) newTable(t lexTable) *Table {
+func (p *Prepared) newTable(t lexTable) (*Table, error) {
 	tb := &Table{t: t}
-	large := p.largeSets()
+	large, err := p.largeSets()
+	if err != nil {
+		return nil, err
+	}
 	for i := range t.states {
 		tb.plans = append(tb.plans, planState(&t.states[i], large))
 	}
-	return tb
+	return tb, nil
 }
 
 // BuildUnmerged builds one lex entry state for each token set, with no
 // merging of token sets and no minimization: the construction of
 // build_lex_table.rs: fn LexTableBuilder::add_state_for_tokens. It returns the
-// table and the entry state of each set.
-func (p *Prepared) BuildUnmerged(sets []TokenSet) (*Table, []uint32) {
+// table and the entry state of each set. It returns a *SizeError if the
+// construction passes a size limit of the package (see maxLexStates).
+func (p *Prepared) BuildUnmerged(sets []TokenSet) (*Table, []uint32, error) {
 	b := newLexTableBuilder(p.Lex)
 	starts := make([]uint32, len(sets))
-	for i := range sets {
-		starts[i] = b.addStateForTokens(&sets[i])
+	if err := guardSize(func() {
+		for i := range sets {
+			starts[i] = b.addStateForTokens(&sets[i])
+		}
+	}); err != nil {
+		return nil, nil, err
 	}
-	return p.newTable(b.table), starts
+	t, err := p.newTable(b.table)
+	if err != nil {
+		return nil, nil, err
+	}
+	return t, starts, nil
 }
 
 // NumStates is the number of lex states.

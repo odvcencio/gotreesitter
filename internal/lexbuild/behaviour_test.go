@@ -98,7 +98,10 @@ func TestLexbuildBehaviourEqualsC(t *testing.T) {
 			for _, ls := range order {
 				tokenSets = append(tokenSets, *sets[ls])
 			}
-			table, starts := p.BuildUnmerged(tokenSets)
+			table, starts, err := p.BuildUnmerged(tokenSets)
+			if err != nil {
+				t.Fatal(err)
+			}
 			pts := literalPoints(ref.parserC)
 			for i := 0; i < table.NumStates(); i++ {
 				for _, r := range table.Ranges(i) {

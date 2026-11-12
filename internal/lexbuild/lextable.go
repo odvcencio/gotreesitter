@@ -1,5 +1,72 @@
 package lexbuild
 
+import (
+	"fmt"
+	"sync/atomic"
+)
+
+// Size limits of the lex table construction. The generator has no such limit:
+// a pattern such as [ab]*a[ab]{24} (29 automaton states) has 33,554,432
+// reachable lex states and the generator runs until memory is gone. The port
+// refuses a grammar whose construction passes one of these limits, with a
+// *SizeError, before it inserts the state that would pass it. The limits apply
+// to one construction: the entry states of one table, the keyword table, or
+// the states of one token (the last loop of build_lex_table).
+//
+//   - maxLexStates: lex states (subset construction results).
+//   - maxLexNFAIDs: the sum, over lex states, of the automaton states in each
+//     (the size of the keys and queue entries).
+//   - maxLexAdvances: the sum, over lex states, of their character transitions.
+//
+// They are variables so that tests can lower them. The bundled grammars need
+// at most 11,785 lex states in one construction (the census prints the
+// largest sums); the limits are well above that.
+var (
+	maxLexStates   = 1 << 17
+	maxLexNFAIDs   = 1 << 25
+	maxLexAdvances = 1 << 22
+)
+
+// SizeError reports that a construction passed a size limit of this package.
+type SizeError struct {
+	What  string // what was counted
+	Limit int
+}
+
+func (e *SizeError) Error() string {
+	return fmt.Sprintf("lexbuild: size limit: more than %d %s in one lex table construction", e.Limit, e.What)
+}
+
+type lexTooLarge struct{ err *SizeError }
+
+// guardSize runs f and turns the panic of a passed size limit into an error.
+func guardSize(f func()) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if l, ok := r.(lexTooLarge); ok {
+				err = l.err
+				return
+			}
+			panic(r)
+		}
+	}()
+	f()
+	return nil
+}
+
+// peakLexStates is the largest number of lex states that one construction
+// reached since the program began (read by the census test).
+var peakLexStates, peakLexNFAIDs, peakLexAdvances atomic.Int64
+
+func notePeak(p *atomic.Int64, n int) {
+	for {
+		old := p.Load()
+		if int64(n) <= old || p.CompareAndSwap(old, int64(n)) {
+			return
+		}
+	}
+}
+
 // advanceAction is tables.rs: struct AdvanceAction.
 type advanceAction struct {
 	state       uint32
@@ -38,6 +105,8 @@ type lexTableBuilder struct {
 	table    lexTable
 	queue    []queueEntry
 	byNFASet map[string]uint32
+
+	nfaIDs, advances int // counted against maxLexNFAIDs and maxLexAdvances
 }
 
 // newLexTableBuilder is build_lex_table.rs: fn LexTableBuilder::new.
@@ -50,6 +119,7 @@ func (b *lexTableBuilder) reset() {
 	b.table = lexTable{}
 	b.queue = nil
 	b.byNFASet = map[string]uint32{}
+	b.nfaIDs, b.advances = 0, 0
 }
 
 func nfaSetKey(ids []uint32, eof bool) string {
@@ -93,6 +163,16 @@ func (b *lexTableBuilder) addState(nfaStates []uint32, eofValid bool) (uint32, b
 	if id, ok := b.byNFASet[key]; ok {
 		return id, false
 	}
+	// Size limits, checked before the state is inserted.
+	if len(b.table.states) >= maxLexStates {
+		panic(lexTooLarge{&SizeError{"lex states", maxLexStates}})
+	}
+	if b.nfaIDs+len(b.cursor.stateIDs) > maxLexNFAIDs {
+		panic(lexTooLarge{&SizeError{"automaton states summed over lex states", maxLexNFAIDs}})
+	}
+	b.nfaIDs += len(b.cursor.stateIDs)
+	notePeak(&peakLexStates, len(b.table.states)+1)
+	notePeak(&peakLexNFAIDs, b.nfaIDs)
 	id := uint32(len(b.table.states))
 	b.table.states = append(b.table.states, lexState{})
 	b.queue = append(b.queue, queueEntry{id, append([]uint32(nil), b.cursor.stateIDs...), eofValid})
@@ -125,6 +205,11 @@ func (b *lexTableBuilder) populateState(stateID uint32, nfaStates []uint32, eofV
 		b.table.states[stateID].hasEOF = true
 	}
 
+	if b.advances+len(transitions) > maxLexAdvances {
+		panic(lexTooLarge{&SizeError{"character transitions summed over lex states", maxLexAdvances}})
+	}
+	b.advances += len(transitions)
+	notePeak(&peakLexAdvances, b.advances)
 	for _, t := range transitions {
 		if haveCompletion && !preferTransition(b.g, &t, compID, int32(compPrec), hasSep) {
 			continue

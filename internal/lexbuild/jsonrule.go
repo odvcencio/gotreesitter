@@ -417,7 +417,7 @@ func numberOutOfRange(tok string) bool {
 	// fits reports whether sig*10+d fits in a u64 (the overflow! macro).
 	fits := func(sig uint64, d uint64) bool {
 		hi, lo := bits.Mul64(sig, 10)
-		lo, carry := bits.Add64(lo, d, 0)
+		_, carry := bits.Add64(lo, d, 0)
 		return hi == 0 && carry == 0
 	}
 	var sig uint64

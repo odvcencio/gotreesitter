@@ -1,13 +1,3 @@
-// Package lexbuild builds the lexer of a tree-sitter grammar the way the
-// tree-sitter generator (release v0.27.1, crates/generate) builds it. It is a
-// function-by-function port of the lexer path: the grammar front end that
-// yields the lexical grammar, the NFA, the lex table construction, and the
-// token conflict analysis that decides which parse states share a lex state.
-//
-// The package reads a grammar.json and the valid tokens of each parse state,
-// and returns lex states in C's form. It stands alone: standard library and
-// internal/lexexact only. Each function names the generator function it
-// ports as "file.rs: fn name".
 package lexbuild
 
 import "fmt"

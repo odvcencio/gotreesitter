@@ -354,6 +354,7 @@ func TestLexCensus(t *testing.T) {
 	for _, l := range lines {
 		fmt.Println(l)
 	}
+	fmt.Printf("LEXDFA largest sums in one construction over %d grammars: lex states %d, automaton states over lex states %d, character transitions %d\n", len(names), peakLexStates.Load(), peakLexNFAIDs.Load(), peakLexAdvances.Load())
 	for _, n := range names {
 		if _, err := os.Stat(filepath.Join(root, n, "parser-noopt.c")); err != nil {
 			fmt.Printf("LEXCENSUS-NOTE %s coincident-index merged-table (the generator refuses to build the table without merging parse states)\n", n)
