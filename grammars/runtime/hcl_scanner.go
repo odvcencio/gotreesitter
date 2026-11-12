@@ -185,29 +185,23 @@ func (scanner HclExternalScanner) remapValidSymbols(validSymbols []bool, semanti
 	return semanticValid[:]
 }
 
-// charMax is CHAR_MAX as the C scanner sees it (tree-sitter-hcl src/scanner.c:126
-// and :137 test context counts and identifier lengths against it). CHAR_MAX
-// depends on the architecture the C scanner is built for: 127 where char is signed
-// (x86-64) and 255 where it is unsigned (Linux arm64); cCharIsSigned holds the rule.
-// With the mode off it is 127 on every architecture, as on main.
-func (s *hclState) charMax() int {
-	if s.On() && !cCharIsSigned {
-		return 255
-	}
-	return 127
-}
+// hclCharMax is CHAR_MAX of a signed char: 127. The C scanner tests context counts and
+// identifier lengths against CHAR_MAX (tree-sitter-hcl src/scanner.c:126 and :137). Under the
+// mode the reference is the C scanner compiled with signed char (see internal/scanmode), so
+// it is 127 on every target; with the mode off it is main's 127 too.
+const hclCharMax = 127
 
 // hclSerializationBufferSize is TREE_SITTER_SERIALIZATION_BUFFER_SIZE.
 const hclSerializationBufferSize = 1024
 
 func (HclExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*hclState)
-	if len(s.contextStack) > s.charMax() {
+	if len(s.contextStack) > hclCharMax {
 		return 0
 	}
 
 	size := 0
-	// Write context stack length as uint32 (little-endian to match C memcpy on LE).
+	// Write context stack length as uint32 (little-endian on every target: the layout of the reference, internal/scanmode).
 	if size+4 > len(buf) {
 		return 0
 	}
@@ -217,7 +211,7 @@ func (HclExternalScanner) Serialize(payload any, buf []byte) int {
 	for i := range s.contextStack {
 		ctx := &s.contextStack[i]
 		idLen := len(ctx.heredocIdentifier)
-		if idLen > s.charMax() {
+		if idLen > hclCharMax {
 			return 0
 		}
 		// Need space for: uint32 type + uint32 idLen + id bytes.

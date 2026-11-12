@@ -62,37 +62,29 @@ func TestHclHeredocIdentifierIsAsciiLikeC(t *testing.T) {
 	portWantScan(t, "identifier (mode off)", got, true, hclDefaultSymTable[hclTokHeredocIdentifier], 3)
 }
 
-// TestHclCharMaxFollowsTheArchitectureInTheMode. C tests context counts and
-// identifier lengths against CHAR_MAX (tree-sitter-hcl src/scanner.c:126 and :137),
-// which is 127 where char is signed (x86-64) and 255 where it is unsigned (Linux
-// arm64). With the mode on the port follows cCharIsSigned, the build-time rule for
-// the architecture; with the mode off it is 127 everywhere, as on main.
-func TestHclCharMaxFollowsTheArchitectureInTheMode(t *testing.T) {
+// TestHclCharMaxIs127OnEveryTarget. C tests context counts and identifier lengths
+// against CHAR_MAX (tree-sitter-hcl src/scanner.c:126 and :137). The reference of the mode is
+// the C scanner compiled with signed char (see internal/scanmode), so CHAR_MAX is 127 on
+// every target; with the mode off it is main's 127 too. An identifier of 127 letters is
+// saved, one of 128 gives a zero-length state; so are 127 and 128 contexts.
+func TestHclCharMaxIs127OnEveryTarget(t *testing.T) {
 	scanner := HclExternalScanner{}
-	limit := 127
-	if !cCharIsSigned {
-		limit = 255
-	}
 	for _, mode := range []bool{true, false} {
-		want := 127
-		if mode {
-			want = limit
-		}
 		s := &hclState{}
 		s.SetCFaithful(mode)
-		for _, id := range []int{want, want + 1} {
+		for _, id := range []int{127, 128} {
 			s.contextStack = []hclContext{{ctxType: hclCtxHeredocTemplate, heredocIdentifier: strings.Repeat("a", id)}}
 			n := scanner.Serialize(s, make([]byte, 4096))
-			if id == want && n != 4+8+id {
+			if id == 127 && n != 4+8+id {
 				t.Errorf("mode %v: identifier of %d bytes: serialized %d bytes, want %d", mode, id, n, 4+8+id)
 			}
-			if id == want+1 && n != 0 {
-				t.Errorf("mode %v: identifier of %d bytes: serialized %d bytes, want 0 (CHAR_MAX %d)", mode, id, n, want)
+			if id == 128 && n != 0 {
+				t.Errorf("mode %v: identifier of %d bytes: serialized %d bytes, want 0 (CHAR_MAX 127)", mode, id, n)
 			}
 		}
-		s.contextStack = make([]hclContext, want+1)
+		s.contextStack = make([]hclContext, 128)
 		if n := scanner.Serialize(s, make([]byte, 4096)); n != 0 {
-			t.Errorf("mode %v: %d contexts: serialized %d bytes, want 0 (CHAR_MAX %d)", mode, want+1, n, want)
+			t.Errorf("mode %v: 128 contexts: serialized %d bytes, want 0 (CHAR_MAX 127)", mode, n)
 		}
 	}
 }

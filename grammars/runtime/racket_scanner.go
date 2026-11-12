@@ -222,7 +222,8 @@ func racketNewline(lexer *gotreesitter.ExternalLexer) bool { return scanmode.CLo
 // "ac" and "a". A character whose low byte is zero (U+0100, for example) ends
 // the string at once, so that line equals the empty line. The decode error -1
 // (an invalid UTF-8 byte) is four 0xff bytes and so never ends the string.
-// Native byte order is little endian here (the supported targets).
+// The bytes are little endian on every target: the reference of the mode is the C scanner
+// for a little-endian target (internal/scanmode).
 func racketRunesEqual(a, b []int32) bool {
 	return string(racketCString(a)) == string(racketCString(b))
 }

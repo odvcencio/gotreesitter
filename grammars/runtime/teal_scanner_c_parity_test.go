@@ -48,8 +48,8 @@ func TestTealStateBytesMatchPinnedC(t *testing.T) {
 
 // TestTealCopiesPaddingAndSignedQuoteLikeC: C copies
 // the whole struct, so the two padding bytes survive a restore and a save, and
-// opening_quote is a char (signed on x86-64, unsigned on arm64: cCharIsSigned), so
-// 0xff reads back as -1 or 255.
+// opening_quote is a char, read as signed on every target (the reference of the mode,
+// see internal/scanmode), so 0xff reads back as -1.
 func TestTealCopiesPaddingAndSignedQuoteLikeC(t *testing.T) {
 	scanner := TealExternalScanner{}
 	st := tealCFaithful(scanner)
@@ -59,12 +59,8 @@ func TestTealCopiesPaddingAndSignedQuoteLikeC(t *testing.T) {
 	if !bytes.Equal(out[:n], []byte{0, 0, 0, 0, 0, 0xff, 7, 9}) {
 		t.Fatalf("saved %v, want the padding 7 9 preserved", out[:n])
 	}
-	want := rune(-1)
-	if !cCharIsSigned {
-		want = 255
-	}
-	if st.openingQuote != want {
-		t.Fatalf("opening quote = %d, want %d (cCharIsSigned = %v)", st.openingQuote, want, cCharIsSigned)
+	if st.openingQuote != -1 {
+		t.Fatalf("opening quote = %d, want -1 (signed char)", st.openingQuote)
 	}
 }
 
@@ -92,5 +88,33 @@ func TestTealLegacyEmptySnapshotResets(t *testing.T) {
 	scanner.Deserialize(cf, nil)
 	if got := portScan(scanner, cf, "x", valid); !got.ok {
 		t.Fatalf("C-faithful: payload should stay inside the string (C returns without touching it), got %+v", got)
+	}
+}
+
+// TestTealCommentRunsPastNUL: scan_comment tests the end of the input with lexer->eof
+// (scanner.c:41, :66-67, :77), so a NUL byte is a comment character. With the mode on the
+// comment ends at the end of the line or at its closing bracket; an unterminated long
+// comment fails at EXPECT(']') (scanner.c:69). With the mode off the port is main's: a zero
+// lookahead ends the comment, and a long comment that ends early still succeeds.
+func TestTealCommentRunsPastNUL(t *testing.T) {
+	scanner := TealExternalScanner{}
+	valid := make([]bool, tealTokenCount)
+	valid[tealTokComment] = true
+	sym := tealDefaultSymTable[tealTokComment]
+	cases := []struct {
+		name          string
+		src           string
+		onOK, offOK   bool
+		onEnd, offEnd uint32
+	}{
+		{"NUL in a line comment", "--\x00x", true, true, 4, 2},
+		{"NUL in a long comment", "--[[\x00x]]", true, true, 8, 4},
+		{"NUL after the opening bracket of a line comment", "--[\x00x\ny", true, true, 5, 3},
+		{"unterminated long comment", "--[[abc", false, true, 0, 7},
+		{"NUL then the end of the input in a long comment", "--[[a\x00", false, true, 0, 5},
+	}
+	for _, c := range cases {
+		portWantScan(t, c.name+", mode on", portScan(scanner, tealCFaithful(scanner), c.src, valid), c.onOK, sym, c.onEnd)
+		portWantScan(t, c.name+", mode off", portScan(scanner, scanner.Create(), c.src, valid), c.offOK, sym, c.offEnd)
 	}
 }

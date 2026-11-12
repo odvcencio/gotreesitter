@@ -150,8 +150,8 @@ func (TealExternalScanner) Serialize(payload any, buf []byte) int {
 
 // Deserialize in the C-faithful mode leaves the payload untouched when the
 // saved state is shorter than the struct (scanner.c:98-102), copies the
-// padding, and reads opening_quote as a char (signed or unsigned as cCharIsSigned says
-// for the architecture). In the legacy mode any snapshot of fewer than 6 bytes resets the
+// padding, and reads opening_quote as a signed char (the reference of the mode, see
+// internal/scanmode). In the legacy mode any snapshot of fewer than 6 bytes resets the
 // payload, as docs/external-scanners.md requires.
 func (TealExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*tealState)
@@ -159,13 +159,10 @@ func (TealExternalScanner) Deserialize(payload any, buf []byte) {
 		if len(buf) < tealStateSize {
 			return
 		}
+		// The count is little-endian on every target (the layout of the reference).
 		s.openingEqs = uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24
 		s.inStr = buf[4] != 0
-		if cCharIsSigned {
-			s.openingQuote = rune(int8(buf[5]))
-		} else {
-			s.openingQuote = rune(buf[5])
-		}
+		s.openingQuote = rune(int8(buf[5])) // char is signed in the reference (internal/scanmode)
 		s.pad = [2]byte{buf[6], buf[7]}
 		return
 	}
@@ -275,13 +272,20 @@ func (sc TealExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 
 	// Comment: -- followed by optional [=*[ for long comment
 	if tealValid(validSymbols, tealTokComment) {
-		return tealScanComment(lexer, syms[tealTokComment])
+		return tealScanComment(lexer, syms[tealTokComment], s.On())
 	}
 
 	return false
 }
 
-func tealScanComment(lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol) bool {
+// tealScanComment scans a comment. With the mode off it is main's scan: a zero lookahead (the end of the
+// input or a NUL byte) ends the comment. With the mode on it is scan_comment of the pinned C scanner
+// (scanner.c:49-82): only the end of the input ends it, a NUL byte is a character, and a long comment that
+// ends before its closing bracket fails (EXPECT(']') at :67-69).
+func tealScanComment(lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol, cMode bool) bool {
+	if cMode {
+		return tealScanCommentC(lexer, sym)
+	}
 	if lexer.Lookahead() != '-' {
 		return false
 	}
@@ -327,6 +331,57 @@ func tealScanComment(lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol)
 	}
 
 	return true
+}
+
+func tealScanCommentC(lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol) bool {
+	if lexer.Lookahead() != '-' {
+		return false
+	}
+	lexer.Advance(false)
+	if lexer.Lookahead() != '-' {
+		return false
+	}
+	lexer.Advance(false)
+
+	lexer.SetResultSymbol(sym)
+
+	if lexer.Lookahead() != '[' {
+		tealConsumeRestOfLineC(lexer)
+		return true
+	}
+	lexer.Advance(false)
+	eqs := tealConsumeEqs(lexer)
+
+	if lexer.Lookahead() != '[' {
+		tealConsumeRestOfLineC(lexer)
+		return true
+	}
+
+	for !scanmode.AtEOF(lexer) {
+		for !scanmode.AtEOF(lexer) && lexer.Lookahead() != ']' {
+			lexer.Advance(false)
+		}
+		if lexer.Lookahead() != ']' {
+			return false
+		}
+		lexer.Advance(false)
+		testEqs := tealConsumeEqs(lexer)
+		if lexer.Lookahead() == ']' {
+			lexer.Advance(false)
+			if testEqs == eqs {
+				return true
+			}
+		} else if !scanmode.AtEOF(lexer) {
+			lexer.Advance(false)
+		}
+	}
+	return true
+}
+
+func tealConsumeRestOfLineC(lexer *gotreesitter.ExternalLexer) {
+	for !scanmode.AtEOF(lexer) && lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' {
+		lexer.Advance(false)
+	}
 }
 
 func tealConsumeEqs(lexer *gotreesitter.ExternalLexer) uint32 {

@@ -11,16 +11,6 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
-// cFaithfulPayload is a new payload of sc with the C-faithful mode on, when the payload has a mode:
-// the tests that compare a port with its C scanner run the mode the core turns on.
-func cFaithfulPayload(sc gotreesitter.ExternalScanner) any {
-	p := sc.Create()
-	if m, ok := p.(interface{ SetCFaithful(bool) }); ok {
-		m.SetCFaithful(true)
-	}
-	return p
-}
-
 // checkRegisteredScanner checks one scanner that a scanner package registered after
 // the differential check against its pinned C scanner (cgo_harness/scandiff_test.go):
 // the registration exists and says what the port declares; the registered payload type
