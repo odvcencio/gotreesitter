@@ -1,6 +1,8 @@
 package gotreesitter
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 	"unsafe"
 )
@@ -397,6 +399,205 @@ func TestArenaByteBreakdownMatchesAllocatedBytes(t *testing.T) {
 	}
 	if got, want := breakdown.FieldSourceElementsConstructed, uint64(6); got != want {
 		t.Fatalf("fieldSourceElementsConstructed = %d, want %d", got, want)
+	}
+}
+
+// arenaBreakdownExemptByteFields are the int64 "...BytesAllocated" fields of
+// ArenaBreakdown that are not part of nodeArena.allocatedBytes.
+var arenaBreakdownExemptByteFields = map[string]bool{"MergeScratchBytesAllocated": true}
+
+// arenaBreakdownByteSum adds every byte field of the breakdown that belongs to
+// the arena total, found by reflection so that a field added later is counted
+// without anyone editing this test. It leaves out the scanner checkpoint
+// bytes, which ParseRuntime reports.
+func arenaBreakdownByteSum(b *ArenaBreakdown) int64 {
+	var sum int64
+	v := reflect.ValueOf(b).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		name := v.Type().Field(i).Name
+		if v.Field(i).Kind() == reflect.Int64 && strings.HasSuffix(name, "BytesAllocated") && !arenaBreakdownExemptByteFields[name] {
+			sum += v.Field(i).Int()
+		}
+	}
+	return sum
+}
+
+// assertArenaBreakdownMatchesTotal checks, for one arena at rest, that the
+// incrementally kept total equals the sum of its components, that the
+// breakdown reports each component under the field the table names, and that
+// the breakdown sum plus the checkpoint bytes equals the total.
+func assertArenaBreakdownMatchesTotal(t *testing.T, label string, a *nodeArena) {
+	t.Helper()
+	if a == nil {
+		t.Fatalf("%s: arena = nil", label)
+	}
+	components := a.arenaByteComponents()
+	var componentSum int64
+	for _, n := range components {
+		componentSum += n
+	}
+	if a.allocatedBytes != componentSum {
+		t.Fatalf("%s: allocatedBytes = %d, sum of components = %d (a byte count changed without recomputeAllocatedBytes seeing its component)", label, a.allocatedBytes, componentSum)
+	}
+	b := a.collectArenaBreakdown()
+	bv := reflect.ValueOf(b).Elem()
+	for i, name := range arenaByteComponentFields {
+		if name == "ExternalScannerCheckpointBytesAllocated" {
+			continue // reported by ParseRuntime
+		}
+		if got := bv.FieldByName(name).Int(); got != components[i] {
+			t.Fatalf("%s: breakdown %s = %d, component = %d", label, name, got, components[i])
+		}
+	}
+	if got := arenaBreakdownByteSum(b) + a.externalScannerCheckpointBytesAllocated(); got != a.allocatedBytes {
+		t.Fatalf("%s: allocatedBytes = %d, breakdown sum = %d", label, a.allocatedBytes, got)
+	}
+}
+
+// A scanner that reads columns, with a checkpoint identity so the arena keeps
+// identity bytes as well.
+type arenaIdentityPaddingScanner struct{ paddingChoiceScanner }
+
+func (arenaIdentityPaddingScanner) UsesExternalScannerCheckpoints() bool { return true }
+func (arenaIdentityPaddingScanner) CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) {
+	return ExternalScannerCheckpointIdentity{Scanner: []byte("padding-scanner"), Grammar: []byte("padding-grammar")}, true
+}
+
+// After each kind of parse, the breakdown must account for every byte in the
+// arena total: a scanner that reads columns (span list), a scanner with a
+// checkpoint identity (identity bytes), a grammar without a scanner, an
+// incremental reparse, and a pooled arena reused after each of those.
+func TestArenaBreakdownSumsToAllocatedBytesAcrossParses(t *testing.T) {
+	EnableArenaBreakdown(true)
+	defer EnableArenaBreakdown(false)
+
+	identityLang := paddingChoiceLanguage(false, false)
+	identityLang.ExternalScanner = arenaIdentityPaddingScanner{}
+	type scenario struct {
+		name   string
+		lang   *Language
+		source string
+		check  func(t *testing.T, b *ArenaBreakdown)
+	}
+	scenarios := []scenario{
+		// The finished tree has folded and released its span list; the list
+		// stays on arenas that go back to the pool (see the reuse loop below).
+		{"columns", paddingChoiceLanguage(false, false), "x y", nil},
+		{"identity", identityLang, "x y", func(t *testing.T, b *ArenaBreakdown) {
+			if b.CheckpointIdentityBytesAllocated == 0 {
+				t.Fatal("CheckpointIdentityBytesAllocated = 0 for a scanner with a checkpoint identity")
+			}
+		}},
+		{"no scanner", buildArithmeticLanguage(), "1+2", nil},
+	}
+	var live []*Tree
+	for _, sc := range scenarios {
+		parser := NewParser(sc.lang)
+		parser.errorCostCompetition = true
+		tree, err := parser.Parse([]byte(sc.source))
+		if err != nil {
+			t.Fatalf("%s: %v", sc.name, err)
+		}
+		live = append(live, tree)
+		assertArenaBreakdownMatchesTotal(t, sc.name, tree.arena)
+		if sc.check != nil {
+			sc.check(t, tree.arena.collectArenaBreakdown())
+		}
+	}
+
+	// Incremental reparse of the arithmetic tree: "1+2" -> "1+3".
+	arith := NewParser(buildArithmeticLanguage())
+	old, err := arith.Parse([]byte("1+2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	old.Edit(InputEdit{StartByte: 2, OldEndByte: 3, NewEndByte: 3,
+		StartPoint: Point{Column: 2}, OldEndPoint: Point{Column: 3}, NewEndPoint: Point{Column: 3}})
+	next, err := arith.ParseIncremental([]byte("1+3"), old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	live = append(live, old, next)
+	assertArenaBreakdownMatchesTotal(t, "incremental old", old.arena)
+	assertArenaBreakdownMatchesTotal(t, "incremental new", next.arena)
+
+	// Return every arena to the pool, then parse again on reused arenas.
+	for _, tree := range live {
+		tree.Release()
+	}
+	for _, sc := range scenarios {
+		for round := 0; round < 2; round++ {
+			parser := NewParser(sc.lang)
+			parser.errorCostCompetition = true
+			tree, err := parser.Parse([]byte(sc.source))
+			if err != nil {
+				t.Fatalf("%s reused: %v", sc.name, err)
+			}
+			assertArenaBreakdownMatchesTotal(t, sc.name+" reused", tree.arena)
+			tree.Release()
+		}
+		// The pooled arena may carry capacity from the scenario above; a
+		// scanner-free parse on it must still balance.
+		tree, err := NewParser(buildArithmeticLanguage()).Parse([]byte("1+2"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertArenaBreakdownMatchesTotal(t, "no scanner after "+sc.name, tree.arena)
+		t.Logf("no scanner after %s: ColumnDependentSpanBytesAllocated = %d", sc.name, tree.arena.collectArenaBreakdown().ColumnDependentSpanBytesAllocated)
+		tree.Release()
+	}
+}
+
+// Every component counted in allocatedBytes has a field that reports it, and
+// every byte field of ArenaBreakdown is a counted component. Adding a
+// component to arenaByteComponents without a field, or a field without a
+// component, fails here.
+func TestArenaByteComponentsHaveBreakdownFields(t *testing.T) {
+	breakdown := reflect.TypeOf(ArenaBreakdown{})
+	runtimeType := reflect.TypeOf(ParseRuntime{})
+	seen := map[string]bool{}
+	for i, name := range arenaByteComponentFields {
+		if name == "" {
+			t.Fatalf("component %d has no reporting field name", i)
+		}
+		if seen[name] {
+			t.Fatalf("component field %s is listed twice", name)
+		}
+		seen[name] = true
+		if name == "ExternalScannerCheckpointBytesAllocated" {
+			if f, ok := runtimeType.FieldByName(name); !ok || f.Type.Kind() != reflect.Int64 {
+				t.Fatalf("component %d: ParseRuntime has no int64 field %s", i, name)
+			}
+			continue
+		}
+		if f, ok := breakdown.FieldByName(name); !ok || f.Type.Kind() != reflect.Int64 {
+			t.Fatalf("component %d: ArenaBreakdown has no int64 field %s", i, name)
+		}
+	}
+	for i := 0; i < breakdown.NumField(); i++ {
+		f := breakdown.Field(i)
+		if f.Type.Kind() != reflect.Int64 || !strings.HasSuffix(f.Name, "BytesAllocated") || arenaBreakdownExemptByteFields[f.Name] {
+			continue
+		}
+		if !seen[f.Name] {
+			t.Fatalf("ArenaBreakdown.%s is not a component of arenaByteComponents", f.Name)
+		}
+	}
+}
+
+// A pooled arena keeps the capacity of its column-dependent span list when it
+// resets, so the breakdown must report those bytes with no span recorded.
+func TestArenaBreakdownReportsRetainedColumnDependentSpans(t *testing.T) {
+	arena := newNodeArena(arenaClassFull)
+	arena.recordColumnDependentSpan(1, 2)
+	assertArenaBreakdownMatchesTotal(t, "recorded span", arena)
+	if got, want := arena.collectArenaBreakdown().ColumnDependentSpanBytesAllocated, columnDependentSpanBytesForCap(columnDependentSpanInitialCap); got != want {
+		t.Fatalf("ColumnDependentSpanBytesAllocated = %d, want %d", got, want)
+	}
+	arena.reset()
+	assertArenaBreakdownMatchesTotal(t, "after reset", arena)
+	if arena.collectArenaBreakdown().ColumnDependentSpanBytesAllocated == 0 {
+		t.Fatal("reset dropped the span list capacity; the retained bytes should be reported")
 	}
 }
 

@@ -519,7 +519,7 @@ class GateTests(unittest.TestCase):
                         "binding_version": "v0.25.0", "binding_commit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3", "runtime_version": "0.27.1",
                         "runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a", "grammar_commit": "a" * 40,
                         "grammar_artifact_path": "parser.so", "grammar_artifact_sha256": "a" * 64,
-                        "grammar_compile_flags": "-std=c11 -fPIC -O2 -I .", "compiler_path": "cc", "compiler_version": "cc test",
+                        "grammar_compile_flags": "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I .", "compiler_path": "cc", "compiler_version": "cc test",
                         "grammar_repo": "https://github.com/example/grammar", "grammar_linkage": "shared_dlopen",
                         "runtime_linkage": "static_cgo_test_binary", "transport": "cgo_parity_binding"}, "cells": cells}
                 self.admissions[role, f["language"]] = a

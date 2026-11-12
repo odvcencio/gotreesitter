@@ -20,7 +20,7 @@ import (
 const issue454PHPSourceSHA256 = "cbf52f81ea212353a3bf04d7c9b37668b5cdfb6cd428c2d0cb3799a8e13ae82f"
 const issue454PHPGrammarCommit = "3fda2fb9577166c6399834917f9844f30370beea"
 const issue454PHPGrammarBlobSHA256 = "15724627db479c27304b43fa3b5ef7d8d81f85e3b9ce6d8575a847b2dbaa5cd5"
-const issue454PHPCArtifactSHA256 = "1daea60ac1ee31227b8e1ed3cbd76b841435fe693e95af65cc61dad447d27891"
+const issue454PHPCArtifactSHA256 = "52a5cde88233788e26442931731494cd0ceb23c180b830085a6b1b54d442a473"
 
 const (
 	issue454PHPRawDeepDigest        = "1516308c38163089778464ad171875308c559af11af7c8c03ee17ae4eacd23c6"

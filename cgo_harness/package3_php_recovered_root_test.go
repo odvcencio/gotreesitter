@@ -20,7 +20,7 @@ func TestPackage3PHPRecoveredRootLockedC(t *testing.T) {
 	// The issue first pinned 3f2465c2. The current repository lock uses
 	// 3fda2fb9, so this test verifies the active C oracle and Go blob.
 	const grammarCommit = "3fda2fb9577166c6399834917f9844f30370beea"
-	const grammarArtifactSHA = "1daea60ac1ee31227b8e1ed3cbd76b841435fe693e95af65cc61dad447d27891"
+	const grammarArtifactSHA = "52a5cde88233788e26442931731494cd0ceb23c180b830085a6b1b54d442a473"
 	const wantDigest = "ccda45c83ece81066dc557d0742945c929b17508e67b8884a64583e4958d09fd"
 	const wantSExpr = "(program (php_tag) (ERROR) (empty_statement) (text_interpolation (php_end_tag)))"
 	if len(source) != 20 || fmt.Sprintf("%x", sha256.Sum256([]byte(source))) != sourceSHA {

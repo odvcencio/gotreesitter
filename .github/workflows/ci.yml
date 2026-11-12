@@ -321,6 +321,7 @@ jobs:
           TestAdmissionSwitchParseProductionWhenOff
           TestAdmissionSwitchParseRoutesCandidateWhenOn
           TestAdmissionSwitchRecoveryDoesNotLeakCompactTree
+          TestArenaBreakdownAccountsForNodeViewBytes
           TestB4bV2OptInDeciderDifferentialCanonicalFixtures
           TestB4bV2OptInDeciderDifferentialCertifiedLanguages
           TestB4bV2OptInDeciderDifferentialErlangProbes
@@ -2574,7 +2575,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 20m \
-            --run '^TestCOracleVendoredSources$|^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandKnownDivergenceFromLockedC$'
+            --run '^TestCOracleVendoredSources$|^TestCOracleGrammarCompileFlagsMatchRecordedFlags$|^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandKnownDivergenceFromLockedC$'
 
       - name: JavaScript and TypeScript contextual lookahead against locked C
         run: |
