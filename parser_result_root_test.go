@@ -1552,3 +1552,147 @@ func TestBuildResultFromNodesRejectsSingleValueRootWithMultipleFragments(t *test
 		t.Fatalf("root symbol = %d, want ERROR", got)
 	}
 }
+
+// newResultRootExtraLanguage has a visible root, a visible named child, a
+// visible comment extra and a hidden extra. ERROR (65535) lies outside it.
+func newResultRootExtraLanguage() *Language {
+	return &Language{
+		SymbolNames: []string{"EOF", "source_file", "statement", "comment", "_hidden"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF"},
+			{Name: "source_file", Visible: true, Named: true},
+			{Name: "statement", Visible: true, Named: true},
+			{Name: "comment", Visible: true, Named: true},
+			{Name: "_hidden"},
+		},
+	}
+}
+
+func newResultRootExtraLeaf(arena *nodeArena, sym Symbol, start, end uint32) *Node {
+	n := newLeafNodeInArena(arena, sym, true, start, end, Point{Column: start}, Point{Column: end})
+	n.setExtra(true)
+	return n
+}
+
+func TestResultRootExtraIsPublishedCountsErrorAsVisible(t *testing.T) {
+	lang := newResultRootExtraLanguage()
+	for _, tc := range []struct {
+		name       string
+		sym        Symbol
+		start, end uint32
+		want       bool
+	}{
+		{"error", errorSymbol, 0, 2, true},
+		{"zero-width error", errorSymbol, 2, 2, false},
+		{"visible comment", 3, 0, 2, true},
+		{"zero-width comment", 3, 2, 2, false},
+		{"hidden", 4, 0, 2, false},
+		{"outside metadata", 9, 0, 2, false},
+	} {
+		n := newResultRootExtraLeaf(nil, tc.sym, tc.start, tc.end)
+		if got := resultRootExtraIsPublished(n, lang); got != tc.want {
+			t.Errorf("%s: published = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestSplitResultRootExtrasPublishesErrorExtras(t *testing.T) {
+	lang := newResultRootExtraLanguage()
+	leading := newResultRootExtraLeaf(nil, errorSymbol, 0, 4)
+	root := newLeafNodeInArena(nil, 1, true, 4, 4, Point{Column: 4}, Point{Column: 4})
+	trailing := newResultRootExtraLeaf(nil, errorSymbol, 4, 8)
+	hidden := newResultRootExtraLeaf(nil, 4, 8, 9)
+
+	split := splitResultRootExtras([]*Node{leading, root, trailing, hidden}, lang)
+	if split.realRoot != root {
+		t.Fatalf("real root = %p, want %p", split.realRoot, root)
+	}
+	if len(split.allExtras) != 3 {
+		t.Fatalf("all extras = %d, want 3", len(split.allExtras))
+	}
+	if len(split.visibleExtras) != 2 || split.visibleExtras[0] != leading || split.visibleExtras[1] != trailing {
+		t.Fatalf("split visible extras = %v, want both ERRORs", split.visibleExtras)
+	}
+
+	classified := classifyResultRootExtras([]*Node{leading, trailing, hidden}, lang)
+	if len(classified.visibleExtras) != 2 || classified.visibleExtras[0] != leading || classified.visibleExtras[1] != trailing {
+		t.Fatalf("classified visible extras = %v, want both ERRORs", classified.visibleExtras)
+	}
+}
+
+func TestAttachResultRootExtraSplitFoldsErrorExtrasIntoRoot(t *testing.T) {
+	lang := newResultRootExtraLanguage()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	// Shape left by trailing-EOF recovery: ERROR extras around an accepted root.
+	leading := newResultRootExtraLeaf(arena, errorSymbol, 0, 4)
+	child := newLeafNodeInArena(arena, 2, true, 4, 6, Point{Column: 4}, Point{Column: 6})
+	root := newParentNodeInArena(arena, 1, true, []*Node{child}, nil, 0)
+	trailing := newResultRootExtraLeaf(arena, errorSymbol, 6, 8)
+	if root.HasError() {
+		t.Fatal("root has an error before folding")
+	}
+
+	split := splitResultRootExtras([]*Node{leading, root, trailing}, lang)
+	attachResultRootExtraSplit(split.realRoot, split, arena)
+
+	children := resultChildSliceForMutation(root)
+	if len(children) != 3 || children[0] != leading || children[1] != child || children[2] != trailing {
+		t.Fatalf("root children = %v, want [ERROR statement ERROR]", children)
+	}
+	if !root.HasError() {
+		t.Fatal("root HasError = false, want true after folding ERROR extras")
+	}
+	if root.startByte != 0 || root.endByte != 8 {
+		t.Fatalf("root span = %d..%d, want 0..8", root.startByte, root.endByte)
+	}
+}
+
+func TestAttachResultRootExtraSplitFoldsErrorBearingExtraBesideCleanOne(t *testing.T) {
+	lang := newResultRootExtraLanguage()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	child := newLeafNodeInArena(arena, 2, true, 0, 2, Point{}, Point{Column: 2})
+	root := newParentNodeInArena(arena, 1, true, []*Node{child}, nil, 0)
+	clean := newResultRootExtraLeaf(arena, 3, 2, 4)
+	broken := newResultRootExtraLeaf(arena, 3, 4, 6)
+	broken.setHasError(true)
+
+	attachResultRootExtraSplit(root, classifyResultRootExtras([]*Node{clean, broken}, lang), arena)
+
+	children := resultChildSliceForMutation(root)
+	if len(children) != 3 || children[1] != clean || children[2] != broken {
+		t.Fatalf("root children = %v, want [statement comment comment]", children)
+	}
+	if !root.HasError() {
+		t.Fatal("root HasError = false, want true from the error-bearing extra")
+	}
+}
+
+func TestAttachResultRootExtraSplitLeavesCleanRootUnchanged(t *testing.T) {
+	lang := newResultRootExtraLanguage()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	// Clean shape: a root with a trailing comment and hidden trivia.
+	child := newLeafNodeInArena(arena, 2, true, 0, 9, Point{}, Point{Column: 9})
+	root := newParentNodeInArena(arena, 1, true, []*Node{child}, nil, 0)
+	comment := newResultRootExtraLeaf(arena, 3, 10, 14)
+	hidden := newResultRootExtraLeaf(arena, 4, 14, 15)
+
+	split := splitResultRootExtras([]*Node{root, comment, hidden}, lang)
+	attachResultRootExtraSplit(split.realRoot, split, arena)
+
+	children := resultChildSliceForMutation(root)
+	if len(children) != 2 || children[0] != child || children[1] != comment {
+		t.Fatalf("root children = %v, want [statement comment]", children)
+	}
+	if root.HasError() {
+		t.Fatal("root HasError = true, want false without error extras")
+	}
+	if root.startByte != 0 || root.endByte != 15 {
+		t.Fatalf("root span = %d..%d, want 0..15", root.startByte, root.endByte)
+	}
+}
