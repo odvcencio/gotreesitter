@@ -25,9 +25,21 @@ func TestCppUserTypeTemplateArgumentInParameterListParsesWithoutError(t *testing
 }
 
 // A template argument list closed right before an outer close angle, as in
-// `A<B<T> >` or `A<B<T>>`, must close the outer template too. The expected
-// trees are the C runtime's for the same grammar revision.
+// `A<B<T> >` or `A<B<T>>`, must close the outer template too, on the DFA
+// lexer and on the registered C++ token source. The expected trees are the C
+// runtime's for the same grammar revision.
 func TestCppNestedTemplateCloseAngleMatchesC(t *testing.T) {
+	entry := DetectLanguageByName("cpp")
+	if entry == nil || entry.TokenSourceFactory == nil {
+		t.Fatal("cpp is not registered with its token source")
+	}
+	routes := []struct {
+		name  string
+		parse func([]byte) (*ts.Tree, error)
+	}{
+		{"dfa", ts.NewParser(CppLanguage()).Parse},
+		{"token source", entry.Parse},
+	}
 	const tail = " (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement)))"
 	const nested = "(template_type (type_identifier) (template_argument_list (type_descriptor (template_type (type_identifier) (template_argument_list (type_descriptor (type_identifier)))))))"
 	for _, tc := range []struct{ src, want string }{
@@ -48,16 +60,19 @@ func TestCppNestedTemplateCloseAngleMatchesC(t *testing.T) {
 		},
 	} {
 		src := []byte(tc.src + "\nvoid after() {}\n")
-		tree, err := ts.NewParser(CppLanguage()).Parse(src)
-		if err != nil {
-			t.Fatalf("parse %q: %v", tc.src, err)
-		}
-		root := tree.RootNode()
-		if root.EndByte() != uint32(len(src)) || root.HasError() {
-			t.Errorf("%q: root ends at %d of %d, HasError=%v, runtime=%s", tc.src, root.EndByte(), len(src), root.HasError(), tree.ParseRuntime().Summary())
-		}
-		if got := root.SExpr(CppLanguage()); got != tc.want {
-			t.Errorf("%q:\n got  %s\n want %s", tc.src, got, tc.want)
+		for _, route := range routes {
+			tree, err := route.parse(src)
+			if err != nil {
+				t.Fatalf("%s: parse %q: %v", route.name, tc.src, err)
+			}
+			root := tree.RootNode()
+			if root.EndByte() != uint32(len(src)) || root.HasError() {
+				t.Errorf("%s: %q: root ends at %d of %d, HasError=%v, runtime=%s", route.name, tc.src, root.EndByte(), len(src), root.HasError(), tree.ParseRuntime().Summary())
+			}
+			if got := root.SExpr(CppLanguage()); got != tc.want {
+				t.Errorf("%s: %q:\n got  %s\n want %s", route.name, tc.src, got, tc.want)
+			}
+			tree.Release()
 		}
 	}
 }
