@@ -524,3 +524,162 @@ func TestTryRelexSingleParserStateRefusedReadingRestoresDFATransaction(t *testin
 		t.Fatalf("lexer = pos %d col %d, want restored 1/1", ts.lexer.pos, ts.lexer.col)
 	}
 }
+
+// ownLexModeLanguage gives the byte "x" two readings: lex mode 0 reads it as
+// the visible x_a (symbol 2), lex mode 1 as the hidden x_b (symbol 3). After
+// `a`, state 0 forks into Q (state 1, lex mode 1, accepts both readings) and
+// P (state 2, lex mode 0, accepts only x_a). The shared election picks the
+// visible x_a, so Q reaches its own x_b only through the per-stack re-read.
+// Each tail state reduces its two children and accepts at EOF; tests remove
+// the EOF action of the branches that must die.
+func ownLexModeLanguage() *Language {
+	return &Language{
+		Name: "own_lex_mode", SymbolCount: 7, TokenCount: 4, StateCount: 9, ProductionIDCount: 1,
+		SymbolNames: []string{"end", "a", "x_a", "x_b", "rule_qa", "rule_qb", "rule_p"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end"}, {Name: "a", Visible: true}, {Name: "x_a", Visible: true}, {Name: "x_b"},
+			{Name: "rule_qa", Visible: true, Named: true}, {Name: "rule_qb", Visible: true, Named: true}, {Name: "rule_p", Visible: true, Named: true},
+		},
+		LexStates: []LexState{
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 2}, {Lo: 'x', Hi: 'x', NextState: 3}}},
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'x', Hi: 'x', NextState: 4}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+			{AcceptToken: 3, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{{LexState: 0}, {LexState: 1}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}, {Type: ParseActionShift, State: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 4}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 5}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 4, ChildCount: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 5, ChildCount: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 6, ChildCount: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 6}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 7}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 8}}},
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},
+		},
+		ParseTable: [][]uint16{
+			{0, 1, 0, 0, 8, 9, 10},
+			{0, 0, 2, 3, 0, 0, 0}, // Q
+			{0, 0, 4, 0, 0, 0, 0}, // P
+			{5, 0, 0, 0, 0, 0, 0},
+			{6, 0, 0, 0, 0, 0, 0},
+			{7, 0, 0, 0, 0, 0, 0},
+			{11, 0, 0, 0, 0, 0, 0},
+			{11, 0, 0, 0, 0, 0, 0},
+			{11, 0, 0, 0, 0, 0, 0},
+		},
+	}
+}
+
+func TestOwnLexModeTokenGuards(t *testing.T) {
+	shared := Token{Symbol: 2, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+	for _, tc := range []struct {
+		name   string
+		source string
+		edit   func(*Language, *Token)
+		want   Symbol // 0: rejected, the shared token comes back
+	}{
+		{"accepted", "ax", func(*Language, *Token) {}, 3},
+		{"external scanner token", "ax", func(_ *Language, tok *Token) { tok.ExternalScannerToken = true }, 0},
+		{"shared token is keyword capture", "ax", func(lang *Language, _ *Token) { lang.KeywordCaptureToken = 2 }, 0},
+		{"own reading is keyword capture", "ax", func(lang *Language, _ *Token) { lang.KeywordCaptureToken = 3 }, 0},
+		{"reserved word", "ax", func(lang *Language, _ *Token) {
+			lang.ReservedWords, lang.MaxReservedWordSetSize, lang.LexModes[1].ReservedWordSetID = []Symbol{0, 2}, 1, 1
+		}, 0},
+		{"different span", "axx", func(_ *Language, tok *Token) { tok.EndByte, tok.EndPoint.Column = 3, 3 }, 0},
+		{"no action for own reading", "ax", func(lang *Language, _ *Token) { lang.ParseTable[1][3] = 0 }, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := ownLexModeLanguage()
+			tok := shared
+			tc.edit(lang, &tok)
+			p := NewParser(lang)
+			source := []byte(tc.source)
+			dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+			defer dts.Close()
+			got, ok := p.ownLexModeToken(source, 1, tok, nil, dts)
+			if tc.want == 0 {
+				if ok || got != tok {
+					t.Fatalf("got (%+v, %v), want the shared token back unchanged", got, ok)
+				}
+				return
+			}
+			if !ok || got.Symbol != tc.want || got.StartByte != tok.StartByte || got.EndByte != tok.EndByte {
+				t.Fatalf("got (%+v, %v), want symbol %d over [%d,%d)", got, ok, tc.want, tok.StartByte, tok.EndByte)
+			}
+		})
+	}
+}
+
+// TestOwnLexModeTokenAtDispatch parses "ax" through the Q/P fork. Q dispatches
+// first: it must take its own x_b, and P must still get the shared x_a.
+func TestOwnLexModeTokenAtDispatch(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		dead     []StateID // tail states whose EOF action is removed
+		wantRoot string
+	}{
+		{"stack reads its own token", []StateID{3, 5}, "rule_qb"},
+		{"next stack gets the shared token", []StateID{3, 4}, "rule_p"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := ownLexModeLanguage()
+			for _, st := range tc.dead {
+				lang.ParseTable[st][0] = 0
+			}
+			// Reserve x_b in P so the no-action re-lex cannot turn a leaked
+			// x_b back into x_a: P survives only if it sees the shared token.
+			lang.ReservedWords, lang.MaxReservedWordSetSize, lang.LexModes[2].ReservedWordSetID = []Symbol{0, 3}, 1, 1
+			p := NewParser(lang)
+			source := []byte("ax")
+			ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+			tree := p.parseInternal(source, ts, nil, nil, arenaClassFull, nil, 0, 0, 0, false)
+			if tree == nil {
+				t.Fatal("parse returned nil tree")
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			if got := root.Type(lang); got != tc.wantRoot || root.HasError() {
+				t.Fatalf("root = %s (error %v), want %s without error", got, root.HasError(), tc.wantRoot)
+			}
+		})
+	}
+}
+
+// TestRelexTokenForStackLexStateNoAction covers the no-action re-lex that
+// shares its scan with ownLexModeToken: P (lex mode 0) has no action for a
+// shared x_b, so it takes its own x_a when it has an action for it and keeps
+// the shared token when it does not. A failed DFA scan still falls through to
+// the zero-width external rescue.
+func TestRelexTokenForStackLexStateNoAction(t *testing.T) {
+	shared := Token{Symbol: 3, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+	for _, hasAction := range []bool{true, false} {
+		lang := ownLexModeLanguage()
+		if !hasAction {
+			lang.ParseTable[2][2] = 0
+		}
+		p := NewParser(lang)
+		source := []byte("ax")
+		dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, p.lookupActionIndex, nil, nil, nil)
+		got, state, ok := p.relexTokenForStackLexState(source, 2, shared, nil, dts, nil, nil, nil, nil, nil, nil)
+		dts.Close()
+		if hasAction && (!ok || state != 2 || got.Symbol != 2 || got.StartByte != 1 || got.EndByte != 2) {
+			t.Fatalf("with action: got (%+v, %d, %v), want x_a in state 2", got, state, ok)
+		}
+		if !hasAction && (ok || got != shared) {
+			t.Fatalf("without action: got (%+v, %v), want the shared token back", got, ok)
+		}
+	}
+
+	f := newZeroWidthRelexWitnessFixture(t, perlNonassocWitnessLanguage())
+	got, state, ok := f.p.relexTokenForStackLexState(f.source, f.starved.top().state, f.tok, nil, f.dts, f.starved,
+		&f.nodeCount, f.arena, f.scratch, &f.trackChildErrors, &f.rescueBudget)
+	if !ok || state != 3 || got != f.tok {
+		t.Fatalf("rescue: got (%+v, %d, %v), want the shared token in rescued state 3", got, state, ok)
+	}
+}
