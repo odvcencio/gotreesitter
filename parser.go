@@ -6586,6 +6586,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				stackRelexActive = true
 			}
 			ownReading := false
+			ownReadingRetries := 0
 			if !stackRelexActive && len(stacks) > 1 {
 				if ownTok, ok := p.ownLexModeToken(source, currentState, tok, s.byteOffset, lexicalReadSpan, dts); ok {
 					if p.glrTrace {
@@ -7448,10 +7449,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				// (ts_parser__advance, C/parser.c:1720-1745). A stack on its
 				// own reading goes on with it here: the shared token is
 				// restored before the next dispatch, and this stack would
-				// read again in its post-reduction state.
-				if ownReading {
+				// read again in its post-reduction state. The retry skips the
+				// loop's per-iteration limit checks, so it is bounded like a
+				// reduce chain: a zero-child reduction back into the same state
+				// would otherwise retry forever.
+				if ownReading && ownReadingRetries < maxConsecutivePrimaryReduces {
 					s = &stacks[si]
 					if !s.dead && !s.accepted && !s.shifted && !s.cPaused {
+						ownReadingRetries++
 						currentState = s.top().state
 						goto retryAction
 					}
