@@ -26,6 +26,7 @@ func newOutlineBenchWorkloads(tb testing.TB) []outlineBenchWorkload {
 	entry := grammars.DetectLanguageByName("go")
 	if entry == nil {
 		tb.Fatal("the go grammar is not registered")
+		return nil
 	}
 	lang := entry.Language()
 	query := grammars.ResolveTagsQuery(*entry)

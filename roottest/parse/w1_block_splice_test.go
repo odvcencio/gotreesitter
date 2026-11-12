@@ -1,4 +1,4 @@
-package gotreesitter_test
+package parse_test
 
 // These tests explicitly select the legacy engine because BlockSpliceSteps measures its W1 loop.
 // The compact incremental execution tests verify compact reuse separately.

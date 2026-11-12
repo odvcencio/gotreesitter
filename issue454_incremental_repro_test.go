@@ -3,7 +3,6 @@ package gotreesitter_test
 import (
 	"fmt"
 	"math/rand"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -243,20 +242,6 @@ func TestIssue454LessSlash(t *testing.T) {
 	}
 }
 
-// This scanner retains the ordinary reuse contract while withholding read
-// certificates, so matching results must still include a fresh verifier.
-type issue454UncertifiedReadScanner struct{ gts.ExternalScanner }
-
-func (issue454UncertifiedReadScanner) SupportsIncrementalReuse() bool { return true }
-func (s issue454UncertifiedReadScanner) ExternalScannerForLanguage(lang *gts.Language) gts.ExternalScanner {
-	if provider, ok := s.ExternalScanner.(interface {
-		ExternalScannerForLanguage(*gts.Language) gts.ExternalScanner
-	}); ok {
-		s.ExternalScanner = provider.ExternalScannerForLanguage(lang)
-	}
-	return s
-}
-
 func TestIssue454RandomSingleByteEdits(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -410,17 +395,4 @@ func issue454FirstDivergence(lang *gts.Language, fresh, inc *gts.Node) *incrGate
 		return nil
 	}
 	return check(fresh, inc, "/"+fresh.Type(lang))
-}
-
-func issue454UncertifiedLanguage(original *gts.Language) *gts.Language {
-	source := reflect.ValueOf(original).Elem()
-	clone := reflect.New(source.Type()).Elem()
-	for i := 0; i < source.NumField(); i++ {
-		if source.Type().Field(i).IsExported() {
-			clone.Field(i).Set(source.Field(i))
-		}
-	}
-	language := clone.Addr().Interface().(*gts.Language)
-	language.ExternalScanner = issue454UncertifiedReadScanner{original.ExternalScanner}
-	return language
 }
