@@ -210,6 +210,12 @@ func (b *resultRootBuild) tryBuildRealRootTree(nodes []*Node) *Tree {
 		return nil
 	}
 	realRoot = flattenInvisibleRootChildren(realRoot, b.arena, b.lang)
+	// Flattening a hidden child rebuilds the root's children and recomputes
+	// its error flag from them alone; the unfolded ERROR extras beside the
+	// root are not among them.
+	if extraSplit.hasErrorExtras() {
+		realRoot.setHasError(true)
+	}
 	return b.finishTree(realRoot, b.shouldWireParentLinks, extendTrailing)
 }
 

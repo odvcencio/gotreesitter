@@ -1591,3 +1591,46 @@ func TestAttachResultRootExtraSplitReportsUnfoldedErrorExtras(t *testing.T) {
 		t.Fatal("root HasError=true for a clean extra")
 	}
 }
+
+// The root's error flag must survive flattenInvisibleRootChildren, which
+// rebuilds the children of a root with a hidden child and recomputes the
+// flag from those children alone; the ERROR extra beside the root is not one.
+func TestBuildResultFromNodesKeepsErrorExtraFlagThroughHiddenRootChild(t *testing.T) {
+	lang := &Language{
+		Name:        "test",
+		SymbolNames: []string{"EOF", "source_file", "_wrapper", "word"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF"},
+			{Name: "source_file", Visible: true, Named: true},
+			{Name: "_wrapper", Named: true},
+			{Name: "word", Visible: true, Named: true},
+		},
+	}
+	// Without a known root symbol the real root is not split into fragments.
+	parser := &Parser{language: lang}
+	arena := acquireNodeArena(arenaClassFull)
+	source := []byte("ab")
+
+	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+	wrapper := newParentNodeInArena(arena, 2, true, []*Node{leaf}, nil, 0)
+	root := newParentNodeInArena(arena, 1, true, []*Node{wrapper}, nil, 0)
+	errorExtra := newParentNodeInArena(arena, errorSymbol, true, []*Node{newLeafNodeInArena(arena, 3, true, 1, 2, Point{Column: 1}, Point{Column: 2})}, nil, 0)
+	errorExtra.setExtra(true)
+	errorExtra.setHasError(true)
+
+	tree := parser.buildResultFromNodes([]*Node{root, errorExtra}, source, arena, nil, nil, nil)
+	if tree == nil || tree.RootNode() == nil {
+		t.Fatal("buildResultFromNodes returned nil tree/root")
+	}
+	defer tree.Release()
+	got := tree.RootNode()
+	if got.Type(lang) != "source_file" {
+		t.Fatalf("root type = %q, want source_file (the real root)", got.Type(lang))
+	}
+	if got.EndByte() != 2 {
+		t.Fatalf("root ends at %d, want 2 (it spans the ERROR extra)", got.EndByte())
+	}
+	if !got.HasError() {
+		t.Fatalf("root HasError=false over an ERROR extra: %s", got.SExpr(lang))
+	}
+}
