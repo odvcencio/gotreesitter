@@ -359,5 +359,6 @@ func issue454CTreeShape(
 func issue454CLegacyOldTree(t *testing.T, parsed *gotreesitter.Tree, source []byte, lang *gotreesitter.Language) *gotreesitter.Tree {
 	t.Helper()
 	t.Cleanup(parsed.Release)
+	//lint:ignore SA1019 this test builds the old tree by hand to reproduce a reuse failure that only the hand-built constructor can set up
 	return gotreesitter.NewTree(parsed.RootNode(), source, lang)
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/sched"
@@ -677,4 +678,94 @@ func newScratchWithAccountedBytesForTest(target int64) *parserScratch {
 		}
 		nodes += nodes/64 + 1
 	}
+}
+
+// SetRetryPassObserverForTests installs fn on p. It runs after each
+// error-recovery retry pass and once after the first pass (rung "first_pass"),
+// with the parser that ran the pass. The observer belongs to p, so tests that
+// use different parsers do not share it.
+func SetRetryPassObserverForTests(p *Parser, fn func(p *Parser, logicalRung string)) {
+	p.ensureParserColdState().retryPassObserver = fn
+}
+
+// ExpireParseDeadlineForTests moves the active parse deadline of p into the
+// past, so the next stop check reports ParseStopTimeout. It does nothing
+// outside a parse that has a timeout.
+func ExpireParseDeadlineForTests(p *Parser) {
+	if p != nil && !p.parseDeadline.IsZero() {
+		p.parseDeadline = time.Now().Add(-time.Second)
+	}
+}
+
+// SetPoolParserInitForTests runs init on every parser that pp creates later.
+func SetPoolParserInitForTests(pp *ParserPool, init func(*Parser)) {
+	create := pp.pool.New
+	pp.pool.New = func() any {
+		p := create().(*Parser)
+		init(p)
+		return p
+	}
+}
+
+// RetryCutOperationForTests runs fn as one parse operation of p, with an
+// open timeout scope, and stamps the operation's signal on the tree that fn
+// returns, as the public parse entries do.
+func RetryCutOperationForTests(p *Parser, fn func() *Tree) *Tree {
+	p.retryCutBegin()
+	defer p.enterParseBudget()()
+	tree := fn()
+	p.retryCutEnd(tree)
+	return tree
+}
+
+// VerifyIncrementalFreshResultForTests runs the fresh verification of an
+// incremental result inside an operation of p.
+func VerifyIncrementalFreshResultForTests(p *Parser, source []byte, oldTree, tree *Tree) (*Tree, error) {
+	ts := p.acquireParserDFATokenSource(source)
+	defer ts.Close()
+	return p.verifyIncrementalFreshResult(source, oldTree, p.wrapIncludedRanges(ts), tree, nil)
+}
+
+// VerifyIncrementalFreshResultWithTokenSourceForTests is
+// VerifyIncrementalFreshResultForTests with the caller's token source and
+// fresh-stream factory, so that a lexer-owned proof can apply.
+func VerifyIncrementalFreshResultWithTokenSourceForTests(p *Parser, source []byte, oldTree, tree *Tree, ts TokenSource, factory TokenSourceFactory) (*Tree, error) {
+	prev := p.reparseFactory
+	p.reparseFactory = factory
+	defer func() { p.reparseFactory = prev }()
+	return p.verifyIncrementalFreshResult(source, oldTree, p.wrapIncludedRanges(ts), tree, nil)
+}
+
+// RetryIncrementalAsFullForTests runs the fresh fallback of an incremental
+// result inside an operation of p.
+func RetryIncrementalAsFullForTests(p *Parser, source []byte, tree *Tree) *Tree {
+	return p.retryIncrementalParseAsFullWithDFA(source, 8, tree, nil)
+}
+
+// ResolveSwallowedErrorForTests runs the swallowed-error check on a tree
+// whose runtime is marked as the check requires.
+func ResolveSwallowedErrorForTests(p *Parser, source []byte, tree *Tree) *Tree {
+	rt := tree.ensureParseRuntime()
+	rt.CRecoveryEnteredErrorState = true
+	rt.CRecoveryDroppedErrorForClean = true
+	p.errorCostCompetition = true
+	return p.resolveCRecoverySwallowedError(source, tree)
+}
+
+// ParseWithExpiredDeadlineForTests parses source inside a timeout scope whose
+// deadline is already over, so the first pass stops with ParseStopTimeout.
+func ParseWithExpiredDeadlineForTests(p *Parser, source []byte) (*Tree, error) {
+	p.parseBudgetDepth = 1
+	p.parseDeadline = time.Now().Add(-time.Second)
+	defer func() {
+		p.parseBudgetDepth = 0
+		p.parseDeadline = time.Time{}
+		p.parseStoppedReason = ParseStopNone
+	}()
+	return p.Parse(source)
+}
+
+// ForestRescueForTests runs the optional forest rescue of a recovered tree.
+func ForestRescueForTests(p *Parser, source []byte, tree *Tree) (*Tree, bool) {
+	return p.maybeReplaceRecoveredTreeWithForest(source, tree)
 }

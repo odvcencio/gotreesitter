@@ -64,6 +64,8 @@ func parserCoreCorridorEnabled() bool {
 // process. Restore the previous value (the returned func) when done. It
 // mirrors the override pattern the compact core already uses for its own
 // gates.
+//
+// Deprecated: this name belongs to the compact scheduler and will be removed together with it. It has no replacement.
 func SetParserCoreCorridorEnabledForTest(on bool) func() {
 	previous := parserCoreCorridorEnabled()
 	parserCoreCorridorEnabledVal = on

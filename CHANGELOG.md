@@ -46,6 +46,13 @@ for tags and release notes while still in `0.x`.
   changes code, the job compares the new core with pinned C for json, python, c
   and typescript. Nothing parses through the new core outside tests
   ([#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
+- Add `Tree.RetryStopReason()` and the `ParseRuntime.RetryStopReason` field. They
+  report `ParseStopTimeout` or `ParseStopCancelled` when a timeout or the
+  cancellation flag kept the parser from finishing its error-recovery retry and
+  fallback work, and `ParseStopNone` otherwise. `ParseStopReason()` and the
+  returned tree are unchanged: the stop reason stays the one of the pass that
+  produced the tree, usually `ParseStopAccepted`
+  ([#1600](https://github.com/odvcencio/gotreesitter/issues/1600)).
 
 ### Changed
 
