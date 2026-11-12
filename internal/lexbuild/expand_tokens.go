@@ -305,11 +305,7 @@ func (b *nfaBuilder) expandRegex(h *hir, next uint32) (bool, error) {
 		}
 		return true, nil
 	case hirClass:
-		var chars CharSet
-		for _, r := range h.class {
-			chars = chars.addRange(rune(r.lo), rune(r.hi))
-		}
-		b.pushAdvance(chars, next)
+		b.pushAdvance(charSetFromClass(h.class), next)
 		return true, nil
 	case hirRepetition:
 		min, max, hasMax := h.min, h.max, h.hasMax

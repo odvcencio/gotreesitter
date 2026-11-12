@@ -78,7 +78,7 @@ func TestGroupTransitionsRows(t *testing.T) {
 			[]nfaTransition{mk(setOf([2]rune{'b', 'b'}, [2]rune{'e', 'e'}), 0, 2), mk(setOf([2]rune{'a', 'a'}, [2]rune{'c', 'd'}), 0, 1)}},
 	}
 	for i, c := range cases {
-		got := groupTransitions(c.in, new(int))
+		got := groupTransitions(c.in, new(int64))
 		if len(got) != len(c.want) {
 			t.Fatalf("row %d: %d transitions, want %d", i, len(got), len(c.want))
 		}

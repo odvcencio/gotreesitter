@@ -45,16 +45,20 @@ func collectLargeCharacterSets(b *lexTableBuilder, g *LexicalGrammar) []largeSet
 		total += len(b.table.states)
 		bLargeStates.check(total)
 		for _, st := range b.table.states {
-			var characters CharSet
-			for _, ca := range st.advances {
+			var mainSets []*CharSet
+			for i := range st.advances {
+				ca := &st.advances[i]
 				if ca.action.inMainToken {
-					characters = characters.add(ca.chars)
+					mainSets = append(mainSets, &ca.chars)
 					continue
 				}
 				if ca.chars.rangeCount() > largeCharacterRangeCount && !has(ca.chars) {
 					out = append(out, largeSet{false, Symbol{}, ca.chars.clone()})
 				}
 			}
+			// The union of the sets of the advances in the main token (the
+			// generator adds them one at a time).
+			characters := unionOf(mainSets)
 			if characters.rangeCount() > largeCharacterRangeCount && !has(characters) {
 				out = append(out, largeSet{true, sym, characters})
 			}
@@ -141,10 +145,10 @@ type plannedTransition struct {
 	hasLarge        bool
 	large           CharSet
 	largeCheckEOF   bool
-	asserted        CharSet // ranges to render as asserted conditions
+	asserted        []classRng // valid ranges to render as asserted conditions (validRanges of the set)
 	assertedInclude bool
 	hasAsserted     bool
-	negated         CharSet
+	negated         []classRng // valid ranges of the negated conditions
 	hasNegated      bool
 	action          advanceAction
 	hasCondition    bool
@@ -152,7 +156,7 @@ type plannedTransition struct {
 
 // statePlan is the rendered form of one lex state.
 type statePlan struct {
-	mapPairs    [][2]uint32 // ADVANCE_MAP: (key, target)
+	mapPairs    [][2]uint32 // ADVANCE_MAP: (key, target), sorted by key; equal keys keep the order of the advances
 	transitions []plannedTransition
 }
 
@@ -161,6 +165,16 @@ type statePlan struct {
 func planState(st *lexState, large []largeSet, work *int) statePlan {
 	var plan statePlan
 	var ruledOut CharSet
+	// Each comparison with the large sets reads all of them (assign and
+	// remove_intersection read the whole set, not only the ranges of the
+	// advance): count their ranges once for the state, and once more for each
+	// advance that is compared (below).
+	largeRanges := 0
+	for _, ls := range large {
+		largeRanges += ls.set.rangeCount()
+	}
+	*work += len(large)
+	bRenderWork.check(*work)
 	leadingCount, leadingRanges := 0, 0
 	for _, ca := range st.advances {
 		simple := ca.action.inMainToken
@@ -189,6 +203,9 @@ func planState(st *lexState, large []largeSet, work *int) statePlan {
 			}
 			ruledOut = ruledOut.clone().add(ca.chars)
 		}
+		// The pairs are looked up by key (stepAt); the first pair of a key
+		// wins, so the sort keeps the order of equal keys.
+		sort.SliceStable(plan.mapPairs, func(i, j int) bool { return plan.mapPairs[i][0] < plan.mapPairs[j][0] })
 	} else {
 		leadingCount = 0
 	}
@@ -201,7 +218,7 @@ func planState(st *lexState, large []largeSet, work *int) statePlan {
 		bestIx := -1
 		var bestAdd, bestRem CharSet
 		if simplified.rangeCount() >= largeCharacterRangeCount {
-			*work += len(large) * (1 + simplified.rangeCount())
+			*work += len(large)*(1+simplified.rangeCount()) + largeRanges
 			bRenderWork.check(*work)
 			for ix, ls := range large {
 				charsCopy.assign(simplified)
@@ -244,10 +261,10 @@ func planState(st *lexState, large []largeSet, work *int) statePlan {
 			if !isIncluded {
 				asserted = asserted.clone().negate().add(charSetFromChar(0))
 			}
-			pt.hasAsserted, pt.asserted, pt.assertedInclude = true, asserted, isIncluded
+			pt.hasAsserted, pt.asserted, pt.assertedInclude = true, asserted.validRanges(), isIncluded
 		}
 		if hasNegative {
-			pt.hasNegated, pt.negated = true, negated
+			pt.hasNegated, pt.negated = true, negated.validRanges()
 		}
 		plan.transitions = append(plan.transitions, pt)
 	}
@@ -255,50 +272,50 @@ func planState(st *lexState, large []largeSet, work *int) statePlan {
 }
 
 // rangeConditionAt is render.rs: fn add_character_range_conditions, evaluated
-// at (eof, look) instead of written. look is the lookahead as C sees it: -1 for
-// an ill-formed byte, 0 at the end of input.
-func rangeConditionAt(chars CharSet, isIncluded bool, eof bool, look int64) bool {
-	rs := chars.validRanges()
+// at (eof, look) instead of written. rs are the valid ranges of the set (see
+// validRanges), sorted and disjoint. look is the lookahead as C sees it: -1
+// for an ill-formed byte, 0 at the end of input.
+//
+// Go shape: the generator writes one test for each range and the C compiler
+// joins them. Evaluated one by one, they cost a pass over all ranges for each
+// lookahead. The tests of a range are these: for a range [start, end],
+//
+//	included: start == 0: !eof && look == 0 when end == 0, else
+//	          !eof && look <= end; otherwise look is in [start, end]
+//	excluded: look is not in [start, end], except that for start == 0 and
+//	          end >= 2 the test is look > end
+//
+// For look >= 0 they all say whether look is in the range, so a binary search
+// finds the one range that can hold look. For look < 0 only a first range that
+// starts at 0 can change the answer.
+func rangeConditionAt(rs []classRng, isIncluded bool, eof bool, look int64) bool {
 	if isIncluded {
-		res := false
-		for _, r := range rs {
-			start, end := int64(r.lo), int64(r.hi)
-			var v bool
-			switch {
-			case start == 0:
-				if end == 0 {
-					v = !eof && look == 0
-				} else {
-					v = !eof && look <= end
+		if len(rs) == 0 {
+			return false
+		}
+		rest := rs
+		if rs[0].lo == 0 {
+			rest = rs[1:]
+			if rs[0].hi == 0 {
+				if !eof && look == 0 {
+					return true
 				}
-			case end == start:
-				v = look == start
-			case end == start+1:
-				v = look == start || look == end
-			default:
-				v = start <= look && look <= end
+			} else if !eof && look <= int64(rs[0].hi) {
+				return true
 			}
-			res = res || v
 		}
-		return res
+		return look >= 0 && rangesContain(rest, look)
 	}
-	res := true
-	for _, r := range rs {
-		start, end := int64(r.lo), int64(r.hi)
-		var v bool
-		switch {
-		case end == start:
-			v = look != start
-		case end == start+1:
-			v = look != start && look != end
-		case start != 0:
-			v = look < start || end < look
-		default:
-			v = look > end
-		}
-		res = res && v
+	if look < 0 {
+		return !(len(rs) > 0 && rs[0].lo == 0 && rs[0].hi >= 2)
 	}
-	return res
+	return !rangesContain(rs, look)
+}
+
+// rangesContain reports whether look is in one of the sorted, disjoint ranges.
+func rangesContain(rs []classRng, look int64) bool {
+	i := sort.Search(len(rs), func(i int) bool { return int64(rs[i].hi) >= look })
+	return i < len(rs) && int64(rs[i].lo) <= look
 }
 
 // stepAt evaluates the rendered state at (eof, look): the first statement that
@@ -307,9 +324,10 @@ func (st *lexState) stepAt(plan *statePlan, eof bool, look int64) (target uint32
 	if eof && st.hasEOF {
 		return st.eof.state, false, true
 	}
-	for _, p := range plan.mapPairs {
-		if int64(p[0]) == look {
-			return p[1], false, true
+	if look >= 0 && look <= 0xFFFFFFFF {
+		k := uint32(look)
+		if i := sort.Search(len(plan.mapPairs), func(i int) bool { return plan.mapPairs[i][0] >= k }); i < len(plan.mapPairs) && plan.mapPairs[i][0] == k {
+			return plan.mapPairs[i][1], false, true
 		}
 	}
 	for _, t := range plan.transitions {

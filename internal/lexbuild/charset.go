@@ -1,5 +1,7 @@
 package lexbuild
 
+import "sort"
+
 // charEnd is nfa.rs: const END, one past char::MAX.
 const charEnd uint32 = 0x110000
 
@@ -49,13 +51,128 @@ func (c CharSet) addRange(start, end rune) CharSet {
 	return c
 }
 
+// charSetFromClass is the loop of expand_tokens.rs: fn expand_regex over the
+// ranges of a class: one add_range for each range, from an empty set. When the
+// ranges are in order of start (a class is canonical, so they are), the
+// insertion cursor of add_int_range stays where the last range went: every
+// range before it ends before the start of the next range, and the generator's
+// scan from index 0 would pass them all. Without that order the scan restarts
+// at index 0 for each range, as the generator does.
+func charSetFromClass(cls []classRng) CharSet {
+	var c CharSet
+	ordered := true
+	for i := 1; i < len(cls); i++ {
+		if cls[i].lo < cls[i-1].lo {
+			ordered = false
+			break
+		}
+	}
+	idx := 0
+	for _, r := range cls {
+		at := 0
+		if ordered {
+			at = idx
+		}
+		idx = c.addIntRange(at, uint32(rune(r.lo)), uint32(rune(r.hi))+1)
+	}
+	return c
+}
+
 // add is nfa.rs: fn CharacterSet::add.
+//
+// Go shape: the Rust code inserts the ranges of other one by one, and each
+// insertion in the middle moves the tail of the vector. Every CharSet of this
+// package is canonical (sorted, disjoint, no two ranges touch): the
+// constructors keep that. For a canonical receiver and a canonical other, the
+// union is the same canonical set however it is computed, so the ranges of c
+// below the first range that other touches stay where they are and the rest is
+// merged in one pass (O(len(c) - p + len(other)) for the first touched index
+// p). A set that is not canonical in other takes the generator's range by
+// range path, addSlow; the receiver must be canonical.
 func (c CharSet) add(other CharSet) CharSet {
+	if len(other.r) == 0 {
+		return c
+	}
+	if !other.canonical() {
+		return c.addSlow(other)
+	}
+	first := other.r[0].start
+	p := sort.Search(len(c.r), func(i int) bool { return c.r[i].end >= first })
+	if p == len(c.r) {
+		c.r = append(c.r, other.r...)
+		return c
+	}
+	tail := c.r[p:]
+	out := make([]urange, 0, len(tail)+len(other.r))
+	i, j := 0, 0
+	for i < len(tail) || j < len(other.r) {
+		var next urange
+		if j >= len(other.r) || (i < len(tail) && tail[i].start <= other.r[j].start) {
+			next = tail[i]
+			i++
+		} else {
+			next = other.r[j]
+			j++
+		}
+		if n := len(out); n > 0 && next.start <= out[n-1].end {
+			out[n-1].end = maxU32(out[n-1].end, next.end)
+		} else {
+			out = append(out, next)
+		}
+	}
+	c.r = append(c.r[:p], out...)
+	return c
+}
+
+// unionOf is the set that nfa.rs: fn CharacterSet::add gives when it is called
+// for each of the sets in turn on an empty set. The sets must be canonical.
+// Adding them one at a time moves the tail of the growing vector for each
+// insertion in the middle; here the ranges are collected, sorted by start and
+// merged once (O(m log m) for m ranges). The union of canonical sets is the
+// same canonical set in either way.
+func unionOf(sets []*CharSet) CharSet {
+	n := 0
+	for _, s := range sets {
+		n += len(s.r)
+	}
+	if n == 0 {
+		return CharSet{}
+	}
+	all := make([]urange, 0, n)
+	for _, s := range sets {
+		all = append(all, s.r...)
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].start < all[j].start })
+	out := all[:1]
+	for _, r := range all[1:] {
+		if last := &out[len(out)-1]; r.start <= last.end {
+			last.end = maxU32(last.end, r.end)
+		} else {
+			out = append(out, r)
+		}
+	}
+	return CharSet{out}
+}
+
+// addSlow is the generator's add: one add_int_range for each range of other,
+// with the insertion cursor.
+func (c CharSet) addSlow(other CharSet) CharSet {
 	index := 0
 	for _, rg := range other.r {
 		index = c.addIntRange(index, rg.start, rg.end)
 	}
 	return c
+}
+
+// canonical reports whether the ranges are sorted, not empty, disjoint, and
+// do not touch.
+func (c CharSet) canonical() bool {
+	for i, r := range c.r {
+		if r.start >= r.end || (i > 0 && c.r[i-1].end >= r.start) {
+			return false
+		}
+	}
+	return true
 }
 
 func maxU32(a, b uint32) uint32 {
@@ -99,101 +216,148 @@ func (c *CharSet) addIntRange(i int, start, end uint32) int {
 }
 
 // doesIntersect is nfa.rs: fn CharacterSet::does_intersect.
+//
+// Go shape: the generator walks both vectors from their starts. Here each range
+// of the shorter set is looked up in the longer one by binary search, so a short
+// set against a long one reads the short set once (O(min x log max)). Both sets
+// are canonical, and the answer (is there a pair of ranges that overlap) is the
+// same.
 func (c CharSet) doesIntersect(o CharSet) bool {
-	li, ri := 0, 0
-	for li < len(c.r) && ri < len(o.r) {
-		l, r := c.r[li], o.r[ri]
-		if l.end <= r.start {
-			li++
-		} else if l.start >= r.end {
-			ri++
-		} else {
+	a, b := c.r, o.r
+	if len(a) > len(b) {
+		a, b = b, a
+	}
+	for _, r := range a {
+		i := sort.Search(len(b), func(i int) bool { return b[i].end > r.start })
+		if i < len(b) && b[i].start < r.end {
 			return true
 		}
 	}
 	return false
 }
 
-func (c *CharSet) removeAt(i int) { c.r = append(c.r[:i], c.r[i+1:]...) }
-func (c *CharSet) insertAt(i int, r urange) {
-	c.r = append(c.r, urange{})
-	copy(c.r[i+1:], c.r[i:])
-	c.r[i] = r
-}
-
 // removeIntersection is nfa.rs: fn CharacterSet::remove_intersection. It
 // returns the common characters and removes them from both operands.
 func (c *CharSet) removeIntersection(other *CharSet) CharSet {
-	var inter []urange
+	inter, _ := c.removeIntersectionSteps(other)
+	return inter
+}
+
+// removeIntersectionSteps is remove_intersection with the work counted. Go
+// shape: the Rust code edits both vectors in place, and removes or inserts a
+// range at the cursor, which moves the rest of the vector. Here the two
+// remainders are written to new vectors in one pass: the ranges before the
+// cursor are final, the range at the cursor is held in a local copy, and a
+// removed range is not written. The three results and their order are the
+// generator's. The second result is the number of loop passes plus the ranges
+// copied at the end, at most len(c) + len(other) + 1 (the caller counts it).
+func (c *CharSet) removeIntersectionSteps(other *CharSet) (CharSet, int) {
+	var inter, outC, outO []urange
 	li, ri := 0, 0
+	var l, r urange
+	if len(c.r) > 0 {
+		l = c.r[0]
+	}
+	if len(other.r) > 0 {
+		r = other.r[0]
+	}
+	steps := 1
+	// advL moves the cursor of c to the next range and writes the range it
+	// leaves when keep is true; advR does the same for other.
+	advL := func(keep bool) {
+		if keep {
+			outC = append(outC, l)
+		}
+		li++
+		if li < len(c.r) {
+			l = c.r[li]
+		}
+	}
+	advR := func(keep bool) {
+		if keep {
+			outO = append(outO, r)
+		}
+		ri++
+		if ri < len(other.r) {
+			r = other.r[ri]
+		}
+	}
 	for li < len(c.r) && ri < len(other.r) {
-		l := &c.r[li]
-		r := &other.r[ri]
+		steps++
 		switch {
 		case l.start < r.start:
 			// [ L ]
 			//     [ R ]
 			if l.end <= r.start {
-				li++
+				advL(true)
 				continue
 			}
 			switch {
 			case l.end < r.end:
 				inter = append(inter, urange{r.start, l.end})
 				l.end, r.start = r.start, l.end
-				li++
+				advL(true)
 			case l.end == r.end:
-				inter = append(inter, *r)
+				inter = append(inter, r)
 				l.end = r.start
-				other.removeAt(ri)
+				advR(false)
 			default:
-				inter = append(inter, *r)
-				nr := urange{l.start, r.start}
+				inter = append(inter, r)
+				outC = append(outC, urange{l.start, r.start})
 				l.start = r.end
-				c.insertAt(li, nr)
-				other.removeAt(ri)
-				li++
+				advR(false)
 			}
 		case l.start == r.start:
 			switch {
 			case l.end < r.end:
 				inter = append(inter, urange{l.start, l.end})
 				r.start = l.end
-				c.removeAt(li)
+				advL(false)
 			case l.end == r.end:
-				inter = append(inter, *l)
-				c.removeAt(li)
-				other.removeAt(ri)
+				inter = append(inter, l)
+				advL(false)
+				advR(false)
 			default:
-				inter = append(inter, *r)
+				inter = append(inter, r)
 				l.start = r.end
-				other.removeAt(ri)
+				advR(false)
 			}
 		default: // l.start > r.start
 			if l.start >= r.end {
-				ri++
+				advR(true)
 				continue
 			}
 			switch {
 			case l.end < r.end:
-				inter = append(inter, *l)
-				nr := urange{r.start, l.start}
+				inter = append(inter, l)
+				outO = append(outO, urange{r.start, l.start})
 				r.start = l.end
-				other.insertAt(ri, nr)
-				c.removeAt(li)
-				ri++
+				advL(false)
 			case l.end == r.end:
-				inter = append(inter, *l)
+				inter = append(inter, l)
 				r.end = l.start
-				c.removeAt(li)
+				advL(false)
 			default:
 				inter = append(inter, urange{l.start, r.end})
 				l.start, r.end = r.end, l.start
-				ri++
+				advR(true)
 			}
 		}
 	}
-	return CharSet{inter}
+	// The range at the cursor of an operand that is not used up has its
+	// edited value; the ranges after it are as they were.
+	if li < len(c.r) {
+		outC = append(outC, l)
+		outC = append(outC, c.r[li+1:]...)
+		steps += len(c.r) - li
+	}
+	if ri < len(other.r) {
+		outO = append(outO, r)
+		outO = append(outO, other.r[ri+1:]...)
+		steps += len(other.r) - ri
+	}
+	c.r, other.r = outC, outO
+	return CharSet{inter}, steps
 }
 
 func (c CharSet) charCount() uint64 {
@@ -215,6 +379,11 @@ func compareCharSet(a, b CharSet) int {
 		}
 		return 1
 	}
+	return compareCharSetSameCount(a, b)
+}
+
+// compareCharSetSameCount is compareCharSet for two sets of the same count.
+func compareCharSetSameCount(a, b CharSet) int {
 	n := len(a.r)
 	if len(b.r) < n {
 		n = len(b.r)

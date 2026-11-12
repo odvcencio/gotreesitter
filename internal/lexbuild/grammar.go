@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -511,11 +512,7 @@ func (p *RulePool) parseRule(j ruleJSON, isToken bool) (RuleID, error) {
 		}
 		flags := ""
 		if j.Flags != nil {
-			for _, c := range *j.Flags {
-				if c == 'i' {
-					flags += "i"
-				}
-			}
+			flags = filterPatternFlags(*j.Flags)
 		}
 		return p.pattern(v, flags), nil
 	case "SYMBOL":
@@ -609,4 +606,15 @@ func (p *RulePool) parseRule(j ruleJSON, isToken bool) (RuleID, error) {
 		return p.eof(), nil
 	}
 	return 0, fmt.Errorf("unknown rule type %q", j.Type)
+}
+
+// filterPatternFlags keeps the flag characters of a PATTERN that the generator
+// keeps (only i), each as often as it occurs. It builds the result in one
+// buffer: appending to a string in a loop copies the prefix each time.
+func filterPatternFlags(flags string) string {
+	n := strings.Count(flags, "i")
+	if n == 0 {
+		return ""
+	}
+	return strings.Repeat("i", n)
 }

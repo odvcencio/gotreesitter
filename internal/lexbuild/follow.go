@@ -96,17 +96,34 @@ func getFollowingTokens(sg *SyntaxGrammar, lg *LexicalGrammar, fl *firstLast) []
 	for i := 0; i < n; i++ {
 		all.Insert(terminalSym(i))
 	}
+	// Go shape: the generator, for each pair of neighbouring steps (left, right)
+	// of each production, adds the FIRST set of right to the result of each
+	// terminal of LAST(left). That costs |LAST(left)| x words for each pair, and
+	// a grammar can have hundreds of thousands of pairs. The additions are
+	// unions, so they can be made in another order: the sets that follow a left
+	// symbol are joined first (one union for each pair), then joined once into
+	// the result of each terminal of LAST(left) (one for each left symbol). The
+	// result sets are the same, with the same number of words.
+	follow := map[Symbol]*TokenSet{}
+	var leftOrder []Symbol
 	for _, p := range sg.Productions {
 		steps := p.Steps
 		for i := 1; i < len(steps); i++ {
-			left := fl.last[steps[i-1].Symbol]
-			right := fl.first[steps[i].Symbol]
-			rightReserved := &sg.ReservedWordSets[fl.reserved[steps[i].Symbol]]
-			for _, lt := range left.symbols() {
-				if lt.IsTerminal() {
-					result[lt.Index].insertAllTerminals(right)
-					result[lt.Index].insertAllTerminals(rightReserved)
-				}
+			ls := steps[i-1].Symbol
+			u := follow[ls]
+			if u == nil {
+				u = &TokenSet{}
+				follow[ls] = u
+				leftOrder = append(leftOrder, ls)
+			}
+			u.insertAllTerminals(fl.first[steps[i].Symbol])
+			u.insertAllTerminals(&sg.ReservedWordSets[fl.reserved[steps[i].Symbol]])
+		}
+	}
+	for _, ls := range leftOrder {
+		for _, lt := range fl.last[ls].symbols() {
+			if lt.IsTerminal() {
+				result[lt.Index].insertAllTerminals(follow[ls])
 			}
 		}
 	}

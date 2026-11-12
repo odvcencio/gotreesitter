@@ -46,9 +46,11 @@ var (
 	bKeywordWork     = &budget{what: "steps of the keyword identification", limit: 1 << 22}
 	bGroupingWork    = &budget{what: "steps of the grouping of parse states into lex states", limit: 1 << 34}
 	bClosureWork     = &budget{what: "automaton states visited while closing state sets over splits", limit: 1 << 25}
-	bGroupWork       = &budget{what: "steps of the grouping of transitions into character sets", limit: 1 << 29}
+	bGroupWork       = &budget{what: "steps of the grouping of transitions into character sets", limit: 1 << 31}
 	bSortWork        = &budget{what: "steps of the ordering of lex states", limit: 1 << 25}
-	bRenderWork      = &budget{what: "steps of rendering lex states (large character sets and plans)", limit: 1 << 25}
+	bRenderWork      = &budget{what: "steps of rendering lex states (large character sets and plans)", limit: 1 << 27}
+	bFollowChars     = &budget{what: "character ranges joined for the starting characters of the tokens that follow each token", limit: 1 << 23}
+	bRangesWork      = &budget{what: "transition evaluations needed to list the ranges of the lex states", limit: 1 << 26}
 	// Prepare.
 	bNFAStates     = &budget{what: "automaton states in the lexical grammar", limit: 1 << 18}
 	bPatternRanges = &budget{what: "character ranges read into the classes of the patterns of a grammar", limit: 1 << 24}
@@ -74,7 +76,7 @@ var (
 )
 
 // allBudgets lists the budgets in the order of the documentation table.
-var allBudgets = []*budget{bInputBytes, bRules, bExternals, bPrecOrderings, bPrecNames, bNameLen, bStringLen, bPatternLen, bRepeatCount, bRuleDepth, bListLen, bPrecPairs, bCoincidentWork, bNormalizeWork, bTreeEqWork, bRepeatWork, bCycleWork, bFlattenKeyBytes, bKeywordWork, bGroupingWork, bClosureWork, bGroupWork, bSortWork, bRenderWork, bPatternRanges, bInlineCalls, bInlineSymbols, bNFAStates, bNFARanges, bFlattenPaths, bFlattenSteps, bFlattenPath1, bSymbolCells,
+var allBudgets = []*budget{bInputBytes, bRules, bExternals, bPrecOrderings, bPrecNames, bNameLen, bStringLen, bPatternLen, bRepeatCount, bRuleDepth, bListLen, bPrecPairs, bCoincidentWork, bNormalizeWork, bTreeEqWork, bRepeatWork, bCycleWork, bFlattenKeyBytes, bKeywordWork, bGroupingWork, bClosureWork, bGroupWork, bSortWork, bRenderWork, bRangesWork, bFollowChars, bPatternRanges, bInlineCalls, bInlineSymbols, bNFAStates, bNFARanges, bFlattenPaths, bFlattenSteps, bFlattenPath1, bSymbolCells,
 	bConflictSets, bConflictIDs, bLexStates, bLexIDs, bLexAdvances, bLexRanges, bTransIDs, bMinCompares, bLargeStates}
 
 // SizeError reports that a construction passed a size limit of this package.

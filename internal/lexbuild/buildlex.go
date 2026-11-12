@@ -348,7 +348,7 @@ func (p *Prepared) buildLexTables(a *Analysis, states []TokenSet) (*LexTables, e
 // checkTokenConflicts is build_lex_table.rs: fn check_token_conflicts.
 func (a *Analysis) checkTokenConflicts(i int, set *TokenSet) bool {
 	idx := set.terminalIndices()
-	a.work += int64(2*len(idx) + 1)
+	a.work += int64(2*len(idx) + 1 + 2*len(set.terminals)) // members, and the words read to list them
 	bGroupingWork.checkWork(a.work)
 	for _, j := range idx {
 		if a.conflicts.conflictOrPrefix[i][j] {
@@ -365,9 +365,12 @@ func (a *Analysis) checkTokenConflicts(i int, set *TokenSet) bool {
 
 // mergeTokenSet is build_lex_table.rs: fn merge_token_set.
 func (a *Analysis) mergeTokenSet(tokens, other *TokenSet) bool {
-	a.work += 2
+	// Listing the terminals of both sets reads their words and members (at most
+	// 4,096 of each: one call passes the limit by at most that many steps).
+	ti, oi := tokens.terminalIndices(), other.terminalIndices()
+	a.work += int64(2 + len(tokens.terminals) + len(other.terminals) + len(ti) + len(oi))
 	bGroupingWork.checkWork(a.work)
-	for _, t := range tokens.terminalIndices() {
+	for _, t := range ti {
 		if other.containsTerminal(t) {
 			continue
 		}
@@ -375,7 +378,7 @@ func (a *Analysis) mergeTokenSet(tokens, other *TokenSet) bool {
 			return false
 		}
 	}
-	for _, t := range other.terminalIndices() {
+	for _, t := range oi {
 		if tokens.containsTerminal(t) {
 			continue
 		}
@@ -499,6 +502,10 @@ func lexStatesDiffer(left, right *lexState, groupOf []uint32) bool {
 // splitStateIDGroups is dedup.rs: fn split_state_id_groups.
 func splitStateIDGroups(states []lexState, groups *[][]uint32, groupOf []uint32, startGroup uint32, shouldSplit func(l, r *lexState, groupOf []uint32) bool, compares *int) bool {
 	result := false
+	// Each call reads every group and clears one flag for each state, however
+	// few groups split: count that before the flags are made.
+	*compares += len(states) + len(*groups)
+	bMinCompares.check(*compares)
 	isSplit := make([]bool, len(states))
 	gid := startGroup
 	for int(gid) < len(*groups) {
@@ -581,7 +588,10 @@ func compareAdvance(a, b advanceAction) int {
 // compareLexState is the derived Ord of tables.rs: struct LexState: accept
 // action, then end-of-input action, then the advance actions as a list of
 // (CharacterSet, AdvanceAction).
-func compareLexState(a, b *lexState) int {
+//
+// ca and cb hold the character count of each advance of a and b (countsOfAdvances),
+// so that a comparison reads at most the ranges of the smaller state.
+func compareLexState(a, b *lexState, ca, cb []uint64) int {
 	if c := compareSymbolOpt(a.hasAccept, a.accept, b.hasAccept, b.accept); c != 0 {
 		return c
 	}
@@ -597,7 +607,13 @@ func compareLexState(a, b *lexState) int {
 		}
 	}
 	for i := 0; i < len(a.advances) && i < len(b.advances); i++ {
-		if c := compareCharSet(a.advances[i].chars, b.advances[i].chars); c != 0 {
+		if ca[i] != cb[i] {
+			if ca[i] < cb[i] {
+				return -1
+			}
+			return 1
+		}
+		if c := compareCharSetSameCount(a.advances[i].chars, b.advances[i].chars); c != 0 {
 			return c
 		}
 		if c := compareAdvance(a.advances[i].action, b.advances[i].action); c != 0 {
@@ -624,10 +640,13 @@ func sortStates(t *lexTable, parseLex []uint32) {
 	rest := oldIDsByNew[1:]
 	// A comparison costs at most the size of the smaller state: its transitions and their ranges.
 	size := make([]int, n)
+	counts := make([][]uint64, n) // character count of each advance, read once
 	for i := range t.states {
 		size[i] = 1 + len(t.states[i].advances)
-		for _, ca := range t.states[i].advances {
+		counts[i] = make([]uint64, len(t.states[i].advances))
+		for k, ca := range t.states[i].advances {
 			size[i] += ca.chars.rangeCount()
+			counts[i][k] = ca.chars.charCount()
 		}
 	}
 	sortWork := 0
@@ -639,7 +658,7 @@ func sortStates(t *lexTable, parseLex []uint32) {
 			sortWork += size[b]
 		}
 		bSortWork.check(sortWork)
-		return compareLexState(&t.states[a], &t.states[b]) < 0
+		return compareLexState(&t.states[a], &t.states[b], counts[a], counts[b]) < 0
 	})
 	newIDsByOld := make([]uint32, n)
 	for id, old := range oldIDsByNew {

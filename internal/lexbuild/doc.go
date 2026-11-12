@@ -32,7 +32,9 @@
 // 3. Within the caps and budgets, the audit of the package (every place where
 // the result or the working state can grow faster than the grammar) bounds
 // memory by about one gibibyte and the number of simple steps by about
-// 3x10^10; both are computed from the limits below, not measured at the limits.
+// 6x10^10 (6.05x10^10, the sum of the limits below and of the caps; no single
+// input reaches every term). Both are computed from the limits, not measured
+// at the limits.
 //
 // Caps on the shape of the input:
 //
@@ -60,9 +62,11 @@
 //	steps of the keyword identification: 4,194,304
 //	steps of the grouping of parse states into lex states: 17,179,869,184
 //	automaton states visited while closing state sets over splits: 33,554,432
-//	steps of the grouping of transitions into character sets: 536,870,912
+//	steps of the grouping of transitions into character sets: 2,147,483,648
 //	steps of the ordering of lex states: 33,554,432
-//	steps of rendering lex states (large character sets and plans): 33,554,432
+//	steps of rendering lex states (large character sets and plans): 134,217,728
+//	transition evaluations needed to list the ranges of the lex states: 67,108,864
+//	character ranges joined for the starting characters of the tokens that follow each token: 8,388,608
 //	character ranges read into the classes of the patterns of a grammar: 16,777,216
 //	expansion steps in the check of inline rules: 200,000
 //	symbols copied in the check of inline rules: 16,777,216

@@ -648,15 +648,40 @@ func hirConcatOf(items []*hir) *hir {
 			flat = append(flat, it)
 		}
 	}
+	// Runs of literals are joined into one literal. The runes of a run are
+	// collected in one buffer and the node is made when the run ends: joining
+	// two nodes at a time copies the run so far for each literal.
 	var merged []*hir
+	var run []rune
+	var first *hir // the node of the run when it has one literal
+	n := 0         // literals in the run
+	flush := func() {
+		switch n {
+		case 0:
+		case 1:
+			merged = append(merged, first)
+		default:
+			merged = append(merged, &hir{kind: hirLiteral, lit: run})
+		}
+		run, first, n = nil, nil, 0
+	}
 	for _, it := range flat {
-		if it.kind == hirLiteral && len(merged) > 0 && merged[len(merged)-1].kind == hirLiteral {
-			last := merged[len(merged)-1]
-			merged[len(merged)-1] = &hir{kind: hirLiteral, lit: append(append([]rune(nil), last.lit...), it.lit...)}
+		if it.kind == hirLiteral {
+			switch n {
+			case 0:
+				first = it
+			case 1:
+				run = append(append([]rune(nil), first.lit...), it.lit...)
+			default:
+				run = append(run, it.lit...)
+			}
+			n++
 			continue
 		}
+		flush()
 		merged = append(merged, it)
 	}
+	flush()
 	switch len(merged) {
 	case 0:
 		return &hir{kind: hirEmpty}

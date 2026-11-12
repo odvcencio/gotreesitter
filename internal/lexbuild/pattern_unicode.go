@@ -44,11 +44,24 @@ func classDifference(a, b []classRng) []classRng {
 		}
 		return classRng{hi, lo}
 	}
+	// The generator scans b from its start for each range of a. When both are
+	// canonical and no end lies in the surrogate gap, every range of b that
+	// ends before r.lo also ends before the start of each later range of a and
+	// before every piece cut from r, so the scan skips them all; the skip is
+	// done once, with a cursor that only moves forward. Otherwise the cursor
+	// stays at 0 and the scan is the generator's.
+	forward := classFast(a) && classFast(b)
+	start := 0
 	var out []classRng
 	for _, r := range a {
 		cur := r
 		gone := false
-		for _, s := range b {
+		if forward {
+			for start < len(b) && b[start].hi < r.lo {
+				start++
+			}
+		}
+		for _, s := range b[start:] {
 			if s.hi < cur.lo {
 				continue
 			}
@@ -87,6 +100,20 @@ func classDifference(a, b []classRng) []classRng {
 		}
 	}
 	return out
+}
+
+// classFast reports whether the ranges are canonical (sorted, disjoint, not
+// touching) and none has an end in the surrogate gap.
+func classFast(rs []classRng) bool {
+	for i, r := range rs {
+		if r.lo > r.hi || (r.lo >= 0xD800 && r.lo <= 0xDFFF) || (r.hi >= 0xD800 && r.hi <= 0xDFFF) {
+			return false
+		}
+		if i > 0 && rs[i-1].hi+1 >= r.lo {
+			return false
+		}
+	}
+	return true
 }
 
 // caseFoldSimple is regex_syntax: ClassUnicode::case_fold_simple. Each range

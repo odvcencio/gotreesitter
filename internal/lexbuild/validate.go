@@ -3,6 +3,7 @@ package lexbuild
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // The checks in this file refuse the grammars that prepare_grammar.rs and
@@ -135,14 +136,7 @@ func validateIndirectRecursion(g *InputGrammar, sg *SyntaxGrammar) error {
 	for _, start := range order {
 		var path []string
 		if getCycle(start, &path) {
-			s := "Grammar contains an indirectly recursive rule: "
-			for i, n := range path {
-				if i > 0 {
-					s += " -> "
-				}
-				s += n
-			}
-			return fmt.Errorf("%s", s)
+			return fmt.Errorf("%s", "Grammar contains an indirectly recursive rule: "+strings.Join(path, " -> "))
 		}
 	}
 	return nil

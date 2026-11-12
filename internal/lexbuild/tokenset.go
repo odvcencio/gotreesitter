@@ -1,5 +1,7 @@
 package lexbuild
 
+import "math/bits"
+
 // TokenSet is rules.rs: struct TokenSet: sets of terminals and externals, the
 // end-of-input token and the end-of-nonterminal-extra token. The Rust set is a
 // pair of bit vectors; here each is a growable []uint64.
@@ -87,13 +89,17 @@ func (s *TokenSet) clone() TokenSet {
 }
 
 // terminalIndices lists the terminals in ascending order.
+//
+// Go shape: a pass over the words that skips to the next set bit, O(words +
+// members); a test of all 64 bits of each word costs 64 steps for each word
+// however few members it has.
 func (s *TokenSet) terminalIndices() []int {
 	var out []int
 	for i, w := range s.terminals {
-		for b := 0; b < 64; b++ {
-			if w&(1<<uint(b)) != 0 {
-				out = append(out, i*64+b)
-			}
+		for w != 0 {
+			b := bits.TrailingZeros64(w)
+			out = append(out, i*64+b)
+			w &= w - 1
 		}
 	}
 	return out
@@ -108,10 +114,10 @@ func (s *TokenSet) symbols() []Symbol {
 		out = append(out, terminalSym(i))
 	}
 	for i, w := range s.externals {
-		for b := 0; b < 64; b++ {
-			if w&(1<<uint(b)) != 0 {
-				out = append(out, externalSym(i*64+b))
-			}
+		for w != 0 {
+			b := bits.TrailingZeros64(w)
+			out = append(out, externalSym(i*64+b))
+			w &= w - 1
 		}
 	}
 	if s.eof {

@@ -119,15 +119,29 @@ func (p *Prepared) newTable(t lexTable) (*Table, error) {
 	return tb, nerr
 }
 
+// rangesCost is the work of Table.Ranges for one state, in evaluations of a
+// transition: it evaluates the state at 2R+4 points (R is the number of ranges
+// of the state), and an evaluation reads the transitions in order until one
+// holds. One evaluation of a transition is a few binary searches.
+func rangesCost(st *lexState, plan *statePlan) int {
+	r := 0
+	for i := range st.advances {
+		r += st.advances[i].chars.rangeCount()
+	}
+	return (2*r + 4) * (len(plan.transitions) + 1)
+}
+
 func (p *Prepared) newTableUnguarded(t lexTable) (*Table, error) {
 	tb := &Table{t: t}
 	large, err := p.largeSets()
 	if err != nil {
 		return nil, err
 	}
-	work := 0
+	work, rangesWork := 0, 0
 	for i := range t.states {
 		tb.plans = append(tb.plans, planState(&t.states[i], large, &work))
+		rangesWork += rangesCost(&t.states[i], &tb.plans[i])
+		bRangesWork.check(rangesWork)
 	}
 	return tb, nil
 }
