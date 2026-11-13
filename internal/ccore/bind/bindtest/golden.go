@@ -19,7 +19,11 @@ func RecordGolden(name string, lang any, src []byte) (*ccoretest.Golden, error) 
 	if err != nil {
 		return nil, fmt.Errorf("bind: %w", err)
 	}
-	_, stop := p.Parse(src)
-	hash, lines := p.Records(nil)
-	return &ccoretest.Golden{Name: name, Src: append([]byte(nil), src...), Tables: cfg.Tables, Digest: p.Digest(), Stop: stop, RecordHash: hash, RecordCount: lines}, nil
+	t, stop := p.Parse(src)
+	g := &ccoretest.Golden{Name: name, Src: append([]byte(nil), src...), Tables: cfg.Tables, Digest: p.Digest(t), Stop: stop}
+	if t != nil {
+		g.RecordHash, g.RecordCount = p.Records(t, nil)
+		t.Release()
+	}
+	return g, nil
 }

@@ -101,3 +101,48 @@ func TestDigestRecordNormalizesNames(t *testing.T) {
 		t.Fatal("normalized name differs from the plain name")
 	}
 }
+
+// TestTreeLifetime: the store surface of the wrapper. Trees are copied, edited
+// and released through the wrapper; the integrity counters stay at zero and the
+// lease is free after the last release.
+func TestTreeLifetime(t *testing.T) {
+	g := golden(t, "json-object")
+	p, err := NewParser(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stop := p.Parse(g.Src, nil); stop != g.Stop {
+		t.Fatalf("stop %q, want %q", stop, g.Stop)
+	}
+	tree := p.Tree()
+	if !tree.Valid() || tree.Handle() == 0 {
+		t.Fatal("no tree after a parse")
+	}
+	n, fold := tree.CountNodes()
+	cp := p.Copy(tree)
+	if n2, f2 := cp.CountNodes(); n2 != n || f2 != fold || n == 0 {
+		t.Fatalf("copy: %d nodes fold %d, want %d fold %d", n2, f2, n, fold)
+	}
+	p.EditInPlace(cp, Edit{StartByte: 1, OldEndByte: 2, NewEndByte: 2, StartCol: 1, OldEndCol: 2, NewEndCol: 2})
+	if cp.EditRecords() == 0 {
+		t.Fatal("an edit created no records")
+	}
+	again, stop := p.ParseIncremental(g.Src, cp, nil)
+	if stop != "" || !again.Valid() {
+		t.Fatalf("incremental stop %q", stop)
+	}
+	if d := p.Digest(); d != g.Digest {
+		t.Fatalf("incremental digest %s, want %s", d, g.Digest)
+	}
+	p.Release(again)
+	p.Release(cp)
+	p.Release(tree)
+	p.Release(tree) // a second release does nothing
+	p.ReleaseLast()
+	if p.SharedInTree() != 0 || p.DoubleFree() != 0 || p.BadRetain() != 0 {
+		t.Fatalf("integrity counters: shared %d double %d bad %d", p.SharedInTree(), p.DoubleFree(), p.BadRetain())
+	}
+	if !p.LeaseFree() {
+		t.Fatal("lease held after the last release")
+	}
+}

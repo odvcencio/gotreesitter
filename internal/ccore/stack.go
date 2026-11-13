@@ -72,7 +72,27 @@ func (p *Parser) nodeNew(prev int32, sub Handle, pending bool, state uint16) int
 		node.linkCount = 1
 		node.links[0] = stackLink{node: prev, sub: sub, pending: pending}
 		node.position, node.errorCost, node.dynPrec, node.nodeCount = pn.position, pn.errorCost, pn.dynPrec, pn.nodeCount
-		if sub != 0 {
+		if sub&1 == 0 && sub != 0 { // a heap record: one lookup serves the five accessors below
+			r := p.rec(sub)
+			if r.flags&heapMissing != 0 { // errorCost
+				node.errorCost += costPerMissingTree + costPerRecovery
+			} else {
+				node.errorCost += r.errorCost
+			}
+			node.position = lenAdd(node.position, lenAdd(r.padding, r.size)) // totalSize
+			c := uint32(0)                                                   // subtreeNodeCount: visibleDescendants, visible, symbol
+			if r.childCount != 0 {
+				c = r.visibleDescendantCount
+				node.dynPrec += r.dynamicPrecedence // dynPrec
+			}
+			if r.flags&heapVisible != 0 {
+				c++
+			}
+			if r.symbol == symErrorRepeat {
+				c++
+			}
+			node.nodeCount += c
+		} else if sub != 0 {
 			node.errorCost += p.errorCost(sub)
 			node.position = lenAdd(node.position, p.totalSize(sub))
 			node.nodeCount += p.subtreeNodeCount(sub)

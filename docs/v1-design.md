@@ -186,6 +186,9 @@ Run this gate for every language the change can affect:
 - The root covers the input, or the stop reason explains the gap.
 - A reparse without edits allocates nothing.
 
+These four checks apply to the public parse API. For a language that `internal/ccore` serves, run them through the public route that serves it.
+The core's own `ParseWith` hands out a new tree handle on every call, also for an unedited tree; `TestNoEditReparseAllocations` in `internal/ccore` pins how many objects that allocates.
+
 Use a fresh parse where incremental equivalence remains unproven. This requirement does not wait for malformed-input C parity.
 Run heavy parity suites in Docker, one language at a time.
 Serialize local runs with `flock` on one shared lock file, for example `flock /tmp/gts-docker.lock <command>`.

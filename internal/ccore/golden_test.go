@@ -36,12 +36,15 @@ func loadGoldens(t *testing.T) []*ccoretest.Golden {
 // the run loop of the walk is part of the replay.
 func TestGoldenTrace(t *testing.T) {
 	for _, g := range loadGoldens(t) {
-		trace, digest, stop, p := ccoretest.Replay(g)
+		trace, digest, stop, p, tr := ccoretest.Replay(g)
 		if g.RecordCount == 0 {
 			t.Errorf("%s: the golden has no record count", g.Name)
 		}
-		if hash, lines := p.Records(nil); hash != g.RecordHash || lines != g.RecordCount {
-			t.Errorf("%s: records hash %016x over %d lines, want %016x over %d", g.Name, hash, lines, g.RecordHash, g.RecordCount)
+		if tr != nil {
+			if hash, lines := p.Records(tr, nil); hash != g.RecordHash || lines != g.RecordCount {
+				t.Errorf("%s: records hash %016x over %d lines, want %016x over %d", g.Name, hash, lines, g.RecordHash, g.RecordCount)
+			}
+			tr.Release()
 		}
 		if stop != g.Stop {
 			t.Errorf("%s: stop %q, want %q", g.Name, stop, g.Stop)
@@ -66,22 +69,29 @@ func TestGoldenTrace(t *testing.T) {
 // tables: the trace, the digest, the records and the arenas must be equal.
 func TestAsciiTable(t *testing.T) {
 	for _, g := range loadGoldens(t) {
-		with, digestWith, _, pWith := ccoretest.Replay(g)
+		with, digestWith, _, pWith, tWith := ccoretest.Replay(g)
 		plain := *g
 		tables := *g.Tables
 		tables.LexAscii, tables.KeywordLexAscii = nil, nil
 		plain.Tables = &tables
-		without, digestWithout, _, pWithout := ccoretest.Replay(&plain)
+		without, digestWithout, _, pWithout, tWithout := ccoretest.Replay(&plain)
 		if digestWith != digestWithout || strings.Join(with, "\n") != strings.Join(without, "\n") {
 			t.Errorf("%s: the ASCII table changes the trace or the digest", g.Name)
 		}
-		if pWith.ArenaDigest() != pWithout.ArenaDigest() {
-			t.Errorf("%s: the ASCII table changes the arena", g.Name)
+		if tWith != nil && tWithout != nil {
+			if pWith.ArenaDigest(tWith) != pWithout.ArenaDigest(tWithout) {
+				t.Errorf("%s: the ASCII table changes the arena", g.Name)
+			}
+			h1, n1 := pWith.Records(tWith, nil)
+			h2, n2 := pWithout.Records(tWithout, nil)
+			if h1 != h2 || n1 != n2 {
+				t.Errorf("%s: the ASCII table changes the records", g.Name)
+			}
 		}
-		h1, n1 := pWith.Records(nil)
-		h2, n2 := pWithout.Records(nil)
-		if h1 != h2 || n1 != n2 {
-			t.Errorf("%s: the ASCII table changes the records", g.Name)
+		for _, x := range []*ccore.Tree{tWith, tWithout} {
+			if x != nil {
+				x.Release()
+			}
 		}
 	}
 }
@@ -90,17 +100,23 @@ func TestAsciiTable(t *testing.T) {
 // fresh one: the arenas must be equal.
 func TestDeterminism(t *testing.T) {
 	for _, g := range loadGoldens(t) {
-		_, _, _, p1 := ccoretest.Replay(g)
-		_, _, _, p2 := ccoretest.Replay(g)
-		if p1.ArenaDigest() != p2.ArenaDigest() {
+		_, _, _, p1, t1 := ccoretest.Replay(g)
+		_, _, _, p2, t2 := ccoretest.Replay(g)
+		if p1.ArenaDigest(t1) != p2.ArenaDigest(t2) {
 			t.Errorf("%s: two parsers give different arenas", g.Name)
 		}
-		before := p1.ArenaDigest()
-		if _, stop := p1.Parse(g.Src); stop != g.Stop {
+		before := p1.ArenaDigest(t1)
+		t3, stop := p1.Parse(g.Src)
+		if stop != g.Stop {
 			t.Errorf("%s: second parse stop %q, want %q", g.Name, stop, g.Stop)
 		}
-		if p1.ArenaDigest() != before {
+		if p1.ArenaDigest(t3) != before {
 			t.Errorf("%s: a second parse on one parser changes the arena", g.Name)
+		}
+		for _, x := range []*ccore.Tree{t1, t2, t3} {
+			if x != nil {
+				x.Release()
+			}
 		}
 	}
 }
@@ -116,12 +132,13 @@ func TestEditSelf(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", g.Name, err)
 		}
-		if _, stop := p.Parse(g.Src); stop != "" {
+		tr, stop := p.Parse(g.Src)
+		if stop != "" {
 			t.Errorf("%s: fresh parse stop %q", g.Name, stop)
 			continue
 		}
-		root := p.Finished()
-		fresh := p.Digest()
+		fresh := p.Digest(tr)
+		defer tr.Release()
 		reused := 0
 		end := len(g.Src)
 		if end > 0 && g.Src[end-1] == '\n' {
@@ -137,12 +154,17 @@ func TestEditSelf(t *testing.T) {
 				e.OldEndRow, e.OldEndCol, e.NewEndRow, e.NewEndCol = row, col+1, row, col+1
 				col++
 			}
-			edited := p.Edit(root, e)
-			if _, stop := p.ParseWith(g.Src, edited); stop != "" {
+			edited := tr.Copy()
+			edited.Edit(e)
+			nt, stop := p.ParseWith(g.Src, edited)
+			edited.Release()
+			if stop != "" {
 				t.Errorf("%s: edit at byte %d: stop %q", g.Name, i, stop)
 				break
 			}
-			if d := p.Digest(); d != fresh {
+			d := p.Digest(nt)
+			nt.Release()
+			if d != fresh {
 				t.Errorf("%s: edit at byte %d: digest %s, want %s", g.Name, i, d, fresh)
 				break
 			}
