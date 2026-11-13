@@ -17,7 +17,8 @@ import (
 // a failed poll or invalid charge ends the request. Force is for mandatory
 // cleanup and can exceed that polling granularity and the budget before the next
 // check. A poll must decide whether its supplied total is within the limit.
-// With no poll, helpers use the standard allocation path for valid sizes.
+// With no poll, helpers use the standard allocation path for valid sizes and do
+// not account their allocations. Direct Reserve calls still update Alloc.
 
 // LedgerGranularity is the ordinary reservation polling threshold: 256 KiB.
 // Force charges are not subject to this threshold.
@@ -47,11 +48,10 @@ func (l *Ledger) Active() bool { return l.poll != nil }
 // starts above its budget stops before any work. A negative base is refused.
 // It returns true with no limit for a valid base.
 func (l *Ledger) Begin(base int64) bool {
-	l.Base, l.Alloc, l.pending, l.overflow = 0, 0, 0, false
 	if base < 0 {
 		return false
 	}
-	l.Base = base
+	l.Base, l.Alloc, l.pending, l.overflow = base, 0, 0, false
 	return l.Check(false)
 }
 
@@ -62,13 +62,16 @@ func (l *Ledger) Begin(base int64) bool {
 // Invalid or overflowing charges saturate the total and make future checks fail
 // until Begin resets the account; mandatory cleanup itself must still finish.
 func (l *Ledger) Force(n int64) {
-	if l != nil && l.poll != nil {
-		if n < 0 || n > math.MaxInt64-l.Base-l.Alloc {
-			l.Alloc = math.MaxInt64 - l.Base
-			l.overflow = true
-		} else {
-			l.Alloc += n
-		}
+	if l == nil {
+		return
+	}
+	if n < 0 || n > math.MaxInt64-l.Base-l.Alloc {
+		l.Alloc = math.MaxInt64 - l.Base
+		l.overflow = true
+		return
+	}
+	if l.poll != nil {
+		l.Alloc += n
 	}
 }
 
@@ -165,22 +168,43 @@ func Grow[T any](l *Ledger, s []T, extra int) ([]T, bool) {
 // GrowSize returns the required capacity and false if the size is invalid or
 // cannot be represented. A zero capacity means the existing slice has room.
 func GrowSize[T any](s []T, extra int) (int, bool) {
-	if extra < 0 || extra > math.MaxInt-len(s) {
+	return growthSize(len(s), cap(s), extra, sizeOf[T]())
+}
+
+// byteLimit bounds accounting and machine-addressable allocation sizes.
+// The runtime may reject smaller allocations for other reasons.
+func byteLimit() int64 {
+	maxAddr := uint64(^uintptr(0))
+	if maxAddr < uint64(math.MaxInt64) {
+		return int64(maxAddr)
+	}
+	return math.MaxInt64
+}
+
+// growthSize checks lengths and machine-addressable byte sizes.
+func growthSize(length, capacity, extra int, elemBytes int64) (int, bool) {
+	if length < 0 || capacity < length || extra < 0 || extra > math.MaxInt-length || elemBytes < 0 {
 		return 0, false
 	}
-	needed := len(s) + extra
-	if needed <= cap(s) {
+	needed := length + extra
+	if needed <= capacity {
 		return 0, true
 	}
-	doubled := cap(s)
-	if doubled <= math.MaxInt/2 {
-		doubled *= 2
-	} else {
-		doubled = math.MaxInt
+	maxElements := math.MaxInt
+	if elemBytes != 0 {
+		if q := byteLimit() / elemBytes; q < int64(math.MaxInt) {
+			maxElements = int(q)
+		}
 	}
-	n := max(doubled, needed, 8)
-	_, ok := sliceBytes[T](n)
-	return n, ok
+	if needed > maxElements {
+		return 0, false
+	}
+	doubled := maxElements
+	if capacity <= maxElements/2 {
+		doubled = capacity * 2
+	}
+	n := max(doubled, needed, min(8, maxElements))
+	return n, true
 }
 
 func sliceBytes[T any](n int) (int64, bool) {
@@ -188,7 +212,7 @@ func sliceBytes[T any](n int) (int64, bool) {
 		return 0, false
 	}
 	size := sizeOf[T]()
-	if size != 0 && int64(n) > math.MaxInt64/size {
+	if size != 0 && int64(n) > byteLimit()/size {
 		return 0, false
 	}
 	return int64(n) * size, true
@@ -232,8 +256,13 @@ func MakeCap[T any](l *Ledger, n int) ([]T, bool) {
 // Push appends v to s. A full slice grows through Grow (the reservation is the
 // check). It returns false, with s unchanged, when the reservation is refused.
 func Push[T any](l *Ledger, s []T, v ...T) ([]T, bool) {
-	if l.overflow {
+	if l.overflow || len(v) > math.MaxInt-len(s) {
 		return s, false
+	}
+	if len(v) > cap(s)-len(s) {
+		if _, ok := sliceBytes[T](len(s) + len(v)); !ok {
+			return s, false
+		}
 	}
 	if l.poll != nil && len(v) > cap(s)-len(s) {
 		var ok bool
