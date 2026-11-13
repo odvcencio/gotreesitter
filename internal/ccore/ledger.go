@@ -29,7 +29,7 @@ const LedgerGranularity = 256 << 10
 type Ledger struct {
 	Base     int64 // capacity the request held when it began (pooled parser, then pooled arena)
 	Alloc    int64 // charged array and slab bytes since Begin, except reservations moved to Base
-	pending  int64 // bytes reserved since the last limit check
+	pending  int64 // unpolled reserved bytes, or LedgerGranularity after forced cleanup
 	overflow bool  // forced cleanup exceeded representable accounting
 	poll     func(total int64, sample bool) bool
 }
@@ -58,7 +58,7 @@ func (l *Ledger) Begin(base int64) bool {
 // Force counts n bytes that were made, or are about to be, by work that cannot be
 // refused (reclamation: freeing records must finish, or the store would keep
 // records nobody can reach). It never fails and does not ask the limit; the
-// request's next ordinary check sees the larger total and can stop the request.
+// next reservation polls after a positive forced charge and can stop the request.
 // Invalid or overflowing charges saturate the total and make future checks fail
 // until Begin resets the account; mandatory cleanup itself must still finish.
 func (l *Ledger) Force(n int64) {
@@ -72,6 +72,9 @@ func (l *Ledger) Force(n int64) {
 	}
 	if l.poll != nil {
 		l.Alloc += n
+		if n > 0 {
+			l.pending = LedgerGranularity
+		}
 	}
 }
 
@@ -220,7 +223,11 @@ func sliceBytes[T any](n int) (int64, bool) {
 
 // GrowTo returns s in a new array of capacity n (n from GrowSize). The caller has
 // reserved n elements; this is how several arrays are reserved with one check.
+// When n is zero, no growth is needed and s is returned unchanged.
 func GrowTo[T any](s []T, n int) []T {
+	if n == 0 {
+		return s
+	}
 	t := make([]T, len(s), n)
 	copy(t, s)
 	return t
