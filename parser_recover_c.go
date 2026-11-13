@@ -8,6 +8,7 @@ import (
 	"unicode"
 	"unsafe"
 
+	"github.com/odvcencio/gotreesitter/internal/incr"
 	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
 	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
 )
@@ -6209,59 +6210,175 @@ func (p *Parser) relexTokenForStackLexState(
 	if languageKeywordReservedInState(lang, state, tok.Symbol) {
 		return tok, state, false
 	}
-	ls := lang.LexModes[state].LexStateIndex()
-	if ls != noLookaheadLexState && int(ls) < len(lang.LexStates) {
-		// GLR prunes branches at no-action points constantly during ordinary
-		// parses, so this probe runs often even on grammars that never need a
-		// re-lex. Reuse one parser-owned Lexer rather than constructing a fresh one
-		// per call so the probe stays allocation-free on that hot path. Measured
-		// against origin/main with the grammar pre-warmed, java, cpp, go and
-		// javascript allocate byte-identically with the probe in place.
-		probe := &p.relexProbeLexer
-		*probe = Lexer{
-			states:          lang.LexStates,
-			asciiTable:      lang.LexAsciiTable(),
-			source:          source,
-			pos:             int(tok.StartByte),
-			row:             tok.StartPoint.Row,
-			col:             tok.StartPoint.Column,
-			immediateTokens: lang.ImmediateTokens,
-			zeroWidthTokens: lang.ZeroWidthTokens,
-		}
-
-		if len(p.included) != 0 && lang.ExternalScanner == nil && len(lang.ExternalSymbols) == 0 {
-			probe.setIncludedRanges(p.included)
-		}
-		probeStart := probe.pos
-		relexed, ok := probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
-		frontier := relexed.lexerLookaheadEndByte
-		if ok && int(relexed.Symbol) < len(lang.ImmediateTokens) && lang.ImmediateTokens[relexed.Symbol] && dts != nil && dts.language == lang && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart < tok.StartByte {
-			if len(p.included) != 0 {
-				return tok, state, false
-			}
-			row, col, valid := sharedrecover.RelexPrefixPoint(source, tok.lexerSkippedPrefixStart, tok.StartByte, tok.StartPoint.Row, tok.StartPoint.Column)
-			if !valid {
-				return tok, state, false
-			}
-			probe.pos, probe.row, probe.col = int(tok.lexerSkippedPrefixStart), row, col
-			probeStart = probe.pos
-			relexed, ok = probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
-			relexed.lexerLookaheadEndByte = maxUint32(frontier, relexed.lexerLookaheadEndByte)
-		}
-		recordTokenInvariantReadSpan(lexicalReadSpan, probeStart, tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
-		if dts != nil && dts.lexer.reuseReads != nil {
-			dts.lexer.reuseReads.Record(probeStart, tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
-		}
-		// Exact-span requirement: this is what keeps the shared-token loop in
-		// lockstep. A shorter or longer re-lex would leave this stack at a
-		// different byte offset than its siblings.
-		if ok && relexed.Symbol != 0 && relexed.Symbol != tok.Symbol &&
-			relexed.StartByte == tok.StartByte && relexed.EndByte == tok.EndByte &&
-			(p.stateHasActionForSymbol(state, relexed.Symbol) || (p.language.RecoveryStackVersionOrderEnabled && dts == nil && relexed.Symbol == lang.KeywordCaptureToken && !p.isNamedSymbol(tok.Symbol) && int(tok.Symbol) < len(lang.SymbolNames) && lang.SymbolNames[tok.Symbol] == string(source[tok.StartByte:tok.EndByte]))) {
-			return relexed, state, true
-		}
+	relexed, ok, abort := p.scanTokenInStackLexState(source, state, tok, tok.StartByte, lexicalReadSpan, dts)
+	if abort {
+		return tok, state, false
+	}
+	// Exact-span requirement: this is what keeps the shared-token loop in
+	// lockstep. A shorter or longer re-lex would leave this stack at a
+	// different byte offset than its siblings.
+	if ok && relexed.Symbol != 0 && relexed.Symbol != tok.Symbol &&
+		relexed.StartByte == tok.StartByte && relexed.EndByte == tok.EndByte &&
+		(p.stateHasActionForSymbol(state, relexed.Symbol) || (p.language.RecoveryStackVersionOrderEnabled && dts == nil && relexed.Symbol == lang.KeywordCaptureToken && !p.isNamedSymbol(tok.Symbol) && int(tok.Symbol) < len(lang.SymbolNames) && lang.SymbolNames[tok.Symbol] == string(source[tok.StartByte:tok.EndByte]))) {
+		return relexed, state, true
 	}
 	return p.relexZeroWidthExternalTokenForStackLexState(source, dts, s, state, tok, nodeCount, arena, scratch, trackChildErrors, rescueBudget)
+}
+
+// scanTokenInStackLexState lexes again with state's own lex mode, using the
+// internal DFA only, starting at from: tok.StartByte, or an earlier position
+// whose bytes up to tok.StartByte the mode must skip itself. ok reports a
+// scanned token; abort reports a shape the probe cannot judge, which callers
+// treat as "no other reading".
+func (p *Parser) scanTokenInStackLexState(source []byte, state StateID, tok Token, from uint32, lexicalReadSpan *uint32, dts *dfaTokenSource) (relexed Token, ok, abort bool) {
+	lang := p.language
+	mode := lang.LexModes[state]
+	ls := mode.LexStateIndex()
+	if ls == noLookaheadLexState || int(ls) >= len(lang.LexStates) {
+		return tok, false, false
+	}
+	if from > tok.StartByte {
+		return tok, false, true
+	}
+	row, col := tok.StartPoint.Row, tok.StartPoint.Column
+	gap := from < tok.StartByte
+	if gap {
+		// The probe models one start state; a mode with its own after-whitespace
+		// start state, or a gap across included ranges, is left alone.
+		if mode.AfterWhitespaceLexStateIndex() != 0 || len(p.included) != 0 {
+			return tok, false, true
+		}
+		var valid bool
+		if row, col, valid = sharedrecover.RelexPrefixPoint(source, from, tok.StartByte, row, col); !valid {
+			return tok, false, true
+		}
+	}
+	// GLR prunes branches at no-action points constantly during ordinary
+	// parses, so this probe runs often even on grammars that never need a
+	// re-lex. Reuse one parser-owned Lexer rather than constructing a fresh one
+	// per call so the probe stays allocation-free on that hot path. Measured
+	// against origin/main with the grammar pre-warmed, java, cpp, go and
+	// javascript allocate byte-identically with the probe in place.
+	probe := &p.relexProbeLexer
+	*probe = Lexer{
+		states:          lang.LexStates,
+		asciiTable:      lang.LexAsciiTable(),
+		source:          source,
+		pos:             int(from),
+		row:             row,
+		col:             col,
+		immediateTokens: lang.ImmediateTokens,
+		zeroWidthTokens: lang.ZeroWidthTokens,
+	}
+
+	if len(p.included) != 0 && lang.ExternalScanner == nil && len(lang.ExternalSymbols) == 0 {
+		probe.setIncludedRanges(p.included)
+	}
+	probeStart := probe.pos
+	relexed, ok = probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
+	frontier := relexed.lexerLookaheadEndByte
+	// A whole-token skip ends one DFA run; the lexer restarts in the same lex
+	// state after it, as Lexer.next does. The restart hides the skipped bytes
+	// from the next run, so an immediate token after it is not a reading.
+	restarted := false
+	for gap && ok && relexed.Symbol == 0 && probe.pos > int(relexed.StartByte) && probe.pos <= int(tok.StartByte) {
+		restarted = true
+		relexed, ok = probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
+		frontier = maxUint32(frontier, relexed.lexerLookaheadEndByte)
+		relexed.lexerLookaheadEndByte = frontier
+	}
+	if restarted && ok && int(relexed.Symbol) < len(lang.ImmediateTokens) && lang.ImmediateTokens[relexed.Symbol] {
+		ok = false
+	}
+	if !gap && ok && int(relexed.Symbol) < len(lang.ImmediateTokens) && lang.ImmediateTokens[relexed.Symbol] && dts != nil && dts.language == lang && tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart < tok.StartByte {
+		if len(p.included) != 0 {
+			return tok, false, true
+		}
+		row, col, valid := sharedrecover.RelexPrefixPoint(source, tok.lexerSkippedPrefixStart, tok.StartByte, tok.StartPoint.Row, tok.StartPoint.Column)
+		if !valid {
+			return tok, false, true
+		}
+		probe.pos, probe.row, probe.col = int(tok.lexerSkippedPrefixStart), row, col
+		probeStart = probe.pos
+		relexed, ok = probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
+		relexed.lexerLookaheadEndByte = maxUint32(frontier, relexed.lexerLookaheadEndByte)
+	}
+	recordTokenInvariantReadSpan(lexicalReadSpan, probeStart, tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+	if dts != nil && dts.lexer.reuseReads != nil {
+		dts.lexer.reuseReads.Record(probeStart, tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+	}
+	return relexed, ok, false
+}
+
+// ownLexModeToken is the token a GLR stack would see if it lexed the shared
+// lookahead's bytes with its own head state's lex mode, as each C version does
+// before it reduces (ts_parser__advance). The shared election can hand a stack
+// a different symbol for the same bytes that the stack also accepts, and so
+// steer it down the wrong branch: in C++ `A<B<T> >`, the elected binary `>`
+// beats the template-closing `>` and the outer template is read as a
+// comparison. Only a same-span, action-bearing, non-keyword reading of an
+// internal-DFA token is taken, so the stacks stay in lockstep.
+//
+// The reading is taken only where the stacks disagreed about how to spell
+// the same bytes: the election scanned a same-named rival of tok, and the
+// reading has tok's name too. Grammars that tell many tokens apart by lex
+// state alone (earthfile's plain and immediate string words) otherwise get
+// their stacks re-routed everywhere, away from C's trees.
+//
+// The read starts where C lexes the version: at the stack's position from,
+// before any whitespace the shared lexer skipped. Lex modes read bytes after
+// whitespace differently from bytes right after the previous token; read from
+// the token's own start, Julia's `:` in `c ? a : b` would take a reading C
+// never makes there.
+func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from uint32, lexicalReadSpan *uint32, dts *dfaTokenSource) (Token, bool) {
+	lang := p.language
+	if lang == nil || dts == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
+		return tok, false
+	}
+	if !dts.electionHadSameNameRival(tok) {
+		return tok, false
+	}
+	if tok.Symbol == 0 || tok.Symbol == errorSymbol || tok.Missing || tok.NoLookahead || tok.ExternalScannerToken ||
+		tok.StartByte >= tok.EndByte || int(tok.StartByte) >= len(source) ||
+		tok.Symbol == lang.KeywordCaptureToken || languageKeywordReservedInState(lang, state, tok.Symbol) {
+		return tok, false
+	}
+	if p.electedTokenReusable(dts, state, tok) {
+		return tok, false
+	}
+	// This probe does not model included ranges with an external scanner.
+	// Decline the optional reading rather than inspect excluded source bytes.
+	if len(p.included) != 0 && (lang.ExternalScanner != nil || len(lang.ExternalSymbols) != 0) {
+		return tok, false
+	}
+	relexed, ok, abort := p.scanTokenInStackLexState(source, state, tok, from, lexicalReadSpan, dts)
+	if abort || !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol || relexed.Symbol == lang.KeywordCaptureToken ||
+		relexed.StartByte != tok.StartByte || relexed.EndByte != tok.EndByte || !dts.sameSymbolName(relexed.Symbol, tok.Symbol) ||
+		!p.stateHasActionForSymbol(state, relexed.Symbol) {
+		return tok, false
+	}
+	// The reading covers the shared token's bytes after the same gap. A read
+	// that restarted after a whole skip token has no record of that gap.
+	relexed.setLexFlag(tokenFlagSkippedPrefix, tok.lexerSkippedPrefix())
+	relexed.lexerSkippedPrefixStart = tok.lexerSkippedPrefixStart
+	return relexed, true
+}
+
+// electedTokenReusable is ts_parser__can_reuse_first_leaf (C/parser.c:470-503)
+// for the shared token in state, with the election's winning state as the
+// state the token was lexed in. Where C would reuse the token, it lexes no
+// version of its own. The caller has ruled out an empty and a keyword-capture
+// token, so C's keyword and empty-token clauses do not apply.
+func (p *Parser) electedTokenReusable(dts *dfaTokenSource, state StateID, tok Token) bool {
+	lang := p.language
+	lexedIn, ok := dts.electedScan(tok)
+	if !ok || int(lexedIn) >= len(lang.LexModes) {
+		return false
+	}
+	mode := lang.LexModes[state]
+	entry := p.lookupAction(state, tok.Symbol)
+	return incr.FirstLeaf(mode.LexStateIndex() == noLookaheadLexState, entry != nil && len(entry.Actions) != 0,
+		mode == lang.LexModes[lexedIn], false, false, false, false, mode.ExternalLexState != 0, entry != nil && entry.Reusable)
 }
 
 // relexZeroWidthExternalTokenForStackLexState is the zero-width-external

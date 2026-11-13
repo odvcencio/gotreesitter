@@ -6585,6 +6585,19 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if relexKeyword(currentState) {
 				stackRelexActive = true
 			}
+			ownReading := false
+			ownReadingRetries := 0
+			if !stackRelexActive && len(stacks) > 1 {
+				if ownTok, ok := p.ownLexModeToken(source, currentState, tok, s.byteOffset, lexicalReadSpan, dts); ok {
+					if p.glrTrace {
+						fmt.Printf("  stack[%d] OWN-LEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
+							si, tok.Symbol, ownTok.Symbol, ownTok.StartByte, ownTok.EndByte, currentState)
+					}
+					tok = ownTok
+					stackRelexActive = true
+					ownReading = true
+				}
+			}
 			noteStopDiagnosticStack(s)
 			packedVersionReductionSteps := 0
 			packedVersionMinDepth := s.depth()
@@ -7431,6 +7444,22 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					ns := time.Since(actionKindStart).Nanoseconds()
 					actionTiming.actionSingleReduceNanos += ns
 					recordActionTiming(currentState, tok.Symbol, actions, ambiguityActionSingleReduce, ns)
+				}
+				// C keeps a version's lookahead through its reductions
+				// (ts_parser__advance, C/parser.c:1720-1745). A stack on its
+				// own reading goes on with it here: the shared token is
+				// restored before the next dispatch, and this stack would
+				// read again in its post-reduction state. The retry skips the
+				// loop's per-iteration limit checks, so it is bounded like a
+				// reduce chain: a zero-child reduction back into the same state
+				// would otherwise retry forever.
+				if ownReading && ownReadingRetries < maxConsecutivePrimaryReduces {
+					s = &stacks[si]
+					if !s.dead && !s.accepted && !s.shifted && !s.cPaused {
+						ownReadingRetries++
+						currentState = s.top().state
+						goto retryAction
+					}
 				}
 			} else {
 				switch act.Type {

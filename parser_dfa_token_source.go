@@ -1442,6 +1442,7 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 	bestEndCol := startCol
 	bestVisible := false
 	bestOriginActions := 0
+	bestState := StateID(0)
 
 	type lexModeKey struct {
 		lexState                uint32
@@ -1521,6 +1522,7 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 				bestEndCol = candEndCol
 				bestVisible = candVisible
 				bestOriginActions = originActionCount
+				bestState = st
 				continue
 			}
 			if d.realTokenBeatsZeroWidthSentinelAcrossStacks(candTok, bestTok, bestScore) {
@@ -1551,6 +1553,7 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 			bestEndCol = candEndCol
 			bestVisible = candVisible
 			bestOriginActions = originActionCount
+			bestState = st
 		}
 	}
 
@@ -1572,12 +1575,59 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 		}
 		mergeTokenLookaheadFrontier(&bestTok, scan.tok)
 	}
+	// The elected scan goes first, so electedScan finds the state whose lex
+	// mode produced the shared token. Every other reader looks scans up by
+	// state.
+	for i := range d.glrUnionScanScratch {
+		if d.glrUnionScanScratch[i].state == bestState {
+			d.glrUnionScanScratch[0], d.glrUnionScanScratch[i] = d.glrUnionScanScratch[i], d.glrUnionScanScratch[0]
+			break
+		}
+	}
 
 	d.lexer.pos = bestEndPos
 	d.lexer.row = bestEndRow
 	d.lexer.col = bestEndCol
 	d.lexer.includedRangeIdx = d.lexer.includedRangeIndexForPosition(bestEndPos)
 	return bestTok, true
+}
+
+// electedScan returns the state whose lex mode produced tok in the last GLR
+// union election, or false when tok did not come from that election.
+func (d *dfaTokenSource) electedScan(tok Token) (StateID, bool) {
+	if d == nil || len(d.glrUnionScanScratch) == 0 {
+		return 0, false
+	}
+	scan := &d.glrUnionScanScratch[0]
+	if scan.tok.Symbol != tok.Symbol || scan.tok.StartByte != tok.StartByte || scan.tok.EndByte != tok.EndByte {
+		return 0, false
+	}
+	return scan.state, true
+}
+
+// electionHadSameNameRival reports whether the GLR union election that
+// produced tok also scanned, in some live state's own lex mode, a different
+// symbol with tok's span and name that this state can take: in C++ `A<B<T>>`,
+// the template-closing `>` next to the elected binary `>`. Only then did the
+// stacks disagree about how to spell the same bytes. It reads the election's
+// scan cache, which holds one scan per live state; scanning again here would
+// start at the wrong byte. A token that did not win the last election
+// returns false before the cache is walked: GLR dispatch asks once per stack.
+func (d *dfaTokenSource) electionHadSameNameRival(tok Token) bool {
+	if d == nil || d.lookupActionIndex == nil {
+		return false
+	}
+	if _, ok := d.electedScan(tok); !ok {
+		return false
+	}
+	for i := range d.glrUnionScanScratch {
+		scan := &d.glrUnionScanScratch[i]
+		if scan.tok.Symbol != tok.Symbol && scan.tok.StartByte == tok.StartByte && scan.tok.EndByte == tok.EndByte &&
+			d.sameSymbolName(scan.tok.Symbol, tok.Symbol) && d.lookupActionIndex(scan.state, scan.tok.Symbol) != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *dfaTokenSource) glrUnionScanForState(state StateID) (Token, int, uint32, uint32) {
