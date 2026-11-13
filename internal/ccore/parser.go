@@ -3,7 +3,8 @@ package ccore
 // Config names what a Parser needs from the root package.
 type Config struct {
 	Tables  *Tables
-	Scanner ExtScanner // nil when the language has no external scanner
+	Scanner ExtScanner  // nil when the language has no external scanner
+	Nodes   *NodeTables // data for the node readers (node.go); nil when the adapter gives none
 }
 
 // Parser is one parsing context (C TSParser).
@@ -22,18 +23,19 @@ type Parser struct {
 	reachBits                                 []uint64 // scratch of findMultiBits: one mark bit per record slot
 	preBalance                                func()   // tests only: runs before the balance step
 	Store
-	t        *Tables
-	scanner  ExtScanner
-	src      []byte
-	nodes    []stackNode
-	free     []int32
-	heads    []stackHead
-	slices   []stackSlice
-	iters    []stackIter
-	bufs     [][]Handle
-	trailing []Handle
-	trail2   []Handle
-	scratch  []Handle
+	nodeTables *NodeTables
+	t          *Tables
+	scanner    ExtScanner
+	src        []byte
+	nodes      []stackNode
+	free       []int32
+	heads      []stackHead
+	slices     []stackSlice
+	iters      []stackIter
+	bufs       [][]Handle
+	trailing   []Handle
+	trail2     []Handle
+	scratch    []Handle
 	// recovery scratch (recover.go)
 	recSlices []stackSlice
 	reduceSet []reduceAction
@@ -82,8 +84,11 @@ func NewParser(c Config) (*Parser, error) {
 	if err := c.validate(); err != nil {
 		return nil, err
 	}
-	return &Parser{t: c.Tables, scanner: c.Scanner}, nil
+	return &Parser{t: c.Tables, scanner: c.Scanner, nodeTables: c.Nodes}, nil
 }
+
+// NodeTables returns the node-reader data the parser was configured with (nil if none).
+func (p *Parser) NodeTables() *NodeTables { return p.nodeTables }
 
 // SetForceDerivedRows derives the external valid-symbol rows from the action
 // table even when the tables carry them (a test switch).
