@@ -6332,8 +6332,9 @@ func (p *Parser) scanTokenInStackLexState(source []byte, state StateID, tok Toke
 // never makes there.
 //
 // A reading that starts at the same byte but ends later cannot be shared
-// with the other stacks. It is returned with wider set instead, so the
-// caller can fall back to it if every stack dies on the shared token.
+// with the other stacks. wider reports that such a reading may exist, so the
+// caller can fall back to widerOwnLexModeToken if every stack dies on the
+// shared token.
 func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from uint32, lexicalReadSpan *uint32, dts *dfaTokenSource) (own Token, ok, wider bool) {
 	lang := p.language
 	if lang == nil || dts == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
@@ -6344,30 +6345,62 @@ func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from u
 		tok.Symbol == lang.KeywordCaptureToken || languageKeywordReservedInState(lang, state, tok.Symbol) {
 		return tok, false, false
 	}
-	if p.electedTokenReusable(dts, state, tok) {
-		return tok, false, false
-	}
 	// This probe does not model included ranges with an external scanner.
 	// Decline the optional reading rather than inspect excluded source bytes.
 	if len(p.included) != 0 && (lang.ExternalScanner != nil || len(lang.ExternalSymbols) != 0) {
 		return tok, false, false
 	}
+	// Checking and scanning on every multi-stack dispatch costs too much, so
+	// without a same-named rival only the possibility of a wider reading is
+	// reported; widerOwnLexModeToken checks and scans it.
+	if !dts.electionHadSameNameRival(tok) {
+		return tok, false, true
+	}
+	if p.electedTokenReusable(dts, state, tok) {
+		return tok, false, false
+	}
+	relexed, ok := p.ownLexModeReading(source, state, tok, from, lexicalReadSpan, dts)
+	if !ok {
+		return tok, false, false
+	}
+	if relexed.EndByte > tok.EndByte {
+		return tok, false, true
+	}
+	if !dts.sameSymbolName(relexed.Symbol, tok.Symbol) {
+		return tok, false, false
+	}
+	return relexed, true, false
+}
+
+// widerOwnLexModeToken is the reading behind ownLexModeToken's wider result,
+// read only once every stack has died on the shared token. lexedIn and
+// elected are what dts.electedScan reported for tok at dispatch start.
+func (p *Parser) widerOwnLexModeToken(source []byte, state StateID, tok Token, from uint32, lexedIn StateID, elected bool, lexicalReadSpan *uint32, dts *dfaTokenSource) (Token, bool) {
+	if p.electedTokenReusableIn(state, tok, lexedIn, elected) {
+		return tok, false
+	}
+	relexed, ok := p.ownLexModeReading(source, state, tok, from, lexicalReadSpan, dts)
+	if !ok || relexed.EndByte <= tok.EndByte {
+		return tok, false
+	}
+	return relexed, true
+}
+
+// ownLexModeReading scans tok's bytes with state's own lex mode and keeps a
+// reading of another symbol that starts at tok's byte, ends no earlier, and
+// has an action in state.
+func (p *Parser) ownLexModeReading(source []byte, state StateID, tok Token, from uint32, lexicalReadSpan *uint32, dts *dfaTokenSource) (Token, bool) {
+	lang := p.language
 	relexed, scanned, abort := p.scanTokenInStackLexState(source, state, tok, from, lexicalReadSpan, dts)
 	if abort || !scanned || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol || relexed.Symbol == lang.KeywordCaptureToken ||
 		relexed.StartByte != tok.StartByte || relexed.EndByte < tok.EndByte || !p.stateHasActionForSymbol(state, relexed.Symbol) {
-		return tok, false, false
+		return tok, false
 	}
 	// The reading covers the shared token's bytes after the same gap. A read
 	// that restarted after a whole skip token has no record of that gap.
 	relexed.setLexFlag(tokenFlagSkippedPrefix, tok.lexerSkippedPrefix())
 	relexed.lexerSkippedPrefixStart = tok.lexerSkippedPrefixStart
-	if relexed.EndByte > tok.EndByte {
-		return relexed, false, true
-	}
-	if !dts.sameSymbolName(relexed.Symbol, tok.Symbol) || !dts.electionHadSameNameRival(tok) {
-		return tok, false, false
-	}
-	return relexed, true, false
+	return relexed, true
 }
 
 // electedTokenReusable is ts_parser__can_reuse_first_leaf (C/parser.c:470-503)
@@ -6376,9 +6409,15 @@ func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from u
 // version of its own. The caller has ruled out an empty and a keyword-capture
 // token, so C's keyword and empty-token clauses do not apply.
 func (p *Parser) electedTokenReusable(dts *dfaTokenSource, state StateID, tok Token) bool {
-	lang := p.language
 	lexedIn, ok := dts.electedScan(tok)
-	if !ok || int(lexedIn) >= len(lang.LexModes) {
+	return p.electedTokenReusableIn(state, tok, lexedIn, ok)
+}
+
+// electedTokenReusableIn is electedTokenReusable with the election's winning
+// state already read, for a check made after the election cache moved on.
+func (p *Parser) electedTokenReusableIn(state StateID, tok Token, lexedIn StateID, elected bool) bool {
+	lang := p.language
+	if !elected || int(lexedIn) >= len(lang.LexModes) {
 		return false
 	}
 	mode := lang.LexModes[state]

@@ -5922,7 +5922,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 
 	for iter := 0; iter < maxIter; iter++ {
 		if len(widerReadings) > 0 {
-			if wide, ok := reviveWiderStackReading(stacks, widerReadings); ok {
+			if wide, ok := reviveWiderStackReading(stacks, widerReadings, func(r widerStackReading) (Token, bool) {
+				return p.widerOwnLexModeToken(source, r.state, r.tok, r.from, r.lexedIn, r.elected, lexicalReadSpan, dts)
+			}); ok {
 				if p.glrTrace {
 					fmt.Printf("  WIDER-REVIVE: sym=%d [%d-%d]\n", wide.Symbol, wide.StartByte, wide.EndByte)
 				}
@@ -6611,7 +6613,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					stackRelexActive = true
 					ownReading = true
 				} else if wider && len(p.included) == 0 {
-					widerReadings = append(widerReadings, widerStackReading{stack: si, state: currentState, depth: s.depth(), tok: ownTok})
+					lexedIn, elected := dts.electedScan(tok)
+					widerReadings = append(widerReadings, widerStackReading{stack: si, state: currentState, depth: s.depth(), from: s.byteOffset, tok: tok, lexedIn: lexedIn, elected: elected})
 				}
 			}
 			noteStopDiagnosticStack(s)
@@ -8602,24 +8605,29 @@ func allParseStacksDead(stacks []glrStack) bool {
 	return true
 }
 
-// widerStackReading is a stack's own-lex-mode reading of the shared lookahead
-// that starts at the same byte but ends later, recorded at dispatch start
-// before the stack reduced.
+// widerStackReading records, at dispatch start and before the stack reduced,
+// where a stack might read the shared lookahead tok wider with its own lex
+// mode. The reading itself is scanned only if every stack dies.
 type widerStackReading struct {
 	stack int
 	state StateID
 	depth int
+	from  uint32
 	tok   Token
+	// lexedIn and elected are dts.electedScan(tok), kept because the
+	// election cache may have moved on by the time every stack is dead.
+	lexedIn StateID
+	elected bool
 }
 
 // reviveWiderStackReading handles the one case lockstep lexing cannot: the
 // shared token killed every stack, but some stack's own lex mode had read a
 // longer token (C++ `i[] >> 8`: the election picks the template `>` and the
 // `>>` version dies). C lexes each version separately, so that version would
-// have lived. When every stack is dead, it revives the stacks still at the
-// state and depth where they recorded the first such reading, and returns
-// that reading as the next lookahead.
-func reviveWiderStackReading(stacks []glrStack, readings []widerStackReading) (Token, bool) {
+// have lived. When every stack is dead, it reads each record still at its
+// state and depth with read, revives the stacks whose reading matches the
+// first one found, and returns that reading as the next lookahead.
+func reviveWiderStackReading(stacks []glrStack, readings []widerStackReading, read func(widerStackReading) (Token, bool)) (Token, bool) {
 	if !allParseStacksDead(stacks) {
 		return Token{}, false
 	}
@@ -8633,9 +8641,13 @@ func reviveWiderStackReading(stacks []glrStack, readings []widerStackReading) (T
 		if s.depth() != r.depth || s.top().state != r.state {
 			continue
 		}
+		wide, ok := read(r)
+		if !ok {
+			continue
+		}
 		if !found {
-			chosen, found = r.tok, true
-		} else if !tokensSameLexForGLRCandidate(r.tok, chosen) {
+			chosen, found = wide, true
+		} else if !tokensSameLexForGLRCandidate(wide, chosen) {
 			continue
 		}
 		s.dead = false
