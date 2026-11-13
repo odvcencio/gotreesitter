@@ -39,7 +39,15 @@ func (hashScanner) Deserialize(payload any, buf []byte) {
 
 func (hashScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool) bool {
 	st := payload.(*hashState)
-	if len(valid) == 0 || !valid[0] || lexer.Lookahead() != '#' || st.seen >= 2 {
+	if len(valid) == 0 || !valid[0] || st.seen >= 2 {
+		return false
+	}
+	// The external token may follow whitespace. Match the grammar's extras
+	// while keeping them outside the token span.
+	for lexer.Lookahead() == ' ' {
+		lexer.Advance(true)
+	}
+	if lexer.Lookahead() != '#' {
 		return false
 	}
 	lexer.Advance(false)
@@ -410,5 +418,47 @@ func TestCertifyNeedsAScanner(t *testing.T) {
 	}
 	if _, err := Certify(nil, miniCorpus()); !errors.Is(err, ErrNoScanner) {
 		t.Fatalf("err = %v, want ErrNoScanner for a nil language", err)
+	}
+}
+
+func TestMiniScannerCorpusParseOutcomes(t *testing.T) {
+	lang := miniLanguage(hashScanner{})
+	for i, src := range miniCorpus().Sources {
+		p := gts.NewParser(lang)
+		p.SetAdmissionCandidateRoute(false)
+		tree, err := p.Parse(src)
+		if err != nil {
+			t.Fatalf("source %d: %v", i, err)
+		}
+		root := tree.RootNode()
+		wantError := i == 1
+		if root.HasError() != wantError || root.EndByte() != uint32(len(src)) {
+			t.Errorf("source %d %q: error=%t end=%d, want error=%t end=%d", i, src, root.HasError(), root.EndByte(), wantError, len(src))
+		}
+		if i == 2 {
+			// A false-clean recovery can cover the input without retaining the
+			// external tokens. Check their positions as well as HasError.
+			type leaf struct {
+				symbol     gts.Symbol
+				start, end uint32
+			}
+			var got []leaf
+			var visit func(*gts.Node)
+			visit = func(n *gts.Node) {
+				if n.ChildCount() == 0 {
+					got = append(got, leaf{n.Symbol(), n.StartByte(), n.EndByte()})
+					return
+				}
+				for j := 0; j < n.ChildCount(); j++ {
+					visit(n.Child(j))
+				}
+			}
+			visit(root)
+			want := []leaf{{1, 0, 1}, {2, 2, 3}, {1, 4, 5}, {2, 6, 7}, {1, 8, 9}}
+			if !slices.Equal(got, want) {
+				t.Errorf("source %d %q: leaves = %v, want %v", i, src, got, want)
+			}
+		}
+		tree.Release()
 	}
 }
