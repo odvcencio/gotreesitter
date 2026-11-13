@@ -44,8 +44,9 @@ type linCase struct {
 }
 
 func linBuild(t *testing.T, tb *Tables, items []linItem) *Parser {
-	p := &Parser{t: tb}
-	p.clear()
+	p := &Parser{t: tb} // the store replaced the arena: each parser gets a store of its own, as newTestParser makes it
+	p.Store = newStoreCore().view()
+	p.beginParse(true)
 	base := p.nodeNew(-1, 0, false, 1)
 	p.nodes[base].refCount++
 	p.heads = append(p.heads, stackHead{node: base, status: headActive})
@@ -98,11 +99,29 @@ func linCompare(t *testing.T, name string, a, b *Parser, rvA, rvB int) {
 	if rvA != rvB {
 		t.Fatalf("%s: return value %d (general) against %d (linear)", name, rvA, rvB)
 	}
-	if !reflect.DeepEqual(a.recs, b.recs) {
-		t.Fatalf("%s: subtree records differ\n general %+v\n linear  %+v", name, a.recs, b.recs)
+	// Pages come from a pool and are not cleared, so only the part a parse wrote is compared:
+	// the record slots below the watermark, their reference words, and the child lists below the cursor.
+	wa, wb := int(a.recWatermark()), int(b.recWatermark())
+	if wa != wb {
+		t.Fatalf("%s: %d records against %d", name, wa, wb)
 	}
-	if !reflect.DeepEqual(a.kids, b.kids) {
-		t.Fatalf("%s: child lists differ: %v against %v", name, a.kids, b.kids)
+	for i := 0; i < wa; i++ {
+		if !reflect.DeepEqual(*a.recAt(uint32(i)), *b.recAt(uint32(i))) {
+			t.Fatalf("%s: subtree record %d differs: %+v against %+v", name, i, *a.recAt(uint32(i)), *b.recAt(uint32(i)))
+		}
+		if a.refs[i>>recShift][i&recMask] != b.refs[i>>recShift][i&recMask] {
+			t.Fatalf("%s: reference word of record %d differs", name, i)
+		}
+	}
+	// the child list of each record (the gaps that size classes leave in a page are not written)
+	for i := 1; i < wa; i++ {
+		ra, rb := a.recAt(uint32(i)), b.recAt(uint32(i))
+		if ra.childCount == 0 {
+			continue
+		}
+		if !reflect.DeepEqual(a.kidSpan(ra.childrenStart, ra.childCount), b.kidSpan(rb.childrenStart, rb.childCount)) {
+			t.Fatalf("%s: child list of record %d differs", name, i)
+		}
 	}
 	if len(a.heads) != len(b.heads) {
 		t.Fatalf("%s: %d heads against %d", name, len(a.heads), len(b.heads))

@@ -179,10 +179,37 @@ func buildCcoreTables(lang *Language) *ccore.Tables {
 	return t
 }
 
+var (
+	ccoreNodeTablesMu    sync.Mutex
+	ccoreNodeTablesCache = map[*Language]*ccore.NodeTables{}
+)
+
+// ccoreNodeTablesFor builds, once per language, the field maps and supertype
+// bits that the node readers of internal/ccore use.
+func ccoreNodeTablesFor(lang *Language, base *ccore.Tables) *ccore.NodeTables {
+	ccoreNodeTablesMu.Lock()
+	defer ccoreNodeTablesMu.Unlock()
+	if t, ok := ccoreNodeTablesCache[lang]; ok {
+		return t
+	}
+	t := &ccore.NodeTables{Base: base, FieldSlices: lang.FieldMapSlices}
+	t.FieldEntries = make([]ccore.FieldEntry, len(lang.FieldMapEntries))
+	for i, e := range lang.FieldMapEntries {
+		t.FieldEntries[i] = ccore.FieldEntry{FieldID: uint16(e.FieldID), ChildIndex: e.ChildIndex, Inherited: e.Inherited}
+	}
+	t.SuperBit = make([]uint32, len(lang.SymbolNames))
+	for i := range t.SuperBit {
+		t.SuperBit[i] = lang.supertypeBit(Symbol(i))
+	}
+	ccoreNodeTablesCache[lang] = t
+	return t
+}
+
 // ccoreConfig returns the ccore configuration of a language. Each call gets
 // its own scanner hook, so that parsers do not share scanner state.
 func ccoreConfig(lang *Language) (ccore.Config, error) {
 	cfg := ccore.Config{Tables: ccoreTablesFor(lang)}
+	cfg.Nodes = ccoreNodeTablesFor(lang, cfg.Tables)
 	if lang.ExternalScanner != nil {
 		a, err := newCcoreExtScanner(lang.ExternalScanner)
 		if err != nil {

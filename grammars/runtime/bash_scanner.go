@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the Bash grammar. This is the external index
@@ -144,6 +145,8 @@ var bshExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(bshExternalScannerSpec)
+	// A port with a behavioural mode (internal/scanmode).
+	scanmode.RegisterScanner(BashExternalScanner{}, (*bshState)(nil), true)
 }
 
 // bshHeredoc tracks a single pending heredoc.
@@ -164,6 +167,7 @@ func (h *bshHeredoc) reset() {
 
 // bshState holds scanner state across parse calls.
 type bshState struct {
+	scanmode.Flag       // the C-faithful mode, set by the core adapter
 	lastGlobParenDepth  uint8
 	extWasInDoubleQuote bool
 	extSawOutsideQuote  bool
@@ -212,6 +216,9 @@ func (BashExternalScanner) Destroy(payload any) {}
 
 func (BashExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*bshState)
+	if s.On() {
+		return bshSerializeC(s, buf)
+	}
 	size := 0
 	if len(buf) < 4 {
 		return 0
@@ -273,6 +280,10 @@ func (BashExternalScanner) Serialize(payload any, buf []byte) int {
 
 func (BashExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*bshState)
+	if s.On() {
+		bshDeserializeC(s, buf)
+		return
+	}
 	// Reset existing heredocs.
 	for i := range s.heredocs {
 		s.heredocs[i].reset()
@@ -331,6 +342,9 @@ func (s BashExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 			}
 		}
 		validSymbols = semanticValid[:]
+	}
+	if state.On() {
+		return bshScanC(state, lexer, validSymbols, s.symbolTable())
 	}
 	return bshScan(state, lexer, validSymbols, s.symbolTable())
 }
