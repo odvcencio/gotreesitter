@@ -960,3 +960,159 @@ func TestOwnReadingIsKeptThroughAConflictReduce(t *testing.T) {
 		t.Fatalf("root = %s (error %v), want rule_xb without error: the conflict forks must shift Q's own x_b", root.SExpr(lang), root.HasError())
 	}
 }
+
+type includedNoopScanner struct{}
+
+func (includedNoopScanner) Create() any                           { return nil }
+func (includedNoopScanner) Destroy(any)                           {}
+func (includedNoopScanner) Serialize(any, []byte) int             { return 0 }
+func (includedNoopScanner) Deserialize(any, []byte)               {}
+func (includedNoopScanner) Scan(any, *ExternalLexer, []bool) bool { return false }
+
+func includedOwnLexModeLanguage() *Language {
+	return &Language{
+		Name: "own_lex_mode", SymbolCount: 8, TokenCount: 5, StateCount: 9, ProductionIDCount: 1,
+		SymbolNames: []string{"end", "a", "x", "x", "external", "rule_qa", "rule_qb", "rule_p"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end"}, {Name: "a", Visible: true}, {Name: "x", Visible: true}, {Name: "x"},
+			{Name: "external"}, {Name: "rule_qa", Visible: true, Named: true}, {Name: "rule_qb", Visible: true, Named: true}, {Name: "rule_p", Visible: true, Named: true},
+		},
+		LexStates: []LexState{
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 2}, {Lo: 'x', Hi: 'x', NextState: 3}}},
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'x', Hi: 'x', NextState: 4}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+			{AcceptToken: 3, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{{LexState: 0}, {LexState: 1}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}, {LexState: 0}},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}, {Type: ParseActionShift, State: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 4}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 5}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 5, ChildCount: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 6, ChildCount: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 7, ChildCount: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 6}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 7}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 8}}},
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},
+		},
+		ParseTable: [][]uint16{
+			{0, 1, 0, 0, 0, 8, 9, 10},
+			{0, 0, 2, 3, 0, 0, 0, 0}, // Q
+			{0, 0, 4, 0, 0, 0, 0, 0}, // P
+			{5, 0, 0, 0, 0, 0, 0, 0},
+			{6, 0, 0, 0, 0, 0, 0, 0},
+			{7, 0, 0, 0, 0, 0, 0, 0},
+			{11, 0, 0, 0, 0, 0, 0, 0},
+			{11, 0, 0, 0, 0, 0, 0, 0},
+			{11, 0, 0, 0, 0, 0, 0, 0},
+		},
+	}
+}
+
+func TestOwnReadingIncludedExternalPublicParse(t *testing.T) {
+	check := func(source string) string {
+		lang := includedOwnLexModeLanguage()
+		lang.ExternalSymbols = []Symbol{4}
+		lang.ExternalScanner = includedNoopScanner{}
+		lang.LexStates[4].Transitions = []LexTransition{{Lo: 'y', Hi: 'y', NextState: 5}}
+		lang.LexStates = append(lang.LexStates, LexState{AcceptToken: 1, Default: -1, EOF: -1})
+		lang.ParseTable[3][0] = 0
+		lang.ParseTable[5][0] = 0
+		p := NewParser(lang)
+		p.SetIncludedRanges([]Range{{StartByte: 0, EndByte: 2, EndPoint: Point{Column: 2}}})
+		src := []byte(source)
+		tree, err := p.Parse(src)
+		if err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+		if tree == nil || tree.RootNode() == nil {
+			t.Fatal("missing root")
+		}
+		defer tree.Release()
+		return tree.RootNode().SExpr(lang)
+	}
+	a, b := check("axz"), check("axy")
+	t.Logf("excluded=z tree=%s; excluded=y tree=%s", a, b)
+	if a != "(x)" || b != "(x)" {
+		t.Error("public parse depends on excluded byte or lost the expected tree")
+	}
+}
+
+func TestOwnReadingIncludedExcludedBytes(t *testing.T) {
+	type result struct {
+		symbol     Symbol
+		start, end uint32
+		changed    bool
+	}
+	check := func(source string, hasExternal bool) result {
+		lang := includedOwnLexModeLanguage()
+		lang.LexStates[4].Transitions = []LexTransition{{Lo: 'y', Hi: 'y', NextState: 5}}
+		lang.LexStates = append(lang.LexStates, LexState{AcceptToken: 1, Default: -1, EOF: -1})
+		if hasExternal {
+			lang.ExternalSymbols = []Symbol{4}
+			lang.ExternalScanner = includedNoopScanner{}
+		}
+		p := NewParser(lang)
+		p.SetIncludedRanges([]Range{{StartByte: 0, EndByte: 2, EndPoint: Point{Column: 2}}, {StartByte: 3, EndByte: 4, StartPoint: Point{Column: 3}, EndPoint: Point{Column: 4}}})
+		src := []byte(source)
+		dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, src), lang, p.lookupActionIndex, nil, nil, nil)
+		defer dts.Close()
+		shared := Token{Symbol: 2, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+		dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0], glrUnionDFAScan{state: 2, tok: shared}, glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
+		got, ok := p.ownLexModeToken(src, 1, shared, 1, nil, dts)
+		return result{got.Symbol, got.StartByte, got.EndByte, ok}
+	}
+	for _, ext := range []bool{false, true} {
+		a, b := check("axzy", ext), check("axyy", ext)
+		t.Logf("external=%t excluded=z: %+v; excluded=y: %+v", ext, a, b)
+		if a != b {
+			t.Errorf("own-reading result depends on excluded byte (external=%t)", ext)
+		}
+	}
+}
+
+func TestOwnReadingIncludedExternalGuardControls(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		included        bool
+		external        bool
+		externalSymbols bool
+		want            bool
+	}{
+		{"external scanner with ranges", true, true, true, false},
+		{"external symbols with ranges", true, false, true, false},
+		{"scanner with ranges", true, true, false, false},
+		{"external scanner without ranges", false, true, true, true},
+		{"internal scanner with ranges", true, false, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := includedOwnLexModeLanguage()
+			if tc.external {
+				lang.ExternalScanner = includedNoopScanner{}
+			}
+			if tc.externalSymbols {
+				lang.ExternalSymbols = []Symbol{4}
+			}
+			p := NewParser(lang)
+			if tc.included {
+				p.SetIncludedRanges([]Range{{StartByte: 0, EndByte: 2, EndPoint: Point{Column: 2}}})
+			}
+			src := []byte("axz")
+			dts := newDFATokenSourceDirect(NewLexer(lang.LexStates, src), lang, p.lookupActionIndex, nil, nil, nil)
+			defer dts.Close()
+			shared := Token{Symbol: 2, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
+			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0], glrUnionDFAScan{state: 2, tok: shared}, glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
+			got, ok := p.ownLexModeToken(src, 1, shared, 1, nil, dts)
+			if ok != tc.want {
+				t.Fatalf("changed=%v, want %v: %+v", ok, tc.want, got)
+			}
+			if !ok && got != shared {
+				t.Fatalf("declined token changed: %+v", got)
+			}
+		})
+	}
+}

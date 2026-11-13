@@ -6346,6 +6346,11 @@ func (p *Parser) ownLexModeToken(source []byte, state StateID, tok Token, from u
 	if p.electedTokenReusable(dts, state, tok) {
 		return tok, false
 	}
+	// This probe does not model included ranges with an external scanner.
+	// Decline the optional reading rather than inspect excluded source bytes.
+	if len(p.included) != 0 && (lang.ExternalScanner != nil || len(lang.ExternalSymbols) != 0) {
+		return tok, false
+	}
 	relexed, ok, abort := p.scanTokenInStackLexState(source, state, tok, from, lexicalReadSpan, dts)
 	if abort || !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol || relexed.Symbol == lang.KeywordCaptureToken ||
 		relexed.StartByte != tok.StartByte || relexed.EndByte != tok.EndByte || !dts.sameSymbolName(relexed.Symbol, tok.Symbol) ||
