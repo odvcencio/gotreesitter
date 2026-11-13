@@ -35,6 +35,9 @@ func TestTypeScriptModifierMethodNamesLockedC(t *testing.T) {
 				`class Box { public async /* name docs */ commented() {} }`,
 				`class Box { public async ordinary<T>(value: T): Promise<T> { return value; } }`,
 				`class Box { public async () {} }`,
+				`class Box { public value /* c */ (): void {} }`,
+				"class Box { private x // c\n: number }",
+				`class Box { public async /* c */ () {} }`,
 				`class Box { public get size () { return 1; } }`,
 				`class Box { public set size (value: number) {} }`,
 			} {

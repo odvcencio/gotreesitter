@@ -29,6 +29,8 @@ func TestTypeScriptModifierMethodNames(t *testing.T) {
 				{`public async /* name docs */ commented() {}`, "commented"},
 				{`public async ordinary<T>(value: T): Promise<T> { return value; }`, "ordinary"},
 				{`public async () {}`, "async"},
+				{`public value /* c */ (): void {}`, "value"},
+				{`public async /* c */ () {}`, "async"},
 				{`public get size () { return 1; }`, "size"},
 				{`public set size (value: number) {}`, "size"},
 			} {
@@ -58,6 +60,12 @@ func TestTypeScriptModifierMethodNames(t *testing.T) {
 						if node.Type(lang) == "method_definition" {
 							methods++
 							name := node.ChildByFieldName("name", lang)
+							if tc.name == "ordinary" {
+								params := node.ChildByFieldName("type_parameters", lang)
+								if params == nil || string(source[params.StartByte():params.EndByte()]) != "<T>" {
+									t.Error("generic method is missing its type_parameters field")
+								}
+							}
 							if name == nil {
 								t.Error("method has no name field")
 							} else {
@@ -87,6 +95,41 @@ func TestTypeScriptModifierMethodNames(t *testing.T) {
 						checkName("signature", fact.Name, fact.NameStartByte, fact.NameEndByte)
 					}
 				})
+			}
+		})
+	}
+}
+
+// TestTypeScriptModifierFieldNameWithTrailingComment protects a field whose
+// name is followed by a line comment before its type annotation.
+func TestTypeScriptModifierFieldNameWithTrailingComment(t *testing.T) {
+	for _, name := range []string{"typescript", "tsx"} {
+		t.Run(name, func(t *testing.T) {
+			entry := DetectLanguageByName(name)
+			lang := entry.Language()
+			source := []byte("class A { private x // c\n: number }")
+			tree, err := entry.ParseStrict(context.Background(), source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			if tree.RootNode().HasErrorOrMissing() {
+				t.Fatal("unexpected parse error")
+			}
+			fields := 0
+			gts.Walk(tree.RootNode(), func(node *gts.Node, _ int) gts.WalkAction {
+				if node.Type(lang) != "public_field_definition" {
+					return gts.WalkContinue
+				}
+				fields++
+				field := node.ChildByFieldName("name", lang)
+				if field == nil || string(source[field.StartByte():field.EndByte()]) != "x" {
+					t.Error("field name is not x")
+				}
+				return gts.WalkContinue
+			})
+			if fields != 1 {
+				t.Fatalf("fields = %d, want 1", fields)
 			}
 		})
 	}
