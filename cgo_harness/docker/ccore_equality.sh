@@ -87,6 +87,31 @@ if [ "${1:-}" = "--self-test" ]; then
   expect "node readers with masks are accepted" 0 TestCcoreNodes json-masks "$d/nodes"
   expect "node readers with zero masks fail" 1 TestCcoreNodes json-masks "$d/nodes0"
   expect "store chain that sampled nothing fails" 1 TestCcoreStoreChain python "$d/chain0"
+  # Both changed-range modes must compare at least one edit; a valid count
+  # for one mode cannot mask a missing or zero count for the other.
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesAgainstC' 'CCCOUNT test=TestCcoreChangedRangesAgainstC set=json-session:incremental checked=72' 'CCCOUNT test=TestCcoreChangedRangesAgainstC set=json-session:fresh checked=72' '--- PASS: TestCcoreChangedRangesAgainstC (1.00s)' 'PASS' >"$d/ranges-good"
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesAgainstC' 'CCCOUNT test=TestCcoreChangedRangesAgainstC set=json-session:incremental checked=72' '--- PASS: TestCcoreChangedRangesAgainstC (1.00s)' 'PASS' >"$d/ranges-missing-fresh"
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesAgainstC' 'CCCOUNT test=TestCcoreChangedRangesAgainstC set=json-session:incremental checked=72' 'CCCOUNT test=TestCcoreChangedRangesAgainstC set=json-session:fresh checked=0' '--- PASS: TestCcoreChangedRangesAgainstC (1.00s)' 'PASS' >"$d/ranges-zero-fresh"
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesAgainstC' 'CCCOUNT test=TestCcoreChangedRangesAgainstC set=json-session:fresh checked=72' '--- PASS: TestCcoreChangedRangesAgainstC (1.00s)' 'PASS' >"$d/ranges-missing-incremental"
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesAgainstC' 'CCCOUNT test=TestCcoreChangedRangesAgainstC set=json-session:incremental checked=0' 'CCCOUNT test=TestCcoreChangedRangesAgainstC set=json-session:fresh checked=72' '--- PASS: TestCcoreChangedRangesAgainstC (1.00s)' 'PASS' >"$d/ranges-zero-incremental"
+  expect "changed ranges incremental count accepted" 0 TestCcoreChangedRangesAgainstC json-session:incremental "$d/ranges-good"
+  expect "changed ranges fresh count accepted" 0 TestCcoreChangedRangesAgainstC json-session:fresh "$d/ranges-good"
+  expect "changed ranges missing fresh count fails" 1 TestCcoreChangedRangesAgainstC json-session:fresh "$d/ranges-missing-fresh"
+  expect "changed ranges zero fresh count fails" 1 TestCcoreChangedRangesAgainstC json-session:fresh "$d/ranges-zero-fresh"
+  expect "changed ranges missing incremental count fails" 1 TestCcoreChangedRangesAgainstC json-session:incremental "$d/ranges-missing-incremental"
+  expect "changed ranges zero incremental count fails" 1 TestCcoreChangedRangesAgainstC json-session:incremental "$d/ranges-zero-incremental"
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesTypeScriptAliasFixture' 'CCCOUNT test=TestCcoreChangedRangesTypeScriptAliasFixture set=typescript checked=1' '--- PASS: TestCcoreChangedRangesTypeScriptAliasFixture (0.01s)' 'PASS' >"$d/alias-good"
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesTypeScriptAliasFixture' 'CCCOUNT test=TestCcoreChangedRangesTypeScriptAliasFixture set=typescript checked=0' '--- PASS: TestCcoreChangedRangesTypeScriptAliasFixture (0.01s)' 'PASS' >"$d/alias-zero"
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesTypeScriptAliasFixture' '--- PASS: TestCcoreChangedRangesTypeScriptAliasFixture (0.01s)' 'PASS' >"$d/alias-missing"
+  expect "TypeScript alias fixture accepted" 0 TestCcoreChangedRangesTypeScriptAliasFixture typescript "$d/alias-good"
+  expect "TypeScript alias fixture zero count fails" 1 TestCcoreChangedRangesTypeScriptAliasFixture typescript "$d/alias-zero"
+  expect "TypeScript alias fixture missing count fails" 1 TestCcoreChangedRangesTypeScriptAliasFixture typescript "$d/alias-missing"
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesIncludedJSONAgainstC' 'CCCOUNT test=TestCcoreChangedRangesIncludedJSONAgainstC set=json checked=1' '--- PASS: TestCcoreChangedRangesIncludedJSONAgainstC (0.01s)' 'PASS' >"$d/included-good"
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesIncludedJSONAgainstC' 'CCCOUNT test=TestCcoreChangedRangesIncludedJSONAgainstC set=json checked=0' '--- PASS: TestCcoreChangedRangesIncludedJSONAgainstC (0.01s)' 'PASS' >"$d/included-zero"
+  printf '%s\n' '=== RUN   TestCcoreChangedRangesIncludedJSONAgainstC' '--- PASS: TestCcoreChangedRangesIncludedJSONAgainstC (0.01s)' 'PASS' >"$d/included-missing"
+  expect "included-range fixture accepted" 0 TestCcoreChangedRangesIncludedJSONAgainstC json "$d/included-good"
+  expect "included-range fixture zero count fails" 1 TestCcoreChangedRangesIncludedJSONAgainstC json "$d/included-zero"
+  expect "included-range fixture missing count fails" 1 TestCcoreChangedRangesIncludedJSONAgainstC json "$d/included-missing"
   exit "$fails"
 fi
 
@@ -145,6 +170,18 @@ for set in $sets; do
 done
 if [ -n "$inc" ]; then
   run TestCcoreIncremental "$inc" CCINC "$norm" CCORE_INC_SET=$inc; total_inc=$((total_inc + last_n))
+fi
+# Each changed-ranges comparison mode needs a separate positive count.
+if [ "$lang" = json ] || [ "$lang" = python ] || [ "$lang" = typescript ]; then
+  extra_set="${inc}:fresh"
+  run TestCcoreChangedRangesAgainstC "${inc}:incremental" CCORECHANGEDRANGES "$norm" CCORE_INC_SET=$inc
+  extra_set=""
+fi
+if [ "$lang" = typescript ]; then
+  run TestCcoreChangedRangesTypeScriptAliasFixture typescript CCALIASCOMPARE CCORE_ALIAS_LANG=typescript
+fi
+if [ "$lang" = json ]; then
+  run TestCcoreChangedRangesIncludedJSONAgainstC json CCINCLUDEDRANGE CCORE_INCLUDED_RANGE_LANG=json
 fi
 run TestCcoreTables "$lang" CCTABLES CCORE_LANGS=$lang
 # The exact-lexer record against the compiled C lexer: every lex state at the end
