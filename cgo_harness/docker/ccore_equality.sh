@@ -150,6 +150,7 @@ run TestCcoreTables "$lang" CCTABLES CCORE_LANGS=$lang
 # The exact-lexer record against the compiled C lexer: every lex state at the end
 # of input and on lookahead -1, and every code point against the shipped blob.
 if [ "$lang" = json ]; then run TestLexProbe json CCLEXPROBE LEXPROBE_LANG=json LEXPROBE_REQUIRE_RECORD=1 LEXPROBE_FULL=1 LEXPROBE_BLOB_STRICT=1; fi
+if [ "$lang" = json ]; then run TestCcoreFieldLookupPathsAgainstC json CCCOUNT CCORE_FIELD_GRAMMAR=json; fi
 run TestCcoreScannerIsolation "$lang" CCCOUNT "$norm" CCORE_LANG=$lang
 # The value-node readers against C (every node of the language's samples: flags, positions,
 # counts, children by index, field names, cursor field, supertype mask), fresh and after
