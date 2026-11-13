@@ -25,7 +25,7 @@ func rustRecoverWrappedFunctionBlockNodesFromRange(source []byte, start, end uin
 	if startPoint.Row < prefixPoint.Row {
 		return nil, false
 	}
-	offsetRoot := tree.RootNodeWithOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
 	if offsetRoot == nil || offsetRoot.HasError() {
 		return nil, false
 	}
@@ -204,7 +204,7 @@ func rustRecoverPatternNodeFromRange(source []byte, start, end uint32, p *Parser
 	if startPoint.Row < prefixPoint.Row {
 		return nil, false
 	}
-	offsetRoot := tree.RootNodeWithOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
 	if offsetRoot == nil || offsetRoot.HasError() {
 		return nil, false
 	}
@@ -255,7 +255,7 @@ func rustRecoverRustExpressionNodeFromRange(source []byte, start, end uint32, p 
 	if startPoint.Row < prefixPoint.Row {
 		return nil, false
 	}
-	offsetRoot := tree.RootNodeWithOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
 	if offsetRoot == nil || offsetRoot.HasError() {
 		return nil, false
 	}
@@ -483,7 +483,7 @@ func rustRecoverImplHeaderNodesFromRange(source []byte, start, blockStart uint32
 	}
 	defer tree.Release()
 	startPoint := advancePointByBytes(Point{}, source[:start])
-	offsetRoot := tree.RootNodeWithOffset(start, startPoint)
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start, startPoint)
 	if offsetRoot == nil || offsetRoot.HasError() {
 		return nil, false
 	}
@@ -585,7 +585,7 @@ func rustRecoverWrappedImplBodyNodesFromRange(source []byte, start, end uint32, 
 	if startPoint.Row < prefixPoint.Row {
 		return nil, false
 	}
-	offsetRoot := tree.RootNodeWithOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
+	offsetRoot := tree.rootNodeWithRecoveryOffset(start-uint32(len(prefix)), Point{Row: startPoint.Row - prefixPoint.Row, Column: startPoint.Column})
 	if offsetRoot == nil || offsetRoot.HasError() {
 		return nil, false
 	}

@@ -73,27 +73,42 @@ func (p *Parser) rnReset(tree Handle) { // reusable_node_reset
 	}
 }
 
-// C/parser.c:753 ts_parser__reuse_node.
+// C/parser.c:753 ts_parser__reuse_node. The record of the candidate is fetched
+// once per candidate; the answers are the accessors' (symbol, totalSize,
+// hasChanges, missing, isFragile).
 func (p *Parser) reuseNode(version int, state *uint16, position uint32, lastExternal Handle, entry *actionEntry) Handle {
 	for {
 		result := p.rnTree()
 		if result == 0 {
 			break
 		}
+		var r *rec
+		if result&1 == 0 {
+			r = p.rec(result)
+		}
+		var sym Symbol
+		var total Length
+		if r != nil {
+			sym = r.symbol
+			total = lenAdd(r.padding, r.size)
+		} else {
+			sym = p.symbol(result)
+			total = p.totalSize(result)
+		}
 		byteOffset := p.rnByteOffset()
-		endByteOffset := byteOffset + p.totalSize(result).bytes
-		if p.symbol(result) == 0 {
+		endByteOffset := byteOffset + total.bytes
+		if sym == 0 {
 			endByteOffset = ^uint32(0)
 		}
 		if byteOffset > position {
 			if p.logf != nil {
-				p.log("before_reusable_node symbol:%s", p.symName(p.symbol(result)))
+				p.log("before_reusable_node symbol:%s", p.symName(sym))
 			}
 			break
 		}
 		if byteOffset < position {
 			if p.logf != nil {
-				p.log("past_reusable_node symbol:%s", p.symName(p.symbol(result)))
+				p.log("past_reusable_node symbol:%s", p.symName(sym))
 			}
 			if endByteOffset <= position || !p.rnDescend() {
 				p.rnAdvance()
@@ -102,27 +117,41 @@ func (p *Parser) reuseNode(version int, state *uint16, position uint32, lastExte
 		}
 		if !p.extStateEq(p.rnLastExt, lastExternal) {
 			if p.logf != nil {
-				p.log("reusable_node_has_different_external_scanner_state symbol:%s", p.symName(p.symbol(result)))
+				p.log("reusable_node_has_different_external_scanner_state symbol:%s", p.symName(sym))
 			}
 			p.rnAdvance()
 			continue
 		}
 		reason := ""
-		switch {
-		case p.hasChanges(result):
-			reason = "has_changes"
-		case p.symbol(result) == symError:
-			reason = "is_error"
-		case p.missing(result):
-			reason = "is_missing"
-		case p.isFragile(result):
-			reason = "is_fragile"
-		case p.hasIncludedRangeDifference(byteOffset, endByteOffset):
+		if r != nil {
+			switch {
+			case r.flags&heapHasChanges != 0:
+				reason = "has_changes"
+			case sym == symError:
+				reason = "is_error"
+			case r.flags&heapMissing != 0:
+				reason = "is_missing"
+			case r.flags&(heapFragileLeft|heapFragileRight) != 0:
+				reason = "is_fragile"
+			}
+		} else {
+			switch {
+			case p.hasChanges(result):
+				reason = "has_changes"
+			case sym == symError:
+				reason = "is_error"
+			case p.missing(result):
+				reason = "is_missing"
+			case p.isFragile(result):
+				reason = "is_fragile"
+			}
+		}
+		if reason == "" && p.hasIncludedRangeDifference(byteOffset, endByteOffset) {
 			reason = "contains_different_included_range"
 		}
 		if reason != "" {
 			if p.logf != nil {
-				p.log("cant_reuse_node_%s tree:%s", reason, p.symName(p.symbol(result)))
+				p.log("cant_reuse_node_%s tree:%s", reason, p.symName(sym))
 			}
 			if !p.rnDescend() {
 				p.rnAdvance()
@@ -135,18 +164,18 @@ func (p *Parser) reuseNode(version int, state *uint16, position uint32, lastExte
 		*entry = p.tableEntry(*state, leafSym)
 		if !p.canReuseFirstLeaf(*state, result, *entry) {
 			if p.logf != nil {
-				p.log("cant_reuse_node symbol:%s, first_leaf_symbol:%s", p.symName(p.symbol(result)), p.symName(leafSym))
+				p.log("cant_reuse_node symbol:%s, first_leaf_symbol:%s", p.symName(sym), p.symName(leafSym))
 			}
 			p.rnAdvancePastLeaf()
 			break
 		}
 		if p.logf != nil {
-			p.log("reuse_node symbol:%s", p.symName(p.symbol(result)))
+			p.log("reuse_node symbol:%s", p.symName(sym))
 		}
 		p.reusedNodes++
-		p.reusedBytes += uint64(p.totalSize(result).bytes)
-		if b := p.totalSize(result).bytes; b > p.largestReuse {
-			p.largestReuse = b
+		p.reusedBytes += uint64(total.bytes)
+		if total.bytes > p.largestReuse {
+			p.largestReuse = total.bytes
 		}
 		return result
 	}

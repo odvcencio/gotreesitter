@@ -2,39 +2,90 @@ package ccore
 
 // C/tree.c ts_tree_edit and C/subtree.c ts_subtree_edit.
 //
-// Lifetime without reference counts: C copies a node on the edit path only
-// when it is shared (ts_subtree_make_mut). Here every node on the edit path
-// is copied into new records, with a fresh copy of its children range, so
+// Lifetime: C copies a node on the edit path only when it is shared
+// (ts_subtree_make_mut). Here every node on the edit path is copied into new
+// records, with a fresh copy of its child list and its scanner-state bytes, so
 // the old tree stays valid and unchanged; untouched subtrees are shared by
-// handle. Nothing is reclaimed.
+// handle and retained (Tree.Edit queues the retains). Published records are
+// never written.
 
 type editRange struct{ start, oldEnd, newEnd Length } // C Edit
 
-// treeEdit is C/tree.c ts_tree_edit without included ranges (the
-// ts_range_edit loop over included ranges is the hook left out).
-func (p *Parser) treeEdit(root Handle, e editRange) Handle {
-	return p.subtreeEdit(root, e)
+// editor allocates for the edit: the edit allocator (edit true: used by
+// Tree.Edit) or the parse's allocator (edit false).
+type editor struct {
+	s    *Store
+	edit bool
 }
 
-// subtreeEdit is C/subtree.c ts_subtree_edit. A slot is the root (-1) or
-// an index into the children arena of a copied node.
-func (p *Parser) subtreeEdit(self Handle, input editRange) Handle {
+func (e *editor) cur() *arenaCur {
+	if e.edit {
+		return &e.s.core.ec
+	}
+	return &e.s.core.pc
+}
+
+func (e *editor) addRec(r rec) Handle {
+	if e.edit {
+		return e.s.addEdit(r)
+	}
+	return e.s.add(r)
+}
+
+// claim takes the record slot before the caller allocates the storage that the
+// record will own; fill sets the record afterwards.
+func (e *editor) claim() Handle {
+	if e.edit {
+		return e.s.claimEdit()
+	}
+	return e.s.claim()
+}
+
+func (e *editor) fill(h Handle, r rec) {
+	if e.edit {
+		e.s.fillEdit(h, r)
+		return
+	}
+	e.s.fill(h, r)
+}
+
+func (e *editor) copyKids(start, n uint32) uint32 {
+	if n == 0 {
+		return 0
+	}
+	var at uint32
+	if e.edit {
+		at = e.s.allocKidsEdit(n)
+	} else {
+		at = e.s.allocKids(e.cur(), n, e.s.logging)
+	}
+	copy(e.s.kidSpan(at, n), e.s.kidSpan(start, n))
+	return at
+}
+
+// subtreeEdit is C/subtree.c ts_subtree_edit. It returns the new root and
+// the records it created. A location is the root or a slot of a copied
+// record's child list.
+func (s *Store) subtreeEdit(ed *editor, self Handle, input editRange) (Handle, []Handle) {
 	type entry struct {
-		slot int
+		kids []Handle // nil: the root
+		i    int
 		edit editRange
 	}
-	stack := []entry{{slot: -1, edit: input}}
-	get := func(slot int) Handle {
-		if slot < 0 {
+	var created []Handle
+	p := s
+	stack := []entry{{edit: input}}
+	get := func(en entry) Handle {
+		if en.kids == nil {
 			return self
 		}
-		return p.kidAt(slot)
+		return en.kids[en.i]
 	}
 	for len(stack) > 0 {
 		en := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 		edit := en.edit
-		tree := get(en.slot)
+		tree := get(en)
 		isNoop := edit.oldEnd.bytes == edit.start.bytes && edit.newEnd.bytes == edit.start.bytes
 		isPureInsertion := edit.oldEnd.bytes == edit.start.bytes
 		parentDependsOnColumn := p.dependsOnColumn(tree)
@@ -82,32 +133,41 @@ func (p *Parser) subtreeEdit(self Handle, input editRange) Handle {
 				if uint64(tree)&inlKeyword != 0 {
 					fl |= heapKeyword
 				}
-				result = p.add(rec{padding: padding, size: size, lookaheadBytes: lookahead,
+				result = ed.addRec(rec{padding: padding, size: size, lookaheadBytes: lookahead,
 					symbol: p.symbol(tree), parseState: p.parseState(tree), flags: fl})
 			}
 		} else {
 			r := *p.rec(tree)
 			r.padding, r.size = padding, size
 			r.flags |= heapHasChanges
+			nh := ed.claim()
 			if r.childCount > 0 {
-				r.childrenStart = p.copyKids(r.childrenStart, r.childCount)
+				r.childrenStart = ed.copyKids(r.childrenStart, r.childCount)
+			} else {
+				p.cloneState(&r, ed.cur())
 			}
-			result = p.add(r)
+			ed.fill(nh, r)
+			result = nh
 		}
-		if en.slot < 0 {
+		if result&1 == 0 {
+			created = append(created, result)
+			if ed.edit {
+				p.core.fire("edit-record") // test hook: after an edited record exists
+			}
+		}
+		if en.kids == nil {
 			self = result
 		} else {
-			p.setKidAt(en.slot, result)
+			en.kids[en.i] = result
 		}
 		var childLeft, childRight Length
 		n := p.childCount(result)
-		var base uint32
+		var kids []Handle
 		if n > 0 {
-			base = p.rec(result).childrenStart
+			kids = p.children(result)
 		}
 		for i := uint32(0); i < n; i++ {
-			slot := int(base + i)
-			child := p.kidAt(slot)
+			child := kids[i]
 			childSize := p.totalSize(child)
 			childLeft = childRight
 			childRight = lenAdd(childLeft, childSize)
@@ -130,8 +190,8 @@ func (p *Parser) subtreeEdit(self Handle, input editRange) Handle {
 				childEdit.oldEnd = childEdit.start
 				childEdit.newEnd = childEdit.start
 			}
-			stack = append(stack, entry{slot: slot, edit: childEdit})
+			stack = append(stack, entry{kids: kids, i: int(i), edit: childEdit})
 		}
 	}
-	return self
+	return self, created
 }

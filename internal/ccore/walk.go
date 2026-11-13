@@ -98,8 +98,6 @@ func (p *Parser) visitChildren(h Handle, start Length, emit func(h Handle, start
 	}
 }
 
-func (p *Parser) digest() string { return p.digestOf(p.finished, false) }
-
 // digestOf digests any root in the arena; changes adds the has_changes marks.
 func (p *Parser) digestOf(root Handle, changes bool) string {
 	if root == 0 {
@@ -129,11 +127,12 @@ func (p *Parser) digestOf(root Handle, changes bool) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (p *Parser) walk() int {
+// walkCount counts the visible nodes under root.
+func (p *Parser) walkCount(root Handle) int {
 	count := 0
-	if p.finished == 0 {
+	if root == 0 {
 		return 0
 	}
-	p.visit(p.finished, p.padding(p.finished), 0, func(n Handle, start Length, alias Symbol) { count++ })
+	p.visit(root, p.padding(root), 0, func(n Handle, start Length, alias Symbol) { count++ })
 	return count
 }

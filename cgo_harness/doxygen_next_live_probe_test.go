@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -19,7 +18,7 @@ import (
 const (
 	doxygenNextGrammarCommit   = "ccd998f378c3f9345ea4eeb223f56d7b84d16687"
 	doxygenNextCGrammarRepo    = "https://github.com/amaanq/tree-sitter-doxygen"
-	doxygenNextCArtifactSHA256 = "1fe84dfe69da98a5860f2261fc8deb2cf250aa4ae07c2ecf3bace5dfe396d11e"
+	doxygenNextCArtifactSHA256 = "3df79781410adfeac10b2c5c57c1261d95acff3c67ed1787c1fcbddc372ff083"
 	doxygenNextCContract       = "tree-sitter-c-v1"
 	doxygenNextCRuntimeVersion = "0.27.1"
 	doxygenNextCRuntimeCommit  = "10eb5ac119eec9cb4267a8e035066473983f5f3a"
@@ -258,49 +257,4 @@ func doxygenNextFileSHA(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return fmt.Sprintf("%x", sha256.Sum256(data))
-}
-
-// TestDoxygenNextLiveArmReceiptDocument guards the current blocker receipt.
-func TestDoxygenNextLiveArmReceiptDocument(t *testing.T) {
-	doc, err := os.ReadFile("../docs/root-normalization-retirement.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	documentText := string(doc)
-	sectionStart := strings.Index(documentText, "## 2026-08-23 Doxygen dispatcher blocker receipt")
-	if sectionStart < 0 {
-		t.Fatal("Doxygen N31k section is missing")
-	}
-	sectionEndRelative := strings.Index(documentText[sectionStart:], "\n### R3 — move materialization invariants upstream")
-	if sectionEndRelative < 0 {
-		t.Fatal("Doxygen N31k section end is missing")
-	}
-	document := strings.Join(strings.Fields(documentText[sectionStart:sectionStart+sectionEndRelative]), " ")
-	for _, marker := range []string{
-		"Status: `KEEP LIVE / NO-GO`. Keep `dispatch.doxygen` live.",
-		"The focused Doxygen probe covers raw, production, compact, forest, incremental, and locked-C routes.",
-		"Included-ranges coverage is not applicable to Doxygen.",
-		"Go and C both report digest `1ae089a98760be594f06d0820951e01714097e99621cc2cd4428ce09ba867083`.",
-		"The A0 Doxygen fixtures have zero rewrites.",
-		"The A0 production passes report checked/run/rewritten values of `1/1/0` for `CMakeLists.txt` and `example.cfg`.",
-		"The compact counter deltas are exact.",
-		"Forest decline reasons are witness-specific.",
-		"The successful route receipt is under `/tmp/gts-n31k-doxygen-artifacts/20260823T152330Z-n31k-route-repair-v2`.",
-		"Its `container.log` SHA-256 is `5c9e3f3173bb43294152bf2555413cdc9e95e63d6e2821e841c3bd79e7216626`.",
-		"The first document guard receipt is under `/tmp/gts-n31k-doxygen-artifacts/20260823T152357Z-n31k-document-first-repair-v1`.",
-		"Its `container.log` SHA-256 is `3bcc26bfbdb52b8e98e001f74f204c34e60e85e387fb6f2950f79a8cc7c7aa77`.",
-		"The final document guard receipt is under `/tmp/gts-n31k-doxygen-artifacts/20260823T152453Z-n31k-document-final-repair-v1`.",
-		"Its `container.log` SHA-256 is `cea994a81199e3f792ffc1865f6405dcc891fa9a35d277b954441490575843c3`.",
-		"The final marker-validation artifact is under `/tmp/gts-n31k-doxygen-artifacts/20260823T152530Z-n31k-document-final-repair-v2`.",
-		"Its `container.log` SHA-256 is `42dadbaefc2af5496b8cb2bcaeda7ab0e90dcfdc8e3c74751a3d50ac9185f241`.",
-		"The next document guard is the terminal external verifier. Do not self-pin its path or hash because self-pinning creates a circular receipt.",
-		"Each incremental check parses the pinned source with one trailing space.",
-		"The incremental probe deletes one deterministic trailing space from each parsed source, then checks the original source digest and profile.",
-	} {
-		marker = strings.Join(strings.Fields(marker), " ")
-		if !strings.Contains(document, marker) {
-			t.Fatalf("Doxygen receipt lacks marker %q", marker)
-		}
-		t.Logf("checked marker=%s", marker)
-	}
 }

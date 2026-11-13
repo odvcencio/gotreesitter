@@ -12,14 +12,8 @@ point built-in grammar loaders at local grammargen `.bin` overrides.
 `prune_harness_artifacts.sh` reports root build products, reproducible caches,
 and run receipts separately. It defaults to a dry run. `--delete` removes only
 root build products and reproducible caches; durable harness and benchmark
-receipts require the separate `--delete-receipts` opt-in. It never includes
-private `.gts/`, `.tiller/`, or other agent notes.
-
-`canopy_query.sh` validates the cached index before each structural query. It
-uses a fresh scoped query when indexed files or the source set changed.
-
-`refresh_canopy_index.sh` builds a temporary index and validates it. It records
-the Git commit only after it promotes the validated index.
+receipts require the separate `--delete-receipts` opt-in. Private agent state and
+notes are never cleanup targets.
 
 `check_generated_ownership.sh` checks each tracked generated Go file. It
 requires one standard marker and a known generator command.
@@ -29,8 +23,7 @@ lock change moves. It writes the lock SHA-256 into the A0 census manifest,
 then writes the manifest SHA-256 into the four `*A0ManifestSHA256` receipt
 constants under `cgo_harness`. Pass `--tracked` to refresh the four
 `*TrackedManifestSHA256` constants from the tracked census manifest. Pass
-`--check` to report drift without an edit; CI runs that mode. The script never
-edits `docs/root-normalization-retirement.md`.
+`--check` to report drift without an edit; CI runs that mode.
 
 `run_randomized_benchmarks.sh` runs the production, incremental, recovery,
 replay, compact-core, and corridor benchmarks once per explicit shuffle seed.

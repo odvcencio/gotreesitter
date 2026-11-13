@@ -5,8 +5,8 @@
 //
 // It produces one boundary-defined attribution receipt (a markdown table and
 // a JSON file) over the compact parser core's fresh-full-parse CPU, plus a
-// noise floor and a cost-per-event join. See docs/perf-attribution.md for the
-// methodology this tool implements and the first published receipt.
+// noise floor and a cost-per-event join. The methodology is in the
+// package documentation of this tool.
 //
 // Usage (from the repository root):
 //

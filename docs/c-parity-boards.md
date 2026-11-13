@@ -1,10 +1,9 @@
 # C parity boards
 
-This document is the board index for the strict locked-C parity program
-(decision 0007). Each board names a test, its scope, and the count on the
-date given. Update the counts when a board moves. Counts dated 2026-10-28
-or later use the C oracle 0.27.1 unless the text names another version.
-Earlier counts use 0.25.1.
+This document is the board index for the strict locked-C parity program.
+Each board names a test, its scope, and its latest count. Update the counts
+when a board moves. Counts use the C oracle 0.27.1 unless the text names
+another version.
 
 ## Query semantics
 
@@ -13,11 +12,8 @@ Test: `cgo_harness/parity_query_semantics_test.go`
 through both engines and compares the captures. A query the C compiler
 rejects must be rejected by Go too.
 
-Counts on 2026-09-08: 103 cases, 101 agree, 2 known divergences.
-
-Counts on 2026-10-28 (C oracle 0.27.1): 103 cases, 99 agree, 4 known
-divergences. Three of the four are new with 0.27.1, and they break the rule
-above: C rejects the query and Go compiles it. For a grammar with an ABI 15
+Count: 103 cases, 99 agree, 4 known divergences. Three of the four break the
+rule above: C rejects the query and Go compiles it. For a grammar with an ABI 15
 subtype map, the 0.27.1 C query compiler requires each direct child of a
 supertype pattern to be one of the supertype's listed subtypes, and reports
 `Impossible pattern` otherwise. In javascript and python (both ABI 15),
@@ -26,9 +22,7 @@ for ABI 14 grammars, so luau `(expression (identifier) @i)` still compiles
 and agrees.
 The 0.25.1 compiler accepted all three.
 [Issue 1545](https://github.com/odvcencio/gotreesitter/issues/1545) tracks
-the Go repairs for the 0.27.1 differences. The go
-`(_simple_type/type_identifier)` row of 2026-09-08 is closed: the engines
-agree on it under both oracles.
+the Go repairs for the 0.27.1 differences.
 
 | Case | Owner board | Cause |
 | --- | --- | --- |
@@ -54,9 +48,8 @@ Semantics the Go engine now shares with the C query cursor:
 Generated exact queries: `TestParityQueryExactTop50Generated`
 (`cgo_harness/parity_query_top50_test.go`; it needs `GTS_PARITY_MODE=top50`
 or `exhaustive`) builds queries from each top-50 language's smoke sample and
-compares the captures. Counts on 2026-10-28: 416 generated queries across 50
-languages. All 416 agree under the 0.25.1 oracle. Under 0.27.1, 408 agree
-and 8 differ: the
+compares the captures. Count: 416 generated queries across 50 languages. Under
+0.27.1, 408 agree and 8 differ: the
 `adjacent_sibling_run_plus` and `adjacent_sibling_run_star` cases for sql,
 haskell, objc, and json5. Those 8 are on the 0.27.1 known-differences list
 (`cgo_harness/c_oracle_known_differences_test.go`, issue 1545). C 0.27.1
@@ -71,12 +64,7 @@ Test: `cgo_harness/parity_highlight_test.go` (`TestParityHighlight`,
 `GTS_PARITY_MODE=exhaustive`). Capture-level comparison of every bundled
 highlight query.
 
-Counts on 2026-09-08: 206 languages, 204 agree, 2 skipped (hurl, mojo;
-recorded then as having no C reference build, which the 2026-10-28 count
-below corrects), 0 tolerance entries.
-
-Counts on 2026-10-28 (C oracle 0.27.1; job `parity-cgo-exhaustive` of CI run
-40787959886): 206 languages, 199 agree, 7 skipped, 0 tolerance entries. The
+Count: 206 languages, 199 agree, 7 skipped, 0 tolerance entries. The
 test skips a language when the C compiler rejects its bundled highlight
 query. C reports each error position as line:column in that query.
 
@@ -90,12 +78,9 @@ query. C reports each error position as line:column in that query.
 | fsharp | `Impossible pattern` at 352:3: `(long_identifier (identifier) @type.builtin)` under `(_type ...)` | 0.27.1 only |
 | solidity | `Invalid syntax` at 90:58: the trailing anchor in `(struct_expression type: ((expression(identifier)) @type .))` | 0.27.1 only |
 
-Go still compiles the fsharp and solidity queries. In both CI runs, hurl and
-mojo load in C and are skipped for the query error above, not for a missing C
-build. On the 0.25.1 oracle (nightly CI run 40666627210, at 25b966e50,
-before the highlight query upgrades of PR 1539), 201 agree and 5 are skipped:
-the first five rows. The fsharp and solidity queries are byte-identical in
-the two runs, so those two skips come from the oracle change.
+Go still compiles the fsharp and solidity queries. Under the 0.25.1 oracle
+only the first five rows are skipped; the other two skips come from the oracle
+change.
 
 ## Supertype map
 
@@ -105,12 +90,8 @@ Test: `cgo_harness/parity_supertype_map_test.go`
 `ts_language_subtypes`. `GTS_PARITY_SUPERTYPE_MAP_STRICT=1` fails the test
 on any divergence.
 
-Counts on 2026-09-08: 69 grammars with supertypes, 40 agree, 29 diverge.
-
-Counts on 2026-10-28 (both oracles): 69 grammars with supertypes, 36 agree,
-33 diverge, 0 without a C reference. The count is the same under 0.25.1 and
-0.27.1, so the oracle change did not cause the drop from 40 agree and 29
-diverge on 2026-09-08. The cause of that drop is not traced.
+Count: 69 grammars with supertypes, 36 agree, 33 diverge, 0 without a C
+reference. The count is the same under 0.25.1 and 0.27.1.
 
 Two causes are visible in the report:
 
@@ -123,9 +104,8 @@ Two causes are visible in the report:
   anonymous tokens.
 
 The query compiler validates `super/sub` against this map, so the board
-gates that feature. The fix is a map rebuild in grammargen and the blob
-decoder; the shipped blobs are pinned by identity, so the rebuild is its
-own change.
+gates that feature. The shipped blobs are pinned by identity, so a rebuilt
+map in grammargen and the blob decoder is a separate change.
 
 ## Recovery
 
@@ -136,84 +116,10 @@ the trees node by node. `GTS_PARITY_RECOVERY_STRICT=1` fails the test on any
 divergence of the default route. The compact route delegates recovery to the
 production port on every case, so the three route columns agree.
 
-Counts on 2026-09-08: 78 cases, 36 agree on the default route (29 before
-this round). With `GOT_C_RECOVERY=all`, 46 agree; the difference is
-JavaScript, which stays on the legacy path (see below).
-
-Counts on 2026-09-19 (reserved-word case added): 79 cases (added
-`javascript "var if = 1;\n"`, a reserved-word-as-binding-identifier
-regression case), 36 agree on the default route — unchanged, because the
-added case still diverges on the same pre-existing `extra`-flag gap the
-table below already tracks for several other top-level ERROR cases.
-`pushOrExtendErrorNode` now keeps each absorbed real token as the ERROR's
-own child instead of nesting a second ERROR that drops it, verified
-directly by `TestJavaScriptReservedWordBindingAbsorbsTokensAsDirectChildren`;
-the board comparison stops at the `extra`-flag mismatch before it reaches
-that shape, so the aggregate count does not move.
-
-Counts on 2026-09-19 (two residuals closed): 79 cases, 38 agree on the
-default route. Two fixes moved the count:
-
-- An absorbed real token no longer carries its own error bit
-  (`pushOrExtendErrorNode`, both the open-region extend site and the
-  new-wrapper site); only the ERROR container is erroneous, matching C's
-  `ts_subtree_error_cost`. This closes javascript
-  `"let x = 1;\n}\nlet y = 2;\n"` and `"let x = 1;\n)\nlet y = 2;\n"`, and
-  is verified byte-for-byte against the C oracle for the wolfram
-  `small__PacletInfo.m` A0 witness (now case `a0-small-PacletInfo` of
-  `TestRetiredInertArmsLockedCParity` in
-  `cgo_harness/retired_inert_arm_parity_test.go`; PR #1541 deleted
-  `TestWolframNextLiveArmLockedCRoutes`).
-- `tryResyncErrorRecoveryMode`'s top-level "recover to a previous state"
-  ERROR is now `extra`, matching C's `ts_parser__recover_to_state`
-  (`ts_subtree_new_error_node(&slice.subtrees, true, language)`). This
-  moves the javascript `"var if = 1;\n"` divergence past the `extra`-flag
-  block to a new, narrower one: the absorbed `var`/`if`/`=` leaves this
-  path splices in still carry their own `extra` bit, which C does not give
-  them. That leaf-level gap is unclosed and not counted in the 38.
-
-Counts on 2026-09-19 (leaf `extra` gap closed): 79 cases, 39 agree on the
-default route.
-
-The root cause was not the splice. It was `tryReplayTopLevelRecovery`
-(`parser_reduce.go`). This function marks a popped, ordinary token
-`extra` when it reattaches the token without a real GOTO transition
-(`findTopLevelReplaySplit`). The mark keeps the token out of the next
-production's arity count. C has no equivalent step. A strategy-1
-recovery in C always wraps popped content in an ERROR instead.
-
-In the `"var if = 1;\n"` witness, the `var` leaf keeps that mark even
-after a later resync folds it into a real ERROR.
-`tryResyncErrorRecoveryMode` builds that ERROR from a validated GOTO
-chain and places `var` beside `if` and `=`. C never marks a plain
-absorbed child `extra`. Only the ERROR wrapper carries the bit
-(`ts_subtree_new_error_node`).
-
-The fix adds one runtime-only node flag,
-`nodeFlagRecoveryPlaceholderExtra`. The flag marks a mark as
-provisional. `tryResyncErrorRecoveryMode` and
-`tryNearestActionStateRecovery` clear both bits when such a node
-becomes a plain ERROR child. This restores the flag the node had when
-lexed and closes the javascript `"var if = 1;\n"` case.
-
-No other language's row moved. A Docker receipt sweep of the 31
-pinned-digest tests from the previous round (`cgo_harness`
-`*LockedCRoutes`, `*DispatcherBlockerReceipt`, and `*NextLiveArm*`
-tests, plus the Perl receipt) shows byte-identical digests before and
-after. No receipt needed a re-pin.
-
-Counts on 2026-10-28 (C oracle 0.27.1): 79 cases, 44 agree on the default
-route. The same Go code agrees on 43 cases under the 0.25.1 oracle. One case
-moved with the oracle: rust `fn f() { let x = 1 + }`. Go already built the
-tree that 0.27.1 produces. With `GOT_C_RECOVERY=all`, 52 agree; the
-difference from the default route is JavaScript, which agrees on 12 of 17
-cases.
-
-The table shows the default route on 2026-10-28. The compact and production
-route columns of the board report the same counts. Four cells changed from
-the table of 2026-09-19. Rust moved with the oracle (above). The c and
-typescript rows had not been re-counted since 2026-09-19. The javascript
-figure with the C recovery port rose from 11 to 12.
+Count: 79 cases, 44 agree on the default route. With `GOT_C_RECOVERY=all`,
+52 agree; the difference from the default route is JavaScript, which agrees
+on 12 of 17 cases. The compact and production route columns of the board
+report the same counts. The table shows the default route.
 
 | Language | Cases | Agree |
 | --- | --- | --- |
@@ -256,7 +162,7 @@ witness:
 | julia | `TestJuliaTrailingCommaAssignmentTupleCompatibility` | The scanner emits a zero-width identifier that hides the error C reports. |
 | html | `TestExternalLexStatesRecoveryElectionOptOutInventory` | The external lex election ledger keeps html opted out; no board case measures html yet. |
 
-Divergence classes that remain, in burn-down order:
+Divergence classes that remain:
 
 1. The python root repair (`repairPythonRootNode`,
    `collapsePythonRootFragments`) dissolves an extra ERROR wrapper. The
@@ -284,7 +190,7 @@ Divergence classes that remain, in burn-down order:
    flat end-of-input wrap without the extra bit wins.
 5. Version merging after recovery. C merges forks that reach the same state
    and position, which bounds the work after an error; the port keeps them
-   apart, which is the JavaScript W5 cost.
+   apart, which is the JavaScript incremental-edit cost.
 6. Strategy selection with missing tokens (cpp witness above) and the
    remaining shape divergences in go, rust, and typescript.
 7. Silent recovery. Some malformed sources parse on the Go routes with no

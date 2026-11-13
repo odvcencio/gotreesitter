@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the typescript grammar.
@@ -121,7 +122,8 @@ func (TypeScriptExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.L
 	return s
 }
 
-func (TypeScriptExternalScanner) Create() any                           { return nil }
+// Create returns a payload that holds only the C-faithful mode (internal/scanmode).
+func (TypeScriptExternalScanner) Create() any                           { return &scanmode.Flag{} }
 func (TypeScriptExternalScanner) Destroy(payload any)                   {}
 func (TypeScriptExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (TypeScriptExternalScanner) Deserialize(payload any, buf []byte)   {}
@@ -177,6 +179,10 @@ func (s TypeScriptExternalScanner) Scan(payload any, lexer *gotreesitter.Externa
 	var semanticValid [tsTokenCount]bool
 	validSymbols = s.remapValidSymbols(validSymbols, &semanticValid)
 	symbols := s.symbolTable()
+
+	if scanmode.Of(payload) {
+		return s.scanC(lexer, validSymbols, symbols)
+	}
 
 	if tsValid(validSymbols, tsTokTemplateChars) {
 		if tsValid(validSymbols, tsTokAutoSemicolon) {

@@ -74,6 +74,14 @@ const (
 	heapKeyword
 )
 
+// Flags of the store, in the same word (see store.go): the record was
+// allocated by the parse that is running; the publication walk has seen it.
+// heapExternalStateChange is 1<<10 (scanner.go).
+const (
+	heapNew  uint16 = 1 << 14
+	heapMark uint16 = 1 << 15
+)
+
 func lenSaturatingSub(a, b Length) Length { // C/length.h length_saturating_sub
 	if a.bytes > b.bytes {
 		return lenSub(a, b)

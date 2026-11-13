@@ -262,7 +262,7 @@ def admission(out, role, f, manifest_sha, revision):
     require(oracle["binding_module"] == "github.com/tree-sitter/go-tree-sitter" and oracle["binding_version"] == "v0.25.0" and oracle["binding_commit"] == "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3", "C binding is not locked")
     require(oracle["runtime_version"] == "0.27.1" and oracle["runtime_commit"] == "10eb5ac119eec9cb4267a8e035066473983f5f3a", "C runtime is not locked")
     require(re.fullmatch(r"[0-9a-f]{40}", oracle["grammar_commit"]) and re.fullmatch(r"[0-9a-f]{64}", oracle["grammar_artifact_sha256"]), "C grammar/artifact identity is missing")
-    require(oracle["grammar_compile_flags"] == "-std=c11 -fPIC -O2 -I .", "C grammar flags differ from the locked oracle")
+    require(oracle["grammar_compile_flags"] == "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I .", "C grammar flags differ from the locked oracle")
     require([c["workload"] for c in a["cells"]] == list(WORKLOADS.values()), "missing or duplicate admission cell")
     for cell in a["cells"]:
         count = len(f["typing_text"].encode()) if cell["workload"] == "typing" else 2

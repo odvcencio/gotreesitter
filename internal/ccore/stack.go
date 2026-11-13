@@ -57,13 +57,42 @@ func (p *Parser) nodeNew(prev int32, sub Handle, pending bool, state uint16) int
 		id = int32(len(p.nodes) - 1)
 	}
 	node := &p.nodes[id]
-	*node = stackNode{refCount: 1, state: state}
-	if prev >= 0 {
+	// Write the scalar fields and link 0 only. links[1:] keep the bytes of a
+	// freed node: every reader of links[i] for i >= 1 is bounded by linkCount
+	// (nodeRelease, addLink, merge, iter, iterCB, popError). The one reader of
+	// links[0] on a node that may have no link is errorCostOf (state 0 and
+	// links[0].sub == 0); link 0 is written in both branches below.
+	node.refCount, node.state = 1, state
+	if prev < 0 {
+		node.linkCount = 0
+		node.links[0] = stackLink{}
+		node.position, node.errorCost, node.dynPrec, node.nodeCount = Length{}, 0, 0, 0
+	} else {
 		pn := &p.nodes[prev]
 		node.linkCount = 1
 		node.links[0] = stackLink{node: prev, sub: sub, pending: pending}
 		node.position, node.errorCost, node.dynPrec, node.nodeCount = pn.position, pn.errorCost, pn.dynPrec, pn.nodeCount
-		if sub != 0 {
+		if sub&1 == 0 && sub != 0 { // a heap record: one lookup serves the five accessors below
+			r := p.rec(sub)
+			if r.flags&heapMissing != 0 { // errorCost
+				node.errorCost += costPerMissingTree + costPerRecovery
+			} else {
+				node.errorCost += r.errorCost
+			}
+			node.position = lenAdd(node.position, lenAdd(r.padding, r.size)) // totalSize
+			c := uint32(0)                                                   // subtreeNodeCount: visibleDescendants, visible, symbol
+			if r.childCount != 0 {
+				c = r.visibleDescendantCount
+				node.dynPrec += r.dynamicPrecedence // dynPrec
+			}
+			if r.flags&heapVisible != 0 {
+				c++
+			}
+			if r.symbol == symErrorRepeat {
+				c++
+			}
+			node.nodeCount += c
+		} else if sub != 0 {
 			node.errorCost += p.errorCost(sub)
 			node.position = lenAdd(node.position, p.totalSize(sub))
 			node.nodeCount += p.subtreeNodeCount(sub)

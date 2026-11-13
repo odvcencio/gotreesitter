@@ -3,6 +3,9 @@ package gotreesitter
 import (
 	"fmt"
 	"sort"
+	"sync"
+	"time"
+	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
@@ -537,7 +540,7 @@ func (p SnippetRootMemoProbe) Release() {
 
 // SnippetRootMemoProbeForTest calls parseSnippetRootWithOffset twice inside one
 // parse operation of parser. Direct is the snippet root from an independent
-// snippet parse, shifted with Tree.RootNodeWithOffset as callers did before
+// snippet parse, shifted with Tree.rootNodeWithRecoveryOffset (the internal twin of RootNodeWithOffset that keeps the recovery point rule) as callers did before
 // the memo existed.
 func SnippetRootMemoProbeForTest(parser *Parser, source []byte, start, end uint32) SnippetRootMemoProbe {
 	var probe SnippetRootMemoProbe
@@ -551,8 +554,218 @@ func SnippetRootMemoProbeForTest(parser *Parser, source []byte, start, end uint3
 	probe.ClearedAfterOperation = parser.forestDeclineMemo == nil || len(parser.forestDeclineMemo.snippetRootMemo) == 0
 	tree, err := parseWithSnippetParser(parser.language, source[start:end])
 	if err == nil && tree != nil {
-		probe.Direct = tree.RootNodeWithOffset(start, advancePointByBytes(Point{}, source[:start]))
+		probe.Direct = tree.rootNodeWithRecoveryOffset(start, advancePointByBytes(Point{}, source[:start]))
 		probe.release = tree.Release
 	}
 	return probe
+}
+
+// stackScratchPool is a deterministic scratchPool: Get pops the last object
+// that Put pushed and returns nil when the pool is empty. It never drops
+// objects, unlike sync.Pool.
+type stackScratchPool struct {
+	mu    sync.Mutex
+	items []any
+	gets  int
+}
+
+// Gets returns how many times Get was called.
+func (p *stackScratchPool) Gets() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.gets
+}
+
+func (p *stackScratchPool) Get() any {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.gets++
+	if len(p.items) == 0 {
+		return nil
+	}
+	x := p.items[len(p.items)-1]
+	p.items = p.items[:len(p.items)-1]
+	return x
+}
+
+func (p *stackScratchPool) Put(x any) {
+	p.mu.Lock()
+	p.items = append(p.items, x)
+	p.mu.Unlock()
+}
+
+// Items returns the pooled objects, oldest first.
+func (p *stackScratchPool) Items() []any {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]any(nil), p.items...)
+}
+
+func (p *stackScratchPool) Len() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.items)
+}
+
+// swapScratchPoolsForTest replaces the pools that tiny-source hand-out reads
+// with empty deterministic stacks. The returned function restores the previous
+// pools. Release and the path for larger sources use the real pools.
+func swapScratchPoolsForTest() (shared, large, heavy *stackScratchPool, restore func()) {
+	shared, large, heavy = &stackScratchPool{}, &stackScratchPool{}, &stackScratchPool{}
+	previous := tinyScratchPools
+	tinyScratchPools = &tinyScratchPoolSet{shared: shared, large: large, heavy: heavy}
+	return shared, large, heavy, func() { tinyScratchPools = previous }
+}
+
+// ScratchPoolProbe gives the external test package access to the swapped
+// scratch pools.
+type ScratchPoolProbe struct {
+	shared *stackScratchPool
+}
+
+// SwapScratchPoolsForTest replaces the scratch pools with empty deterministic
+// stacks and returns a probe and a function that restores the previous pools.
+func SwapScratchPoolsForTest() (*ScratchPoolProbe, func()) {
+	shared, _, _, restore := swapScratchPoolsForTest()
+	return &ScratchPoolProbe{shared: shared}, restore
+}
+
+// PutSharedWithAccountedBytes adds a scratch object that holds more than target
+// accounted bytes to the shared pool and returns its accounted bytes.
+func (p *ScratchPoolProbe) PutSharedWithAccountedBytes(target int64) int64 {
+	s := newScratchWithAccountedBytesForTest(target)
+	p.shared.Put(s)
+	return s.allocatedBytes()
+}
+
+// SharedLen returns the number of objects in the shared pool.
+func (p *ScratchPoolProbe) SharedLen() int { return p.shared.Len() }
+
+// KeepOnlyLargestShared drops every shared-pool object except the one with the
+// most accounted bytes and returns that object's accounted bytes.
+func (p *ScratchPoolProbe) KeepOnlyLargestShared() int64 {
+	p.shared.mu.Lock()
+	defer p.shared.mu.Unlock()
+	var best *parserScratch
+	for _, x := range p.shared.items {
+		if s := x.(*parserScratch); best == nil || s.allocatedBytes() > best.allocatedBytes() {
+			best = s
+		}
+	}
+	p.shared.items = nil
+	if best == nil {
+		return 0
+	}
+	p.shared.items = append(p.shared.items, best)
+	return best.allocatedBytes()
+}
+
+func newScratchWithGSSNodesForTest(nodes int) *parserScratch {
+	s := &parserScratch{}
+	s.gss.slabs = []gssNodeSlab{{data: make([]gssNode, nodes), reachMarks: make([]uint32, nodes)}}
+	s.gss.recomputeAllocatedBytes()
+	return s
+}
+
+// newScratchWithAccountedBytesForTest returns scratch whose accounted capacity
+// is above target, however large a GSS node is on the target architecture.
+func newScratchWithAccountedBytesForTest(target int64) *parserScratch {
+	nodes := int(target/int64(unsafe.Sizeof(gssNode{})+unsafe.Sizeof(uint32(0)))) + 1
+	for {
+		s := newScratchWithGSSNodesForTest(nodes)
+		if s.allocatedBytes() > target {
+			return s
+		}
+		nodes += nodes/64 + 1
+	}
+}
+
+// SetRetryPassObserverForTests installs fn on p. It runs after each
+// error-recovery retry pass and once after the first pass (rung "first_pass"),
+// with the parser that ran the pass. The observer belongs to p, so tests that
+// use different parsers do not share it.
+func SetRetryPassObserverForTests(p *Parser, fn func(p *Parser, logicalRung string)) {
+	p.ensureParserColdState().retryPassObserver = fn
+}
+
+// ExpireParseDeadlineForTests moves the active parse deadline of p into the
+// past, so the next stop check reports ParseStopTimeout. It does nothing
+// outside a parse that has a timeout.
+func ExpireParseDeadlineForTests(p *Parser) {
+	if p != nil && !p.parseDeadline.IsZero() {
+		p.parseDeadline = time.Now().Add(-time.Second)
+	}
+}
+
+// SetPoolParserInitForTests runs init on every parser that pp creates later.
+func SetPoolParserInitForTests(pp *ParserPool, init func(*Parser)) {
+	create := pp.pool.New
+	pp.pool.New = func() any {
+		p := create().(*Parser)
+		init(p)
+		return p
+	}
+}
+
+// RetryCutOperationForTests runs fn as one parse operation of p, with an
+// open timeout scope, and stamps the operation's signal on the tree that fn
+// returns, as the public parse entries do.
+func RetryCutOperationForTests(p *Parser, fn func() *Tree) *Tree {
+	p.retryCutBegin()
+	defer p.enterParseBudget()()
+	tree := fn()
+	p.retryCutEnd(tree)
+	return tree
+}
+
+// VerifyIncrementalFreshResultForTests runs the fresh verification of an
+// incremental result inside an operation of p.
+func VerifyIncrementalFreshResultForTests(p *Parser, source []byte, oldTree, tree *Tree) (*Tree, error) {
+	ts := p.acquireParserDFATokenSource(source)
+	defer ts.Close()
+	return p.verifyIncrementalFreshResult(source, oldTree, p.wrapIncludedRanges(ts), tree, nil)
+}
+
+// VerifyIncrementalFreshResultWithTokenSourceForTests is
+// VerifyIncrementalFreshResultForTests with the caller's token source and
+// fresh-stream factory, so that a lexer-owned proof can apply.
+func VerifyIncrementalFreshResultWithTokenSourceForTests(p *Parser, source []byte, oldTree, tree *Tree, ts TokenSource, factory TokenSourceFactory) (*Tree, error) {
+	prev := p.reparseFactory
+	p.reparseFactory = factory
+	defer func() { p.reparseFactory = prev }()
+	return p.verifyIncrementalFreshResult(source, oldTree, p.wrapIncludedRanges(ts), tree, nil)
+}
+
+// RetryIncrementalAsFullForTests runs the fresh fallback of an incremental
+// result inside an operation of p.
+func RetryIncrementalAsFullForTests(p *Parser, source []byte, tree *Tree) *Tree {
+	return p.retryIncrementalParseAsFullWithDFA(source, 8, tree, nil)
+}
+
+// ResolveSwallowedErrorForTests runs the swallowed-error check on a tree
+// whose runtime is marked as the check requires.
+func ResolveSwallowedErrorForTests(p *Parser, source []byte, tree *Tree) *Tree {
+	rt := tree.ensureParseRuntime()
+	rt.CRecoveryEnteredErrorState = true
+	rt.CRecoveryDroppedErrorForClean = true
+	p.errorCostCompetition = true
+	return p.resolveCRecoverySwallowedError(source, tree)
+}
+
+// ParseWithExpiredDeadlineForTests parses source inside a timeout scope whose
+// deadline is already over, so the first pass stops with ParseStopTimeout.
+func ParseWithExpiredDeadlineForTests(p *Parser, source []byte) (*Tree, error) {
+	p.parseBudgetDepth = 1
+	p.parseDeadline = time.Now().Add(-time.Second)
+	defer func() {
+		p.parseBudgetDepth = 0
+		p.parseDeadline = time.Time{}
+		p.parseStoppedReason = ParseStopNone
+	}()
+	return p.Parse(source)
+}
+
+// ForestRescueForTests runs the optional forest rescue of a recovered tree.
+func ForestRescueForTests(p *Parser, source []byte, tree *Tree) (*Tree, bool) {
+	return p.maybeReplaceRecoveredTreeWithForest(source, tree)
 }

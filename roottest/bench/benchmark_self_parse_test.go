@@ -2,8 +2,8 @@ package bench_test
 
 // Benchmarks that parse gotreesitter's own source files. These files are
 // deliberately pathological: very long, dense switch/select bodies and
-// enormous string literals containing deeply-nested S-expressions. Canopy
-// OOM'd at ~3 GB while indexing this repo; these benchmarks measure whether
+// enormous string literals containing deeply-nested S-expressions. A code
+// indexer ran out of memory at ~3 GB while indexing this repo; these benchmarks measure whether
 // our own runtime has the same latent pathology.
 //
 // Run with, e.g.:
@@ -11,8 +11,8 @@ package bench_test
 //           -memprofile=/tmp/self_mem.out -memprofilerate=1 ./...
 //
 // The benchmark intentionally recreates the Parser each iteration so peak
-// allocation is observed, not steady-state (this mirrors how a code indexer
-// like canopy uses the parser).
+// allocation is observed, not steady-state. This mirrors how a code indexer
+// uses the parser.
 
 import (
 	"os"
@@ -95,7 +95,7 @@ func BenchmarkSelfParse(b *testing.B) {
 // BenchmarkSelfParseSmoke is a one-shot non-benchmark smoke test: it parses
 // every file once with a strict wall-time sanity check and reports the tree's
 // error status. This is cheap enough to always run, and it answers "did the
-// parser choke on any of these inputs the way canopy did?".
+// parser choke on any of these inputs the way the indexer did?".
 func BenchmarkSelfParseSmoke(b *testing.B) {
 	for _, name := range selfParseFiles {
 		src := loadSelfFile(b, name)

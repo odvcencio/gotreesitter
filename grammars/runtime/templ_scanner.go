@@ -3,6 +3,7 @@
 package grammarruntime
 
 import (
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -68,7 +69,8 @@ var templSwitchKeywords = []string{
 
 // templState tracks whether we've seen an @ symbol for component expressions.
 type templState struct {
-	sawAtSymbol bool
+	sawAtSymbol   bool
+	scanmode.Flag // the C-faithful mode, set by the core adapter
 }
 
 // TemplExternalScanner handles CSS property values, script blocks, and element text for templ.
@@ -140,18 +142,22 @@ func (sc TemplExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 	syms := sc.symbolTable()
 
 	s := payload.(*templState)
+	if s.On() {
+		return templScanC(s, lexer, validSymbols, syms)
+	}
 
-	// Skip whitespace
+	// Legacy mode: skip white space, then return the result of the first valid
+	// token's scan (the behaviour of the base).
 	for unicode.IsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 
 	if templValid(validSymbols, templTokCssPropertyValue) {
-		return templScanCssPropertyValue(lexer, syms[templTokCssPropertyValue])
+		return templScanCssPropertyValue(lexer, syms[templTokCssPropertyValue], false)
 	}
 
 	if templValid(validSymbols, templTokScriptBlockText) {
-		return templScanScriptBlockText(lexer, syms[templTokScriptBlockText])
+		return templScanScriptBlockText(lexer, syms[templTokScriptBlockText], false)
 	}
 
 	if templValid(validSymbols, templTokSwitchElemText) {
@@ -165,12 +171,49 @@ func (sc TemplExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 	return false
 }
 
-func templScanCssPropertyValue(lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol) bool {
+// templScanC is Scan in the C-faithful mode (tree-sitter-templ src/scanner.c:317-345
+// at the pinned commit): C tries each valid token in turn and falls through when
+// one fails; a failed attempt may have consumed input and the next one continues
+// from there. White space is the six ASCII characters of the C locale and the end
+// of the input is asked from the lexer, so a NUL byte is not the end.
+func templScanC(s *templState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[templTokenCount]gotreesitter.Symbol) bool {
+	for !scanmode.AtEOF(lexer) && cIsSpace(lexer.Lookahead()) {
+		lexer.Advance(true)
+	}
+	if templValid(validSymbols, templTokCssPropertyValue) &&
+		templScanCssPropertyValue(lexer, syms[templTokCssPropertyValue], true) {
+		return true
+	}
+	if templValid(validSymbols, templTokScriptBlockText) &&
+		templScanScriptBlockText(lexer, syms[templTokScriptBlockText], true) {
+		return true
+	}
+	if templValid(validSymbols, templTokSwitchElemText) &&
+		templScanElementTextC(s, lexer, syms[templTokSwitchElemText], true) {
+		return true
+	}
+	if templValid(validSymbols, templTokElemText) &&
+		templScanElementTextC(s, lexer, syms[templTokElemText], false) {
+		return true
+	}
+	return false
+}
+
+// templEOF is the end-of-input test: C's lexer->eof in the C-faithful mode, a
+// zero lookahead otherwise.
+func templEOF(cf bool, lexer *gotreesitter.ExternalLexer) bool {
+	if cf {
+		return scanmode.AtEOF(lexer)
+	}
+	return lexer.Lookahead() == 0
+}
+
+func templScanCssPropertyValue(lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol, cf bool) bool {
 	if lexer.Lookahead() == '{' {
 		return false
 	}
 	lexer.SetResultSymbol(sym)
-	for lexer.Lookahead() != 0 {
+	for !templEOF(cf, lexer) {
 		if lexer.Lookahead() == ';' {
 			return true
 		}
@@ -179,18 +222,18 @@ func templScanCssPropertyValue(lexer *gotreesitter.ExternalLexer, sym gotreesitt
 	return false
 }
 
-func templScanScriptBlockText(lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol) bool {
+func templScanScriptBlockText(lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol, cf bool) bool {
 	lexer.SetResultSymbol(sym)
 	lexer.MarkEnd()
 
-	if lexer.Lookahead() == 0 {
+	if templEOF(cf, lexer) {
 		return false
 	}
 
 	hasMarked := false
 	braceCount := 1
 
-	for lexer.Lookahead() != 0 {
+	for !templEOF(cf, lexer) {
 		switch lexer.Lookahead() {
 		case '{':
 			braceCount++
@@ -271,6 +314,102 @@ func templScanElementText(s *templState, lexer *gotreesitter.ExternalLexer, sym 
 	return false
 }
 
+// templScanElementTextC is scan_element_text of the pinned C scanner
+// (src/scanner.c:164-266) with its lookahead buffer (lookahead_buffer_find_keyword,
+// :42-73). The helper compares before it consumes, so a character that does
+// not match stays unread, and its loop bound shrinks as the buffer is matched,
+// both as in C.
+func templScanElementTextC(s *templState, lexer *gotreesitter.ExternalLexer, sym gotreesitter.Symbol, inSwitch bool) bool {
+	lexer.SetResultSymbol(sym)
+	keywords := templStatementKeywords
+	if inSwitch {
+		keywords = append(append([]string{}, templStatementKeywords...), templSwitchKeywords...)
+	}
+	lexer.MarkEnd()
+	var buf []rune
+	hasMarked := false
+	count := 0
+	if scanmode.AtEOF(lexer) {
+		return false
+	}
+	done := false
+	for _, kw := range keywords {
+		if templFindKeywordC(&buf, lexer, kw) {
+			done = true
+			break
+		}
+	}
+	if !done && templFindKeywordC(&buf, lexer, "@") {
+		s.sawAtSymbol = true
+		done = true
+	}
+	if !done {
+		for _, ch := range buf {
+			if templIsElemTextTerminator(ch) {
+				done = true
+				break
+			}
+		}
+	}
+	if !done && s.sawAtSymbol {
+		for _, ch := range buf {
+			if templIsImportExprTerminator(ch) {
+				done = true
+				break
+			}
+		}
+	}
+	if !done {
+		count += len(buf)
+		for !scanmode.AtEOF(lexer) {
+			if templIsElemTextTerminator(lexer.Lookahead()) {
+				break
+			}
+			if s.sawAtSymbol && templIsImportExprTerminator(lexer.Lookahead()) {
+				break
+			}
+			lexer.Advance(false)
+			lexer.MarkEnd()
+			count++
+		}
+	}
+	if count > 0 {
+		lexer.MarkEnd()
+		hasMarked = true
+	}
+	if hasMarked {
+		s.sawAtSymbol = false
+	}
+	return hasMarked
+}
+
+// templFindKeywordC is lookahead_buffer_find_keyword (scanner.c:42-73).
+func templFindKeywordC(buf *[]rune, lexer *gotreesitter.ExternalLexer, str string) bool {
+	runes := []rune(str)
+	length := len(runes)
+	for i := 0; i < len(*buf) && i < length; i++ {
+		if (*buf)[i] != runes[i] {
+			return false
+		}
+		length--
+	}
+	// C reads str[write_pos]; past the end of the keyword that is the NUL
+	// terminator, which no lookahead of a normal character equals.
+	start := len(*buf) // C: str_remaining = &str[write_pos], taken before the loop
+	for i := 0; i < length; i++ {
+		var want rune
+		if idx := start + i; idx < len(runes) {
+			want = runes[idx]
+		}
+		if scanmode.AtEOF(lexer) || lexer.Lookahead() != want {
+			return false
+		}
+		*buf = append(*buf, lexer.Lookahead())
+		lexer.Advance(false)
+	}
+	return true
+}
+
 func templMatchesKeyword(lexer *gotreesitter.ExternalLexer, buf *[]rune, kw string) bool {
 	runes := []rune(kw)
 	for i, r := range runes {
@@ -301,3 +440,8 @@ func templIsImportExprTerminator(ch rune) bool {
 }
 
 func templValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
+
+func init() {
+	// A port with a behavioural mode (internal/scanmode); registered with the rest of its set.
+	scanmode.RegisterScanner(TemplExternalScanner{}, (*templState)(nil), true)
+}

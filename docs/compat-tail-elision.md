@@ -1,19 +1,12 @@
 # Compact fresh-path compat-tail elision
 
-Campaign v7 tranche A5 (compatibility retirement) and tranche C1 (perf,
-cross-listed). This document defines the elision, the eligibility mechanism,
-and the equivalence proof for each elided step. Tranche C0's
-[perf-attribution board](perf-attribution.md) names the `compat-tail`
-component this tranche narrows.
+This document defines the elision, the eligibility mechanism, and the
+equivalence proof for each elided step.
 
 **Status: correctness-neutral simplification, not a confirmed performance
-lever.** An earlier draft of this document and of the code comments in
-`admission_switch_candidate.go` overclaimed both the correctness and the
-performance case. See "Corrected finding" below for the record. The
-campaign canon (`hypha://m31labs/gotreesitter`) records that A5/C1 is no
-longer a C-ratchet (compaction-CPU) lever; the real target for that lever is
-the compatibility walk inside `finalizeResultRoot`, reached during
-materialization, not the tail this document covers.
+lever.** See "Corrected finding" below. The costly step is the compatibility
+walk inside `finalizeResultRoot`, reached during materialization, not the tail
+this document covers.
 
 ## What this changes
 
@@ -60,7 +53,7 @@ arm cannot ship without updating the registry, and updating the registry is
 what keeps `resultCompatibilityElisionEligible` correct — no second edit
 required at the elision call site.
 
-## Eligible languages (2026-09-19, this registry)
+## Eligible languages
 
 177 of the 206 registered languages are eligible: every language without a
 `"live"` entry in `testdata/result_compat_ownership_v1.json`. They take
@@ -70,11 +63,7 @@ arm or the live cobol predicate: `ada`, `apex`, `authzed`, `awk`, `c`,
 `c_sharp`, `cobol`, `cooklang`, `cpp`, `dart`, `doxygen`, `go`, `hlsl`,
 `javascript`, `julia`, `kotlin`, `perl`, `php`, `powershell`, `python`,
 `rust`, `scala`, `solidity`, `sql`, `swift`, `tsx`, `typescript`, `wgsl`,
-`yaml`. Since the 2026-08-02 census, the
-`bash`, `elixir`, `enforce`, `fidl`, `hyprlang`, `jsdoc`, `ledger`, `ninja`,
-and `ql` arms retired, so those languages are now eligible. The inert
-`bitbake`, `corn`, `dtd`, `templ`, and `wolfram` arms retired later, and those
-languages are eligible too. `go` is in this
+`yaml`. `go` is in this
 list: `dispatch.go` is `"live"` (`normalizeGoReturnedTreeCompatibility`
 still runs), so `grammargen_lr` and the other three canonical Go fixtures do
 not take the reduced tail. Eligible languages include every retired-arm
@@ -84,94 +73,57 @@ language (for example `html`, `linkerscript`, `erlang`, `ruby`, `ocaml`, `d`,
 (`result_compat_elision_test.go`) enumerates the exact set against the
 registry on every test run.
 
-## Corrected finding (post-review)
+## Corrected finding
 
-A reviewer found two defects in the first version of this change. Both are
-now fixed; this section is the permanent record.
+Two constraints bind the reduced tail.
 
-**The correctness defect.** The first version of
-`finalizeCompactReturnedTreeForParse` unconditionally checked
-`p.parseStopReasonNow()` and returned early on a terminal reason, before
-doing anything else. That version's proof claimed
-`tree.resultCompatibilityApplied` is always `false` for a freshly
-compact-materialized tree. That claim is wrong: it is `true` in the
-overwhelming common case. `materializeDiagnosticParserCoreAcceptedSelection`
+**Keep the control flow of `normalizeReturnedTreeForParse` exactly.**
+`materializeDiagnosticParserCoreAcceptedSelection`
 (`parsercore_phase0_driver.go`) calls `(*Parser).buildResultFromNodes`
 (`parser_result.go`), which builds the tree through
-`resultRootBuild.finishTree` (`parser_result_root_build.go`) — the exact
-same construction path production's own tree builder uses. `finishTree`
-calls `(*Parser).finalizeResultRoot`, which runs the full result-
-compatibility pass (dispatch switch and error-summary walk both included)
-during **materialization**, for every language, eligible or not, and sets
-`tree.resultCompatibilityApplied` and `tree.resultErrorSummary` from that
-pass's own result before `tryCompactFullParseRoute`'s tail ever runs.
+`resultRootBuild.finishTree` (`parser_result_root_build.go`), the path that
+production's own tree builder uses. `finishTree` calls
+`(*Parser).finalizeResultRoot`, which runs the full result-compatibility pass
+(dispatch switch and error-summary walk) during materialization, for every
+language, and sets `tree.resultCompatibilityApplied` and
+`tree.resultErrorSummary`. So `tree.resultCompatibilityApplied` is `true` in
+the common case before the tail runs.
 
-The unmodified `normalizeReturnedTreeForParse` only checks
-`p.parseStopReasonNow()` **inside** its
-`if !tree.resultCompatibilityApplied` guard — and that guard is false in the
-common case, so the unmodified tail does not re-check the stop reason once
-compatibility is already applied. The first, unconditional-check version of
-`finalizeCompactReturnedTreeForParse` introduced a stop-reason re-check the
-original control flow never performs in that case. Consequence, confirmed
-with an end-to-end `Parser.Parse` reproduction racing a concurrent
-cancellation flag against the compact route (`TestCompatTailElisionSurvivesConcurrentCancellation`,
-`admission_compat_tail_elision_test.go`): a cancellation observed only
-**after** the compact route already produced a complete, accepted tree could
-discard that good tree and report it cancelled, on 4 of 6 probed eligible
-languages at roughly 0.5%-1% of routed trials, where the unmodified tail
-(and production) never does. A consumer that discards or retries on
-`ParseStoppedEarly()` would silently throw away a good parse, for eligible
-languages only. (That reproduction used six languages and 400 trials each;
-the shipped test uses two languages and 150 trials each, trimmed for the
-same memory-footprint reason `TestCompatTailElisionEquivalenceSmoke` is
-bounded rather than exhaustive by default -- see "Gates" below. The
-property under test does not depend on which or how many eligible languages
-are probed, only on the shared tail control flow, so the smaller set is
-equally valid as a standing regression gate.)
+The unmodified `normalizeReturnedTreeForParse` checks `p.parseStopReasonNow()`
+only inside its `if !tree.resultCompatibilityApplied` guard. A reduced tail that
+checks the stop reason unconditionally can discard a complete, accepted tree
+because a cancellation arrived after acceptance, and report it cancelled. A
+consumer that retries on `ParseStoppedEarly()` would then throw away a good
+parse. `finalizeCompactReturnedTreeForParse` therefore keeps the exact control
+flow, including the `tree.hasDeferredResultCompatibility()` branch and the
+guarded stop-reason check; its doc comment in `admission_switch_candidate.go`
+gives the line-level argument.
+`TestCompatTailElisionSurvivesConcurrentCancellation`
+(`admission_compat_tail_elision_test.go`) races a cancellation flag against
+`Parser.Parse` for several eligible languages and requires zero
+routed-then-reported-cancelled outcomes.
 
-The fix restores `normalizeReturnedTreeForParse`'s exact control flow,
-including the `tree.hasDeferredResultCompatibility()` branch (see "Why the
-deferred branch is still checked" below) and the
-`if !tree.resultCompatibilityApplied` guard around the stop-reason check.
-`finalizeCompactReturnedTreeForParse`'s current body is that exact control
-flow; see its doc comment in `admission_switch_candidate.go` for the
-line-level proof. With the fix,
-`TestCompatTailElisionSurvivesConcurrentCancellation` reads 0 false
-cancellations across every probed language, matching production and
-matching the unmodified tail.
+**The tail does not walk the tree.** Because
+`tree.resultCompatibilityApplied` is already `true` when the tail runs,
+`runLanguageResultCompatibility` and `summarizeResultErrorsWithStop` are called
+zero times in the tail, for every language. The reduction removes two
+unconditional no-op calls (`resolveCRecoverySwallowedError`,
+`maybeCompactReturnedFullTree`; see "Equivalence proof") and a few field
+comparisons. It is a correctness-neutral simplification, not an O(nodes)
+saving. See "Measured effect" below.
 
-**The performance defect.** The original "recovers an O(nodes) walk" premise
-does not hold. Because `tree.resultCompatibilityApplied` is already `true`
-by the time the tail runs (see above), `runLanguageResultCompatibility` and
-`summarizeResultErrorsWithStop` are called **zero times** in the tail, for
-every language, eligible or not — the compat-tail's own dispatch and walk
-were already unreachable, before this change, because the real work already
-ran during materialization. This change does not remove that walk; nothing
-in the tail ever ran it. What this change actually removes, for an eligible
-language, is exactly two full-tail function calls that are unconditional
-no-ops on this route regardless of language (`resolveCRecoverySwallowedError`,
-`maybeCompactReturnedFullTree` — see "Equivalence proof" below) plus a
-handful of field comparisons in the tail's own control flow. This is a
-correctness-neutral simplification, not a demonstrated O(nodes) performance
-win. See "Measured recovery" below, which this finding also corrects.
-
-**Why the deferred branch is still checked, instead of just being left
-out.** `finishTree` calls
-`(*Parser).shouldDeferResultCompatibility` unconditionally, for every tree
-it builds, compact or production — the compact route does **not** skip
-`finishTree`, contrary to the first version's proof. The deferred branch is
-dead for an eligible language on the compact route only because
+**The deferred branch stays checked.** `finishTree` calls
+`(*Parser).shouldDeferResultCompatibility` for every tree, compact or
+production. The deferred branch is dead for an eligible language only because
 `shouldDeferResultCompatibility` (`parser_result_root_build.go`) names only
-`typescript` and `tsx`, and both are ineligible (both have a live
-dispatcher arm). `finalizeCompactReturnedTreeForParse` still checks
-`tree.hasDeferredResultCompatibility()` — it does not assume the branch is
-unreachable and skip the check — precisely because that reasoning is a fact
-about today's deferred set, not a structural guarantee.
+`typescript` and `tsx`, and both are ineligible (both have a live dispatcher
+arm). That is a fact about today's deferred set, not a structural guarantee, so
+`finalizeCompactReturnedTreeForParse` still checks
+`tree.hasDeferredResultCompatibility()`.
 `TestResultCompatibilityElisionExcludesDeferredLanguages`
 (`result_compat_elision_test.go`) parses `shouldDeferResultCompatibility`'s
-switch with `go/ast` and fails if a future language is ever named there
-while also being elision-eligible, so this reasoning cannot silently go
-stale.
+switch with `go/ast` and fails if a language is named there while also being
+elision-eligible.
 
 ## Equivalence proof
 
@@ -180,8 +132,7 @@ asserted as a general property of `parser_result_compat.go`.
 
 **Step 1 — normalizeReturnedTreeForParse is not removed; it is reproduced
 exactly, and its own dispatch-and-walk branch is usually already
-inert before this change, for every language.** See "Corrected finding"
-above for the full account.
+inert before this change, for every language.** See [Corrected finding](#corrected-finding).
 `finalizeCompactReturnedTreeForParse` performs the identical sequence:
 `shouldNormalizeReturnedTree` check, `tree.hasDeferredResultCompatibility()`
 check (dead for an eligible language, checked anyway, ratcheted by
@@ -219,7 +170,7 @@ elision. A compact-route tree is a single materialized derivation (the
 scheduler's acceptance gate requires exactly one accepted head), not
 production's multi-alternative GLR arena, so it does not carry the abandoned-
 fork bloat this pass exists to reclaim. This is a measured bound, not a
-general claim: across every real-corpus file this campaign has for an
+general claim: across every real-corpus file the repository has for an
 eligible language (`cgo_harness/corpus_real`, drained arena pool per
 measurement), the largest retained arena is 47.45 MiB
 (`zig/large__x86.zig`) — an 11x margin below the 512 MiB floor on this
@@ -256,32 +207,11 @@ hypothetical eligible-language parse whose retained arena is within that
 - `TestCompatTailElisionEquivalenceSmokeExhaustive` (same file): the same
   comparison across all 206 registered languages, opt-in via
   `GTS_COMPAT_TAIL_ELISION_EXHAUSTIVE=1` for the reason above. This is the
-  test that produced the 159 EQUAL / 0 DIVERGE / 43 NOT_ELIGIBLE / 4
-  NOT_ROUTED reading this document and the PR cite.
+  test whose reading is 159 EQUAL / 0 DIVERGE / 43 NOT_ELIGIBLE / 4 NOT_ROUTED.
 - `TestCompatTailElisionEquivalenceRealCorpus` (same file): the same
   comparison over `cgo_harness/corpus_real/<lang>` files when present
   (git-ignored, opt-in via `GTS_ADMISSION_REAL_CORPUS=1`, mirroring
   `TestAdmissionCandidateRealCorpusMatrix`'s existing convention).
-- `TestArenaGCRetentionAfterRelease` (`benchmark_warm_reuse_test.go`, not
-  authored or modified by this change): a pre-existing, whole-process
-  gate that measures total `runtime.MemStats.HeapAlloc` after three forced
-  GC passes, with a 60 MiB limit against an authored "expected ~12-20 MiB"
-  baseline. Verified on a heavily shared, contended development host
-  (concurrent load averaging 30-90 on a 20-core machine): unmodified
-  `origin/main` passed this gate reliably under that same contention;
-  this branch's default `go test .` run occasionally read 62-64 MiB, a
-  3-7% overage. The smoke and cancellation gates above were bounded and
-  their cleanup hardened (explicit `DrainArenaPools` and `runtime.GC` calls)
-  specifically in response to this finding; halving their already-bounded
-  language and trial counts further did not change the reading, which
-  points to a small, largely fixed contribution (plausibly the cost of
-  this branch's own added code and package-level state existing in the
-  test binary at all, not a workload-proportional leak) rather than one
-  this gate's own size knobs can fully zero out. Every measured deep-tree
-  equivalence and race gate in this document stayed green throughout; only
-  this one, unrelated, whole-process heap gate showed the marginal,
-  host-contention-sensitive overage. Flagged here for a maintainer's
-  visibility, not treated as a blocking defect of this change.
 - `TestCompatTailElisionSurvivesConcurrentCancellation` (same file): the
   regression gate for the correctness defect above. Races a concurrent
   cancellation-flag flip against `Parser.Parse` for several eligible
@@ -305,20 +235,15 @@ hypothetical eligible-language parse whose retained arena is within that
   compact route they exercise indirectly (through `Parser.Parse`) is
   covered by the equivalence gates above.
 
-## Measured recovery
+## Measured effect
 
 `BenchmarkAdmissionCandidateGoQueryCompileWarmRoute` and the
 `cgo_harness/attribution` shipped-route reading both exercise Go, which is
 **not** elision-eligible (`dispatch.go` is live), so neither benchmark moves
-from this change — see the PR description for the readings. Per "Corrected
-finding" above, this is expected on stronger grounds than eligibility alone:
-even for an eligible language, the tail's dispatch switch and error-summary
-walk were already unreachable before this change (materialization already
-applies compatibility), so this change was never going to show up as a
-recovered O(nodes) walk on any language. What it removes — two no-op
-function calls per compact-route parse for an eligible language — is not
-sized to be visible against this campaign's measurement noise floor on a
-shared host, and the PR does not claim otherwise. The real compaction-CPU
-lever this campaign originally aimed at is the compatibility walk inside
-`finalizeResultRoot`, reached during materialization; the campaign canon
-records that as the follow-up target, not this tail.
+from this change. Per "Corrected finding" above, this is expected on stronger
+grounds than eligibility alone: even for an eligible language, the tail's
+dispatch switch and error-summary walk were already unreachable (materialization
+already applies compatibility), so this change never recovers an O(nodes) walk
+on any language. What it removes, two no-op function calls per compact-route
+parse for an eligible language, is too small to see against measurement noise
+on a shared host.

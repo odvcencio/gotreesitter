@@ -287,57 +287,6 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 	}
 }
 
-func TestCSharpDispatchBlockerReceiptDocument(t *testing.T) {
-	doc, err := os.ReadFile("../docs/root-normalization-retirement.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	changelog, err := os.ReadFile("../CHANGELOG.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	docMarkers := []string{
-		"## 2026-08-24 C# dispatcher blocker receipt",
-		"Status: `NO-GO`. Keep `dispatch.c_sharp` live.",
-		"Base commit: `ef57c9d1b73bac046ef40f2a111bb76db643ebfd`.",
-		"88366631d598ce6595ec655ce1591b315cffb14c",
-		"The A0 (initial dispatcher census) manifest has 14",
-		"d76fd62cfc90076c11d86cb7d7a0058df181231aa3b34f30e549f650b5294d4a",
-		"6e5eb91f5577569ca2adebf26056095af492a5921ed09c72b05cba045dca57dc",
-		"17a882ecc47150a396236512827eb2dd077ff2d65d9923d79d4ba98cb0b66abf",
-		"a6946abc5b7086a1ba0d6cd585882b3b8a20d96b6e578351cf07ecf993964362",
-		"58cdc6772314e0e82478a1d5811db6c8c09d939b5ac690ced9fb9695e0946ae7",
-		"a0de6cfb0e98995f41f1bac3931a4d0300ab8d34f68dd30843afecd9ee984711",
-		"4e6e7e9f33ca204763aff7a4d3e8ab4aee089ad057a9515cbc37a7c9a35f49aa",
-		"d9ca44d4b6d5d7d555e5066a2c45fa329afb0fa237791746abe855fd31494ae4",
-		"86a8c9f0a2ea38797add255cbbffcbe748af3c6f465d3db989b9dffd182d4ce8",
-		"5140aac5a98ce1a8fa774400df978fa57b87ffcbe1d66fb159a82fe0de6553e2",
-		"b252b21dc16f944cda8457956f65879a0222792efd936673448083a3b678aabc",
-		"external_scanner_unsupported",
-		"2,085 dispatcher rewrites.",
-		"full authenticated corpus is unavailable",
-		"20260823T030038Z-csharp-audit-route-final-v2",
-		"## 2026-08-24 C# current-main follow-up",
-		"83e0cfbc30ad82e2f327d58e35eea9f438a0ffda",
-		"b97171a6ac31b12a268b6879f5a6bb89e7d1f268177144f6463f3d24cff5279b",
-	}
-	for _, marker := range docMarkers {
-		if !strings.Contains(string(doc), marker) {
-			t.Fatalf("retirement document lacks marker %q", marker)
-		}
-	}
-	for _, marker := range []string{
-		"Record the `dispatch.c_sharp` blocker at main commit",
-		"ef57c9d1b73bac046ef40f2a111bb76db643ebfd",
-		"Keep the arm live.",
-		"Rechecked the `dispatch.c_sharp` blocker at current main commit",
-	} {
-		if !strings.Contains(string(changelog), marker) {
-			t.Fatalf("changelog lacks marker %q", marker)
-		}
-	}
-}
-
 func csharpExpectedDivergence(path, category, goValue, cValue string) *DumpV1Divergence {
 	return &DumpV1Divergence{Path: path, Category: category, GoValue: goValue, CValue: cValue}
 }

@@ -120,12 +120,12 @@ func main() {
 		groups = append(groups,
 			benchGroupConfig{
 				Name:    "editor_hot_path",
-				Package: ".",
+				Package: ". ./roottest/bench",
 				Regex:   "^(BenchmarkGoParseIncrementalSingleByteEdit|BenchmarkGoParseIncrementalRandomSingleByteEdit|BenchmarkGoParseIncrementalNoEdit|BenchmarkHighlightIncremental|BenchmarkTaggerTagIncremental)$",
 			},
 			benchGroupConfig{
 				Name:    "indexing_path",
-				Package: ".",
+				Package: ". ./roottest/bench",
 				Regex:   "^(BenchmarkGoParseFull|BenchmarkGoParseFullDFA|BenchmarkQueryExecCompiled|BenchmarkTaggerTag)$",
 			},
 		)
@@ -199,8 +199,10 @@ func runBenchGroup(group benchGroupConfig, count int, benchtime string, gomaxpro
 		"-benchmem",
 		"-benchtime", benchtime,
 		"-count", strconv.Itoa(count),
-		group.Package,
 	}
+	// Package holds one or more package paths separated by spaces. Go runs the
+	// benchmarks of several packages one after another.
+	args = append(args, strings.Fields(group.Package)...)
 	baseEnv := os.Environ()
 	if gomaxprocs > 0 {
 		baseEnv = append(baseEnv, fmt.Sprintf("GOMAXPROCS=%d", gomaxprocs))

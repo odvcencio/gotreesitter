@@ -126,3 +126,14 @@ func TestCcoreScannerIsolation(t *testing.T) {
 	}
 	ccoreCount("TestCcoreScannerIsolation", name, 12)
 }
+
+// ccoreExpectStore fails the test when one of the store's integrity counters
+// (sharedInTree, doubleFree, badRetain) of the parser is not 0. The counters
+// are process-wide, so a raised counter anywhere earlier in the test run also
+// fails here. where names the test and the input set for the message.
+func ccoreExpectStore(t testing.TB, where string, p *bindtest.Parser) {
+	t.Helper()
+	shared, double, bad := p.SharedInTree(), p.DoubleFree(), p.BadRetain()
+	ccoreExpect(t, shared == 0 && double == 0 && bad == 0,
+		"%s: store counters must be 0: sharedInTree %d, doubleFree %d, badRetain %d", where, shared, double, bad)
+}

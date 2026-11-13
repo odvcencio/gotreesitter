@@ -12,8 +12,7 @@ import (
 // forestRegenGuardCorpus generates N syntactically valid, repeated top-level
 // items for a language known to dispatch to the GSS-forest GLR fast path by
 // default (gotreesitter.LanguageWantsForest). This is the work-floor
-// regression class found in the 2026-08-02 javascript table-fork regression
-// (hypha spore spore.2026-08-02.pine.table-fork-regression): a table regen
+// regression class found in a javascript table-fork regression: a table regen
 // can change forest-engine coverage (not tree correctness -- production
 // silently absorbs the decline) without any parity gate noticing, because
 // parity floors compare trees, and forest and production converge on the

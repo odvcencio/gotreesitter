@@ -19,7 +19,7 @@ import (
 // ts_parser__version_status / ts_parser__compare_versions (parser.c). Every
 // constant, branch, and evaluation order below mirrors those functions
 // exactly; a divergence gets a receipt, not a silent "improvement"
-// (decision 0007, hypha://m31labs/gotreesitter).
+// (strict locked-C parity).
 //
 // No code in this package calls this model. The root scheduler calls its
 // exported pricing surface during recovery selection. The internal ratchet

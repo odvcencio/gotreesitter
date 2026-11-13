@@ -7,7 +7,7 @@ import (
 )
 
 // TestRubyTopLevelModuleBoundsNativeRetiredDispatchArm is the R2 retirement
-// receipt for dispatch.ruby (docs/root-normalization-retirement.md,
+// receipt for dispatch.ruby (https://github.com/odvcencio/gotreesitter/blob/9c955f3d29b126973da657124438f7c0aeddce5b/docs/root-normalization-retirement.md,
 // testdata/result_compat_ownership_v1.json).
 // normalizeRubyTopLevelModuleBounds (parser_result_ruby.go, now deleted)
 // shrank a top-level `module` node's end span back from a trailing-trivia
