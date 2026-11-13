@@ -210,7 +210,21 @@ func (b *resultRootBuild) tryBuildRealRootTree(nodes []*Node) *Tree {
 		return nil
 	}
 	realRoot = flattenInvisibleRootChildren(realRoot, b.arena, b.lang)
-	return b.finishTree(realRoot, b.shouldWireParentLinks, extendTrailing)
+	// Flattening a hidden child rebuilds the root's children and recomputes
+	// its error flag from them alone; the unfolded ERROR extras beside the
+	// root are not among them.
+	omittedErrorExtra := extraSplit.hasErrorExtras()
+	if omittedErrorExtra {
+		realRoot.setHasError(true)
+	}
+	tree := b.finishTree(realRoot, b.shouldWireParentLinks, extendTrailing)
+	if omittedErrorExtra && tree != nil {
+		// Preserve omitted-error provenance for deferred normalization and
+		// incremental retry, even when another child also carries an error.
+		tree.omittedRootError = true
+		tree.restoreOmittedRootError()
+	}
+	return tree
 }
 
 func (b *resultRootBuild) buildSyntheticRootTree(nodes []*Node) *Tree {
@@ -1408,15 +1422,16 @@ func splitResultRootExtras(nodes []*Node, lang *Language) resultRootExtraSplit {
 }
 
 func (s resultRootExtraSplit) canFoldVisibleExtras() bool {
-	if len(s.visibleExtras) == 0 {
-		return false
-	}
+	return len(s.visibleExtras) > 0 && !s.hasErrorExtras()
+}
+
+func (s resultRootExtraSplit) hasErrorExtras() bool {
 	for _, extra := range s.allExtras {
 		if extra != nil && (extra.IsError() || extra.HasError()) {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 func classifyResultRootExtras(extras []*Node, lang *Language) resultRootExtraSplit {
@@ -1439,6 +1454,13 @@ func attachResultRootExtraSplit(root *Node, split resultRootExtraSplit, arena *n
 	}
 	if split.canFoldVisibleExtras() {
 		foldResultRootExtras(root, split.visibleExtras, arena)
+	}
+	// Extras that carry an error are not folded, but their span still joins
+	// the root's. The root must then report that error, or a recovered
+	// parse (trailing-EOF recovery leaves its ERROR wrappers beside the root)
+	// publishes a clean tree over erroneous bytes.
+	if split.hasErrorExtras() {
+		root.setHasError(true)
 	}
 	extendResultRootRangeToExtras(root, split.allExtras)
 }
@@ -1512,6 +1534,10 @@ func extendResultRootRangeToExtras(root *Node, extras []*Node) {
 }
 
 func (p *Parser) finalizeResultRoot(root *Node, source []byte, linkScratch *[]*Node, wireParentLinks, extendTrailing bool, incrementalRanges []Range) (resultErrorSummary, bool) {
+	return p.finalizeResultRootWithForestError(root, source, linkScratch, wireParentLinks, extendTrailing, incrementalRanges, false)
+}
+
+func (p *Parser) finalizeResultRootWithForestError(root *Node, source []byte, linkScratch *[]*Node, wireParentLinks, extendTrailing bool, incrementalRanges []Range, omittedErrorExtra bool) (resultErrorSummary, bool) {
 	errorSummary := resultErrorSummaryUnknown
 	compatibilityApplied := false
 	if root == nil {
@@ -1531,6 +1557,10 @@ func (p *Parser) finalizeResultRoot(root *Node, source []byte, linkScratch *[]*N
 			p.language,
 			source,
 		)
+	}
+	// Omitted ERROR extras do not appear among the children being flattened.
+	if omittedErrorExtra {
+		root.setHasError(true)
 	}
 	widenNodeSpanToRetainedChildren(root)
 	if reason := p.resultMaterializationStopReason(root.ownerArena); resultMaterializationShouldStop(reason) {
