@@ -113,7 +113,9 @@ func (p *Parser) normalizeReturnedIncrementalTree(tree, oldTree *Tree, source []
 	}
 	if !tree.resultCompatibilityApplied {
 		ranges := p.incrementalResultCompatibilityRanges(tree)
-		if reason := p.normalizeReturnedTree(rawRootOrNil(tree), source, ranges); parseStopReasonIsTerminal(reason) {
+		reason := p.normalizeReturnedTree(rawRootOrNil(tree), source, ranges)
+		tree.restoreOmittedRootError()
+		if parseStopReasonIsTerminal(reason) {
 			tree.setParseStopReason(reason)
 			return
 		}
@@ -154,7 +156,9 @@ func (p *Parser) normalizeReturnedTreeForParse(tree *Tree, source []byte) {
 	// Other language normalizers are not safe to repeat on every erroring root.
 	if !tree.resultCompatibilityApplied ||
 		(p.language != nil && p.language.Name == "cobol" && rawRootStillHasError(tree)) {
-		if reason := p.normalizeReturnedTree(rawRootOrNil(tree), source, nil); parseStopReasonIsTerminal(reason) {
+		reason := p.normalizeReturnedTree(rawRootOrNil(tree), source, nil)
+		tree.restoreOmittedRootError()
+		if parseStopReasonIsTerminal(reason) {
 			tree.setParseStopReason(reason)
 			return
 		}

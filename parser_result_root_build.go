@@ -213,10 +213,18 @@ func (b *resultRootBuild) tryBuildRealRootTree(nodes []*Node) *Tree {
 	// Flattening a hidden child rebuilds the root's children and recomputes
 	// its error flag from them alone; the unfolded ERROR extras beside the
 	// root are not among them.
-	if extraSplit.hasErrorExtras() {
+	omittedErrorExtra := extraSplit.hasErrorExtras()
+	if omittedErrorExtra {
 		realRoot.setHasError(true)
 	}
-	return b.finishTree(realRoot, b.shouldWireParentLinks, extendTrailing)
+	tree := b.finishTree(realRoot, b.shouldWireParentLinks, extendTrailing)
+	if omittedErrorExtra && tree != nil {
+		// Preserve omitted-error provenance for deferred normalization and
+		// incremental retry, even when another child also carries an error.
+		tree.omittedRootError = true
+		tree.restoreOmittedRootError()
+	}
+	return tree
 }
 
 func (b *resultRootBuild) buildSyntheticRootTree(nodes []*Node) *Tree {
@@ -1526,6 +1534,10 @@ func extendResultRootRangeToExtras(root *Node, extras []*Node) {
 }
 
 func (p *Parser) finalizeResultRoot(root *Node, source []byte, linkScratch *[]*Node, wireParentLinks, extendTrailing bool, incrementalRanges []Range) (resultErrorSummary, bool) {
+	return p.finalizeResultRootWithForestError(root, source, linkScratch, wireParentLinks, extendTrailing, incrementalRanges, false)
+}
+
+func (p *Parser) finalizeResultRootWithForestError(root *Node, source []byte, linkScratch *[]*Node, wireParentLinks, extendTrailing bool, incrementalRanges []Range, omittedErrorExtra bool) (resultErrorSummary, bool) {
 	errorSummary := resultErrorSummaryUnknown
 	compatibilityApplied := false
 	if root == nil {
@@ -1545,6 +1557,10 @@ func (p *Parser) finalizeResultRoot(root *Node, source []byte, linkScratch *[]*N
 			p.language,
 			source,
 		)
+	}
+	// Omitted ERROR extras do not appear among the children being flattened.
+	if omittedErrorExtra {
+		root.setHasError(true)
 	}
 	widenNodeSpanToRetainedChildren(root)
 	if reason := p.resultMaterializationStopReason(root.ownerArena); resultMaterializationShouldStop(reason) {

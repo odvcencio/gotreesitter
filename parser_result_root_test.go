@@ -761,7 +761,7 @@ func TestFinalizeForestRootReextendsAcceptedCleanTailAfterCompatibility(t *testi
 	ws := newLeafNodeInArena(arena, 3, false, 4, 5, Point{Column: 4}, Point{Row: 1})
 	root := newParentNodeInArena(arena, 1, true, []*Node{body, ws}, nil, 0)
 
-	parser.finalizeForestRoot(root, source)
+	parser.finalizeForestRoot(root, source, false)
 
 	if got, want := root.EndByte(), uint32(len(source)); got != want {
 		t.Fatalf("root end = %d, want accepted EOF %d", got, want)
@@ -1632,5 +1632,107 @@ func TestBuildResultFromNodesKeepsErrorExtraFlagThroughHiddenRootChild(t *testin
 	}
 	if !got.HasError() {
 		t.Fatalf("root HasError=false over an ERROR extra: %s", got.SExpr(lang))
+	}
+}
+
+func TestFinalizeForestRootKeepsUnfoldedErrorExtra(t *testing.T) {
+	lang := &Language{
+		Name:        "test",
+		SymbolNames: []string{"EOF", "source_file", "_wrapper", "word"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF"},
+			{Name: "source_file", Visible: true, Named: true},
+			{Name: "_wrapper", Named: true},
+			{Name: "word", Visible: true, Named: true},
+		},
+	}
+	parser := &Parser{language: lang}
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+	wrapper := newParentNodeInArena(arena, 2, true, []*Node{leaf}, nil, 0)
+	root := newParentNodeInArena(arena, 1, true, []*Node{wrapper}, nil, 0)
+	errorExtra := newLeafNodeInArena(arena, errorSymbol, true, 1, 2, Point{Column: 1}, Point{Column: 2})
+	errorExtra.setExtra(true)
+	errorExtra.setHasError(true)
+	attachResultRootExtraSplit(root, classifyResultRootExtras([]*Node{errorExtra}, lang), arena)
+	if !root.HasError() {
+		t.Fatal("ERROR extra did not mark root before forest finalization")
+	}
+
+	parser.finalizeForestRoot(root, []byte("ab"), true)
+	if !root.HasError() {
+		t.Fatal("forest finalization cleared the unfolded ERROR extra flag")
+	}
+	parser.finalizeForestRoot(root, []byte("ab"), true)
+	if !root.HasError() {
+		t.Fatal("repeated forest finalization cleared the unfolded ERROR extra flag")
+	}
+	if root.EndByte() != 2 {
+		t.Fatalf("root ends at %d, want 2", root.EndByte())
+	}
+	if resultChildCount(root) != 1 || resultChildAt(root, 0) != leaf {
+		t.Fatal("forest finalization did not flatten the hidden wrapper to its visible child")
+	}
+}
+
+func TestFinalizeForestRootDoesNotPreserveUnrelatedErrorFlag(t *testing.T) {
+	lang := &Language{SymbolMetadata: []SymbolMetadata{
+		{Name: "EOF"}, {Name: "source_file", Visible: true, Named: true},
+		{Name: "_wrapper", Named: true}, {Name: "word", Visible: true, Named: true},
+	}}
+	parser := &Parser{language: lang}
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+	wrapper := newParentNodeInArena(arena, 2, true, []*Node{leaf}, nil, 0)
+	root := newParentNodeInArena(arena, 1, true, []*Node{wrapper}, nil, 0)
+	root.setHasError(true)
+	parser.finalizeForestRoot(root, []byte("a"), false)
+	if root.HasError() {
+		t.Fatal("forest finalization preserved an unrelated error flag")
+	}
+}
+
+func TestForestCleanRescueDeclinesOmittedErrorExtra(t *testing.T) {
+	lang := &Language{
+		Name:        "cooklang",
+		SymbolNames: []string{"EOF", "recipe", "_wrapper", "step", "metadata", "comment"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF"}, {Name: "recipe", Visible: true, Named: true},
+			{Name: "_wrapper", Named: true}, {Name: "step", Visible: true, Named: true},
+			{Name: "metadata", Visible: true, Named: true}, {Name: "comment", Visible: true, Named: true},
+		},
+	}
+	parser := &Parser{language: lang}
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+	wrapper := newParentNodeInArena(arena, 2, true, []*Node{leaf}, nil, 0)
+	root := newParentNodeInArena(arena, 1, true, []*Node{wrapper}, nil, 0)
+	extra := newLeafNodeInArena(arena, errorSymbol, true, 1, 2, Point{Column: 1}, Point{Column: 2})
+	extra.setExtra(true)
+	extra.setHasError(true)
+	split := classifyResultRootExtras([]*Node{extra}, lang)
+	attachResultRootExtraSplit(root, split, arena)
+	if !split.hasErrorExtras() || !root.HasError() {
+		t.Fatal("fixture lacks omitted error extra")
+	}
+	if parser.finalizeExperimentalForestRoot(root, []byte("ab"), true, split.hasErrorExtras()) {
+		// Model the clean-rescue caller: Cooklang's second compatibility pass
+		// rebuilds the visible children and can erase the omitted-error flag.
+		tree := newTreeWithArenas(root, []byte("ab"), lang, arena, nil)
+		parser.normalizeReturnedTreeForParse(tree, []byte("ab"))
+		if !root.HasError() {
+			t.Fatal("clean rescue normalization erased the omitted error extra")
+		}
+		t.Fatal("clean rescue accepted a root with an omitted error extra")
+	}
+	if parser.forestDeclineReason != forestDeclineRootHasError {
+		t.Fatalf("decline reason = %q, want %q", parser.forestDeclineReason, forestDeclineRootHasError)
+	}
+	if !parser.finalizeExperimentalForestRoot(root, []byte("ab"), false, split.hasErrorExtras()) || !root.HasError() {
+		t.Fatal("ordinary experimental result did not retain its omitted error")
 	}
 }

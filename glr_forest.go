@@ -404,7 +404,8 @@ func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, 
 	// a diagnostic success or decline that is guaranteed to disable reuse.
 	captureExternalCheckpoints := incrementalReuseProven && languageUsesExternalScannerCheckpoints(p.language)
 	var lexicalReadSpan uint32
-	root, ok := p.parseForestWithMode(arena, source, captureExternalCheckpoints, parseMemoryBudgetForParser(p, len(source)), &lexicalReadSpan, cleanOnly)
+	var omittedErrorExtra bool
+	root, ok := p.parseForestWithMode(arena, source, captureExternalCheckpoints, parseMemoryBudgetForParser(p, len(source)), &lexicalReadSpan, cleanOnly, &omittedErrorExtra)
 	if !ok || root == nil {
 		arena.Release()
 		return nil, false
@@ -414,8 +415,11 @@ func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, 
 		arena.Release()
 		return nil, false
 	}
-	p.finalizeForestRoot(root, source)
-	tree := newTreeWithArenas(root, source, p.language, arena, nil)
+	if !p.finalizeExperimentalForestRoot(root, source, cleanOnly, omittedErrorExtra) {
+		arena.Release()
+		return nil, false
+	}
+	tree := newForestResultTree(root, source, p.language, arena, omittedErrorExtra)
 	tree.setParseRuntime(forestAcceptedRuntime(root, source))
 	// Diagnostic-only: mirrors the copyNormalizationStats call every other
 	// route makes (parser.go's parseInternal tail; tree.go's
@@ -740,7 +744,8 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	operationBudget := parseMemoryBudgetForParser(p, len(source))
 	forestBudget := automaticForestMemoryBudget(p, operationBudget)
 	var lexicalReadSpan uint32
-	root, ok := p.parseForest(arena, source, captureExternalCheckpoints, forestBudget, &lexicalReadSpan)
+	var omittedErrorExtra bool
+	root, ok := p.parseForestWithMode(arena, source, captureExternalCheckpoints, forestBudget, &lexicalReadSpan, false, &omittedErrorExtra)
 	if progress.enabled {
 		progress.endDetail(time.Now(), "forest_parse_call_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, fmt.Sprintf("ok=%t root_present=%t decline_reason=%s", ok, root != nil, p.forestDeclineReason))
 	}
@@ -802,11 +807,11 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	if progress.enabled {
 		progress.beginDetail(time.Now(), "forest_finalize_begin", "forest_finalize_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, fmt.Sprintf("root_end=%d", root.EndByte()))
 	}
-	p.finalizeForestRoot(root, source)
+	p.finalizeForestRoot(root, source, omittedErrorExtra)
 	if progress.enabled {
 		progress.endDetail(time.Now(), "forest_finalize_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, fmt.Sprintf("root_end=%d", root.EndByte()))
 	}
-	tree := newTreeWithArenas(root, source, p.language, arena, nil)
+	tree := newForestResultTree(root, source, p.language, arena, omittedErrorExtra)
 	tree.setParseRuntime(forestAcceptedRuntime(root, source))
 	tree.forestFastPath = true
 	if !incrementalReuseProven {
@@ -816,6 +821,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 		progress.beginDetail(time.Now(), "forest_normalize_begin", "forest_normalize_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, "")
 	}
 	p.normalizeReturnedTreeForParse(tree, source)
+	tree.restoreOmittedRootError()
 	tree.captureTokenInvariantReadSpanValue(lexicalReadSpan)
 	tree.prepareLegacyReuseDependencies()
 	if arena.legacyReuseReads.CertifiedForestAttributes() && !root.HasError() {
@@ -838,14 +844,37 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	return tree
 }
 
+// newForestResultTree retains provenance for errors omitted from its children.
+func newForestResultTree(root *Node, source []byte, lang *Language, arena *nodeArena, omittedErrorExtra bool) *Tree {
+	tree := newTreeWithArenas(root, source, lang, arena, nil)
+	tree.omittedRootError = omittedErrorExtra
+	tree.restoreOmittedRootError()
+	return tree
+}
+
 func forestRootMustDecline(root *Node) bool {
 	return root != nil && root.IsError()
 }
 
-func (p *Parser) finalizeForestRoot(root *Node, source []byte) {
+// A clean rescue must not publish a root whose error-bearing extra was omitted.
+// Later compatibility normalization may rebuild the root from visible children
+// and clear its error flag, making the rescue appear clean.
+func (p *Parser) finalizeExperimentalForestRoot(root *Node, source []byte, cleanOnly, omittedErrorExtra bool) bool {
+	if cleanOnly && omittedErrorExtra {
+		p.recordForestDecline(forestDeclineRootHasError, Token{StartByte: root.EndByte()}, nil)
+		return false
+	}
+	p.finalizeForestRoot(root, source, omittedErrorExtra)
+	return true
+}
+
+func (p *Parser) finalizeForestRoot(root *Node, source []byte, omittedErrorExtra bool) {
 	// The forest fast path builds every node fresh (no subtree reuse), so
 	// range-limited normalization does not apply; pass nil to keep the full walk.
-	p.finalizeResultRoot(root, source, nil, false, false, nil)
+	p.finalizeResultRootWithForestError(root, source, nil, false, false, nil, omittedErrorExtra)
+	if omittedErrorExtra {
+		root.setHasError(true)
+	}
 	extendRootToAcceptedCleanTail(root, source, uint32(len(source)), nil, p.lineContinuationEscapeByte())
 }
 
@@ -3321,10 +3350,13 @@ func (s *gssForestNodeSlab) retainedBytes() int {
 // GOT_GLR_FOREST flag dispatches into; parity-iteration (extras, recovery,
 // external scanners, full GLR-lexing) is layered on this core.
 func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32) (*Node, bool) {
-	return p.parseForestWithMode(arena, source, captureExternalCheckpoints, memoryBudget, lexicalReadSpan, false)
+	return p.parseForestWithMode(arena, source, captureExternalCheckpoints, memoryBudget, lexicalReadSpan, false, nil)
 }
 
-func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool) (*Node, bool) {
+func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, cleanOnly bool, omittedErrorExtra *bool) (*Node, bool) {
+	if omittedErrorExtra != nil {
+		*omittedErrorExtra = false
+	}
 	if lexicalReadSpan != nil {
 		*lexicalReadSpan = 0
 	}
@@ -4033,7 +4065,11 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 			// below it on the accepted stack); fold them into the root the way the
 			// production result builder does, splitting by position.
 			if len(extras) > 0 {
-				attachResultRootExtraSplit(root, classifyResultRootExtras(extras, p.language), arena)
+				split := classifyResultRootExtras(extras, p.language)
+				if omittedErrorExtra != nil {
+					*omittedErrorExtra = split.hasErrorExtras()
+				}
+				attachResultRootExtraSplit(root, split, arena)
 			}
 			// The production root spans the whole input, including trailing
 			// trivia; the forest root stops at the last token. Extend to match

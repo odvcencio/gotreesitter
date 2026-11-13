@@ -3375,6 +3375,7 @@ func (t *Tree) ensureResultCompatibility() {
 	}
 	finalizer.once.Do(func() {
 		defer func() { markPublishedRootError(t.root) }()
+		defer t.restoreOmittedRootError()
 		span := finalizer.tokenInvariantReadSpan
 		finalizer.tokenInvariantReadSpan = 0
 		t.tokenInvariantReadSpan = 0
@@ -4006,6 +4007,9 @@ type Tree struct {
 	// Captured only from the accepted lexical attempt, never inferred from the
 	// next edit's token source. The byte occupies existing header padding.
 	eofExtraTokenSourceProofID uint8
+	// An error extra beside the root was not folded into visible children.
+	// This byte occupies existing header padding.
+	omittedRootError bool
 	// Zero means unknown. A full DFA parse records the longest primitive read,
 	// including failed probes. Incremental reconstruction cannot infer this bound.
 	tokenInvariantReadSpan uint32
@@ -4065,6 +4069,17 @@ const maxRetainedTreeEditCap = 8
 // maxTreeExtraHandles is the saturated handle count. Release never frees a
 // saturated tree. The garbage collector reclaims it when it is unreachable.
 const maxTreeExtraHandles = ^uint16(0)
+
+// restoreOmittedRootError preserves an error-bearing extra that was not
+// folded into the returned root, across compatibility tree rewrites.
+func (t *Tree) restoreOmittedRootError() {
+	if t != nil && t.omittedRootError && t.root != nil {
+		t.root.setHasError(true)
+		if t.resultErrorSummary != resultErrorSummaryHiddenMissing {
+			t.resultErrorSummary = resultErrorSummaryPresent
+		}
+	}
+}
 
 // Set the flag before publishing the tree. Tree readers can then share the root.
 func markPublishedRootError(root *Node) {
@@ -4226,6 +4241,7 @@ func (t *Tree) Release() {
 	t.recoveryNodeMemoCollisions = 0
 	t.tokenInvariantReadSpan = 0
 	t.eofExtraTokenSourceProofID = 0
+	t.omittedRootError = false
 }
 
 // retainUnchangedIncrementalResult adds a caller handle to an old tree that an
@@ -4534,11 +4550,12 @@ func (t *Tree) Copy() *Tree {
 	t.ensureDependsOnColumnPropagated()
 
 	out := &Tree{
-		source:         t.source,
-		sourceEncoding: t.sourceEncoding,
-		sourceUTF16:    t.sourceUTF16,
-		utf16Map:       t.utf16Map,
-		language:       t.language,
+		source:           t.source,
+		sourceEncoding:   t.sourceEncoding,
+		omittedRootError: t.omittedRootError,
+		sourceUTF16:      t.sourceUTF16,
+		utf16Map:         t.utf16Map,
+		language:         t.language,
 		// A fresh block, not a shared pointer: out must never alias t's
 		// pooled parseRuntime, since the two trees release independently.
 		parseRuntime:               acquireParseRuntime(),
