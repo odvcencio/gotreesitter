@@ -39,7 +39,15 @@ func (hashScanner) Deserialize(payload any, buf []byte) {
 
 func (hashScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool) bool {
 	st := payload.(*hashState)
-	if len(valid) == 0 || !valid[0] || st.seen >= 2 {
+	if st.seen >= 2 || !scanMiniHash(lexer, valid) {
+		return false
+	}
+	st.seen++
+	return true
+}
+
+func scanMiniHash(lexer *gts.ExternalLexer, valid []bool) bool {
+	if len(valid) == 0 || !valid[0] {
 		return false
 	}
 	// The external token may follow whitespace. Match the grammar's extras
@@ -53,7 +61,6 @@ func (hashScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool) boo
 	lexer.Advance(false)
 	lexer.MarkEnd()
 	lexer.SetResultSymbol(2)
-	st.seen++
 	return true
 }
 
@@ -195,13 +202,7 @@ func (savesScanner) Deserialize(payload any, buf []byte) {
 
 func (savesScanner) Scan(payload any, lexer *gts.ExternalLexer, valid []bool) bool {
 	st := payload.(*savesState)
-	if len(valid) == 0 || !valid[0] || lexer.Lookahead() != '#' || st.saves > 2 {
-		return false
-	}
-	lexer.Advance(false)
-	lexer.MarkEnd()
-	lexer.SetResultSymbol(2)
-	return true
+	return st.saves <= 2 && scanMiniHash(lexer, valid)
 }
 
 // A report is evidence about the production parser only if the parse with the
@@ -389,13 +390,7 @@ func (statelessHash) ExternalScannerIsStateless() bool  { return true }
 func (statelessHash) PreservesStateOnScanFailure() bool { return true }
 func (statelessHash) SupportsIncrementalReuse() bool    { return false }
 func (statelessHash) Scan(_ any, lexer *gts.ExternalLexer, valid []bool) bool {
-	if len(valid) == 0 || !valid[0] || lexer.Lookahead() != '#' {
-		return false
-	}
-	lexer.Advance(false)
-	lexer.MarkEnd()
-	lexer.SetResultSymbol(2)
-	return true
+	return scanMiniHash(lexer, valid)
 }
 
 func TestCertifyRestoresTheScannerWhenAScanPanics(t *testing.T) {
@@ -460,5 +455,41 @@ func TestMiniScannerCorpusParseOutcomes(t *testing.T) {
 			}
 		}
 		tree.Release()
+	}
+}
+
+func TestMiniScannersRecognizeSpacedHash(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		scanner gts.ExternalScanner
+	}{
+		{"stateful", hashScanner{}},
+		{"stateless", statelessHash{}},
+		{"serialize-counting", savesScanner{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := gts.NewParser(miniLanguage(tc.scanner))
+			p.SetAdmissionCandidateRoute(false)
+			tree, err := p.Parse([]byte("1 # 2"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			var spans [][2]uint32
+			var visit func(*gts.Node)
+			visit = func(n *gts.Node) {
+				if n.ChildCount() == 0 && n.Symbol() == 2 {
+					spans = append(spans, [2]uint32{n.StartByte(), n.EndByte()})
+				}
+				for i := 0; i < n.ChildCount(); i++ {
+					visit(n.Child(i))
+				}
+			}
+			visit(root)
+			if root.HasError() || root.EndByte() != 5 || !slices.Equal(spans, [][2]uint32{{2, 3}}) {
+				t.Errorf("error=%t end=%d hash spans=%v, want false, 5, [[2 3]]", root.HasError(), root.EndByte(), spans)
+			}
+		})
 	}
 }
