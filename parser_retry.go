@@ -254,7 +254,7 @@ func shouldRetryIncrementalParseAsFull(tree *Tree, sourceLen int, initialMaxStac
 // ERROR root, a root with fewer than two children, a tree that did not come
 // from old-tree reuse, or error coverage above a quarter of the source.
 func incrementalAcceptedErrorIsLocal(tree *Tree, sourceLen int) bool {
-	if tree == nil || sourceLen <= 0 {
+	if tree == nil || sourceLen <= 0 || tree.omittedRootError {
 		return false
 	}
 	rt := tree.rawParseRuntime()
@@ -270,16 +270,20 @@ func incrementalAcceptedErrorIsLocal(tree *Tree, sourceLen int) bool {
 		return false
 	}
 	var errorSpan uint64
+	foundError := false
 	for i := 0; i < children; i++ {
 		child := resultChildAt(root, i)
-		if child == nil || !(child.IsError() || child.HasError()) {
+		if child == nil || !(child.IsError() || child.IsMissing() || child.HasError()) {
 			continue
 		}
+		foundError = true
 		if child.EndByte() > child.StartByte() {
 			errorSpan += uint64(child.EndByte() - child.StartByte())
 		}
 	}
-	return errorSpan*4 <= uint64(sourceLen)
+	// An error on the root may come from omitted extras, which have no child
+	// span here. Without an error-bearing child, locality is unproven.
+	return foundError && errorSpan*4 <= uint64(sourceLen)
 }
 
 // incrementalAcceptedErrorBaseMergeCap returns the ordinary full-parse merge

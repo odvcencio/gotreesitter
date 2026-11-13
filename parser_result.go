@@ -1746,3 +1746,21 @@ func resultRecomputeHasErrorSubtree(n *Node) {
 		cur.setHasError(has)
 	}
 }
+
+// reconcileAcceptedResultErrors clears stale descendant flags while preserving
+// error extras omitted from the returned root's child list.
+func (p *Parser) reconcileAcceptedResultErrors(tree *Tree, root *Node, arena *nodeArena) {
+	var rawOnlyMissing bool
+	hasError := reconcileStaleHasErrorFlagsWithMissingEvidence(root, 0, p.retainExternalFallbackMissingFlags, &rawOnlyMissing)
+	hiddenMissing := rawOnlyMissing || (!hasError && retainedHiddenMissingFlags(root, p.language, arena))
+	hasError = hasError || hiddenMissing || tree.omittedRootError
+	if hasError {
+		root.setHasError(true)
+		tree.resultErrorSummary = resultErrorSummaryPresent
+		if hiddenMissing {
+			tree.resultErrorSummary = resultErrorSummaryHiddenMissing
+		}
+	} else {
+		tree.resultErrorSummary = resultErrorSummaryClean
+	}
+}

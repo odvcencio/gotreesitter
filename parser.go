@@ -5683,19 +5683,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// hasError=false is definitionally C-correct.
 		if tree != nil && p.crecoveryEnteredErrorState && stopReason == ParseStopAccepted {
 			if root := tree.root; root != nil && root.endByte >= expectedEOFByte {
-				var rawOnlyMissing bool
-				hasError := reconcileStaleHasErrorFlagsWithMissingEvidence(root, 0, p.retainExternalFallbackMissingFlags, &rawOnlyMissing)
-				hiddenMissing := rawOnlyMissing || (!hasError && retainedHiddenMissingFlags(root, p.language, arena))
-				hasError = hasError || hiddenMissing
-				if hasError {
-					root.setHasError(true)
-					tree.resultErrorSummary = resultErrorSummaryPresent
-					if hiddenMissing {
-						tree.resultErrorSummary = resultErrorSummaryHiddenMissing
-					}
-				} else {
-					tree.resultErrorSummary = resultErrorSummaryClean
-				}
+				p.reconcileAcceptedResultErrors(tree, root, arena)
 			}
 		}
 		// Env-gated (GOT_DEBUG_RECOVERY_INCREMENTAL_COST=1) one-line summary of the
