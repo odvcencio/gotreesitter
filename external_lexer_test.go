@@ -1208,3 +1208,93 @@ func TestScanPanicThenDestroyPanicDestroysTheRuntimePayloadOnce(t *testing.T) {
 		}
 	}
 }
+
+// A reader belongs to the table binding from which it was created; caller
+// mutation of the language must not rewrite an already-bound field map.
+func TestCcoreNodeReaderFieldMapSnapshot(t *testing.T) {
+	lang := loadBlobForDecode(t, "json")
+	src := []byte(`{"a":1}`)
+	coreRead := func(l *Language) (*ccore.Tree, ccore.NodeReader) {
+		t.Helper()
+		cfg, err := ccoreConfig(l)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := ccore.NewParser(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tree, stop := p.Parse(src)
+		if tree == nil || stop != "" {
+			t.Fatalf("core parse %q", stop)
+		}
+		return tree, ccore.NewNodeReader(tree.Reader(), cfg.Nodes)
+	}
+	coreFields := func(tree *ccore.Tree, r ccore.NodeReader) []uint16 {
+		var out []uint16
+		var visit func(ccore.Node)
+		visit = func(n ccore.Node) {
+			for i := uint32(0); i < r.ChildCount(n); i++ {
+				c, ok := r.Child(n, i)
+				if !ok {
+					t.Fatal("core child")
+				}
+				if c.Field != 0 {
+					out = append(out, c.Field)
+				}
+				visit(c)
+			}
+		}
+		visit(r.RootNode(tree.Root()))
+		return out
+	}
+	legacyFields := func(l *Language) []string {
+		p := NewParser(l)
+		p.SetAdmissionCandidateRoute(false)
+		tree, err := p.Parse(src)
+		if tree == nil || err != nil {
+			t.Fatalf("legacy %v", err)
+		}
+		defer tree.Release()
+		var out []string
+		var visit func(*Node)
+		visit = func(n *Node) {
+			for i := 0; i < n.ChildCount(); i++ {
+				if f := n.FieldNameForChild(i, l); f != "" {
+					out = append(out, f)
+				}
+				visit(n.Child(i))
+			}
+		}
+		visit(tree.RootNode())
+		return out
+	}
+	tree, reader := coreRead(lang)
+	defer tree.Release()
+	if got := coreFields(tree, reader); !reflect.DeepEqual(got, []uint16{1, 2}) {
+		t.Fatalf("initial core fields: %v", got)
+	}
+	if got := legacyFields(lang); !reflect.DeepEqual(got, []string{"key", "value"}) {
+		t.Fatalf("initial legacy fields: %v", got)
+	}
+	if len(lang.FieldMapSlices) < 2 || lang.FieldMapSlices[1][1] == 0 {
+		t.Fatal("unexpected JSON field table")
+	}
+	lang.FieldMapSlices[1] = [2]uint16{}
+	if got := coreFields(tree, reader); !reflect.DeepEqual(got, []uint16{1, 2}) {
+		t.Fatalf("existing reader changed: %v", got)
+	}
+	if got := legacyFields(lang); !reflect.DeepEqual(got, []string{"key", "value"}) {
+		t.Fatalf("warmed legacy changed: %v", got)
+	}
+	changed := loadBlobForDecode(t, "json")
+	changed.FieldMapSlices[1] = [2]uint16{}
+	newTree, newReader := coreRead(changed)
+	defer newTree.Release()
+	if got := coreFields(newTree, newReader); len(got) != 0 {
+		t.Fatalf("new core binding ignored change: %v", got)
+	}
+	if got := legacyFields(changed); len(got) != 0 {
+		t.Fatalf("new legacy binding ignored change: %v", got)
+	}
+}
