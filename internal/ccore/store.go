@@ -82,8 +82,9 @@ type span struct{ page, first, last int }
 
 // storeCore is the part of a store that all views share.
 type storeCore struct {
-	mu  sync.Mutex // short mutex: page tables, pending operations
-	emu sync.Mutex // edit allocator: serializes Tree.Edit and guards ec
+	parseTables *Tables    // table identity, read and cleared under lease
+	mu          sync.Mutex // short mutex: page tables, pending operations
+	emu         sync.Mutex // edit allocator: serializes Tree.Edit and guards ec
 	// page tables (guarded by mu for growth; views hold copies of the headers)
 	recs      []*[recPageLen]rec
 	refs      []*[recPageLen]uint32
@@ -1087,6 +1088,7 @@ func (c *storeCore) endLocked() {
 	c.nextRec, c.nextKid, c.nextState = 0, 0, 0
 	c.gen++
 	c.ended.Store(true)
+	c.parseTables = nil
 	c.mu.Unlock()
 	putPages(recs, refs, kids, state)
 	// The first page-table slots live in the core (recsIn, refsIn, kidsIn). The
