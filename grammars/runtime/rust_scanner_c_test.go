@@ -70,3 +70,17 @@ func TestRustCScannerLexicalBoundaries(t *testing.T) {
 		t.Fatal("legacy line-doc prefix behavior changed")
 	}
 }
+
+// The C scanner stores the current lookahead in a char while scanning block
+// comments, so U+012A has the same low byte as an ASCII asterisk.
+func TestRustCScannerBlockCommentBoundaries(t *testing.T) {
+	scanner := RustExternalScanner{}
+	valid := make([]bool, rustTokenCount)
+	valid[rustTokBlockCommentContent] = true
+	for _, src := range []string{"abc*/", "abc\u012a/"} {
+		got := portScan(scanner, cFaithfulPayload(scanner), src, valid)
+		portWantScan(t, src, got, true, rustDefaultSymTable[rustTokBlockCommentContent], 3)
+	}
+	got := portScan(scanner, cFaithfulPayload(scanner), "", valid)
+	portWantScan(t, "EOF", got, true, rustDefaultSymTable[rustTokBlockCommentContent], 0)
+}
