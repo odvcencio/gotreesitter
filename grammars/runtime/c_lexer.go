@@ -4,6 +4,7 @@ package grammarruntime
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/odvcencio/gotreesitter"
@@ -1131,6 +1132,9 @@ func (ts *CTokenSource) matchLiteral() (gotreesitter.Symbol, int) {
 		if !ts.matchAt(lexeme) {
 			continue
 		}
+		if isWideCloseAngle(lexeme) && ts.liveLexModeReadsOneByte() {
+			continue
+		}
 		if fallbackSym == 0 {
 			fallbackSym = candidate.sym
 			fallbackN = len(lexeme)
@@ -1148,6 +1152,50 @@ func (ts *CTokenSource) matchLiteral() (gotreesitter.Symbol, int) {
 		}
 	}
 	return fallbackSym, fallbackN
+}
+
+func isWideCloseAngle(lexeme string) bool {
+	return len(lexeme) > 1 && strings.Trim(lexeme, ">") == ""
+}
+
+// liveLexModeReadsOneByte reports whether a live parse state's own lex mode
+// reads a one-byte token at the cursor. C lexes each GLR version in its own
+// mode, so in C++ `A<B<T>>` the template versions read the first `>` alone
+// (the template closer outranks `>>`), while a comparison version reads `>>`.
+// One shared token cannot be both; like the DFA route's election, the shared
+// token is then the single `>`, which leaves the next byte to the template
+// versions instead of consuming it.
+func (ts *CTokenSource) liveLexModeReadsOneByte() bool {
+	if ts.lang == nil || len(ts.lang.LexStates) == 0 {
+		return false
+	}
+	// One byte past the run is enough lookahead for every close-angle token;
+	// the bound keeps a failing lex from scanning the rest of the file.
+	end := ts.cur.offset + 4
+	if end > len(ts.src) {
+		end = len(ts.src)
+	}
+	window := ts.src[ts.cur.offset:end]
+	readsOneByte := func(state gotreesitter.StateID) bool {
+		if int(state) >= len(ts.lang.LexModes) {
+			return false
+		}
+		start := ts.lang.LexModes[state].LexStateIndex()
+		if int(start) >= len(ts.lang.LexStates) {
+			return false
+		}
+		tok := gotreesitter.NewLexer(ts.lang.LexStates, window).Next(start)
+		return tok.Symbol != 0 && tok.StartByte == 0 && tok.EndByte == 1
+	}
+	if len(ts.glrStates) == 0 {
+		return readsOneByte(ts.parserState)
+	}
+	for _, state := range ts.glrStates {
+		if readsOneByte(state) {
+			return true
+		}
+	}
+	return false
 }
 
 func (ts *CTokenSource) matchAt(lexeme string) bool {
