@@ -568,9 +568,14 @@ func subtreeChangedRanges(sc *crScratch, oldS, newS *Store, tab *Tables, oldRoot
 
 // ChangedRanges is ts_tree_get_changed_ranges (C/tree.c:114). oldIncluded and
 // newIncluded are the included ranges of the two trees (C TSTree.included_ranges;
-// the old list as edited by ts_range_edit). tab supplies the alias sequences.
-// ok is false, and nothing is computed, when a tree is nil or released. Both trees must use tab. The result is a new slice the caller may keep; it is
-// empty when nothing changed. Invisible roots are unsupported and return ok=false.
+// the old list as edited by ts_range_edit). The caller must supply ordered,
+// non-overlapping ranges with coordinates matching the corresponding trees.
+// Both trees must use tab, which supplies the alias sequences. These caller
+// preconditions are not checked.
+//
+// ok is false, and nothing is computed, when a tree is nil or released.
+// Invisible roots are unsupported and return ok=false. The result is a new
+// slice the caller may keep; it is empty when nothing changed.
 func ChangedRanges(oldT, newT *Tree, tab *Tables, oldIncluded, newIncluded []Range) (out []Range, ok bool) {
 	if tab == nil || oldT == nil || newT == nil || oldT.Released() || newT.Released() {
 		return nil, false
