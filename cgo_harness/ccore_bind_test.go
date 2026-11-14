@@ -70,13 +70,11 @@ func ccoreCount(test, set string, checked int) {
 // (CCORE_LANG=<language>).
 //
 // 1. Directly: two bind.Config(gl) values hold a scanner of their own. When the
-// language has an external scanner, both Scanner fields must be non-nil, must be
-// pointers (their identity can be told), and must be different pointers. The
-// scanner is a *bind.FuncScanner made by the adapter for each Config call; the
-// payload lives in the adapter object its two functions are bound to, which the
-// test cannot see, so identity of the *FuncScanner is the strongest direct
-// check available from outside the root package. A language without an external
-// scanner has Scanner == nil in both.
+// language has an external scanner, both Scanner fields must be non-nil,
+// comparable and distinct. The payload lives in the adapter object its two
+// functions are bound to; hook identity is the strongest direct check available
+// outside the root package. A language without an external scanner has nil
+// Scanner in both configs.
 //
 // 2. By parsing: two parsers made by bind.New are used in turn on two different
 // inputs (interleaved, three rounds); every digest must equal the digest of a
@@ -98,10 +96,10 @@ func TestCcoreScannerIsolation(t *testing.T) {
 			t.Fatalf("%s: the language has an external scanner but a Config has none (%v, %v)", name, cfg1.Scanner == nil, cfg2.Scanner == nil)
 		}
 		v1, v2 := reflect.ValueOf(cfg1.Scanner), reflect.ValueOf(cfg2.Scanner)
-		if v1.Kind() != reflect.Pointer || v2.Kind() != reflect.Pointer {
-			t.Fatalf("%s: the Config scanner is a %s, not a pointer: its identity cannot be checked", name, v1.Kind())
+		if !v1.Comparable() || !v2.Comparable() {
+			t.Fatalf("%s: scanner hook identity is not comparable", name)
 		}
-		ccoreExpect(t, v1.Pointer() != v2.Pointer(), "%s: two Config values hold the same scanner", name)
+		ccoreExpect(t, cfg1.Scanner != cfg2.Scanner, "%s: two Config values hold the same scanner", name)
 	} else if cfg1.Scanner != nil || cfg2.Scanner != nil {
 		t.Fatalf("%s: the language has no external scanner but a Config has one", name)
 	}

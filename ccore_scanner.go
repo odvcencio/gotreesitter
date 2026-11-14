@@ -15,7 +15,7 @@ import (
 // ccore_bind.go converts. Nothing in this file parses; ccore_bind.go hands the
 // hook to internal/ccore/bind, which the equality tests in cgo_harness use.
 
-// ccoreExtScanner serves ccore.ExtScanner (through bind.FuncScanner, so that no
+// ccoreExtScanner serves ccore.ExtScanner (through bind.NewFuncScanner, so that no
 // exported method lands on a root type and in the API snapshots) over a language's
 // ExternalScanner. The payload is created on the first Scan and destroyed by
 // Close.
@@ -236,5 +236,5 @@ func (a *ccoreExtScanner) close() {
 
 // hook returns the ccore.ExtScanner for this scanner.
 func (a *ccoreExtScanner) hook() ccore.ExtScanner {
-	return &bind.FuncScanner{ScanFn: a.scan, CloseFn: a.close}
+	return bind.NewFuncScanner(a.scan, a.close)
 }
