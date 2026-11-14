@@ -1208,3 +1208,159 @@ func TestScanPanicThenDestroyPanicDestroysTheRuntimePayloadOnce(t *testing.T) {
 		}
 	}
 }
+
+// A reader belongs to the table binding from which it was created; caller
+// mutation of the language must not rewrite an already-bound field map.
+func TestCcoreNodeReaderFieldMapSnapshot(t *testing.T) {
+	lang := loadBlobForDecode(t, "json")
+	src := []byte(`{"a":1}`)
+	coreRead := func(l *Language) (*ccore.Tree, ccore.NodeReader) {
+		t.Helper()
+		cfg, err := ccoreConfig(l)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := ccore.NewParser(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tree, stop := p.Parse(src)
+		if tree == nil || stop != "" {
+			t.Fatalf("core parse %q", stop)
+		}
+		return tree, ccore.NewNodeReader(tree.Reader(), cfg.Nodes)
+	}
+	coreFields := func(tree *ccore.Tree, r ccore.NodeReader) []uint16 {
+		var out []uint16
+		var visit func(ccore.Node)
+		visit = func(n ccore.Node) {
+			for i := uint32(0); i < r.ChildCount(n); i++ {
+				c, ok := r.Child(n, i)
+				if !ok {
+					t.Fatal("core child")
+				}
+				if c.Field != 0 {
+					out = append(out, c.Field)
+				}
+				visit(c)
+			}
+		}
+		visit(r.RootNode(tree.Root()))
+		return out
+	}
+	legacyFields := func(l *Language) []string {
+		p := NewParser(l)
+		p.SetAdmissionCandidateRoute(false)
+		tree, err := p.Parse(src)
+		if tree == nil || err != nil {
+			t.Fatalf("legacy %v", err)
+		}
+		defer tree.Release()
+		var out []string
+		var visit func(*Node)
+		visit = func(n *Node) {
+			for i := 0; i < n.ChildCount(); i++ {
+				if f := n.FieldNameForChild(i, l); f != "" {
+					out = append(out, f)
+				}
+				visit(n.Child(i))
+			}
+		}
+		visit(tree.RootNode())
+		return out
+	}
+	tree, reader := coreRead(lang)
+	defer tree.Release()
+	if got := coreFields(tree, reader); !reflect.DeepEqual(got, []uint16{1, 2}) {
+		t.Fatalf("initial core fields: %v", got)
+	}
+	if got := legacyFields(lang); !reflect.DeepEqual(got, []string{"key", "value"}) {
+		t.Fatalf("initial legacy fields: %v", got)
+	}
+	if len(lang.FieldMapSlices) < 2 || lang.FieldMapSlices[1][1] == 0 {
+		t.Fatal("unexpected JSON field table")
+	}
+	lang.FieldMapSlices[1] = [2]uint16{}
+	if got := coreFields(tree, reader); !reflect.DeepEqual(got, []uint16{1, 2}) {
+		t.Fatalf("existing reader changed: %v", got)
+	}
+	if got := legacyFields(lang); !reflect.DeepEqual(got, []string{"key", "value"}) {
+		t.Fatalf("warmed legacy changed: %v", got)
+	}
+	changed := loadBlobForDecode(t, "json")
+	changed.FieldMapSlices[1] = [2]uint16{}
+	newTree, newReader := coreRead(changed)
+	defer newTree.Release()
+	if got := coreFields(newTree, newReader); len(got) != 0 {
+		t.Fatalf("new core binding ignored change: %v", got)
+	}
+	if got := legacyFields(changed); len(got) != 0 {
+		t.Fatalf("new legacy binding ignored change: %v", got)
+	}
+}
+
+// A reader must not race with later mutation of the language field table.
+func TestCcoreFieldReaderConcurrentLanguageMutation(t *testing.T) {
+	lang := loadBlobForDecode(t, "json")
+	cfg, err := ccoreConfig(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ccore.NewParser(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, stop := p.Parse([]byte(`{"a":1}`))
+	if tree == nil || stop != "" {
+		t.Fatalf("parse: %q", stop)
+	}
+	defer tree.Release()
+	reader := ccore.NewNodeReader(tree.Reader(), cfg.Nodes)
+	var parent ccore.Node
+	var childIndex uint32
+	found := false
+	var visit func(ccore.Node)
+	visit = func(n ccore.Node) {
+		for i := uint32(0); i < reader.ChildCount(n) && !found; i++ {
+			child, ok := reader.Child(n, i)
+			if !ok {
+				t.Fatal("missing child")
+			}
+			if child.Field != 0 {
+				parent, childIndex, found = n, i, true
+				return
+			}
+			visit(child)
+		}
+	}
+	visit(reader.RootNode(tree.Root()))
+	if !found || len(lang.FieldMapSlices) < 2 {
+		t.Fatal("missing JSON field")
+	}
+	original := lang.FieldMapSlices[1]
+	initial, ok := reader.Child(parent, childIndex)
+	if !ok || initial.Field == 0 {
+		t.Fatal("missing initial field")
+	}
+	start, done := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(done)
+		<-start
+		for i := 0; i < 20000; i++ {
+			lang.FieldMapSlices[1] = [2]uint16{}
+			lang.FieldMapSlices[1] = original
+		}
+	}()
+	close(start)
+	changes := 0
+	for i := 0; i < 20000; i++ {
+		child, ok := reader.Child(parent, childIndex)
+		if !ok || child.Field != initial.Field {
+			changes++
+		}
+	}
+	<-done
+	if changes != 0 {
+		t.Fatalf("field changed during language mutation in %d reads", changes)
+	}
+}
