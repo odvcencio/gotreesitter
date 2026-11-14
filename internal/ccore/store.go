@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"math/bits"
 	"reflect"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -318,11 +319,19 @@ func (s *Store) rec(h Handle) *rec { return &s.recs[h>>(recShift+1)][(h>>1)&recM
 // it has claimed.
 func (s *Store) growRec(cur *arenaCur) {
 	c := s.core
+	ticket := c.reserveFixedPage(fixedRecord)
+	if ticket.active {
+		defer ticket.cancel()
+		c.fire("fixed-record-reserved")
+	}
 	pg, rf := takeRecPage()
 	if pg == nil {
 		pg, rf = new([recPageLen]rec), new([recPageLen]uint32)
 	} else {
 		clear(rf[:]) // a page of the pool: records are overwritten on use, flags must start at zero
+	}
+	if ticket.active {
+		c.fire("fixed-record-acquired")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -334,8 +343,16 @@ func (s *Store) growRec(cur *arenaCur) {
 		c.limitPanic("record index limit reached")
 	}
 	first := len(c.recs) == 0
-	c.recs = append(c.recs, pg)
-	c.refs = append(c.refs, rf)
+	// Grow both tables before publishing either header. If the second growth
+	// panics, record and ref tables must still describe the same pages.
+	recs := slices.Grow(c.recs, 1)
+	if ticket.active {
+		c.fire("fixed-record-table-prepared")
+	}
+	refs := slices.Grow(c.refs, 1)
+	recs = append(recs, pg)
+	refs = append(refs, rf)
+	c.recs, c.refs = recs, refs
 	cur.recPage, cur.recSlot = len(c.recs)-1, 0
 	c.nextRec = len(c.recs)
 	if first {
@@ -343,13 +360,15 @@ func (s *Store) growRec(cur *arenaCur) {
 		cur.recSlot = 1
 	}
 	s.syncLocked()
+	ticket.commitLocked()
 }
 
-// childPageAccount observes fixed child pages only. It does not enforce a
+// childPageAccount observes fixed child, record/ref, and state pages only. It does not enforce a
 // memory budget or account for page tables, other pages, or cleanup buffers.
 // It is installed under the store lease after excluding edits with emu and
 // remains active until store end.
 type childPageAccount struct {
+	record, state         fixedPageCounts // partial extra categories, guarded by store mu
 	held, pending, volume uint64
 	overflow              bool
 }
@@ -386,7 +405,20 @@ func (c *storeCore) attachChildAccountUnderLease() bool {
 	if n > ^uint64(0)/childPageCharge {
 		return false
 	}
-	c.childAccount.Store(&childPageAccount{held: n * childPageCharge})
+	if len(c.recs) != len(c.refs) {
+		return false
+	}
+	rn, sn := uint64(len(c.recs)), uint64(len(c.state))
+	rb, sb := uint64(recPageBytes()), uint64(stPageLen)
+	if rb == 0 || rn > ^uint64(0)/rb || sn > ^uint64(0)/sb {
+		return false
+	}
+	for _, pg := range c.state {
+		if len(pg) != stPageLen {
+			return false
+		}
+	}
+	c.childAccount.Store(&childPageAccount{held: n * childPageCharge, record: fixedPageCounts{held: rn * rb}, state: fixedPageCounts{held: sn * sb}})
 	return true
 }
 func (c *storeCore) reserveChildPage() childPageTicket {
@@ -511,11 +543,153 @@ func (s *Store) growKids(cur *arenaCur) {
 	ticket.commitLocked()
 }
 
+// fixedPageCounts track record/ref pairs and scanner-state pages separately.
+// Observational only: table arrays, buffers, large lists and other storage are excluded.
+type fixedPageCounts struct {
+	held, pending, volume uint64
+	overflow              bool
+}
+type fixedPageKind uint8
+
+const (
+	fixedRecord fixedPageKind = iota
+	fixedState
+)
+
+func (a *childPageAccount) fixed(k fixedPageKind) (*fixedPageCounts, uint64) {
+	switch k {
+	case fixedRecord:
+		return &a.record, uint64(recPageBytes())
+	case fixedState:
+		return &a.state, uint64(stPageLen)
+	default:
+		return nil, 0
+	}
+}
+
+type fixedPageTicket struct {
+	c      *storeCore
+	a      *childPageAccount
+	gen    uint64
+	kind   fixedPageKind
+	active bool
+}
+
+func (c *storeCore) reserveFixedPage(k fixedPageKind) fixedPageTicket {
+	a := c.childAccount.Load()
+	if a == nil {
+		return fixedPageTicket{}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	x, n := a.fixed(k)
+	if x == nil {
+		return fixedPageTicket{}
+	}
+	max := ^uint64(0)
+	if c.childAccount.Load() != a || x.overflow || c.ended.Load() || n == 0 || x.pending > max-n || x.volume > max-n || x.held > max-x.pending-n {
+		x.overflow = true
+		return fixedPageTicket{}
+	}
+	x.pending += n
+	x.volume += n
+	return fixedPageTicket{c: c, a: a, gen: c.gen, kind: k, active: true}
+}
+func (t *fixedPageTicket) cancel() {
+	if !t.active {
+		return
+	}
+	c := t.c
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	x, n := t.a.fixed(t.kind)
+	if x == nil {
+		t.active = false
+		return
+	}
+	if c.gen != t.gen || c.childAccount.Load() != t.a || x.pending < n {
+		x.overflow = true
+	} else {
+		x.pending -= n
+	}
+	t.active = false
+}
+func (t *fixedPageTicket) commitLocked() {
+	if !t.active {
+		return
+	}
+	c := t.c
+	x, n := t.a.fixed(t.kind)
+	if x == nil {
+		t.active = false
+		return
+	}
+	if c.gen != t.gen || c.childAccount.Load() != t.a || x.pending < n || x.held > ^uint64(0)-n {
+		x.overflow = true
+	} else {
+		x.pending -= n
+		x.held += n
+	}
+	t.active = false
+}
+
+// fixedPageCursor is request-owned: use from one goroutine and do not copy.
+type fixedPageCursor struct {
+	a              *childPageAccount
+	gen, watermark uint64
+	kind           fixedPageKind
+	valid          bool
+}
+
+func (c *storeCore) fixedPageAttach(k fixedPageKind) (uint64, fixedPageCursor, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if a == nil || c.ended.Load() {
+		return 0, fixedPageCursor{}, false
+	}
+	x, _ := a.fixed(k)
+	if x == nil || x.overflow || x.held > ^uint64(0)-x.pending {
+		return 0, fixedPageCursor{}, false
+	}
+	return x.held + x.pending, fixedPageCursor{a: a, gen: c.gen, watermark: x.volume, kind: k, valid: true}, true
+}
+func (p *fixedPageCursor) pull(c *storeCore, finish bool) (uint64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if !p.valid || a == nil || p.a != a || c.ended.Load() || p.gen != c.gen {
+		p.a = nil
+		p.valid = false
+		return 0, false
+	}
+	x, _ := a.fixed(p.kind)
+	if x == nil || x.overflow || x.volume < p.watermark {
+		p.a = nil
+		p.valid = false
+		return 0, false
+	}
+	d := x.volume - p.watermark
+	p.watermark = x.volume
+	if finish {
+		p.a = nil
+		p.valid = false
+	}
+	return d, true
+}
 func (s *Store) growState(cur *arenaCur) {
 	c := s.core
+	ticket := c.reserveFixedPage(fixedState)
+	if ticket.active {
+		defer ticket.cancel()
+		c.fire("fixed-state-reserved")
+	}
 	pg := takeStatePage() // a page of the pool: state bytes are written before they are read
 	if pg == nil {
 		pg = make([]byte, stPageLen)
+	}
+	if ticket.active {
+		c.fire("fixed-state-acquired")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -530,6 +704,7 @@ func (s *Store) growState(cur *arenaCur) {
 		cur.stOff = 8 // offset 0 means no bytes
 	}
 	s.syncLocked()
+	ticket.commitLocked()
 }
 
 // kidClass returns the size class of a child list of n handles (n >= 1, n <= kidPageLen).
@@ -1237,6 +1412,14 @@ func (c *storeCore) endLocked() {
 		if a.pending != 0 {
 			a.overflow = true
 		}
+		if a.record.pending != 0 {
+			a.record.overflow = true
+		}
+		if a.state.pending != 0 {
+			a.state.overflow = true
+		}
+		a.record.held = 0
+		a.state.held = 0
 		a.held = 0
 		c.childAccount.Store(nil)
 	}
@@ -1259,4 +1442,64 @@ func (c *storeCore) endLocked() {
 	// long as the store was large, and a reachable core would keep them.
 	c.rel, c.walk, c.taken, c.sortTmp, c.freedRecs, c.freedEditRecs, c.spans = nil, nil, nil, nil, nil, nil, nil
 	c.freedEditSt = [numStClasses][]uint32{}
+}
+
+// fixedPagesSnapshot is an observational atomic snapshot in child, record/ref,
+// state order. held contains held plus pending; watermark is conservative
+// reservation volume, including cancellations.
+type fixedPagesSnapshot struct{ held, watermark [3]uint64 }
+
+// fixedPagesCursor is request-owned: use from one goroutine and do not copy.
+type fixedPagesCursor struct {
+	a         *childPageAccount
+	gen       uint64
+	watermark [3]uint64
+	valid     bool
+}
+
+func (c *storeCore) fixedPagesAttach() (fixedPagesSnapshot, fixedPagesCursor, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if a == nil || c.ended.Load() {
+		return fixedPagesSnapshot{}, fixedPagesCursor{}, false
+	}
+	counts := [3]fixedPageCounts{{held: a.held, pending: a.pending, volume: a.volume, overflow: a.overflow}, a.record, a.state}
+	var s fixedPagesSnapshot
+	for i, x := range counts {
+		if x.overflow || x.held > ^uint64(0)-x.pending {
+			return fixedPagesSnapshot{}, fixedPagesCursor{}, false
+		}
+		s.held[i] = x.held + x.pending
+		s.watermark[i] = x.volume
+	}
+	return s, fixedPagesCursor{a: a, gen: c.gen, watermark: s.watermark, valid: true}, true
+}
+func (p *fixedPagesCursor) pull(c *storeCore, finish bool) ([3]uint64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var d [3]uint64
+	a := c.childAccount.Load()
+	if !p.valid || a == nil || p.a != a || c.ended.Load() || p.gen != c.gen {
+		p.valid = false
+		p.a = nil
+		return d, false
+	}
+	counts := [3]fixedPageCounts{{volume: a.volume, overflow: a.overflow}, a.record, a.state}
+	for i, x := range counts {
+		if x.overflow || x.volume < p.watermark[i] {
+			p.valid = false
+			p.a = nil
+			return [3]uint64{}, false
+		}
+		d[i] = x.volume - p.watermark[i]
+	}
+	for i, x := range counts {
+		p.watermark[i] = x.volume
+	}
+	if finish {
+		p.valid = false
+		p.a = nil
+	}
+	return d, true
 }
