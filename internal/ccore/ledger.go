@@ -115,17 +115,23 @@ func (l *Ledger) Rebase(reserved, held int64) bool {
 	return true
 }
 
-// Reserve is called before n bytes are made. It returns false when the limit
-// check refuses or n is invalid or overflows; the bytes are then not counted
-// and must not be allocated. A false result stops the current request.
-func (l *Ledger) Reserve(n int64) bool {
+// reservationResult distinguishes invalid accounting from a refused poll.
+type reservationResult uint8
+
+const (
+	reservationOK reservationResult = iota
+	reservationInvalid
+	reservationPollRefused
+)
+
+func (l *Ledger) reserveClassified(n int64) reservationResult {
 	if l.overflow || n < 0 || n > math.MaxInt64-l.Base-l.Alloc {
-		return false
+		return reservationInvalid
 	}
 	if l.poll != nil {
 		if n >= LedgerGranularity || l.pending >= LedgerGranularity-n {
 			if !l.poll(l.Base+l.Alloc+n, false) {
-				return false
+				return reservationPollRefused
 			}
 			l.pending = 0
 		} else {
@@ -133,8 +139,13 @@ func (l *Ledger) Reserve(n int64) bool {
 		}
 	}
 	l.Alloc += n // the only statement that counts a new array
-	return true
+	return reservationOK
 }
+
+// Reserve is called before n bytes are made. It returns false when the limit
+// check refuses or n is invalid or overflows; the bytes are then not counted
+// and must not be allocated. A false result stops the current request.
+func (l *Ledger) Reserve(n int64) bool { return l.reserveClassified(n) == reservationOK }
 
 func sizeOf[T any]() int64 {
 	var z T
@@ -146,26 +157,33 @@ func sizeOf[T any]() int64 {
 // is reserved before it is made. It returns false, with s unchanged, when the
 // reservation is refused. With no limit active it is slices.Grow.
 func Grow[T any](l *Ledger, s []T, extra int) ([]T, bool) {
+	out, reason := growClassified(l, s, extra)
+	return out, reason == reservationOK
+}
+func growClassified[T any](l *Ledger, s []T, extra int) ([]T, reservationResult) {
 	if l.overflow {
-		return s, false
+		return s, reservationInvalid
 	}
 	n, ok := GrowSize(s, extra)
 	if !ok {
-		return s, false
+		return s, reservationInvalid
 	}
 	if n == 0 {
-		return s, true
+		return s, reservationOK
 	}
 	if l.poll == nil {
-		return slices.Grow(s, extra), true
+		return slices.Grow(s, extra), reservationOK
 	}
 	bytes, ok := sliceBytes[T](n)
-	if !ok || !l.Reserve(bytes) {
-		return s, false
+	if !ok {
+		return s, reservationInvalid
+	}
+	if reason := l.reserveClassified(bytes); reason != reservationOK {
+		return s, reason
 	}
 	t := make([]T, len(s), n)
 	copy(t, s)
-	return t, true
+	return t, reservationOK
 }
 
 // GrowSize returns the required capacity and false if the size is invalid or
@@ -238,85 +256,93 @@ func ElemBytes[T any]() int64 { return sizeOf[T]() }
 
 // Make returns a zeroed slice of n elements; its bytes are reserved first.
 func Make[T any](l *Ledger, n int) ([]T, bool) {
-	if l.overflow {
-		return nil, false
-	}
-	bytes, ok := sliceBytes[T](n)
-	if !ok || (l.poll != nil && !l.Reserve(bytes)) {
-		return nil, false
-	}
-	return make([]T, n), true
+	s, reason := makeClassified[T](l, n, false)
+	return s, reason == reservationOK
 }
 
 // MakeCap is Make with a length of 0 and a capacity of n.
 func MakeCap[T any](l *Ledger, n int) ([]T, bool) {
+	s, reason := makeClassified[T](l, n, true)
+	return s, reason == reservationOK
+}
+func makeClassified[T any](l *Ledger, n int, capacityOnly bool) ([]T, reservationResult) {
 	if l.overflow {
-		return nil, false
+		return nil, reservationInvalid
 	}
 	bytes, ok := sliceBytes[T](n)
-	if !ok || (l.poll != nil && !l.Reserve(bytes)) {
-		return nil, false
+	if !ok {
+		return nil, reservationInvalid
 	}
-	return make([]T, 0, n), true
+	if l.poll != nil {
+		if reason := l.reserveClassified(bytes); reason != reservationOK {
+			return nil, reason
+		}
+	}
+	if capacityOnly {
+		return make([]T, 0, n), reservationOK
+	}
+	return make([]T, n), reservationOK
 }
 
 // Push appends v to s. A full slice grows through Grow (the reservation is the
 // check). It returns false, with s unchanged, when the reservation is refused.
 func Push[T any](l *Ledger, s []T, v ...T) ([]T, bool) {
+	out, reason := pushClassified(l, s, v...)
+	return out, reason == reservationOK
+}
+func pushClassified[T any](l *Ledger, s []T, v ...T) ([]T, reservationResult) {
 	if l.overflow || len(v) > math.MaxInt-len(s) {
-		return s, false
+		return s, reservationInvalid
 	}
 	if len(v) > cap(s)-len(s) {
 		if _, ok := sliceBytes[T](len(s) + len(v)); !ok {
-			return s, false
+			return s, reservationInvalid
 		}
 	}
 	if l.poll != nil && len(v) > cap(s)-len(s) {
-		var ok bool
-		if s, ok = Grow(l, s, len(v)); !ok {
-			return s, false
+		var reason reservationResult
+		s, reason = growClassified(l, s, len(v))
+		if reason != reservationOK {
+			return s, reason
 		}
 	}
-	return append(s, v...), true
+	return append(s, v...), reservationOK
 }
 
 // ledgerStop is the one value the core panics with when the ledger refuses a
 // reservation in code that has no error path. A future caller that uses these
 // helpers must recover this type at its request boundary.
-type ledgerStop struct{}
+type ledgerStop struct{ reason reservationResult }
 
 // push, grow, mk and mkCap are the core's helpers: a refused reservation unwinds by
 // a panic of ledgerStop. Nothing was allocated or changed by the refused call.
 func push[T any](l *Ledger, s []T, v ...T) []T {
-	s, ok := Push(l, s, v...)
-	if !ok {
-		panic(ledgerStop{})
+	out, reason := pushClassified(l, s, v...)
+	if reason != reservationOK {
+		panic(ledgerStop{reason: reason})
 	}
-	return s
+	return out
 }
-
 func grow[T any](l *Ledger, s []T, extra int) []T {
-	s, ok := Grow(l, s, extra)
-	if !ok {
-		panic(ledgerStop{})
+	out, reason := growClassified(l, s, extra)
+	if reason != reservationOK {
+		panic(ledgerStop{reason: reason})
 	}
-	return s
+	return out
 }
-
 func mk[T any](l *Ledger, n int) []T {
-	s, ok := Make[T](l, n)
-	if !ok {
-		panic(ledgerStop{})
+	out, reason := makeClassified[T](l, n, false)
+	if reason != reservationOK {
+		panic(ledgerStop{reason: reason})
 	}
-	return s
+	return out
 }
-
 func mkCap[T any](l *Ledger, n int) []T {
-	s, ok := MakeCap[T](l, n)
-	if !ok {
-		panic(ledgerStop{})
+	out, reason := makeClassified[T](l, n, true)
+	if reason != reservationOK {
+		panic(ledgerStop{reason: reason})
 	}
-	return s
+	return out
 }
 
 // deleteAt removes s[i] by moving the tail down (no allocation).
