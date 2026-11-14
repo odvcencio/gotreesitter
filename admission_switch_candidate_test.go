@@ -5,6 +5,7 @@ package gotreesitter
 import (
 	"strconv"
 	"testing"
+	"unsafe"
 )
 
 // requireCandidateRouteBudgetMB arms GOT_PARSE_MEMORY_BUDGET_MB at mb for the
@@ -309,5 +310,153 @@ func TestAdmissionSwitchRecoveryDoesNotLeakCompactTree(t *testing.T) {
 	}
 	if root := tree.RootNode(); root == nil || !root.HasError() {
 		t.Fatal("malformed input should recover into an error-bearing production tree")
+	}
+}
+
+func TestRouteAttributionFreshFallbackAndNoEdit(t *testing.T) {
+	requireCandidateRouteBudgetMB(t, 256)
+	p := newAdmissionCandidateGoParser(t)
+	p.SetAdmissionCandidateRoute(true)
+	src := loadDiagnosticParserCoreCanonicalFixture(t, "rewrite").Source
+	resetAdmissionCandidateCounters()
+	tree, err := p.Parse(src)
+	if err != nil || tree == nil {
+		t.Fatalf("candidate parse: %v", err)
+	}
+	if tree.resultProducer != routeProducerCompact {
+		t.Fatalf("candidate producer=%d", tree.resultProducer)
+	}
+	routed0, fallback0 := AdmissionCandidateCounters()
+	if routed0 != 1 || fallback0 != 0 {
+		t.Fatalf("unexpected candidate counts %d/%d", routed0, fallback0)
+	}
+	copied := tree.Copy()
+	if copied == nil || copied.resultProducer != routeProducerCompact {
+		t.Fatal("copy lost producer")
+	}
+	copied.Release()
+	if got := testing.AllocsPerRun(100, func() {
+		same, e := p.ParseIncremental(src, tree)
+		if e != nil || same != tree || same.resultProducer != routeProducerCompact {
+			panic("no-edit lost identity/producer")
+		}
+		same.Release()
+	}); got != 0 {
+		t.Fatalf("no-edit allocs=%v", got)
+	}
+	changedSrc := append(append([]byte(nil), src...), '\n')
+	changed, err := p.ParseIncremental(changedSrc, tree)
+	if err != nil || changed == nil {
+		t.Fatalf("changed parse: %v", err)
+	}
+	if changed.resultProducer != routeProducerUnknown {
+		t.Fatalf("uninstrumented changed result must fail closed: %d", changed.resultProducer)
+	}
+	if changed != tree {
+		changed.Release()
+	}
+	tree.Release()
+	routed0, fallback0 = AdmissionCandidateCounters()
+	malformed := []byte("package main\n\nfunc () {\n\tvar x = \n}\n")
+	failed, err := p.Parse(malformed)
+	if err != nil || failed == nil {
+		t.Fatalf("forced fallback parse: %v", err)
+	}
+	defer failed.Release()
+	if failed.resultProducer != routeProducerLegacy {
+		t.Fatalf("forced fallback producer=%d", failed.resultProducer)
+	}
+	routed1, fallback1 := AdmissionCandidateCounters()
+	if routed1 != routed0 || fallback1 != fallback0+1 {
+		t.Fatalf("fallback counts %d/%d -> %d/%d", routed0, fallback0, routed1, fallback1)
+	}
+	if AdmissionCandidateLastFallbackReason() == "" {
+		t.Fatal("missing natural decline reason")
+	}
+	if failed.RootNode() == nil || !failed.RootNode().HasError() {
+		t.Fatal("expected recovered error tree")
+	}
+	same, err := p.ParseIncremental(malformed, failed)
+	if err != nil || same != failed || same.resultProducer != routeProducerLegacy {
+		t.Fatal("fallback no-edit lost producer")
+	}
+	same.Release()
+}
+
+func TestRouteAttributionPrivateTreeLayout(t *testing.T) {
+	if unsafe.Sizeof(uintptr(0)) == 8 && unsafe.Sizeof(Tree{}) != 208 {
+		t.Fatalf("Tree size=%d want 208", unsafe.Sizeof(Tree{}))
+	}
+	t.Logf("Tree bytes=%d", unsafe.Sizeof(Tree{}))
+}
+
+// A forest rescue is a distinct producer and cannot be labeled legacy.
+func TestRouteAttributionForestRescueFailsClosed(t *testing.T) {
+	lang := loadBlobForDecode(t, "json")
+	p := NewParser(lang)
+	tree, ok := p.ParseForestExperimental([]byte(`{"a":1}`))
+	if !ok || tree == nil {
+		t.Fatal("forest fixture did not parse")
+	}
+	defer tree.Release()
+	if !tree.forestFastPath {
+		t.Fatal("fixture did not retain forest provenance")
+	}
+	stampLegacyProducedTree(tree, tree)
+	if tree.resultProducer != routeProducerUnknown {
+		t.Fatalf("forest mislabeled %d", tree.resultProducer)
+	}
+}
+
+func TestRouteAttributionReplacementFailsClosed(t *testing.T) {
+	selected := &Tree{}
+	replacement := &Tree{resultProducer: routeProducerCompact}
+	stampLegacyProducedTree(replacement, selected)
+	if replacement.resultProducer != routeProducerUnknown {
+		t.Fatal("replacement was attributed without proof")
+	}
+	stampLegacyProducedTree(selected, selected)
+	if selected.resultProducer != routeProducerLegacy {
+		t.Fatal("unchanged legacy result lost attribution")
+	}
+}
+
+// This forces the real selector with an error tree and a different clean source;
+// it does not establish a naturally reachable same-input rescue.
+func TestRouteAttributionForcedForestSelector(t *testing.T) {
+	p := NewParser(loadBlobForDecode(t, "json"))
+	bad, err := p.Parse([]byte(`{"a":}`))
+	if err != nil || bad == nil || bad.RootNode() == nil || !bad.RootNode().HasError() {
+		t.Fatal("error fixture", err)
+	}
+	selected, ok := p.maybeReplaceRecoveredTreeWithForest([]byte(`{"a":1}`), bad)
+	if !ok || selected == nil || selected == bad || !selected.forestFastPath {
+		t.Fatal("forest was not selected")
+	}
+	defer selected.Release()
+	stampLegacyProducedTree(selected, bad)
+	if selected.resultProducer != routeProducerUnknown {
+		t.Fatal("forest result mislabeled")
+	}
+}
+
+func TestRouteAttributionTokenSourceUnknown(t *testing.T) {
+	p := NewParser(loadBlobForDecode(t, "json"))
+	src := []byte(`{"a":1}`)
+	tree, err := p.ParseWithTokenSource(src, eofAtZeroTokenSource{})
+	if err != nil || tree == nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	if tree.resultProducer != routeProducerUnknown {
+		t.Fatal("token-source attributed")
+	}
+	changed, err := p.ParseIncrementalWithTokenSource([]byte(`{"a":2}`), tree, eofAtZeroTokenSource{})
+	if err != nil || changed == nil {
+		t.Fatal(err)
+	}
+	defer changed.Release()
+	if changed.resultProducer != routeProducerUnknown {
+		t.Fatal("changed token-source attributed")
 	}
 }

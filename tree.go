@@ -4010,6 +4010,7 @@ type Tree struct {
 	// An error extra beside the root was not folded into visible children.
 	// This byte occupies existing header padding.
 	omittedRootError bool
+	resultProducer   routeResultProducer
 	// Zero means unknown. A full DFA parse records the longest primitive read,
 	// including failed probes. Incremental reconstruction cannot infer this bound.
 	tokenInvariantReadSpan uint32
@@ -4062,6 +4063,28 @@ type Tree struct {
 	// drops one handle before it frees the tree. The count saturates.
 	extraHandles               uint16
 	recoveryNodeMemoCollisions uint32
+}
+
+// routeResultProducer is internal result provenance. Unknown fails closed for
+// producers not instrumented and for caller-constructed trees.
+type routeResultProducer uint8
+
+const (
+	routeProducerUnknown routeResultProducer = iota
+	routeProducerLegacy
+	routeProducerCompact
+)
+
+// stampLegacyProducedTree fails closed if a forest rescue selected the result.
+func stampLegacyProducedTree(tree, selectedLegacy *Tree) {
+	if tree == nil {
+		return
+	}
+	if tree != selectedLegacy || tree.forestFastPath {
+		tree.resultProducer = routeProducerUnknown
+		return
+	}
+	tree.resultProducer = routeProducerLegacy
 }
 
 const maxRetainedTreeEditCap = 8
@@ -4553,6 +4576,7 @@ func (t *Tree) Copy() *Tree {
 		source:           t.source,
 		sourceEncoding:   t.sourceEncoding,
 		omittedRootError: t.omittedRootError,
+		resultProducer:   t.resultProducer,
 		sourceUTF16:      t.sourceUTF16,
 		utf16Map:         t.utf16Map,
 		language:         t.language,

@@ -1010,6 +1010,11 @@ func manageTokenSourceLifetime(ts TokenSource) func() {
 
 // parseWithTokenSource stamps the retry stop signal of the operation on its result.
 func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFactory TokenSourceFactory) (tree *Tree, err error) {
+	defer func() {
+		if tree != nil {
+			tree.resultProducer = routeProducerUnknown
+		}
+	}()
 	p.retryCutBegin()
 	defer func() { p.retryCutEnd(tree) }()
 	return p.parseWithTokenSourceRun(source, ts, reparseFactory)
@@ -1096,7 +1101,12 @@ func (p *Parser) parseIncrementalWithTokenSourceRun(source []byte, oldTree *Tree
 	return p.parseIncrementalWithTokenSourceChanged(source, oldTree, ts, reparseFactory)
 }
 
-func (p *Parser) parseIncrementalWithTokenSourceChanged(source []byte, oldTree *Tree, ts TokenSource, reparseFactory TokenSourceFactory) (*Tree, error) {
+func (p *Parser) parseIncrementalWithTokenSourceChanged(source []byte, oldTree *Tree, ts TokenSource, reparseFactory TokenSourceFactory) (tree *Tree, err error) {
+	defer func() {
+		if tree != nil {
+			tree.resultProducer = routeProducerUnknown
+		}
+	}()
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
 	p.fullParseRetryPassesTaken = 0
@@ -1105,7 +1115,7 @@ func (p *Parser) parseIncrementalWithTokenSourceChanged(source []byte, oldTree *
 	defer func() {
 		p.reparseFactory = prevFactory
 	}()
-	tree, err := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), nil)
+	tree, err = p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1644,6 +1654,7 @@ func (p *Parser) parseRun(source []byte) (*Tree, error) {
 	}
 	workCountSetNextParseAttempt("initial_full", "fresh_dfa_full_parse")
 	tree := p.parseInternal(source, p.wrapIncludedRanges(ts), nil, nil, arenaClassFull, nil, initialMaxStacks, 0, 0, deterministicExternalConflicts)
+	selectedLegacy := tree
 	if observe := p.retryPassObserverFunc(); observe != nil {
 		observe(p, "first_pass")
 	}
@@ -1663,6 +1674,7 @@ func (p *Parser) parseRun(source []byte) (*Tree, error) {
 		if progress.enabled {
 			progress.emit(time.Now(), "retry_end", 0, 0, Token{}, false, nil, 0, 0, 0, false, 0, 0, "")
 		}
+		selectedLegacy = tree
 		p.normalizeReturnedTreeForParse(tree, source)
 		if !p.recoveryInitialOnly {
 			tree = p.resolveCRecoverySwallowedError(source, tree)
@@ -1670,6 +1682,7 @@ func (p *Parser) parseRun(source []byte) (*Tree, error) {
 		}
 		tree = p.maybeCompactReturnedFullTree(tree, source)
 	}
+	stampLegacyProducedTree(tree, selectedLegacy)
 	return tree, nil
 }
 
@@ -2166,6 +2179,11 @@ func (p *Parser) incrementalAppendRequiresFreshParse(oldTree *Tree) bool {
 // parses: the source differs from oldTree's source.
 // parseIncrementalChangedSource stamps the retry stop signal of the operation on its result.
 func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (tree *Tree, err error) {
+	defer func() {
+		if tree != nil {
+			tree.resultProducer = routeProducerUnknown
+		}
+	}()
 	p.retryCutBegin()
 	defer func() { p.retryCutEnd(tree) }()
 	return p.parseIncrementalChangedSourceRun(source, oldTree)
@@ -2539,6 +2557,11 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 // source.
 // parseIncrementalProfiledChangedSource stamps the retry stop signal of the operation on its result.
 func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *Tree) (tree *Tree, profile IncrementalParseProfile, err error) {
+	defer func() {
+		if tree != nil {
+			tree.resultProducer = routeProducerUnknown
+		}
+	}()
 	p.retryCutBegin()
 	defer func() { p.retryCutEnd(tree) }()
 	return p.parseIncrementalProfiledChangedSourceRun(source, oldTree)
@@ -2707,6 +2730,11 @@ func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 
 // parseIncrementalWithTokenSourceChangedProfiled stamps the retry stop signal of the operation on its result.
 func (p *Parser) parseIncrementalWithTokenSourceChangedProfiled(source []byte, oldTree *Tree, ts TokenSource) (tree *Tree, profile IncrementalParseProfile, err error) {
+	defer func() {
+		if tree != nil {
+			tree.resultProducer = routeProducerUnknown
+		}
+	}()
 	p.retryCutBegin()
 	defer func() { p.retryCutEnd(tree) }()
 	return p.parseIncrementalWithTokenSourceChangedProfiledRun(source, oldTree, ts)

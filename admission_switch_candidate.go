@@ -312,6 +312,7 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 	if tree == nil {
 		return nil, false, "compact route produced no tree"
 	}
+	originalCompactTree := tree
 	// Empty reductions do not retain the EOF token's lexer-skip proof on
 	// every compact output route. Use fresh parsing when the empty root was
 	// widened across padding until that span is proven.
@@ -352,11 +353,17 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 	// language. See docs/compat-tail-elision.md.
 	if resultCompatibilityElisionActive(p.language) {
 		p.finalizeCompactReturnedTreeForParse(tree, source)
+		if tree == originalCompactTree {
+			tree.resultProducer = routeProducerCompact
+		}
 		return tree, true, ""
 	}
 	p.normalizeReturnedTreeForParse(tree, source)
 	tree = p.resolveCRecoverySwallowedError(source, tree)
 	tree = p.maybeCompactReturnedFullTree(tree, source)
+	if tree == originalCompactTree {
+		tree.resultProducer = routeProducerCompact
+	}
 	return tree, true, ""
 }
 
