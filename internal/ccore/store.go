@@ -85,6 +85,7 @@ type span struct{ page, first, last int }
 type storeCore struct {
 	// Optional child-page observational sidecar; counters guarded by mu.
 	childAccount atomic.Pointer[childPageAccount]
+	parseTables  *Tables    // table identity, read and cleared under lease
 	mu           sync.Mutex // short mutex: page tables, pending operations
 	emu          sync.Mutex // edit allocator: serializes Tree.Edit and guards ec
 	// page tables (guarded by mu for growth; views hold copies of the headers)
@@ -1424,6 +1425,7 @@ func (c *storeCore) endLocked() {
 	}
 	c.gen++
 	c.ended.Store(true)
+	c.parseTables = nil
 	c.mu.Unlock()
 	putPages(recs, refs, kids, state)
 	// The first page-table slots live in the core (recsIn, refsIn, kidsIn). The
