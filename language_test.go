@@ -1,6 +1,13 @@
 package gotreesitter
 
-import "testing"
+import (
+	"runtime"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/ccore"
+)
 
 // TestParseActionTypeConstants verifies the iota-generated constants.
 func TestParseActionTypeConstants(t *testing.T) {
@@ -590,5 +597,73 @@ func TestTypeAliases(t *testing.T) {
 	}
 	if uint16(f) != 50 {
 		t.Error("FieldID to uint16 conversion failed")
+	}
+}
+
+func TestCcoreTablesOwnedByLanguage(t *testing.T) {
+	l := &Language{SymbolNames: []string{"first"}, SymbolMetadata: []SymbolMetadata{{Visible: true}}}
+	base := ccoreTablesFor(l)
+	nodes := ccoreNodeTablesFor(l)
+	if l.ccoreTables == nil || l.ccoreTables.owner != l || l.ccoreTables.base != base || l.ccoreTables.nodes != nodes {
+		t.Fatal("cache is not owned by the language")
+	}
+	// Simulate an inherited cache without copying Language's initialized
+	// locks; copying a Language after initialization is unsupported.
+	copyLanguage := Language{SymbolNames: l.SymbolNames, SymbolMetadata: l.SymbolMetadata, ccoreTables: l.ccoreTables}
+	copiedBase := ccoreTablesFor(&copyLanguage)
+	copiedNodes := ccoreNodeTablesFor(&copyLanguage)
+	if copiedBase == base || copiedNodes == nodes || copiedNodes.Base != copiedBase {
+		t.Fatal("copied language reused original tables")
+	}
+	if ccoreTablesFor(l) != base || ccoreNodeTablesFor(l) != nodes {
+		t.Fatal("original cache changed")
+	}
+}
+
+func TestCcoreTablesConcurrentInitialization(t *testing.T) {
+	l := &Language{SymbolNames: []string{"name"}}
+	const workers = 16
+	bases := make([]*ccore.Tables, workers)
+	nodes := make([]*ccore.NodeTables, workers)
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for i := 0; i < workers; i++ {
+		go func(i int) { defer wg.Done(); bases[i] = ccoreTablesFor(l); nodes[i] = ccoreNodeTablesFor(l) }(i)
+	}
+	wg.Wait()
+	for i := range bases {
+		if bases[i] != bases[0] || nodes[i] != nodes[0] || nodes[i].Base != bases[i] {
+			t.Fatal("concurrent initializers did not share one consistent cache")
+		}
+	}
+}
+
+//go:noinline
+func makeCcoreLanguageLifetimeSentinel(done chan<- struct{}) {
+	backing := new([128]SymbolMetadata)
+	runtime.SetFinalizer(backing, func(*[128]SymbolMetadata) { close(done) })
+	lang := &Language{SymbolMetadata: backing[:]}
+	cfg, err := ccoreConfig(lang)
+	if err != nil {
+		panic(err)
+	}
+	runtime.KeepAlive(cfg)
+	runtime.KeepAlive(lang)
+}
+
+func TestCcoreTablesDoNotRetainLanguage(t *testing.T) {
+	done := make(chan struct{})
+	makeCcoreLanguageLifetimeSentinel(done)
+	deadline := time.NewTimer(2 * time.Second)
+	defer deadline.Stop()
+	for {
+		runtime.GC()
+		select {
+		case <-done:
+			return
+		case <-deadline.C:
+			t.Fatal("ccore tables retained the language's backing data, or its finalizer did not run")
+		case <-time.After(20 * time.Millisecond):
+		}
 	}
 }

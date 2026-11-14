@@ -774,6 +774,10 @@ type Language struct {
 	// invalidate it. See cRecoveryGateCacheKeyFor.
 	cRecoveryGateCache atomic.Pointer[cRecoveryGateCacheEntry]
 
+	// ccoreTables is protected by ccoreTablesMu. The owner check prevents
+	// use of wrappers belonging to a different Language.
+	ccoreTables *ccoreLanguageTables
+
 	// compactTables memoizes the converted compact-parser (parsercorephase0)
 	// action and reduction tables for the Phase-3 admission candidate route. The
 	// conversion reads only immutable language data, so one build serves every
