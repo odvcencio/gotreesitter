@@ -541,7 +541,7 @@ func TestRejectedScanRestoreControls(t *testing.T) {
 		destroyed := 0
 		scanner := resetProbe{good: true, panicRestore: true, destroyed: &destroyed}
 		c := call{mask: bothValid}
-		result := replay(scanner, &c, []byte("x"), ContractRestored)
+		result := replay(scanner, &c, []byte("x"), ContractRestored, false)
 		if result.panicked != "restore panic" || destroyed != 1 {
 			t.Fatalf("panic %q destroyed %d", result.panicked, destroyed)
 		}
@@ -633,7 +633,7 @@ func TestReplaySerializationFlags(t *testing.T) {
 func TestCompareFailedRestoreOnlyWhenChecked(t *testing.T) {
 	c := call{state: []byte{1}}
 	for _, checked := range []bool{false, true} {
-		res := replayed{restored: []byte{1}, failedRestoreChecked: checked}
+		res := replayed{restored: []byte{1}, restoreExpected: []byte{1}, failedRestoreChecked: checked}
 		failures := compare(&c, res, ContractRestored)
 		found := false
 		for _, f := range failures {
@@ -644,6 +644,65 @@ func TestCompareFailedRestoreOnlyWhenChecked(t *testing.T) {
 		if found != checked {
 			t.Fatalf("checked %t failures %+v", checked, failures)
 		}
+	}
+}
+
+type retryResetProbe struct{ resetProbe }
+
+func (retryResetProbe) RetainsStateOnScanFailure() bool { return true }
+func (s retryResetProbe) Scan(p any, lexer *gts.ExternalLexer, valid []bool) bool {
+	lexer.SetResultSymbol(3)
+	return s.resetProbe.Scan(p, lexer, valid)
+}
+
+func TestRetainedMaskedRetryRestore(t *testing.T) {
+	lang := &gts.Language{ExternalSymbols: []gts.Symbol{3, 4}}
+	for _, tc := range []struct {
+		name string
+		good bool
+		mask []bool
+		want int
+	}{
+		{"incomplete restore", false, bothValid, 1},
+		{"complete restore", true, bothValid, 0},
+		{"no alternate symbol", false, []bool{true, false}, 0},
+		{"result not valid", false, []bool{false, true}, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scanner := retryResetProbe{resetProbe{good: tc.good}}
+			rec := newRecorder(scanner)
+			rec.begin(0)
+			scanEvery(rec, "x", tc.mask)
+			a := rec.analyze(scanner, symbolNames{lang: lang})
+			if a.checks.FailedRestores != tc.want {
+				t.Fatalf("checks %+v, want %d failed restores", a.checks, tc.want)
+			}
+		})
+	}
+}
+
+type preservingRetryProbe struct{}
+
+func (preservingRetryProbe) Create() any                       { return new(byte) }
+func (preservingRetryProbe) Destroy(any)                       {}
+func (preservingRetryProbe) PreservesStateOnScanFailure() bool { return true }
+func (preservingRetryProbe) Serialize(p any, b []byte) int     { b[0] = *p.(*byte); return 1 }
+func (preservingRetryProbe) Deserialize(p any, b []byte) {
+	if len(b) > 0 {
+		*p.(*byte) = b[0] + 1
+	}
+}
+func (preservingRetryProbe) Scan(_ any, lexer *gts.ExternalLexer, _ []bool) bool {
+	lexer.SetResultSymbol(3)
+	return false
+}
+
+func TestPreservedMaskedRetryUsesPostScanSnapshot(t *testing.T) {
+	scanner := preservingRetryProbe{}
+	c := call{mask: bothValid, state: []byte{1}}
+	res := replay(scanner, &c, []byte("x"), ContractPreserved, true)
+	if !res.failedRestoreChecked || !slices.Equal(res.restoreExpected, res.out.state) || slices.Equal(res.failedRestore, res.restoreExpected) {
+		t.Fatalf("replay %+v", res)
 	}
 }
 

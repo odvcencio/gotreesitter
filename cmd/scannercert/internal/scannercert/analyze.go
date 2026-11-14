@@ -92,13 +92,32 @@ type replayed struct {
 	panicked             string
 	unstable, overflow   bool
 	failedRestore        []byte // state after restoring a rejected scan into its live payload
+	restoreExpected      []byte
 	failedRestoreChecked bool
+}
+
+// maskedRetryPossible identifies calls eligible for a masked retry. The
+// recorder does not capture the parser's recovery state, which can suppress it.
+func maskedRetryPossible(c *call, lang *gts.Language) bool {
+	if c.live.accepted || !c.live.hasSymbol || lang == nil {
+		return false
+	}
+	idx := slices.Index(lang.ExternalSymbols, c.live.symbol)
+	if idx < 0 || idx >= len(c.mask) || !c.mask[idx] {
+		return false
+	}
+	for i, valid := range c.mask {
+		if valid && i != idx {
+			return true
+		}
+	}
+	return false
 }
 
 // replay runs one recorded call again from the state's serialized bytes, on a
 // fresh payload. A panic in the scanner is a result, not a crash: a state the
 // scanner cannot restore is the kind of defect this tool exists to find.
-func replay(scanner gts.ExternalScanner, c *call, source []byte, contract string) (res replayed) {
+func replay(scanner gts.ExternalScanner, c *call, source []byte, contract string, retryPossible bool) (res replayed) {
 	defer func() {
 		if p := recover(); p != nil {
 			res.panicked = fmt.Sprint(p)
@@ -121,13 +140,19 @@ func replay(scanner gts.ExternalScanner, c *call, source []byte, contract string
 	accepted := scanner.Scan(payload, lexer, slices.Clone(c.mask))
 	res.out, unstable, overflow = observe(scanner, payload, lexer, accepted, buf, check)
 	res.unstable, res.overflow = res.unstable || unstable, res.overflow || overflow
-	if !accepted && contract == ContractRestored {
+	if !accepted && (contract == ContractRestored || retryPossible) {
+		expected := c.state
+		if contract == ContractPreserved {
+			// The first masked retry snapshots after the rejected scan.
+			expected = res.out.state
+		}
 		var saved []byte
-		if len(c.state) > 0 {
-			saved = bytes.Clone(c.state)
+		if len(expected) > 0 {
+			saved = bytes.Clone(expected)
 		}
 		scanner.Deserialize(payload, saved)
 		res.failedRestore, unstable, overflow = snapshot(scanner, payload, buf, check)
+		res.restoreExpected = expected
 		res.failedRestoreChecked = true
 		res.unstable, res.overflow = res.unstable || unstable, res.overflow || overflow
 	}
@@ -164,7 +189,7 @@ func compare(c *call, res replayed, contract string) []failure {
 			failures = append(failures, failure{KindRoundTrip, "Deserialize then Serialize returned " + hexOrEmpty(res.restored)})
 		}
 	}
-	if res.failedRestoreChecked && !bytes.Equal(c.state, res.failedRestore) {
+	if res.failedRestoreChecked && !bytes.Equal(res.restoreExpected, res.failedRestore) {
 		failures = append(failures, failure{KindFailedRestore, "restoring the rejected scan into its payload returned " + hexOrEmpty(res.failedRestore)})
 	}
 	if !c.live.accepted && !bytes.Equal(c.state, c.live.state) {
@@ -221,7 +246,7 @@ func (r *recorder) analyze(inner gts.ExternalScanner, names symbolNames) analysi
 		}
 		a.calls.MaxStateBytes = max(a.calls.MaxStateBytes, len(c.state))
 
-		res := replay(inner, c, source, contract)
+		res := replay(inner, c, source, contract, maskedRetryPossible(c, names.lang))
 		a.checks.Replayed++
 		for _, f := range compare(c, res, contract) {
 			a.count(f.kind)

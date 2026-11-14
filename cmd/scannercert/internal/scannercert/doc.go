@@ -62,9 +62,9 @@
 //     the scan, so the scanner may change its state freely. The replay tests
 //     that restore into the mutated payload by comparing the serialized state
 //     afterward. Hidden state may still remain wrong.
-//   - preserved, for a scanner that declares PreservesStateOnScanFailure. The
-//     token source restores nothing, so a rejected scan that changes the state
-//     is a finding (checks.failed_scan_state_changes).
+//   - preserved, for a scanner that declares PreservesStateOnScanFailure. A
+//     rejected scan that changes the state is a finding
+//     (checks.failed_scan_state_changes).
 //   - retained, for a scanner that declares RetainsStateOnScanFailure. The
 //     change stays live by design. Retention wins when a scanner declares both,
 //     as it does in the token source.
@@ -73,6 +73,10 @@
 // state is counted in informational.failed_scan_state_allowed and kept as a
 // witness of kind failed-scan-state-allowed. The verdict ignores it. Under
 // restored, those are the calls where the in-place restore matters.
+// A masked retry restores a snapshot even under preserved or retained. The
+// replay checks eligible calls, although recovery can suppress a retry. For
+// preserved scanners it uses the state after the rejection, as on the first
+// retry; it cannot identify later retries that reuse an earlier snapshot.
 //
 // # What a report shows
 //
