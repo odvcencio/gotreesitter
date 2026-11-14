@@ -1,6 +1,7 @@
 package scannercert
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -457,5 +458,276 @@ func TestRecorderKeepsACheckpointIdentity(t *testing.T) {
 	}
 	if id, ok := got.CheckpointIdentity(); !ok || string(id.Scanner) != "scanner" || string(id.Grammar) != "grammar" {
 		t.Fatalf("identity = %+v %v, want the scanner's own", id, ok)
+	}
+}
+
+// A fresh payload is zero already, but restoring an empty snapshot over a
+// rejected scan must clear the live state as well.
+type incompleteResetScanner struct{}
+
+func (incompleteResetScanner) Create() any { return new(byte) }
+func (incompleteResetScanner) Destroy(any) {}
+func (incompleteResetScanner) Serialize(p any, b []byte) int {
+	n := *p.(*byte)
+	if n == 0 {
+		return 0
+	}
+	b[0] = n
+	return 1
+}
+func (incompleteResetScanner) Deserialize(p any, b []byte) {
+	if len(b) > 0 {
+		*p.(*byte) = b[0]
+	}
+}
+func (incompleteResetScanner) Scan(p any, _ *gts.ExternalLexer, _ []bool) bool {
+	*p.(*byte) = 1
+	return false
+}
+func TestRejectedScanRestoreUsesMutatedPayload(t *testing.T) {
+	a := certified(incompleteResetScanner{}, "x", bothValid)
+	if a.checks.FailedRestores != 1 || a.verdict() != VerdictFindings {
+		t.Fatalf("checks %+v verdict %s", a.checks, a.verdict())
+	}
+}
+
+type resetProbe struct {
+	good, panicRestore bool
+	destroyed          *int
+}
+type resetProbeState struct {
+	n     byte
+	loads int
+}
+
+func (s resetProbe) Create() any { return &resetProbeState{} }
+func (s resetProbe) Destroy(any) {
+	if s.destroyed != nil {
+		*s.destroyed++
+	}
+}
+func (s resetProbe) Serialize(p any, b []byte) int {
+	n := p.(*resetProbeState).n
+	if n == 0 {
+		return 0
+	}
+	b[0] = n
+	return 1
+}
+func (s resetProbe) Deserialize(p any, b []byte) {
+	st := p.(*resetProbeState)
+	st.loads++
+	if s.panicRestore && st.loads == 2 {
+		panic("restore panic")
+	}
+	if len(b) > 0 {
+		st.n = b[0]
+	} else if s.good {
+		st.n = 0
+	}
+}
+func (s resetProbe) Scan(p any, _ *gts.ExternalLexer, _ []bool) bool {
+	p.(*resetProbeState).n = 1
+	return false
+}
+func TestRejectedScanRestoreControls(t *testing.T) {
+	t.Run("valid restore", func(t *testing.T) {
+		a := certified(resetProbe{good: true}, "x", bothValid)
+		if a.verdict() != VerdictNoFindings || a.checks.FailedRestores != 0 {
+			t.Fatalf("checks %+v verdict %s", a.checks, a.verdict())
+		}
+	})
+	t.Run("panic destroys payload", func(t *testing.T) {
+		destroyed := 0
+		scanner := resetProbe{good: true, panicRestore: true, destroyed: &destroyed}
+		c := call{mask: bothValid}
+		result := replay(scanner, &c, []byte("x"), ContractRestored, false)
+		if result.panicked != "restore panic" || destroyed != 1 {
+			t.Fatalf("panic %q destroyed %d", result.panicked, destroyed)
+		}
+	})
+}
+
+type retainingResetProbe struct{ resetProbe }
+
+func (retainingResetProbe) RetainsStateOnScanFailure() bool { return true }
+func TestRejectedRestoreRespectsRetentionAndDistinctCalls(t *testing.T) {
+	scanner := resetProbe{}
+	rec := newRecorder(scanner)
+	rec.begin(0)
+	src := []byte("xx")
+	for _, pos := range []int{0, 0, 1} {
+		p := scanner.Create()
+		rec.Scan(p, newLexer(src, pos, 0, uint32(pos)), bothValid)
+		scanner.Destroy(p)
+	}
+	a := rec.analyze(scanner, symbolNames{})
+	if a.calls.Recorded != 3 || a.calls.Distinct != 2 || a.checks.FailedRestores != 2 {
+		t.Fatalf("calls %+v checks %+v", a.calls, a.checks)
+	}
+	b := certified(retainingResetProbe{}, "x", bothValid)
+	if b.checks.FailedRestores != 0 || b.verdict() != VerdictNoFindings {
+		t.Fatalf("checks %+v verdict %s", b.checks, b.verdict())
+	}
+}
+
+type replaySerializationProbe struct {
+	stage    string
+	overflow bool
+}
+type replaySerializationState struct {
+	loads   int
+	scanned bool
+	saves   int
+}
+
+func (replaySerializationProbe) Create() any { return &replaySerializationState{} }
+func (replaySerializationProbe) Destroy(any) {}
+func (s replaySerializationProbe) Serialize(p any, b []byte) int {
+	st := p.(*replaySerializationState)
+	trigger := s.stage == "fresh" && st.loads == 1 && !st.scanned || s.stage == "scan" && st.loads == 1 && st.scanned || s.stage == "restore" && st.loads == 2
+	if !trigger {
+		return 0
+	}
+	if s.overflow {
+		return len(b) + 1
+	}
+	st.saves++
+	if st.saves%2 == 0 {
+		b[0] = 1
+		return 1
+	}
+	return 0
+}
+func (replaySerializationProbe) Deserialize(p any, _ []byte) { p.(*replaySerializationState).loads++ }
+func (replaySerializationProbe) Scan(p any, _ *gts.ExternalLexer, _ []bool) bool {
+	p.(*replaySerializationState).scanned = true
+	return false
+}
+func TestReplaySerializationFlags(t *testing.T) {
+	for _, stage := range []string{"fresh", "scan", "restore"} {
+		for _, overflow := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/overflow=%t", stage, overflow), func(t *testing.T) {
+				a := certified(replaySerializationProbe{stage: stage, overflow: overflow}, "x", bothValid)
+				if overflow && a.checks.SerializeOverflow != 1 || !overflow && a.checks.SerializeUnstable != 1 {
+					t.Fatalf("checks %+v", a.checks)
+				}
+			})
+		}
+	}
+	// Recording and replay flags on the same call must count once per kind.
+	failures := compare(&call{unstable: true, overflow: true}, replayed{unstable: true, overflow: true}, ContractRetained)
+	for _, kind := range []string{KindSerializeUnstable, KindSerializeOverflow} {
+		n := 0
+		for _, f := range failures {
+			if f.kind == kind {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Fatalf("%s count %d", kind, n)
+		}
+	}
+}
+
+func TestCompareFailedRestoreOnlyWhenChecked(t *testing.T) {
+	c := call{state: []byte{1}}
+	for _, checked := range []bool{false, true} {
+		res := replayed{restored: []byte{1}, restoreExpected: []byte{1}, failedRestoreChecked: checked}
+		failures := compare(&c, res, ContractRestored)
+		found := false
+		for _, f := range failures {
+			if f.kind == KindFailedRestore {
+				found = true
+			}
+		}
+		if found != checked {
+			t.Fatalf("checked %t failures %+v", checked, failures)
+		}
+	}
+}
+
+type retryResetProbe struct{ resetProbe }
+
+func (retryResetProbe) RetainsStateOnScanFailure() bool { return true }
+func (s retryResetProbe) Scan(p any, lexer *gts.ExternalLexer, valid []bool) bool {
+	lexer.SetResultSymbol(3)
+	return s.resetProbe.Scan(p, lexer, valid)
+}
+
+func TestRetainedMaskedRetryRestore(t *testing.T) {
+	lang := &gts.Language{ExternalSymbols: []gts.Symbol{3, 4}}
+	for _, tc := range []struct {
+		name string
+		good bool
+		mask []bool
+		want int
+	}{
+		{"incomplete restore", false, bothValid, 1},
+		{"complete restore", true, bothValid, 0},
+		{"no alternate symbol", false, []bool{true, false}, 0},
+		{"result not valid", false, []bool{false, true}, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scanner := retryResetProbe{resetProbe{good: tc.good}}
+			rec := newRecorder(scanner)
+			rec.begin(0)
+			scanEvery(rec, "x", tc.mask)
+			a := rec.analyze(scanner, symbolNames{lang: lang})
+			if a.checks.FailedRestores != tc.want {
+				t.Fatalf("checks %+v, want %d failed restores", a.checks, tc.want)
+			}
+		})
+	}
+}
+
+type preservingRetryProbe struct{}
+
+func (preservingRetryProbe) Create() any                       { return new(byte) }
+func (preservingRetryProbe) Destroy(any)                       {}
+func (preservingRetryProbe) PreservesStateOnScanFailure() bool { return true }
+func (preservingRetryProbe) Serialize(p any, b []byte) int     { b[0] = *p.(*byte); return 1 }
+func (preservingRetryProbe) Deserialize(p any, b []byte) {
+	if len(b) > 0 {
+		*p.(*byte) = b[0] + 1
+	}
+}
+func (preservingRetryProbe) Scan(_ any, lexer *gts.ExternalLexer, _ []bool) bool {
+	lexer.SetResultSymbol(3)
+	return false
+}
+
+func TestPreservedMaskedRetryUsesPostScanSnapshot(t *testing.T) {
+	scanner := preservingRetryProbe{}
+	c := call{mask: bothValid, state: []byte{1}}
+	res := replay(scanner, &c, []byte("x"), ContractPreserved, true)
+	if !res.failedRestoreChecked || !slices.Equal(res.restoreExpected, res.out.state) || slices.Equal(res.failedRestore, res.restoreExpected) {
+		t.Fatalf("replay %+v", res)
+	}
+}
+
+// The failure contract is selected before replay; Scan cannot change it.
+type changingContractScanner struct {
+	incompleteResetScanner
+	retain *bool
+}
+
+func (s changingContractScanner) RetainsStateOnScanFailure() bool { return *s.retain }
+func (s changingContractScanner) Scan(p any, lexer *gts.ExternalLexer, valid []bool) bool {
+	*s.retain = true
+	return s.incompleteResetScanner.Scan(p, lexer, valid)
+}
+func TestReplayUsesPrecomputedFailureContract(t *testing.T) {
+	retain := false
+	scanner := changingContractScanner{retain: &retain}
+	rec := newRecorder(scanner)
+	rec.begin(0)
+	p := scanner.Create()
+	rec.Scan(p, newLexer([]byte("x"), 0, 0, 0), bothValid)
+	scanner.Destroy(p)
+	retain = false
+	a := rec.analyze(scanner, symbolNames{})
+	if a.checks.FailedRestores != 1 {
+		t.Fatalf("checks %+v", a.checks)
 	}
 }
