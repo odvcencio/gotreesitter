@@ -82,8 +82,10 @@ type span struct{ page, first, last int }
 
 // storeCore is the part of a store that all views share.
 type storeCore struct {
-	mu  sync.Mutex // short mutex: page tables, pending operations
-	emu sync.Mutex // edit allocator: serializes Tree.Edit and guards ec
+	// Optional child-page observational sidecar; counters guarded by mu.
+	childAccount atomic.Pointer[childPageAccount]
+	mu           sync.Mutex // short mutex: page tables, pending operations
+	emu          sync.Mutex // edit allocator: serializes Tree.Edit and guards ec
 	// page tables (guarded by mu for growth; views hold copies of the headers)
 	recs      []*[recPageLen]rec
 	refs      []*[recPageLen]uint32
@@ -342,11 +344,155 @@ func (s *Store) growRec(cur *arenaCur) {
 	s.syncLocked()
 }
 
+// childPageAccount observes fixed child pages only. It does not enforce a
+// memory budget or account for page tables, other pages, or cleanup buffers.
+// It is installed under the store lease after excluding edits with emu and
+// remains active until store end.
+type childPageAccount struct {
+	held, pending, volume uint64
+	overflow              bool
+}
+
+// childPageTicket is owned by one acquisition; canceled reservations remain
+// in the monotonic volume even when no page was checked out.
+type childPageTicket struct {
+	c      *storeCore
+	a      *childPageAccount
+	gen    uint64
+	active bool
+}
+
+const childPageCharge = uint64(kidPageLen) * 8
+
+// Caller holds the store lease and neither emu nor mu. emu excludes edit-side
+// tickets that started before installation. Never call during page acquisition.
+func (c *storeCore) attachChildAccountUnderLease() bool {
+	if !c.emu.TryLock() {
+		// Test hook: the caller holds the lease, but not emu or mu.
+		c.fire("child-attach-blocked")
+		c.emu.Lock()
+	}
+	defer c.emu.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.ended.Load() {
+		return false
+	}
+	if c.childAccount.Load() != nil {
+		return true
+	}
+	n := uint64(len(c.kids))
+	if n > ^uint64(0)/childPageCharge {
+		return false
+	}
+	c.childAccount.Store(&childPageAccount{held: n * childPageCharge})
+	return true
+}
+func (c *storeCore) reserveChildPage() childPageTicket {
+	a := c.childAccount.Load()
+	if a == nil {
+		return childPageTicket{}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	const max = ^uint64(0)
+	if c.childAccount.Load() != a || a.overflow || c.ended.Load() || a.pending > max-childPageCharge || a.volume > max-childPageCharge || a.held > max-a.pending-childPageCharge {
+		a.overflow = true
+		return childPageTicket{}
+	}
+	a.pending += childPageCharge
+	a.volume += childPageCharge
+	return childPageTicket{c: c, a: a, gen: c.gen, active: true}
+}
+func (t *childPageTicket) cancel() {
+	if !t.active {
+		return
+	}
+	c := t.c
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.gen != t.gen || c.childAccount.Load() != t.a || t.a.pending < childPageCharge {
+		t.a.overflow = true
+	} else {
+		t.a.pending -= childPageCharge
+	}
+	t.active = false
+}
+func (t *childPageTicket) commitLocked() {
+	if !t.active {
+		return
+	}
+	c := t.c
+	if c.gen != t.gen || c.childAccount.Load() != t.a || t.a.pending < childPageCharge || t.a.held > ^uint64(0)-childPageCharge {
+		t.a.overflow = true
+	} else {
+		t.a.pending -= childPageCharge
+		t.a.held += childPageCharge
+	}
+	t.active = false
+}
+
+// childVolumeCursor is request-owned: use from one goroutine and do not copy.
+// volume includes all reservations, including canceled ones before checkout.
+type childVolumeCursor struct {
+	a              *childPageAccount
+	gen, watermark uint64
+	valid          bool
+}
+
+func (c *storeCore) childVolumeAttach() (uint64, childVolumeCursor, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if a == nil || a.overflow || c.ended.Load() || a.held > ^uint64(0)-a.pending {
+		return 0, childVolumeCursor{}, false
+	}
+	return a.held + a.pending, childVolumeCursor{a: a, gen: c.gen, watermark: a.volume, valid: true}, true
+}
+
+// finish atomically captures the last delta and invalidates this cursor.
+func (p *childVolumeCursor) finish(c *storeCore) (uint64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if !p.valid || a == nil || p.a != a || a.overflow || c.ended.Load() || p.gen != c.gen || a.volume < p.watermark {
+		p.a = nil
+		p.valid = false
+		return 0, false
+	}
+	d := a.volume - p.watermark
+	p.a = nil
+	p.valid = false
+	return d, true
+}
+func (p *childVolumeCursor) pull(c *storeCore) (uint64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if !p.valid || a == nil || p.a != a || a.overflow || c.ended.Load() || p.gen != c.gen || a.volume < p.watermark {
+		p.a = nil
+		p.valid = false
+		return 0, false
+	}
+	d := a.volume - p.watermark
+	p.watermark = a.volume
+	return d, true
+}
 func (s *Store) growKids(cur *arenaCur) {
 	c := s.core
+	ticket := c.reserveChildPage()
+	// Test hooks may run while the caller holds either the parse lease or emu;
+	// they run outside mu and are not budget callbacks.
+	if ticket.active {
+		defer ticket.cancel()
+		c.fire("child-reserved")
+	}
 	pg := takeKidPage() // a page of the pool: list contents are written before they are read
 	if pg == nil {
 		pg = new([kidPageLen]Handle)
+	}
+	if ticket.active {
+		c.fire("child-acquired")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -361,6 +507,7 @@ func (s *Store) growKids(cur *arenaCur) {
 		cur.kidOff = 1 // start 0 means no list
 	}
 	s.syncLocked()
+	ticket.commitLocked()
 }
 
 func (s *Store) growState(cur *arenaCur) {
@@ -1085,6 +1232,13 @@ func (c *storeCore) endLocked() {
 	c.editFreeKid = [numKidClasses]uint32{}
 	c.editFreeSt = [numStClasses]uint32{}
 	c.nextRec, c.nextKid, c.nextState = 0, 0, 0
+	if a := c.childAccount.Load(); a != nil {
+		if a.pending != 0 {
+			a.overflow = true
+		}
+		a.held = 0
+		c.childAccount.Store(nil)
+	}
 	c.gen++
 	c.ended.Store(true)
 	c.mu.Unlock()
