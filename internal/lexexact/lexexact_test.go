@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -450,6 +451,44 @@ func TestRegistry(t *testing.T) {
 		}
 	}()
 	Register(k, []byte("def"))
+}
+
+func TestRegistryOwnsRecords(t *testing.T) {
+	k := sha256.Sum256([]byte("lexexact registry ownership test"))
+	t.Cleanup(func() {
+		regMu.Lock()
+		delete(reg, k)
+		regMu.Unlock()
+	})
+	input := []byte("record")
+	Register(k, input)
+	input[0] = 'X'
+	first, ok := Lookup(k)
+	if !ok || string(first) != "record" {
+		t.Errorf("input mutation changed record: %q, present=%t", first, ok)
+	}
+	if len(first) == 0 {
+		t.Fatal("missing record bytes")
+	}
+	first[1] = 'X'
+	second, ok := Lookup(k)
+	if !ok || string(second) != "record" {
+		t.Errorf("lookup mutation changed record: %q, present=%t", second, ok)
+	}
+
+	// Callers may modify their own lookup results concurrently.
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				b, _ := Lookup(k)
+				b[0] = 'Y'
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func TestCheckTransitions(t *testing.T) {
