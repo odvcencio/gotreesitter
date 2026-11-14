@@ -64,7 +64,7 @@ func (s *fieldPathSearch) relevant(h Handle, prod uint16, index int) bool {
 	if s.r.S.Visible(h) {
 		return true
 	}
-	return index >= 0 && int(prod) < len(s.r.T.Base.Alias) && index < len(s.r.T.Base.Alias[prod]) && s.r.T.Base.Alias[prod][index] != 0
+	return prod != 0 && index >= 0 && int(prod) < len(s.r.T.Base.Alias) && index < len(s.r.T.Base.Alias[prod]) && s.r.T.Base.Alias[prod][index] != 0
 }
 func (s *fieldPathSearch) first(h Handle, raw []uint32, depth int) ([]uint32, bool) {
 	if !s.tick(depth) {

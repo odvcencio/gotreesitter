@@ -248,3 +248,29 @@ func TestFieldLookupPathRejectsUnsortedFieldIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestFieldLookupPathIgnoresProductionZeroAlias(t *testing.T) {
+	meta := make([]SymbolMeta, 8)
+	meta[5] = SymbolMeta{Visible: true, Named: true}
+	meta[7] = SymbolMeta{Visible: true, Named: true}
+	// Production zero has no alias sequence even if the backing table's zero
+	// row contains data. NodeReader.iterate ignores that row for this reason.
+	p := nodeTestParser(t, meta, nil)
+	hidden := p.newNode(6, []Handle{nodeLeaf(p, 6)}, 0)
+	root := p.newNode(5, []Handle{hidden}, 1)
+	p.t.Alias = [][]Symbol{{7}}
+	r := NewNodeReader(&p.Store, &NodeTables{
+		Base:         p.t,
+		FieldSlices:  [][2]uint16{{}, {0, 1}},
+		FieldEntries: []FieldEntry{{FieldID: 9, ChildIndex: 0}},
+	})
+	n := r.RootNode(root)
+	if got := r.ChildCount(n); got != 0 {
+		t.Fatalf("fixture has %d visible children, want zero", got)
+	}
+	var dst [8]uint32
+	path, found, ok := r.FieldLookupPath(n, 9, 100, dst[:0])
+	if !ok || found {
+		t.Fatalf("path=%v found=%t ok=%t; want a complete miss", path, found, ok)
+	}
+}
