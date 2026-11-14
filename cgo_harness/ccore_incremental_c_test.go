@@ -64,7 +64,7 @@ func ccoreDiffEdit(before, after []byte) *bindtest.Edit {
 func ccoreIncChains(t testing.TB, set string) [][]ccoreIncStep {
 	var chains [][]ccoreIncStep
 	switch set {
-	case "go-session", "json-session", "typescript-session", "tsx-session", "python-session":
+	case "go-session", "json-session", "typescript-session", "tsx-session", "python-session", "rust-session":
 		lang := strings.TrimSuffix(set, "-session")
 		clean := ccoreManifestSample(t, lang)
 		var chain []ccoreIncStep
@@ -178,7 +178,7 @@ func TestCcoreIncremental(t *testing.T) {
 		t.Skip("set CCORE_INC_SET")
 	}
 	langName := "go"
-	for _, l := range []string{"json", "typescript", "tsx", "python"} {
+	for _, l := range []string{"json", "typescript", "tsx", "python", "rust"} {
 		if strings.HasPrefix(set, l) {
 			langName = l
 		}
