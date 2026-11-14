@@ -614,7 +614,7 @@ func TestOwnLexModeTokenGuards(t *testing.T) {
 			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0],
 				glrUnionDFAScan{state: 2, tok: tok},
 				glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
-			got, ok := p.ownLexModeToken(source, 1, tok, tok.StartByte, nil, dts)
+			got, ok, _ := p.ownLexModeToken(source, 1, tok, tok.StartByte, nil, dts)
 			if tc.want == 0 {
 				if ok || got != tok {
 					t.Fatalf("got (%+v, %v), want the shared token back unchanged", got, ok)
@@ -657,7 +657,7 @@ func TestOwnLexModeTokenSkipsAReusableSharedToken(t *testing.T) {
 			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0],
 				glrUnionDFAScan{state: 2, tok: shared},
 				glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
-			got, ok := p.ownLexModeToken(source, 1, shared, shared.StartByte, nil, dts)
+			got, ok, _ := p.ownLexModeToken(source, 1, shared, shared.StartByte, nil, dts)
 			if tc.want == 0 {
 				if ok || got != shared {
 					t.Fatalf("got (%+v, %v), want the shared token back unchanged", got, ok)
@@ -712,7 +712,7 @@ func TestOwnLexModeTokenReadsFromStackPosition(t *testing.T) {
 			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0],
 				glrUnionDFAScan{state: 2, tok: shared},
 				glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 2, EndByte: 3}})
-			got, ok := p.ownLexModeToken(source, 1, shared, tc.from, nil, dts)
+			got, ok, _ := p.ownLexModeToken(source, 1, shared, tc.from, nil, dts)
 			if tc.want == 0 {
 				if ok || got != shared {
 					t.Fatalf("got (%+v, %v), want the shared token back unchanged", got, ok)
@@ -1047,6 +1047,7 @@ func TestOwnReadingIncludedExcludedBytes(t *testing.T) {
 		symbol     Symbol
 		start, end uint32
 		changed    bool
+		wider      bool
 	}
 	check := func(source string, hasExternal bool) result {
 		lang := includedOwnLexModeLanguage()
@@ -1063,8 +1064,8 @@ func TestOwnReadingIncludedExcludedBytes(t *testing.T) {
 		defer dts.Close()
 		shared := Token{Symbol: 2, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
 		dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0], glrUnionDFAScan{state: 2, tok: shared}, glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
-		got, ok := p.ownLexModeToken(src, 1, shared, 1, nil, dts)
-		return result{got.Symbol, got.StartByte, got.EndByte, ok}
+		got, ok, wider := p.ownLexModeToken(src, 1, shared, 1, nil, dts)
+		return result{got.Symbol, got.StartByte, got.EndByte, ok, wider}
 	}
 	for _, ext := range []bool{false, true} {
 		a, b := check("axzy", ext), check("axyy", ext)
@@ -1106,7 +1107,7 @@ func TestOwnReadingIncludedExternalGuardControls(t *testing.T) {
 			defer dts.Close()
 			shared := Token{Symbol: 2, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
 			dts.glrUnionScanScratch = append(dts.glrUnionScanScratch[:0], glrUnionDFAScan{state: 2, tok: shared}, glrUnionDFAScan{state: 1, tok: Token{Symbol: 3, StartByte: 1, EndByte: 2}})
-			got, ok := p.ownLexModeToken(src, 1, shared, 1, nil, dts)
+			got, ok, _ := p.ownLexModeToken(src, 1, shared, 1, nil, dts)
 			if ok != tc.want {
 				t.Fatalf("changed=%v, want %v: %+v", ok, tc.want, got)
 			}
