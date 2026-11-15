@@ -25,6 +25,8 @@ func (p *Parser) Parse(src []byte) (*Tree, string) { return p.ParseWith(src, nil
 // was released while this call waited for the lease. The parser keeps no
 // reference to the returned tree.
 func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
+	p.shortcutTaken, p.shortcutWhy = false, ""
+	p.shortcutMemo = shortcutMemo{}
 	var c *storeCore
 	for {
 		// A released tree is rejected first, whatever the state of its store, and
@@ -114,6 +116,7 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
 	}
 	c.fire("parse-start")
 	var oldRoot Handle
+	var oldShortcutBytes int64
 	if old != nil {
 		// The released flag, the root and the page-table headers are captured
 		// together: an Edit of old on another goroutine may add a page and publish
@@ -122,11 +125,32 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
 		c.mu.Lock()
 		released := old.c.released.Load()
 		oldRoot = Handle(old.c.root.Load())
+		if old.c.shortcut != nil {
+			oldShortcutBytes = int64(len(old.c.shortcut.src)) + sizeOf[shortcutMemo]()
+			if p.shortcutOn {
+				p.shortcutMemo = *old.c.shortcut
+			}
+		}
 		p.Store.syncLocked()
 		c.mu.Unlock()
 		if released { // released after the first test: the drain above may have freed its root
 			return nil, "old tree released"
 		}
+		if oldShortcutBytes != 0 && p.led.Active() && !p.led.Reserve(oldShortcutBytes) {
+			return nil, stopProgress
+		}
+	}
+	var nextMemo *shortcutMemo
+	if p.shortcutOn {
+		if p.led.Active() && !p.led.Reserve(sizeOf[shortcutMemo]()) {
+			return nil, stopProgress
+		}
+		copied, ok := Make[byte](&p.led, len(src))
+		if !ok {
+			return nil, stopProgress
+		}
+		copy(copied, src)
+		nextMemo = &shortcutMemo{src: copied}
 	}
 	p.beginParse(old == nil)
 	p.ops = 0
@@ -141,6 +165,7 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
 		c.mu.Unlock()
 	}
 	t := &Tree{c: c.newCell(p.finished), rd: p.Store}
+	t.c.shortcut = nextMemo
 	t.rd.fresh, t.rd.logging, t.rd.led = false, false, nil
 	t.rd.owner = t.c
 	published = true
@@ -268,6 +293,7 @@ func (p *Parser) endParse(published bool) {
 // (a tree keeps its own view; the parser must not keep the pages of an ended
 // store alive).
 func (p *Parser) clearHandles() {
+	p.shortcutMemo = shortcutMemo{}
 	p.fresh, p.logging = false, false
 	p.finished = 0
 	p.cacheTok, p.cacheAt, p.ext.cacheLast = 0, 0, 0

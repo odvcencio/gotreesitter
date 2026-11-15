@@ -74,6 +74,11 @@ type Parser struct {
 	reduceCheck    bool
 	fastReductions int
 	noLinear       bool // tests: take the general path
+	shortcutOn     bool
+	shortcutTaken  bool
+	shortcutWhy    string
+	shortcutCounts [10]uint64
+	shortcutMemo   shortcutMemo
 
 	// Counters, always on.
 	shifts, reductions, lexCalls, tokens, maxVersions, multiTokens int
@@ -644,6 +649,20 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 		}
 	}
 	p.src = src
+	attemptTokens, attemptCalls := 0, 0
+	if old != 0 && p.shortcutOn {
+		p.stop = ""
+		// A taken shortcut returns before the resets below, so the counters it
+		// does not set itself start at zero here.
+		p.lexCalls, p.tokens, p.compressions = 0, 0, 0
+		if p.tryShortcut(src, old) {
+			return ""
+		}
+		attemptTokens, attemptCalls = p.tokens, p.lexCalls
+		if p.stop == stopProgress {
+			return p.stop
+		}
+	}
 	if p.led.Active() {
 		p.opCount = 0
 	}
@@ -652,7 +671,7 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 	p.free = p.free[:0]
 	p.heads = p.heads[:0]
 	p.finished, p.cacheTok, p.cacheAt, p.accepts, p.stop = 0, 0, 0, 0, ""
-	p.shifts, p.reductions, p.lexCalls, p.tokens, p.maxVersions, p.multiTokens = 0, 0, 0, 0, 0, 0
+	p.shifts, p.reductions, p.lexCalls, p.tokens, p.maxVersions, p.multiTokens = 0, 0, attemptCalls, attemptTokens, 0, 0
 	p.compressions = 0
 	p.extReset(old == 0)
 	defer p.extFinish()
