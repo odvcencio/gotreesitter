@@ -634,10 +634,13 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 		// tree already holds are in it (not charged again); the parser's own buffers too.
 		if p.ledBegun { // Parse began the account before the drain
 			p.ledBegun = false
-		} else if !p.led.Begin(p.accountBase()) {
-			p.finished = 0
-			p.stop = stopProgress
-			return p.stop
+		} else {
+			p.clearStaleHeaders() // no header of an earlier parse is live here
+			if !p.led.Begin(p.accountBase()) {
+				p.finished = 0
+				p.stop = stopProgress
+				return p.stop
+			}
 		}
 	}
 	p.src = src
@@ -806,17 +809,26 @@ func (p *Parser) Footprint() int { return p.capBytes() + p.bufferBytes() }
 // after a panic, which can leave the scanner in the middle of a scan.
 func (p *Parser) FinishScanner() { p.extFinish() }
 
-// Reset drops the parser's view of the store and its reference to the last source,
-// so a pooled parser holds neither a tree nor a document. The buffers keep their
-// capacity; BufferBytes tells how much that is.
-func (p *Parser) Reset() {
-	// A stale slice or iterator header keeps a subtree buffer that bufs also owns;
-	// zero them so that each buffer has one owner and bufferBytes counts it once.
+// clearStaleHeaders zeroes the headers the last parse left in the parser's own
+// arrays. A stale slice or iterator header keeps a subtree buffer that bufs also
+// owns; zeroed, each buffer has one owner and bufferBytes counts it once. It
+// must run only between parses, when none of these headers is live. Reset
+// calls it, and so does a request with a limit before it takes the base of its
+// account: a parser reused without Reset would otherwise start the request with
+// its buffers counted two or three times and be stopped for it.
+func (p *Parser) clearStaleHeaders() {
 	clear(p.heads[:cap(p.heads)])
 	clear(p.slices[:cap(p.slices)])
 	clear(p.iters[:cap(p.iters)])
 	clear(p.recSlices[:cap(p.recSlices)])
 	clear(p.bufs[len(p.bufs):cap(p.bufs)])
+}
+
+// Reset drops the parser's view of the store and its reference to the last source,
+// so a pooled parser holds neither a tree nor a document. The buffers keep their
+// capacity; BufferBytes tells how much that is.
+func (p *Parser) Reset() {
+	p.clearStaleHeaders()
 	p.Store = Store{} // a pooled parser must not point at the store of a tree that a public tree still keeps
 	p.ext.cacheLast = 0
 	p.finished = 0

@@ -96,7 +96,8 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
 		// drain below (queued releases of earlier trees, which grows the store's free
 		// lists and scratch) is counted in it: reclamation cannot be refused (Force),
 		// and the check after it ends the request when the total is over the limit.
-		p.Store.led = &p.led // pages and arrays the drain, the parse, the publication walk and the exit claim are reserved on it
+		p.Store.led = &p.led  // pages and arrays the drain, the parse, the publication walk and the exit claim are reserved on it
+		p.clearStaleHeaders() // no header of an earlier parse is live here
 		if !p.led.Begin(p.accountBase()) {
 			return nil, stopProgress
 		}

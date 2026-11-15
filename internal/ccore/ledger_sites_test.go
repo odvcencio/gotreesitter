@@ -20,6 +20,8 @@ var servedFiles = []string{"parser.go", "subtree.go", "stack.go", "stack_summary
 var notServedFiles = map[string]string{
 	"changed_ranges.go": "compares finished trees outside a parse request",
 	"doc.go":            "documentation",
+	"field_answers.go":  "field answers of one node occurrence: read after the request has ended, into caller-owned storage",
+	"field_lookup.go":   "field lookup paths: read after the request has ended, into a caller-owned buffer",
 	"handle.go":         "handle encoding; no allocation",
 	"ledger.go":         "the ledger itself",
 	"records.go":        "record types; the arrays are made through the ledger",

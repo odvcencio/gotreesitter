@@ -246,3 +246,37 @@ func TestPageTableHintDoesNotReachARequestWithALimit(t *testing.T) {
 		t.Fatalf("a refusing limit: tree %v stop %q", tr, stop)
 	}
 }
+
+// A parser that is used again without Reset still has the headers of its last
+// parse in its arrays. A request with a limit must not count the buffers behind
+// them twice: its account must start from the same base as that of a parser
+// that was Reset in between.
+func TestLimitedRequestOnAReusedParserStartsFromTheResetBase(t *testing.T) {
+	g := loadGoldens(t)[0]
+	src := []byte(`{"a": [1, 2, {"b": null}], "c": "x", "d": [` + strings.Repeat(`{"k": true}, `, 50) + `{}]}`)
+	base := func(reset bool) int64 {
+		p, _ := ccore.NewParser(ccore.Config{Tables: g.Tables})
+		first, stop := p.Parse(src)
+		if first == nil || stop != "" {
+			t.Fatalf("first parse: %q", stop)
+		}
+		first.Release()
+		if p.StaleHeaders() == 0 {
+			t.Fatal("the parse left no stale header: the case proves nothing")
+		}
+		if reset {
+			p.Reset()
+		}
+		p.Ledger().SetPoll(func(int64, bool) bool { return true })
+		second, stop := p.Parse(src)
+		if second == nil || stop != "" {
+			t.Fatalf("second parse: %q", stop)
+		}
+		second.Release()
+		return p.Ledger().Base
+	}
+	reused, reset := base(false), base(true)
+	if reused != reset {
+		t.Fatalf("a reused parser starts its account at %d bytes, a reset one at %d: stale headers were counted", reused, reset)
+	}
+}
