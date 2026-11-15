@@ -64,12 +64,12 @@ func ReadKnownDifferences(path string) ([]KnownDifference, error) {
 			}
 			kd.Kind = "query"
 			f = f[1:]
-			kd.Note = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(strings.TrimPrefix(line, "@query")), f[0]+" "+f[1]))
+			kd.Note = strings.Join(f[2:], " ")
 		default:
 			if len(f) < 2 {
 				return nil, fmt.Errorf("bindtest: bad line %q", line)
 			}
-			kd.Note = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), f[0]+" "+f[1]))
+			kd.Note = strings.Join(f[2:], " ")
 		}
 		kd.Language = f[0]
 		b, err := hex.DecodeString(f[1])

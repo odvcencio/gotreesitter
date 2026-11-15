@@ -6,7 +6,6 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/ccore/certgen/certlang"
 	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -1472,9 +1471,8 @@ func TestCcoreConfigHashLoadedScanner(t *testing.T) {
 	if err != nil || a != b {
 		t.Fatalf("two loads differ: %v", err)
 	}
-	dup := reflect.New(reflect.TypeOf(first).Elem())
-	dup.Elem().Set(reflect.ValueOf(first).Elem())
-	changed := dup.Interface().(*gotreesitter.Language)
+	// A third load, changed in one symbol name: a Language is not copied.
+	changed := load()
 	changed.SymbolNames = append([]string(nil), first.SymbolNames...)
 	changed.SymbolNames[1] += "x"
 	c, err := bind.ConfigHash(changed)
