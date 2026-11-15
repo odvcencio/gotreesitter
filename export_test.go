@@ -1067,9 +1067,13 @@ func CcoreTestEditBudget(t *Tree, budget int64) (pageBytes int) {
 	return st.ct.PageBytes()
 }
 
-func CcoreTestViewsOn(on bool) func() {
+func CcoreTestViewsOn(on bool, shortcutOff ...bool) func() {
 	prev := ccoreViewsOn.Swap(on)
-	return func() { ccoreViewsOn.Store(prev) }
+	if len(shortcutOff) == 0 {
+		return func() { ccoreViewsOn.Store(prev) }
+	}
+	prevShortcut := ccoreTestShortcutOff.Swap(shortcutOff[0])
+	return func() { ccoreViewsOn.Store(prev); ccoreTestShortcutOff.Store(prevShortcut) }
 }
 func CcoreTestViewCounters() (int64, int64, map[string]int64) { return ccoreViewCounters() }
 func CcoreTestViewsEnabled() bool                             { return ccoreViewsOn.Load() }

@@ -3697,6 +3697,97 @@ func TestCcoreViewsEditKeepsHeldNodes(t *testing.T) {
 	}
 }
 
+func TestCcoreViewsShortcut(t *testing.T) {
+	defer ccoreCertifyIncr()()
+	defer gts.CcoreTestViewsOn(true)()
+	lang := ccoreRouteLang(t, "json")
+	p := ccoreRouteParser(lang)
+	src := []byte(`[123,456]`)
+	tree, err := p.Parse(src)
+	if err != nil || tree == nil {
+		t.Fatalf("parse: %v", err)
+	}
+	defer func() { tree.Release() }()
+	shortcutReparses := func() int64 { _, _, c := gts.CcoreTestViewCounters(); return c["shortcut_reparses"] }
+	before := shortcutReparses()
+	for i := 0; i < 8; i++ {
+		old := tree
+		held := old.RootNode().Child(0)
+		beforeHeld := held.Range()
+		beforeDigest := ccoreWalkDigest(old, lang)
+		nextSrc, edit := ccoreReplace(src, 2, byte('2'+(i+1)%7))
+		old.Edit(edit)
+		oldDigest := ccoreWalkDigest(old, lang)
+		if oldDigest != beforeDigest {
+			t.Fatal("same-length edit changed old visible tree")
+		}
+		next, err := p.ParseIncremental(nextSrc, old)
+		if err != nil || next == nil {
+			t.Fatalf("step %d: %v", i, err)
+		}
+		if shortcutReparses() != before+int64(i)+1 {
+			t.Fatalf("step %d did not use shortcut", i)
+		}
+		fresh, err := ccoreRouteParser(lang).Parse(nextSrc)
+		if err != nil || fresh == nil {
+			t.Fatalf("fresh: %v", err)
+		}
+		if ccoreWalkDigest(next, lang) != ccoreWalkDigest(fresh, lang) {
+			t.Fatalf("step %d differs from fresh", i)
+		}
+		if ccoreWalkDigest(old, lang) != oldDigest || held.Range() != beforeHeld {
+			t.Fatalf("step %d changed old tree or held node", i)
+		}
+		seen := map[*gts.Node]bool{}
+		var collect func(*gts.Node)
+		collect = func(n *gts.Node) {
+			seen[n] = true
+			for j := 0; j < n.ChildCount(); j++ {
+				collect(n.Child(j))
+			}
+		}
+		collect(old.RootNode())
+		var check func(*gts.Node)
+		check = func(n *gts.Node) {
+			if seen[n] {
+				t.Fatal("new tree shares a node with old tree")
+			}
+			for j := 0; j < n.ChildCount(); j++ {
+				check(n.Child(j))
+			}
+		}
+		check(next.RootNode())
+		fresh.Release()
+		old.Release()
+		tree, src = next, nextSrc
+	}
+	restore := gts.CcoreTestViewsOn(true, true)
+	defer restore()
+	nextSrc, edit := ccoreReplace(src, 2, '9')
+	tree.Edit(edit)
+	count := shortcutReparses()
+	_, normalBefore := gts.CcoreTestIncr()
+	next, err := p.ParseIncremental(nextSrc, tree)
+	if err != nil || next == nil {
+		t.Fatalf("shortcut off: %v", err)
+	}
+	defer next.Release()
+	if shortcutReparses() != count {
+		t.Fatal("shortcut ran while disabled")
+	}
+	if _, normalAfter := gts.CcoreTestIncr(); normalAfter != normalBefore+1 {
+		t.Fatal("disabled shortcut did not run the normal incremental route")
+	}
+	fresh, err := ccoreRouteParser(lang).Parse(nextSrc)
+	if err != nil || fresh == nil {
+		t.Fatalf("fresh with shortcut off: %v", err)
+	}
+	defer fresh.Release()
+	if ccoreWalkDigest(next, lang) != ccoreWalkDigest(fresh, lang) {
+		t.Fatal("normal incremental result differs from fresh")
+	}
+}
+
 // TestCcoreViewsDeepTree checks that 30,000 nested brackets parse, walk and convert with views on
 // (the eager conversion declines a tree deeper than gts.CcoreTestMaxDepth).
 func TestCcoreViewsDeepTree(t *testing.T) {
