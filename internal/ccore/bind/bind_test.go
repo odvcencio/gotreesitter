@@ -90,10 +90,10 @@ func TestNewRefusesBadTables(t *testing.T) {
 
 func TestFuncScanner(t *testing.T) {
 	closed := false
-	var s ccore.ExtScanner = &FuncScanner{
-		ScanFn:  func([]byte, int, uint32, uint32, []byte, []bool, []byte, *ccore.ExtScan) bool { return true },
-		CloseFn: func() { closed = true },
-	}
+	var s ccore.ExtScanner = NewFuncScanner(
+		func([]byte, int, uint32, uint32, []byte, []bool, []byte, *ccore.ExtScan) bool { return true },
+		func() { closed = true },
+	)
 	if !s.Scan(nil, 0, 0, 0, nil, nil, nil, &ccore.ExtScan{}) {
 		t.Fatal("ScanFn result not passed on")
 	}
