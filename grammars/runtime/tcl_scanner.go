@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the tcl grammar.
@@ -50,6 +49,15 @@ var tclExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(tclExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(TclExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(TclExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(TclExternalScanner), right.(TclExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // TclExternalScanner handles concatenation detection for Tcl.
@@ -115,13 +123,13 @@ func (sc TclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 
 	ch := lexer.Lookahead()
 
-	if tclValid(validSymbols, tclTokImmediate) && !unicode.IsSpace(ch) {
+	if tclValid(validSymbols, tclTokImmediate) && !cIsSpace(ch) {
 		lexer.SetResultSymbol(syms[tclTokImmediate])
 		return false
 	}
 
 	if tclValid(validSymbols, tclTokConcat) &&
-		!unicode.IsSpace(ch) &&
+		!cIsSpace(ch) &&
 		ch != ')' && ch != ':' && ch != '}' && ch != ']' {
 		lexer.SetResultSymbol(syms[tclTokConcat])
 		return true
