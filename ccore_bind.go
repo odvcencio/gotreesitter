@@ -17,16 +17,25 @@ import (
 // for the initial state, the state, token and symbol counts, the lex modes and
 // the keyword capture symbol.
 
-// Tables for internal/ccore, built once per *Language and cached in a
-// package-level map (no field in Language). Slices of basic types are shared
-// with the Language; the tables whose element type is a root struct (actions,
-// lex modes, metadata, alias sequences, reserved words) are converted once.
-// The map keeps every language it has seen alive.
+// The mutex protects language-owned caches.
+// It does not retain languages after their callers release them.
+var ccoreTablesMu sync.Mutex
 
-var (
-	ccoreTablesMu    sync.Mutex
-	ccoreTablesCache = map[*Language]*ccore.Tables{}
-)
+type ccoreLanguageTables struct {
+	owner *Language
+	base  *ccore.Tables
+	nodes *ccore.NodeTables
+}
+
+// ccoreLanguageTablesForLocked must be called with ccoreTablesMu held.
+func ccoreLanguageTablesForLocked(lang *Language) *ccoreLanguageTables {
+	c := lang.ccoreTables
+	if c == nil || c.owner != lang {
+		c = &ccoreLanguageTables{owner: lang, base: buildCcoreTables(lang)}
+		lang.ccoreTables = c
+	}
+	return c
+}
 
 // The action kinds of internal/ccore must equal the root's.
 var (
@@ -43,12 +52,7 @@ var (
 func ccoreTablesFor(lang *Language) *ccore.Tables {
 	ccoreTablesMu.Lock()
 	defer ccoreTablesMu.Unlock()
-	if t, ok := ccoreTablesCache[lang]; ok {
-		return t
-	}
-	t := buildCcoreTables(lang)
-	ccoreTablesCache[lang] = t
-	return t
+	return ccoreLanguageTablesForLocked(lang).base
 }
 
 // The ASCII table markers of internal/ccore must equal the root's.
@@ -179,20 +183,16 @@ func buildCcoreTables(lang *Language) *ccore.Tables {
 	return t
 }
 
-var (
-	ccoreNodeTablesMu    sync.Mutex
-	ccoreNodeTablesCache = map[*Language]*ccore.NodeTables{}
-)
-
 // ccoreNodeTablesFor builds, once per language, the field maps and supertype
 // bits that the node readers of internal/ccore use.
-func ccoreNodeTablesFor(lang *Language, base *ccore.Tables) *ccore.NodeTables {
-	ccoreNodeTablesMu.Lock()
-	defer ccoreNodeTablesMu.Unlock()
-	if t, ok := ccoreNodeTablesCache[lang]; ok {
-		return t
+func ccoreNodeTablesFor(lang *Language) *ccore.NodeTables {
+	ccoreTablesMu.Lock()
+	defer ccoreTablesMu.Unlock()
+	c := ccoreLanguageTablesForLocked(lang)
+	if c.nodes != nil {
+		return c.nodes
 	}
-	t := &ccore.NodeTables{Base: base, FieldSlices: append([][2]uint16(nil), lang.FieldMapSlices...)}
+	t := &ccore.NodeTables{Base: c.base, FieldSlices: append([][2]uint16(nil), lang.FieldMapSlices...)}
 	t.FieldEntries = make([]ccore.FieldEntry, len(lang.FieldMapEntries))
 	for i, e := range lang.FieldMapEntries {
 		t.FieldEntries[i] = ccore.FieldEntry{FieldID: uint16(e.FieldID), ChildIndex: e.ChildIndex, Inherited: e.Inherited}
@@ -201,7 +201,7 @@ func ccoreNodeTablesFor(lang *Language, base *ccore.Tables) *ccore.NodeTables {
 	for i := range t.SuperBit {
 		t.SuperBit[i] = lang.supertypeBit(Symbol(i))
 	}
-	ccoreNodeTablesCache[lang] = t
+	c.nodes = t
 	return t
 }
 
@@ -209,7 +209,7 @@ func ccoreNodeTablesFor(lang *Language, base *ccore.Tables) *ccore.NodeTables {
 // its own scanner hook, so that parsers do not share scanner state.
 func ccoreConfig(lang *Language) (ccore.Config, error) {
 	cfg := ccore.Config{Tables: ccoreTablesFor(lang)}
-	cfg.Nodes = ccoreNodeTablesFor(lang, cfg.Tables)
+	cfg.Nodes = ccoreNodeTablesFor(lang)
 	if lang.ExternalScanner != nil {
 		a, err := newCcoreExtScanner(lang.ExternalScanner)
 		if err != nil {
