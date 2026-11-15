@@ -4,6 +4,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 	"go/build"
 	"testing"
+	"unsafe"
 )
 
 // TestParserWantsForestFieldDrivesDispatch verifies that Language.WantsForest
@@ -193,6 +194,41 @@ func TestNoProductionImportOfCertifiedtest(t *testing.T) {
 	for _, imp := range pkg.Imports {
 		if imp == "github.com/odvcencio/gotreesitter/internal/ccore/certified/certifiedtest" {
 			t.Fatalf("production import: %s", imp)
+		}
+	}
+}
+
+type nilCopyViewBacking struct{ nodeViewBacking }
+
+func (nilCopyViewBacking) copyTree(*Tree) *Tree { return nil }
+
+func TestCcoreViewsOffsetNilCopy(t *testing.T) {
+	arena := &nodeArena{views: nilCopyViewBacking{}}
+	tree := &Tree{root: &Node{ownerArena: arena, childIndex: compactViewChildIndex}}
+	if got := tree.rootNodeWithOffsetMode(1, Point{}, true); got != nil {
+		t.Fatalf("got %v, want nil", got)
+	}
+	if got := tree.rootNodeWithOffsetMode(1, Point{}, false); got != nil {
+		t.Fatalf("recovery: got %v, want nil", got)
+	}
+}
+
+func TestCcoreViewsRetainedPageBytes(t *testing.T) {
+	v := &ccoreViews{}
+	var top *ccoreViewTop
+	for _, index := range []int{0, 1, 4, 17, 70} {
+		top = v.growTop(top, index)
+		page := new(ccoreViewPage)
+		top.pages[index].Store(page)
+		v.pageBytes += uint64(unsafe.Sizeof(*page))
+		want := uint64(len(top.pages)) * uint64(unsafe.Sizeof(top.pages[0]))
+		for i := range top.pages {
+			if top.pages[i].Load() != nil {
+				want += uint64(unsafe.Sizeof(*page))
+			}
+		}
+		if got := v.retainedBytes(); got != want {
+			t.Fatalf("index %d: retained=%d, actual=%d", index, got, want)
 		}
 	}
 }

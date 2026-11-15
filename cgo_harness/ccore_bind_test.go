@@ -58,6 +58,18 @@ func ccoreExpect(t testing.TB, ok bool, format string, args ...any) {
 	t.Errorf(format, args...)
 }
 
+// ccoreRequirePositive stops the test when a comparison class compared nothing.
+// Unlike ccoreExpect it also stops under CCORE_REPORT_ONLY: a report-only
+// campaign may accept a difference, but a comparison of zero items proves
+// nothing, and a run that compared nothing must not look like a run that found
+// no difference (the c edit session once recorded 0 steps and passed).
+func ccoreRequirePositive(t testing.TB, class string, n int) {
+	t.Helper()
+	if n <= 0 {
+		t.Fatalf("comparison class %q compared %d items; a comparison that compares nothing fails", class, n)
+	}
+}
+
 // ccoreCount prints the count line that docker/ccore_equality.sh requires of
 // every test it runs: the number of inputs (or lookups, or edit steps) that
 // the test compared with C. A test that skips or compares nothing prints no
