@@ -5,6 +5,7 @@ package cgoharness
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -20,7 +21,11 @@ import (
 func init() {
 	if os.Getenv("CCORE_FIELD_LUA_UNCHECKED_SCANNER") == "1" {
 		s := gr.LuaExternalScanner{}
-		scanmode.RegisterScanner(s, s.Create(), false)
+		// A test-only snapshot, as in ccore_unchecked_scanners_test.go: the value
+		// is used as it is and its type name is the key.
+		scanmode.RegisterScanner(s, s.Create(), false, func(v any) (any, []byte, bool) {
+			return v, []byte(reflect.TypeOf(v).String()), true
+		})
 	}
 }
 
