@@ -308,7 +308,7 @@ func ccoreBindCheckTables(lang any) (checked, differ int, err error) {
 }
 
 func init() {
-	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables, ViewsOn: ccoreSetViewsOn, ViewCounters: ccoreViewCounters})
+	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables, RouteCounters: ccoreRouteCounters, RouteNanos: ccoreRouteNanos, RouteLimits: ccoreRouteLimits, RootOnlyFields: ccoreBindRootOnlyFields, ViewsOn: ccoreSetViewsOn, ViewCounters: ccoreViewCounters})
 }
 
 type cfgW struct {
