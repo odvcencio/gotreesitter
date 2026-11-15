@@ -151,6 +151,8 @@ run() { # test-name, set name for the count line, output-line prefix to count, t
     if [ -n "${n:-}" ] && [ -z "$xfail" ] && { [ -z "${route_arm:-}" ] || check_arm "$test" "$route_arm" "$out" 2>>"$out.why"; }; then
       last_n=$(grep -c "^${prefix} " "$out" || true)
       echo "ok   ${test} arm=${route_arm:-default} $* checked=${n}${xn} lines=${last_n}"
+      # The session's one summary line carries its counts (steps, error steps, steps equal to C).
+      if [ "$prefix" = CCB7SESSION ]; then grep "^CCB7SESSION " "$out" | cut -c1-900; fi
       if [ -n "${route_arm:-}" ]; then
         grep "^CCARM test=${test} " "$out"
         if [ "$route_arm" = views ]; then total_views=$((total_views + n)); else total_eager=$((total_eager + n)); fi

@@ -647,6 +647,13 @@ func b7Session(t *testing.T, lang string) {
 	if err := cp.SetLanguage(cl); err != nil {
 		t.Fatal(err)
 	}
+	// A second C parser for fresh parses: on a step with an error the route parses
+	// fresh by its own rule, so C's fresh tree is the reference there.
+	cfp := sitter.NewParser()
+	defer cfp.Close()
+	if err := cfp.SetLanguage(cl); err != nil {
+		t.Fatal(err)
+	}
 	p := g.NewParser(gl)
 	p.SetAdmissionCandidateRoute(true)
 	fp := g.NewParser(gl)
@@ -660,6 +667,7 @@ func b7Session(t *testing.T, lang string) {
 	rng := rand.New(rand.NewSource(7))
 	_, f0, i0 := bind.RouteCounters()
 	steps, eqFresh, cmpC, eqC, diffNewErr, oldErrSteps, cleanClean := 0, 0, 0, 0, 0, 0, 0
+	errSteps, eqCFresh := 0, 0
 	var breakAt = -1
 	var breakByte byte
 	for i := 0; i < 144; i++ {
@@ -731,6 +739,21 @@ func b7Session(t *testing.T, lang string) {
 			cmpC++
 			ccoreExpect(t, false, "%s input=b7 step=%d: %d divergences from C; first %s", lang, i, len(divs), compactT3FormatDivergence(divs[0]))
 		}
+		if oldErr || newErr {
+			// The route does not reuse a tree with an error and does not keep an
+			// incremental result with an error: it parses fresh. C's incremental tree
+			// may differ from C's fresh tree on such a step, so the comparison above
+			// cannot judge it. C's fresh parse of the same text can, and it does not
+			// share a mistake with the Go parse used for the fresh comparison.
+			errSteps++
+			cf := cfp.Parse(next, nil)
+			if d := compactT3StructuralDivergences(nt.RootNode(), gl, cf.RootNode()); len(d) == 0 {
+				eqCFresh++
+			} else {
+				ccoreExpect(t, false, "%s input=b7 step=%d: %d divergences from C's fresh parse on a step with an error (old_error=%t new_error=%t); first %s", lang, i, len(d), oldErr, newErr, compactT3FormatDivergence(d[0]))
+			}
+			cf.Close()
+		}
 		fresh.Release()
 		tree.Release()
 		cTree.Close()
@@ -739,8 +762,8 @@ func b7Session(t *testing.T, lang string) {
 	tree.Release()
 	cTree.Close()
 	decl, f1, i1 := bind.RouteCounters()
-	fmt.Printf("CCB7SESSION lang=%s steps=%d equal_fresh=%d compared_with_c=%d equal_c=%d clean_old_clean_new_equal_c=%d old_clean_new_error_differs_from_c_incr=%d old_error_not_compared=%d served_incr=%d served_fresh=%d declines=%v\n",
-		lang, steps, eqFresh, cmpC, eqC, cleanClean, diffNewErr, oldErrSteps, i1-i0, f1-f0, decl)
+	fmt.Printf("CCB7SESSION lang=%s steps=%d equal_fresh=%d compared_with_c=%d equal_c=%d clean_old_clean_new_equal_c=%d old_clean_new_error_differs_from_c_incr=%d old_error_steps=%d error_steps=%d error_steps_equal_c_fresh=%d served_incr=%d served_fresh=%d declines=%v\n",
+		lang, steps, eqFresh, cmpC, eqC, cleanClean, diffNewErr, oldErrSteps, errSteps, eqCFresh, i1-i0, f1-f0, decl)
 	ccoreCount("TestCcoreB7Session", lang, steps)
-	ccoreExpect(t, steps == 144 && eqFresh == steps && cmpC > 0 && eqC+diffNewErr == cmpC && len(decl) == 0, "%s: session counts", lang)
+	ccoreExpect(t, steps == 144 && eqFresh == steps && cmpC > 0 && eqC+diffNewErr == cmpC && errSteps > 0 && eqCFresh == errSteps && len(decl) == 0, "%s: session counts", lang)
 }
