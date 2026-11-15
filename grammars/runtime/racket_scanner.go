@@ -51,6 +51,9 @@ func init() {
 		s := v.(RacketExternalScanner)
 		s.externalToToken = append([]int(nil), s.externalToToken...)
 		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(RacketExternalScanner), right.(RacketExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
 	})
 }
 

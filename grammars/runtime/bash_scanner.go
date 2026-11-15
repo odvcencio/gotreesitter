@@ -150,6 +150,9 @@ func init() {
 		s := v.(BashExternalScanner)
 		s.externalToToken = append([]int(nil), s.externalToToken...)
 		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(BashExternalScanner), right.(BashExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
 	})
 }
 

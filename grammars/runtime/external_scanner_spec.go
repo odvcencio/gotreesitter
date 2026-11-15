@@ -3,6 +3,7 @@ package grammarruntime
 import (
 	"encoding/binary"
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -12,6 +13,10 @@ import (
 type ExternalScannerSourceFile struct {
 	Path   string
 	SHA256 string
+}
+
+func scannerConfigEqual(aSymbols, bSymbols []gotreesitter.Symbol, aTokens, bTokens []int) bool {
+	return slices.Equal(aSymbols, bSymbols) && slices.Equal(aTokens, bTokens)
 }
 
 // ExternalScannerSpec records the source contract for a hand-written external

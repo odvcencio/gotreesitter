@@ -212,9 +212,15 @@ func TestScannerSnapshotPrivateConfiguration(t *testing.T) {
 		t.Fatal("snapshot failed")
 	}
 	private := v.(JavaScriptExternalScanner)
+	if reg.SameConfig == nil || !reg.SameConfig(s, private) {
+		t.Fatal("snapshot configuration did not match")
+	}
 	saved := append([]byte(nil), key...)
 	s.externalToToken[0] = 9
 	s.symbols[0] = 15
+	if reg.SameConfig(s, private) {
+		t.Fatal("changed configuration still matched the snapshot")
+	}
 	if private.externalToToken[0] != 1 || private.symbols[0] != 12 || !bytes.Equal(key, saved) {
 		t.Fatal("snapshot shares mutable state")
 	}

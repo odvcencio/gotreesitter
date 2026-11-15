@@ -64,6 +64,9 @@ func init() {
 		s := v.(CssExternalScanner)
 		s.externalToToken = append([]int(nil), s.externalToToken...)
 		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(CssExternalScanner), right.(CssExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
 	})
 }
 

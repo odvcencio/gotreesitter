@@ -76,10 +76,15 @@ const (
 // It uses ref counting so trees that borrow reused subtrees can keep arena
 // memory alive safely until all dependent trees are released.
 type nodeArena struct {
-	views            nodeViewBacking
-	viewArena        bool
-	viewNodeLimit    int
-	ownership        incr.Ownership
+	views         nodeViewBacking
+	viewArena     bool
+	viewNodeLimit int
+	ownership     incr.Ownership
+	// ccore is set on the arena of a tree that internal/ccore built (and on the
+	// arena of its copies): the language tables Node.ParseState reads when it
+	// is called, and the field answers that differ from the stored field ids
+	// for public node accessors.
+	ccore            *ccoreArenaState
 	class            arenaClass
 	nodes            []Node
 	used             int
@@ -438,6 +443,32 @@ func ArenaProfileSnapshot() ArenaProfile {
 	return arenaProfileData
 }
 
+// forgetCheckedOut clears the slots of the pool's backing array, beyond its length, that
+// still point to a, an arena that was taken from the pool. acquire shortens the slice and
+// leaves the pointer in the array. For an arena that a core tree is attached to, that stale
+// pointer would keep the arena, and through it the core tree, reachable from a global
+// until a later release overwrote the slot, so that a dropped tree could not be collected.
+func (p *nodeArenaPool) forgetCheckedOut(a *nodeArena) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	free := p.free[:cap(p.free)]
+	for i := len(p.free); i < len(free); i++ {
+		if free[i] == a {
+			free[i] = nil
+		}
+	}
+}
+
+// forgetArenaCheckout is forgetCheckedOut on the pool the arena came from. Call it before a core
+// tree is attached to an arena that acquireNodeArena returned.
+func forgetArenaCheckout(a *nodeArena) {
+	if a.class == arenaClassIncremental {
+		incrementalArenaPool.forgetCheckedOut(a)
+	} else {
+		fullArenaPool.forgetCheckedOut(a)
+	}
+}
+
 func (p *nodeArenaPool) acquire() *nodeArena {
 	p.mu.Lock()
 	n := len(p.free)
@@ -588,6 +619,10 @@ func (a *nodeArena) Release() {
 	}
 	if a.refs.Add(-1) != 0 {
 		return
+	}
+	if a.ccore != nil {
+		a.ccore.releaseCore()
+		a.ccore = nil
 	}
 	if a.views != nil {
 		a.views.release()

@@ -2,6 +2,8 @@ package gotreesitter
 
 import (
 	"testing"
+
+	"github.com/odvcencio/gotreesitter/internal/ccore"
 )
 
 func TestTreeCursorNew(t *testing.T) {
@@ -15,6 +17,38 @@ func TestTreeCursorNew(t *testing.T) {
 	}
 	if c.Depth() != 0 {
 		t.Fatalf("Depth at root should be 0, got %d", c.Depth())
+	}
+}
+
+func TestTreeCursorCoreInheritedFieldUnderExtra(t *testing.T) {
+	// The first visible child is below an extra hidden node. Its node field is
+	// inherited, but the cursor field stops at the extra node.
+	a := newNodeArena(arenaClassIncremental)
+	a.ccore = &ccoreArenaState{}
+	view := &ccoreFakeView{
+		kids:    map[ccore.Handle][]ccore.Handle{1: {2, 3, 4}, 3: {5}},
+		visible: map[ccore.Handle]bool{4: true, 5: true},
+		extra:   map[ccore.Handle]bool{3: true},
+		prod:    map[ccore.Handle]uint16{1: 1},
+	}
+	tables := &ccoreConvTables{fieldSlices: [][2]uint16{{}, {0, 2}}, fieldEntries: []FieldMapEntry{{FieldID: 1, ChildIndex: 0}, {FieldID: 1, ChildIndex: 1}}}
+	conv := &ccoreConv{fs: view, conv: tables, arena: a}
+	inherited := conv.hiddenInheritedField(1, 1, view.Extra(3), 0, 0)
+	secondField := conv.ownField(1, 1)
+	first := NewLeafNode(1, true, 0, 1, Point{}, Point{Column: 1})
+	second := NewLeafNode(1, true, 1, 2, Point{Column: 1}, Point{Column: 2})
+	root := newParentNode(a, 2, true, []*Node{first, second}, []FieldID{inherited, secondField}, 0)
+	conv.fids = []FieldID{inherited, secondField}
+	conv.cfids = []FieldID{0, secondField}
+	conv.recordFieldAnswers(root, 1, 0, 2)
+	tree := &Tree{root: root, arena: a, language: queryTestLanguage()}
+	c := NewTreeCursorFromTree(tree)
+	if !c.GotoChildByFieldID(1) || c.CurrentNode() != second || c.CurrentFieldID() != 1 {
+		t.Fatalf("cursor landed on %p with field %d, want second child %p with field 1", c.CurrentNode(), c.CurrentFieldID(), second)
+	}
+	c = NewTreeCursorFromTree(tree)
+	if !c.GotoChildByFieldName("name") || c.CurrentNode() != second || c.CurrentFieldID() != 1 {
+		t.Fatalf("field-name lookup landed on %p with field %d", c.CurrentNode(), c.CurrentFieldID())
 	}
 }
 

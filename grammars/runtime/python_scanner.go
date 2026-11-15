@@ -33,6 +33,8 @@ func init() {
 		s := v.(PythonExternalScanner)
 		private, symbols, tokens := pythonruntime.Snapshot(s.PythonExternalScanner)
 		return PythonExternalScanner{PythonExternalScanner: private}, scannerKey(symbols, tokens), true
+	}, func(a, b any) bool {
+		return pythonruntime.SameConfiguration(a.(PythonExternalScanner).PythonExternalScanner, b.(PythonExternalScanner).PythonExternalScanner)
 	})
 	RegisterExternalScannerSpec(pythonExternalScannerSpec)
 }

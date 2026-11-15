@@ -83,6 +83,9 @@ func init() {
 		s := v.(HTMLExternalScanner)
 		s.externalToToken = append([]int(nil), s.externalToToken...)
 		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(HTMLExternalScanner), right.(HTMLExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
 	})
 }
 

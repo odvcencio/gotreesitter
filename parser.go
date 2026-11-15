@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"bytes"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	"strings"
 	"sync"
 	"time"
@@ -3246,7 +3247,7 @@ func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSou
 
 func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int, retryAcceptedError bool) (*Tree, error) {
 	// Fast path: unchanged source and no recorded edits.
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (!certified.EverActive() || p.ccoreUnchangedTreeAllowed(oldTree, underlyingDFATokenSource(ts) != nil)) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	if incr.RequiresFreshWorkLimits(p.parseWorkLimits.NodeLimit, p.parseWorkLimits.IterationLimit, p.parseWorkLimits.StackDepthLimit) {

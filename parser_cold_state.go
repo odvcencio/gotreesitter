@@ -19,6 +19,8 @@ type parserColdState struct {
 	memoryBudgetBytes int64
 	// Hidden verification keeps routing but emits no public admission event.
 	admissionCountersSuppressed bool
+	// ccoreRouteSuppressed prevents a second core attempt within a reparse.
+	ccoreRouteSuppressed int
 	// Nonadvancing stateless markers require C recovery ordering and GSS paths.
 	crecoveryEmptyExternal bool
 	admissionConvergedWork [3]uint64

@@ -2,10 +2,23 @@ package gotreesitter_test
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/ccore"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"reflect"
+	"runtime"
+	"runtime/debug"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 	"unicode/utf16"
+	"unsafe"
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -965,5 +978,1030 @@ func TestSchedRequestModesMatchCompactStarts(t *testing.T) {
 			func(p *gts.Parser) (*gts.Tree, error) { return p.Parse(scannerSource) },
 			reparse)
 		break
+	}
+}
+
+const ccoreAllModes = 1 | 2 | 4
+const ccoreModesIncr = ccoreAllModes | 8
+
+func ccoreCertifyAll() func() {
+	return gts.CcoreTestCertify(ccoreAllModes, "ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState")
+}
+
+func ccoreRouteLang(t testing.TB, name string) *gts.Language {
+	t.Helper()
+	e := grammars.DetectLanguageByName(name)
+	if e == nil || e.Language() == nil {
+		t.Fatalf("language %q unavailable: the test would compare nothing", name)
+	}
+	return e.Language()
+}
+
+func ccoreRouteParser(lang *gts.Language) *gts.Parser {
+	p := gts.NewParser(lang)
+	p.SetAdmissionCandidateRoute(true)
+	return p
+}
+
+func ccoreJSONSource(n int) []byte {
+	var b strings.Builder
+	b.WriteString("[\n")
+	for i := 0; i < n; i++ {
+		if i > 0 {
+			b.WriteString(",\n")
+		}
+		fmt.Fprintf(&b, "  {\"k\": %d, \"v\": [1, 2, \"x\"]}", i)
+	}
+	b.WriteString("\n]\n")
+	return []byte(b.String())
+}
+
+func ccoreInsert(src []byte, at int, b byte) ([]byte, gts.InputEdit) {
+	out := append(append(append([]byte(nil), src[:at]...), b), src[at:]...)
+	p0 := ccorePoint(src, at)
+	return out, gts.InputEdit{StartByte: uint32(at), OldEndByte: uint32(at), NewEndByte: uint32(at + 1),
+		StartPoint: p0, OldEndPoint: p0, NewEndPoint: ccorePoint(out, at+1)}
+}
+
+func ccorePoint(src []byte, at int) gts.Point {
+	var pt gts.Point
+	for _, b := range src[:at] {
+		if b == '\n' {
+			pt.Row, pt.Column = pt.Row+1, 0
+		} else {
+			pt.Column++
+		}
+	}
+	return pt
+}
+
+func ccoreSExpr(tree *gts.Tree, lang *gts.Language) string { return tree.RootNode().SExpr(lang) }
+
+func ccoreRouteSample(t testing.TB, name string) ([]byte, string) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("internal", "benchfixtures", "real_corpus.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest v1InvariantCorpusManifest
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range manifest.Entries {
+		if row.Language == name && row.Role == "sample" && row.CommittedPath != "" {
+			src, err := os.ReadFile(filepath.Join("internal", "benchfixtures", row.CommittedPath))
+			if err != nil {
+				t.Fatal(err)
+			}
+			return src, "r4"
+		}
+	}
+	return []byte(grammars.ParseSmokeSample(name)), "smoke"
+}
+
+func ccoreDeepJSON(depth int) []byte {
+	return []byte(strings.Repeat("[", depth) + "1" + strings.Repeat("]", depth) + "\n")
+}
+
+func ccoreWideJSON(n int) []byte {
+	var b strings.Builder
+	b.WriteString("[")
+	for i := 0; i < n; i++ {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		fmt.Fprintf(&b, "%d", i)
+	}
+	b.WriteString("]\n")
+	return []byte(b.String())
+}
+
+func ccorePythonSource(minBytes int) []byte {
+	var b strings.Builder
+	for i := 0; b.Len() < minBytes; i++ {
+		fmt.Fprintf(&b, "def f%d(a):\n    return a + %d\n\n", i, i)
+	}
+	return []byte(b.String())
+}
+
+func TestCcoreRouteChargesTheWholeFootprintDuringConversion(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	for _, c := range []struct {
+		name string
+		src  []byte
+	}{{"deep", ccoreDeepJSON(2000)}, {"wide", ccoreWideJSON(30000)}} {
+		t.Run(c.name, func(t *testing.T) {
+			defer ccoreCertifyAll()()
+			// The ledger counts the capacity a request starts with and every array it makes, so a
+			// parser or an arena taken warm from a pool changes the total. The probe run and the
+			// budget run both start cold: the pools are drained before each, so the totals are
+			// equal and the test does not depend on what the collector did to the pools.
+			cold := func() { gts.CcoreTestDrainPool(lang); gts.DrainArenaPools() }
+			probe := func() (parse, total int) {
+				var base, alloc, held int64
+				stop := gts.CcoreTestAccountProbe(func(b, a, _, h int64) { base, alloc, held = b, a, h })
+				cold()
+				p := ccoreRouteParser(lang)
+				p.SetMemoryBudgetBytes(1 << 40) // a limit that is never reached keeps the ledger on
+				tr, err := p.Parse(c.src)
+				stop()
+				total, parse = int(base+alloc), int(base+alloc-held)
+				if err != nil || tr == nil || !gts.CcoreTestFromCore(tr) {
+					t.Fatalf("no budget: parse %v, linked %t", err, tr != nil && gts.CcoreTestFromCore(tr))
+				}
+				tr.Release()
+				return
+			}
+			parse, total := probe()
+			if total <= parse+1 {
+				t.Fatalf("conversion added nothing to the footprint: parse %d, total %d", parse, total)
+			}
+			budget := int64(total - 1) // the parse passes it; the conversion does not
+			pp := gts.NewParser(lang)
+			pp.SetAdmissionCandidateRoute(false)
+			pp.SetMemoryBudgetBytes(budget)
+			present, _ := pp.Parse(c.src)
+			var routed *gts.Tree
+			var decl map[string]int64
+			var served int64
+			for attempt := 0; attempt < 5; attempt++ {
+				cold()
+				rp := ccoreRouteParser(lang)
+				rp.SetMemoryBudgetBytes(budget)
+				gts.CcoreTestReset()
+				var err error
+				routed, err = rp.Parse(c.src)
+				if err != nil || routed == nil || present == nil {
+					t.Fatalf("parse: %v", err)
+				}
+				decl, served = gts.CcoreTestCounters()
+				if served == 0 {
+					break
+				}
+				routed.Release()
+				parse, total = probe()
+				budget = int64(total - 1)
+			}
+			if served != 0 || decl["stop_memory_budget"] != 1 {
+				t.Errorf("budget %d (parse %d, total %d): core served %d, declines %v", budget, parse, total, served, decl)
+			}
+			if routed.ParseRuntime().StopReason != present.ParseRuntime().StopReason {
+				t.Errorf("routed stop %q, present engine %q", routed.ParseRuntime().StopReason, present.ParseRuntime().StopReason)
+			}
+			if ccoreSExpr(routed, lang) != ccoreSExpr(present, lang) || routed.RootNode().EndByte() != present.RootNode().EndByte() {
+				t.Errorf("the tree the certified arm returned after the decline differs from the present engine's tree")
+			}
+			t.Logf("%s: parse footprint %d, conversion total %d, present engine stop %q", c.name, parse, total, present.ParseRuntime().StopReason)
+		})
+	}
+}
+
+func TestCcoreRouteServesFreshAndOwnsNothing(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	defer ccoreCertifyAll()()
+	src := ccoreJSONSource(200)
+	p := ccoreRouteParser(lang)
+	gts.CcoreTestReset()
+	tree, err := p.Parse(src)
+	if err != nil || tree == nil || !gts.CcoreTestFromCore(tree) {
+		t.Fatalf("Parse: %v", err)
+	}
+	defer tree.Release()
+	if n := gts.CcoreTestPooledRecords(lang); n != 0 {
+		t.Fatalf("the core's arena holds %d records after the call", n)
+	}
+	edited, edit := ccoreInsert(src, 40, ' ')
+	tree.Edit(edit) // the public tree's own edit
+	next, err := p.ParseIncremental(edited, tree)
+	if err != nil || next == nil || next == tree || !gts.CcoreTestFromCore(next) {
+		t.Fatalf("ParseIncremental: %v", err)
+	}
+	defer next.Release()
+	if decl, served := gts.CcoreTestCounters(); served != 2 || len(decl) != 0 {
+		t.Fatalf("served %d fresh parses, declines %v; want 2 (the parse and the reparse)", served, decl)
+	}
+	fresh, _ := ccoreRouteParser(lang).Parse(edited)
+	defer fresh.Release()
+	if ccoreSExpr(next, lang) != ccoreSExpr(fresh, lang) {
+		t.Fatal("the reparse differs from the fresh parse")
+	}
+	cp := next.Copy()
+	defer cp.Release()
+	if cp.RootNode().Child(0).ParseState() != next.RootNode().Child(0).ParseState() {
+		t.Fatal("a copy of a core tree lost the meaning of ParseState")
+	}
+}
+
+func TestCcoreRouteEnforcesEveryMemoryLimit(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	src := ccoreJSONSource(3000)
+	defer ccoreCertifyAll()()
+	check := func(name string, configure func(*gts.Parser)) {
+		t.Helper()
+		// 1. the route alone: no heap reading is involved
+		rp := ccoreRouteParser(lang)
+		configure(rp)
+		gts.CcoreTestReset()
+		tr, ok := gts.CcoreTestFullParse(rp, src)
+		decl, served := gts.CcoreTestCounters()
+		if tr != nil || ok || served != 0 || decl["stop_memory_budget"] != 1 {
+			t.Errorf("%s: route alone: tree %t, ok %t, core served %d, declines %v; want no tree and one decline for memory", name, tr != nil, ok, served, decl)
+		}
+		// 2. the certified arm through Parse: the core tries, is declined once for memory, the present engine answers
+		cp := ccoreRouteParser(lang)
+		configure(cp)
+		gts.CcoreTestReset()
+		got, err := cp.Parse(src)
+		decl, served = gts.CcoreTestCounters()
+		if err != nil || got == nil {
+			t.Fatalf("%s: parse: %v", name, err)
+		}
+		defer got.Release()
+		reason := got.ParseRuntime().StopReason
+		if served != 0 || decl["stop_memory_budget"] != 1 || gts.CcoreTestFromCore(got) {
+			t.Errorf("%s: certified arm: core served %d, declines %v, tree from core %t; want the core declined once for memory and the present engine's tree", name, served, decl, gts.CcoreTestFromCore(got))
+		}
+		if reason != gts.ParseStopMemoryBudget && reason != gts.ParseStopAccepted {
+			t.Errorf("%s: the present engine's answer after the decline has stop reason %q; want %q or %q", name, reason, gts.ParseStopMemoryBudget, gts.ParseStopAccepted)
+		}
+	}
+	check("SetMemoryBudgetBytes", func(p *gts.Parser) { p.SetMemoryBudgetBytes(1 << 20) })
+	t.Run("budget from the environment", func(t *testing.T) {
+		t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "1")
+		gts.ResetParseEnvConfigCacheForTests()
+		t.Cleanup(gts.ResetParseEnvConfigCacheForTests)
+		check("GOT_PARSE_MEMORY_BUDGET_MB", func(*gts.Parser) {})
+	})
+	// GOT_PARSE_MEMORY_HARD_CEILING_MB is the present engine's heap-growth backstop, armed
+	// around the whole routed attempt (TestCcoreRouteHardCeilingSeesMemoryOutsideTheCoreAccounting).
+	budget, _, hooked, atBudget := gts.CcoreTestLimits(gts.NewParser(lang), len(src))
+	if budget <= 0 || !hooked || atBudget != gts.ParseStopMemoryBudget {
+		t.Errorf("default budget %d, hook %t, poll at the budget gives %q", budget, hooked, atBudget)
+	}
+}
+
+func TestCcoreRouteBudgetsMatchThePresentEngineInFreshProcesses(t *testing.T) {
+	if os.Getenv("CCORE_BUDGET_PROCESSES") == "" {
+		t.Skip("starts nine test processes; set CCORE_BUDGET_PROCESSES=1")
+	}
+	run := func(arm string, mib int) map[string]string {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestCcoreRouteBudgetChild$", "-test.count=1", "-test.v")
+		var env []string
+		for _, kv := range os.Environ() { // a control variable inherited from the caller must not reach the child
+			if !strings.HasPrefix(kv, "CCORE_BUDGET_CHILD=") && !strings.HasPrefix(kv, "CCORE_BUDGET_MIB=") {
+				env = append(env, kv)
+			}
+		}
+		cmd.Env = append(env, "CCORE_BUDGET_CHILD="+arm, fmt.Sprintf("CCORE_BUDGET_MIB=%d", mib), "GTS_TEST_CCORE_ROUTE=0", "GOMAXPROCS=1")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%s %d MiB: %v\n%s", arm, mib, err, out)
+		}
+		res := map[string]string{}
+		for _, l := range strings.Split(string(out), "\n") {
+			for _, key := range []string{"CCBUDGET ", "CCTREES ", "CCCORE "} {
+				if strings.HasPrefix(l, key) {
+					res[key] = strings.TrimPrefix(l, key)
+				}
+			}
+		}
+		if res["CCBUDGET "] == "" || res["CCTREES "] == "" || res["CCCORE "] == "" {
+			t.Fatalf("%s %d MiB: incomplete result lines\n%s", arm, mib, out)
+		}
+		return res
+	}
+	compared := 0
+	for _, mib := range []int{3, 4, 8} {
+		off := run("off", mib)
+		for _, arm := range []string{"uncertified", "certified"} {
+			got := run(arm, mib)
+			if got["CCBUDGET "] != off["CCBUDGET "] {
+				t.Errorf("%d MiB, arm %s: reasons %s, route off gives %s", mib, arm, got["CCBUDGET "], off["CCBUDGET "])
+			}
+			if got["CCTREES "] != off["CCTREES "] {
+				t.Errorf("%d MiB, arm %s: the returned trees differ from the route-off trees:\n got %s\nwant %s", mib, arm, got["CCTREES "], off["CCTREES "])
+			}
+			// The certified child must have asked the core and been declined for memory on every
+			// parse, and served nothing: without certification all arms run the present engine
+			// and the comparisons above would hold without the core.
+			want := "served=0 stop_memory_budget=6 other=0"
+			if arm == "uncertified" {
+				want = "served=0 stop_memory_budget=0 other=0" // nothing certified: the route is not even asked
+			}
+			if got["CCCORE "] != want {
+				t.Errorf("%d MiB, arm %s: core counters %q, want %q", mib, arm, got["CCCORE "], want)
+			}
+			compared++
+		}
+		if !strings.Contains(off["CCBUDGET "], "memory_budget") {
+			t.Errorf("%d MiB: the present engine never stopped for memory (%s); the case proves nothing", mib, off["CCBUDGET "])
+		}
+	}
+	if compared == 0 {
+		t.Fatal("nothing was compared")
+	}
+	fmt.Printf("CCCOUNT test=TestCcoreRouteBudgetsMatchThePresentEngineInFreshProcesses set=budget checked=%d\n", compared)
+}
+
+func TestCcoreRouteBudgetChild(t *testing.T) {
+	arm := os.Getenv("CCORE_BUDGET_CHILD")
+	if arm == "" {
+		t.Skip("run by TestCcoreRouteBudgetsMatchThePresentEngineInFreshProcesses")
+	}
+	var mib int
+	fmt.Sscan(os.Getenv("CCORE_BUDGET_MIB"), &mib)
+	if arm == "certified" {
+		defer ccoreCertifyAll()()
+	}
+	lang := ccoreRouteLang(t, "json")
+	src := ccoreJSONSource(3000)
+	var out, trees []string
+	gts.CcoreTestReset()
+	for i := 0; i < 6; i++ {
+		p := gts.NewParser(lang)
+		p.SetAdmissionCandidateRoute(arm != "off")
+		p.SetMemoryBudgetBytes(int64(mib) << 20)
+		tr, err := p.Parse(src)
+		if err != nil || tr == nil {
+			out = append(out, "err")
+			trees = append(trees, "err")
+			continue
+		}
+		out = append(out, string(tr.ParseRuntime().StopReason))
+		root := tr.RootNode()
+		h := sha256.Sum256([]byte(ccoreSExpr(tr, lang)))
+		trees = append(trees, fmt.Sprintf("%d/%d/%t/%x", root.EndByte(), root.ChildCount(), root.HasError(), h[:4]))
+		tr.Release()
+	}
+	decl, served := gts.CcoreTestCounters()
+	other := int64(0)
+	for k, v := range decl {
+		if k != "stop_memory_budget" {
+			other += v
+		}
+	}
+	fmt.Printf("CCBUDGET %s\nCCTREES %s\nCCCORE served=%d stop_memory_budget=%d other=%d\n", strings.Join(out, ","), strings.Join(trees, ","), served, decl["stop_memory_budget"], other)
+}
+
+func TestCcoreFieldLookupPassesOverAHiddenChildWithoutVisibleDescendants(t *testing.T) {
+	got, found := gts.CcoreTestHiddenInvisibleFieldShape()
+	if !found || got != 3 {
+		t.Fatalf("lookup of field 1 gave node %d (found %t), want the second child, node 3", got, found)
+	}
+}
+
+func TestCcoreFieldLookupReturnsTheOccurrenceOfAnInlineLeaf(t *testing.T) {
+	path, ok := gts.CcoreTestFieldOccurrence()
+	if !ok || len(path) != 1 || path[0] != 1 {
+		t.Fatalf("field 1 gave path %v (found %t), want [1]: the leaf inside the hidden child, public child 1", path, ok)
+	}
+}
+
+func ccoreSkipUnderRace(t *testing.T, why string) {
+	t.Helper()
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		for _, kv := range bi.Settings {
+			if kv.Key == "-race" && kv.Value == "true" {
+				t.Skip(why)
+			}
+		}
+	}
+}
+
+func ccoreObjectJSON(pairs int) []byte {
+	var b strings.Builder
+	b.WriteString("{")
+	for i := 0; i < pairs; i++ {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		fmt.Fprintf(&b, "\"k%d\":%d", i, i)
+	}
+	b.WriteString("}\n")
+	return []byte(b.String())
+}
+
+func ccoreNestedArrays(n int) []byte {
+	return []byte(strings.Repeat("[", n) + strings.Repeat("]", n) + "\n")
+}
+
+func TestCcoreLedgerEqualsTheRealAllocation(t *testing.T) {
+	ccoreSkipUnderRace(t, "the race detector adds allocations of its own to the TotalAlloc bound")
+	defer ccoreCertifyAll()()
+	lang := ccoreRouteLang(t, "json")
+	for _, c := range []struct {
+		name string
+		src  []byte
+	}{
+		{"array of 300000", ccoreWideJSON(300000)},
+		{"2000 nested arrays", ccoreNestedArrays(2000)},
+		{"object of 60000 pairs", ccoreObjectJSON(60000)},
+		{"20000 unbalanced brackets", []byte(strings.Repeat("[", 20000))},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			var at0, at1 runtime.MemStats
+			stopLease := gts.CcoreTestParserLease(func(_ uintptr, before bool) {
+				if before {
+					runtime.ReadMemStats(&at0)
+				}
+			})
+			defer stopLease()
+			var total int64
+			stopAcc := gts.CcoreTestAccountProbe(func(b, a, _, _ int64) { runtime.ReadMemStats(&at1); total = b + a })
+			defer stopAcc()
+			gts.CcoreTestDrainPool(lang)
+			gts.DrainArenaPools()
+			p := ccoreRouteParser(lang)
+			p.SetMemoryBudgetBytes(1 << 40)
+			gts.CcoreTestReset()
+			tr, ok := gts.CcoreTestFullParse(p, c.src)
+			if tr != nil {
+				tr.Release()
+			}
+			if total == 0 {
+				t.Fatalf("the account hook never ran (ok %t): the request did not reach the end of the conversion", ok)
+			}
+			real := int64(at1.TotalAlloc - at0.TotalAlloc)
+			t.Logf("counted %d, allocated %d (%.1f%%)", total, real, 100*float64(total)/float64(real))
+			if float64(total) < 0.90*float64(real) || float64(total) > 1.05*float64(real)+16384 {
+				t.Fatalf("counted %d bytes for %d bytes really allocated; want 0.90 x allocated <= counted <= 1.05 x allocated + 16384", total, real)
+			}
+		})
+	}
+}
+
+func ccoreCertifyIncr() func() {
+	return gts.CcoreTestCertify(ccoreModesIncr, "ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState")
+}
+
+func ccoreWalkDigest(tree *gts.Tree, lang *gts.Language) string {
+	h := sha256.New()
+	var visit func(n *gts.Node, field string)
+	visit = func(n *gts.Node, field string) {
+		s, e := n.StartPoint(), n.EndPoint()
+		fmt.Fprintf(h, "%s|%d|%d|%d.%d|%d.%d|%v|%v|%v|%s;", n.Type(lang), n.StartByte(), n.EndByte(), s.Row, s.Column, e.Row, e.Column, n.IsNamed(), n.IsMissing(), n.HasError(), field)
+		for i := 0; i < n.ChildCount(); i++ {
+			visit(n.Child(i), n.FieldNameForChild(i, lang))
+		}
+	}
+	visit(tree.RootNode(), "")
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func ccoreReplace(src []byte, at int, b byte) ([]byte, gts.InputEdit) {
+	out := append([]byte(nil), src...)
+	out[at] = b
+	p0 := ccorePoint(src, at)
+	return out, gts.InputEdit{StartByte: uint32(at), OldEndByte: uint32(at + 1), NewEndByte: uint32(at + 1),
+		StartPoint: p0, OldEndPoint: ccorePoint(src, at+1), NewEndPoint: ccorePoint(out, at+1)}
+}
+
+func ccoreDeleteByte(src []byte, at int) ([]byte, gts.InputEdit) {
+	out := append(append([]byte(nil), src[:at]...), src[at+1:]...)
+	p0 := ccorePoint(src, at)
+	return out, gts.InputEdit{StartByte: uint32(at), OldEndByte: uint32(at + 1), NewEndByte: uint32(at),
+		StartPoint: p0, OldEndPoint: ccorePoint(src, at+1), NewEndPoint: p0}
+}
+
+func ccoreGateSource(lang string, n int) []byte {
+	switch lang {
+	case "json":
+		return ccoreJSONSource(n / 12)
+	case "python":
+		return ccorePythonSource(n)
+	}
+	var b strings.Builder
+	for i := 0; b.Len() < n; i++ {
+		if lang == "c" {
+			fmt.Fprintf(&b, "int f%d(int a) { return a + %d; }\n", i, i)
+		} else {
+			fmt.Fprintf(&b, "function f%d(a: number): number { return a + %d; }\n", i, i)
+		}
+	}
+	return []byte(b.String())
+}
+
+func TestCcoreInvariantGateThroughTheRoute(t *testing.T) {
+	defer ccoreCertifyIncr()()
+	for _, name := range []string{"json", "python", "c", "typescript"} {
+		t.Run(name, func(t *testing.T) {
+			lang := ccoreRouteLang(t, name)
+			src := ccoreGateSource(name, 4000)
+			p, fp := ccoreRouteParser(lang), ccoreRouteParser(lang)
+			gts.CcoreTestReset()
+			tree, err := p.Parse(src)
+			if err != nil || tree == nil || !gts.CcoreTestFromCore(tree) {
+				t.Fatalf("setup: %v", err)
+			}
+			steps, errSteps := 0, 0
+			for i := 0; i < 72; i++ {
+				at := 3 + (i*131)%(len(src)-8)
+				for at < len(src)-3 && !(src[at] >= '0' && src[at] <= '8') {
+					at++
+				}
+				var next []byte
+				var e gts.InputEdit
+				switch {
+				case i%12 == 5: // a syntax break
+					next, e = ccoreInsert(src, 4, '}')
+				case i%12 == 6: // and its repair
+					next, e = ccoreDeleteByte(src, 4)
+				case i%3 == 0:
+					next, e = ccoreReplace(src, at, src[at]+1)
+				case i%3 == 1:
+					next, e = ccoreInsert(src, at, '1')
+				default:
+					next, e = ccoreInsert(src, at, '2')
+				}
+				tree.Edit(e)
+				nt, err := p.ParseIncremental(next, tree)
+				if err != nil || nt == nil {
+					t.Fatalf("step %d: %v", i, err)
+				}
+				fresh, err := fp.Parse(next)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if ccoreWalkDigest(nt, lang) != ccoreWalkDigest(fresh, lang) {
+					t.Fatalf("step %d: the incremental tree differs from a fresh parse", i)
+				}
+				root := nt.RootNode()
+				if root.Type(lang) == "ERROR" && !root.HasError() {
+					t.Fatalf("step %d: an ERROR root without HasError", i)
+				}
+				if root.HasError() {
+					errSteps++
+				}
+				if int(root.EndByte()) != len(next) {
+					t.Fatalf("step %d: the root ends at %d, the input has %d bytes", i, root.EndByte(), len(next))
+				}
+				fresh.Release()
+				tree.Release()
+				tree, src = nt, next
+				steps++
+			}
+			// A reparse without edits returns the same tree and allocates nothing. Each closure
+			// checks for a parse error and releases a handle that is not the tree it started with.
+			var out *gts.Tree
+			var reparseErr error
+			routeAllocs := testing.AllocsPerRun(50, func() {
+				var o *gts.Tree
+				o, err := p.ParseIncremental(src, tree)
+				if err != nil && reparseErr == nil {
+					reparseErr = err
+				}
+				if o != nil {
+					out = o
+					o.Release() // every non-nil handle, also the old tree itself: the unchanged-tree path adds one each call
+				}
+			})
+			if reparseErr != nil {
+				t.Fatalf("a reparse without edits: %v", reparseErr)
+			}
+			if out != tree {
+				t.Errorf("a reparse without edits returned another tree")
+			}
+			if n := gts.TreeExtraHandles(tree); n != 0 {
+				t.Errorf("%d handles of the tree are outstanding after the measured reparses", n)
+			}
+			if routeAllocs != 0 {
+				t.Errorf("a reparse without edits allocated %v times, want 0", routeAllocs)
+			}
+			off := ccoreRouteParser(lang)
+			off.SetAdmissionCandidateRoute(false)
+			presentTree, perr := off.Parse(src)
+			if perr != nil || presentTree == nil {
+				t.Fatalf("present engine parse: %v", perr)
+			}
+			var presentErr error
+			presentAllocs := testing.AllocsPerRun(50, func() {
+				o, err := off.ParseIncremental(src, presentTree)
+				if err != nil && presentErr == nil {
+					presentErr = err
+				}
+				if o != nil {
+					o.Release()
+				}
+			})
+			if presentErr != nil {
+				t.Fatalf("present engine reparse without edits: %v", presentErr)
+			}
+			t.Logf("CCNOEDITALLOC lang=%s route_allocs_per_reparse=%v present_engine_allocs_per_reparse=%v steps=%d error_steps=%d", name, routeAllocs, presentAllocs, steps, errSteps)
+			if n := gts.TreeExtraHandles(presentTree); n != 0 {
+				t.Errorf("%d handles of the present engine's tree are outstanding after the measured reparses", n)
+			}
+			presentTree.Release()
+			tree.Release()
+			if errSteps == 0 {
+				t.Errorf("no step had an error: the break steps proved nothing")
+			}
+		})
+	}
+}
+
+func TestCcoreFieldLookupEqualsTheNodeReaders(t *testing.T) {
+	defer ccoreCertifyAll()()
+	for _, name := range []string{"json", "python", "c", "typescript"} {
+		t.Run(name, func(t *testing.T) {
+			lang := ccoreRouteLang(t, name)
+			gts.CcoreTestReset()
+			// the gate input, and one text with equal leaves next to each other under different fields
+			// (equal inline leaves share one record, so a lookup must name the occurrence)
+			dup := map[string]string{
+				"json":       `[1,1,[1,1],{"a":"a","b":"b"},[[1,1],[1,1]],{"a":{"a":{"a":"a"}}}]`,
+				"python":     "a = a\nf(a, a)\nx = a + a\nx[a] = a\nb = a if a else a\nc = [a for a in a]\nd = {a: a}\na, a = a, a\nprint(a, a)\na.a.a(a)\nlambda a: a\nclass a(a): a = a\ndef a(a=a, *a, **a): return a\nfor a in a: a\nwith a as a: a\nimport a as a\nassert a, a\na[a:a]\na += a\nnot a == a\ntry:\n    a\nexcept a as a:\n    a\n",
+				"c":          "int g(int a) { a = a; if (a == a) { return a + a; } x[a] = a; f(a, a); return a ? a : a; }\nint a = a;\nstruct a { int a; } a;\nvoid a(a a, a a) { a.a = a->a; a(a)(a); while (a) a++; for (a = a; a < a; a++) a; switch (a) { case a: a; } *a = &a; a = (a)a; a = sizeof(a); }\n",
+				"typescript": "function g(a: number) { a = a; if (a == a) { return a + a; } x[a] = a; f(a, a); return a ? a : a; }\nclass a extends a { a: a = a; a(a: a): a { return a.a(a); } }\ninterface a { a: a; a(a: a): a }\nconst {a, a: a} = a; let [a, a] = a;\na => a; (a) => a; a<a>(a); new a(a); a as a; a!.a; a?.a; for (a of a) a; for (a in a) a; type a = a | a;\nimport a, {a as a} from 'a';\n",
+			}[name]
+			sample, _ := ccoreRouteSample(t, name)
+			for _, src := range [][]byte{ccoreGateSource(name, 4000), []byte(dup), sample} {
+				tree, err := ccoreRouteParser(lang).Parse(src)
+				if err != nil || tree == nil || !gts.CcoreTestFromCore(tree) {
+					t.Fatalf("setup: not served by the core: %v", err)
+				}
+				ccoreCompareFieldLookup(t, tree, lang, len(src) > 1000)
+				tree.Release()
+			}
+		})
+	}
+}
+
+func TestCcoreFieldLookupEqualsTheNodeReadersOnAnInlineLeafInAHiddenChild(t *testing.T) {
+	path, ok := gts.CcoreTestFieldOccurrence()
+	if !ok || len(path) != 1 || path[0] != 1 {
+		t.Fatalf("conversion answered path %v (found %t); the readers' answer is public child 1", path, ok)
+	}
+}
+
+func ccoreCompareFieldLookup(t *testing.T, tree *gts.Tree, lang *gts.Language, big bool) {
+	t.Helper()
+	{
+		{
+			nodes, lookups, diffs := gts.CcoreTestFieldLookupVsReaders(tree, lang)
+			for _, d := range diffs {
+				t.Error(d)
+			}
+			if (big && nodes < 100) || lookups < nodes {
+				t.Fatalf("too little compared: %d nodes, %d lookups", nodes, lookups)
+			}
+			t.Logf("%d nodes, %d lookups compared, %d differences", nodes, lookups, len(diffs))
+		}
+	}
+}
+
+func TestCcoreDroppedTreeCopyIsCollectable(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	defer ccoreCertifyIncr()()
+	src := ccoreJSONSource(120)
+	keep, err := ccoreRouteParser(lang).Parse(src) // stays alive: the copy is made from it
+	if err != nil || keep == nil || !gts.CcoreTestFromCore(keep) {
+		t.Fatalf("setup: %v", err)
+	}
+	defer keep.Release()
+	if pre, err := ccoreRouteParser(lang).Parse(src); err == nil { // a released tree puts an arena in the pool
+		pre.Release()
+	}
+	var freed atomic.Int32
+	func() {
+		cp := keep.Copy()
+		ct := gts.CcoreTestCoreTree(cp)
+		if ct == nil {
+			t.Fatal("setup: the copy has no core tree")
+		}
+		runtime.SetFinalizer(ct, func(*ccore.Tree) { freed.Add(1) })
+	}()
+	for i := 0; i < 300 && freed.Load() < 1; i++ {
+		runtime.GC()
+		time.Sleep(10 * time.Millisecond)
+	}
+	if freed.Load() != 1 {
+		t.Fatal("the core tree of a dropped copy was not collected")
+	}
+}
+
+type heapScanner struct {
+	gts.ExternalScanner
+	keep unsafe.Pointer // *func(n int)
+}
+
+func ccoreKeepFn(f func(n int)) unsafe.Pointer { return unsafe.Pointer(&f) }
+func ccoreCallKeep(p unsafe.Pointer, n int)    { (*(*func(int))(p))(n) }
+func ccoreCountFn(f func() int) unsafe.Pointer { return unsafe.Pointer(&f) }
+func ccoreCallCount(p unsafe.Pointer) int      { return (*(*func() int)(p))() }
+
+func (h heapScanner) Scan(payload any, lex *gts.ExternalLexer, valid []bool) bool {
+	ccoreCallKeep(h.keep, 1<<20)
+	return h.ExternalScanner.Scan(payload, lex, valid)
+}
+
+// GOT_PARSE_MEMORY_HARD_CEILING_MB is the present engine's heap-growth backstop: a
+// scanner that allocates outside the core's accounting stops the routed parse.
+func TestCcoreRouteHardCeilingSeesMemoryOutsideTheCoreAccounting(t *testing.T) {
+	py := ccoreRouteLang(t, "python")
+	src := ccorePythonSource(80 << 10)
+	t.Setenv("GOT_PARSE_MEMORY_HARD_CEILING_MB", "48")
+	gts.ResetParseEnvConfigCacheForTests()
+	t.Cleanup(gts.ResetParseEnvConfigCacheForTests)
+	defer ccoreCertifyAll()()
+	lang := ccoreCopyLanguage(py)
+	// The scanner keeps 1 MiB per call, but at most holdCap MiB in all. The core stops at its
+	// first forced sample, after 256 calls. The request then falls back to the present
+	// engine, which runs the same scanner: without the cap that parse kept one MiB for each of
+	// the 31,509 calls of the input (about 31 GiB). The first run in a process got that memory
+	// as fresh, untouched pages; a second run had to reuse and clear it and did not finish.
+	const holdCap = 320
+	var hold [][]byte
+	lang.ExternalScanner = ccoreWrapped(py, func(in gts.ExternalScanner) gts.ExternalScanner {
+		return heapScanner{ExternalScanner: in, keep: ccoreKeepFn(func(n int) {
+			if len(hold) < holdCap {
+				hold = append(hold, make([]byte, n))
+			}
+		})}
+	})
+	rp := ccoreRouteParser(lang)
+	gts.CcoreTestReset()
+	// The ceiling measures heap growth from the live heap when the request starts. Memory
+	// that an earlier test or an earlier run of this test left as garbage would sit in that
+	// baseline; the collector then frees it in the middle of the parse and the growth stays
+	// below the ceiling although the scanner holds 300 MiB. Collect first.
+	runtime.GC()
+	runtime.GC()
+	heldAtFirstSample, samples := -1, 0
+	defer gts.CcoreTestPollProbe(func(total int64, sample bool, converting bool) {
+		if sample {
+			if samples++; samples == 1 {
+				heldAtFirstSample = len(hold)
+			}
+		}
+	})()
+	tr, err := rp.Parse(src)
+	if err != nil || tr == nil {
+		t.Fatalf("parse: %v", err)
+	}
+	decl, served := gts.CcoreTestCounters()
+	held := len(hold)
+	hold = nil
+	if served != 0 || decl["stop_memory_budget"] != 1 {
+		t.Fatalf("the scanner held %d MiB outside the accounting; core served %d, declines %v", held, served, decl)
+	}
+	// The stop must come from the first forced heap sample inside the parse, not from the
+	// check after the conversion.
+	if heldAtFirstSample < 49 || heldAtFirstSample > holdCap {
+		t.Fatalf("first forced sample saw %d MiB held (%d samples), want the sample inside the parse with more than 48 MiB", heldAtFirstSample, samples)
+	}
+	t.Logf("scanner held %d MiB at the first forced sample; routed result stop %q", heldAtFirstSample, tr.ParseRuntime().StopReason)
+}
+
+func ccoreCopyLanguage(l *gts.Language) *gts.Language {
+	c := reflect.New(reflect.TypeOf(l).Elem())
+	c.Elem().Set(reflect.ValueOf(l).Elem()) // a struct copy, as a caller's `c := *l` makes (reflect keeps go vet quiet)
+	return c.Interface().(*gts.Language)
+}
+
+func ccoreWrapped(l *gts.Language, wrap func(gts.ExternalScanner) gts.ExternalScanner) gts.ExternalScanner {
+	return gts.CcoreTestWrapScanner(l.ExternalScanner, wrap)
+}
+
+func ccoreColdRun(t *testing.T, lang *gts.Language, src []byte, budget int64) (base, alloc, charged, held int64, polls []ccorePoll, served bool, decl map[string]int64) {
+	t.Helper()
+	gts.CcoreTestDrainPool(lang)
+	gts.DrainArenaPools()
+	stop1 := gts.CcoreTestAccountProbe(func(b, a, c, h int64) { base, alloc, charged, held = b, a, c, h })
+	defer stop1()
+	stop2 := gts.CcoreTestPollProbe(func(total int64, sample, conv bool) { polls = append(polls, ccorePoll{total, sample, conv}) })
+	defer stop2()
+	p := ccoreRouteParser(lang)
+	p.SetMemoryBudgetBytes(budget)
+	gts.CcoreTestReset()
+	tr, ok := gts.CcoreTestFullParse(p, src)
+	if tr != nil {
+		tr.Release()
+	}
+	var n int64
+	decl, n = gts.CcoreTestCounters()
+	return base, alloc, charged, held, polls, ok && n == 1, decl
+}
+
+type ccorePoll struct {
+	total      int64
+	sample     bool
+	converting bool
+}
+
+func TestCcoreRoutePeakHeapIsAtMostThePresentEnginesPlusG(t *testing.T) {
+	ccoreSkipUnderRace(t, "the race detector adds allocations of its own to the TotalAlloc bounds")
+	defer ccoreCertifyAll()()
+	json := ccoreRouteLang(t, "json")
+	py := ccoreRouteLang(t, "python")
+	type input struct {
+		name string
+		lang *gts.Language
+		src  []byte
+	}
+	inputs := []input{
+		{"array of 300000", json, ccoreWideJSON(300000)},
+		{"2000 nested arrays", json, ccoreNestedArrays(2000)},
+		{"object of 60000 pairs", json, ccoreObjectJSON(60000)},
+		{"20000 unbalanced brackets", json, []byte(strings.Repeat("[", 20000))},
+		{"python of 80 KiB", py, ccorePythonSource(80 << 10)},
+	}
+	old := debug.SetGCPercent(-1)
+	defer debug.SetGCPercent(old)
+	alloc := func() uint64 { var m runtime.MemStats; runtime.ReadMemStats(&m); return m.TotalAlloc }
+	for _, in := range inputs {
+		base, a, _, _, _, served, decl := ccoreColdRun(t, in.lang, in.src, 1<<40)
+		if !served {
+			t.Errorf("%s: not served by the core (%v)", in.name, decl)
+			continue
+		}
+		full := base + a
+		for _, frac := range []int64{4, 2} {
+			budget := full / frac
+			gts.DrainArenaPools()
+			runtime.GC()
+			pp := gts.NewParser(in.lang)
+			pp.SetAdmissionCandidateRoute(false)
+			pp.SetMemoryBudgetBytes(budget)
+			a0 := alloc()
+			present, err := pp.Parse(in.src)
+			presentGrown := int64(alloc() - a0)
+			if err != nil || present == nil {
+				t.Fatalf("%s: present engine: %v", in.name, err)
+			}
+			reason := present.ParseRuntime().StopReason
+			present.Release()
+			var routeGrown int64
+			gts.CcoreTestDrainPool(in.lang)
+			gts.DrainArenaPools()
+			runtime.GC()
+			rp := ccoreRouteParser(in.lang)
+			rp.SetMemoryBudgetBytes(budget)
+			gts.CcoreTestReset()
+			b0 := alloc()
+			tr, ok := gts.CcoreTestFullParse(rp, in.src)
+			routeGrown = int64(alloc() - b0)
+			if tr != nil {
+				tr.Release()
+			}
+			d, _ := gts.CcoreTestCounters()
+			t.Logf("%s, budget 1/%d of %d: present engine %q allocated %d; route allocated %d (declines %v)", in.name, frac, full, reason, presentGrown, routeGrown, d)
+			if ok || d["stop_memory_budget"] != 1 {
+				t.Errorf("%s, budget %d: the route served %t, declines %v; want a decline for memory", in.name, budget, ok, d)
+			}
+			if routeGrown > presentGrown+262144 {
+				t.Errorf("%s, budget %d: the route allocated %d bytes, the present engine %d (stop %q); want the route at most %d", in.name, budget, routeGrown, presentGrown, reason, presentGrown+262144)
+			}
+		}
+	}
+}
+
+func TestCcoreLedgerEqualsTheRealAllocationOnAReparse(t *testing.T) {
+	ccoreSkipUnderRace(t, "the race detector adds allocations of its own to the TotalAlloc bound")
+	defer ccoreCertifyIncr()()
+	lang := ccoreRouteLang(t, "json")
+	for _, c := range []struct {
+		name string
+		src  []byte
+	}{
+		{"array of 100000", ccoreWideJSON(100000)},
+		{"object of 30000 pairs", ccoreObjectJSON(30000)},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			p := ccoreRouteParser(lang)
+			p.SetMemoryBudgetBytes(1 << 40)
+			gts.CcoreTestReset()
+			old, err := p.Parse(c.src)
+			if err != nil || old == nil || !gts.CcoreTestFromCore(old) {
+				t.Fatalf("setup: %v", err)
+			}
+			defer old.Release()
+			at := bytes.IndexByte(c.src[len(c.src)/2:], '1') + len(c.src)/2 // a digit in the middle
+			next, e := ccoreReplace(c.src, at, c.src[at]+1)
+			old.Edit(e)
+			var at0, at1 runtime.MemStats
+			stopLease := gts.CcoreTestParserLease(func(_ uintptr, before bool) {
+				if before {
+					runtime.ReadMemStats(&at0)
+				}
+			})
+			defer stopLease()
+			var charged int64
+			// The fresh request charges its own parser buffers and public arena.
+			stopAcc := gts.CcoreTestAccountProbe(func(b, a, _, _ int64) { runtime.ReadMemStats(&at1); charged = b + a })
+			defer stopAcc()
+			gts.CcoreTestDrainPool(lang)
+			gts.DrainArenaPools()
+			nt, err := p.ParseIncremental(next, old)
+			if err != nil || nt == nil {
+				t.Fatal(err)
+			}
+			defer nt.Release()
+			if !gts.CcoreTestFromCore(nt) {
+				t.Fatal("the reparse was not served by the core")
+			}
+			if charged == 0 {
+				t.Fatal("the account hook never ran")
+			}
+			real := int64(at1.TotalAlloc - at0.TotalAlloc)
+			t.Logf("reparse: charged %d, allocated %d (%.1f%%)", charged, real, 100*float64(charged)/float64(real))
+			if float64(charged) < 0.90*float64(real) || float64(charged) > 1.05*float64(real)+16384 {
+				t.Fatalf("charged %d bytes for %d bytes really allocated; want 0.90 x allocated <= charged <= 1.05 x allocated + 16384", charged, real)
+			}
+		})
+	}
+}
+
+func init() {
+	py := grammars.DetectLanguageByName("python").Language()
+	inner := gts.CcoreTestInnermostScanner(py.ExternalScanner)
+	payload := inner.Create()
+	inner.Destroy(payload)
+	scanmode.RegisterScanner(heapScanner{}, payload, true, func(v any) (any, []byte, bool) { return v, nil, true })
+}
+
+func TestCcoreDefaultServesNothing(t *testing.T) {
+	if os.Getenv("GTS_TEST_CCORE_ROUTE") == "1" {
+		t.Skip("the route-on run certifies every language")
+	}
+	lang := ccoreRouteLang(t, "json")
+	gts.CcoreTestReset()
+	tree, err := ccoreRouteParser(lang).Parse(ccoreJSONSource(20))
+	if err != nil || tree == nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	if decl, served := gts.CcoreTestCounters(); served != 0 || gts.CcoreTestFromCore(tree) || len(decl) != 0 {
+		t.Fatalf("served %d, declines %v: the default build must not reach the core", served, decl)
+	}
+	if gts.CcoreTestCertifiedSize() != 0 || gts.CcoreTestAllowlistSize() != 0 {
+		t.Fatal("a certificate list is not empty")
+	}
+}
+
+func TestCcorePanicInConversionFallsBack(t *testing.T) {
+	json := ccoreRouteLang(t, "json")
+	src := ccoreJSONSource(3000)
+	defer ccoreCertifyAll()()
+	defer gts.CcoreTestPanicInConversion(2048)()
+	gts.CcoreTestReset()
+	tr, err := ccoreRouteParser(json).Parse(src)
+	if err != nil || tr == nil {
+		t.Fatalf("parse: %v", err)
+	}
+	defer tr.Release()
+	decl, served := gts.CcoreTestCounters()
+	if served != 0 || decl["panic"] != 1 || gts.CcoreTestFromCore(tr) {
+		t.Fatalf("served %d, declines %v", served, decl)
+	}
+	if n := gts.CcoreTestPooledFootprint(json); n != 0 {
+		t.Fatalf("the parser of a request that panicked went back to the pool (%d bytes)", n)
+	}
+}
+
+func TestCcoreReparseDeclineAttemptsOnce(t *testing.T) {
+	defer ccoreCertifyAll()()
+	lang := ccoreRouteLang(t, "json")
+	for _, profiled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("profiled=%t", profiled), func(t *testing.T) {
+			p := ccoreRouteParser(lang)
+			src := ccoreJSONSource(400)
+			old, err := p.Parse(src)
+			if err != nil || old == nil {
+				t.Fatalf("old parse: %v", err)
+			}
+			defer old.Release()
+			end := uint32(len(src))
+			old.Edit(gts.InputEdit{StartByte: end, OldEndByte: end, NewEndByte: end + 1})
+			changed := append(append([]byte(nil), src...), ' ')
+			attempts := 0
+			defer gts.CcoreTestParserLease(func(_ uintptr, before bool) {
+				if before {
+					attempts++
+				}
+			})()
+			restorePanic := gts.CcoreTestPanicInConversion(1024)
+			defer restorePanic()
+			gts.CcoreTestReset()
+			var tree *gts.Tree
+			if profiled {
+				tree, _, err = p.ParseIncrementalProfiled(changed, old)
+			} else {
+				tree, err = p.ParseIncremental(changed, old)
+			}
+			if err != nil || tree == nil {
+				t.Fatalf("reparse: %v", err)
+			}
+			defer tree.Release()
+			decl, _ := gts.CcoreTestCounters()
+			if attempts != 1 || decl["panic"] != 1 {
+				t.Fatalf("attempts=%d declines=%v, want one attempt and one panic decline", attempts, decl)
+			}
+			restorePanic()
+			again, err := p.Parse(changed)
+			if err != nil || again == nil || !gts.CcoreTestFromCore(again) {
+				t.Fatalf("later parse did not use core: %v", err)
+			}
+			again.Release()
+		})
 	}
 }

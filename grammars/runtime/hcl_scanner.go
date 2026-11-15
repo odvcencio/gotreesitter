@@ -490,5 +490,8 @@ func init() {
 		s := v.(HclExternalScanner)
 		s.externalToToken = append([]int(nil), s.externalToToken...)
 		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(HclExternalScanner), right.(HclExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
 	})
 }

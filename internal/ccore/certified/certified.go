@@ -39,9 +39,30 @@ type Test struct {
 
 var current atomic.Pointer[Test]
 
+// everActive is set once a certificate can have applied in this process: the
+// generated list is not empty, or a test certification was installed. It is
+// never cleared.
+var everActive atomic.Bool
+
+func init() {
+	if len(Blobs) != 0 {
+		everActive.Store(true)
+	}
+}
+
+// EverActive reports whether any certificate has existed in this process. While
+// it is false no parse was served by the core and no tree has a core link, so
+// the hot paths of the root package ask this one flag and nothing else.
+func EverActive() bool { return everActive.Load() }
+
 // Current returns the test certification, nil in production.
 func Current() *Test { return current.Load() }
 
 // Swap installs t (nil removes it) and returns the previous one. It is exported
 // for package certifiedtest only; production code does not call it.
-func Swap(t *Test) *Test { return current.Swap(t) }
+func Swap(t *Test) *Test {
+	if t != nil {
+		everActive.Store(true)
+	}
+	return current.Swap(t)
+}
