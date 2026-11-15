@@ -192,7 +192,7 @@ func ccoreNodeTablesFor(lang *Language, base *ccore.Tables) *ccore.NodeTables {
 	if t, ok := ccoreNodeTablesCache[lang]; ok {
 		return t
 	}
-	t := &ccore.NodeTables{Base: base, FieldSlices: lang.FieldMapSlices}
+	t := &ccore.NodeTables{Base: base, FieldSlices: append([][2]uint16(nil), lang.FieldMapSlices...)}
 	t.FieldEntries = make([]ccore.FieldEntry, len(lang.FieldMapEntries))
 	for i, e := range lang.FieldMapEntries {
 		t.FieldEntries[i] = ccore.FieldEntry{FieldID: uint16(e.FieldID), ChildIndex: e.ChildIndex, Inherited: e.Inherited}
