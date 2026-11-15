@@ -19,3 +19,6 @@ func cIsDigit(ch rune) bool { return ch >= '0' && ch <= '9' }
 
 // cIsAlpha is iswalpha in the C locale: ASCII letters only.
 func cIsAlpha(ch rune) bool { return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') }
+
+// cIsControl is iswcntrl in the C locale.
+func cIsControl(ch rune) bool { return ch >= 0 && ch < 0x20 || ch == 0x7f }

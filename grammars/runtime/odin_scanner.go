@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the odin grammar. This is the external
@@ -72,6 +71,15 @@ var odinExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(odinExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(OdinExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(OdinExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(OdinExternalScanner), right.(OdinExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // OdinExternalScanner handles newlines, floats, block comments, and other
@@ -121,11 +129,11 @@ func (sc OdinExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 	// FLOAT parsing
 	if odinValid(validSymbols, odinTokFloat) {
 		// Skip non-newline whitespace
-		for unicode.IsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\n' {
+		for cIsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\n' {
 			lexer.Advance(true)
 		}
 		if !odinValid(validSymbols, odinTokNewline) {
-			for unicode.IsSpace(lexer.Lookahead()) {
+			for cIsSpace(lexer.Lookahead()) {
 				lexer.Advance(true)
 			}
 		}
@@ -213,18 +221,18 @@ func (sc OdinExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 
 	// NL_COMMA
 	if odinValid(validSymbols, odinTokNlComma) {
-		for unicode.IsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\n' {
+		for cIsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\n' {
 			lexer.Advance(true)
 		}
 		if lexer.Lookahead() == ',' {
 			lexer.Advance(false)
 			lexer.SetResultSymbol(syms[odinTokNlComma])
 			lexer.MarkEnd()
-			for unicode.IsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\n' {
+			for cIsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\n' {
 				lexer.Advance(false)
 			}
 			if lexer.Lookahead() == '\n' {
-				for unicode.IsSpace(lexer.Lookahead()) {
+				for cIsSpace(lexer.Lookahead()) {
 					lexer.Advance(false)
 				}
 				return lexer.Lookahead() != '}'
@@ -235,7 +243,7 @@ func (sc OdinExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 newline:
 	// NEWLINE
 	if odinValid(validSymbols, odinTokNewline) {
-		for unicode.IsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\n' {
+		for cIsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\n' {
 			lexer.Advance(true)
 		}
 
@@ -245,7 +253,7 @@ newline:
 			lexer.MarkEnd()
 
 			nlCount := uint32(0)
-			for unicode.IsSpace(lexer.Lookahead()) {
+			for cIsSpace(lexer.Lookahead()) {
 				if lexer.Lookahead() == '\n' {
 					nlCount++
 				}
@@ -253,20 +261,24 @@ newline:
 			}
 
 			// Check for "where" or "else" or "{"
-			var nextWord [6]rune
+			var nextWord [6]byte
 			wordLen := 0
 			for wordLen < 5 {
-				if unicode.IsSpace(lexer.Lookahead()) {
+				if cIsSpace(lexer.Lookahead()) {
 					break
 				}
-				nextWord[wordLen] = lexer.Lookahead()
+				nextWord[wordLen] = byte(scanmode.CLookahead(lexer))
 				wordLen++
 				lexer.Advance(false)
 			}
 
-			word := string(nextWord[:wordLen])
+			wordEnd := 0
+			for wordEnd < wordLen && nextWord[wordEnd] != 0 {
+				wordEnd++
+			}
+			word := string(nextWord[:wordEnd])
 			if word == "where" || word == "else" {
-				if !unicode.IsSpace(lexer.Lookahead()) {
+				if !cIsSpace(lexer.Lookahead()) {
 					return true
 				}
 				goto backslash
@@ -284,7 +296,7 @@ backslash:
 		lexer.Advance(false)
 		if lexer.Lookahead() == '\n' {
 			lexer.Advance(false)
-			for unicode.IsSpace(lexer.Lookahead()) {
+			for cIsSpace(lexer.Lookahead()) {
 				lexer.Advance(false)
 			}
 			lexer.SetResultSymbol(syms[odinTokBackslash])
@@ -293,7 +305,7 @@ backslash:
 	}
 
 	// Skip whitespace for block comment
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 

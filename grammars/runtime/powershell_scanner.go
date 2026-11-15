@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the powershell grammar. This is the external
@@ -51,6 +50,15 @@ var powershellExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(powershellExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(PowershellExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(PowershellExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(PowershellExternalScanner), right.(PowershellExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // PowershellExternalScanner handles statement termination detection and bare
@@ -131,7 +139,7 @@ func (s PowershellExternalScanner) scanStatementTerminator(lexer *gotreesitter.E
 		if ch == 0 || ch == '}' || ch == ';' || ch == ')' || ch == '\n' {
 			return true
 		}
-		if !unicode.IsSpace(ch) {
+		if !cIsSpace(ch) {
 			return false
 		}
 		lexer.Advance(true)
