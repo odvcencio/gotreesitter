@@ -3,8 +3,6 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
@@ -224,11 +222,11 @@ const (
 )
 
 func csIsIDStart(c rune) bool {
-	return c == '_' || unicode.IsLetter(c)
+	return c == '_' || cIsAlpha(c)
 }
 
 func csIsIDContinue(c rune) bool {
-	return c == '_' || unicode.IsLetter(c) || unicode.IsDigit(c)
+	return c == '_' || cIsAlpha(c) || cIsDigit(c)
 }
 
 // csSkipWsAndComments advances over whitespace, line comments, and block
@@ -320,7 +318,7 @@ func csScanLambdaParenOpen(lexer *gotreesitter.ExternalLexer, symbols *[csTokenC
 	// consumes the character as an extra, so the caller can still fall through
 	// to the other handlers after csLambdaScanNoParen. Those handlers skip
 	// whitespace on their own.
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 	if lexer.Lookahead() != '(' {
@@ -453,7 +451,7 @@ func csScan(s *csState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 
 	// Raw string start: """+ (3 or more quotes)
 	if csValid(validSymbols, csTokRawStringStart) {
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(lexer.Lookahead()) {
 			lexer.Advance(true)
 		}
 		if lexer.Lookahead() == '"' {
@@ -509,7 +507,7 @@ func csScan(s *csState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 	// Interpolation start: $"...", @$"...", $@"...", $$"...", etc.
 	if csValid(validSymbols, csTokInterpRegularStart) || csValid(validSymbols, csTokInterpVerbatimStart) ||
 		csValid(validSymbols, csTokInterpRawStart) {
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(lexer.Lookahead()) {
 			lexer.Advance(true)
 		}
 
@@ -613,7 +611,7 @@ func csScan(s *csState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 	if csValid(validSymbols, csTokInterpCloseBrace) && len(s.interpolationStack) > 0 {
 		cur := &s.interpolationStack[len(s.interpolationStack)-1]
 		var closeBraceAdvanced uint8
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(lexer.Lookahead()) {
 			lexer.Advance(false)
 		}
 		for lexer.Lookahead() == '}' {
@@ -632,7 +630,6 @@ func csScan(s *csState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 	if csValid(validSymbols, csTokInterpStringContent) && len(s.interpolationStack) > 0 {
 		lexer.SetResultSymbol(symbols[csTokInterpStringContent])
 		cur := &s.interpolationStack[len(s.interpolationStack)-1]
-		braceAdvanced = 0
 
 		for lexer.Lookahead() != 0 {
 			if cur.stringType&csStrRaw != 0 {
@@ -654,7 +651,6 @@ func csScan(s *csState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 				}
 				if lexer.Lookahead() == '{' {
 					lexer.MarkEnd()
-					braceAdvanced = 0
 					for lexer.Lookahead() == '{' && braceAdvanced < cur.openBraceCount {
 						lexer.Advance(false)
 						braceAdvanced++
@@ -677,7 +673,6 @@ func csScan(s *csState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 				}
 				if lexer.Lookahead() == '{' {
 					lexer.MarkEnd()
-					braceAdvanced = 0
 					for lexer.Lookahead() == '{' && braceAdvanced < cur.openBraceCount {
 						lexer.Advance(false)
 						braceAdvanced++
@@ -695,7 +690,6 @@ func csScan(s *csState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 				}
 				if lexer.Lookahead() == '{' {
 					lexer.MarkEnd()
-					braceAdvanced = 0
 					for lexer.Lookahead() == '{' && braceAdvanced < cur.openBraceCount {
 						lexer.Advance(false)
 						braceAdvanced++
