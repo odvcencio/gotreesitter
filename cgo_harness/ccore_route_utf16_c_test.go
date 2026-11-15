@@ -103,7 +103,9 @@ func TestCcoreRouteUTF16(t *testing.T) {
 				}
 				fmt.Printf("CCUTF16 lang=%s input=%s entry=%s served=%t divergences=%d bad_utf16_ranges=%d\n", name, label, kind, f1 > f0, len(divs), badRange)
 				ccoreExpect(t, ok, "%s %s %s: served=%t divergences=%d bad ranges=%d", name, label, kind, f1 > f0, len(divs), badRange)
-				// a UTF-16 edit and an incremental reparse, against C's incremental parse
+				// A UTF-16 edit and a reparse with the old tree, against C's incremental parse. The route
+				// does not reuse a UTF-16 old tree: the core serves the reparse with a fresh parse, so the
+				// counter read here is the one for fresh parses.
 				if kind == "units" && len(units) > 8 {
 					at := uint32(len(units) / 2)
 					for at > 0 && at < uint32(len(units)) && utf16.IsSurrogate(rune(units[at])) {
@@ -122,19 +124,20 @@ func TestCcoreRouteUTF16(t *testing.T) {
 						OldEndPosition: sitter.Point{Row: uint(e.OldEndPoint.Row), Column: uint(e.OldEndPoint.Column)},
 						NewEndPosition: sitter.Point{Row: uint(e.NewEndPoint.Row), Column: uint(e.NewEndPoint.Column)}})
 					cn := cp.Parse(nsrc, ct)
-					_, i0, _ := bind.RouteCounters()
+					_, rf0, ri0 := bind.RouteCounters()
 					inc, err := p.ParseIncrementalUTF16(nu, tree)
 					if err != nil || inc == nil {
-						t.Fatalf("%s %s: incremental: %v", name, label, err)
+						t.Fatalf("%s %s: reparse: %v", name, label, err)
 					}
-					_, i1, _ := bind.RouteCounters()
+					_, rf1, ri1 := bind.RouteCounters()
 					d2 := compactT3StructuralDivergences(inc.RootNode(), lang, cn.RootNode())
 					total++
-					if i1 > i0 && len(d2) == 0 {
+					servedFresh, reused := rf1 > rf0, ri1 > ri0
+					if servedFresh && !reused && len(d2) == 0 {
 						equal++
 					}
-					fmt.Printf("CCUTF16 lang=%s input=%s entry=incremental served_incr=%t divergences=%d\n", name, label, i1 > i0, len(d2))
-					ccoreExpect(t, i1 > i0 && len(d2) == 0, "%s %s incremental: served=%t divergences=%d", name, label, i1 > i0, len(d2))
+					fmt.Printf("CCUTF16 lang=%s input=%s entry=reparse served_fresh=%t reused_old_tree=%t divergences=%d\n", name, label, servedFresh, reused, len(d2))
+					ccoreExpect(t, servedFresh && !reused && len(d2) == 0, "%s %s reparse: served_fresh=%t reused_old_tree=%t divergences=%d", name, label, servedFresh, reused, len(d2))
 					inc.Release()
 					cn.Close()
 				}

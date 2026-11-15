@@ -147,6 +147,15 @@ func TestCcoreRouteTiming(t *testing.T) {
 					t.Fatal(err)
 				}
 				bind.RouteNanos(true)
+				// The route's timers, summed over the timed edits only.
+				var routeNs [4]int64
+				takeRouteNs := func() {
+					pa, co, ce, ck := bind.RouteNanos(true)
+					routeNs[0] += pa
+					routeNs[1] += co
+					routeNs[2] += ce
+					routeNs[3] += ck
+				}
 				var total, editTotal time.Duration
 				edits := 0
 				start := time.Now()
@@ -170,10 +179,13 @@ func TestCcoreRouteTiming(t *testing.T) {
 					}
 					// return to the initial text: the steps of a cell end back on it, except typing
 					if w.name == "typing" {
+						takeRouteNs()
 						tree.Release()
 						tree, _ = p.Parse(w.initial)
+						bind.RouteNanos(true) // this parse is not an edit: its time is not attributed to one
 					}
 				}
+				takeRouteNs()
 				tree.Release()
 				if r == 0 {
 					continue
@@ -181,7 +193,7 @@ func TestCcoreRouteTiming(t *testing.T) {
 				k := "legacy"
 				if routed {
 					k = "routed"
-					pa, co, ce, ck := bind.RouteNanos(true)
+					pa, co, ce, ck := routeNs[0], routeNs[1], routeNs[2], routeNs[3]
 					e := float64(edits)
 					split = [5]float64{float64(pa) / e, float64(co) / e, float64(ce) / e, (float64(editTotal.Nanoseconds()) - float64(ce)) / e, float64(ck) / e}
 				}
