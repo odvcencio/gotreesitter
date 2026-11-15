@@ -58,6 +58,12 @@ type PythonExternalScanner struct {
 	externalToToken []int
 }
 
+// Snapshot copies scanner configuration and returns the parts used to identify it.
+func Snapshot(s PythonExternalScanner) (PythonExternalScanner, []gotreesitter.Symbol, []int) {
+	s.externalToToken = append([]int(nil), s.externalToToken...)
+	return s, s.symbols[:], s.externalToToken
+}
+
 func (PythonExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
 	return Bind(lang, bindExternalSymbols)
 }

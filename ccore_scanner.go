@@ -1,8 +1,10 @@
 package gotreesitter
 
 import (
+	"encoding/binary"
 	"errors"
 	"reflect"
+	"sort"
 
 	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
@@ -80,6 +82,84 @@ func ccoreScannerChain(sc ExternalScanner) (reg scanmode.Registered, layers int,
 		return scanmode.Registered{}, 0, errScannerNotRegistered
 	}
 	return reg, layers, ""
+}
+
+// ccoreScannerSnapshot copies the chain and encodes every adapter setting.
+func ccoreScannerSnapshot(sc ExternalScanner) (ExternalScanner, reflect.Type, []byte, string) {
+	reg, layers, reason := ccoreScannerChain(sc)
+	if reason != "" {
+		return nil, nil, nil, reason
+	}
+	adapters := make([]*externalScannerOrderAdapter, 0, layers)
+	inner := sc
+	for i := 0; i < layers; i++ {
+		a := inner.(*externalScannerOrderAdapter)
+		adapters = append(adapters, a)
+		inner = a.inner
+	}
+	private, key, ok := reg.Snapshot(inner)
+	cloned, valid := private.(ExternalScanner)
+	if !ok || !valid || isNilValue(cloned) || reflect.TypeOf(cloned) != reflect.TypeOf(inner) {
+		return nil, nil, nil, errScannerNotRegistered
+	}
+	scannerType := reflect.TypeOf(inner)
+	b := binary.AppendUvarint(nil, uint64(layers))
+	putInt := func(v int) { b = binary.AppendVarint(b, int64(v)) }
+	for _, a := range adapters {
+		putInt(a.sourceCount)
+		b = binary.AppendUvarint(b, uint64(len(a.targetToSource)))
+		for _, v := range a.targetToSource {
+			putInt(v)
+		}
+		keys := make([]int, 0, len(a.sourceSymbolToIndex))
+		for k := range a.sourceSymbolToIndex {
+			keys = append(keys, int(k))
+		}
+		sort.Ints(keys)
+		b = binary.AppendUvarint(b, uint64(len(keys)))
+		for _, k := range keys {
+			putInt(k)
+			putInt(a.sourceSymbolToIndex[Symbol(k)])
+		}
+		keys = keys[:0]
+		for k := range a.sourceResultToTarget {
+			keys = append(keys, int(k))
+		}
+		sort.Ints(keys)
+		b = binary.AppendUvarint(b, uint64(len(keys)))
+		for _, k := range keys {
+			putInt(k)
+			putInt(int(a.sourceResultToTarget[Symbol(k)]))
+		}
+		b = append(b, a.targetGrammar[:]...)
+		if a.targetGrammarValid {
+			b = append(b, 1)
+		} else {
+			b = append(b, 0)
+		}
+	}
+	b = binary.AppendUvarint(b, uint64(len(key)))
+	b = append(b, key...)
+	for i := len(adapters) - 1; i >= 0; i-- {
+		original := adapters[i]
+		dup := *original
+		dup.inner = cloned
+		dup.targetToSource = append([]int(nil), original.targetToSource...)
+		if original.sourceSymbolToIndex != nil {
+			dup.sourceSymbolToIndex = make(map[Symbol]int, len(original.sourceSymbolToIndex))
+			for k, v := range original.sourceSymbolToIndex {
+				dup.sourceSymbolToIndex[k] = v
+			}
+		}
+		if original.sourceResultToTarget != nil {
+			dup.sourceResultToTarget = make(map[Symbol]Symbol, len(original.sourceResultToTarget))
+			for k, v := range original.sourceResultToTarget {
+				dup.sourceResultToTarget[k] = v
+			}
+		}
+		cloned = &dup
+	}
+	return cloned, scannerType, b, ""
 }
 
 // ccoreEnter walks a payload created by the chain: order adapter payloads (each

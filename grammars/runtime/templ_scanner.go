@@ -443,5 +443,9 @@ func templValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }
 
 func init() {
 	// A port with a behavioural mode (internal/scanmode); registered with the rest of its set.
-	scanmode.RegisterScanner(TemplExternalScanner{}, (*templState)(nil), true)
+	scanmode.RegisterScanner(TemplExternalScanner{}, (*templState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(TemplExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	})
 }

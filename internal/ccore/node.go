@@ -37,6 +37,9 @@ type FieldEntry struct {
 // NodeTables is the language data the node readers need beyond Tables.
 // The root adapter builds one per language next to the Tables it shares.
 type NodeTables struct {
+	// SymbolCount is the grammar's declared symbol count. A zero value means
+	// unavailable; NextParseState declines rather than infer it from metadata.
+	SymbolCount  uint32
 	Base         *Tables     // symbol metadata and alias sequences
 	FieldSlices  [][2]uint16 // [production id] -> (first entry, entry count)
 	FieldEntries []FieldEntry
@@ -153,6 +156,52 @@ func (r NodeReader) IsError(n Node) bool { return r.Symbol(n) == errorSymbol }
 
 // ParseState is C ts_node_parse_state (C/node.c:533).
 func (r NodeReader) ParseState(n Node) uint16 { return r.S.parseState(n.H) }
+
+// NextParseState is C ts_node_next_parse_state. It uses the grammar
+// symbol, not an alias, and the last parse action for a terminal.
+func (r NodeReader) NextParseState(n Node) uint16 {
+	if n.H == 0 || r.S == nil || r.T == nil || r.T.Base == nil {
+		return 0
+	}
+	state := r.ParseState(n)
+	if state == stateNone {
+		return stateNone
+	}
+	t := r.T.Base
+	sym := r.GrammarSymbol(n)
+	if uint32(state) >= t.StateCount || sym == symError || sym == symErrorRepeat || uint32(sym) >= r.T.SymbolCount {
+		return 0
+	}
+	if uint32(sym) >= t.TokenCount {
+		gotoState := uint32(t.ActionIndex(uint32(state), sym))
+		if wide := t.LargeStateGotos[uint64(state)<<32|uint64(sym)]; wide != 0 {
+			gotoState = wide
+		}
+		if gotoState >= t.StateCount || gotoState >= uint32(stateNone) {
+			return 0
+		}
+		return uint16(gotoState)
+	}
+	index := t.ActionIndex(uint32(state), sym)
+	if index == 0 || int(index) >= len(t.Actions) {
+		return 0
+	}
+	actions := t.Actions[index].Actions
+	if len(actions) == 0 {
+		return 0
+	}
+	last := actions[len(actions)-1]
+	if last.Type != ActionShift {
+		return 0
+	}
+	if last.Extra {
+		return state
+	}
+	if last.State >= t.StateCount || last.State >= uint32(stateNone) {
+		return 0
+	}
+	return uint16(last.State)
+}
 
 // StartByte is C ts_node_start_byte (C/node.c:39).
 func (r NodeReader) StartByte(n Node) uint32 { return n.Start.bytes }

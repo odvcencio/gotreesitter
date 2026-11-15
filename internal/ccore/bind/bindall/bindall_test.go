@@ -42,7 +42,10 @@ func TestEveryRegisteredLanguageBinds(t *testing.T) {
 		e := entries[i]
 		lang := e.Language()
 		if lang.ExternalScanner != nil {
-			if _, ok := scanmode.Lookup(lang.ExternalScanner); ok {
+			if reg, ok := scanmode.Lookup(lang.ExternalScanner); ok {
+				if reg.Snapshot == nil {
+					t.Errorf("%s: missing snapshot", e.Name)
+				}
 				registeredTypes++
 				if !registeredScanners[e.Name] {
 					t.Errorf("%s: its scanner is registered but the test does not list the language as checked", e.Name)

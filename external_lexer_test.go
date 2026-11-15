@@ -487,19 +487,22 @@ func TestScanmodeFlagPayload(t *testing.T) {
 }
 
 func init() {
-	scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner(emittingScanner{}, nil, false)
-	scanmode.RegisterScanner(pooledScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner(panicScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner(lyingScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner(panickyEntryScanner{}, (*panickyProbe)(nil), true)
-	scanmode.RegisterScanner(recordingScanner{}, nil, false)
-	scanmode.RegisterScanner(clearsThenPanicsScanner{}, (*offPanicProbe)(nil), true)
-	scanmode.RegisterScanner(panicsBeforeClearingScanner{}, (*offPanicProbe)(nil), true)
-	scanmode.RegisterScanner(noModeScanner{}, (*countingProbe)(nil), false)
-	scanmode.RegisterScanner(lyingCountingScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner(destroyPanicScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner((*pointerScanner)(nil), nil, false)
+	scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(emittingScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(emittingScanner)
+		return s, []byte{byte(s.sym), byte(s.sym >> 8)}, true
+	})
+	scanmode.RegisterScanner(pooledScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(panicScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(lyingScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(panickyEntryScanner{}, (*panickyProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(recordingScanner{}, nil, false, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(clearsThenPanicsScanner{}, (*offPanicProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(panicsBeforeClearingScanner{}, (*offPanicProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(noModeScanner{}, (*countingProbe)(nil), false, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(lyingCountingScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(destroyPanicScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner((*pointerScanner)(nil), nil, false, func(v any) (any, []byte, bool) { return v, nil, true })
 }
 
 // modeProbe is a scanner payload that records whether the mode is on.
@@ -1099,18 +1102,25 @@ func TestRegisterScannerRejectsDuplicatesAndLateRegistrations(t *testing.T) {
 	if !ok || !before.NeedsMode {
 		t.Fatal("the test scanner is not registered with a mode")
 	}
-	if r := panics(func() { scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), false) }); r == nil || !strings.Contains(r.(string), "twice") {
+	if r := panics(func() {
+		scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), false, func(v any) (any, []byte, bool) { return v, nil, true })
+	}); r == nil || !strings.Contains(r.(string), "twice") {
 		t.Errorf("a duplicate registration: recovered %v, want the duplicate panic", r)
 	}
-	if after, _ := scanmode.Lookup(modeProbeScanner{}); after != before {
-		t.Errorf("a rejected duplicate changed the registration: %+v, was %+v", after, before)
+	// Registered holds a function, so it is compared field by field; the
+	// snapshot function is compared by its code pointer.
+	if after, _ := scanmode.Lookup(modeProbeScanner{}); after.Payload != before.Payload || after.NeedsMode != before.NeedsMode ||
+		reflect.ValueOf(after.Snapshot).Pointer() != reflect.ValueOf(before.Snapshot).Pointer() {
+		t.Errorf("a rejected duplicate changed the registration: payload %v mode %v, was payload %v mode %v", after.Payload, after.NeedsMode, before.Payload, before.NeedsMode)
 	}
 	// Binding starts: from here no registration is accepted.
 	if _, err := newCcoreExtScanner(modeProbeScanner{payload: &modeProbe{}}); err != nil {
 		t.Fatal(err)
 	}
 	type lateScanner struct{ modeProbeScanner }
-	if r := panics(func() { scanmode.RegisterScanner(lateScanner{}, nil, false) }); r == nil || !strings.Contains(r.(string), "after binding started") {
+	if r := panics(func() {
+		scanmode.RegisterScanner(lateScanner{}, nil, false, func(v any) (any, []byte, bool) { return v, nil, true })
+	}); r == nil || !strings.Contains(r.(string), "after binding started") {
 		t.Errorf("a late registration: recovered %v, want the late panic", r)
 	}
 	if _, ok := scanmode.Lookup(lateScanner{}); ok {
@@ -1362,5 +1372,28 @@ func TestCcoreFieldReaderConcurrentLanguageMutation(t *testing.T) {
 	<-done
 	if changes != 0 {
 		t.Fatalf("field changed during language mutation in %d reads", changes)
+	}
+}
+
+func TestCcoreScannerAdapterSnapshot(t *testing.T) {
+	original := &externalScannerOrderAdapter{
+		inner: emittingScanner{sym: 1}, targetToSource: []int{0}, sourceCount: 1,
+		sourceSymbolToIndex: map[Symbol]int{1: 0}, sourceResultToTarget: map[Symbol]Symbol{1: 2},
+	}
+	private, typ, key, reason := ccoreScannerSnapshot(original)
+	if reason != "" {
+		t.Fatal(reason)
+	}
+	saved := append([]byte(nil), key...)
+	dup := private.(*externalScannerOrderAdapter)
+	original.targetToSource[0] = -1
+	original.sourceSymbolToIndex[1] = 5
+	original.sourceResultToTarget[1] = 7
+	if dup.targetToSource[0] != 0 || dup.sourceSymbolToIndex[1] != 0 || dup.sourceResultToTarget[1] != 2 || !bytes.Equal(key, saved) {
+		t.Fatal("adapter snapshot shares memory")
+	}
+	_, nextType, nextKey, reason := ccoreScannerSnapshot(original)
+	if reason != "" || typ != nextType || bytes.Equal(key, nextKey) {
+		t.Fatal("adapter change was not identified")
 	}
 }

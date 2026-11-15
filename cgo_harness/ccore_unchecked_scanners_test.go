@@ -45,7 +45,14 @@ func registerScannersBoundForComparisonWithC() {
 		}
 		payload := sc.Create()
 		sc.Destroy(payload)
-		scanmode.RegisterScanner(sc, payload, false)
+		// A test-only snapshot: the harness cannot reach the unexported fields of
+		// an unchecked scanner, so the value is used as it is and its type name is
+		// the key. That gives no isolation from the caller's value and tells two
+		// configurations of one type apart by nothing; the comparison with C does
+		// not need either.
+		scanmode.RegisterScanner(sc, payload, false, func(v any) (any, []byte, bool) {
+			return v, []byte(reflect.TypeOf(v).String()), true
+		})
 		scannersBoundForComparisonWithC = append(scannersBoundForComparisonWithC, e.Name)
 	}
 }
