@@ -87,6 +87,15 @@ for tags and release notes while still in `0.x`.
   timing driver needs must still build
   ([#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
 
+- External scanners: fourteen ports now do what their C scanners do on unusual
+  input: a no-break space, a line separator or a byte order mark where
+  whitespace is expected, a NUL byte, or an invalid UTF-8 byte. Before, the
+  ports of tablegen, nushell, godot_resource, julia, ron, lua, fennel, tcl,
+  markdown_inline, gitcommit, powershell, luau, odin and fish could return
+  another token than the C runtime on such input, for example a PowerShell
+  statement terminator at U+00A0, or look at more or fewer characters
+  ([#1658](https://github.com/odvcencio/gotreesitter/pull/1658)).
+
 ### Evidence
 
 - Validation and measurement scope are recorded in the linked pull requests,
