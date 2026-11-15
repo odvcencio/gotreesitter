@@ -1361,14 +1361,13 @@ func TestCcoreFieldLookupReturnsTheOccurrenceOfAnInlineLeaf(t *testing.T) {
 	}
 }
 
+// ccoreSkipUnderRace skips a test in a build with the race detector. It reads
+// the race build tag: the build information of a test binary does not carry
+// the -race setting.
 func ccoreSkipUnderRace(t *testing.T, why string) {
 	t.Helper()
-	if bi, ok := debug.ReadBuildInfo(); ok {
-		for _, kv := range bi.Settings {
-			if kv.Key == "-race" && kv.Value == "true" {
-				t.Skip(why)
-			}
-		}
+	if raceEnabled {
+		t.Skip(why)
 	}
 }
 
