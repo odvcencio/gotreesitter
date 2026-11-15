@@ -631,7 +631,14 @@ func (c *childCandidateCollector) stackEntryRejects(childIdx int) bool {
 }
 
 func (c *childCandidateCollector) fieldMatches(childIdx int) bool {
-	return c.fieldName == "" || c.parent.FieldNameForChild(childIdx, c.lang) == c.fieldName
+	if c.fieldName == "" {
+		return true
+	}
+	if a := c.parent.ownerArena; a != nil && a.ccore != nil {
+		field, _ := c.lang.FieldByName(c.fieldName)
+		return (publicQueryReader{}).ChildHasField(c.parent, childIdx, field, c.lang)
+	}
+	return c.parent.FieldNameForChild(childIdx, c.lang) == c.fieldName
 }
 
 func (c *childCandidateCollector) skipOrStop() childCandidateState {
@@ -1254,6 +1261,9 @@ func (q *Query) alternativeFieldMatches(alt *alternativeSymbol, node *Node, pare
 	fieldName := lang.FieldNames[alt.field]
 	if fieldName == "" {
 		return false
+	}
+	if a := parent.ownerArena; a != nil && a.ccore != nil {
+		return (publicQueryReader{}).ChildHasField(parent, childIdx, alt.field, lang)
 	}
 	return parent.FieldNameForChild(childIdx, lang) == fieldName
 }

@@ -1654,6 +1654,15 @@ func ccoreCompareFieldLookup(t *testing.T, tree *gts.Tree, lang *gts.Language, b
 }
 
 func TestCcoreDroppedTreeCopyIsCollectable(t *testing.T) {
+	ccoreDroppedTreeCopyIsCollectable(t)
+}
+
+func TestCcoreViewsDroppedTreeCopyIsCollectable(t *testing.T) {
+	defer gts.CcoreTestViewsOn(true)()
+	ccoreDroppedTreeCopyIsCollectable(t)
+}
+
+func ccoreDroppedTreeCopyIsCollectable(t *testing.T) {
 	lang := ccoreRouteLang(t, "json")
 	defer ccoreCertifyIncr()()
 	src := ccoreJSONSource(120)
@@ -2410,6 +2419,15 @@ func TestCcoreIncrLifecycleOrders(t *testing.T) {
 // A public tree that is dropped without Release does not keep its core tree
 // reachable, and a pooled core parser does not keep the tree of its last parse.
 func TestCcoreIncrDroppedTreeIsCollectable(t *testing.T) {
+	ccoreIncrDroppedTreeIsCollectable(t)
+}
+
+func TestCcoreViewsIncrDroppedTreeIsCollectable(t *testing.T) {
+	defer gts.CcoreTestViewsOn(true)()
+	ccoreIncrDroppedTreeIsCollectable(t)
+}
+
+func ccoreIncrDroppedTreeIsCollectable(t *testing.T) {
 	lang := ccoreRouteLang(t, "json")
 	defer ccoreCertifyIncr()()
 	src := ccoreJSONSource(120)
@@ -3447,6 +3465,35 @@ func TestCcoreViewsQueryOracle(t *testing.T) {
 			s.missing = append(s.missing, name+" (route declined)")
 			continue
 		}
+		for _, field := range lang.FieldNames {
+			if field == "" {
+				continue
+			}
+			for _, pattern := range []string{fmt.Sprintf("(_ %s: (_) @c)", field), fmt.Sprintf("(_ !%s) @n", field)} {
+				q, err := gts.NewQuery(pattern, lang)
+				if err != nil {
+					t.Errorf("%s %q: %v", name, pattern, err)
+					continue
+				}
+				var records [4][]ccoreQueryMatch
+				for i, tree := range []*gts.Tree{eager, view} {
+					records[2*i], _ = ccoreQueryRecords(q.Execute(tree), lang)
+					cursor := q.Exec(tree.RootNode(), lang, src)
+					var matches []gts.QueryMatch
+					for {
+						m, ok := cursor.NextMatch()
+						if !ok {
+							break
+						}
+						matches = append(matches, m)
+					}
+					records[2*i+1], _ = ccoreQueryRecords(matches, lang)
+				}
+				for i := 1; i < len(records); i++ {
+					s.compare(t, fmt.Sprintf("%s %s field mode %d", name, pattern, i), records[0], records[i])
+				}
+			}
+		}
 		queries := []struct{ name, source string }{{"highlights", entry.HighlightQuery}, {"tags", entry.TagsQuery}}
 		used := false
 		for _, item := range queries {
@@ -4092,5 +4139,23 @@ func TestCcoreViewsRefusedEditForcesFresh(t *testing.T) {
 	defer fresh.Release()
 	if result.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
 		t.Fatal("reparse differs from fresh")
+	}
+}
+
+func TestCcoreViewsPublishedRuntime(t *testing.T) {
+	defer ccoreCertifyAll()()
+	defer gts.CcoreTestViewsOn(true)()
+	lang := ccoreRouteLang(t, "json")
+	tree, err := ccoreRouteParser(lang).Parse([]byte(`{"x":1}`))
+	if err != nil || tree == nil {
+		t.Fatalf("parse: %v", err)
+	}
+	defer tree.Release()
+	if n, ok := gts.CcoreTestViewHeaders(tree); !ok || n != 1 {
+		t.Fatalf("view headers: %d, %v", n, ok)
+	}
+	rt := tree.ParseRuntime()
+	if rt.NodesAllocated != 1 || rt.ArenaBytesAllocated <= 0 {
+		t.Fatalf("publication runtime: nodes=%d arena=%d", rt.NodesAllocated, rt.ArenaBytesAllocated)
 	}
 }

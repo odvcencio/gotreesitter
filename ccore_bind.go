@@ -2629,14 +2629,20 @@ type ccoreViews struct {
 	arena *nodeArena
 	root  *Node
 
-	mu        sync.Mutex
-	top       atomic.Pointer[ccoreViewTop]
-	large     map[[2]uint32]*Node // (list, index) of a large list -> view; under mu
-	largeKeys [][2]uint32         // rawShape&^ccoreLargeKey -> (list, index); under mu
-	pageBytes uint64              // under mu
+	mu         sync.Mutex
+	top        atomic.Pointer[ccoreViewTop]
+	large      map[[2]uint32]*Node           // (list, index) of a large list -> view; under mu
+	largeKeys  [][2]uint32                   // rawShape&^ccoreLargeKey -> (list, index); under mu
+	pageBytes  uint64                        // under mu
+	duplicates map[ccoreViewOccurrence]*Node // repeated slots, under mu
 
 	made     atomic.Int64 // views made by this backing
 	released atomic.Bool
+}
+
+type ccoreViewOccurrence struct {
+	parent              *Node
+	list, slot, ordinal uint32
 }
 
 var _ nodeViewBacking = (*ccoreViews)(nil)
@@ -2648,7 +2654,7 @@ func ccoreViewTree(ct *ccore.Tree, src []byte, lang *Language, blob [32]byte, st
 		return nil
 	}
 	arena := acquireNodeViewArena()
-	forgetArenaCheckout(arena)
+	nodeViewArenaPool.forgetCheckedOut(arena)
 	if led.Active() {
 		end.arenaCharged = int64(arenaAllocatedVolume(arena)) + ccoreArenaSide(arena)
 		if !led.Rebase(ccoreColdArenaBytes(), end.arenaCharged) {
@@ -2676,6 +2682,9 @@ func ccoreViewTree(ct *ccore.Tree, src []byte, lang *Language, blob [32]byte, st
 		resultCompatibilityApplied: true,
 		dependsOnColumnPropagated:  true,
 	}
+	// These are the headers and arena volume at publication; later headers are counted by the backing.
+	t.parseRuntime.NodesAllocated = int(v.made.Load())
+	t.parseRuntime.ArenaBytesAllocated = int64(arenaAllocatedVolume(arena))
 	ccoreViewTrees.Add(1)
 	done = true
 	return t
@@ -2757,7 +2766,7 @@ func (v *ccoreViews) lookup(key uint32) *Node {
 // viewFor returns the one header of the node read at c, making it when it does not exist.
 func (v *ccoreViews) viewFor(c ccore.Node, parent *Node) *Node {
 	if key, ok := ccoreSlotKey(c); ok {
-		if n := v.lookup(key); n != nil {
+		if n := v.lookup(key); n != nil && n.parent == parent && n.equivVersion == c.Ordinal {
 			return n
 		}
 	}
@@ -2788,7 +2797,7 @@ func (v *ccoreViews) viewForLocked(c ccore.Node, parent *Node) *Node {
 			top.pages[pi].Store(page)
 		}
 		if n := page[key%ccoreViewPageSize].Load(); n != nil {
-			return n
+			return v.occurrence(c, parent, n, key)
 		}
 		n := v.newHeader(c, parent, key)
 		page[key%ccoreViewPageSize].Store(n)
@@ -2796,7 +2805,7 @@ func (v *ccoreViews) viewForLocked(c ccore.Node, parent *Node) *Node {
 	}
 	lk := [2]uint32{c.List, c.Slot}
 	if n := v.large[lk]; n != nil {
-		return n
+		return v.occurrence(c, parent, n, uint32(n.rawShape))
 	}
 	if v.large == nil {
 		v.large = map[[2]uint32]*Node{}
@@ -2805,6 +2814,24 @@ func (v *ccoreViews) viewForLocked(c ccore.Node, parent *Node) *Node {
 	v.largeKeys = append(v.largeKeys, lk)
 	n := v.newHeader(c, parent, key)
 	v.large[lk] = n
+	return n
+}
+
+// occurrence keeps distinct headers when a child slot is reached through multiple paths.
+// The caller holds mu. Each header retains the slot key for reading the record.
+func (v *ccoreViews) occurrence(c ccore.Node, parent, first *Node, key uint32) *Node {
+	if first.parent == parent && first.equivVersion == c.Ordinal {
+		return first
+	}
+	k := ccoreViewOccurrence{parent, c.List, c.Slot, c.Ordinal}
+	if n := v.duplicates[k]; n != nil {
+		return n
+	}
+	if v.duplicates == nil {
+		v.duplicates = make(map[ccoreViewOccurrence]*Node)
+	}
+	n := v.newHeader(c, parent, key)
+	v.duplicates[k] = n
 	return n
 }
 
@@ -2976,6 +3003,21 @@ func (v *ccoreViews) cursorFieldAt(n *Node, i int) FieldID {
 	return FieldID(k.CField)
 }
 
+// cursorChildByField walks the visible children once, using cursor field semantics.
+func (v *ccoreViews) cursorChildByField(n *Node, fid FieldID) (*Node, int) {
+	c, ok := v.value(n)
+	if !ok {
+		return nil, -1
+	}
+	var scratch [16]ccore.Node
+	for i, child := range v.rd.Children(c, scratch[:0]) {
+		if FieldID(child.CField) == fid {
+			return v.viewFor(child, n), i
+		}
+	}
+	return nil, -1
+}
+
 // childByField is ts_node_child_by_field_id: the search the eager conversion
 // records, run when asked (ccore.NodeReader.FieldPath). It returns positions, so
 // equal inline handles in two slots stay distinct.
@@ -3042,8 +3084,10 @@ func (v *ccoreViews) copyTree(t *Tree) *Tree {
 		return nil
 	}
 	arena := acquireNodeViewArena()
+	nodeViewArenaPool.forgetCheckedOut(arena)
 	arena.ccore = copyState
 	nv := newCcoreViews(ct, t.language, nil, arena)
+	markPublishedRootError(nv.root)
 	out := &Tree{
 		root: nv.root, source: t.source, sourceEncoding: t.sourceEncoding, sourceUTF16: t.sourceUTF16, utf16Map: t.utf16Map,
 		language: t.language, arena: arena,
@@ -3327,6 +3371,7 @@ func (v *ccoreViews) valueLocked(n *Node) (ccore.Node, bool) {
 type nodeFieldBacking interface {
 	fieldIDAt(*Node, int) FieldID
 	cursorFieldAt(*Node, int) FieldID
+	cursorChildByField(*Node, FieldID) (*Node, int)
 	childByField(*Node, FieldID) *Node
 }
 

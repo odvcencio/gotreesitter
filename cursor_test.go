@@ -1,7 +1,9 @@
 package gotreesitter
 
 import (
+	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/odvcencio/gotreesitter/internal/ccore"
 )
@@ -49,6 +51,74 @@ func TestTreeCursorCoreInheritedFieldUnderExtra(t *testing.T) {
 	c = NewTreeCursorFromTree(tree)
 	if !c.GotoChildByFieldName("name") || c.CurrentNode() != second || c.CurrentFieldID() != 1 {
 		t.Fatalf("field-name lookup landed on %p with field %d", c.CurrentNode(), c.CurrentFieldID())
+	}
+	// Reproduce the same field answers through the view seam.
+	viewArena := newNodeArena(arenaClassIncremental)
+	viewArena.ccore = &ccoreArenaState{}
+	viewRoot := *root
+	viewRoot.ownerArena, viewRoot.childIndex = viewArena, compactViewChildIndex
+	backing := &inheritedFieldTestBacking{childrenList: []*Node{first, second}, lookup: root.ChildByFieldName("name", tree.language)}
+	viewArena.views = backing
+	viewTree := &Tree{root: &viewRoot, arena: viewArena, language: tree.language, resultCompatibilityApplied: true}
+	for _, byName := range []bool{false, true} {
+		vc, ec := NewTreeCursorFromTree(viewTree), NewTreeCursorFromTree(tree)
+		var vr, er bool
+		if byName {
+			vr, er = vc.GotoChildByFieldName("name"), ec.GotoChildByFieldName("name")
+		} else {
+			vr, er = vc.GotoChildByFieldID(1), ec.GotoChildByFieldID(1)
+		}
+		if vr != er || vc.CurrentNode() != ec.CurrentNode() || vc.CurrentFieldID() != ec.CurrentFieldID() {
+			t.Fatalf("field navigation differs: %v/%v", vr, er)
+		}
+	}
+	reader := publicQueryReader{}
+	if reader.ChildHasField(&viewRoot, 0, 1, tree.language) {
+		t.Error("cursor field under extra must be absent")
+	}
+	backing.lookup = nil
+	if reader.HasChildWithField(&viewRoot, 1, tree.language) {
+		t.Error("view lookup must report the absent field")
+	}
+	backing.lookup = root.ChildByFieldName("name", tree.language)
+	for _, pattern := range []string{"(_ name: (_) @c)", "(_ !name) @n"} {
+		q, err := NewQuery(pattern, tree.language)
+		if err != nil {
+			t.Fatal(err)
+		}
+		type capture struct {
+			pattern int
+			name    string
+			start   uint32
+		}
+		collect := func(ms []QueryMatch) []capture {
+			var out []capture
+			for _, m := range ms {
+				for _, c := range m.Captures {
+					out = append(out, capture{m.PatternIndex, c.Name, c.Node.StartByte()})
+				}
+			}
+			return out
+		}
+		var results [4][]capture
+		for i, tr := range []*Tree{tree, viewTree} {
+			results[i*2] = collect(q.Execute(tr))
+			cursor := q.Exec(tr.RootNode(), tr.language, nil)
+			var matches []QueryMatch
+			for {
+				m, ok := cursor.NextMatch()
+				if !ok {
+					break
+				}
+				matches = append(matches, m)
+			}
+			results[i*2+1] = collect(matches)
+		}
+		for i := 1; i < 4; i++ {
+			if !reflect.DeepEqual(results[0], results[i]) {
+				t.Fatalf("%s: results %v", pattern, results)
+			}
+		}
 	}
 }
 
@@ -868,5 +938,283 @@ func BenchmarkWalkDFS(b *testing.B) {
 			_ = n
 			return WalkContinue
 		})
+	}
+}
+
+// arithmeticCoreView bypasses admission so the tests can inspect a small core tree.
+func arithmeticCoreView(t *testing.T, src string) *Tree {
+	t.Helper()
+	lang := buildArithmeticLanguage()
+	lang.InitialState = 1
+	lang.StateCount++
+	lang.ParseTable = append([][]uint16{make([]uint16, lang.SymbolCount)}, lang.ParseTable...)
+	lang.LexModes = append([]LexMode{{}}, lang.LexModes...)
+	for i := range lang.ParseActions {
+		for j := range lang.ParseActions[i].Actions {
+			a := &lang.ParseActions[i].Actions[j]
+			if a.Type == ParseActionShift {
+				a.State++
+			}
+		}
+	}
+	ccoreTablesMu.Lock()
+	st := ccoreLanguageTablesForLocked(lang)
+	ccoreTablesMu.Unlock()
+	p, err := st.get(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ct, stop := p.Parse([]byte(src))
+	if stop != "" || ct == nil || ct.Root() == 0 {
+		t.Fatalf("core parse %q: %s", src, stop)
+	}
+	var end ccoreConvEnd
+	tree := ccoreViewTree(ct, []byte(src), lang, [32]byte{}, st, &ccore.Ledger{}, &end)
+	if tree == nil {
+		t.Fatal("view tree unavailable")
+	}
+	return tree
+}
+
+func TestCcoreViewsSharedSlot(t *testing.T) {
+	tree := arithmeticCoreView(t, "1+2")
+	defer tree.Release()
+	v := ccoreViewsOf(tree.root)
+	root, ok := v.value(tree.root)
+	if !ok {
+		t.Fatal("missing core root")
+	}
+	child, ok := v.rd.Child(root, 0)
+	if !ok {
+		t.Fatal("missing child")
+	}
+	parent1, parent2 := &Node{}, &Node{}
+	first := v.viewFor(child, parent1)
+	second := v.viewFor(child, parent2)
+	if first == second || first.parent != parent1 || second.parent != parent2 || v.viewFor(child, parent2) != second {
+		t.Fatal("a shared slot did not get a stable header for each parent")
+	}
+	child.Ordinal++
+	third := v.viewFor(child, parent1)
+	if third == first || third.parent != parent1 || third.equivVersion != child.Ordinal || v.viewFor(child, parent1) != third {
+		t.Fatal("a repeated slot under one parent did not keep its occurrence")
+	}
+}
+
+func TestCcoreViewsErrorRootCopy(t *testing.T) {
+	tree := arithmeticCoreView(t, "?")
+	defer tree.Release()
+	if !tree.root.IsError() || !tree.root.HasError() {
+		t.Fatal("setup: expected an ERROR root")
+	}
+	v := ccoreViewsOf(tree.root)
+	h := v.core.Root()
+	if h&1 != 0 {
+		t.Fatal("setup: expected a heap record")
+	}
+	// Give the error record zero cost so publication itself must set HasError.
+	// The core store has no public constructor for this record shape.
+	pages := reflect.ValueOf(v.rd.S).Elem().FieldByName("recs")
+	pageSize := pages.Type().Elem().Elem().Len()
+	index := int(h >> 1)
+	cost := pages.Index(index / pageSize).Elem().Index(index % pageSize).FieldByName("errorCost")
+	costPtr := (*uint32)(unsafe.Pointer(cost.UnsafeAddr()))
+	old := *costPtr
+	*costPtr = 0
+	defer func() { *costPtr = old }()
+	if v.rd.HasError(v.rd.RootNode(h)) {
+		t.Fatal("setup: core error cost remains nonzero")
+	}
+	copy := tree.Copy()
+	if copy == nil || !copy.root.IsError() || !copy.root.HasError() {
+		t.Fatalf("copy of ERROR root: %#v", copy)
+	}
+	copy.Release()
+}
+
+// inheritedFieldTestBacking supplies the cursor and node field answers of the fixture.
+type inheritedFieldTestBacking struct {
+	nodeViewBacking
+	childrenList []*Node
+	lookup       *Node
+}
+
+func (v *inheritedFieldTestBacking) childCount(*Node) int { return len(v.childrenList) }
+func (v *inheritedFieldTestBacking) child(_ *Node, i int) *Node {
+	if i < 0 || i >= len(v.childrenList) {
+		return nil
+	}
+	return v.childrenList[i]
+}
+func (v *inheritedFieldTestBacking) fieldIDAt(_ *Node, i int) FieldID {
+	if i >= 0 && i < len(v.childrenList) {
+		return 1
+	}
+	return 0
+}
+func (v *inheritedFieldTestBacking) cursorFieldAt(_ *Node, i int) FieldID {
+	if i == 1 {
+		return 1
+	}
+	return 0
+}
+func (v *inheritedFieldTestBacking) cursorChildByField(_ *Node, f FieldID) (*Node, int) {
+	if f == 1 {
+		return v.childrenList[1], 1
+	}
+	return nil, -1
+}
+func (v *inheritedFieldTestBacking) childByField(_ *Node, f FieldID) *Node {
+	if f == 1 {
+		return v.lookup
+	}
+	return nil
+}
+
+// coreRecordField and coreChildSlot let a fixture arrange records after parsing.
+func coreRecordField(v *ccoreViews, h ccore.Handle, name string) reflect.Value {
+	pages := reflect.ValueOf(v.rd.S).Elem().FieldByName("recs")
+	pageSize := pages.Type().Elem().Elem().Len()
+	i := int(h >> 1)
+	return pages.Index(i / pageSize).Elem().Index(i % pageSize).FieldByName(name)
+}
+
+func coreChildSlot(v *ccoreViews, slot uint32) *ccore.Handle {
+	pages := reflect.ValueOf(v.rd.S).Elem().FieldByName("kids")
+	pageSize := pages.Type().Elem().Elem().Len()
+	entry := pages.Index(int(slot) / pageSize).Elem().Index(int(slot) % pageSize)
+	return (*ccore.Handle)(unsafe.Pointer(entry.UnsafeAddr()))
+}
+
+func TestCcoreViewsInheritedFieldUnderExtra(t *testing.T) {
+	tree := arithmeticCoreView(t, "1+2")
+	defer tree.Release()
+	v := ccoreViewsOf(tree.root)
+	rh := v.core.Root()
+	start, count := v.rd.S.ChildSlots(rh)
+	if count < 3 || ccore.LargeSlot(start) {
+		t.Fatalf("setup: child slots %d/%d handles=%v", start, count, v.rd.S.Children(rh))
+	}
+	first, second := coreChildSlot(v, start), coreChildSlot(v, start+1)
+	oldFirst, oldSecond := *first, *second
+	if oldFirst&1 != 0 || oldSecond&1 == 0 {
+		t.Fatal("setup: expected an internal node and an inline token")
+	}
+	flags := (*uint16)(unsafe.Pointer(coreRecordField(v, oldFirst, "flags").UnsafeAddr()))
+	visible := (*uint32)(unsafe.Pointer(coreRecordField(v, rh, "visibleChildCount").UnsafeAddr()))
+	oldFlags, oldVisible := *flags, *visible
+	production := (*uint16)(unsafe.Pointer(coreRecordField(v, rh, "productionID").UnsafeAddr()))
+	oldProduction := *production
+	*production = 1
+	// A hidden token precedes the hidden extra; the final child has the same field.
+	*first, *second = oldSecond&^2, oldFirst
+	*flags = (*flags &^ 1) | 4
+	*visible = 2
+	defer func() {
+		*first, *second = oldFirst, oldSecond
+		*flags, *visible = oldFlags, oldVisible
+		*production = oldProduction
+	}()
+	lang := tree.language
+	lang.FieldNames = []string{"", "name"}
+	lang.FieldCount = 1
+	lang.FieldMapSlices = [][2]uint16{{}, {0, 2}}
+	lang.FieldMapEntries = []FieldMapEntry{{FieldID: 1, ChildIndex: 0}, {FieldID: 1, ChildIndex: 1}}
+	v.rd.T.FieldSlices = lang.FieldMapSlices
+	v.rd.T.FieldEntries = []ccore.FieldEntry{{FieldID: 1, ChildIndex: 0}, {FieldID: 1, ChildIndex: 1}}
+	ccoreTablesMu.Lock()
+	st := ccoreLanguageTablesForLocked(lang)
+	ccoreTablesMu.Unlock()
+	st.conv = buildCcoreConvTables(lang)
+	coreRoot := v.rd.RootNode(rh)
+	children := v.rd.Children(coreRoot, nil)
+	if len(children) != 2 || children[0].Field != 1 || children[0].CField != 0 || children[1].CField != 1 {
+		t.Fatalf("setup: unexpected fields: %+v", children)
+	}
+	var end ccoreConvEnd
+	eager, _ := ccoreConvertTree(v.core.Copy(), tree.source, lang, [32]byte{}, st, &ccore.Ledger{}, &end)
+	if eager == nil {
+		t.Fatal("eager conversion failed")
+	}
+	defer eager.Release()
+	for _, byName := range []bool{false, true} {
+		vc, ec := NewTreeCursorFromTree(tree), NewTreeCursorFromTree(eager)
+		var a, b bool
+		if byName {
+			a, b = vc.GotoChildByFieldName("name"), ec.GotoChildByFieldName("name")
+		} else {
+			a, b = vc.GotoChildByFieldID(1), ec.GotoChildByFieldID(1)
+		}
+		if !a || a != b || vc.CurrentFieldID() != ec.CurrentFieldID() || vc.CurrentNode().StartByte() != ec.CurrentNode().StartByte() {
+			t.Fatalf("cursor field lookup differs: view=%v eager=%v", a, b)
+		}
+	}
+	type capture struct {
+		pattern int
+		name    string
+		start   uint32
+	}
+	collect := func(ms []QueryMatch) []capture {
+		var out []capture
+		for _, m := range ms {
+			for _, c := range m.Captures {
+				out = append(out, capture{m.PatternIndex, c.Name, c.Node.StartByte()})
+			}
+		}
+		return out
+	}
+	for _, pattern := range []string{"(_ name: (_) @c)", "(_ !name) @n"} {
+		q, err := NewQuery(pattern, lang)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var results [4][]capture
+		for i, tr := range []*Tree{eager, tree} {
+			results[2*i] = collect(q.Execute(tr))
+			cursor := q.Exec(tr.root, lang, tree.source)
+			var matches []QueryMatch
+			for {
+				m, ok := cursor.NextMatch()
+				if !ok {
+					break
+				}
+				matches = append(matches, m)
+			}
+			results[2*i+1] = collect(matches)
+		}
+		for i := 1; i < len(results); i++ {
+			if !reflect.DeepEqual(results[0], results[i]) {
+				t.Fatalf("%s: %v", pattern, results)
+			}
+		}
+	}
+}
+
+func TestCcoreViewsSharedCoreRecord(t *testing.T) {
+	tree := arithmeticCoreView(t, "1+2")
+	defer tree.Release()
+	v := ccoreViewsOf(tree.root)
+	start, count := v.rd.S.ChildSlots(v.core.Root())
+	if count < 3 || ccore.LargeSlot(start) {
+		t.Fatal("setup: expected three child slots")
+	}
+	first, third := coreChildSlot(v, start), coreChildSlot(v, start+2)
+	if *first&1 != 0 {
+		t.Fatal("setup: first child has no heap record")
+	}
+	old := *third
+	*third = *first
+	defer func() { *third = old }()
+	a, b := tree.root.Child(0), tree.root.Child(2)
+	if a == nil || b == nil || a == b {
+		t.Fatal("setup: shared record did not produce two parent occurrences")
+	}
+	ca, cb := a.Child(0), b.Child(0)
+	if ca == nil || cb == nil || ca == cb || ca.Parent() != a || cb.Parent() != b || a.Child(0) != ca || b.Child(0) != cb {
+		t.Fatal("shared record's child slots did not produce stable parent-specific headers")
+	}
+	v.materialize()
+	if a.Child(0) != ca || b.Child(0) != cb || ca.Parent() != a || cb.Parent() != b {
+		t.Fatal("materialization changed a shared occurrence")
 	}
 }

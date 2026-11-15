@@ -190,6 +190,14 @@ func (c *TreeCursor) GotoChildByFieldID(fid FieldID) bool {
 	}
 	count := nodeChildCountNoMaterialize(node)
 	if a := node.ownerArena; a != nil && a.ccore != nil {
+		if v, ok := nodeViews(node).(nodeFieldBacking); ok {
+			child, index := v.cursorChildByField(node, fid)
+			if child == nil {
+				return false
+			}
+			c.stack = append(c.stack, cursorFrame{node: child, childIndex: index})
+			return true
+		}
 		for i := 0; i < count; i++ {
 			field, known := a.ccore.cursorField(node, i)
 			if !known {
