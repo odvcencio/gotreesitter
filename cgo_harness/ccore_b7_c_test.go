@@ -298,11 +298,19 @@ func b7CountCell(t *testing.T, lang, size, class string, gl *g.Language, cl *sit
 	tree.Edit(b7GoEdit(e))
 	_, f0, i0 := bind.RouteCounters()
 	_, i0u := f0, i0
+	_, _, views0 := bind.ViewCounters()
 	next, prof, err := p.ParseIncrementalProfiled(to, tree)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, f1, i1 := bind.RouteCounters()
+	_, _, views1 := bind.ViewCounters()
+	shortcutDelta := views1["shortcut_reparses"] - views0["shortcut_reparses"]
+	shortcut := shortcutDelta == 1
+	wantShortcut := os.Getenv("CCORE_VIEWS") == "1" && class == "same"
+	if shortcutDelta < 0 || shortcutDelta > 1 || shortcut != wantShortcut {
+		t.Errorf("%s/%s/%s: shortcut reparses=%d, want %t", lang, size, class, shortcutDelta, wantShortcut)
+	}
 	servedIncr := i1 - i0u
 	tokOurs := next.ParseRuntime().TokensConsumed
 	// the present engine on the same edit (route off): the counters the base has; reported, not asserted
@@ -356,8 +364,8 @@ func b7CountCell(t *testing.T, lang, size, class string, gl *g.Language, cl *sit
 			break
 		}
 	}
-	fmt.Printf("CCB7CNT lang=%s size=%s class=%s served_incr=%d fresh_served_delta=%d tokens_ours=%d tokens_c=%d tokens_core=%d records_ours=%d records_c=%d records_core=%d bytes_ours=%d bytes_core=%d bytes_c=trace_equal:%t trace_first_diff=%d stop=%q tokens_off=%d records_off=%d bytes_off=%d\n",
-		lang, size, class, servedIncr, f1-f0, tokOurs, cTok, ccoreCountLines(slog, "lexed_lookahead"), prof.ReusedSubtrees, cReuse, cn2, prof.ReusedBytes, cb, first < 0, first, stop, tokOff, reusedOff, bytesOff)
+	fmt.Printf("CCB7CNT lang=%s size=%s class=%s shortcut=%t served_incr=%d fresh_served_delta=%d tokens_ours=%d tokens_c=%d tokens_core=%d records_ours=%d records_c=%d records_core=%d bytes_ours=%d bytes_core=%d bytes_c=trace_equal:%t trace_first_diff=%d stop=%q tokens_off=%d records_off=%d bytes_off=%d\n",
+		lang, size, class, shortcut, servedIncr, f1-f0, tokOurs, cTok, ccoreCountLines(slog, "lexed_lookahead"), prof.ReusedSubtrees, cReuse, cn2, prof.ReusedBytes, cb, first < 0, first, stop, tokOff, reusedOff, bytesOff)
 	if os.Getenv("CCORE_MUTATE_COUNTERS") != "" { // mutation check: one counter of ours is changed; the test must fail
 		tokOurs++
 	}
@@ -366,14 +374,26 @@ func b7CountCell(t *testing.T, lang, size, class string, gl *g.Language, cl *sit
 	if servedIncr != 1 {
 		diffs = append(diffs, fmt.Sprintf("the core served %d incremental parses, want 1", servedIncr))
 	}
-	if int64(tokOurs) != int64(cTok) || int64(cTok) != int64(ccoreCountLines(slog, "lexed_lookahead")) {
-		diffs = append(diffs, fmt.Sprintf("tokens lexed: ours %d, C %d, core %d", tokOurs, cTok, ccoreCountLines(slog, "lexed_lookahead")))
-	}
-	if int64(prof.ReusedSubtrees) != int64(cReuse) || int64(cReuse) != int64(cn2) {
-		diffs = append(diffs, fmt.Sprintf("records reused: ours %d, C %d, core %d", prof.ReusedSubtrees, cReuse, cn2))
-	}
-	if int64(prof.ReusedBytes) != int64(cb) {
-		diffs = append(diffs, fmt.Sprintf("bytes reused: ours %d, core %d", prof.ReusedBytes, cb))
+	if shortcut {
+		if tokOurs < 1 || tokOurs > uint64(cTok) {
+			diffs = append(diffs, fmt.Sprintf("tokens lexed: ours %d, C %d", tokOurs, cTok))
+		}
+		if prof.ReusedBytes < cb {
+			diffs = append(diffs, fmt.Sprintf("bytes reused: ours %d, core %d", prof.ReusedBytes, cb))
+		}
+		if divs := compactT3StructuralDivergences(next.RootNode(), gl, cn.RootNode()); len(divs) != 0 {
+			diffs = append(diffs, fmt.Sprintf("tree differs from C: %s", compactT3FormatDivergence(divs[0])))
+		}
+	} else {
+		if int64(tokOurs) != int64(cTok) || int64(cTok) != int64(ccoreCountLines(slog, "lexed_lookahead")) {
+			diffs = append(diffs, fmt.Sprintf("tokens lexed: ours %d, C %d, core %d", tokOurs, cTok, ccoreCountLines(slog, "lexed_lookahead")))
+		}
+		if int64(prof.ReusedSubtrees) != int64(cReuse) || int64(cReuse) != int64(cn2) {
+			diffs = append(diffs, fmt.Sprintf("records reused: ours %d, C %d, core %d", prof.ReusedSubtrees, cReuse, cn2))
+		}
+		if int64(prof.ReusedBytes) != int64(cb) {
+			diffs = append(diffs, fmt.Sprintf("bytes reused: ours %d, core %d", prof.ReusedBytes, cb))
+		}
 	}
 	if first >= 0 {
 		diffs = append(diffs, fmt.Sprintf("the core's trace differs from C's parse log at line %d", first))

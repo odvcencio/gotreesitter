@@ -19,6 +19,7 @@ package grammarruntime
 
 import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // ---------------------------------------------------------------------------
@@ -117,6 +118,15 @@ var nimExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(nimExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(NimExternalScanner{}, (*nimState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(NimExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(NimExternalScanner), right.(NimExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -183,7 +193,8 @@ func (ctx *nimContext) lookahead() rune {
 }
 
 func (ctx *nimContext) eof() bool {
-	return ctx.lexer.Lookahead() == 0
+	// C src/scanner.c:393-395 uses the lexer's EOF flag, not lookahead.
+	return scanmode.AtEOF(ctx.lexer)
 }
 
 func (ctx *nimContext) markEnd() {

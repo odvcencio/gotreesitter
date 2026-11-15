@@ -22,8 +22,9 @@ type cell struct {
 	gen      uint64
 	root     atomic.Uint64
 	released atomic.Bool
-	editing  bool // an Edit is running on this cell (guarded by store.mu); a release then leaves the queueing of its entry to the Edit's commit
-	deferred bool // drop met a running Edit and did not queue the release of the root; Edit queues it at its commit (guarded by store.mu)
+	editing  bool          // an Edit is running on this cell (guarded by store.mu); a release then leaves the queueing of its entry to the Edit's commit
+	deferred bool          // drop met a running Edit and did not queue the release of the root; Edit queues it at its commit (guarded by store.mu)
+	shortcut *shortcutMemo // guarded by store.mu
 }
 
 // Tree is a parse result: a root in a store. Readers of a published tree take
@@ -46,8 +47,8 @@ func (c *storeCore) newCell(root Handle) *cell {
 
 // drop is the first half of Release and of the finalizer: in one section of
 // the short mutex it tests and sets released, reads the root and queues the
-// release of that root, except while an Edit of the same tree is running: then
-// it only marks the release as deferred and the Edit queues it at its commit.
+// release of that root and any retained pre-edit root, except while an Edit of
+// the same tree is running: then the current root's release is deferred to its commit.
 // Edit and Copy test and change the root in the same mutex, so a release sees
 // either the root before an edit or the root after it, never one that the edit
 // has already given up. It reports whether this call released the tree.
@@ -59,6 +60,11 @@ func (cl *cell) drop() bool {
 		return false
 	}
 	cl.released.Store(true)
+	if cl.shortcut != nil && cl.shortcut.base != 0 {
+		c.pending = append(c.pending, op{kind: opRelease, h: cl.shortcut.base, gen: cl.gen})
+		cl.shortcut.base = 0
+	}
+	cl.shortcut = nil
 	if cl.editing {
 		// A running Edit reads the records of this root. Queueing their release
 		// now could let a drain on another goroutine free them under the edit, so
@@ -210,6 +216,13 @@ func (t *Tree) Copy() *Tree {
 	n.rd.owner = n.c
 	n.c.gen = t.c.gen
 	c.pending = append(c.pending, op{kind: opRetain, h: root, gen: t.c.gen})
+	if t.c.shortcut != nil {
+		memo := *t.c.shortcut
+		n.c.shortcut = &memo
+		if memo.base != 0 {
+			c.pending = append(c.pending, op{kind: opRetain, h: memo.base, gen: t.c.gen})
+		}
+	}
 	runtime.KeepAlive(t) // t's finalizer must not run before the retain is queued
 	return n
 }
@@ -236,11 +249,9 @@ func (t *Tree) Edit(e Edit) {
 }
 
 // EditWithin is Edit with the pages that the edit claims reserved on led before
-// they are claimed. It returns false when the ledger refuses a page. A refusal
-// comes after the edit began to allocate, so it is a failed edit as the store
-// defines it: the store is poisoned (its next parse is a fresh parse in a new
-// store), the tree's root is unchanged, and the pages return when the store's
-// last tree is released. led is not used after the call.
+// they are claimed. It returns false when the ledger refuses a reservation. A refusal
+// after the edit begins to allocate poisons the store; a refusal before the
+// edit begins leaves it unchanged. led is not used after the call.
 func (t *Tree) EditWithin(e Edit, led *Ledger) (ok bool) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -289,6 +300,18 @@ func (t *Tree) edit(e Edit, led *Ledger, counted, releasedMeanwhile *bool) {
 	if cl.released.Load() { // a released tree owns nothing: editing it would queue a release of a root that others own
 		c.mu.Unlock()
 		return
+	}
+	if led != nil && cl.shortcut != nil {
+		bytes := int64(len(cl.shortcut.src)) + sizeOf[shortcutMemo]()
+		c.mu.Unlock()
+		if reason := led.reserveClassified(bytes); reason != reservationOK {
+			panic(ledgerStop{reason: reason})
+		}
+		c.mu.Lock()
+		if cl.released.Load() {
+			c.mu.Unlock()
+			return
+		}
 	}
 	cl.editing = true
 	c.cells.Add(1)
@@ -352,7 +375,7 @@ func (t *Tree) edit(e Edit, led *Ledger, counted, releasedMeanwhile *bool) {
 		c.fire("edit-retain")
 		ops = s.retainEdited(created, cl.gen)
 	}
-	t.commitEdit(old, root, ops, releasedMeanwhile, &committed)
+	t.commitEdit(old, root, ops, e, releasedMeanwhile, &committed)
 }
 
 // commitEdit is the end of an edit: in one section of the short mutex it queues
@@ -360,12 +383,27 @@ func (t *Tree) edit(e Edit, led *Ledger, counted, releasedMeanwhile *bool) {
 // is deferred, so a failure inside leaves the mutex free; *committed is set last,
 // after everything is published, so a failure before that point is handled as a
 // failed edit (poisoned store, editing mark cleared) by the caller's defer.
-func (t *Tree) commitEdit(old, root Handle, ops []op, releasedMeanwhile, committed *bool) {
+func (t *Tree) commitEdit(old, root Handle, ops []op, edit Edit, releasedMeanwhile, committed *bool) {
 	c, cl, s := t.c.store, t.c, &t.rd
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.fire("edit-commit")
 	meanwhile := cl.released.Load()
+	keepOld := false
+	if m := cl.shortcut; m != nil && !meanwhile {
+		m.edits++
+		if m.edits == 1 && root != old {
+			m.base = old
+			m.edit = editRange{start: Length{bytes: edit.StartByte, row: edit.StartRow, col: edit.StartCol}, oldEnd: Length{bytes: edit.OldEndByte, row: edit.OldEndRow, col: edit.OldEndCol}, newEnd: Length{bytes: edit.NewEndByte, row: edit.NewEndRow, col: edit.NewEndCol}}
+			keepOld = true
+		} else {
+			if m.base != 0 {
+				ops = append(ops, op{kind: opRelease, h: m.base, gen: cl.gen})
+				m.base = 0
+			}
+			m.src = nil
+		}
+	}
 	switch {
 	case root == old: // nothing changed
 		if cl.deferred { // released while the edit ran: the release of the root that drop deferred
@@ -373,7 +411,7 @@ func (t *Tree) commitEdit(old, root Handle, ops []op, releasedMeanwhile, committ
 		}
 	case meanwhile: // the edit's new root is thrown away: release it (this frees its path again), and the old one
 		ops = append(ops, op{kind: opRelease, h: root, gen: cl.gen}, op{kind: opRelease, h: old, gen: cl.gen})
-	default:
+	case !keepOld:
 		ops = append(ops, op{kind: opRelease, h: old, gen: cl.gen})
 	}
 	c.pending = append(c.pending, ops...)

@@ -95,6 +95,14 @@ for tags and release notes while still in `0.x`.
   another token than the C runtime on such input, for example a PowerShell
   statement terminator at U+00A0, or look at more or fewer characters
   ([#1658](https://github.com/odvcencio/gotreesitter/pull/1658)).
+- External scanners: nine more ports now do what their C scanners do on
+  unusual input: an embedded NUL byte, a non-ASCII space, letter or digit where
+  C accepts ASCII only, or an invalid UTF-8 byte. Before, the ports of erlang,
+  dockerfile, dart, kotlin, nim, r, c_sharp, markdown and ruby could return
+  another token than the C runtime on such input, for example a Kotlin
+  automatic semicolon, miss a Dockerfile heredoc marker that follows
+  whitespace, or look at more or fewer characters
+  ([#1660](https://github.com/odvcencio/gotreesitter/pull/1660)).
 
 ### Evidence
 

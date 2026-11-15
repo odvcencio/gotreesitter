@@ -2162,6 +2162,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		}
 	}()
 	cp.SetReduceCheck(ccoreTestReduceCheck.Load())
+	cp.SetShortcut(ccoreViewsOn.Load() && adm.modes&certified.Incr != 0 && !ccoreTestShortcutOff.Load())
 	if h := ccoreTestParserHook.Load(); h != nil {
 		(*h)(cp, true)
 	}
@@ -2237,6 +2238,9 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		return nil, false, false
 	}
 	retained = true
+	if cp.ShortcutTaken() {
+		ccoreShortcutReparses.Add(1)
+	}
 	built.ccoreStateOf().budget = lim.budget
 	built.ccoreStateOf().incremental = old != nil
 	built.ccoreStateOf().reusedNodes, built.ccoreStateOf().reusedBytes, _ = cp.ReuseStats()
@@ -2591,6 +2595,9 @@ func (p *Parser) ccoreReparse(source []byte, old *Tree) (tree *Tree, ok bool) {
 
 // ccoreViewsOn is the views switch. It is off by default and set by tests.
 var ccoreViewsOn atomic.Bool
+
+var ccoreTestShortcutOff atomic.Bool
+var ccoreShortcutReparses atomic.Int64
 
 // Reasons for a whole-tree conversion of a view tree, counted in ccoreViewConversions.
 const (
@@ -3417,6 +3424,9 @@ func ccoreViewCounters() (trees, made int64, conversions map[string]int64) {
 	}
 	if v := ccoreViewRootEdits.Load(); v != 0 {
 		conversions["root_only_edits"] = v // not a conversion: the edits that needed none
+	}
+	if v := ccoreShortcutReparses.Load(); v != 0 {
+		conversions["shortcut_reparses"] = v
 	}
 	return ccoreViewTrees.Load(), ccoreViewsMade.Load(), conversions
 }
