@@ -8,16 +8,20 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
+type registeredWithoutModeCase struct {
+	lang    string
+	scanner gotreesitter.ExternalScanner
+}
+
+var extraRegisteredWithoutModeCases []registeredWithoutModeCase
+
 // TestScannersRegisteredWithoutAModeBindThroughTheCore: these ports equal their pinned C
 // scanners call by call as they are (cgo_harness scandiff), so they are registered without
 // a mode; this test pins each registration: it exists, its payload type is the type Create
 // returns, the payload has no mode, and the scanner binds through the core directly and
 // behind one and two order adapters.
 func TestScannersRegisteredWithoutAModeBindThroughTheCore(t *testing.T) {
-	for _, c := range []struct {
-		lang    string
-		scanner gotreesitter.ExternalScanner
-	}{
+	for _, c := range append([]registeredWithoutModeCase{
 		{"beancount", BeancountExternalScanner{}},
 		{"cooklang", CooklangExternalScanner{}},
 		{"dhall", DhallExternalScanner{}},
@@ -37,6 +41,11 @@ func TestScannersRegisteredWithoutAModeBindThroughTheCore(t *testing.T) {
 		{"ron", RonExternalScanner{}},
 		{"lua", LuaExternalScanner{}},
 		{"fennel", FennelExternalScanner{}},
+		{"dart", DartExternalScanner{}},
+		{"dockerfile", DockerfileExternalScanner{}},
+		{"erlang", ErlangExternalScanner{}},
+		{"kotlin", KotlinExternalScanner{}},
+		{"r", RExternalScanner{}},
 		{"markdown_inline", MarkdownInlineExternalScanner{}},
 		{"gitcommit", GitcommitExternalScanner{}},
 		{"powershell", PowershellExternalScanner{}},
@@ -44,7 +53,7 @@ func TestScannersRegisteredWithoutAModeBindThroughTheCore(t *testing.T) {
 		{"odin", OdinExternalScanner{}},
 		{"fish", FishExternalScanner{}},
 		{"tcl", TclExternalScanner{}},
-	} {
+	}, extraRegisteredWithoutModeCases...) {
 		t.Run(c.lang, func(t *testing.T) {
 			checkRegisteredScanner(t, c.lang, c.scanner, false, nil)
 		})
