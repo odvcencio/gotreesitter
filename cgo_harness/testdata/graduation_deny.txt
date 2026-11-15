@@ -1,0 +1,5 @@
+# Decline reasons that the gate accepts for a grammar, each with the condition that reopens it.
+# One entry per line, tab separated:
+#   language <TAB> decline reason <TAB> reopening condition
+# Without a matching entry, any decline of the route during items 1 to 3 fails item 4.
+# The file starts empty.

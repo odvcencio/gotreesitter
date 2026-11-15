@@ -870,6 +870,19 @@ func CcoreTestParserLease(f func(id uintptr, before bool)) func() {
 	return func() { ccoreTestParserHook.Store(nil) }
 }
 
+// CcoreTestStopAfter makes a route parse stop or panic inside the core loop.
+func CcoreTestStopAfter(steps int, panicking bool) func() {
+	h := func(p *ccore.Parser, before bool) {
+		if before {
+			p.SetStopAfter(steps, panicking)
+		} else {
+			p.SetStopAfter(0, false)
+		}
+	}
+	ccoreTestParserHook.Store(&h)
+	return func() { ccoreTestParserHook.Store(nil) }
+}
+
 func CcoreTestCoreTree(t *Tree) *ccore.Tree {
 	if st := t.ccoreStateOf(); st != nil {
 		return st.ct

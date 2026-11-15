@@ -112,6 +112,12 @@ if [ "${1:-}" = "--self-test" ]; then
   else
     echo "FAIL self-test: views require a tree and arm summary"; fails=1
   fi
+  printf '%s\n' 'CCARM test=TestX arm=eager trees=0 views=0 conversions=map[]' >"$d/eager-good"
+  if check_arm TestX eager "$d/eager-good" && ! check_arm TestX eager "$d/views-good" 2>/dev/null && ! check_arm TestX views "$d/eager-good" 2>/dev/null; then
+    echo "ok   self-test: eager and views arm summaries are distinct"
+  else
+    echo "FAIL self-test: eager and views arm summaries are distinct"; fails=1
+  fi
   exit "$fails"
 fi
 
@@ -209,7 +215,7 @@ fi
 # Each test prints a CCCOUNT line for its set.
 route_env="$norm CCORE_COUNT_AS"
 for route_arm in eager views; do
-  if [ "$route_arm" = views ]; then export CCORE_VIEWS=1; else unset CCORE_VIEWS; fi
+  if [ "$route_arm" = views ]; then export CCORE_VIEWS=1; else export CCORE_VIEWS=0; fi
 run TestCcoreRoutePublic "$lang" CCROUTE $route_env=TestCcoreRoutePublic CCORE_LANG=$lang
 # The state comparison uses raw symbol and state IDs; only JSON has matching IDs.
 if [ "$lang" = json ]; then
