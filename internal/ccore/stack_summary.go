@@ -23,7 +23,7 @@ func (p *Parser) iterCB(version int, cb func(it *stackIter) (pop, stop bool), in
 	if includeSubtrees {
 		first.subtrees = p.getBuf()
 	}
-	p.iters = append(p.iters, first)
+	p.iters = push(&p.led, p.iters, first)
 	for len(p.iters) > 0 {
 		size := len(p.iters)
 		for i := 0; i < size; i++ {
@@ -33,7 +33,7 @@ func (p *Parser) iterCB(version int, cb func(it *stackIter) (pop, stop bool), in
 			if pop {
 				subs := p.iters[i].subtrees
 				if !stop {
-					subs = append(p.getBuf(), subs...)
+					subs = push(&p.led, p.getBuf(), subs...)
 				}
 				for a, b := 0, len(subs)-1; a < b; a, b = a+1, b-1 {
 					subs[a], subs[b] = subs[b], subs[a]
@@ -44,7 +44,7 @@ func (p *Parser) iterCB(version int, cb func(it *stackIter) (pop, stop bool), in
 				if !pop {
 					p.putBuf(p.iters[i].subtrees)
 				}
-				p.iters = append(p.iters[:i], p.iters[i+1:]...)
+				p.iters = deleteAt(p.iters, i)
 				i--
 				size--
 				continue
@@ -63,15 +63,15 @@ func (p *Parser) iterCB(version int, cb func(it *stackIter) (pop, stop bool), in
 					link = p.nodes[node].links[j]
 					cur := p.iters[i]
 					if includeSubtrees {
-						cur.subtrees = append(p.getBuf(), cur.subtrees...)
+						cur.subtrees = push(&p.led, p.getBuf(), cur.subtrees...)
 					}
-					p.iters = append(p.iters, cur)
+					p.iters = push(&p.led, p.iters, cur)
 					next = &p.iters[len(p.iters)-1]
 				}
 				next.node = link.node
 				if link.sub != 0 {
 					if includeSubtrees {
-						next.subtrees = append(next.subtrees, link.sub)
+						next.subtrees = push(&p.led, next.subtrees, link.sub)
 					}
 					if !p.extra(link.sub) {
 						next.subtreeCount++
@@ -107,7 +107,7 @@ func (p *Parser) recordSummary(version int, maxDepth uint32) {
 				return false, false
 			}
 		}
-		entries = append(entries, summaryEntry{position: n.position, depth: depth, state: n.state})
+		entries = push(&p.led, entries, summaryEntry{position: n.position, depth: depth, state: n.state})
 		return false, false
 	}, false)
 	p.heads[version].summary = entries
@@ -145,7 +145,7 @@ func (p *Parser) popError(version int) []Handle {
 func (p *Parser) copyVersion(v int) int {
 	h := p.heads[v]
 	h.summary = nil
-	p.heads = append(p.heads, h)
+	p.heads = push(&p.led, p.heads, h)
 	p.nodeRetain(h.node)
 	return len(p.heads) - 1
 }

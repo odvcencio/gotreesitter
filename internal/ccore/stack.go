@@ -53,7 +53,7 @@ func (p *Parser) nodeNew(prev int32, sub Handle, pending bool, state uint16) int
 		id = p.free[n-1]
 		p.free = p.free[:n-1]
 	} else {
-		p.nodes = append(p.nodes, stackNode{})
+		p.nodes = push(&p.led, p.nodes, stackNode{})
 		id = int32(len(p.nodes) - 1)
 	}
 	node := &p.nodes[id]
@@ -133,7 +133,7 @@ func (p *Parser) nodeRelease(id int32) { // C/stack.c stack_node_release
 			}
 			first = node.links[0].node
 		}
-		p.free = append(p.free, id)
+		p.free = push(&p.led, p.free, id)
 		id = first
 	}
 }
@@ -217,7 +217,7 @@ func (p *Parser) headDelete(h *stackHead) { // C/stack.c stack_head_delete
 
 func (p *Parser) addVersion(original int, node int32) int { // C/stack.c ts_stack__add_version
 	o := &p.heads[original]
-	p.heads = append(p.heads, stackHead{node: node, nodeCountAtLastError: o.nodeCountAtLastError, lastExternal: o.lastExternal, status: headActive})
+	p.heads = push(&p.led, p.heads, stackHead{node: node, nodeCountAtLastError: o.nodeCountAtLastError, lastExternal: o.lastExternal, status: headActive})
 	p.nodeRetain(node)
 	return len(p.heads) - 1
 }
@@ -226,14 +226,14 @@ func (p *Parser) addSlice(original int, node int32, subtrees []Handle) { // C/st
 	for i := len(p.slices) - 1; i >= 0; i-- {
 		v := p.slices[i].version
 		if p.heads[v].node == node {
-			p.slices = append(p.slices, stackSlice{})
+			p.slices = push(&p.led, p.slices, stackSlice{})
 			copy(p.slices[i+2:], p.slices[i+1:])
 			p.slices[i+1] = stackSlice{subtrees: subtrees, version: v}
 			return
 		}
 	}
 	v := p.addVersion(original, node)
-	p.slices = append(p.slices, stackSlice{subtrees: subtrees, version: v})
+	p.slices = push(&p.led, p.slices, stackSlice{subtrees: subtrees, version: v})
 }
 
 func (p *Parser) getBuf() []Handle {
@@ -242,12 +242,12 @@ func (p *Parser) getBuf() []Handle {
 		p.bufs = p.bufs[:n-1]
 		return b[:0]
 	}
-	return make([]Handle, 0, 16)
+	return mkCap[Handle](&p.led, 16)
 }
 
 func (p *Parser) putBuf(b []Handle) {
 	if cap(b) != 0 {
-		p.bufs = append(p.bufs, b[:0])
+		p.bufs = push(&p.led, p.bufs, b[:0])
 	}
 }
 
@@ -263,7 +263,7 @@ func (p *Parser) iter(version int, mode int, goal uint32) []stackSlice {
 	}
 	p.slices = p.slices[:0]
 	p.iters = p.iters[:0]
-	p.iters = append(p.iters, stackIter{node: p.heads[version].node, subtrees: p.getBuf(), pending: true})
+	p.iters = push(&p.led, p.iters, stackIter{node: p.heads[version].node, subtrees: p.getBuf(), pending: true})
 	for len(p.iters) > 0 {
 		size := len(p.iters)
 		for i := 0; i < size; i++ {
@@ -280,7 +280,7 @@ func (p *Parser) iter(version int, mode int, goal uint32) []stackSlice {
 			if pop {
 				subs := it.subtrees
 				if !stop {
-					subs = append(p.getBuf(), subs...)
+					subs = push(&p.led, p.getBuf(), subs...)
 				}
 				for a, b := 0, len(subs)-1; a < b; a, b = a+1, b-1 {
 					subs[a], subs[b] = subs[b], subs[a]
@@ -291,7 +291,7 @@ func (p *Parser) iter(version int, mode int, goal uint32) []stackSlice {
 				if !pop {
 					p.putBuf(it.subtrees)
 				}
-				p.iters = append(p.iters[:i], p.iters[i+1:]...)
+				p.iters = deleteAt(p.iters, i)
 				i--
 				size--
 				continue
@@ -309,13 +309,13 @@ func (p *Parser) iter(version int, mode int, goal uint32) []stackSlice {
 					}
 					link = p.nodes[node].links[j]
 					cur := p.iters[i]
-					cur.subtrees = append(p.getBuf(), cur.subtrees...)
-					p.iters = append(p.iters, cur)
+					cur.subtrees = push(&p.led, p.getBuf(), cur.subtrees...)
+					p.iters = push(&p.led, p.iters, cur)
 					next = &p.iters[len(p.iters)-1]
 				}
 				next.node = link.node
 				if link.sub != 0 {
-					next.subtrees = append(next.subtrees, link.sub)
+					next.subtrees = push(&p.led, next.subtrees, link.sub)
 					if !p.extra(link.sub) {
 						next.subtreeCount++
 						if !link.pending {
@@ -344,7 +344,7 @@ func (p *Parser) push(version int, sub Handle, pending bool, state uint16) { // 
 
 func (p *Parser) removeVersion(v int) { // C/stack.c ts_stack_remove_version
 	p.headDelete(&p.heads[v])
-	p.heads = append(p.heads[:v], p.heads[v+1:]...)
+	p.heads = deleteAt(p.heads, v)
 }
 
 func (p *Parser) renumber(v1, v2 int) { // C/stack.c ts_stack_renumber_version
@@ -356,7 +356,7 @@ func (p *Parser) renumber(v1, v2 int) { // C/stack.c ts_stack_renumber_version
 	}
 	p.headDelete(&p.heads[v2])
 	p.heads[v2] = p.heads[v1]
-	p.heads = append(p.heads[:v1], p.heads[v1+1:]...)
+	p.heads = deleteAt(p.heads, v1)
 }
 
 func (p *Parser) canMerge(v1, v2 int) bool { // C/stack.c ts_stack_can_merge

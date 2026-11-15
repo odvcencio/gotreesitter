@@ -11,6 +11,7 @@ func TestLedgerInternalHelpersClassifyRefusal(t *testing.T) {
 		{"grow", func(l *Ledger) { _ = grow(l, []byte(nil), 1) }},
 		{"mk", func(l *Ledger) { _ = mk[byte](l, 1) }},
 		{"mkCap", func(l *Ledger) { _ = mkCap[byte](l, 1) }},
+		{"chargePage", func(l *Ledger) { (&Store{led: l}).chargePage(1) }},
 	}
 	for _, h := range helpers {
 		t.Run(h.name, func(t *testing.T) {

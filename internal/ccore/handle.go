@@ -96,3 +96,6 @@ func (l Length) Col() uint32   { return l.col }
 
 // NewLength builds a Length from a byte offset and a row/column point.
 func NewLength(bytes, row, col uint32) Length { return Length{bytes: bytes, row: row, col: col} }
+
+// Add is C length_add: the length of l followed by b.
+func (l Length) Add(b Length) Length { return lenAdd(l, b) }

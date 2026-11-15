@@ -24,7 +24,7 @@ func (p *Parser) Parse(src []byte) (*Tree, string) { return p.ParseWith(src, nil
 // or changes to scanner behavior. A released old tree is rejected, also when it
 // was released while this call waited for the lease. The parser keeps no
 // reference to the returned tree.
-func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
+func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
 	var c *storeCore
 	for {
 		// A released tree is rejected first, whatever the state of its store, and
@@ -40,7 +40,6 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
 			c = newStoreCore()
 			c.parseTables = p.t
 			c.cells.Store(1) // the running parse counts as one cell
-			c.presize(p.pageHint(len(src)))
 			p.applyTestLimits(c)
 		}
 		c.fire("parse-wait") // test hook: the released check is behind this parse, the lease is not yet taken
@@ -78,9 +77,39 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
 	p.Store = c.view()
 	p.fresh, p.logging = false, false
 	published := false
-	defer func() { p.endParse(published) }() // the one exit path (lifetime.go, step 5), directly after the lease is taken
+	// The one exit path (lifetime.go, step 5), directly after the lease is taken. The request's
+	// ledger stays attached through endParse: its abort sweep and its drain (queued releases that
+	// came in while this request held the lease) grow the free lists and scratch, and that growth is
+	// counted (Force). When a tree was made, the check after them runs BEFORE the tree is served:
+	// a request over its budget returns no tree, and the caller falls back as for any budget stop.
+	defer func() {
+		p.endParse(published)
+		if published && rt != nil && p.led.Active() && !p.led.Check(false) {
+			rt.Release()
+			rt, rstop = nil, stopProgress
+		}
+		p.Store.led = nil
+	}()
+	p.ledBegun = false
+	if p.led.Active() {
+		// The request's account starts before anything is done for it, so that the
+		// drain below (queued releases of earlier trees, which grows the store's free
+		// lists and scratch) is counted in it: reclamation cannot be refused (Force),
+		// and the check after it ends the request when the total is over the limit.
+		p.Store.led = &p.led // pages and arrays the drain, the parse, the publication walk and the exit claim are reserved on it
+		if !p.led.Begin(p.accountBase()) {
+			return nil, stopProgress
+		}
+		p.ledBegun = true
+	}
 	if stop := p.drainAtStart(); stop != "" {
 		return nil, stop
+	}
+	if p.led.Active() && !p.led.Check(false) {
+		return nil, stopProgress
+	}
+	if old == nil && !p.presizeTables(c, len(src)) { // a new store: its page tables are reserved on the account first
+		return nil, stopProgress
 	}
 	c.fire("parse-start")
 	var oldRoot Handle
@@ -111,7 +140,7 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
 		c.mu.Unlock()
 	}
 	t := &Tree{c: c.newCell(p.finished), rd: p.Store}
-	t.rd.fresh, t.rd.logging = false, false
+	t.rd.fresh, t.rd.logging, t.rd.led = false, false, nil
 	t.rd.owner = t.c
 	published = true
 	runtime.KeepAlive(old)
@@ -122,10 +151,12 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
 // tables of a new store: what the last fresh parse of this parser took, or a
 // guess from the source length (a page per 4 KiB of source; a count that is too
 // high costs 8 bytes a slot, one that is too low costs the doubling it saves).
-// Both are capped.
+// Both are capped. While a limit is active the earlier parse's count is not used.
 func (p *Parser) pageHint(srcLen int) (recPages, kidPages int) {
 	const capPages = 1 << 14
-	recPages, kidPages = p.hintRec, p.hintKid
+	if !p.led.Active() { // a request with a limit sizes its tables from its own source only: a hint from a large earlier parse must not make a small request hold tables its budget did not allow for
+		recPages, kidPages = p.hintRec, p.hintKid
+	}
 	if g := srcLen >> 12; recPages < g {
 		recPages = g
 	}
@@ -133,6 +164,23 @@ func (p *Parser) pageHint(srcLen int) (recPages, kidPages int) {
 		kidPages = g
 	}
 	return min(recPages, capPages), min(kidPages, capPages)
+}
+
+// presizeTables reserves the page tables of the new store c (see storeCore.presize).
+// The bytes of the tables that presize makes beyond the inline slots are reserved on
+// the request's account before they are made; a refusal stops the request and
+// nothing was made. The caller holds the lease of c, and the parser's view of c is
+// refreshed because presize replaces the tables.
+func (p *Parser) presizeTables(c *storeCore, srcLen int) bool {
+	rp, kp := p.pageHint(srcLen)
+	if n := presizeBytes(rp, kp); n > 0 && p.led.Active() && !p.led.Reserve(n) {
+		return false
+	}
+	c.presize(rp, kp)
+	c.mu.Lock()
+	p.Store.syncLocked()
+	c.mu.Unlock()
+	return true
 }
 
 // drainAtStart is the drain at the start of a parse. A drain that fails (a limit
@@ -157,11 +205,15 @@ func (p *Parser) parseAndPublish(src []byte, oldRoot Handle) (stop string, done 
 				stop, done = le.Error(), false
 				return
 			}
+			if _, ok := r.(ledgerStop); ok { // a reservation of the publication walk or of a page was refused
+				stop, done = stopProgress, false
+				return
+			}
 			panic(r)
 		}
 	}()
 	if p.fresh && p.core.nextKid == 0 { // an empty input builds a node with no child list; the kid table must have a page 0 to slice (this takes the first page under the child-page limit)
-		p.growKids(&p.core.pc)
+		p.growKids(&p.core.pc) // the page and its table entry are reserved on the ledger: a new store has no page in the base
 	}
 	stop = p.parseWith(src, oldRoot)
 	if stop != "" || p.finished == 0 {
@@ -170,6 +222,9 @@ func (p *Parser) parseAndPublish(src []byte, oldRoot Handle) (stop string, done 
 	if p.fresh {
 		p.countFreshShared() // a fresh tree has no publication walk: it counts the owners that findMulti found
 	} else {
+		if p.led.Active() && !p.reserveWalk() {
+			return stopProgress, false
+		}
 		p.publish(p.finished) // a failure here poisons the store and is swallowed
 		if p.core.poisoned.Load() {
 			return p.core.failureText(), false
@@ -185,7 +240,11 @@ func (p *Parser) parseAndPublish(src []byte, oldRoot Handle) (stop string, done 
 // under defer, so a panic in either leaves the lease free and the count right.
 func (p *Parser) endParse(published bool) {
 	c := p.core
-	defer c.afterParse()
+	var led *Ledger
+	if p.led.Active() {
+		led = &p.led // the late drain of this exit is the request's: see afterParseLed
+	}
+	defer func() { c.afterParseLed(led) }()
 	defer c.lease.Unlock()
 	defer func() {
 		if c.cells.Add(-1) == 0 {
@@ -249,17 +308,18 @@ type Edit struct {
 
 // Stats are the counters of the last parse. The first five are always on.
 type Stats struct {
-	LexerCalls  int // calls of the lexer, C ts_parser__lex
-	Shifts      int
-	Reductions  int
-	HeapRecords int // record slots the store has handed out
-	RecLeaf     int // heap leaves the last parse allocated (lexed tokens, error leaves)
-	RecNode     int // internal nodes the last parse allocated (reductions)
-	RecCopy     int // heap leaf copies the last parse made (set symbol, set extra)
-	MaxVersions int // maximum live stack versions
-	Tokens      int // tokens lexed
-	MultiTokens int // tokens lexed while more than one version was live
-	ArenaBytes  int // capacity of the record, child and stack arenas, in bytes
+	LexerCalls   int // calls of the lexer, C ts_parser__lex
+	Shifts       int
+	Reductions   int
+	HeapRecords  int // record slots the store has handed out
+	RecLeaf      int // heap leaves the last parse allocated (lexed tokens, error leaves)
+	RecNode      int // internal nodes the last parse allocated (reductions)
+	RecCopy      int // heap leaf copies the last parse made (set symbol, set extra)
+	MaxVersions  int // maximum live stack versions
+	Tokens       int // tokens lexed
+	MultiTokens  int // tokens lexed while more than one version was live
+	ArenaBytes   int // capacity of the record, child and stack arenas, in bytes
+	Compressions int // calls of compress in the last balance
 }
 
 // BalanceStats returns, for the last parse, the internal nodes of byte size
@@ -279,7 +339,7 @@ func (p *Parser) Stats() Stats {
 		HeapRecords: p.allocatedRecords(), MaxVersions: p.maxVersions,
 		RecLeaf: p.nLeaf, RecNode: p.nNode, RecCopy: p.nCopy,
 		Tokens: p.tokens, MultiTokens: p.multiTokens,
-		ArenaBytes: p.capBytes() + cap(p.nodes)*168,
+		ArenaBytes: p.capBytes() + cap(p.nodes)*168, Compressions: p.compressions,
 	}
 }
 
@@ -370,6 +430,16 @@ func (p *Parser) ReuseStats() (nodes int, bytes uint64, largest uint32) {
 // list. It is 0 once the store has ended.
 func (p *Parser) StoreBytes() int { return p.capBytes() }
 
+// Ledger returns the account of the request that this parser runs. The core and
+// the route charge the same one.
+func (p *Parser) Ledger() *Ledger { return &p.led }
+
+// MaxVersions and Tokens are the parser's own counters of the last parse.
+func (p *Parser) MaxVersions() int { return p.maxVersions }
+
+// Tokens is the number of tokens the last parse lexed.
+func (p *Parser) Tokens() int { return p.tokens }
+
 // ArenaUse returns the page bytes the store holds and the bytes reachable from t.
 func (p *Parser) ArenaUse(t *Tree) (used, reachable int) {
 	if t.c.released.Load() {
@@ -377,4 +447,21 @@ func (p *Parser) ArenaUse(t *Tree) (used, reachable int) {
 	}
 	defer runtime.KeepAlive(t)
 	return t.rd.arenaUse(t.Root())
+}
+
+// reserveWalk reserves, before the publication walk starts, the stack the walk can need:
+// one slot for the root and one for every handle in the child lists that the parse made
+// (the walk pushes the children of new records only). The refusal comes before the walk
+// has changed anything, so it poisons nothing; the walk's own appends then fit the array.
+func (p *Parser) reserveWalk() (ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, stop := r.(ledgerStop); !stop {
+				panic(r)
+			}
+			ok = false
+		}
+	}()
+	p.core.walk = grow(&p.led, p.core.walk[:0], p.nKids+1)
+	return true
 }

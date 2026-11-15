@@ -32,7 +32,7 @@ func (p *Parser) reduceLinear(version int, sym Symbol, count uint32, dynPrec int
 			return 0, false
 		}
 		l := nd.links[0]
-		subs = append(subs, l.sub)
+		subs = push(&p.led, subs, l.sub)
 		if !p.extra(l.sub) {
 			n++
 		}

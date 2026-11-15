@@ -59,7 +59,7 @@ func (s *Store) claim() Handle {
 		w := &s.refs[idx>>recShift][idx&recMask]
 		c.freeRec = *w & countMask
 		*w = 0 // a record taken from the free list has one owner
-		c.taken = append(c.taken, idx)
+		c.taken = push(s.lg(), c.taken, idx)
 	} else {
 		cur := &c.pc
 		if cur.recSlot == recPageLen {
@@ -107,6 +107,7 @@ func (s *Store) addKids(children []Handle) uint32 {
 	if n == 0 {
 		return 0
 	}
+	s.nKids += int(n)
 	if cur := &s.core.pc; n <= 8 && !s.logging && cur.kidPage >= 0 && cur.kidOff+int(n) <= kidPageLen { // a fresh parse: lists of 1 to 8 handles have exact size classes
 		o := cur.kidOff
 		copy(s.kids[cur.kidPage][o:o+int(n)], children)
@@ -123,6 +124,7 @@ func (s *Store) copyKids(start, n uint32) uint32 {
 	if n == 0 {
 		return 0
 	}
+	s.nKids += int(n)
 	at := s.allocKids(&s.core.pc, n, s.logging)
 	copy(s.kidSpan(at, n), s.kidSpan(start, n))
 	return at
@@ -276,6 +278,12 @@ func (p *Store) ProductionID(h Handle) uint16 {
 	}
 	return r.productionID
 }
+
+// DynamicPrecedence is the dynamic precedence of h (C: ts_subtree_dynamic_precedence).
+func (p *Store) DynamicPrecedence(h Handle) int32 { return p.dynPrec(h) }
+
+// DependsOnColumn is C's Subtree.depends_on_column.
+func (p *Store) DependsOnColumn(h Handle) bool { return p.dependsOnColumn(h) }
 
 // ChildSlots returns where the child list of h starts and how many handles it
 // holds. start is a slot key: the position of the first handle in the child
@@ -732,7 +740,7 @@ func (p *Parser) summarize(h Handle) {
 
 // C/subtree.c:609 ts_subtree_compare.
 func (p *Parser) compare(left, right Handle) int {
-	stack := append(p.scratch[:0], left, right)
+	stack := push(&p.led, p.scratch[:0], left, right)
 	defer func() { p.scratch = stack[:0] }()
 	for len(stack) > 0 {
 		right, left = stack[len(stack)-1], stack[len(stack)-2]
@@ -750,7 +758,7 @@ func (p *Parser) compare(left, right Handle) int {
 			return 1
 		}
 		for i := lc; i > 0; i-- {
-			stack = append(stack, p.children(left)[i-1], p.children(right)[i-1])
+			stack = push(&p.led, stack, p.children(left)[i-1], p.children(right)[i-1])
 		}
 	}
 	return 0
@@ -760,7 +768,7 @@ func (p *Parser) compare(left, right Handle) int {
 func (p *Parser) removeTrailingExtras(self []Handle, dest []Handle) ([]Handle, []Handle) {
 	dest = dest[:0]
 	for len(self) > 0 && p.extra(self[len(self)-1]) {
-		dest = append(dest, self[len(self)-1])
+		dest = push(&p.led, dest, self[len(self)-1])
 		self = self[:len(self)-1]
 	}
 	for i, j := 0, len(dest)-1; i < j; i, j = i+1, j-1 {
@@ -789,7 +797,7 @@ func (p *Parser) compress(tree Handle, count uint32, stack *[]Handle) {
 		p.children(tree)[0] = grand
 		p.children(child)[0] = gk[len(gk)-1]
 		gk[len(gk)-1] = child
-		*stack = append(*stack, tree)
+		*stack = push(&p.led, *stack, tree)
 		tree = grand
 	}
 	for len(*stack) > initial {
@@ -852,7 +860,7 @@ func (p *Parser) findMulti() {
 // their flags word, so it also serves an incremental parse, where only new
 // records are visited. A fresh parse uses findMultiBits, which gives the same result.
 func (p *Parser) findMultiWalk() {
-	stack := append(p.scratch[:0], p.finished)
+	stack := push(&p.led, p.scratch[:0], p.finished)
 	seen := p.seen[:0]
 	for len(stack) > 0 {
 		h := stack[len(stack)-1]
@@ -869,11 +877,11 @@ func (p *Parser) findMultiWalk() {
 			continue
 		}
 		r.flags |= heapMark
-		seen = append(seen, h)
+		seen = push(&p.led, seen, h)
 		if r.childCount > 0 {
 			for _, k := range p.kidSpan(r.childrenStart, r.childCount) {
 				if k&1 == 0 && k != 0 {
-					stack = append(stack, k)
+					stack = push(&p.led, stack, k)
 				}
 			}
 		}
@@ -903,11 +911,11 @@ func (p *Parser) findMultiBits() bool {
 	}
 	words := int(wm>>6) + 1
 	if cap(p.reachBits) < words {
-		p.reachBits = make([]uint64, words)
+		p.reachBits = mk[uint64](&p.led, words) // reserved before it is made; bufferBytes counts it from then on
 	}
 	marks := p.reachBits[:words]
 	clear(marks)
-	stack := append(p.scratch[:0], p.finished)
+	stack := push(&p.led, p.scratch[:0], p.finished)
 	for len(stack) > 0 {
 		h := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
@@ -928,7 +936,7 @@ func (p *Parser) findMultiBits() bool {
 		if r.childCount > 0 {
 			for _, k := range p.kidSpan(r.childrenStart, r.childCount) {
 				if k&1 == 0 && k != 0 {
-					stack = append(stack, k)
+					stack = push(&p.led, stack, k)
 				}
 			}
 		}
@@ -967,18 +975,26 @@ func (p *Store) cloneState(r *rec, cur *arenaCur) {
 	r.visibleDescendantCount = off
 }
 
-// C/parser.c:1915 ts_parser__balance_subtree.
-func (p *Parser) balance() {
+// C/parser.c:1915 ts_parser__balance_subtree. The work stack and the temporary
+// stack of compress grow through the ledger (push), so that every array they make is
+// counted when it is made; the deferred function keeps them for the next balance.
+func (p *Parser) balance() bool {
 	if p.preBalance != nil {
 		p.preBalance() // tests only
 	}
 	p.findMulti()
 	stack := p.scratch[:0]
 	if p.childCount(p.finished) > 0 && !p.shared(p.finished) {
-		stack = append(stack, p.finished)
+		stack = push(&p.led, stack, p.finished)
 	}
 	tmp := p.compressTmp[:0] // the compress stack: kept on the parser, so a balance step allocates nothing in steady state
+	defer func() { p.scratch, p.compressTmp = stack[:0], tmp[:0] }()
 	for len(stack) > 0 {
+		if p.led.Active() {
+			if !p.checkProgress(1) { // C/parser.c:1929
+				return false
+			}
+		}
 		tree := stack[len(stack)-1]
 		if p.rec(tree).repeatDepth > 0 {
 			k := p.children(tree)
@@ -987,18 +1003,27 @@ func (p *Parser) balance() {
 			if delta > 0 {
 				for i := uint32(delta) / 2; i > 0; i /= 2 {
 					p.compress(tree, i, &tmp)
+					p.compressions++
+					if p.led.Active() { // C/parser.c:1952, scaled by the compression size
+						ops := int(i >> 4)
+						if ops == 0 {
+							ops = 1
+						}
+						if !p.checkProgress(ops) {
+							return false
+						}
+					}
 				}
 			}
 		}
 		stack = stack[:len(stack)-1]
 		for _, child := range p.children(tree) {
 			if p.childCount(child) > 0 && !p.shared(child) {
-				stack = append(stack, child)
+				stack = push(&p.led, stack, child)
 			}
 		}
 	}
-	p.scratch = stack[:0]
-	p.compressTmp = tmp[:0]
+	return true
 }
 
 // copyHeapLeaf returns a new record with the content of the heap leaf h and

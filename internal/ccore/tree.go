@@ -165,6 +165,10 @@ func (t *Tree) StoreFailure() string {
 // Released reports whether the tree has been released.
 func (t *Tree) Released() bool { return t.c.released.Load() }
 
+// PageBytes is the memory the pages of the tree's store hold, in bytes (0 once the
+// store has ended). It is the base of the ledger of an EditWithin.
+func (t *Tree) PageBytes() int { return t.c.store.pageBytes() }
+
 // LastEditRecords is the number of records the last Edit of this tree created.
 func (t *Tree) LastEditRecords() int { return t.lastEdit }
 
@@ -228,6 +232,29 @@ func (t *Tree) Copy() *Tree {
 // and of the old root at its commit and drains them itself, once, after it has
 // let go of its locks.
 func (t *Tree) Edit(e Edit) {
+	t.editWith(e, nil)
+}
+
+// EditWithin is Edit with the pages that the edit claims reserved on led before
+// they are claimed. It returns false when the ledger refuses a page. A refusal
+// comes after the edit began to allocate, so it is a failed edit as the store
+// defines it: the store is poisoned (its next parse is a fresh parse in a new
+// store), the tree's root is unchanged, and the pages return when the store's
+// last tree is released. led is not used after the call.
+func (t *Tree) EditWithin(e Edit, led *Ledger) (ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, stop := r.(ledgerStop); !stop {
+				panic(r)
+			}
+			ok = false
+		}
+	}()
+	t.editWith(e, led)
+	return true
+}
+
+func (t *Tree) editWith(e Edit, led *Ledger) {
 	c := t.c.store
 	var counted, releasedMeanwhile bool
 	// The edit's count is lowered after emu is let go: ending the store or
@@ -243,7 +270,7 @@ func (t *Tree) Edit(e Edit) {
 			c.tryDrain() // the only case in which an Edit drains: it queued entries that no other release or parse is sure to ask for
 		}
 	}()
-	t.edit(e, &counted, &releasedMeanwhile)
+	t.edit(e, led, &counted, &releasedMeanwhile)
 }
 
 // edit does the work of Edit under emu. It sets *counted once the edit holds
@@ -253,7 +280,7 @@ func (t *Tree) Edit(e Edit) {
 // clears the editing mark and, when a Release was deferred, queues the release
 // of the old root, which the tree still holds. Records that a panicking
 // subtreeEdit had already made are not freed.
-func (t *Tree) edit(e Edit, counted, releasedMeanwhile *bool) {
+func (t *Tree) edit(e Edit, led *Ledger, counted, releasedMeanwhile *bool) {
 	c := t.c.store
 	cl := t.c
 	c.emu.Lock()
@@ -299,6 +326,16 @@ func (t *Tree) edit(e Edit, counted, releasedMeanwhile *bool) {
 	}()
 	old := Handle(cl.root.Load()) // only Edit changes the root, and emu serializes Edits
 	s := &t.rd
+	if led != nil { // an edit without a ledger writes nothing here: Release writes t.rd under c.mu
+		c.mu.Lock()
+		s.led = led
+		c.mu.Unlock()
+		defer func() {
+			c.mu.Lock()
+			s.led = nil
+			c.mu.Unlock()
+		}()
+	}
 	c.mu.Lock() // the edit allocator's current pages may have been added after this tree's headers were taken
 	s.syncLocked()
 	c.mu.Unlock()
