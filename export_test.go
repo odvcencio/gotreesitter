@@ -2,6 +2,9 @@ package gotreesitter
 
 import (
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/ccore"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified/certifiedtest"
 	"sort"
 	"sync"
 	"time"
@@ -768,4 +771,218 @@ func ParseWithExpiredDeadlineForTests(p *Parser, source []byte) (*Tree, error) {
 // ForestRescueForTests runs the optional forest rescue of a recovered tree.
 func ForestRescueForTests(p *Parser, source []byte, tree *Tree) (*Tree, bool) {
 	return p.maybeReplaceRecoveredTreeWithForest(source, tree)
+}
+
+func CcoreTestCertify(modes uint8, checked ...string) func() {
+	return certifiedtest.Install(modes, checked, nil)
+}
+func CcoreTestCounters() (map[string]int64, int64) {
+	out := map[string]int64{}
+	for i := range ccoreDeclines {
+		if v := ccoreDeclines[i].Load(); v != 0 {
+			out[ccoreDeclineNames[i]] = v
+		}
+	}
+	return out, ccoreServedFresh.Load()
+}
+func CcoreTestReset() {
+	for i := range ccoreDeclines {
+		ccoreDeclines[i].Store(0)
+	}
+	ccoreServedFresh.Store(0)
+	ccoreParseNanos.Store(0)
+	ccoreConvertNanos.Store(0)
+}
+func ccoreTestState(l *Language) *ccoreLanguageTables {
+	ccoreTablesMu.Lock()
+	defer ccoreTablesMu.Unlock()
+	return ccoreLanguageTablesForLocked(l)
+}
+func CcoreTestDrainPool(l *Language) {
+	st := ccoreTestState(l)
+	for st.pool.Get() != nil {
+	}
+	ccore.DropPooledPages()
+}
+func CcoreTestPooledRecords(l *Language) int {
+	st := ccoreTestState(l)
+	if cp, ok := st.pool.Get().(*ccore.Parser); ok {
+		n := cp.Stats().HeapRecords
+		st.pool.Put(cp)
+		return n
+	}
+	return 0
+}
+
+type ccoreFakeView struct {
+	kids    map[ccore.Handle][]ccore.Handle
+	visible map[ccore.Handle]bool
+	prod    map[ccore.Handle]uint16
+}
+
+func (f *ccoreFakeView) Children(h ccore.Handle) []ccore.Handle { return f.kids[h] }
+func (f *ccoreFakeView) Extra(ccore.Handle) bool                { return false }
+func (f *ccoreFakeView) Visible(h ccore.Handle) bool            { return f.visible[h] }
+func (f *ccoreFakeView) ChildCount(h ccore.Handle) uint32       { return uint32(len(f.kids[h])) }
+func (f *ccoreFakeView) ProductionID(h ccore.Handle) uint16     { return f.prod[h] }
+
+func CcoreTestFromCore(t *Tree) bool { return t.ccoreStateOf() != nil }
+
+func CcoreTestFullParse(p *Parser, source []byte) (*Tree, bool) { return p.ccoreFullParse(source) }
+
+func CcoreTestLimits(p *Parser, sourceLen int) (budget, ceiling int64, hooked bool, atBudget ParseStopReason) {
+	l := p.ccoreLimitsFor(sourceLen)
+	if l.budget > 0 {
+		atBudget = p.ccorePoll(l, uint64(l.budget), false)
+	}
+	return l.budget, l.ceiling, l.active(), atBudget
+}
+
+func CcoreTestAccountProbe(f func(base, alloc, arenaCharged, arenaHeld int64)) func() {
+	ccoreTestAccountHook.Store(&f)
+	return func() { ccoreTestAccountHook.Store(nil) }
+}
+
+func CcoreTestHiddenInvisibleFieldShape() (got ccore.Handle, found bool) {
+	view := &ccoreFakeView{
+		kids:    map[ccore.Handle][]ccore.Handle{1: {2, 3}, 2: {4}},
+		visible: map[ccore.Handle]bool{3: true},
+		prod:    map[ccore.Handle]uint16{1: 1},
+	}
+	conv := &ccoreConvTables{
+		fieldSlices:  [][2]uint16{{0, 0}, {0, 2}},
+		fieldEntries: []FieldMapEntry{{FieldID: 1, ChildIndex: 0}, {FieldID: 1, ChildIndex: 1}},
+	}
+	c := &ccoreConv{fs: view, conv: conv}
+	return c.cFieldChild(1, 1, 0)
+}
+
+func CcoreTestParserLease(f func(id uintptr, before bool)) func() {
+	h := func(cp *ccore.Parser, before bool) { f(uintptr(unsafe.Pointer(cp)), before) }
+	ccoreTestParserHook.Store(&h)
+	return func() { ccoreTestParserHook.Store(nil) }
+}
+
+func CcoreTestCoreTree(t *Tree) *ccore.Tree {
+	if st := t.ccoreStateOf(); st != nil {
+		return st.ct
+	}
+	return nil
+}
+
+func CcoreTestFieldOccurrence() (path []int32, ok bool) {
+	view := &ccoreFakeView{
+		kids:    map[ccore.Handle][]ccore.Handle{1: {2, 10}, 10: {2}},
+		visible: map[ccore.Handle]bool{2: true},
+		prod:    map[ccore.Handle]uint16{1: 1},
+	}
+	conv := &ccoreConvTables{
+		fieldSlices:  [][2]uint16{{0, 0}, {0, 1}},
+		fieldEntries: []FieldMapEntry{{FieldID: 1, ChildIndex: 1}},
+	}
+	c := &ccoreConv{fs: view, conv: conv}
+	if _, ok := c.cFieldChild(1, 1, 0); !ok {
+		return nil, false
+	}
+	return c.publicPath(1, c.cpath)
+}
+
+func CcoreTestFieldLookupVsReaders(t *Tree, lang *Language) (nodes, lookups int, diffs []string) {
+	st := t.ccoreStateOf()
+	if st == nil || st.ct == nil {
+		return 0, 0, []string{"no core tree"}
+	}
+	store := st.ct.Reader()
+	r := ccore.NewNodeReader(store, ccoreNodeTablesFor(lang))
+	var walk func(n *Node, rn ccore.Node, path string)
+	walk = func(n *Node, rn ccore.Node, path string) {
+		nodes++
+		kids := n.Children()
+		rkids := r.Children(rn, nil)
+		if len(kids) != len(rkids) {
+			if len(diffs) < 20 {
+				diffs = append(diffs, fmt.Sprintf("%s: %d public children, %d reader children", path, len(kids), len(rkids)))
+			}
+			return
+		}
+		for fid := 1; fid < len(lang.FieldNames); fid++ {
+			want := -1
+			for i, c := range rkids {
+				if int(c.Field) == fid {
+					want = i
+					break
+				}
+			}
+			got := -1
+			if c := n.ChildByFieldName(lang.FieldNames[fid], lang); c != nil {
+				for i, k := range kids {
+					if k == c {
+						got = i
+						break
+					}
+				}
+				if got < 0 {
+					got = -2 // not a child of n
+				}
+			}
+			lookups++
+			if got != want && len(diffs) < 20 {
+				diffs = append(diffs, fmt.Sprintf("%s %s field %q: conversion child %d, readers child %d", path, n.Type(lang), lang.FieldNames[fid], got, want))
+			}
+		}
+		for i := range kids {
+			walk(kids[i], rkids[i], fmt.Sprintf("%s/%d", path, i))
+		}
+	}
+	walk(t.RootNode(), r.RootNode(st.ct.Root()), "")
+	return nodes, lookups, diffs
+}
+
+func TreeExtraHandles(t *Tree) int { return int(t.extraHandles) }
+
+func CcoreTestWrapScanner(sc ExternalScanner, wrap func(inner ExternalScanner) ExternalScanner) ExternalScanner {
+	if a, ok := sc.(*externalScannerOrderAdapter); ok {
+		b := *a
+		b.inner = CcoreTestWrapScanner(a.inner, wrap)
+		return &b
+	}
+	return wrap(sc)
+}
+
+// CcoreTestInnermostScanner is the scanner under the order adapters of sc.
+func CcoreTestInnermostScanner(sc ExternalScanner) ExternalScanner {
+	for {
+		a, ok := sc.(*externalScannerOrderAdapter)
+		if !ok {
+			return sc
+		}
+		sc = a.inner
+	}
+}
+
+func CcoreTestPollProbe(f func(total int64, sample bool, converting bool)) func() {
+	ccoreTestPollHook.Store(&f)
+	return func() { ccoreTestPollHook.Store(nil) }
+}
+
+func CcoreTestPanicInConversion(n int) func() {
+	h := func(count int) {
+		if count >= n {
+			panic("ccore test: conversion")
+		}
+	}
+	ccoreTestConvertHook.Store(&h)
+	return func() { ccoreTestConvertHook.Store(nil) }
+}
+
+func CcoreTestCertifiedSize() int { return len(certified.Blobs) }
+func CcoreTestAllowlistSize() int { return len(ccoreBlobAllowlist) }
+func CcoreTestPooledFootprint(l *Language) int {
+	st := ccoreTestState(l)
+	if cp, ok := st.pool.Get().(*ccore.Parser); ok {
+		n := cp.BufferBytes()
+		st.pool.Put(cp)
+		return n
+	}
+	return 0
 }

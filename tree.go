@@ -2241,9 +2241,20 @@ func (n *Node) Symbol() Symbol {
 
 // ParseState returns the parser state associated with this node. Returns 0
 // for a nil node.
+//
+// On a tree of the present engine it is the state on top of the stack after
+// the node was pushed. On a tree built by internal/ccore it is C's
+// ts_node_next_parse_state, computed when called: the language's next state
+// for the node's PreGotoState and its grammar symbol (a goto for a node with
+// children; for a token the shift target, or 0 when the last action of the
+// table entry is not a shift; the same state for an extra), and 0 for a node
+// without a state (C returns 65535 there).
 func (n *Node) ParseState() StateID {
 	if n == nil {
 		return 0
+	}
+	if a := n.ownerArena; a != nil && a.ccore != nil {
+		return ccoreNextParseState(a.ccore.tables, n) // a tree built by internal/ccore
 	}
 	return n.parseState
 }
@@ -2252,10 +2263,20 @@ func (n *Node) ParseState() StateID {
 // this node was originally pushed (i.e., the state exposed after popping
 // children during reduce). A reused node retains that historical state, which
 // can differ from the state in a fresh parse of the edited source. For
-// non-leaf nodes: lookupGoto(PreGotoState, Symbol) == ParseState. Returns 0
-// for a nil node.
+// non-leaf nodes of the present engine: lookupGoto(PreGotoState, Symbol) ==
+// ParseState. Returns 0 for a nil node.
+//
+// On a tree built by internal/ccore it is C's ts_node_parse_state: the parse
+// state the core recorded for the node, kept in inline leaves too (a token's
+// state is the one it was lexed in, before any reduction that ran between
+// lexing and the shift), and 0 for a node without a state (C returns 65535 for
+// a fragile node). The rule above holds for neither the tokens nor the fragile
+// nodes of such a tree.
 func (n *Node) PreGotoState() StateID {
 	if n == nil {
+		return 0
+	}
+	if n.preGotoState == ccoreStateNone && n.ownerArena != nil && n.ownerArena.ccore != nil {
 		return 0
 	}
 	return n.preGotoState
@@ -2487,11 +2508,28 @@ func (n *Node) NamedChild(i int) *Node {
 // or nil if no child has that field. The Language is needed to resolve field
 // names to IDs. Uses Language.FieldByName for O(1) lookup.
 func (n *Node) ChildByFieldName(name string, lang *Language) *Node {
+	if n == nil {
+		return nil
+	}
 	fid, ok := lang.FieldByName(name)
 	if !ok || fid == 0 {
 		return nil
 	}
 
+	if a := n.ownerArena; a != nil && a.ccore != nil { // a tree built by internal/ccore: C's lookup, where it differs from the stored ids
+		if path, found, ok := a.ccore.lookupChild(n, fid); ok {
+			if !found {
+				return nil
+			}
+			cur := n
+			for _, i := range path {
+				if cur = nodeChildAtForReason(cur, int(i), materializeForParentAPI); cur == nil {
+					return nil
+				}
+			}
+			return cur
+		}
+	}
 	childCount := nodeChildCountNoMaterialize(n)
 	for i := 0; i < childCount; i++ {
 		if nodeFieldIDAt(n, i) == fid {
@@ -4593,7 +4631,9 @@ func (t *Tree) Copy() *Tree {
 		class = t.arena.class
 	}
 	arena := acquireNodeArena(class)
+	forgetArenaCheckout(arena) // before a core tree is attached: see forgetCheckedOut
 	arena.inheritExternalScannerCheckpointIdentity(t.arena)
+	arena.ccore = t.ccoreStateOf().forTreeCopy() // installed before the clone: a copy of a core tree keeps the meaning of ParseState and its field answers
 	out.root = cloneTreeNodesIntoArena(t.root, arena)
 	out.arena = arena
 	arena.legacyIncrementalReuseCertified = t.hasCertifiedIncrementalReuse()
@@ -4689,6 +4729,9 @@ func cloneTreeNodesWithOffsetMode(root *Node, offsetBytes uint32, offsetExtent P
 	}
 	arena := newNodeArena(arenaClassIncremental)
 	arena.finalChildRefs = true
+	if root.ownerArena != nil {
+		arena.ccore = root.ownerArena.ccore.forCopy() // a clone of a core tree keeps the meaning of ParseState and its field answers
+	}
 	offset := &cloneOffset{
 		byteDelta: offsetBytes,
 		point:     offsetExtent,
@@ -4767,6 +4810,9 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	// header, so re-record it explicitly against the destination arena.
 	if arena != nil && src.dependsOnColumn() {
 		arena.setNodeDependsOnColumnBit(dst, true)
+	}
+	if arena != nil && arena.ccore != nil && src.ownerArena != nil && src.ownerArena.ccore != nil {
+		arena.ccore.cloneExtra(dst, src.ownerArena.ccore, src)
 	}
 	copyCompactReuseDependency(dst, src)
 	if src.ownerArena != nil && src.ownerArena.legacyReuseReads != nil {

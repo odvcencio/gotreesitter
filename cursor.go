@@ -151,6 +151,11 @@ func (c *TreeCursor) CurrentFieldID() FieldID {
 	if parentNode == nil {
 		return 0
 	}
+	if a := parentNode.ownerArena; a != nil && a.ccore != nil { // a tree built by internal/ccore: C's cursor field
+		if fid, ok := a.ccore.cursorField(parentNode, frame.childIndex); ok {
+			return fid
+		}
+	}
 	return nodeFieldIDAt(parentNode, frame.childIndex)
 }
 

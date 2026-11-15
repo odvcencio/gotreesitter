@@ -184,11 +184,21 @@ func (publicQueryReader) ChildHasField(parent *Node, index int, field FieldID, l
 		return false
 	}
 	name := lang.FieldNames[field]
+	if a := parent.ownerArena; a != nil && a.ccore != nil { // a tree built by internal/ccore: C's query engine reads the cursor's field
+		if fid, ok := a.ccore.cursorField(parent, index); ok {
+			return name != "" && fid == field
+		}
+	}
 	return name != "" && parent.FieldNameForChild(index, lang) == name
 }
 func (r publicQueryReader) HasChildWithField(parent *Node, field FieldID, lang *Language) bool {
 	if parent == nil {
 		return false
+	}
+	if a := parent.ownerArena; a != nil && a.ccore != nil { // C answers an absent-field constraint with ts_node_child_by_field_id
+		if _, found, ok := a.ccore.lookupChild(parent, field); ok {
+			return found
+		}
 	}
 	for index := 0; index < r.ChildCount(parent); index++ {
 		if r.ChildHasField(parent, index, field, lang) {

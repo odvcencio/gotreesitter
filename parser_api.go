@@ -1087,7 +1087,7 @@ func (p *Parser) parseIncrementalWithTokenSourceRun(source []byte, oldTree *Tree
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+	if p.canReuseUnchangedTreeForRoute(source, oldTree, false) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	if reparseFactory == nil {
@@ -1573,6 +1573,14 @@ func (p *Parser) parseRun(source []byte) (*Tree, error) {
 	// accounting.
 	endSharedParseBudget := p.enterParseBudget()
 	defer endSharedParseBudget()
+	// A request the core admits is served by the core before any shortcut of the
+	// present engine (the HTTP comment run below is one) can answer it. With no
+	// certificate nothing changes: ccoreFirstFresh returns at once.
+	if !ccoreUnset() {
+		if tree, ok := p.ccoreFirstFresh(source); ok {
+			return tree, nil
+		}
+	}
 	if tree, ok := p.parseHTTPCommentRun(source); ok {
 		return tree, nil
 	}
@@ -2130,7 +2138,7 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+	if p.canReuseUnchangedTreeForRoute(source, oldTree, true) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	return sched.Parse(p.schedCall(sched.Incremental, oldTree), func(sched.Request) (*Tree, error) {
@@ -2143,7 +2151,7 @@ func (p *Parser) parseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+	if p.canReuseUnchangedTreeForRoute(source, oldTree, true) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	return p.parseIncrementalChangedSource(source, oldTree)
@@ -2172,6 +2180,16 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (tr
 }
 
 func (p *Parser) parseIncrementalChangedSourceRun(source []byte, oldTree *Tree) (*Tree, error) {
+	if !ccoreUnset() && p.admissionCandidateFullParseEligible(nil, true) { // Eligible reparses use a fresh core parse.
+		if oldTree == nil {
+			return p.parse(source)
+		}
+		endBudget := p.enterParseBudget() // one budget scope for the attempt and the fallback
+		defer endBudget()
+		if tree, ok := p.ccoreFullParse(source); ok {
+			return tree, nil
+		}
+	}
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
@@ -2507,7 +2525,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+	if p.canReuseUnchangedTreeForRoute(source, oldTree, true) {
 		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
 	result, err := sched.Parse(p.schedCall(sched.Incremental|sched.Profiling, oldTree), func(sched.Request) (profiledParseResult, error) {
@@ -2528,7 +2546,7 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+	if p.canReuseUnchangedTreeForRoute(source, oldTree, true) {
 		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
 	return p.parseIncrementalProfiledChangedSource(source, oldTree)
@@ -2545,6 +2563,22 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 }
 
 func (p *Parser) parseIncrementalProfiledChangedSourceRun(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
+	if !ccoreUnset() && p.admissionCandidateFullParseEligible(nil, true) { // as in parseIncrementalChangedSource
+		if oldTree == nil {
+			started := time.Now()
+			tree, err := p.parse(source)
+			timing := freshParseFallbackTiming(started, tree, "nil_old_tree")
+			return tree, timing.toProfile(), err
+		}
+		endBudget := p.enterParseBudget()
+		defer endBudget()
+		started := time.Now()
+		if tree, ok := p.ccoreFullParse(source); ok {
+			timing := freshParseFallbackTiming(started, tree, "ccore_fresh")
+
+			return tree, timing.toProfile(), nil
+		}
+	}
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
 		p.incrementalAppendRequiresFreshParse(oldTree) {
@@ -2699,7 +2733,7 @@ func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+	if p.canReuseUnchangedTreeForRoute(source, oldTree, false) {
 		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
 	return p.parseIncrementalWithTokenSourceChangedProfiled(source, oldTree, ts)
