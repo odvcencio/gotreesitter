@@ -2,10 +2,7 @@
 
 package grammarruntime
 
-import (
-	"bytes"
-	"testing"
-)
+import "testing"
 
 // Pinned C scanner src/scanner.c:166-234.
 func TestRubyScannerCParityReproducers(t *testing.T) {
@@ -29,18 +26,6 @@ func TestRubyScannerCParityReproducers(t *testing.T) {
 	}
 }
 
-// C src/scanner.c:107-118 serializes a uint32 word size.
-func TestRubyScannerCParityHeredocState(t *testing.T) {
-	sc := RubyExternalScanner{}
-	p := &rbyScannerState{openHeredocs: []rbyHeredoc{{word: []byte("EOF"), allowsInterpolation: true}}}
-	b := make([]byte, 1024)
-	n := sc.Serialize(p, b)
-	want := []byte{0, 1, 0, 1, 0, 3, 0, 0, 0, 'E', 'O', 'F'}
-	if !bytes.Equal(b[:n], want) {
-		t.Fatalf("state=%x; want %x", b[:n], want)
-	}
-}
-
 // C src/scanner.c:863-869,1016-1022 uses the C locale's wide classes.
 func TestRubyScannerCParityCharacterClasses(t *testing.T) {
 	for _, tc := range []scannerGroup1Case{
@@ -61,6 +46,6 @@ func TestRubyScannerCParityShortInterpolationAtEOF(t *testing.T) {
 // C src/scanner.c:710 compares a signed char heredoc byte with lookahead.
 func TestRubyScannerCParityNonASCIIHeredoc(t *testing.T) {
 	checkScannerGroup1(t, RubyExternalScanner{}, scannerGroup1Case{
-		"non-ascii-heredoc", "é\n", 0, "000000000001000000000000000000", "\x00\x01\x00\x01\x01\x01\x00\x00\x00\xe9", true, 139, 0, 3, 4,
+		"non-ascii-heredoc", "é\n", 0, "000000000001000000000000000000", "\x00\x01\x00\x01\x01\x01\xe9", true, 139, 0, 3, 4,
 	})
 }

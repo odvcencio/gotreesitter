@@ -3,7 +3,6 @@
 package grammarruntime
 
 import (
-	"encoding/binary"
 	"strings"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -260,10 +259,10 @@ func (RubyExternalScanner) Serialize(payload any, buf []byte) int {
 
 	for i := range s.openHeredocs {
 		hd := &s.openHeredocs[i]
-		if size+7+len(hd.word) >= rbyMaxSerialize {
+		if size+4+len(hd.word) >= rbyMaxSerialize {
 			return 0
 		}
-		if size+7+len(hd.word) > len(buf) {
+		if size+4+len(hd.word) > len(buf) {
 			return 0
 		}
 		if hd.endWordIndentationAllowed {
@@ -284,8 +283,8 @@ func (RubyExternalScanner) Serialize(payload any, buf []byte) int {
 			buf[size] = 0
 		}
 		size++
-		binary.NativeEndian.PutUint32(buf[size:], uint32(len(hd.word)))
-		size += 4
+		buf[size] = byte(len(hd.word))
+		size++
 		copy(buf[size:], hd.word)
 		size += len(hd.word)
 	}
@@ -328,7 +327,7 @@ func (RubyExternalScanner) Deserialize(payload any, buf []byte) {
 	size++
 	for j := 0; j < openHeredocCount && size < len(buf); j++ {
 		hd := rbyHeredoc{}
-		if size+7 > len(buf) {
+		if size+4 > len(buf) {
 			break
 		}
 		hd.endWordIndentationAllowed = buf[size] != 0
@@ -337,14 +336,14 @@ func (RubyExternalScanner) Deserialize(payload any, buf []byte) {
 		size++
 		hd.started = buf[size] != 0
 		size++
-		wordLen := binary.NativeEndian.Uint32(buf[size:])
-		size += 4
-		if wordLen > uint32(len(buf)-size) {
+		wordLen := int(buf[size])
+		size++
+		if size+wordLen > len(buf) {
 			break
 		}
-		hd.word = make([]byte, int(wordLen))
-		copy(hd.word, buf[size:size+int(wordLen)])
-		size += int(wordLen)
+		hd.word = make([]byte, wordLen)
+		copy(hd.word, buf[size:size+wordLen])
+		size += wordLen
 		s.openHeredocs = append(s.openHeredocs, hd)
 	}
 }
