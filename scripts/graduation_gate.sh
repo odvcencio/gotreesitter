@@ -6,7 +6,7 @@
 #
 # Options
 #   --report          report mode: run every requested item, print one line per
-#                     item, exit 0 (the census). Without it the script is the
+#                     item, exit 0. Without it the script is the
 #                     gate: it exits 1 at the first item that does not pass and
 #                     skips the later items.
 #   --items 1,2,3     run only these items (default: 1 to 10)
@@ -17,13 +17,14 @@
 #                     no certificate. Item 0 is still printed as it is, and
 #                     the other items run under the test certification. The
 #                     gate itself never runs without a certificate.
-#   --mode full      use incremental parsing
 #
 # Output: one line per item
 #   GRAD <language> item=<n> <pass|fail|n/a> <numbers> [first failing input]
 # A check that did not run prints n/a with the reason; n/a does not pass in
 # gate mode.
-# Items use the production views default; CCORE_VIEWS=0|1 overrides it for a census.
+# --report --census may set CCORE_VIEWS=0|1.
+# All other runs reject CCORE_VIEWS and use the build default.
+# GTS_ADMISSION_CANDIDATE is unset so it cannot change the default route.
 #
 # Items (tests in cgo_harness and admission_switch_test.go)
 #   1 fresh parse equals pinned C on every input of the grammar's corpus
@@ -40,7 +41,8 @@
 #   8 safety: stop reasons, a failing core and scanner, release orders, readers
 #     (also under -race), store bound
 #   9 peak resident set size of a 1 MiB fresh parse and of 1,000 edits, at or below the default
-#     engine's; each run is a child process that resets the peak after its setup
+#     engine's; each run is a child process that resets the peak after its setup and
+#     keeps its heap within 32 MiB of what it holds (a soft memory limit)
 #   10 time, 20 paired rounds at 32 KiB, 137 KiB and 1 MiB, median at or below the default engine's
 #
 # Environment
@@ -52,7 +54,7 @@
 #
 # Needs: go with cgo, the pinned C oracle (cgo_harness/docker/run_parity_in_docker.sh sets it up).
 set -uo pipefail
-unset CCORE_REPORT_ONLY CCORE_UPDATE_GOLDEN GRAD_NEGATIVE
+unset CCORE_REPORT_ONLY CCORE_UPDATE_GOLDEN GRAD_NEGATIVE GRAD_CENSUS GTS_ADMISSION_CANDIDATE
 
 # result_line <log> <item>: the last GRADRESULT line of an item in a log.
 result_line() { grep -a "^GRADRESULT item=$2 " "$1" 2>/dev/null | tail -n 1; }
@@ -223,18 +225,26 @@ if [ "${1:-}" = "--self-test" ]; then
   ok "report mode runs the later items" "$(grep -c 'item=2' <<<"$out")" "1"
   out=$(bash "$0" --census json 2>&1); rc=$?
   ok "--census without --report is refused" "$rc" "2"
+  out=$(bash "$0" --items 0 json 2>&1); rc=$?
+  ok "--items without --report is refused" "$rc" "2"
+  ok "--items refusal message" "$out" "graduation_gate.sh: --items needs --report (a gate run runs every item)"
+  out=$(CCORE_VIEWS=0 bash "$0" --report json 2>&1); rc=$?
+  ok "CCORE_VIEWS without --census is refused" "$rc" "2"
+  ok "CCORE_VIEWS refusal message" "$out" "graduation_gate.sh: CCORE_VIEWS is for --report --census; the gate measures the default views switch"
+  out=$(bash "$0" --report --items 0 --self-test-gate 2>&1); rc=$?
+  ok "--report --items 0 is accepted" "$rc" "0"
+  ok "--report --items 0 reports item 0" "$(grep -c 'item=0' <<<"$out")" "1"
   exit "$fails"
 fi
 
-report=0; census=0; items="1,2,3,4,5,6,7,8,9,10"; negative=""; race=1; selftestgate=0; lang=""; mode=full
+report=0; census=0; items="1,2,3,4,5,6,7,8,9,10"; negative=""; race=1; selftestgate=0; lang=""; items_set=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --report) report=1 ;;
-    --items) items=$2; shift ;;
+    --items) items=$2; items_set=1; shift ;;
     --negative) negative=$2; shift ;;
     --no-race) race=0 ;;
     --census) census=1 ;;
-    --mode) mode=$2; shift ;;
     --self-test-gate) selftestgate=1 ;;
     -*) echo "graduation_gate.sh: unknown option $1" >&2; exit 2 ;;
     *) lang=$1 ;;
@@ -247,8 +257,12 @@ done
 stop_if_needed() { if [ "$report" = 0 ] && [ "$LAST_STATUS" != pass ]; then echo "graduation_gate.sh: item $1 did not pass; later items skipped" >&2; exit 1; fi; }
 
 if [ "$census" = 1 ] && [ "$report" = 0 ]; then echo "graduation_gate.sh: --census needs --report" >&2; exit 2; fi
+if [ "$items_set" = 1 ] && [ "$report" = 0 ]; then echo "graduation_gate.sh: --items needs --report (a gate run runs every item)" >&2; exit 2; fi
+if [ "$census" = 0 ] && [ "${CCORE_VIEWS+x}" = x ]; then echo "graduation_gate.sh: CCORE_VIEWS is for --report --census; the gate measures the default views switch" >&2; exit 2; fi
+if [ "$census" = 1 ]; then export GRAD_CENSUS=1; fi
 
 if [ "$selftestgate" = 1 ]; then
+  if [ "$items_set" = 1 ] && [ "$items" = 0 ]; then emit selftest 0 pass "numbers" ""; exit 0; fi
   for i in 1 2; do
     emit selftest "$i" "${GRAD_SELF_TEST_STATUS:-pass}" "numbers" ""
     stop_if_needed "$i"
@@ -265,10 +279,9 @@ else
   out=$(mktemp -d) || exit 2
 fi
 trap 'printf "graduation_gate.sh: logs=%s\n" "$out"' EXIT
-case "$mode" in full) ;; *) echo "graduation_gate.sh: --mode must be full" >&2; exit 2 ;; esac
 if [[ ! "$items" =~ ^([0-9]|10)(,([0-9]|10))*$ ]]; then echo "graduation_gate.sh: invalid item list: $items" >&2; exit 2; fi
 if [ -n "$negative" ] && [[ ! "$negative" =~ ^([0-9]|10)$ ]]; then echo "graduation_gate.sh: invalid negative item: $negative" >&2; exit 2; fi
-export GOWORK=off GOMAXPROCS=${GOMAXPROCS:-1} GRAD_LANG=$lang GRAD_MODE=$mode
+export GOWORK=off GOMAXPROCS=${GOMAXPROCS:-1} GRAD_LANG=$lang
 [ -n "$negative" ] && export GRAD_NEGATIVE=$negative
 want() { [[ ",$items," == *",$1,"* ]]; }
 
@@ -294,9 +307,7 @@ run_harness() {
 }
 
 # Item 0: the core serves the grammar by default (a certificate for the blob).
-# The other items certify the grammar for the test run, so they cannot tell a
-# grammar with a certificate from one without. Without a certificate the other
-# items are not run, in report mode too, unless --census asks for them.
+# Without a certificate the other items run only when --census asks for them.
 run_harness 0 TestGraduationServed
 observed_views=$(field "$(result_line "$LOG" 0)" views)
 case "$observed_views" in true|false) views=$observed_views ;; esac

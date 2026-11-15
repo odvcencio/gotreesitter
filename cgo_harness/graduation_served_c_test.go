@@ -7,6 +7,8 @@ import (
 	"os"
 	"testing"
 
+	g "github.com/odvcencio/gotreesitter"
+
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
@@ -14,7 +16,12 @@ import (
 
 // TestGraduationServed checks the generated certificate and the route.
 func TestGraduationServed(t *testing.T) {
-	defer ccoreConfigureViews(t)()
+	if gradCensus() {
+		defer ccoreConfigureViews(t)()
+	} else if _, set := os.LookupEnv("CCORE_VIEWS"); set {
+		t.Fatal("CCORE_VIEWS is for --report --census; the gate measures the default views switch")
+	}
+	gradRun(t)
 	name := os.Getenv("GRAD_LANG")
 	if name == "" {
 		t.Skip("set GRAD_LANG")
@@ -33,14 +40,18 @@ func TestGraduationServed(t *testing.T) {
 	cert, found := certified.Blobs[blob]
 	config, err := bind.ConfigHash(lang)
 	nums := fmt.Sprintf("input=%s blob=%x modes=%d need=%d config=%x certificate_config=%x", name, blob, cert.Modes, need, config, cert.Config)
-	if !found || cert.Modes&need != need || err != nil || cert.Config != config || gradNeg(0) {
+	if gradNeg(0) {
+		gradResult(0, "fail", nums, "negative check: corrupted certificate expectation")
+		return
+	}
+	if !found || cert.Modes&need != need || err != nil || cert.Config != config {
 		gradResult(0, "fail", nums, fmt.Sprintf("certificate missing or mismatched: found=%t config_error=%v", found, err))
 		return
 	}
 	src, input := gradSample(t, name)
-	served, err := gradServedBy(gradRoute(lang), src)
+	served, err := gradServedBy(g.NewParser(lang), src)
 	if err != nil || !served {
-		gradResult(0, "fail", nums, fmt.Sprintf("input=%s served=%t parse_error=%v", input, served, err))
+		gradResult(0, "fail", nums, fmt.Sprintf("certified but not served by a default parser: input=%s served=%t parse_error=%v", input, served, err))
 		return
 	}
 	gradResult(0, "pass", nums+" inputs=1 served=1", "")

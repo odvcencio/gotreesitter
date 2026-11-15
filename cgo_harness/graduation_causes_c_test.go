@@ -29,8 +29,13 @@ func gradDump(name string, lines []string) {
 	if dir == "" {
 		return
 	}
-	os.MkdirAll(dir, 0o755)
-	os.WriteFile(filepath.Join(dir, name), []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		fmt.Printf("GRADNOTE cannot create diagnostic directory %q: %v\n", dir, err)
+		return
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
+		fmt.Printf("GRADNOTE cannot write diagnostic file %q: %v\n", name, err)
+	}
 }
 
 func gradCParser(t *testing.T, c *gradCtx, log *[]string) *sitter.Parser {
@@ -215,7 +220,6 @@ func gradSetDiff(a, b []string) []string {
 
 func TestGraduationCauseQueries(t *testing.T) {
 	c := gradLoad(t)
-	defer ccoreRouteCertify(t)()
 	pats := map[string]string{"missing": "(MISSING) @missing\n", "error": "(ERROR) @error\n"}
 	for _, s := range c.lang.SupertypeSymbols {
 		if int(s) < len(c.lang.SymbolNames) {
@@ -343,7 +347,6 @@ func gradMinimize(src []byte, fails func([]byte) bool) []byte {
 // route's own counters.
 func TestGraduationCauseDeclines(t *testing.T) {
 	c := gradLoad(t)
-	defer ccoreRouteCertify(t)()
 	sample, _ := gradSample(t, c.name)
 	sc := c.lang.ExternalScanner
 	reuse, hasReuse := sc.(g.IncrementalReuseExternalScanner)

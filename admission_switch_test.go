@@ -4353,6 +4353,7 @@ func gradSafetyStatus(failed, na int) string {
 }
 
 func TestGraduationSafetyStatus(t *testing.T) {
+	fmt.Printf("GRADRUN test=%s census=%t views=%t\n", t.Name(), os.Getenv("GRAD_CENSUS") == "1", gts.CcoreTestViewsEnabled())
 	for _, tc := range []struct {
 		name       string
 		failed, na int
@@ -4372,20 +4373,32 @@ func TestGraduationSafetyStatus(t *testing.T) {
 }
 
 func TestGraduationSafety(t *testing.T) {
-	switch v := os.Getenv("CCORE_VIEWS"); v {
-	case "":
-	case "0", "1":
-		defer gts.CcoreTestViewsOn(v == "1")()
-	default:
-		t.Fatalf("invalid CCORE_VIEWS=%q: want 0 or 1", v)
+	census := os.Getenv("GRAD_CENSUS") == "1"
+	if census {
+		switch v := os.Getenv("CCORE_VIEWS"); v {
+		case "":
+		case "0", "1":
+			defer gts.CcoreTestViewsOn(v == "1")()
+		default:
+			t.Fatalf("invalid CCORE_VIEWS=%q: want 0 or 1", v)
+		}
+		defer ccoreCertifyIncr()()
+	} else if _, set := os.LookupEnv("CCORE_VIEWS"); set {
+		t.Fatal("CCORE_VIEWS is for --report --census; the gate measures the default views switch")
 	}
 	views := gts.CcoreTestViewsEnabled()
+	fmt.Printf("GRADRUN test=%s census=%t views=%t\n", t.Name(), census, views)
 	name := os.Getenv("GRAD_LANG")
 	if name == "" {
 		t.Skip("set GRAD_LANG")
 	}
 	lang := ccoreRouteLang(t, name)
-	defer ccoreCertifyIncr()()
+	route := func(l *gts.Language) *gts.Parser {
+		if census {
+			return ccoreRouteParser(l)
+		}
+		return gts.NewParser(l)
+	}
 	small := gradSafetySource(t, name, 1)
 	big := gradSafetySource(t, name, 1<<20)
 	failed, na, notApplicable, ran := 0, 0, 0, 0
@@ -4408,6 +4421,25 @@ func TestGraduationSafety(t *testing.T) {
 			if first == "" {
 				first = check + ": " + detail
 			}
+		}
+	}
+	if !census {
+		gts.CcoreTestReset()
+		probe, err := route(lang).Parse(small)
+		_, served := gts.CcoreTestCounters()
+		if probe != nil {
+			probe.Release()
+		}
+		if err != nil || probe == nil || served == 0 {
+			for _, check := range []string{"cancel-before", "deadline-1us", "memory-budget", "core-stop", "core-panic", "scanner-panics", "release-orders", "readers", "store-bound"} {
+				report(check, "na", "default parser did not serve the sample through the core")
+			}
+			build := "plain"
+			if raceEnabled {
+				build = "race"
+			}
+			fmt.Printf("GRADRESULT item=8 status=na views=%t build=%s checks_run=%d checks_failed=%d checks_na=%d checks_not_applicable=%d first=%q\n", views, build, ran, failed, na, notApplicable, first)
+			return
 		}
 	}
 	stopOf := func(p *gts.Parser, src []byte) string {
@@ -4440,13 +4472,13 @@ func TestGraduationSafety(t *testing.T) {
 		if os.Getenv("GRAD_NEGATIVE") == "8" {
 			want += "!" // corrupted expectation
 		}
-		rp := ccoreRouteParser(lang)
+		rp := route(lang)
 		c.set(rp)
 		gts.CcoreTestReset()
 		got := stopOf(rp, c.src)
 		decl, served := gts.CcoreTestCounters()
 		detail := fmt.Sprintf("route=%q default=%q core_served=%d declines=%v", got, want, served, decl)
-		if got == want && (served == 0 || got == string(gts.ParseStopAccepted)) {
+		if got == want && decl[c.decl] > 0 && (served == 0 || got == string(gts.ParseStopAccepted)) {
 			report(c.name, "ok", detail)
 		} else {
 			report(c.name, "fail", detail)
@@ -4469,7 +4501,7 @@ func TestGraduationSafety(t *testing.T) {
 		}{{"core-stop", "core_stop", false}, {"core-panic", "panic", true}} {
 			gts.CcoreTestReset()
 			restore := gts.CcoreTestStopAfter(1, tc.panic)
-			got, err := ccoreRouteParser(lang).Parse(small)
+			got, err := route(lang).Parse(small)
 			restore()
 			decl, served := gts.CcoreTestCounters()
 			equal := got != nil && ccoreWalkDigest(got, lang) == wantDigest
@@ -4488,14 +4520,24 @@ func TestGraduationSafety(t *testing.T) {
 	if lang.ExternalScanner == nil {
 		report("scanner-panics", "not-applicable", "the grammar has no external scanner")
 	} else {
-		outcome := func(route bool) (result string, calls int32, declines map[string]int64) {
+		// The check wraps the scanner. That changes the language's configuration, so
+		// the shipped certificate cannot cover the wrapped language. The check therefore
+		// runs under the test certification in every kind of run and selects the route
+		// on its parser: what it shows (the core reaches a scanner that panics, declines,
+		// and the answer is the present engine's) does not depend on which certificate
+		// switched the route on.
+		restoreCertificate := func() {}
+		if !census {
+			restoreCertificate = ccoreCertifyIncr()
+		}
+		outcome := func(candidate bool) (result string, calls int32, declines map[string]int64) {
 			l := ccoreCopyLanguage(lang)
 			var n atomic.Int32
 			l.ExternalScanner = ccoreWrapped(lang, func(inner gts.ExternalScanner) gts.ExternalScanner {
 				return gradPanicScanner{inner: inner, calls: &n}
 			})
 			p := gts.NewParser(l)
-			p.SetAdmissionCandidateRoute(route)
+			p.SetAdmissionCandidateRoute(candidate)
 			gts.CcoreTestReset()
 			func() {
 				defer func() {
@@ -4518,13 +4560,14 @@ func TestGraduationSafety(t *testing.T) {
 			declines, _ = gts.CcoreTestCounters()
 			return result, n.Load(), declines
 		}
-		route, routeCalls, declines := outcome(true)
+		routed, routeCalls, declines := outcome(true)
 		present, presentCalls, _ := outcome(false)
-		detail := fmt.Sprintf("input=%s route=%s default=%s route_scans=%d default_scans=%d declines=%v", name, route, present, routeCalls, presentCalls, declines)
+		restoreCertificate()
+		detail := fmt.Sprintf("input=%s route=%s default=%s route_scans=%d default_scans=%d declines=%v", name, routed, present, routeCalls, presentCalls, declines)
 		switch {
 		case routeCalls == 0 || presentCalls == 0 || declines["panic"] == 0:
 			report("scanner-panics", "na", "scanner panic was not observed in both paths and as a core decline: "+detail)
-		case route == present:
+		case routed == present:
 			report("scanner-panics", "ok", detail)
 		default:
 			report("scanner-panics", "fail", detail)
@@ -4535,7 +4578,8 @@ func TestGraduationSafety(t *testing.T) {
 	if len(next) == len(small) {
 		report("release-orders", "na", "the sample has no place for a one-byte edit")
 	} else {
-		ft, _ := ccoreRouteParser(lang).Parse(next)
+		gts.CcoreTestReset()
+		ft, _ := route(lang).Parse(next)
 		wantNext := ccoreSExpr(ft, lang)
 		ft.Release()
 		n, reparses, copies, bad := 0, 0, 0, ""
@@ -4553,7 +4597,7 @@ func TestGraduationSafety(t *testing.T) {
 				return
 			}
 			n++
-			p := ccoreRouteParser(lang)
+			p := route(lang)
 			tree, err := p.Parse(small)
 			if err != nil {
 				bad = err.Error()
@@ -4601,8 +4645,10 @@ func TestGraduationSafety(t *testing.T) {
 			tree.Release()
 		}
 		rec([]string{"copy", "edit", "reparse", "release"}, 0)
-		detail := fmt.Sprintf("orders=%d reparses=%d copies=%d %s", n, reparses, copies, bad)
-		if bad == "" && n == 24 && reparses > 0 && copies > 0 {
+		_, freshServed := gts.CcoreTestCounters()
+		_, incrementalServed := gts.CcoreTestIncr()
+		detail := fmt.Sprintf("orders=%d reparses=%d copies=%d fresh_served=%d incremental_served=%d %s", n, reparses, copies, freshServed, incrementalServed, bad)
+		if bad == "" && n == 24 && reparses > 0 && copies > 0 && freshServed > 0 && incrementalServed > 0 {
 			report("release-orders", "ok", detail)
 		} else {
 			report("release-orders", "fail", detail)
@@ -4611,7 +4657,8 @@ func TestGraduationSafety(t *testing.T) {
 
 	// A reader walks a tree while two copies of it are edited and reparsed (meaningful under -race).
 	{
-		p0 := ccoreRouteParser(lang)
+		gts.CcoreTestReset()
+		p0 := route(lang)
 		tree, err := p0.Parse(small)
 		if err != nil {
 			report("readers", "fail", err.Error())
@@ -4645,7 +4692,7 @@ func TestGraduationSafety(t *testing.T) {
 				workers.Add(1)
 				go func(gi int, cp *gts.Tree) {
 					defer workers.Done()
-					p := ccoreRouteParser(lang)
+					p := route(lang)
 					cur := small
 					for i := 0; i < 30; i++ {
 						var e gts.InputEdit
@@ -4668,8 +4715,10 @@ func TestGraduationSafety(t *testing.T) {
 			close(stop)
 			wg.Wait()
 			tree.Release()
-			if bad.Load() == 0 && reads.Load() > 0 {
-				report("readers", "ok", fmt.Sprintf("reader_walks=%d", reads.Load()))
+			_, freshServed := gts.CcoreTestCounters()
+			_, incrementalServed := gts.CcoreTestIncr()
+			if bad.Load() == 0 && reads.Load() > 0 && freshServed > 0 && incrementalServed > 0 {
+				report("readers", "ok", fmt.Sprintf("reader_walks=%d fresh_served=%d incremental_served=%d", reads.Load(), freshServed, incrementalServed))
 			} else {
 				report("readers", "fail", fmt.Sprintf("failed reparses=%d reader_walks=%d", bad.Load(), reads.Load()))
 			}
@@ -4683,7 +4732,7 @@ func TestGraduationSafety(t *testing.T) {
 		case "json", "python", "c", "typescript":
 			source = ccoreGateSource(name, 32<<10)
 		}
-		p := ccoreRouteParser(lang)
+		p := route(lang)
 		fresh := gts.NewParser(lang)
 		fresh.SetAdmissionCandidateRoute(false)
 		tree, err := p.Parse(source)

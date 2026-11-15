@@ -3,10 +3,9 @@
 package cgoharness
 
 // Graduation gate checks that need the pinned C runtime. scripts/graduation_gate.sh
-// runs one grammar per process; GRAD_LANG names it. Each test certifies the
-// grammar for the test run (bind.CertifyForTests), switches the candidate
-// route on for the parsers it makes, and compares the route with pinned C and
-// with the default (present) engine.
+// runs one grammar per process; GRAD_LANG names it. Census tests certify the
+// grammar and select the candidate route. Other runs use the shipped route.
+// Comparisons use pinned C and the present engine.
 //
 // A test prints one result line
 //
@@ -20,7 +19,7 @@ package cgoharness
 //
 // Items: 1 fresh equality with C, 2 invariants, 3 incremental equality with C
 // (public tree and the core's records, which hold the token lookahead bytes),
-// 5 reuse against the default engine, 6 counters against the default engine,
+// 5 reuse against C, 6 tokens against C and other counters against the present engine,
 // 7 query results, 9 peak memory (child process), 10 time.
 
 import (
@@ -54,12 +53,32 @@ type gradCtx struct {
 	blob  string // SHA-256 of the grammar blob, hex
 }
 
+func gradCensus() bool { return os.Getenv("GRAD_CENSUS") == "1" }
+
+func gradCertify(t *testing.T) func() {
+	t.Helper()
+	if gradCensus() {
+		return ccoreRouteCertify(t)
+	}
+	if _, set := os.LookupEnv("CCORE_VIEWS"); set {
+		t.Fatal("CCORE_VIEWS is for --report --census; the gate measures the default views switch")
+	}
+	return func() {}
+}
+
+func gradRun(t *testing.T) {
+	fmt.Printf("GRADRUN test=%s census=%t views=%t\n", t.Name(), gradCensus(), ccoreViewsEnabled())
+}
+
 func gradLoad(t *testing.T) *gradCtx {
 	t.Helper()
 	name := os.Getenv("GRAD_LANG")
 	if name == "" {
+		gradRun(t)
 		t.Skip("set GRAD_LANG")
 	}
+	t.Cleanup(gradCertify(t))
+	gradRun(t)
 	gl, cl := ccoreLanguages(t, name)
 	sum, _ := gl.GrammarBlobSHA256()
 	c := &gradCtx{name: name, entry: grammars.DetectLanguageByName(name), lang: gl, cLang: cl, blob: fmt.Sprintf("%x", sum)}
@@ -146,9 +165,8 @@ func (s *gradService) numbers() string {
 	return fmt.Sprintf("served_incremental=%d served_fresh=%d fresh_reasons=%s invalid_service=%d", s.incremental, s.fresh, strings.Join(parts, ","), s.invalid)
 }
 
-// gradDefault is the parser of the "present engine" arm. A grammar with a certificate
-// is served by the core unless the parser says otherwise, so the arm turns the route
-// off on the parser. gradServedBy proves it from the route's counters.
+// gradDefault selects the present engine for the reference arm.
+// gradServedBy verifies that this parser does not use the core.
 func gradDefault(lang *g.Language) *g.Parser {
 	p := g.NewParser(lang)
 	p.SetAdmissionCandidateRoute(false)
@@ -159,13 +177,13 @@ func gradDefault(lang *g.Language) *g.Parser {
 // (the route's fresh counter rose). The decision comes from the counters, not from
 // the environment.
 func gradServedBy(p *g.Parser, src []byte) (bool, error) {
-	_, f0, i0 := bind.RouteCounters()
+	_, f0, _ := bind.RouteCounters()
 	tree, err := p.Parse(src)
-	_, f1, i1 := bind.RouteCounters()
+	_, f1, _ := bind.RouteCounters()
 	if tree != nil {
 		tree.Release()
 	}
-	return f1+i1 > f0+i0, err
+	return f1 > f0, err
 }
 
 // gradAssertDefaultArm stops a test when the present-engine arm is served by the core.
@@ -173,7 +191,6 @@ func gradServedBy(p *g.Parser, src []byte) (bool, error) {
 func gradAssertDefaultArm(t *testing.T, c *gradCtx) {
 	t.Helper()
 	src, _ := gradSample(t, c.name)
-	defer ccoreRouteCertify(t)()
 	rs, err := gradServedBy(gradRoute(c.lang), src)
 	if err != nil {
 		t.Fatalf("arm check: %v", err)
@@ -188,9 +205,12 @@ func gradAssertDefaultArm(t *testing.T, c *gradCtx) {
 	}
 }
 
+// gradRoute uses the candidate route in a census and the default parser otherwise.
 func gradRoute(lang *g.Language) *g.Parser {
 	p := g.NewParser(lang)
-	p.SetAdmissionCandidateRoute(true)
+	if gradCensus() {
+		p.SetAdmissionCandidateRoute(true)
+	}
 	return p
 }
 
@@ -343,7 +363,6 @@ func gradFirstDiv(tree *g.Tree, c *gradCtx, cTree *sitter.Tree) (int, string) {
 // Item 1: fresh parse of every input through the route against pinned C.
 func TestGraduationFresh(t *testing.T) {
 	c := gradLoad(t)
-	defer ccoreRouteCertify(t)()
 	known := gradKnownDifferences(t)
 	base, f0, i0 := bind.RouteCounters()
 	base = gradCopyMap(base)
@@ -491,7 +510,6 @@ func gradPoint(src []byte, at int) g.Point {
 // sites per edit class. Four lines per step.
 func TestGraduationInvariants(t *testing.T) {
 	c := gradLoad(t)
-	defer ccoreRouteCertify(t)()
 	base, f0, i0 := bind.RouteCounters()
 	base = gradCopyMap(base)
 	sample, _ := gradSample(t, c.name)
@@ -598,9 +616,55 @@ func TestGraduationInvariants(t *testing.T) {
 
 // Item 3: the session through the route against C's incremental parse, and the
 // core's own parse against C's records (kind, range, flags, token lookahead bytes).
+type gradIncrementalCounts struct {
+	steps, edits, recordSteps, equalTrees, equalRecords, invalidService, cDifferences, unapproved int
+}
+
+func gradIncrementalVerdict(c gradIncrementalCounts) (string, string) {
+	switch {
+	case c.invalidService != 0:
+		return "fail", "invalid route service"
+	case c.unapproved != 0:
+		return "fail", "C incremental tree differs from fresh without approval"
+	case c.steps == 0 || c.edits == 0 || c.recordSteps == 0:
+		return "na", fmt.Sprintf("steps=%d edits=%d record_steps=%d", c.steps, c.edits, c.recordSteps)
+	case c.equalTrees != c.steps || c.equalRecords != c.recordSteps:
+		return "fail", "tree or record differs from C"
+	default:
+		return "pass", ""
+	}
+}
+
+func TestGraduationIncrementalVerdict(t *testing.T) {
+	gradRun(t)
+	good := gradIncrementalCounts{steps: 2, edits: 1, recordSteps: 1, equalTrees: 2, equalRecords: 1}
+	for _, tc := range []struct {
+		name         string
+		counts       gradIncrementalCounts
+		want, reason string
+	}{
+		{"pass", good, "pass", ""},
+		{"unapproved C difference", gradIncrementalCounts{steps: 2, edits: 1, recordSteps: 1, equalTrees: 2, equalRecords: 1, cDifferences: 1, unapproved: 1}, "fail", "C incremental tree differs from fresh without approval"},
+		{"approved C differences", gradIncrementalCounts{steps: 2, edits: 1, recordSteps: 1, equalTrees: 2, equalRecords: 1, cDifferences: 2}, "pass", ""},
+		{"unapproved with no records", gradIncrementalCounts{steps: 1, edits: 1, equalTrees: 1, cDifferences: 1, unapproved: 1}, "fail", "C incremental tree differs from fresh without approval"},
+		{"no steps", gradIncrementalCounts{}, "na", "steps=0 edits=0 record_steps=0"},
+		{"no edits", gradIncrementalCounts{steps: 1, equalTrees: 1}, "na", "steps=1 edits=0 record_steps=0"},
+		{"no records", gradIncrementalCounts{steps: 1, edits: 1, equalTrees: 1}, "na", "steps=1 edits=1 record_steps=0"},
+		{"invalid service", gradIncrementalCounts{invalidService: 1}, "fail", "invalid route service"},
+		{"tree mismatch", gradIncrementalCounts{steps: 2, edits: 1, recordSteps: 1, equalTrees: 1, equalRecords: 1}, "fail", "tree or record differs from C"},
+		{"record mismatch", gradIncrementalCounts{steps: 2, edits: 1, recordSteps: 1, equalTrees: 2}, "fail", "tree or record differs from C"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			status, reason := gradIncrementalVerdict(tc.counts)
+			if status != tc.want || reason != tc.reason {
+				t.Fatalf("got (%q, %q), want (%q, %q)", status, reason, tc.want, tc.reason)
+			}
+		})
+	}
+}
+
 func TestGraduationIncremental(t *testing.T) {
 	c := gradLoad(t)
-	defer ccoreRouteCertify(t)()
 	base, f0, i0 := bind.RouteCounters()
 	base = gradCopyMap(base)
 	sample, _ := gradSample(t, c.name)
@@ -614,7 +678,9 @@ func TestGraduationIncremental(t *testing.T) {
 	var tree *g.Tree
 	var cTree *sitter.Tree
 	var cStale *sitter.Tree
-	steps, eqC, edits, cDiff := 0, 0, 0, 0
+	steps, eqC, edits, cDiff, cUnapproved := 0, 0, 0, 0, 0
+	known := gradKnownDifferences(t)
+	firstUnapproved := ""
 	var service gradService
 	lastIncr := 0
 	recordSteps, recordEqual := 0, 0
@@ -635,7 +701,13 @@ func TestGraduationIncremental(t *testing.T) {
 				t.Fatalf("item 3 input=%s core stop=%s", st.id, stop)
 			}
 			coreTree = core.Tree()
+			_, freshBefore, _ := bind.RouteCounters()
 			next, err = p.Parse(st.src)
+			_, freshAfter, _ := bind.RouteCounters()
+			if freshAfter-freshBefore != 1 {
+				service.invalid++
+				service.first = st.id + ": fresh parse was not served by the core"
+			}
 		} else {
 			cTree.Edit(gradSitterEdit(*st.edit))
 			cn := cp.Parse(st.src, cTree)
@@ -683,6 +755,12 @@ func TestGraduationIncremental(t *testing.T) {
 			}
 			if incrementalDigest != freshDigest {
 				cDiff++
+				if _, ok := known[[3]string{c.name, c.blob, gradSHA(st.src)}]; !ok {
+					cUnapproved++
+					if firstUnapproved == "" {
+						firstUnapproved = st.id
+					}
+				}
 			}
 			cmp = freshC
 		}
@@ -718,16 +796,21 @@ func TestGraduationIncremental(t *testing.T) {
 		cStale.Close()
 	}
 	core.Release(coreTree)
-	status := "pass"
-	switch {
-	case service.invalid != 0:
-		status, first = "fail", service.first
-	case steps == 0 || edits == 0 || recordSteps == 0:
-		status, first = "na", fmt.Sprintf("steps=%d edits=%d record_steps=%d", steps, edits, recordSteps)
-	case eqC != steps || recordEqual != recordSteps:
-		status = "fail"
+	status, reason := gradIncrementalVerdict(gradIncrementalCounts{steps, edits, recordSteps, eqC, recordEqual, service.invalid, cDiff, cUnapproved})
+	if service.invalid != 0 {
+		first = service.first
+	} else if status == "na" {
+		first = reason
 	}
-	gradResult(3, status, fmt.Sprintf("steps=%d tree_equals_c=%d record_steps=%d records_equal_c=%d c_incremental_differs_from_fresh=%d %s", steps, eqC, recordSteps, recordEqual, cDiff, service.numbers()), first)
+	if cUnapproved != 0 {
+		detail := firstUnapproved + ": C incremental tree differs from fresh without approval"
+		if first == "" {
+			first = detail
+		} else {
+			first += "; " + detail
+		}
+	}
+	gradResult(3, status, fmt.Sprintf("steps=%d tree_equals_c=%d record_steps=%d records_equal_c=%d c_incremental_differs_from_fresh=%d c_incremental_differs_unapproved=%d %s", steps, eqC, recordSteps, recordEqual, cDiff, cUnapproved, service.numbers()), first)
 	gradPrintDecl(3, base, f0, i0)
 }
 
@@ -735,9 +818,47 @@ func TestGraduationIncremental(t *testing.T) {
 // number of subtrees the route reuses at a step must equal the number of reuse_node
 // events in C's parse log for the same step. The default engine's reused bytes are
 // reported, not judged.
+// gradReuseStepRule checks a compared step after shortcut validation.
+func gradReuseStepRule(shortcut, validShortcut bool, route, c uint64) string {
+	if shortcut {
+		if !validShortcut {
+			return "invalid shortcut"
+		}
+		return ""
+	}
+	if route == 0 {
+		return "no subtree reused on a clean step"
+	}
+	if route != c {
+		return fmt.Sprintf("route reused %d subtrees, C %d", route, c)
+	}
+	return ""
+}
+
+func TestGraduationReuseStepRule(t *testing.T) {
+	gradRun(t)
+	for _, tc := range []struct {
+		name            string
+		shortcut, valid bool
+		route, c        uint64
+		want            string
+	}{
+		{"equal positive", false, false, 2, 2, ""},
+		{"unequal", false, false, 2, 1, "route reused 2 subtrees, C 1"},
+		{"zero", false, false, 0, 0, "no subtree reused on a clean step"},
+		{"valid shortcut", true, true, 0, 0, ""},
+		{"invalid shortcut", true, false, 0, 0, "invalid shortcut"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := gradReuseStepRule(tc.shortcut, tc.valid, tc.route, tc.c); got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestGraduationReuse(t *testing.T) {
 	c := gradLoad(t)
-	defer ccoreRouteCertify(t)()
 	sample, _ := gradSample(t, c.name)
 	chain := gradChain(sample)
 	rp, lp := gradRoute(c.lang), gradDefault(c.lang)
@@ -746,7 +867,7 @@ func TestGraduationReuse(t *testing.T) {
 	defer cp.Close()
 	var rt, lt *g.Tree
 	var cTree *sitter.Tree
-	steps, compared, differ, shortcutSteps := 0, 0, 0, 0
+	steps, compared, differ, shortcutSteps, noReuse := 0, 0, 0, 0, 0
 	var service gradService
 	var rSum, lSum, rNodes, cNodes, shortcutNodes uint64
 	first := ""
@@ -803,8 +924,9 @@ func TestGraduationReuse(t *testing.T) {
 			if shortcutDelta != 0 {
 				shortcutSteps++
 				shortcutNodes += rprof.ReusedSubtrees
+				validShortcut := shortcutDelta == 1 && incr && ccoreViewsEnabled() && st.edit.OldEndByte-st.edit.StartByte == st.edit.NewEndByte-st.edit.StartByte
 				switch {
-				case shortcutDelta != 1 || !incr || !ccoreViewsEnabled() || st.edit.OldEndByte-st.edit.StartByte != st.edit.NewEndByte-st.edit.StartByte:
+				case gradReuseStepRule(true, validShortcut, rprof.ReusedSubtrees, uint64(cReused)) != "":
 					problem = fmt.Sprintf("invalid shortcut: delta=%d incremental=%t views=%t edit=%+v", shortcutDelta, incr, ccoreViewsEnabled(), *st.edit)
 				default:
 					if divs := compactT3StructuralDivergences(rn.RootNode(), c.lang, cTree.RootNode()); len(divs) != 0 {
@@ -814,8 +936,11 @@ func TestGraduationReuse(t *testing.T) {
 			} else {
 				rNodes += rprof.ReusedSubtrees
 				cNodes += uint64(cReused)
-				if problem == "" && rprof.ReusedSubtrees != uint64(cReused) {
-					problem = fmt.Sprintf("route reused %d subtrees, C %d", rprof.ReusedSubtrees, cReused)
+				if rprof.ReusedSubtrees == 0 {
+					noReuse++
+				}
+				if stepProblem := gradReuseStepRule(false, false, rprof.ReusedSubtrees, uint64(cReused)); problem == "" {
+					problem = stepProblem
 				}
 			}
 			if problem != "" {
@@ -843,7 +968,7 @@ func TestGraduationReuse(t *testing.T) {
 	case differ > 0:
 		status = "fail"
 	}
-	gradResult(5, status, fmt.Sprintf("steps=%d compared=%d shortcut_steps=%d shortcut_subtrees_route=%d steps_differing_from_c=%d reused_subtrees_route=%d reused_subtrees_c=%d reused_bytes_route=%d reused_bytes_default_engine=%d %s", steps, compared, shortcutSteps, shortcutNodes, differ, rNodes, cNodes, rSum, lSum, service.numbers()), first)
+	gradResult(5, status, fmt.Sprintf("steps=%d compared=%d shortcut_steps=%d shortcut_subtrees_route=%d clean_steps_without_reuse=%d steps_differing_from_c=%d reused_subtrees_route=%d reused_subtrees_c=%d reused_bytes_route=%d reused_bytes_default_engine=%d %s", steps, compared, shortcutSteps, shortcutNodes, noReuse, differ, rNodes, cNodes, rSum, lSum, service.numbers()), first)
 }
 
 // Item 6: tokens, new nodes and maximum live versions of the core against the
@@ -853,7 +978,6 @@ func TestGraduationReuse(t *testing.T) {
 // internal nodes and copies).
 func TestGraduationCounters(t *testing.T) {
 	c := gradLoad(t)
-	defer ccoreRouteCertify(t)()
 	src, kind := gradSample(t, c.name)
 	chain := gradChain(src)
 	if len(chain) < 2 || chain[1].edit == nil {
@@ -1035,7 +1159,6 @@ func gradEqual(a, b []string) bool {
 // pattern too.
 func TestGraduationQueries(t *testing.T) {
 	c := gradLoad(t)
-	defer ccoreRouteCertify(t)()
 	queries := map[string]string{}
 	if c.entry.HighlightQuery != "" {
 		queries["highlight"] = c.entry.HighlightQuery
@@ -1186,15 +1309,29 @@ func gradProcRSS() (peak, cur uint64, err error) {
 	return peak, cur, nil
 }
 
+// gradRSSHeadroom is how far above its size after setup the child's heap may grow
+// before the collector must run.
+const gradRSSHeadroom = 32 << 20
+
 // gradResetPeakRSS makes the peak resident set size start again from the current
 // size, after a collection that returns freed memory to the system. It returns the
 // size the peak starts from. The setup of the child (loading the grammar and the C
 // library, building the input) reaches a peak of its own that is the same for both
 // arms and can be higher than the workload's; without the reset a comparison of
 // two peaks compares that setup, not the parses.
+//
+// It also sets a soft memory limit gradRSSHeadroom above the memory the Go runtime
+// holds now. The setup leaves a large live heap, and with the default pacing the
+// collector would not run again until the heap had doubled: a short workload would
+// then never be collected, and its peak would count every byte it allocated instead
+// of the bytes it held. With the limit the collector runs as soon as the workload
+// has allocated the headroom, in both arms alike.
 func gradResetPeakRSS() (uint64, error) {
 	runtime.GC()
 	debug.FreeOSMemory()
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	debug.SetMemoryLimit(int64(ms.Sys-ms.HeapReleased) + gradRSSHeadroom)
 	if err := os.WriteFile("/proc/self/clear_refs", []byte("5"), 0); err != nil {
 		return 0, err
 	}
@@ -1229,7 +1366,6 @@ func TestGraduationRSSChild(t *testing.T) {
 	}
 	_, served0, incr0 := bind.RouteCounters()
 	if arm == "route" {
-		defer ccoreRouteCertify(t)()
 		p = gradRoute(c.lang)
 	} else {
 		p = gradDefault(c.lang)
@@ -1346,7 +1482,6 @@ func gradTypedSites(t *testing.T, c *gradCtx, src []byte) []gradTypedSite {
 
 func TestGraduationTime(t *testing.T) {
 	c := gradLoad(t)
-	defer ccoreRouteCertify(t)()
 	rounds := 20
 	status, first := "pass", ""
 	var parts, newParts, newNA []string
