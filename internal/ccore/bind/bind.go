@@ -30,6 +30,22 @@ type Adapter struct {
 	// package's own lookups for every state and symbol. It returns the number
 	// of pairs checked and the number that differ.
 	CheckTables func(lang any) (checked, differ int, err error)
+	// RouteCounters is optional: the route's decline counts by reason, the
+	// number of fresh parses and the number of reparses the core served, and the
+	// root-only fields the language sets. Test programs read it.
+	RouteCounters func() (declines map[string]int64, servedFresh, servedIncr int64)
+	// RouteNanos is optional: nanoseconds the route spent in the core parse, in
+	// the conversion to the public tree, in the core's tree edit and in the check
+	// of the recorded edits against the bytes, since the
+	// last RouteNanos(true) (reset true zeroes them).
+	RouteNanos func(reset bool) (parse, convert, edit, check int64)
+	// RouteLimits is optional: the soft memory budget and the hard ceiling a
+	// parser of the language would apply to a request of sourceLen bytes, and
+	// whether the route would install its progress hook for it. A timing test
+	// reads it to prove which arm it measures.
+	RouteLimits func(lang any, sourceLen int, softOff bool) (budget, ceiling int64, hooked bool)
+	// RootOnlyFields is optional: the root-only fields a language sets.
+	RootOnlyFields func(lang any) []string
 }
 
 // ErrNoAdapter is returned when nothing has registered: the root package is
@@ -102,6 +118,47 @@ func New(lang any) (*ccore.Parser, error) {
 		return nil, fmt.Errorf("bind: %w", err)
 	}
 	return p, nil
+}
+
+// RouteLimits reads the limits of a request (see Adapter.RouteLimits); softOff
+// asks for a parser whose soft budget is switched off.
+func RouteLimits(lang any, sourceLen int, softOff bool) (budget, ceiling int64, hooked bool, err error) {
+	a, err := registered()
+	if err != nil {
+		return 0, 0, false, err
+	}
+	if a.RouteLimits == nil {
+		return 0, 0, false, errors.New("bind: the adapter has no RouteLimits")
+	}
+	budget, ceiling, hooked = a.RouteLimits(lang, sourceLen, softOff)
+	return budget, ceiling, hooked, nil
+}
+
+// RouteCounters reads the route's counters (see Adapter.RouteCounters).
+func RouteCounters() (declines map[string]int64, servedFresh, servedIncr int64) {
+	a, err := registered()
+	if err != nil || a.RouteCounters == nil {
+		return nil, 0, 0
+	}
+	return a.RouteCounters()
+}
+
+// RouteNanos reads (and with reset zeroes) the route's time counters (see Adapter.RouteNanos).
+func RouteNanos(reset bool) (parse, convert, edit, check int64) {
+	a, err := registered()
+	if err != nil || a.RouteNanos == nil {
+		return 0, 0, 0, 0
+	}
+	return a.RouteNanos(reset)
+}
+
+// RootOnlyFields names the root-only fields a language sets (see Adapter.RootOnlyFields).
+func RootOnlyFields(lang any) []string {
+	a, err := registered()
+	if err != nil || a.RootOnlyFields == nil {
+		return nil
+	}
+	return a.RootOnlyFields(lang)
 }
 
 // CheckTables compares the core's tables of a language with the root
