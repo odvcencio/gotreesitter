@@ -680,7 +680,7 @@ var (
 	ccoreServedFresh atomic.Int64
 	// Nanoseconds spent in the core parse and in the conversion (read by the
 	// timing test through export_test.go).
-	ccoreParseNanos, ccoreConvertNanos atomic.Int64
+	ccoreParseNanos, ccoreConvertNanos, ccoreEditNanos, ccoreCheckNanos atomic.Int64
 )
 
 func ccoreDecline(reason int) { ccoreDeclines[reason].Add(1) }
@@ -692,7 +692,7 @@ func ccoreRouteCounters() (map[string]int64, int64, int64) {
 			out[ccoreDeclineNames[i]] = v
 		}
 	}
-	return out, ccoreServedFresh.Load(), 0
+	return out, ccoreServedFresh.Load(), ccoreServedIncr.Load()
 }
 
 func ccoreBindRootOnlyFields(lang any) []string {
@@ -704,9 +704,9 @@ func ccoreBindRootOnlyFields(lang any) []string {
 
 func ccoreRouteNanos(reset bool) (parse, convert, edit, check int64) {
 	if reset {
-		return ccoreParseNanos.Swap(0), ccoreConvertNanos.Swap(0), 0, 0
+		return ccoreParseNanos.Swap(0), ccoreConvertNanos.Swap(0), ccoreEditNanos.Swap(0), ccoreCheckNanos.Swap(0)
 	}
-	return ccoreParseNanos.Load(), ccoreConvertNanos.Load(), 0, 0
+	return ccoreParseNanos.Load(), ccoreConvertNanos.Load(), ccoreEditNanos.Load(), ccoreCheckNanos.Load()
 }
 
 func ccoreRouteLimits(lang any, sourceLen int, softOff bool) (budget, ceiling int64, hooked bool) {
@@ -1382,7 +1382,7 @@ func ccoreConvertTree(ct *ccore.Tree, src []byte, lang *Language, blob [32]byte,
 			return nil, false
 		}
 	}
-	arena.ccore = &ccoreArenaState{tables: st.base, binding: st.token, ct: ct}
+	arena.ccore = &ccoreArenaState{tables: st.base, binding: st.token, ct: ct, curLen: int64(len(src))}
 	root := c.build(ct.Root(), c.s.Padding(ct.Root()), 0, 0)
 	if root == nil || c.stop {
 		return nil, c.tooDeep
@@ -1435,10 +1435,17 @@ func ccoreNextParseState(t *ccore.Tables, n *Node) StateID {
 // accessor inherits the previous child's field. The last two are recorded only
 // for the nodes where they differ from the stored ids, in extras.
 type ccoreArenaState struct {
-	tables  *ccore.Tables
-	binding *ccoreBinding // the identity of the binding the tree was parsed with (not the state, so a tree does not keep a parser pool alive)
-	extras  map[*Node]*ccoreNodeExtra
-	ct      *ccore.Tree
+	tables      *ccore.Tables
+	binding     *ccoreBinding // the identity of the binding the tree was parsed with (not the state, so a tree does not keep a parser pool alive)
+	extras      map[*Node]*ccoreNodeExtra
+	ct          *ccore.Tree
+	edits       int
+	curLen      int64
+	budget      int64
+	broken      bool
+	incremental bool
+	reusedNodes int
+	reusedBytes uint64
 }
 
 // ccoreNodeExtra is the field answers of one parent that differ from its stored ids.
@@ -2107,26 +2114,29 @@ func (a *ccoreArenaState) forTreeCopy() *ccoreArenaState {
 	if c == nil {
 		return nil
 	}
+	c.edits, c.curLen, c.broken, c.budget = a.edits, a.curLen, a.broken, a.budget
 	if a.ct != nil && !a.ct.Released() {
 		c.ct = a.ct.Copy()
+	} else {
+		c.broken = true
 	}
 	return c
 }
 
-func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte) (tree *Tree, ok bool) {
+func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (tree *Tree, ok bool, redo bool) {
 	st, blob := adm.st, adm.sha
 	lang := p.language
 	cp, err := st.get(lang)
 	if err != nil {
 		ccoreDecline(ccoreDeclNoBinding)
-		return nil, false
+		return nil, false, false
 	}
 	keep := true // the parser may go back to the pool
 	stopped := ParseStopNone
 	converting := false
 	defer func() {
 		if r := recover(); r != nil {
-			tree, ok, keep = nil, false, false
+			tree, ok, redo, keep = nil, false, false, false
 			ccoreDecline(ccoreDeclPanic)
 		}
 		func() {
@@ -2174,7 +2184,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte) (tree *Tree, ok boo
 		cp.SetScanCheckEvery(every)
 	}
 	t0 := nowNanos()
-	ct, stop := ccoreParseCore(cp, source)
+	ct, stop, resultErr := ccoreParseCore(cp, old, source)
 	t1 := nowNanos()
 	ccoreParseNanos.Add(t1 - t0)
 	retained := false // the public tree keeps ct; every other exit releases it
@@ -2189,7 +2199,12 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte) (tree *Tree, ok boo
 		} else {
 			ccoreDecline(ccoreDeclCoreStop)
 		}
-		return nil, false
+		return nil, false, false
+	}
+
+	if resultErr {
+		ccoreIncrFallback(ccoreIncrResultError)
+		return nil, false, true
 	}
 
 	// The parser's arena and buffers stay live while the public tree is built; the
@@ -2207,9 +2222,12 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte) (tree *Tree, ok boo
 		} else {
 			ccoreStopDecline(stopped)
 		}
-		return nil, false
+		return nil, false, false
 	}
 	retained = true
+	built.ccoreStateOf().budget = lim.budget
+	built.ccoreStateOf().incremental = old != nil
+	built.ccoreStateOf().reusedNodes, built.ccoreStateOf().reusedBytes, _ = cp.ReuseStats()
 	rt := built.ensureParseRuntime()
 	rt.StopReason = ParseStopAccepted
 	rt.SourceLen = uint32(len(source))
@@ -2220,7 +2238,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte) (tree *Tree, ok boo
 	rt.MemoryBudgetBytes = lim.budget
 	rt.MaxStacksSeen = cp.MaxVersions()
 	rt.TokensConsumed = uint64(cp.Tokens())
-	return built, true
+	return built, true, false
 }
 
 // ccoreFullParse serves a fresh parse when the core admits the request.
@@ -2238,7 +2256,7 @@ func (p *Parser) ccoreFullParse(source []byte) (tree *Tree, ok bool) {
 	if !ok {
 		return nil, false
 	}
-	tree, ok = p.ccoreRun(adm, source)
+	tree, ok, _ = p.ccoreRun(adm, source, nil)
 	if ok {
 		ccoreServedFresh.Add(1)
 	}
@@ -2280,7 +2298,264 @@ func (p *Parser) ccoreFirstFresh(source []byte) (*Tree, bool) {
 	return tree, ok
 }
 
-// ccoreParseCore is the point where a future old-tree path can be added.
-func ccoreParseCore(cp *ccore.Parser, source []byte) (*ccore.Tree, string) {
-	return cp.ParseWith(source, nil)
+// ccoreParseCore parses with an optional old core tree.
+func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte) (ct *ccore.Tree, stop string, resultErr bool) {
+	ct, stop = cp.ParseWith(source, old)
+	if stop != "" || ct == nil || ct.Root() == 0 {
+		return ct, stop, false
+	}
+	return ct, "", old != nil && ct.Reader().ErrorCost(ct.Root()) > 0
+}
+
+// ccoreEditsDescribe reports whether the edits, applied in order to oldSrc,
+// can give newSrc: the final length matches, and every stretch of the old text
+// that no edit replaced is equal, byte for byte, in the new text (the prefix,
+// each gap between two edits, and the suffix). It keeps a wrong edit list (or an
+// edit that never reached the tree, such as Node.Edit) from reaching the core,
+// which trusts the caller as C does, and a change between two edits from hiding
+// behind the outer window of the list.
+//
+// The edits are in the order they were made, each in the coordinates of the text
+// the earlier ones left. The text is kept as a list of segments, each either a
+// stretch of the old text (with its offset there) or text an edit wrote; an edit
+// cuts the list at its two ends and puts one written segment in place of the
+// cut-out part. Edits that overlap (one reaches text that an earlier one wrote; an edit
+// that only touches it, ending where the other starts, does not) are not described. A
+// list longer than ccoreMaxDescribedEdits is not described.
+func ccoreEditsDescribe(oldSrc, newSrc []byte, edits []InputEdit) bool {
+	if len(edits) > ccoreMaxDescribedEdits {
+		return false
+	}
+	type seg struct {
+		old    bool
+		off, n int64 // offset in oldSrc (old segments) and length
+	}
+	// Two fixed arrays, swapped for every edit: an edit adds at most two segments (the cut
+	// splits one segment in two, and the written text is one more), so the list never holds more
+	// than 2*len(edits)+1. Nothing is allocated, so the check needs no memory accounting.
+	var bufA, bufB [2*ccoreMaxDescribedEdits + 3]seg
+	segs, out := bufA[:0], bufB[:0]
+	n0 := int64(len(oldSrc))
+	segs = segs[:1]
+	segs[0] = seg{old: true, off: 0, n: n0}
+	total := n0
+	for _, e := range edits {
+		s, oe, ne := int64(e.StartByte), int64(e.OldEndByte), int64(e.NewEndByte)
+		if s > oe || s > ne || oe > total {
+			return false
+		}
+		out = out[:0]
+		pos := int64(0)
+		inserted := false
+		put := func() {
+			if !inserted {
+				inserted = true
+				if ne > s {
+					out = out[:len(out)+1]
+					out[len(out)-1] = seg{n: ne - s}
+				}
+			}
+		}
+		for _, g := range segs {
+			gs, ge := pos, pos+g.n
+			pos = ge
+			switch {
+			case ge <= s: // wholly before the edit
+				out = out[:len(out)+1]
+				out[len(out)-1] = g
+			case gs >= oe: // wholly after it
+				put()
+				out = out[:len(out)+1]
+				out[len(out)-1] = g
+			default: // cut by the edit: keep what lies before s and after oe
+				if !g.old { // the edit reaches text that an earlier edit wrote: overlapping edits are not described
+					return false
+				}
+				if gs < s {
+					left := g
+					left.n = s - gs
+					out = out[:len(out)+1]
+					out[len(out)-1] = left
+				}
+				put()
+				if ge > oe {
+					right := g
+					if g.old {
+						right.off += oe - gs
+					}
+					right.n = ge - oe
+					out = out[:len(out)+1]
+					out[len(out)-1] = right
+				}
+			}
+		}
+		put() // an edit at the very end
+		segs, out = out, segs
+		total += ne - oe
+	}
+	if total != int64(len(newSrc)) {
+		return false
+	}
+	pos := int64(0)
+	for _, g := range segs {
+		if g.old && !bytes.Equal(oldSrc[g.off:g.off+g.n], newSrc[pos:pos+g.n]) {
+			return false
+		}
+		pos += g.n
+	}
+	return true
+}
+
+// ccoreMaxDescribedEdits bounds the work and the fixed arrays of ccoreEditsDescribe
+// (quadratic in the number of edits); a longer list is answered by a fresh parse.
+const ccoreMaxDescribedEdits = 64
+
+// Reasons for which a reparse that the core serves is a fresh core parse.
+const (
+	ccoreIncrNotCertified    = iota // the blob's certificate lacks the incr mode
+	ccoreIncrForeign                // the old tree has no core tree: made by another engine
+	ccoreIncrReleased               // the old public tree or its core tree is released
+	ccoreIncrOtherBinding           // the core tree was made with another binding (scanner, tables) than this request's
+	ccoreIncrOtherLanguage          // the old tree belongs to another language
+	ccoreIncrEditsNotCarried        // an edit of the public tree did not reach the core tree
+	ccoreIncrEditMismatch           // the recorded edits do not turn the old source into the new source
+	ccoreIncrOldHasError            // the core tree has an error (C's error cost above zero)
+	ccoreIncrResultError            // the incremental result has an error: a fresh parse decides
+	ccoreIncrEncoding               // the old tree's source is not UTF-8
+	ccoreIncrCount
+)
+
+var ccoreIncrFallbackNames = [ccoreIncrCount]string{
+	"incr_not_certified", "old_tree_foreign", "old_tree_released", "old_other_binding", "old_other_language",
+	"edits_not_carried", "edit_mismatch", "old_has_error", "result_has_error", "old_encoding",
+}
+
+var (
+	ccoreIncrFallbacks [ccoreIncrCount]atomic.Int64
+	ccoreServedIncr    atomic.Int64 // reparses the core served incrementally
+)
+
+func ccoreIncrFallback(reason int) { ccoreIncrFallbacks[reason].Add(1) }
+
+// ccoreOldFor takes the old public tree's link, its recorded
+// edits and the new source, and returns the core tree the reparse may read, or a reason for
+// which the reparse is a fresh core parse.
+func (p *Parser) ccoreOldFor(adm ccoreAdmission, old *Tree, source []byte) (*ccore.Tree, int) {
+	if adm.modes&certified.Incr == 0 {
+		return nil, ccoreIncrNotCertified
+	}
+	if old == nil || old.released {
+		return nil, ccoreIncrReleased
+	}
+	st := old.ccoreStateOf()
+	if st == nil || st.ct == nil {
+		return nil, ccoreIncrForeign
+	}
+	switch {
+	case old.language != p.language:
+		return nil, ccoreIncrOtherLanguage
+	case st.binding != adm.binding || st.tables != adm.st.base:
+		return nil, ccoreIncrOtherBinding
+	case st.ct.Released():
+		return nil, ccoreIncrReleased
+	case old.sourceEncoding != InputEncodingUTF8:
+		return nil, ccoreIncrEncoding
+	case st.broken || st.edits != len(old.edits):
+		return nil, ccoreIncrEditsNotCarried
+	case !ccoreEditsDescribe(old.source, source, old.edits):
+		return nil, ccoreIncrEditMismatch
+	}
+	// "Has an error" is C's test: the error cost of the stored root is above zero
+	// (ts_subtree_error_cost(root) > 0, the same value that sets HasError).
+	if rd := st.ct.Reader(); rd.ErrorCost(st.ct.Root()) > 0 {
+		return nil, ccoreIncrOldHasError
+	}
+	return st.ct, -1
+}
+
+// ccoreEdit forwards a public edit to its linked core tree.
+func (t *Tree) ccoreEdit(edit InputEdit) bool {
+	st := t.ccoreStateOf()
+	if st == nil || st.ct == nil || st.broken {
+		return false
+	}
+	started := nowNanos()
+	defer func() { ccoreEditNanos.Add(nowNanos() - started) }()
+	if edit.StartByte > edit.OldEndByte || edit.StartByte > edit.NewEndByte || int64(edit.OldEndByte) > st.curLen {
+		st.broken = true
+		return false
+	}
+	ok := false
+	defer func() {
+		if r := recover(); r != nil {
+			st.broken = true
+		}
+	}()
+	ce := ccore.Edit{
+		StartByte: edit.StartByte, OldEndByte: edit.OldEndByte, NewEndByte: edit.NewEndByte,
+		StartRow: edit.StartPoint.Row, StartCol: edit.StartPoint.Column,
+		OldEndRow: edit.OldEndPoint.Row, OldEndCol: edit.OldEndPoint.Column,
+		NewEndRow: edit.NewEndPoint.Row, NewEndCol: edit.NewEndPoint.Column,
+	}
+	if st.budget > 0 {
+		// The pages the edit claims are charged against the budget of the request that
+		// built the tree, before they are claimed. A refusal poisons the core tree's store
+		// (the store's rule for a failed edit: its next parse is a fresh parse in a new
+		// store) and leaves its root as it was; the link is marked broken, so the next
+		// reparse of the public tree is a fresh parse by the core (edits_not_carried), not
+		// an incremental one. The public tree stays readable.
+		var led ccore.Ledger
+		budget := st.budget
+		led.SetPoll(func(total int64, _ bool) bool { return total < budget })
+		if !led.Begin(int64(st.ct.PageBytes())) || !st.ct.EditWithin(ce, &led) {
+			st.broken = true
+			return false
+		}
+	} else {
+		st.ct.Edit(ce)
+	}
+	st.edits++
+	st.curLen += int64(edit.NewEndByte) - int64(edit.OldEndByte)
+	ok = true
+	return ok
+}
+
+// ccoreReparse serves a reparse request for oldTree: incrementally when the
+// old tree has a usable core tree, else as a fresh core parse. It answers
+// false, with the reason counted, when the present engine must run.
+func (p *Parser) ccoreReparse(source []byte, old *Tree) (tree *Tree, ok bool) {
+	if ccoreUnset() || !p.admissionCandidateFullParseEligible(nil, true) {
+		return nil, false
+	}
+	defer func() { // admission and old-tree tests are inside the recovery boundary
+		if r := recover(); r != nil {
+			tree, ok = nil, false
+			ccoreDecline(ccoreDeclPanic)
+		}
+	}()
+	adm, ok := p.ccoreAdmit()
+	if !ok {
+		return nil, false
+	}
+	checkStart := nowNanos()
+	oldCT, reason := p.ccoreOldFor(adm, old, source)
+	ccoreCheckNanos.Add(nowNanos() - checkStart)
+	if oldCT != nil {
+		tree, ok, redo := p.ccoreRun(adm, source, oldCT)
+		if ok {
+			ccoreServedIncr.Add(1)
+			return tree, true
+		}
+		if !redo {
+			return nil, false
+		}
+		// ccoreRun counted the reason; the fresh parse below decides.
+	} else {
+		ccoreIncrFallback(reason)
+	}
+	tree, ok, _ = p.ccoreRun(adm, source, nil)
+	if ok {
+		ccoreServedFresh.Add(1)
+	}
+	return tree, ok
 }
