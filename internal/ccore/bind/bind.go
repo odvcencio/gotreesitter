@@ -24,6 +24,8 @@ type Adapter struct {
 	// Config returns the core configuration of a *Language (passed as any), or
 	// an error that says why the core cannot serve it.
 	Config func(lang any) (ccore.Config, error)
+	// ConfigHash returns the canonical configuration hash of a *Language.
+	ConfigHash func(lang any) ([32]byte, error)
 	// CheckTables compares the core's tables of a *Language with the root
 	// package's own lookups for every state and symbol. It returns the number
 	// of pairs checked and the number that differ.
@@ -42,8 +44,8 @@ var (
 // Register installs the adapter. It panics when called twice or with a nil
 // function, because two adapters would make the answer depend on init order.
 func Register(a Adapter) {
-	if a.Config == nil || a.CheckTables == nil {
-		panic("bind: Register needs Config and CheckTables")
+	if a.Config == nil || a.ConfigHash == nil || a.CheckTables == nil {
+		panic("bind: Register needs Config, ConfigHash and CheckTables")
 	}
 	mu.Lock()
 	defer mu.Unlock()
@@ -76,6 +78,15 @@ func Config(lang any) (ccore.Config, error) {
 		return ccore.Config{}, err
 	}
 	return cfg, nil
+}
+
+// ConfigHash returns the canonical configuration hash of a language.
+func ConfigHash(lang any) ([32]byte, error) {
+	a, err := registered()
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return a.ConfigHash(lang)
 }
 
 // New returns a parser for a language: the adapter's configuration, checked by

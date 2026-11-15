@@ -2,9 +2,13 @@ package gotreesitter
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash"
 	"reflect"
+	"sort"
 	"sync"
 
 	"github.com/odvcencio/gotreesitter/internal/ccore"
@@ -285,5 +289,224 @@ func ccoreBindCheckTables(lang any) (checked, differ int, err error) {
 }
 
 func init() {
-	bind.Register(bind.Adapter{Config: ccoreBindConfig, CheckTables: ccoreBindCheckTables})
+	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables})
+}
+
+type cfgW struct {
+	h   hash.Hash
+	buf [8]byte
+}
+
+func (w *cfgW) u(v uint64) {
+	binary.LittleEndian.PutUint64(w.buf[:], v)
+	w.h.Write(w.buf[:])
+}
+func (w *cfgW) b(v bool) {
+	if v {
+		w.u(1)
+	} else {
+		w.u(0)
+	}
+}
+func (w *cfgW) s(v string)   { w.u(uint64(len(v))); w.h.Write([]byte(v)) }
+func (w *cfgW) tag(v string) { w.s(v) }
+
+// ccoreConfigHash hashes the language tables and the registered scanner chain.
+// Integers are little-endian, slices have lengths, and map keys are sorted.
+func ccoreConfigHash(l *Language) ([32]byte, error) {
+	w := &cfgW{h: sha256.New()}
+	w.tag("counts")
+	for _, v := range []uint32{l.SymbolCount, l.TokenCount, l.ExternalTokenCount, l.StateCount, l.LargeStateCount, l.FieldCount, l.ProductionIDCount, uint32(l.InitialState), uint32(l.KeywordCaptureToken), uint32(l.MaxReservedWordSetSize), uint32(l.LayoutFallbackLexState)} {
+		w.u(uint64(v))
+	}
+	w.b(l.HasLayoutFallbackLexState)
+	w.tag("names")
+	w.u(uint64(len(l.SymbolNames)))
+	for _, n := range l.SymbolNames {
+		w.s(n)
+	}
+	w.tag("metadata")
+	w.u(uint64(len(l.SymbolMetadata)))
+	for _, m := range l.SymbolMetadata {
+		w.s(m.Name)
+		w.b(m.Visible)
+		w.b(m.Named)
+		w.b(m.Supertype)
+		w.b(m.GeneratedRepeatAux)
+	}
+	w.tag("dense")
+	w.u(uint64(len(l.ParseTable)))
+	for _, row := range l.ParseTable {
+		w.u(uint64(len(row)))
+		for _, v := range row {
+			w.u(uint64(v))
+		}
+	}
+	w.tag("small")
+	w.u(uint64(len(l.SmallParseTable)))
+	for _, v := range l.SmallParseTable {
+		w.u(uint64(v))
+	}
+	w.u(uint64(len(l.SmallParseTableMap)))
+	for _, v := range l.SmallParseTableMap {
+		w.u(uint64(v))
+	}
+	w.tag("actions")
+	w.u(uint64(len(l.ParseActions)))
+	for _, e := range l.ParseActions {
+		w.b(e.Reusable)
+		w.u(uint64(len(e.Actions)))
+		for _, a := range e.Actions {
+			w.u(uint64(a.Type))
+			w.u(uint64(a.State))
+			w.u(uint64(a.Symbol))
+			w.u(uint64(a.ChildCount))
+			w.u(uint64(uint16(a.DynamicPrecedence)))
+			w.u(uint64(a.ProductionID))
+			w.b(a.Extra)
+			w.b(a.ExtraChain)
+			w.b(a.Repetition)
+		}
+	}
+	w.tag("gotos")
+	keys := make([]uint64, 0, len(l.LargeStateGotos))
+	for k := range l.LargeStateGotos {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	w.u(uint64(len(keys)))
+	for _, k := range keys {
+		w.u(k)
+		w.u(uint64(l.LargeStateGotos[k]))
+	}
+	w.tag("lexmodes")
+	w.u(uint64(len(l.LexModes)))
+	for _, m := range l.LexModes {
+		w.u(uint64(m.LexState))
+		w.u(uint64(m.ExternalLexState))
+		w.u(uint64(m.ReservedWordSetID))
+		w.u(uint64(m.AfterWhitespaceLexState))
+		w.u(uint64(m.LexStateID))
+		w.u(uint64(m.AfterWhitespaceLexStateID))
+	}
+	for pass, states := range [][]LexState{l.LexStates, l.KeywordLexStates} {
+		w.tag("lexstates")
+		w.u(uint64(pass))
+		w.u(uint64(len(states)))
+		for _, st := range states {
+			w.u(uint64(st.AcceptToken))
+			w.u(uint64(uint16(st.AcceptPriority)))
+			w.b(st.Skip)
+			w.b(st.AcceptEOF)
+			w.u(uint64(int64(st.Default)))
+			w.u(uint64(int64(st.EOF)))
+			w.u(uint64(len(st.Transitions)))
+			for _, t := range st.Transitions {
+				w.u(uint64(t.Lo))
+				w.u(uint64(t.Hi))
+				w.u(uint64(int64(t.NextState)))
+				w.b(t.Skip)
+			}
+		}
+	}
+	w.tag("fields")
+	w.u(uint64(len(l.FieldMapSlices)))
+	for _, sl := range l.FieldMapSlices {
+		w.u(uint64(sl[0]))
+		w.u(uint64(sl[1]))
+	}
+	w.u(uint64(len(l.FieldMapEntries)))
+	for _, e := range l.FieldMapEntries {
+		w.u(uint64(e.FieldID))
+		w.u(uint64(e.ChildIndex))
+		w.b(e.Inherited)
+	}
+	w.u(uint64(len(l.FieldNames)))
+	for _, n := range l.FieldNames {
+		w.s(n)
+	}
+	w.tag("alias")
+	w.u(uint64(len(l.AliasSequences)))
+	for _, seq := range l.AliasSequences {
+		w.b(seq == nil)
+		w.u(uint64(len(seq)))
+		for _, s := range seq {
+			w.u(uint64(s))
+		}
+	}
+	w.tag("symbols")
+	for _, v := range [][]Symbol{l.ReservedWords, l.SupertypeSymbols, l.SupertypeMapEntries, l.ExternalSymbols} {
+		w.u(uint64(len(v)))
+		for _, s := range v {
+			w.u(uint64(s))
+		}
+	}
+	w.u(uint64(len(l.SupertypeMapSlices)))
+	for _, sl := range l.SupertypeMapSlices {
+		w.u(uint64(sl[0]))
+		w.u(uint64(sl[1]))
+	}
+	w.tag("external")
+	w.u(uint64(len(l.ExternalLexStates)))
+	for _, row := range l.ExternalLexStates {
+		w.u(uint64(len(row)))
+		for _, v := range row {
+			w.b(v)
+		}
+	}
+	for _, v := range [][]bool{l.ImmediateTokens, l.ZeroWidthTokens} {
+		w.tag("flags")
+		w.u(uint64(len(v)))
+		for _, x := range v {
+			w.b(x)
+		}
+	}
+	// The lookup rows the core walks for small states are derived by the parser
+	// setup of the root package, which reads more of the language than the fields
+	// above. They are hashed as built, so the hash covers what the core reads and
+	// not only the inputs listed here.
+	t := ccoreTablesFor(l)
+	w.tag("derived")
+	w.u(uint64(t.DenseLimit))
+	w.u(uint64(t.SmallBase))
+	w.u(uint64(len(t.SmallTokenLookup)))
+	for _, row := range t.SmallTokenLookup {
+		w.u(uint64(len(row)))
+		for _, v := range row {
+			w.u(uint64(v))
+		}
+	}
+	w.u(uint64(len(t.SmallLookup)))
+	for _, row := range t.SmallLookup {
+		w.u(uint64(len(row)))
+		for _, pr := range row {
+			w.u(uint64(pr.Sym))
+			w.u(uint64(pr.Val))
+		}
+	}
+	w.tag("scanner")
+	var scannerType string
+	var key []byte
+	if l.ExternalScanner != nil {
+		_, typ, snapshot, reason := ccoreScannerSnapshot(l.ExternalScanner)
+		if reason != "" {
+			return [32]byte{}, errors.New(reason)
+		}
+		scannerType, key = typ.String(), snapshot
+	}
+	w.s(scannerType)
+	w.u(uint64(len(key)))
+	w.h.Write(key)
+	var sum [32]byte
+	copy(sum[:], w.h.Sum(nil))
+	return sum, nil
+}
+
+// ccoreBindConfigHash is bind.Adapter.ConfigHash.
+func ccoreBindConfigHash(lang any) ([32]byte, error) {
+	l, ok := lang.(*Language)
+	if !ok || l == nil {
+		return [32]byte{}, fmt.Errorf("ccore: want a non-nil *Language, got %T", lang)
+	}
+	return ccoreConfigHash(l)
 }

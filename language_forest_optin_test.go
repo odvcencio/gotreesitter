@@ -1,6 +1,10 @@
 package gotreesitter
 
-import "testing"
+import (
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
+	"go/build"
+	"testing"
+)
 
 // TestParserWantsForestFieldDrivesDispatch verifies that Language.WantsForest
 // drives the forest dispatch gate independently of the curated
@@ -149,6 +153,46 @@ func TestBuiltinForestDefaultsCuratedSet(t *testing.T) {
 		parser := &Parser{language: &Language{Name: name, WantsForest: true}}
 		if !parserWantsForest(parser) {
 			t.Errorf("explicit Language.WantsForest should still dispatch %s to forest", name)
+		}
+	}
+}
+
+func TestCcoreConfigHashAndAdapter(t *testing.T) {
+	l := &Language{SymbolNames: []string{"one", "two"}}
+	a, err := ccoreConfigHash(l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := ccoreConfigHash(l)
+	if err != nil || a != b {
+		t.Fatalf("hash not stable: %v", err)
+	}
+	via, err := bind.ConfigHash(l)
+	if err != nil || via != a {
+		t.Fatalf("adapter hash differs: %v", err)
+	}
+	l.SymbolNames[1] = "changed"
+	changed, err := ccoreConfigHash(l)
+	if err != nil || changed == a {
+		t.Fatalf("changed name did not change hash: %v", err)
+	}
+	l.ExternalScanner = &c26lPlainScanner{}
+	if hash, err := bind.ConfigHash(l); err == nil || hash != ([32]byte{}) {
+		t.Fatalf("unregistered scanner accepted: %x %v", hash, err)
+	}
+	if _, err := bind.ConfigHash((*Language)(nil)); err == nil {
+		t.Fatal("nil language accepted")
+	}
+}
+
+func TestNoProductionImportOfCertifiedtest(t *testing.T) {
+	pkg, err := build.Default.ImportDir(".", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, imp := range pkg.Imports {
+		if imp == "github.com/odvcencio/gotreesitter/internal/ccore/certified/certifiedtest" {
+			t.Fatalf("production import: %s", imp)
 		}
 	}
 }

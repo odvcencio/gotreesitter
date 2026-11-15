@@ -33,6 +33,9 @@ expected_owner() {
     grammars/runtime/*_lex_exact_gen.go)
       printf '%s\n' 'cmd/ts2go -lexexact-only'
       ;;
+    internal/ccore/certified/gen.go)
+      printf '%s\n' 'cmd/ccorecert from testdata/ccore_certificates.json'
+      ;;
     grammargen/fortran_grammar.go|grammargen/go_grammar.go|grammargen/javascript_grammar.go|grammargen/kotlin_grammar.go|grammargen/swift_grammar.go|grammargen/typescript_grammar.go)
       printf '%s\n' 'cmd/grammargen emit'
       ;;
@@ -52,6 +55,9 @@ owner_exists() {
       ;;
     cmd/ts2go|'cmd/ts2go batch'|'cmd/ts2go -lexexact-only')
       [[ -d cmd/ts2go ]]
+      ;;
+    'cmd/ccorecert from testdata/ccore_certificates.json')
+      [[ -d cmd/ccorecert && -f testdata/ccore_certificates.json ]]
       ;;
     cmd/tsquery)
       [[ -d cmd/tsquery ]]
