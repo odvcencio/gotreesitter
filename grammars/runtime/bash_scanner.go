@@ -146,7 +146,11 @@ var bshExternalScannerSpec = ExternalScannerSpec{
 func init() {
 	RegisterExternalScannerSpec(bshExternalScannerSpec)
 	// A port with a behavioural mode (internal/scanmode).
-	scanmode.RegisterScanner(BashExternalScanner{}, (*bshState)(nil), true)
+	scanmode.RegisterScanner(BashExternalScanner{}, (*bshState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(BashExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	})
 }
 
 // bshHeredoc tracks a single pending heredoc.

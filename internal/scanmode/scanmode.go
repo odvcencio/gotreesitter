@@ -47,6 +47,7 @@ type Registered struct {
 	// NeedsMode is true when the port has a behavioural mode: the core turns it
 	// on for the innermost payload, which must then implement CFaithful.
 	NeedsMode bool
+	Snapshot  func(scanner any) (private any, key []byte, ok bool)
 }
 
 // Reasons binding fails with. The core's error text for a refused grammar is one of
@@ -71,7 +72,10 @@ var (
 // init, one line per checked port. It panics when the type is already registered
 // and when binding has started (Freeze): a registration never changes after a
 // binding has used it.
-func RegisterScanner(scanner any, payload any, needsMode bool) {
+func RegisterScanner(scanner any, payload any, needsMode bool, snapshot func(any) (any, []byte, bool)) {
+	if snapshot == nil {
+		panic("scanmode: nil snapshot")
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	t := reflect.TypeOf(scanner)
@@ -81,7 +85,7 @@ func RegisterScanner(scanner any, payload any, needsMode bool) {
 	if frozen {
 		panic("scanmode: RegisterScanner(" + t.String() + ") after binding started")
 	}
-	registry[t] = Registered{Payload: reflect.TypeOf(payload), NeedsMode: needsMode}
+	registry[t] = Registered{Payload: reflect.TypeOf(payload), NeedsMode: needsMode, Snapshot: snapshot}
 }
 
 // Freeze ends registration. The core calls it when it starts to bind a scanner.

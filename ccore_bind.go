@@ -1,8 +1,10 @@
 package gotreesitter
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/odvcencio/gotreesitter/internal/ccore"
@@ -22,16 +24,29 @@ import (
 var ccoreTablesMu sync.Mutex
 
 type ccoreLanguageTables struct {
-	owner *Language
-	base  *ccore.Tables
-	nodes *ccore.NodeTables
+	owner          *Language
+	base           *ccore.Tables
+	nodes          *ccore.NodeTables
+	scanner        ExternalScanner
+	scannerType    reflect.Type
+	scannerKey     []byte
+	scannerPresent bool
+	scannerError   string
 }
 
 // ccoreLanguageTablesForLocked must be called with ccoreTablesMu held.
 func ccoreLanguageTablesForLocked(lang *Language) *ccoreLanguageTables {
+	var scanner ExternalScanner
+	var scannerType reflect.Type
+	var key []byte
+	var reason string
+	present := lang.ExternalScanner != nil
+	if present {
+		scanner, scannerType, key, reason = ccoreScannerSnapshot(lang.ExternalScanner)
+	}
 	c := lang.ccoreTables
-	if c == nil || c.owner != lang {
-		c = &ccoreLanguageTables{owner: lang, base: buildCcoreTables(lang)}
+	if c == nil || c.owner != lang || c.scannerPresent != present || c.scannerType != scannerType || c.scannerError != reason || !bytes.Equal(c.scannerKey, key) {
+		c = &ccoreLanguageTables{owner: lang, base: buildCcoreTables(lang), scanner: scanner, scannerType: scannerType, scannerKey: key, scannerPresent: present, scannerError: reason}
 		lang.ccoreTables = c
 	}
 	return c
@@ -189,6 +204,10 @@ func ccoreNodeTablesFor(lang *Language) *ccore.NodeTables {
 	ccoreTablesMu.Lock()
 	defer ccoreTablesMu.Unlock()
 	c := ccoreLanguageTablesForLocked(lang)
+	return ccoreNodeTablesForLocked(lang, c)
+}
+
+func ccoreNodeTablesForLocked(lang *Language, c *ccoreLanguageTables) *ccore.NodeTables {
 	if c.nodes != nil {
 		return c.nodes
 	}
@@ -208,10 +227,16 @@ func ccoreNodeTablesFor(lang *Language) *ccore.NodeTables {
 // ccoreConfig returns the ccore configuration of a language. Each call gets
 // its own scanner hook, so that parsers do not share scanner state.
 func ccoreConfig(lang *Language) (ccore.Config, error) {
-	cfg := ccore.Config{Tables: ccoreTablesFor(lang)}
-	cfg.Nodes = ccoreNodeTablesFor(lang)
-	if lang.ExternalScanner != nil {
-		a, err := newCcoreExtScanner(lang.ExternalScanner)
+	ccoreTablesMu.Lock()
+	c := ccoreLanguageTablesForLocked(lang)
+	cfg := ccore.Config{Tables: c.base, Nodes: ccoreNodeTablesForLocked(lang, c)}
+	scanner, reason := c.scanner, c.scannerError
+	ccoreTablesMu.Unlock()
+	if reason != "" {
+		return ccore.Config{}, errors.New(reason)
+	}
+	if scanner != nil {
+		a, err := newCcoreExtScanner(scanner)
 		if err != nil {
 			return ccore.Config{}, err
 		}

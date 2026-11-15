@@ -87,7 +87,11 @@ var jsExternalScannerSpec = ExternalScannerSpec{
 }
 
 func init() {
-	scanmode.RegisterScanner(JavaScriptExternalScanner{}, (*scanmode.Flag)(nil), true)
+	scanmode.RegisterScanner(JavaScriptExternalScanner{}, (*scanmode.Flag)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(JavaScriptExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	})
 	RegisterExternalScannerSpec(jsExternalScannerSpec)
 }
 

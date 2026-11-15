@@ -8,6 +8,9 @@ import (
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
+	"github.com/odvcencio/gotreesitter/internal/ccore"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 )
 
 func TestGoParserIncludedRangePastEOFDoesNotHang(t *testing.T) {
@@ -1369,4 +1372,76 @@ func TestGoMergePerKeyCapNormalizeGoStaysCleanAtSteadyState(t *testing.T) {
 			t.Fatalf("root has error for minimal_repro:\n%s", root.SExpr(lang))
 		}
 	})
+}
+
+func TestCcoreScannerConfigurationInvalidatesOldTree(t *testing.T) {
+	data, err := os.ReadFile("grammars/grammar_blobs/css.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lang, err := grammarruntime.LoadLanguage("css", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	makeScanner := func() gotreesitter.ExternalScanner {
+		return (grammarruntime.CssExternalScanner{}).ExternalScannerForLanguage(lang)
+	}
+	lang.ExternalScanner = makeScanner()
+	first, err := bind.Config(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ccore.NewParser(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := []byte("a { color: red; }\n")
+	old, stop := p.Parse(source)
+	if stop != "" || old == nil {
+		t.Fatalf("first parse: %s", stop)
+	}
+	defer old.Release()
+	lang.ExternalScanner = makeScanner()
+	equal, err := bind.Config(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Tables != equal.Tables {
+		t.Fatal("equal scanner changed tables")
+	}
+	// A different token binding changes the scanner configuration without changing the language tables.
+	changedLanguage := &gotreesitter.Language{ExternalSymbols: append([]gotreesitter.Symbol(nil), lang.ExternalSymbols...), SymbolNames: lang.SymbolNames}
+	if len(changedLanguage.ExternalSymbols) == 0 {
+		t.Fatal("no CSS external symbols")
+	}
+	changedLanguage.ExternalSymbols[0]++
+	lang.ExternalScanner = (grammarruntime.CssExternalScanner{}).ExternalScannerForLanguage(changedLanguage)
+	changed, err := bind.Config(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed.Tables == first.Tables || changed.Nodes == first.Nodes {
+		t.Fatal("changed scanner reused tables")
+	}
+	q, err := ccore.NewParser(changed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reparsed, stop := q.ParseWith(source, old)
+	if stop != "" || reparsed == nil {
+		t.Fatalf("reparse: %s", stop)
+	}
+	defer reparsed.Release()
+	if nodes, _, _ := q.ReuseStats(); nodes != 0 {
+		t.Fatalf("reused %d nodes", nodes)
+	}
+	got := q.Digest(reparsed)
+	fresh, stop := q.Parse(source)
+	if stop != "" || fresh == nil {
+		t.Fatalf("fresh: %s", stop)
+	}
+	defer fresh.Release()
+	if want := q.Digest(fresh); got != want {
+		t.Fatalf("reparse %s != fresh %s", got, want)
+	}
 }

@@ -88,7 +88,11 @@ var rustExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(rustExternalScannerSpec)
-	scanmode.RegisterScanner(RustExternalScanner{}, (*rustScannerState)(nil), true)
+	scanmode.RegisterScanner(RustExternalScanner{}, (*rustScannerState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(RustExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	})
 }
 
 // rustScannerState holds the opening hash count for raw string literals.

@@ -757,5 +757,9 @@ slAfterIndentLoop:
 
 func init() {
 	// A port with a behavioural mode (internal/scanmode); registered with the rest of its set.
-	scanmode.RegisterScanner(StarlarkExternalScanner{}, (*pythonScannerState)(nil), true)
+	scanmode.RegisterScanner(StarlarkExternalScanner{}, (*pythonScannerState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(StarlarkExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	})
 }

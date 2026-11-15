@@ -254,5 +254,9 @@ func (s TsxExternalScanner) scanC(lexer *gotreesitter.ExternalLexer, validSymbol
 }
 
 func init() {
-	scanmode.RegisterScanner(TsxExternalScanner{}, (*scanmode.Flag)(nil), true)
+	scanmode.RegisterScanner(TsxExternalScanner{}, (*scanmode.Flag)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(TsxExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	})
 }

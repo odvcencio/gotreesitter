@@ -486,5 +486,9 @@ func hclIsHexDigit(ch rune) bool {
 
 func init() {
 	// A port with a behavioural mode (internal/scanmode); registered with the rest of its set.
-	scanmode.RegisterScanner(HclExternalScanner{}, (*hclState)(nil), true)
+	scanmode.RegisterScanner(HclExternalScanner{}, (*hclState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(HclExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	})
 }
