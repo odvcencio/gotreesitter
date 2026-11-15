@@ -104,18 +104,22 @@ func CheckTables(lang any) (checked, differ int, err error) {
 	return a.CheckTables(lang)
 }
 
-// FuncScanner is a ccore.ExtScanner made of two functions. The root adapter
-// uses it so that its scanner type has no exported method (the root's API
-// snapshots list exported methods of every type).
-type FuncScanner struct {
-	ScanFn  func(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool
-	CloseFn func()
+// NewFuncScanner constructs a scanner whose callbacks cannot be replaced by its
+// holders. Both callbacks must be non-nil.
+func NewFuncScanner(scan func(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool, close func()) ccore.ExtScanner {
+	return funcScanner{state: &funcScannerState{scan: scan, close: close}}
 }
 
-// Scan calls ScanFn.
-func (f *FuncScanner) Scan(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool {
-	return f.ScanFn(src, pos, row, col, prev, valid, buf, out)
+type funcScanner struct {
+	state *funcScannerState
 }
 
-// Close calls CloseFn.
-func (f *FuncScanner) Close() { f.CloseFn() }
+type funcScannerState struct {
+	scan  func(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool
+	close func()
+}
+
+func (f funcScanner) Scan(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool {
+	return f.state.scan(src, pos, row, col, prev, valid, buf, out)
+}
+func (f funcScanner) Close() { f.state.close() }

@@ -19,8 +19,11 @@ func (p *Parser) Parse(src []byte) (*Tree, string) { return p.ParseWith(src, nil
 // ts_parser_parse with an old tree). An incremental parse appends to the
 // store of old, so old stays valid. The parse holds the store's lease from
 // its start to its exit; a second parse of the same store waits for it.
-// A released old tree is rejected, also when it was released while this call
-// waited for the lease. The parser keeps no reference to the returned tree.
+// An old tree from a different Tables identity is not reused: the parse runs
+// fresh in a new store. Table identity does not detect mutations to the tables
+// or changes to scanner behavior. A released old tree is rejected, also when it
+// was released while this call waited for the lease. The parser keeps no
+// reference to the returned tree.
 func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
 	var c *storeCore
 	for {
@@ -35,6 +38,7 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
 		} else {
 			old = nil // the store of old is poisoned: parse afresh in a new store
 			c = newStoreCore()
+			c.parseTables = p.t
 			c.cells.Store(1) // the running parse counts as one cell
 			c.presize(p.pageHint(len(src)))
 			p.applyTestLimits(c)
@@ -50,6 +54,19 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (*Tree, string) {
 			if c.poisoned.Load() { // poisoned while this parse waited for the lease: round again, which tests the release first
 				c.lease.Unlock()
 				c.afterParse()
+				continue
+			}
+			// An old tree from another table cannot be reused. Check after
+			// acquiring the lease so release while waiting remains observable.
+			if c.parseTables != p.t {
+				if old.c.released.Load() {
+					c.lease.Unlock()
+					c.afterParse()
+					return nil, "old tree released"
+				}
+				c.lease.Unlock()
+				c.afterParse()
+				old = nil
 				continue
 			}
 		}
