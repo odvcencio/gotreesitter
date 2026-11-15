@@ -424,6 +424,9 @@ func (p *Parser) tryTokenInvariantReuseForDisabledOldTree(source []byte, oldTree
 }
 
 func (p *Parser) disabledOldTreeTokenInvariantLeafAllowed(source []byte, oldTree *Tree) bool {
+	if st := oldTree.ccoreStateOf(); st != nil && st.viewOrigin {
+		return false
+	}
 	root, edit, ok := p.tokenInvariantLeafEditCandidate(source, oldTree)
 	if !ok {
 		return false

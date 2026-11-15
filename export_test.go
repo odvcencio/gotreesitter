@@ -1066,3 +1066,49 @@ func CcoreTestEditBudget(t *Tree, budget int64) (pageBytes int) {
 	st.budget = budget
 	return st.ct.PageBytes()
 }
+
+func CcoreTestViewsOn(on bool) func() {
+	prev := ccoreViewsOn.Swap(on)
+	return func() { ccoreViewsOn.Store(prev) }
+}
+func CcoreTestViewCounters() (int64, int64, map[string]int64) { return ccoreViewCounters() }
+func CcoreTestViewsEnabled() bool                             { return ccoreViewsOn.Load() }
+func CcoreTestMaterializeViaBacking(t *Tree)                  { materializeNodeViews(t.root) }
+func CcoreTestViewHeaders(t *Tree) (int64, bool) {
+	if t == nil {
+		return 0, false
+	}
+	v := ccoreViewsOf(t.root)
+	if v == nil {
+		return 0, false
+	}
+	return v.made.Load(), true
+}
+func CcoreTestEager(t *Tree) *Tree {
+	st := t.ccoreStateOf()
+	if st == nil || st.ct == nil || st.ct.Released() {
+		return nil
+	}
+	ct := st.ct.Copy()
+	if ct == nil {
+		return nil
+	}
+	ccoreTablesMu.Lock()
+	binding := ccoreLanguageTablesForLocked(t.language)
+	ccoreTablesMu.Unlock()
+	var end ccoreConvEnd
+	eager, _ := ccoreConvertTree(ct, t.source, t.language, [32]byte{}, binding, &ccore.Ledger{}, &end)
+	if eager == nil {
+		ct.Release()
+	}
+	return eager
+}
+func CcoreTestMaterialize(t *Tree) bool {
+	if t == nil || ccoreViewsOf(t.root) == nil {
+		return false
+	}
+	ccoreMaterializeForReason(t.root, ccoreViewConvTest)
+	return true
+}
+
+func CcoreTestMaxDepth() int { return ccoreMaxDepth }

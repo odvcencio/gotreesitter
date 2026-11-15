@@ -308,7 +308,7 @@ func ccoreBindCheckTables(lang any) (checked, differ int, err error) {
 }
 
 func init() {
-	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables})
+	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables, ViewsOn: ccoreSetViewsOn, ViewCounters: ccoreViewCounters})
 }
 
 type cfgW struct {
@@ -1420,6 +1420,11 @@ func ccoreNextParseState(t *ccore.Tables, n *Node) StateID {
 	if n.preGotoState == ccoreStateNone {
 		return 0
 	}
+	if n.childIndex == compactViewChildIndex {
+		if v := ccoreViewsOf(n); v != nil {
+			return StateID(t.NextState(uint16(n.preGotoState), v.grammarSymbol(n)))
+		}
+	}
 	return StateID(t.NextState(uint16(n.preGotoState), ccore.Symbol(n.equivVersion)))
 }
 
@@ -1444,6 +1449,7 @@ type ccoreArenaState struct {
 	budget      int64
 	broken      bool
 	incremental bool
+	viewOrigin  bool
 	reusedNodes int
 	reusedBytes uint64
 }
@@ -2114,7 +2120,7 @@ func (a *ccoreArenaState) forTreeCopy() *ccoreArenaState {
 	if c == nil {
 		return nil
 	}
-	c.edits, c.curLen, c.broken, c.budget = a.edits, a.curLen, a.broken, a.budget
+	c.edits, c.curLen, c.broken, c.budget, c.viewOrigin = a.edits, a.curLen, a.broken, a.budget, a.viewOrigin
 	if a.ct != nil && !a.ct.Released() {
 		c.ct = a.ct.Copy()
 	} else {
@@ -2211,7 +2217,13 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	// conversion reserves its own arrays in the same ledger, on top of the core's.
 	var end ccoreConvEnd
 	converting = true
-	built, tooDeep := ccoreConvertTree(ct, source, lang, blob, st, cp.Ledger(), &end)
+	var built *Tree
+	var tooDeep bool
+	if ccoreViewsOn.Load() {
+		built = ccoreViewTree(ct, source, lang, blob, st, cp.Ledger(), &end)
+	} else {
+		built, tooDeep = ccoreConvertTree(ct, source, lang, blob, st, cp.Ledger(), &end)
+	}
 	ccoreConvertNanos.Add(nowNanos() - t1)
 	if h := ccoreTestAccountHook.Load(); h != nil {
 		(*h)(cp.Ledger().Base, cp.Ledger().Alloc, end.arenaCharged, end.arenaHeld)
@@ -2558,4 +2570,797 @@ func (p *Parser) ccoreReparse(source []byte, old *Tree) (tree *Tree, ok bool) {
 		ccoreServedFresh.Add(1)
 	}
 	return tree, ok
+}
+
+// Lazy public nodes for a tree of internal/ccore.
+//
+// With the views switch on, a parse of the core builds a public Tree whose root
+// is a view and converts nothing. A view is an ordinary Node header, made when
+// a caller first reads the node, behind the nodeViewBacking seam. Its children,
+// parent and fields come from the core's records through value nodes
+// (internal/ccore/node.go). One table per public tree maps the slot that holds a
+// node's handle to its header, so a node has one header for the life of its tree.
+//
+// Header fields of a view: symbol and flags as the eager conversion
+// (ccore_bind.go) sets them; rawShape is the slot key; equivVersion is the
+// ordinal among the visible children of the parent; dynamicPrecedence holds the
+// supertype mask; preGotoState is the record's parse state; parent is set when
+// the view is made; children stays nil. Tree.Edit with no view below the root
+// updates the root header only; with views below the root it first converts the
+// tree in place (materialize), so a node a caller holds stays correct.
+
+// ccoreViewsOn is the views switch. It is off by default and set by tests.
+var ccoreViewsOn atomic.Bool
+
+// Reasons for a whole-tree conversion of a view tree, counted in ccoreViewConversions.
+const (
+	ccoreViewConvEditWithViews = iota // Tree.Edit with a view below the root
+	ccoreViewConvNodeEdit             // Node.Edit
+	ccoreViewConvAdopt                // a view adopted into a hand-built tree
+	ccoreViewConvOffsetRoot           // RootNodeWithOffset
+	ccoreViewConvTest                 // asked by a test
+	ccoreViewConvOther                // any other caller of materialize
+	ccoreViewConvCount
+)
+
+var ccoreViewConvNames = [ccoreViewConvCount]string{"tree_edit_with_views", "node_edit", "adopt", "offset_root", "test", "other"}
+
+var (
+	ccoreViewConversions [ccoreViewConvCount]atomic.Int64
+	ccoreViewsMade       atomic.Int64 // headers made by views of all trees
+	ccoreViewTrees       atomic.Int64 // view trees built
+	ccoreViewRootEdits   atomic.Int64 // Tree.Edit calls served by the root header alone
+)
+
+const ccoreViewPageSize = 128
+
+type ccoreViewPage [ccoreViewPageSize]atomic.Pointer[Node]
+
+type ccoreViewTop struct {
+	pages []atomic.Pointer[ccoreViewPage]
+}
+
+const ccoreLargeKey = uint32(1) << 31 // rawShape of a child of a list that has a page of its own
+
+type ccoreViews struct {
+	rd    ccore.NodeReader
+	core  *ccore.Tree
+	lang  *Language
+	arena *nodeArena
+	root  *Node
+
+	mu        sync.Mutex
+	top       atomic.Pointer[ccoreViewTop]
+	large     map[[2]uint32]*Node // (list, index) of a large list -> view; under mu
+	largeKeys [][2]uint32         // rawShape&^ccoreLargeKey -> (list, index); under mu
+	pageBytes uint64              // under mu
+
+	made     atomic.Int64 // views made by this backing
+	released atomic.Bool
+}
+
+var _ nodeViewBacking = (*ccoreViews)(nil)
+
+// ccoreViewTree builds the public tree of a core tree without converting it:
+// the root is a view. The tree owns ct.
+func ccoreViewTree(ct *ccore.Tree, src []byte, lang *Language, blob [32]byte, st *ccoreLanguageTables, led *ccore.Ledger, end *ccoreConvEnd) *Tree {
+	if led.Active() && !led.Reserve(ccoreColdArenaBytes()) {
+		return nil
+	}
+	arena := acquireNodeViewArena()
+	forgetArenaCheckout(arena)
+	if led.Active() {
+		end.arenaCharged = int64(arenaAllocatedVolume(arena)) + ccoreArenaSide(arena)
+		if !led.Rebase(ccoreColdArenaBytes(), end.arenaCharged) {
+			arena.Release()
+			return nil
+		}
+	}
+	done := false
+	defer func() {
+		if !done {
+			arena.Release()
+		}
+	}()
+	arena.ccore = &ccoreArenaState{tables: st.base, binding: st.token, ct: ct, curLen: int64(len(src)), viewOrigin: true}
+	v := newCcoreViews(ct, lang, st, arena)
+	end.arenaHeld = int64(arenaAllocatedVolume(arena)) + ccoreArenaSide(arena)
+	if led.Active() && !led.Check(true) {
+		return nil
+	}
+	markPublishedRootError(v.root)
+	t := &Tree{
+		root: v.root, source: src, sourceEncoding: InputEncodingUTF8, language: lang, arena: arena,
+		parseRuntime:               acquireParseRuntime(),
+		incrementalReuseDisabled:   true,
+		resultCompatibilityApplied: true,
+		dependsOnColumnPropagated:  true,
+	}
+	ccoreViewTrees.Add(1)
+	done = true
+	return t
+}
+
+// newCcoreViews makes the backing and the root view of ct and installs it in arena.
+func newCcoreViews(ct *ccore.Tree, lang *Language, st *ccoreLanguageTables, arena *nodeArena) *ccoreViews {
+	v := &ccoreViews{
+		rd:    ccore.NewNodeReader(ct.Reader(), ccoreNodeTablesFor(lang)),
+		core:  ct,
+		lang:  lang,
+		arena: arena,
+	}
+	arena.views = v
+	root := v.rd.RootNode(ct.Root())
+	v.root = v.newHeader(root, nil, 0)
+	return v
+}
+
+// newHeader fills a header from a value node. The caller holds mu, or owns v alone.
+func (v *ccoreViews) newHeader(c ccore.Node, parent *Node, key uint32) *Node {
+	rd := v.rd
+	s := rd.S
+	end := rd.End(c)
+	n := v.arena.allocNodeFast()
+	*n = Node{
+		ownerArena:        v.arena,
+		parent:            parent,
+		startPoint:        Point{Row: c.Start.Row(), Column: c.Start.Col()},
+		endPoint:          Point{Row: end.Row(), Column: end.Col()},
+		startByte:         c.Start.Bytes(),
+		endByte:           end.Bytes(),
+		preGotoState:      StateID(s.ParseState(c.H)),
+		equivVersion:      c.Ordinal,
+		dynamicPrecedence: int32(c.Mask),
+		childIndex:        compactViewChildIndex,
+		rawShape:          rawShapeRef(key),
+		symbol:            Symbol(rd.Symbol(c)),
+		productionID:      s.ProductionID(c.H),
+	}
+	n.setNamed(rd.Named(c))
+	n.setExtra(rd.Extra(c))
+	n.setMissing(rd.Missing(c))
+	n.setHasError(rd.HasError(c))
+	if rd.HasChanges(c) {
+		n.setDirty(true)
+	}
+	v.made.Add(1)
+	ccoreViewsMade.Add(1)
+	return n
+}
+
+// slotKey returns the rawShape of the slot a value node was read from, or false
+// for a node in a large list (its key is made under mu).
+func ccoreSlotKey(c ccore.Node) (uint32, bool) {
+	if ccore.LargeSlot(c.List) {
+		return 0, false
+	}
+	return c.Slot, true
+}
+
+// lookup returns the view in a small slot, if one was made.
+func (v *ccoreViews) lookup(key uint32) *Node {
+	top := v.top.Load()
+	if top == nil {
+		return nil
+	}
+	pi := int(key / ccoreViewPageSize)
+	if pi >= len(top.pages) {
+		return nil
+	}
+	page := top.pages[pi].Load()
+	if page == nil {
+		return nil
+	}
+	return page[key%ccoreViewPageSize].Load()
+}
+
+// viewFor returns the one header of the node read at c, making it when it does not exist.
+func (v *ccoreViews) viewFor(c ccore.Node, parent *Node) *Node {
+	if key, ok := ccoreSlotKey(c); ok {
+		if n := v.lookup(key); n != nil {
+			return n
+		}
+	}
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.viewForLocked(c, parent)
+}
+
+func (v *ccoreViews) viewForLocked(c ccore.Node, parent *Node) *Node {
+	if key, ok := ccoreSlotKey(c); ok {
+		pi := int(key / ccoreViewPageSize)
+		top := v.top.Load()
+		if top == nil || pi >= len(top.pages) {
+			grown := &ccoreViewTop{pages: make([]atomic.Pointer[ccoreViewPage], max(pi+1, 2*lenTop(top)))}
+			if top != nil {
+				for i := range top.pages {
+					grown.pages[i].Store(top.pages[i].Load())
+				}
+			}
+			v.pageBytes += uint64(len(grown.pages)) * uint64(unsafe.Sizeof(atomic.Pointer[ccoreViewPage]{}))
+			v.top.Store(grown)
+			top = grown
+		}
+		page := top.pages[pi].Load()
+		if page == nil {
+			page = new(ccoreViewPage)
+			v.pageBytes += uint64(unsafe.Sizeof(*page))
+			top.pages[pi].Store(page)
+		}
+		if n := page[key%ccoreViewPageSize].Load(); n != nil {
+			return n
+		}
+		n := v.newHeader(c, parent, key)
+		page[key%ccoreViewPageSize].Store(n)
+		return n
+	}
+	lk := [2]uint32{c.List, c.Slot}
+	if n := v.large[lk]; n != nil {
+		return n
+	}
+	if v.large == nil {
+		v.large = map[[2]uint32]*Node{}
+	}
+	key := ccoreLargeKey | uint32(len(v.largeKeys))
+	v.largeKeys = append(v.largeKeys, lk)
+	n := v.newHeader(c, parent, key)
+	v.large[lk] = n
+	return n
+}
+
+func lenTop(t *ccoreViewTop) int {
+	if t == nil {
+		return 0
+	}
+	return len(t.pages)
+}
+
+// handleOf reads the handle in the slot of a view.
+func (v *ccoreViews) handleOf(n *Node) ccore.Handle {
+	if n == v.root {
+		return v.core.Root()
+	}
+	key := uint32(n.rawShape)
+	if key&ccoreLargeKey != 0 {
+		v.mu.Lock()
+		lk := v.largeKeys[key&^ccoreLargeKey]
+		v.mu.Unlock()
+		return v.rd.S.ChildHandle(lk[0], 0, lk[1])
+	}
+	return v.rd.S.HandleAt(key)
+}
+
+// value rebuilds the value node of a view. It reports false for a released
+// backing or an empty slot.
+func (v *ccoreViews) value(n *Node) (ccore.Node, bool) {
+	if n == nil || v.released.Load() {
+		return ccore.Node{}, false
+	}
+	h := v.handleOf(n)
+	if h == 0 {
+		return ccore.Node{}, false
+	}
+	return ccore.Node{
+		H:     h,
+		Start: ccore.NewLength(n.startByte, n.startPoint.Row, n.startPoint.Column),
+		Mask:  uint32(n.dynamicPrecedence),
+	}, true
+}
+
+func (v *ccoreViews) childCount(n *Node) int {
+	c, ok := v.value(n)
+	if !ok {
+		return 0
+	}
+	return int(v.rd.ChildCount(c))
+}
+
+func (v *ccoreViews) namedChildCount(n *Node) int {
+	c, ok := v.value(n)
+	if !ok {
+		return 0
+	}
+	return int(v.rd.NamedChildCount(c))
+}
+
+func (v *ccoreViews) child(n *Node, i int) *Node {
+	if i < 0 || uint64(i) >= 1<<32 {
+		return nil
+	}
+	c, ok := v.value(n)
+	if !ok {
+		return nil
+	}
+	k, ok := v.rd.Child(c, uint32(i))
+	if !ok {
+		return nil
+	}
+	return v.viewFor(k, n)
+}
+
+func (v *ccoreViews) namedChild(n *Node, i int) *Node {
+	if i < 0 || uint64(i) >= 1<<32 {
+		return nil
+	}
+	c, ok := v.value(n)
+	if !ok {
+		return nil
+	}
+	k, found, quirk := v.rd.NamedChildChecked(c, uint32(i))
+	if !quirk {
+		if !found {
+			return nil
+		}
+		return v.viewFor(k, n)
+	}
+	// C's numbering can differ here (an anonymous visible child holds named
+	// children, and ts_node_named_child may return a node below it or one past the
+	// count). The public tree selects the named nodes among the visible children
+	// in sequence, so do that: the node is then the child of n that it is.
+	var scratch [16]ccore.Node
+	named := 0
+	for _, kid := range v.rd.Children(c, scratch[:0]) {
+		if v.rd.Named(kid) {
+			if named == i {
+				return v.viewFor(kid, n)
+			}
+			named++
+		}
+	}
+	return nil
+}
+
+// children returns a new slice of the visible children, making their views.
+func (v *ccoreViews) children(n *Node) []*Node {
+	c, ok := v.value(n)
+	if !ok {
+		return nil
+	}
+	var scratch [16]ccore.Node
+	kids := v.rd.Children(c, scratch[:0])
+	if len(kids) == 0 {
+		return nil
+	}
+	out := make([]*Node, len(kids))
+	for i, k := range kids {
+		out[i] = v.viewFor(k, n)
+	}
+	return out
+}
+
+func (v *ccoreViews) parent(n *Node) (*Node, int, bool) {
+	if n == nil || n.parent == nil {
+		return nil, -1, false
+	}
+	return n.parent, int(n.equivVersion), true
+}
+
+func (v *ccoreViews) supertype(n *Node) uint32 { return uint32(n.dynamicPrecedence) }
+
+// grammarSymbol is the record's symbol, which an alias replaces in the header.
+func (v *ccoreViews) grammarSymbol(n *Node) ccore.Symbol {
+	if v.released.Load() {
+		return 0
+	}
+	h := v.handleOf(n)
+	if h == 0 {
+		return 0
+	}
+	return v.rd.S.Symbol(h)
+}
+
+// fieldIDAt is the field of the i-th visible child: ts_node_field_name_for_child.
+func (v *ccoreViews) fieldIDAt(n *Node, i int) FieldID {
+	c, ok := v.value(n)
+	if !ok || i < 0 {
+		return 0
+	}
+	k, ok := v.rd.Child(c, uint32(i))
+	if !ok {
+		return 0
+	}
+	return FieldID(k.Field)
+}
+
+// cursorFieldAt is the field of the i-th visible child as the tree cursor
+// reports it: ts_tree_cursor_current_field_id.
+func (v *ccoreViews) cursorFieldAt(n *Node, i int) FieldID {
+	c, ok := v.value(n)
+	if !ok || i < 0 {
+		return 0
+	}
+	k, ok := v.rd.Child(c, uint32(i))
+	if !ok {
+		return 0
+	}
+	return FieldID(k.CField)
+}
+
+// childByField is ts_node_child_by_field_id: the search the eager conversion
+// records, run when asked (ccore.NodeReader.FieldPath). It returns positions, so
+// equal inline handles in two slots stay distinct.
+func (v *ccoreViews) childByField(n *Node, fid FieldID) *Node {
+	c, ok := v.value(n)
+	if !ok {
+		return nil
+	}
+	path, found := v.rd.FieldPath(c, uint16(fid))
+	if !found {
+		return nil
+	}
+	cur := n
+	for _, i := range path {
+		if cur = v.child(cur, int(i)); cur == nil {
+			return nil
+		}
+	}
+	return cur
+}
+
+// equalTree compares two trees through the exported methods, as
+// incrementalTreesStructurallyEqual does for ordinary trees.
+func (v *ccoreViews) equalTree(left, right *Node, lang *Language) bool {
+	type pair struct{ a, b *Node }
+	stack := []pair{{left, right}}
+	for len(stack) != 0 {
+		last := len(stack) - 1
+		cur := stack[last]
+		stack = stack[:last]
+		l, r := cur.a, cur.b
+		if l == r {
+			continue
+		}
+		if l == nil || r == nil {
+			return false
+		}
+		if l.Symbol() != r.Symbol() || l.Range() != r.Range() ||
+			l.IsNamed() != r.IsNamed() || l.IsMissing() != r.IsMissing() ||
+			l.IsExtra() != r.IsExtra() || l.IsError() != r.IsError() ||
+			l.HasError() != r.HasError() || l.ChildCount() != r.ChildCount() {
+			return false
+		}
+		for i := l.ChildCount() - 1; i >= 0; i-- {
+			if l.FieldNameForChild(i, lang) != r.FieldNameForChild(i, lang) {
+				return false
+			}
+			stack = append(stack, pair{l.Child(i), r.Child(i)})
+		}
+	}
+	return true
+}
+
+// copyTree is Tree.Copy for a view tree: one retain of the core tree and a new
+// root view; the copy starts with an empty table.
+func (v *ccoreViews) copyTree(t *Tree) *Tree {
+	state := t.ccoreStateOf()
+	if state == nil || state.ct == nil || v.released.Load() {
+		return nil
+	}
+	copyState := state.forTreeCopy()
+	ct := copyState.ct
+	if ct == nil {
+		return nil
+	}
+	arena := acquireNodeViewArena()
+	arena.ccore = copyState
+	nv := newCcoreViews(ct, t.language, nil, arena)
+	out := &Tree{
+		root: nv.root, source: t.source, sourceEncoding: t.sourceEncoding, sourceUTF16: t.sourceUTF16, utf16Map: t.utf16Map,
+		language: t.language, arena: arena,
+		parseRuntime:                      acquireParseRuntime(),
+		resultErrorSummary:                t.resultErrorSummary,
+		resultCompatibilityApplied:        t.resultCompatibilityApplied,
+		tokenInvariantReadSpan:            t.tokenInvariantReadSpan,
+		eofExtraTokenSourceProofID:        t.eofExtraTokenSourceProofID,
+		forestFastPath:                    t.forestFastPath,
+		incrementalReuseDisabled:          t.incrementalReuseDisabled,
+		incrementalReuseUnsupportedClause: t.incrementalReuseUnsupportedClause,
+		compactMaterialized:               t.compactMaterialized,
+		dependsOnColumnPropagated:         t.dependsOnColumnPropagated,
+	}
+	*out.parseRuntime = *t.rawParseRuntime()
+	if len(t.edits) > 0 {
+		out.edits = make([]InputEdit, len(t.edits))
+		copy(out.edits, t.edits)
+	}
+	ccoreViewTrees.Add(1)
+	return out
+}
+
+func (v *ccoreViews) retainedBytes() uint64 {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.pageBytes + uint64(len(v.largeKeys))*8
+}
+
+// release ends the backing: later reads find nothing. The core tree is
+// released by the tree's release hook.
+func (v *ccoreViews) release() {
+	v.released.Store(true)
+}
+
+// refreshRoot sets the root header from the edited core root: start after the
+// padding, end after the size, and C's has_changes. It is the whole public
+// effect of Tree.Edit when no view exists below the root.
+func (v *ccoreViews) refreshRoot() {
+	root := v.root
+	c := v.rd.RootNode(v.core.Root())
+	if c.Null() {
+		return
+	}
+	end := v.rd.End(c)
+	root.startByte, root.endByte = c.Start.Bytes(), end.Bytes()
+	root.startPoint = Point{Row: c.Start.Row(), Column: c.Start.Col()}
+	root.endPoint = Point{Row: end.Row(), Column: end.Col()}
+	root.setDirty(v.rd.HasChanges(c))
+}
+
+// onlyRoot reports whether no view exists below the root.
+func (v *ccoreViews) onlyRoot() bool { return v.made.Load() <= 1 }
+
+// materialize turns the view tree into an eager tree in place: every node gets
+// a header, children, field ids and the field answers the eager conversion
+// records, and the arena stops being a view arena. Held pointers stay valid.
+// It is a worklist, so the depth of the tree does not limit it. It must run
+// before the core tree is edited, because it reads the records of the tree
+// the views describe.
+func (v *ccoreViews) materialize() { v.materializeFor(ccoreViewConvOther) }
+
+// materializeFor is the one conversion: it counts the reason when it converts.
+func (v *ccoreViews) materializeFor(reason int) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	if v.released.Load() || v.arena.views != nodeViewBacking(v) {
+		return
+	}
+	ccoreViewConversions[reason].Add(1)
+	rd := v.rd
+	s := rd.S
+	arena := v.arena
+	ccoreTablesMu.Lock()
+	st := ccoreLanguageTablesForLocked(v.lang)
+	ccoreTablesMu.Unlock()
+	conv := &ccoreConv{s: s, fs: s, lang: v.lang, conv: st.conv, arena: arena}
+	type item struct {
+		n *Node
+		c ccore.Node
+	}
+	root, _ := v.valueLocked(v.root)
+	work := []item{{v.root, root}}
+	all := make([]item, 0, 64)
+	var kids []ccore.Node
+	for len(work) > 0 {
+		it := work[len(work)-1]
+		work = work[:len(work)-1]
+		var hidden bool
+		kids, hidden = rd.ChildrenHidden(it.c, kids[:0])
+		all = append(all, it)
+		if len(kids) == 0 {
+			continue
+		}
+		children := arena.allocNodeSlice(len(kids))
+		conv.fids, conv.cfids = conv.fids[:0], conv.cfids[:0]
+		anyField := false
+		for i, k := range kids {
+			cv := v.viewForLocked(k, it.n)
+			children[i] = cv
+			conv.fids = append(conv.fids, FieldID(k.Field))
+			conv.cfids = append(conv.cfids, FieldID(k.CField))
+			if k.Field != 0 {
+				anyField = true
+			}
+			work = append(work, item{cv, k})
+		}
+		it.n.children = children
+		if anyField {
+			ids := arena.allocFieldIDSlice(len(kids))
+			copy(ids, conv.fids)
+			it.n.setFieldMetadata(ids, defaultFieldSourcesInArena(arena, ids))
+		}
+		conv.hidden = hidden
+		v.recordFieldAnswers(conv, it.n, it.c.H, 0, len(kids))
+	}
+	for _, it := range all {
+		n, c := it.n, it.c
+		mask := uint32(n.dynamicPrecedence)
+		n.dynamicPrecedence = 0
+		if len(n.children) > 0 {
+			n.dynamicPrecedence = s.DynamicPrecedence(c.H)
+			for i, ch := range n.children {
+				setNodeParentLink(ch, n, i)
+			}
+		}
+		n.rawShape = 0
+		n.equivVersion = uint32(s.Symbol(c.H))
+		if mask != 0 {
+			n.addSupertypeMask(arena, mask)
+		}
+		if s.DependsOnColumn(c.H) {
+			arena.setNodeDependsOnColumnBit(n, true)
+		}
+	}
+	setNodeRootLink(v.root)
+	arena.views = nil
+	v.released.Store(true)
+}
+
+// recordFieldAnswers keeps the field and cursor answers when views become ordinary nodes.
+func (v *ccoreViews) recordFieldAnswers(c *ccoreConv, n *Node, h ccore.Handle, base, cnt int) {
+	var e *ccoreNodeExtra
+	cur := c.cfids[base : base+cnt]
+	for i, f := range cur {
+		if f != c.fids[base+i] {
+			if !c.reserve(int64(ccoreExtraBytes)) { // the record
+				return
+			}
+			cursor, ok := ccore.Make[FieldID](c.l(), len(cur))
+			if !ok {
+				c.stop = true
+				return
+			}
+			copy(cursor, cur)
+			e = &ccoreNodeExtra{cursor: cursor}
+			break
+		}
+	}
+	entries := c.fieldMapOf(c.fs.ProductionID(h))
+	complexMap := c.hidden
+	for _, en := range entries {
+		if en.Inherited {
+			complexMap = true
+			break
+		}
+	}
+	inMap := func(f FieldID) bool {
+		for _, en := range entries {
+			if en.FieldID == f {
+				return true
+			}
+		}
+		return false
+	}
+	if !complexMap {
+		for j := 0; j < cnt && !complexMap; j++ { // a stored field that the production's map lacks: C's lookup finds none
+			if f := c.fids[base+j]; f != 0 && !inMap(f) {
+				complexMap = true
+			}
+		}
+	}
+	if complexMap {
+		fields, ok := ccore.MakeCap[FieldID](c.l(), len(entries)+cnt) // the field list, at its largest
+		if !ok {
+			c.stop = true
+			return
+		}
+		have := func(f FieldID) bool {
+			for _, x := range fields {
+				if x == f {
+					return true
+				}
+			}
+			return false
+		}
+		for _, en := range entries {
+			if !have(en.FieldID) {
+				fields = fields[:len(fields)+1]
+				fields[len(fields)-1] = en.FieldID
+			}
+		}
+		for j := 0; j < cnt; j++ {
+			if f := c.fids[base+j]; f != 0 && !have(f) {
+				fields = fields[:len(fields)+1]
+				fields[len(fields)-1] = f
+			}
+		}
+		hits, ok := ccore.MakeCap[ccoreFieldHit](c.l(), len(fields)) // allocated whether or not it is kept
+		if !ok {
+			c.stop = true
+			return
+		}
+		differs := false
+		for _, fid := range fields {
+			hit := ccoreFieldHit{field: fid}
+			if path, found := v.rd.FieldPath(ccore.Node{H: h}, uint16(fid)); found {
+				hit.found, hit.path = true, path
+			}
+			if c.stop {
+				return
+			}
+			stored := int32(-1)
+			for j := 0; j < cnt; j++ {
+				if c.fids[base+j] == fid {
+					stored = int32(j)
+					break
+				}
+			}
+			if hit.found != (stored >= 0) || hit.found && (len(hit.path) != 1 || hit.path[0] != stored) {
+				differs = true
+			}
+			hits = hits[:len(hits)+1]
+			hits[len(hits)-1] = hit
+		}
+		if differs {
+			if e == nil {
+				if !c.reserve(int64(ccoreExtraBytes)) { // the lookup-only record, before it is made
+					return
+				}
+				e = &ccoreNodeExtra{}
+			}
+			e.lookup = hits
+		}
+	}
+	if e != nil {
+		if !c.reserve(ccoreMapEntryBytes) { // the map entry (an estimate for a Go map)
+			return
+		}
+		st := c.arena.ccore
+		if st.extras == nil {
+			st.extras = map[*Node]*ccoreNodeExtra{}
+		}
+		st.extras[n] = e
+	}
+}
+
+// valueLocked is value for a caller that holds mu.
+func (v *ccoreViews) valueLocked(n *Node) (ccore.Node, bool) {
+	var h ccore.Handle
+	switch {
+	case n == v.root:
+		h = v.core.Root()
+	case uint32(n.rawShape)&ccoreLargeKey != 0:
+		lk := v.largeKeys[uint32(n.rawShape)&^ccoreLargeKey]
+		h = v.rd.S.ChildHandle(lk[0], 0, lk[1])
+	default:
+		h = v.rd.S.HandleAt(uint32(n.rawShape))
+	}
+	if h == 0 {
+		return ccore.Node{}, false
+	}
+	return ccore.Node{
+		H:     h,
+		Start: ccore.NewLength(n.startByte, n.startPoint.Row, n.startPoint.Column),
+		Mask:  uint32(n.dynamicPrecedence),
+	}, true
+}
+
+// nodeFieldBacking is implemented by a view backing that answers the field questions.
+type nodeFieldBacking interface {
+	fieldIDAt(*Node, int) FieldID
+	cursorFieldAt(*Node, int) FieldID
+	childByField(*Node, FieldID) *Node
+}
+
+var _ nodeFieldBacking = (*ccoreViews)(nil)
+
+// ccoreViewsOf returns the views backing of a node, or nil for any other node.
+func ccoreViewsOf(n *Node) *ccoreViews {
+	v, _ := nodeViews(n).(*ccoreViews)
+	return v
+}
+
+// ccoreMaterializeForReason converts the view tree of n in place and counts the reason.
+func ccoreMaterializeForReason(n *Node, reason int) {
+	if v := ccoreViewsOf(n); v != nil {
+		v.materializeFor(reason)
+		if reason == ccoreViewConvNodeEdit || reason == ccoreViewConvAdopt {
+			v.arena.ccore.releaseCore()
+		}
+	}
+}
+
+// ccoreSetViewsOn is bind.Adapter.ViewsOn.
+func ccoreSetViewsOn(on bool) (prev bool) { return ccoreViewsOn.Swap(on) }
+
+// ccoreViewCounters is bind.Adapter.ViewCounters.
+func ccoreViewCounters() (trees, made int64, conversions map[string]int64) {
+	conversions = map[string]int64{}
+	for i := range ccoreViewConversions {
+		if v := ccoreViewConversions[i].Load(); v != 0 {
+			conversions[ccoreViewConvNames[i]] = v
+		}
+	}
+	if v := ccoreViewRootEdits.Load(); v != 0 {
+		conversions["root_only_edits"] = v // not a conversion: the edits that needed none
+	}
+	return ccoreViewTrees.Load(), ccoreViewsMade.Load(), conversions
 }

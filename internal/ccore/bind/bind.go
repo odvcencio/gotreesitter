@@ -30,6 +30,10 @@ type Adapter struct {
 	// package's own lookups for every state and symbol. It returns the number
 	// of pairs checked and the number that differ.
 	CheckTables func(lang any) (checked, differ int, err error)
+	// ViewsOn switches lazy public nodes and returns the previous setting.
+	ViewsOn func(bool) bool
+	// ViewCounters reports views and conversions since startup.
+	ViewCounters func() (int64, int64, map[string]int64)
 }
 
 // ErrNoAdapter is returned when nothing has registered: the root package is
@@ -62,6 +66,24 @@ func registered() (*Adapter, error) {
 		return nil, ErrNoAdapter
 	}
 	return adapter, nil
+}
+
+// ViewsOn changes the optional lazy-tree switch.
+func ViewsOn(on bool) bool {
+	a, err := registered()
+	if err != nil || a.ViewsOn == nil {
+		return false
+	}
+	return a.ViewsOn(on)
+}
+
+// ViewCounters reports lazy-tree counters when the adapter provides them.
+func ViewCounters() (int64, int64, map[string]int64) {
+	a, err := registered()
+	if err != nil || a.ViewCounters == nil {
+		return 0, 0, nil
+	}
+	return a.ViewCounters()
 }
 
 // Config returns the core configuration of a language. The configuration's

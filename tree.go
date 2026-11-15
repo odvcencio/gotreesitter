@@ -1174,6 +1174,9 @@ func nodeChildrenForReason(n *Node, reason materializeReason) []*Node {
 }
 
 func nodeFieldIDAt(n *Node, i int) FieldID {
+	if v, ok := nodeViews(n).(nodeFieldBacking); ok {
+		return v.fieldIDAt(n, i)
+	}
 	fieldIDs := n.fieldIDs()
 	if i < 0 || i >= len(fieldIDs) {
 		return 0
@@ -2517,6 +2520,9 @@ func (n *Node) ChildByFieldName(name string, lang *Language) *Node {
 	}
 
 	if a := n.ownerArena; a != nil && a.ccore != nil { // a tree built by internal/ccore: C's lookup, where it differs from the stored ids
+		if v, ok := nodeViews(n).(nodeFieldBacking); ok {
+			return v.childByField(n, fid)
+		}
 		if path, found, ok := a.ccore.lookupChild(n, fid); ok {
 			if !found {
 				return nil
@@ -3694,6 +3700,11 @@ func newParentNode(arena *nodeArena, sym Symbol, named bool, children []*Node, f
 //
 // Deprecated: NewParentNode builds a pointer tree by hand. Parse source with a Parser and read nodes from the resulting Tree instead. The function may be removed in a future release.
 func NewParentNode(sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {
+	if ccoreViewTrees.Load() != 0 {
+		for _, child := range children {
+			ccoreMaterializeForReason(child, ccoreViewConvAdopt)
+		}
+	}
 	children, fieldIDs = dropNilChildren(children, fieldIDs)
 	return newParentNode(nil, sym, named, children, fieldIDs, productionID)
 }
@@ -4340,6 +4351,7 @@ func (t *Tree) rootNodeWithOffsetMode(offsetBytes uint32, offsetExtent Point, fo
 	if views := nodeViews(t.root); views != nil {
 		copy := views.copyTree(t)
 		defer copy.Release()
+		ccoreMaterializeForReason(copy.root, ccoreViewConvOffsetRoot)
 		return cloneTreeNodesWithOffsetMode(copy.root, offsetBytes, offsetExtent, followPointAdd)
 	}
 	return cloneTreeNodesWithOffsetMode(t.root, offsetBytes, offsetExtent, followPointAdd)
@@ -5475,7 +5487,14 @@ func (n *Node) Edit(edit InputEdit) {
 		}
 		return
 	}
-	materializeNodeViews(n)
+	if views := nodeViews(n); views != nil {
+		if v, ok := views.(*ccoreViews); ok {
+			v.materializeFor(ccoreViewConvNodeEdit)
+			v.arena.ccore.releaseCore()
+		} else {
+			views.materialize()
+		}
+	}
 	if root := nodeEditRoot(n); root != nil {
 		editNode(root, edit)
 	}
@@ -5549,7 +5568,22 @@ func (t *Tree) Edit(edit InputEdit) {
 	if t == nil {
 		return
 	}
-	materializeNodeViews(t.root)
+	if views := nodeViews(t.root); views != nil {
+		if v, ok := views.(*ccoreViews); ok {
+			if v.onlyRoot() && t.ccoreEdit(edit) {
+				v.refreshRoot()
+				ccoreViewRootEdits.Add(1)
+				t.setIncrementalFreshVerified(false)
+				t.edits = append(t.edits, edit)
+				t.lastEditedLeaf = nil
+				t.editIncludedRanges(edit)
+				return
+			}
+			v.materializeFor(ccoreViewConvEditWithViews)
+		} else {
+			views.materialize()
+		}
+	}
 	t.setIncrementalFreshVerified(false)
 	t.ensureResultCompatibility()
 	t.ensureDependsOnColumnPropagated()

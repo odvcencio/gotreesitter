@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"runtime"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,6 +24,7 @@ import (
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
@@ -2723,4 +2725,1010 @@ func TestCcoreReclamationIsCountedAgainstTheRequestBudget(t *testing.T) {
 		t.Fatal("the result of the reparse declined at the exit differs from a fresh parse by the present engine")
 	}
 	t.Logf("a release during the parse: the exit drain adds %d bytes; with a budget of %d the request declines after it (%d limit checks)", exitDrain, budget2, len(totals4))
+}
+
+// ---- Lazy public trees against the eager conversion ----
+//
+// The oracle parses with the views switch on and compares every node with the
+// eager conversion of a copy of the same core tree, matched by path (the list
+// of child indexes from the root). Parts: 1 scalars, 2 structure and fields,
+// 4 identity, 5 access orders (the views are first made through position
+// lookups and parent chains, through a cursor, or in reverse order).
+
+type ccoreOraclePath struct {
+	parent *ccoreOraclePath
+	index  int
+}
+
+func (p *ccoreOraclePath) String() string {
+	var parts []string
+	for ; p != nil; p = p.parent {
+		parts = append(parts, fmt.Sprint(p.index))
+	}
+	for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
+		parts[i], parts[j] = parts[j], parts[i]
+	}
+	return "/" + strings.Join(parts, "/")
+}
+
+type ccoreOracle struct {
+	t      *testing.T
+	lang   *gts.Language
+	src    []byte
+	name   string
+	nodes  int
+	checks int
+	diffs  int
+	shown  int
+}
+
+func (o *ccoreOracle) fail(p *ccoreOraclePath, format string, args ...any) {
+	o.diffs++
+	if o.shown < 8 {
+		o.shown++
+		o.t.Logf("ORACLEDIFF %s path=%s %s", o.name, p, fmt.Sprintf(format, args...))
+	}
+}
+
+func (o *ccoreOracle) eq(p *ccoreOraclePath, what string, got, want any) {
+	o.checks++
+	if got != want {
+		o.fail(p, "%s: view %v, eager %v", what, got, want)
+	}
+}
+
+// triple names a node for comparison across trees.
+func ccoreOracleTriple(n *gts.Node, lang *gts.Language) string {
+	if n == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("%s@%d-%d", n.Type(lang), n.StartByte(), n.EndByte())
+}
+
+func (o *ccoreOracle) scalars(p *ccoreOraclePath, v, e *gts.Node) {
+	o.eq(p, "Symbol", v.Symbol(), e.Symbol())
+	o.eq(p, "Type", v.Type(o.lang), e.Type(o.lang))
+	o.eq(p, "IsNamed", v.IsNamed(), e.IsNamed())
+	o.eq(p, "IsExtra", v.IsExtra(), e.IsExtra())
+	o.eq(p, "IsMissing", v.IsMissing(), e.IsMissing())
+	o.eq(p, "IsError", v.IsError(), e.IsError())
+	o.eq(p, "HasError", v.HasError(), e.HasError())
+	o.eq(p, "HasErrorOrMissing", v.HasErrorOrMissing(), e.HasErrorOrMissing())
+	o.eq(p, "HasChanges", v.HasChanges(), e.HasChanges())
+	o.eq(p, "ParseState", v.ParseState(), e.ParseState())
+	o.eq(p, "PreGotoState", v.PreGotoState(), e.PreGotoState())
+	o.eq(p, "StartByte", v.StartByte(), e.StartByte())
+	o.eq(p, "EndByte", v.EndByte(), e.EndByte())
+	o.eq(p, "StartPoint", v.StartPoint(), e.StartPoint())
+	o.eq(p, "EndPoint", v.EndPoint(), e.EndPoint())
+	o.eq(p, "Range", v.Range(), e.Range())
+	o.eq(p, "ChildCount", v.ChildCount(), e.ChildCount())
+	o.eq(p, "NamedChildCount", v.NamedChildCount(), e.NamedChildCount())
+	if v.EndByte() <= uint32(len(o.src)) {
+		o.eq(p, "Text", v.Text(o.src), e.Text(o.src))
+	}
+}
+
+// compare walks both trees with an explicit stack (the depth of a tree does not limit it).
+func (o *ccoreOracle) compare(vroot, eroot *gts.Node) {
+	type pair struct {
+		v, e *gts.Node
+		p    *ccoreOraclePath
+	}
+	o.eq(nil, "SExpr", vroot.SExpr(o.lang), eroot.SExpr(o.lang))
+	stack := []pair{{vroot, eroot, nil}}
+	nf := len(o.lang.FieldNames)
+	for len(stack) > 0 {
+		cur := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		v, e, p := cur.v, cur.e, cur.p
+		o.nodes++
+		o.scalars(p, v, e)
+		vk, ek := v.Children(), e.Children()
+		o.eq(p, "len(Children)", len(vk), len(ek))
+		if len(vk) != len(ek) {
+			continue
+		}
+		wide := len(vk) > 512
+		for i := range vk {
+			if wide && i >= 32 && i+32 < len(vk) && i%211 != 0 {
+				// A node with more than 512 children: the first 32, the last 32 and every 211th get the per-child checks.
+				stack = append(stack, pair{vk[i], ek[i], &ccoreOraclePath{p, i}})
+				continue
+			}
+			o.checks++
+			if v.Child(i) != vk[i] {
+				o.fail(p, "Child(%d) is not the same pointer twice", i)
+			}
+			if vk[i].Parent() != v {
+				o.fail(p, "Parent of child %d is another node", i)
+			}
+			var wantNext, wantPrev *gts.Node
+			if i+1 < len(vk) {
+				wantNext = vk[i+1]
+			}
+			if i > 0 {
+				wantPrev = vk[i-1]
+			}
+			if vk[i].NextSibling() != wantNext {
+				o.fail(p, "NextSibling of child %d", i)
+			}
+			if vk[i].PrevSibling() != wantPrev {
+				o.fail(p, "PrevSibling of child %d", i)
+			}
+			o.eq(p, fmt.Sprintf("FieldNameForChild(%d)", i), v.FieldNameForChild(i, o.lang), e.FieldNameForChild(i, o.lang))
+			stack = append(stack, pair{vk[i], ek[i], &ccoreOraclePath{p, i}})
+		}
+		named := v.NamedChildCount()
+		for j := 0; j < named; j++ {
+			if wide && j >= 32 && j+32 < named {
+				continue
+			}
+			vn, en := v.NamedChild(j), e.NamedChild(j)
+			o.eq(p, fmt.Sprintf("NamedChild(%d)", j), ccoreOracleTriple(vn, o.lang), ccoreOracleTriple(en, o.lang))
+			if vn != nil {
+				found := false
+				for _, k := range vk {
+					if k == vn {
+						found = true
+						break
+					}
+				}
+				o.checks++
+				if !found && !wide {
+					o.fail(p, "NamedChild(%d) is not one of the children", j)
+				}
+			}
+		}
+		if nf > 1 {
+			// every field the children carry, and three others that rotate with the node
+			seen := map[string]bool{}
+			names := []string{}
+			for i := range ek {
+				if f := e.FieldNameForChild(i, o.lang); f != "" && !seen[f] {
+					seen[f] = true
+					names = append(names, f)
+				}
+			}
+			for k := 0; k < 3; k++ {
+				names = append(names, o.lang.FieldNames[1+(o.nodes+k)%(nf-1)])
+			}
+			for _, f := range names {
+				if f == "" {
+					continue
+				}
+				o.eq(p, "ChildByFieldName("+f+")", ccoreOracleTriple(v.ChildByFieldName(f, o.lang), o.lang), ccoreOracleTriple(e.ChildByFieldName(f, o.lang), o.lang))
+			}
+		}
+	}
+}
+
+// ccoreOracleSamples returns the committed sample of each language that has one.
+func ccoreOracleSamples(t *testing.T) map[string][]byte {
+	raw, err := os.ReadFile(filepath.Join("internal", "benchfixtures", "real_corpus.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m struct {
+		Entries []struct {
+			Language      string `json:"language"`
+			Role          string `json:"role"`
+			CommittedPath string `json:"committed_path"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	out := map[string][]byte{}
+	for _, e := range m.Entries {
+		if e.Role != "sample" || e.CommittedPath == "" || out[e.Language] != nil {
+			continue
+		}
+		src, err := os.ReadFile(filepath.Join("internal", "benchfixtures", e.CommittedPath))
+		if err != nil {
+			t.Fatal(err)
+		}
+		out[e.Language] = src
+	}
+	return out
+}
+
+// cursors walks a view tree and the eager tree with two tree cursors in step and
+// compares the node, its field id and its field name at every step (up to a cap).
+func (o *ccoreOracle) cursors(vt, et *gts.Tree) {
+	vc, ec := gts.NewTreeCursorFromTree(vt), gts.NewTreeCursorFromTree(et)
+	for steps := 0; steps < 300000; steps++ {
+		vn, en := vc.CurrentNode(), ec.CurrentNode()
+		o.eq(nil, "cursor Symbol", vn.Symbol(), en.Symbol())
+		o.eq(nil, "cursor StartByte", vn.StartByte(), en.StartByte())
+		o.eq(nil, "cursor EndByte", vn.EndByte(), en.EndByte())
+		o.eq(nil, "cursor CurrentFieldID", vc.CurrentFieldID(), ec.CurrentFieldID())
+		o.eq(nil, "cursor CurrentFieldName", vc.CurrentFieldName(), ec.CurrentFieldName())
+		if a, b := vc.GotoFirstChild(), ec.GotoFirstChild(); a != b {
+			o.fail(nil, "GotoFirstChild: view %v, eager %v", a, b)
+			return
+		} else if a {
+			continue
+		}
+		for {
+			a, b := vc.GotoNextSibling(), ec.GotoNextSibling()
+			if a != b {
+				o.fail(nil, "GotoNextSibling: view %v, eager %v", a, b)
+				return
+			}
+			if a {
+				break
+			}
+			a, b = vc.GotoParent(), ec.GotoParent()
+			if a != b {
+				o.fail(nil, "GotoParent: view %v, eager %v", a, b)
+				return
+			}
+			if !a {
+				return
+			}
+		}
+	}
+}
+
+// ccoreOraclePrime makes views of a tree in an order other than the descent of compare.
+func ccoreOraclePrime(root *gts.Node, tree *gts.Tree, src []byte, lang *gts.Language, mode int) {
+	switch mode {
+	case 1: // leaf first: position lookups, then the parent chain to the root
+		step := max(1, len(src)/97)
+		for at := 0; at < len(src); at += step {
+			for n := root.DescendantForByteRange(uint32(at), uint32(at+1)); n != nil; n = n.Parent() {
+			}
+		}
+	case 2: // a cursor over the whole tree
+		c := gts.NewTreeCursorFromTree(tree)
+		for {
+			c.CurrentNode()
+			if c.GotoFirstChild() {
+				continue
+			}
+			for !c.GotoNextSibling() {
+				if !c.GotoParent() {
+					return
+				}
+			}
+		}
+	case 4: // NamedChild first, through the one-past-the-end index, before any other descent
+		var visit func(n *gts.Node, depth int)
+		visit = func(n *gts.Node, depth int) {
+			if depth > 2000 {
+				return
+			}
+			count := n.NamedChildCount()
+			for i := 0; i <= count; i++ {
+				if c := n.NamedChild(i); c != nil && i < count {
+					visit(c, depth+1)
+				}
+			}
+		}
+		visit(root, 0)
+	case 5: // field lookup first
+		var visit func(n *gts.Node, depth int)
+		visit = func(n *gts.Node, depth int) {
+			if depth > 2000 {
+				return
+			}
+			for f := 1; f < len(lang.FieldNames); f++ {
+				n.ChildByFieldName(lang.FieldNames[f], lang)
+			}
+			for i := 0; i < n.ChildCount() && i < 64; i++ {
+				visit(n.Child(i), depth+1)
+			}
+		}
+		visit(root, 0)
+	case 3: // reverse order
+		var visit func(n *gts.Node, depth int)
+		visit = func(n *gts.Node, depth int) {
+			if depth > 2000 {
+				return
+			}
+			for i := n.ChildCount() - 1; i >= 0; i-- {
+				visit(n.Child(i), depth+1)
+			}
+		}
+		visit(root, 0)
+	}
+}
+
+// ccoreSameConversions reports the conversion counters that changed between two readings.
+func ccoreSameConversions(before, after map[string]int64) []string {
+	var changed []string
+	for k, v := range after {
+		if k != "root_only_edits" && v != before[k] {
+			changed = append(changed, fmt.Sprintf("%s %d->%d", k, before[k], v))
+		}
+	}
+	return changed
+}
+
+// TestCcoreViewsOracle is oracle parts 1, 2, 4 and 5 over the committed sample of every language
+// the route serves, in six access orders. CCORE_VIEWS_LANGS=a,b limits the languages; a named
+// language that is missing or not served fails. A language the route declines is reported as
+// not covered; the test fails if nothing at all was compared. Every read-only comparison must
+// leave the tree backed by views and make no whole-tree conversion.
+func TestCcoreViewsOracle(t *testing.T) {
+	defer ccoreCertifyAll()()
+	samples := ccoreOracleSamples(t)
+	names := make([]string, 0, len(samples))
+	for n := range samples {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	explicit := os.Getenv("CCORE_VIEWS_LANGS") != ""
+	if explicit {
+		names = strings.Split(os.Getenv("CCORE_VIEWS_LANGS"), ",")
+	}
+	var nodes, checks, diffs, served int
+	var notCovered []string
+	for _, name := range names {
+		src := samples[name]
+		entry := grammars.DetectLanguageByName(name)
+		if src == nil || entry == nil || entry.Language() == nil {
+			if explicit {
+				t.Fatalf("%s: no sample or no grammar", name)
+			}
+			notCovered = append(notCovered, name+" (no sample)")
+			continue
+		}
+		lang := entry.Language()
+		langNodes := 0
+		for mode := 0; mode <= 5; mode++ {
+			restore := gts.CcoreTestViewsOn(true)
+			tree, err := ccoreRouteParser(lang).Parse(src)
+			restore()
+			if err != nil || tree == nil {
+				t.Fatalf("%s: parse: %v", name, err)
+			}
+			if _, ok := gts.CcoreTestViewHeaders(tree); !ok {
+				tree.Release() // the route declined this language
+				break
+			}
+			eager := gts.CcoreTestEager(tree)
+			if eager == nil {
+				tree.Release()
+				t.Errorf("%s: no eager conversion", name)
+				break
+			}
+			_, _, before := gts.CcoreTestViewCounters()
+			o := &ccoreOracle{t: t, lang: lang, src: src, name: fmt.Sprintf("%s/order%d", name, mode)}
+			if root := tree.RootNode(); root != nil {
+				if mode == 2 {
+					o.cursors(tree, eager)
+				}
+				ccoreOraclePrime(root, tree, src, lang, mode)
+				o.compare(root, eager.RootNode())
+			}
+			_, _, after := gts.CcoreTestViewCounters()
+			if ch := ccoreSameConversions(before, after); len(ch) != 0 {
+				t.Errorf("%s order %d: read-only checks converted the tree: %v", name, mode, ch)
+			}
+			if _, ok := gts.CcoreTestViewHeaders(tree); !ok {
+				t.Errorf("%s order %d: the tree is no longer backed by views after read-only checks", name, mode)
+			}
+			nodes += o.nodes
+			checks += o.checks
+			diffs += o.diffs
+			langNodes += o.nodes
+			if mode == 0 {
+				cp := tree.Copy() // identity: a copy has other pointers and equal answers
+				if cp.RootNode() == tree.RootNode() || cp.RootNode().SExpr(lang) != tree.RootNode().SExpr(lang) {
+					t.Errorf("%s: Copy gives the same root or another tree", name)
+				}
+				cp.Release()
+			}
+			eager.Release()
+			tree.Release()
+		}
+		if langNodes == 0 {
+			if explicit {
+				t.Fatalf("%s: named, but the route did not serve it or nothing was compared", name)
+			}
+			notCovered = append(notCovered, name)
+			continue
+		}
+		served++
+	}
+	trees, made, conv := gts.CcoreTestViewCounters()
+	fmt.Printf("VIEWSORACLE served=%d nodes=%d checks=%d differences=%d not_covered=%d %v view_trees=%d headers=%d conversions=%v\n", served, nodes, checks, diffs, len(notCovered), notCovered, trees, made, conv)
+	if served == 0 || nodes == 0 || checks == 0 {
+		t.Fatalf("nothing was checked: served %d, nodes %d, checks %d", served, nodes, checks)
+	}
+	if diffs != 0 {
+		t.Errorf("%d differences between the views and the eager conversion", diffs)
+	}
+}
+
+// TestCcoreViewsEditSessions checks that Tree.Edit on a tree
+// with only the root view leaves a root equal to the eager conversion of the edited core
+// tree, converts nothing, and the reparse equals a fresh parse and passes the oracle.
+func TestCcoreViewsEditSessions(t *testing.T) {
+	defer ccoreCertifyAll()()
+	samples := ccoreOracleSamples(t)
+	names := []string{"json", "typescript", "tsx", "python", "go"}
+	if only := os.Getenv("CCORE_VIEWS_LANGS"); only != "" {
+		names = strings.Split(only, ",")
+	}
+	served := 0
+	for _, name := range names {
+		src := samples[name]
+		entry := grammars.DetectLanguageByName(name)
+		if src == nil || entry == nil || entry.Language() == nil {
+			if os.Getenv("CCORE_VIEWS_LANGS") != "" {
+				t.Fatalf("%s unavailable", name)
+			}
+			t.Logf("%s unavailable", name)
+			continue
+		}
+		lang := entry.Language()
+		restore := gts.CcoreTestViewsOn(true)
+		p := ccoreRouteParser(lang)
+		tree, err := p.Parse(src)
+		if err != nil || tree == nil {
+			restore()
+			t.Fatalf("%s: parse: %v", name, err)
+		}
+		if _, ok := gts.CcoreTestViewHeaders(tree); !ok {
+			restore()
+			tree.Release()
+			if os.Getenv("CCORE_VIEWS_LANGS") != "" {
+				t.Fatalf("%s: the route declined it", name)
+			}
+			t.Logf("%s: the route declined it", name)
+			continue
+		}
+		served++
+		_, _, before := gts.CcoreTestViewCounters()
+		o := &ccoreOracle{t: t, lang: lang, name: name + "/session"}
+		fresh, steps := 0, 0
+		for i, step := range benchfixtures.EditingSession(src) {
+			steps++
+			tree.Edit(step.Edit)
+			if made, ok := gts.CcoreTestViewHeaders(tree); !ok || made != 1 {
+				t.Fatalf("%s step %d: after Tree.Edit the tree has %d headers (view tree %t), want the root only", name, i+1, made, ok)
+			}
+			eager := gts.CcoreTestEager(tree)
+			if eager == nil {
+				t.Fatalf("%s step %d: no eager conversion", name, i+1)
+			}
+			o.src = step.Source
+			o.scalars(nil, tree.RootNode(), eager.RootNode())
+			eager.Release()
+			next, err := p.ParseIncremental(step.Source, tree)
+			if err != nil || next == nil {
+				t.Fatalf("%s step %d: reparse: %v", name, i+1, err)
+			}
+			tree.Release()
+			tree = next
+			freshTree, err := ccoreRouteParser(lang).Parse(step.Source)
+			if err != nil || freshTree == nil {
+				t.Fatalf("%s step %d: fresh parse: %v", name, i+1, err)
+			}
+			cpTree := tree.Copy() // read the whole tree through a copy: reading `tree` would make views below its root
+			sexpr := cpTree.RootNode().SExpr(lang)
+			cpTree.Release()
+			if sexpr != freshTree.RootNode().SExpr(lang) || tree.RootNode().Range() != freshTree.RootNode().Range() {
+				fresh++
+				t.Errorf("%s step %d: the reparse differs from a fresh parse", name, i+1)
+			}
+			freshTree.Release()
+			if i%12 == 0 { // the full oracle on a copy of the reparsed tree (the copy has its own views)
+				cp := tree.Copy()
+				eager := gts.CcoreTestEager(tree)
+				o.compare(cp.RootNode(), eager.RootNode())
+				eager.Release()
+				cp.Release()
+			}
+		}
+		_, _, after := gts.CcoreTestViewCounters()
+		tree.Release()
+		restore()
+		if after["tree_edit_with_views"] != before["tree_edit_with_views"] {
+			t.Errorf("%s: %d edits converted the tree although no view existed below the root", name, after["tree_edit_with_views"]-before["tree_edit_with_views"])
+		}
+		if steps == 0 || o.checks == 0 {
+			t.Fatalf("%s: no edit-session comparisons", name)
+		}
+		if got := after["root_only_edits"] - before["root_only_edits"]; got != int64(steps) {
+			t.Errorf("%s: %d root-only edits for %d steps", name, got, steps)
+		}
+		fmt.Printf("VIEWSSESSION lang=%s steps=%d differences=%d reparse_differs=%d root_only_edits=%d\n", name, steps, o.diffs, fresh, after["root_only_edits"]-before["root_only_edits"])
+		if o.diffs != 0 {
+			t.Errorf("%s: %d differences", name, o.diffs)
+		}
+	}
+	if served == 0 {
+		t.Fatal("no edit sessions were compared")
+	}
+}
+
+// TestCcoreViewsEditKeepsHeldNodes: a node a caller holds stays correct after Tree.Edit. With a
+// view below the root, Tree.Edit converts the tree first (reason tree_edit_with_views) and the
+// present walk then moves the node, as for an eager tree.
+func TestCcoreViewsEditKeepsHeldNodes(t *testing.T) {
+	defer ccoreCertifyAll()()
+	lang := ccoreRouteLang(t, "json")
+	src := ccoreJSONSource(60)
+	restore := gts.CcoreTestViewsOn(true)
+	defer restore()
+	tree, err := ccoreRouteParser(lang).Parse(src)
+	if err != nil || tree == nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	held := tree.RootNode().Child(0)          // the array
+	last := held.Child(held.ChildCount() - 1) // its closing bracket
+	startBefore, endBefore := last.StartByte(), last.EndByte()
+	_, _, before := gts.CcoreTestViewCounters()
+	out, edit := ccoreInsert(src, 3, ' ')
+	tree.Edit(edit)
+	_, _, after := gts.CcoreTestViewCounters()
+	if after["tree_edit_with_views"] != before["tree_edit_with_views"]+1 {
+		t.Fatalf("conversions by reason: before %v, after %v", before, after)
+	}
+	if held != tree.RootNode().Child(0) {
+		t.Errorf("the node held before the edit is not the first child after it")
+	}
+	if last.StartByte() != startBefore+1 || last.EndByte() != endBefore+1 {
+		t.Errorf("a held node did not move with the edit: %d-%d, was %d-%d", last.StartByte(), last.EndByte(), startBefore, endBefore)
+	}
+	next, err := ccoreRouteParser(lang).ParseIncremental(out, tree)
+	if err != nil || next == nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	fresh, _ := ccoreRouteParser(lang).Parse(out)
+	defer fresh.Release()
+	if next.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
+		t.Error("the reparse differs from a fresh parse")
+	}
+}
+
+// TestCcoreViewsDeepTree checks that 30,000 nested brackets parse, walk and convert with views on
+// (the eager conversion declines a tree deeper than gts.CcoreTestMaxDepth).
+func TestCcoreViewsDeepTree(t *testing.T) {
+	defer ccoreCertifyAll()()
+	lang := ccoreRouteLang(t, "json")
+	const depth = 30000
+	src := []byte(strings.Repeat("[", depth) + "1" + strings.Repeat("]", depth) + "\n")
+	defer gts.CcoreTestViewsOn(true)()
+	gts.CcoreTestReset()
+	tree, ok := gts.CcoreTestFullParse(ccoreRouteParser(lang), src)
+	if !ok || tree == nil {
+		decl, _ := gts.CcoreTestCounters()
+		t.Fatalf("a %d-deep tree was declined: %v", depth, decl)
+	}
+	defer tree.Release()
+	walk := func() int {
+		n, levels := tree.RootNode(), 0
+		for n != nil {
+			levels++
+			var next *gts.Node
+			for i := 0; i < n.ChildCount(); i++ {
+				if c := n.Child(i); c.ChildCount() > 0 {
+					next = c
+					break
+				}
+			}
+			n = next
+		}
+		return levels
+	}
+	levels := walk()
+	if levels < depth {
+		t.Fatalf("walked %d levels, want at least %d", levels, depth)
+	}
+	if !gts.CcoreTestMaterialize(tree) {
+		t.Fatal("not a view tree")
+	}
+	if again := walk(); again != levels {
+		t.Errorf("after the conversion the walk has %d levels, was %d", again, levels)
+	}
+	cp := tree.Copy()
+	cp.Release()
+}
+
+// TestCcoreViewsRootEditWalksNothing: Tree.Edit on a routed tree with only the root view neither
+// walks the tree nor synchronises the flags of its nodes (the control: an eager tree does).
+// TestCcoreViewsOtherEntryPoints: Node.Edit on a view, adoption of a view into a hand-built
+// tree, and a root with an offset each convert the view tree in place (counted by reason)
+// and then answer as the eager tree answers.
+func TestCcoreViewsOtherEntryPoints(t *testing.T) {
+	defer ccoreCertifyAll()()
+	lang := ccoreRouteLang(t, "json")
+	src := ccoreJSONSource(40)
+	parse := func() (*gts.Tree, *gts.Tree) {
+		restore := gts.CcoreTestViewsOn(true)
+		tree, err := ccoreRouteParser(lang).Parse(src)
+		restore()
+		if err != nil || tree == nil {
+			t.Fatal(err)
+		}
+		eager := gts.CcoreTestEager(tree)
+		if eager == nil {
+			t.Fatal("no eager conversion")
+		}
+		return tree, eager
+	}
+	count := func(reason string) int64 { _, _, c := gts.CcoreTestViewCounters(); return c[reason] }
+	t.Run("Node.Edit", func(t *testing.T) {
+		tree, eager := parse()
+		defer tree.Release()
+		defer eager.Release()
+		before := count("node_edit")
+		_, edit := ccoreInsert(src, 3, ' ')
+		tree.RootNode().Child(0).Edit(edit)
+		eager.RootNode().Child(0).Edit(edit)
+		if count("node_edit") != before+1 {
+			t.Fatalf("conversions by reason: node_edit %d, want %d", count("node_edit"), before+1)
+		}
+		o := &ccoreOracle{t: t, lang: lang, src: src, name: "node-edit"}
+		o.compare(tree.RootNode().Child(0), eager.RootNode().Child(0))
+		if o.diffs != 0 {
+			t.Errorf("%d differences after Node.Edit", o.diffs)
+		}
+	})
+	t.Run("adoption", func(t *testing.T) {
+		tree, eager := parse()
+		defer tree.Release()
+		defer eager.Release()
+		before := count("adopt")
+		arr := tree.RootNode().Child(0)
+		kids := []*gts.Node{arr.Child(0), arr.Child(1)}
+		parent := gts.NewParentNode(arr.Symbol(), true, kids, nil, 0)
+		if count("adopt") != before+1 {
+			t.Fatalf("conversions by reason: adopt %d, want %d", count("adopt"), before+1)
+		}
+		if kids[0].Parent() != parent || kids[1].Parent() != parent {
+			t.Errorf("the adopted children do not report the new parent")
+		}
+	})
+	t.Run("offset root", func(t *testing.T) {
+		tree, eager := parse()
+		defer tree.Release()
+		defer eager.Release()
+		off := gts.Point{Row: 3, Column: 2}
+		before := count("offset_root")
+		v, e := tree.RootNodeWithOffset(5, off), eager.RootNodeWithOffset(5, off)
+		if count("offset_root") != before+1 {
+			t.Fatalf("offset conversion count %d, want %d", count("offset_root"), before+1)
+		}
+		if _, ok := gts.CcoreTestViewHeaders(tree); !ok {
+			t.Fatal("offset converted the original view tree")
+		}
+		o := &ccoreOracle{t: t, lang: lang, src: src, name: "offset-root"}
+		if v.StartByte() != e.StartByte() || v.EndByte() != e.EndByte() || v.StartPoint() != e.StartPoint() || v.SExpr(lang) != e.SExpr(lang) {
+			t.Errorf("root with offset: view %d-%d %v, eager %d-%d %v", v.StartByte(), v.EndByte(), v.StartPoint(), e.StartByte(), e.EndByte(), e.StartPoint())
+		}
+		_ = o
+		if tree.RootNode().StartByte() != eager.RootNode().StartByte() {
+			t.Errorf("the offset moved the original root")
+		}
+	})
+}
+
+// TestCcoreViewsNamedChildFirstOnHurl: NamedChild is the first descent into a tree whose sample
+// has an anonymous visible node that holds named children. The public tree selects the named
+// nodes among the visible children in sequence: one past the count is nil, and every node found
+// is a child of the node it was asked from, with that node as its parent.
+func TestCcoreViewsNamedChildFirstOnHurl(t *testing.T) {
+	defer ccoreCertifyAll()()
+	lang := ccoreRouteLang(t, "hurl")
+	src := ccoreOracleSamples(t)["hurl"]
+	if src == nil {
+		t.Skip("no hurl sample")
+	}
+	restore := gts.CcoreTestViewsOn(true)
+	tree, err := ccoreRouteParser(lang).Parse(src)
+	restore()
+	if err != nil || tree == nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	if _, ok := gts.CcoreTestViewHeaders(tree); !ok {
+		t.Fatal("not a view tree")
+	}
+	eager := gts.CcoreTestEager(tree)
+	defer eager.Release()
+	type pair struct{ v, e *gts.Node }
+	stack := []pair{{tree.RootNode(), eager.RootNode()}}
+	pastEnd, checked := 0, 0
+	for len(stack) > 0 {
+		cur := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		count := cur.v.NamedChildCount()
+		for i := 0; i <= count; i++ {
+			vn, en := cur.v.NamedChild(i), cur.e.NamedChild(i)
+			checked++
+			if ccoreOracleTriple(vn, lang) != ccoreOracleTriple(en, lang) {
+				t.Fatalf("NamedChild(%d) of %s: view %s, eager %s", i, ccoreOracleTriple(cur.v, lang), ccoreOracleTriple(vn, lang), ccoreOracleTriple(en, lang))
+			}
+			if i == count {
+				pastEnd++
+			}
+			if vn == nil {
+				continue
+			}
+			if vn.Parent() != cur.v {
+				t.Fatalf("NamedChild(%d) of %s has another parent", i, ccoreOracleTriple(cur.v, lang))
+			}
+			stack = append(stack, pair{vn, en})
+		}
+	}
+	// after the named walk, an ordinary descent gives the same pointers with the same parents
+	for _, k := range tree.RootNode().Children() {
+		if k.Parent() != tree.RootNode() {
+			t.Fatal("a child made by the named walk reports another parent")
+		}
+	}
+	t.Logf("hurl: %d NamedChild calls, %d of them one past the count", checked, pastEnd)
+}
+
+// A cancellation flag set before a short parse, and a tiny memory budget, stop a routed parse
+// with views on as they do with the eager conversion: the last poll runs before the tree is
+// published, with the view arena charged.
+func TestCcoreViewsShortParseHonoursCancellationAndBudget(t *testing.T) {
+	defer ccoreCertifyAll()()
+	lang := ccoreRouteLang(t, "json")
+	for _, views := range []bool{false, true} {
+		restore := gts.CcoreTestViewsOn(views)
+		for _, c := range []struct{ name, reason string }{{"cancelled", "stop_cancelled"}, {"budget", "stop_memory_budget"}} {
+			p := ccoreRouteParser(lang)
+			if c.name == "cancelled" {
+				flag := uint32(1)
+				p.SetCancellationFlag(&flag)
+			} else {
+				p.SetMemoryBudgetBytes(1)
+			}
+			gts.CcoreTestReset()
+			tree, _ := p.Parse([]byte("1"))
+			decl, served := gts.CcoreTestCounters()
+			if served != 0 || decl[c.reason] != 1 {
+				t.Errorf("views %t, %s: core served %d, declines %v (want %s once)", views, c.name, served, decl, c.reason)
+			}
+			if tree != nil {
+				tree.Release()
+			}
+		}
+		restore()
+	}
+}
+
+// TestCcoreViewsConcurrentFirstTouch: readers start together on a view tree that nobody has read,
+// and make the same nodes by different routes (Child, NamedChild, field lookup, a position lookup
+// then Parent, siblings, a cursor, Copy). Every path gives one pointer in all goroutines, with the
+// right parent, and the values equal the eager conversion. Run it under the race detector.
+func TestCcoreViewsConcurrentFirstTouch(t *testing.T) {
+	defer ccoreCertifyAll()()
+	samples := ccoreOracleSamples(t)
+	for _, name := range []string{"json", "python"} {
+		src := samples[name]
+		entry := grammars.DetectLanguageByName(name)
+		if src == nil || entry == nil || entry.Language() == nil {
+			t.Fatalf("%s: no sample or grammar", name)
+		}
+		lang := entry.Language()
+		restore := gts.CcoreTestViewsOn(true)
+		tree, err := ccoreRouteParser(lang).Parse(src)
+		restore()
+		if err != nil || tree == nil {
+			t.Fatal(err)
+		}
+		if made, ok := gts.CcoreTestViewHeaders(tree); !ok || made != 1 {
+			t.Fatalf("%s: setup: %d headers, view tree %t; want an untouched view tree", name, made, ok)
+		}
+		eager := gts.CcoreTestEager(tree)
+		const readers = 8
+		seen := make([]map[string]*gts.Node, readers)
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		for g := 0; g < readers; g++ {
+			seen[g] = map[string]*gts.Node{}
+			wg.Add(1)
+			go func(g int) {
+				defer wg.Done()
+				<-start
+				var visit func(n *gts.Node, path string, depth int)
+				visit = func(n *gts.Node, path string, depth int) {
+					seen[g][path] = n
+					if depth >= 6 {
+						return
+					}
+					count := n.ChildCount()
+					idxs := make([]int, count)
+					for i := range idxs {
+						idxs[i] = i
+					}
+					switch g % 4 { // the first touch differs between goroutines
+					case 1:
+						for i, j := 0, len(idxs)-1; i < j; i, j = i+1, j-1 {
+							idxs[i], idxs[j] = idxs[j], idxs[i]
+						}
+					case 2:
+						for f := 1; f < len(lang.FieldNames); f++ {
+							n.ChildByFieldName(lang.FieldNames[f], lang)
+						}
+						for j := 0; j <= n.NamedChildCount(); j++ {
+							n.NamedChild(j)
+						}
+					case 3:
+						for j := n.NamedChildCount(); j >= 0; j-- {
+							n.NamedChild(j)
+						}
+					}
+					for _, i := range idxs {
+						if i >= 24 {
+							continue
+						}
+						c := n.Child(i)
+						if c == nil {
+							continue
+						}
+						if g%2 == 0 {
+							_ = c.NextSibling()
+							_ = c.PrevSibling()
+						}
+						visit(c, fmt.Sprintf("%s/%d", path, i), depth+1)
+					}
+				}
+				switch g {
+				case 6: // a position lookup, then the parent chain
+					for at := 0; at < len(src); at += max(1, len(src)/40) {
+						for n := tree.RootNode().DescendantForByteRange(uint32(at), uint32(at+1)); n != nil; n = n.Parent() {
+						}
+					}
+				case 7: // a copy has its own headers
+					cp := tree.Copy()
+					_ = cp.RootNode().SExpr(lang)
+					cp.Release()
+				}
+				c := gts.NewTreeCursorFromTree(tree)
+				if g%3 == 0 {
+					for steps := 0; steps < 2000; steps++ {
+						c.CurrentNode()
+						if !c.GotoFirstChild() && !c.GotoNextSibling() {
+							if !c.GotoParent() {
+								break
+							}
+						}
+					}
+				}
+				visit(tree.RootNode(), "", 0)
+			}(g)
+		}
+		close(start)
+		wg.Wait()
+		// one pointer per path in every goroutine, the right parent, the values of the eager tree
+		var check func(v, e *gts.Node, path string, depth int)
+		check = func(v, e *gts.Node, path string, depth int) {
+			for g := 0; g < readers; g++ {
+				if got, ok := seen[g][path]; !ok || got != v {
+					t.Fatalf("%s %q: goroutine %d missed the path or holds another pointer", name, path, g)
+				}
+			}
+			if ccoreOracleTriple(v, lang) != ccoreOracleTriple(e, lang) {
+				t.Fatalf("%s %q: view %s, eager %s", name, path, ccoreOracleTriple(v, lang), ccoreOracleTriple(e, lang))
+			}
+			if depth >= 6 {
+				return
+			}
+			for i := 0; i < v.ChildCount() && i < 24; i++ {
+				vc := v.Child(i)
+				if vc == nil || vc.Parent() != v {
+					t.Fatalf("%s %q: child %d has the wrong parent", name, path, i)
+				}
+				check(vc, e.Child(i), fmt.Sprintf("%s/%d", path, i), depth+1)
+			}
+		}
+		check(tree.RootNode(), eager.RootNode(), "", 0)
+		eager.Release()
+		tree.Release()
+	}
+}
+
+// Every conversion is counted where it happens, whoever asks for it: the call that
+// the edit paths of tree.go make (materializeNodeViews) counts as reason "other".
+func TestCcoreViewsConversionIsCountedWhoeverAsks(t *testing.T) {
+	defer ccoreCertifyAll()()
+	lang := ccoreRouteLang(t, "json")
+	restore := gts.CcoreTestViewsOn(true)
+	tree, err := ccoreRouteParser(lang).Parse(ccoreJSONSource(20))
+	restore()
+	if err != nil || tree == nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	_ = tree.RootNode().Child(0) // a view below the root
+	_, _, before := gts.CcoreTestViewCounters()
+	gts.CcoreTestMaterializeViaBacking(tree)
+	_, _, after := gts.CcoreTestViewCounters()
+	if after["other"] != before["other"]+1 {
+		t.Fatalf("conversions by reason: before %v, after %v; want other +1", before, after)
+	}
+	if _, ok := gts.CcoreTestViewHeaders(tree); ok {
+		t.Fatal("the tree is still backed by views after the conversion")
+	}
+	gts.CcoreTestMaterializeViaBacking(tree) // already converted: nothing more is counted
+	if _, _, again := gts.CcoreTestViewCounters(); again["other"] != after["other"] {
+		t.Fatalf("a second call counted a conversion: %v", again)
+	}
+}
+
+// A root-only view edit uses the core and returns before the public edit walk.
+// An eager tree is the control for the root's dirty flag.
+func TestCcoreViewsRootEditWalksNothing(t *testing.T) {
+	defer ccoreCertifyIncr()()
+	lang := ccoreRouteLang(t, "json")
+	src := ccoreJSONSource(200)
+	for _, views := range []bool{true, false} {
+		restore := gts.CcoreTestViewsOn(views)
+		tree, err := ccoreRouteParser(lang).Parse(src)
+		restore()
+		if err != nil || tree == nil || !gts.CcoreTestFromCore(tree) {
+			t.Fatalf("views %t: parse: %v", views, err)
+		}
+		_, edit := ccoreInsert(src, 3, ' ')
+		_, _, before := gts.CcoreTestViewCounters()
+		tree.Edit(edit)
+		_, _, after := gts.CcoreTestViewCounters()
+		if views {
+			if after["root_only_edits"] != before["root_only_edits"]+1 {
+				t.Errorf("root-only edit was not taken: before %v after %v", before, after)
+			}
+			if made, ok := gts.CcoreTestViewHeaders(tree); !ok || made != 1 {
+				t.Errorf("views on: %d headers after edit, view tree %t", made, ok)
+			}
+		} else if after["root_only_edits"] != before["root_only_edits"] {
+			t.Errorf("eager control took the root-only view path")
+		}
+		if !tree.RootNode().HasChanges() {
+			t.Errorf("views %t: root does not report the edit", views)
+		}
+		tree.Release()
+	}
+}
+
+func TestCcoreViewsRefusedEditForcesFresh(t *testing.T) {
+	defer ccoreCertifyIncr()()
+	defer gts.CcoreTestViewsOn(true)()
+	lang := ccoreRouteLang(t, "json")
+	src := ccoreJSONSource(200)
+	p := ccoreRouteParser(lang)
+	tree, err := p.Parse(src)
+	if err != nil || tree == nil {
+		t.Fatalf("parse: %v", err)
+	}
+	defer tree.Release()
+	if _, ok := gts.CcoreTestViewHeaders(tree); !ok {
+		t.Fatal("parse did not return views")
+	}
+	pages := gts.CcoreTestEditBudget(tree, 1)
+	gts.CcoreTestEditBudget(tree, int64(pages)+1)
+	next, edit := ccoreInsert(src, 3, ' ')
+	tree.Edit(edit)
+	if _, _, broken := gts.CcoreTestLink(tree); !broken {
+		t.Fatal("refused edit did not break the core link")
+	}
+	gts.CcoreTestReset()
+	result, err := p.ParseIncremental(next, tree)
+	if err != nil || result == nil {
+		t.Fatalf("reparse: %v", err)
+	}
+	defer result.Release()
+	fallback, incremental := gts.CcoreTestIncr()
+	if incremental != 0 || fallback["edits_not_carried"] != 1 {
+		t.Fatalf("incremental %d fallbacks %v", incremental, fallback)
+	}
+	fresh, err := ccoreRouteParser(lang).Parse(next)
+	if err != nil || fresh == nil {
+		t.Fatalf("fresh: %v", err)
+	}
+	defer fresh.Release()
+	if result.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
+		t.Fatal("reparse differs from fresh")
+	}
 }
