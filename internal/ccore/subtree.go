@@ -56,13 +56,18 @@ func (s *Store) claim() Handle {
 		if idx > c.recLimit.Load() {
 			c.limitPanic("record index limit reached")
 		}
-		w := &s.refs[idx>>recShift][idx&recMask]
-		c.freeRec = *w & countMask
-		*w = 0 // a record taken from the free list has one owner
+		// The record is logged as taken before it leaves the free list. A
+		// refused reservation of room in the log then leaves the free list as it
+		// was, and the abort sweep, which finds taken records only through the
+		// log, cannot lose the slot. Nothing between the log entry and the
+		// unlinking can fail.
 		if len(c.taken) == cap(c.taken) {
 			c.taken = grow(s.lg(), c.taken, 1)
 		}
 		c.taken = append(c.taken, idx)
+		w := &s.refs[idx>>recShift][idx&recMask]
+		c.freeRec = *w & countMask
+		*w = 0 // a record taken from the free list has one owner
 	} else {
 		cur := &c.pc
 		if cur.recSlot == recPageLen {
