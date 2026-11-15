@@ -48,3 +48,39 @@ func TestDockerfileScannerCParityReproducers(t *testing.T) {
 		})
 	}
 }
+
+// The C scanner keeps a heredoc delimiter as a C string (src/scanner.c:55,
+// 169, 234): a character whose low byte is zero ends it. The port stores the
+// same bytes, so a saved state gives back what the scanner held.
+func TestDockerfileScannerCParityDelimiterEndsAtZeroByte(t *testing.T) {
+	sc := DockerfileExternalScanner{}
+	marker := []bool{true, false, false, false, false}
+	for _, c := range []struct {
+		name, src, state string
+	}{
+		{"zero_low_byte_first", "<<\u0100B\n", "\x00\x00\x20\x00\x00"},
+		{"zero_low_byte_inside", "<<A\u0100B\n", "\x00\x00\x20A\x00\x00"},
+		{"stripping", "<<-A\u0200\n", "\x00\x01-A\x00\x00"},
+		{"plain", "<<EOF\n", "\x00\x00\x20EOF\x00\x00"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			p := sc.Create()
+			defer sc.Destroy(p)
+			if !portScanAt(sc, p, c.src, 0, marker).ok {
+				t.Fatal("the marker was not scanned")
+			}
+			b := make([]byte, 1024)
+			n := sc.Serialize(p, b)
+			if !bytes.Equal(b[:n], []byte(c.state)) {
+				t.Fatalf("state=%x; want %x", b[:n], c.state)
+			}
+			q := sc.Create()
+			defer sc.Destroy(q)
+			sc.Deserialize(q, b[:n])
+			b2 := make([]byte, 1024)
+			if m := sc.Serialize(q, b2); !bytes.Equal(b2[:m], b[:n]) {
+				t.Fatalf("restored state=%x; saved %x", b2[:m], b[:n])
+			}
+		})
+	}
+}

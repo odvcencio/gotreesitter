@@ -3,6 +3,8 @@
 package grammarruntime
 
 import (
+	"bytes"
+
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
@@ -314,6 +316,12 @@ func dockerfileScanMarker(s *dockerfileScannerState, lexer *gotreesitter.Externa
 	if !overflow && len(s.heredocs) < dockerfileMaxHeredocs {
 		if len(s.heredocs) == 0 {
 			s.stripping = stripping
+		}
+		// C keeps the delimiter as a C string (src/scanner.c:55 strlen, :234
+		// the end test), so it ends at the first zero byte. A character whose
+		// low byte is zero, such as U+0100, puts one there.
+		if i := bytes.IndexByte(delim, 0); i >= 0 {
+			delim = delim[:i]
 		}
 		s.heredocs = append(s.heredocs, string(delim))
 	}
