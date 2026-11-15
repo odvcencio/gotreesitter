@@ -790,6 +790,12 @@ func CcoreTestReset() {
 		ccoreDeclines[i].Store(0)
 	}
 	ccoreServedFresh.Store(0)
+	ccoreServedIncr.Store(0)
+	for i := range ccoreIncrFallbacks {
+		ccoreIncrFallbacks[i].Store(0)
+	}
+	ccoreEditNanos.Store(0)
+	ccoreCheckNanos.Store(0)
 	ccoreParseNanos.Store(0)
 	ccoreConvertNanos.Store(0)
 }
@@ -986,4 +992,77 @@ func CcoreTestPooledFootprint(l *Language) int {
 		return n
 	}
 	return 0
+}
+
+// CcoreTestIncr returns the reasons for which a reparse was a fresh core parse
+// (nonzero only) and the number of reparses the core served incrementally.
+func CcoreTestIncr() (map[string]int64, int64) {
+	out := map[string]int64{}
+	for i := range ccoreIncrFallbacks {
+		if v := ccoreIncrFallbacks[i].Load(); v != 0 {
+			out[ccoreIncrFallbackNames[i]] = v
+		}
+	}
+	return out, ccoreServedIncr.Load()
+}
+
+// CcoreTestLink describes the link of a public tree to its core tree: whether it
+// has one, how many edits reached it, and whether an edit did not.
+func CcoreTestLink(t *Tree) (has bool, edits int, broken bool) {
+	if st := t.ccoreStateOf(); st != nil {
+		return st.ct != nil, st.edits, st.broken
+	}
+	return false, 0, false
+}
+
+// CcoreTestReuse is the core's reuse count of the parse that built the tree
+// (nodes reused, their bytes) and whether that parse was incremental.
+func CcoreTestReuse(t *Tree) (nodes int, bytes uint64, incremental bool) {
+	if st := t.ccoreStateOf(); st != nil {
+		return st.reusedNodes, st.reusedBytes, st.incremental
+	}
+	return 0, 0, false
+}
+
+// CcoreTestBreakLink makes the public tree look like one whose edits did not reach the core tree.
+func CcoreTestBreakLink(t *Tree) { t.ccoreStateOf().edits-- }
+
+// CcoreTestStripCore removes the core tree from a public tree (a tree from the present engine).
+func CcoreTestStripCore(t *Tree) { t.ccoreStateOf().releaseCore() }
+
+// CcoreTestEditsDescribe is ccoreEditsDescribe.
+func CcoreTestEditsDescribe(oldSrc, newSrc []byte, edits []InputEdit) bool {
+	return ccoreEditsDescribe(oldSrc, newSrc, edits)
+}
+
+// CcoreTestStoreBytes is the page bytes held by the store of a public tree's core tree.
+func CcoreTestStoreBytes(t *Tree) int {
+	ct := CcoreTestCoreTree(t)
+	if ct == nil {
+		return 0
+	}
+	used, _ := (&ccore.Parser{}).ArenaUse(ct)
+	return used
+}
+
+// CcoreTestCoreWalk reads a core tree through the core's reader: the end byte of its root (0 for a released tree).
+func CcoreTestCoreWalk(ct *ccore.Tree) int { return int((&ccore.Parser{}).RootEnd(ct)) }
+
+// These helpers expose ccoreEdit
+// (reports whether the core tree took the edit), ccoreRoot (the core root after
+// the edit) and ccoreLink.
+func CcoreTestSeamEdit(t *Tree, e InputEdit) bool { return t.ccoreEdit(e) }
+func CcoreTestSeamRoot(t *Tree) (root uint32, ok bool) {
+	h, ok := t.ccoreRoot()
+	return uint32(h), ok
+}
+func CcoreTestSeamLink(t *Tree) *ccore.Tree { return t.ccoreLink() }
+
+// CcoreTestEditBudget sets the budget that Tree.Edit charges the pages of an edit against
+// (the budget of the request that built the tree) and returns the page bytes the tree's
+// core store holds now.
+func CcoreTestEditBudget(t *Tree, budget int64) (pageBytes int) {
+	st := t.ccoreStateOf()
+	st.budget = budget
+	return st.ct.PageBytes()
 }
