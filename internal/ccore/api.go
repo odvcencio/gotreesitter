@@ -90,8 +90,8 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
 		}
 		p.Store.led = nil
 	}()
-	p.ledBegun = false
 	if p.led.Active() {
+		p.ledBegun = false
 		// The request's account starts before anything is done for it, so that the
 		// drain below (queued releases of earlier trees, which grows the store's free
 		// lists and scratch) is counted in it: reclamation cannot be refused (Force),
@@ -173,8 +173,10 @@ func (p *Parser) pageHint(srcLen int) (recPages, kidPages int) {
 // refreshed because presize replaces the tables.
 func (p *Parser) presizeTables(c *storeCore, srcLen int) bool {
 	rp, kp := p.pageHint(srcLen)
-	if n := presizeBytes(rp, kp); n > 0 && p.led.Active() && !p.led.Reserve(n) {
-		return false
+	if p.led.Active() {
+		if n := presizeBytes(rp, kp); n > 0 && !p.led.Reserve(n) {
+			return false
+		}
 	}
 	c.presize(rp, kp)
 	c.mu.Lock()

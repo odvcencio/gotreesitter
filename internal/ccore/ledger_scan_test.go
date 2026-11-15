@@ -89,3 +89,49 @@ func TestScannerCallbacksAreCheckedAfterBothResults(t *testing.T) {
 		})
 	}
 }
+
+func TestScannerRowsRecoverAfterLedgerRefusal(t *testing.T) {
+	tables := scanTables(t)
+	modes := append([]ccore.LexMode(nil), tables.LexModes...)
+	for i := range modes {
+		modes[i].ExternalLexState = 20000
+	}
+	tables.LexModes = modes
+	p, err := ccore.NewParser(ccore.Config{Tables: tables, Scanner: countScanner{calls: new(int)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.SetForceDerivedRows(true)
+	refused := false
+	p.Ledger().SetPoll(func(total int64, _ bool) bool {
+		if total-p.Ledger().Base-p.Ledger().Alloc >= 20001*24 {
+			refused = true
+			return false
+		}
+		return true
+	})
+	src := []byte(`[1,2,3]`)
+	tr, stop := p.Parse(src)
+	if !refused || tr != nil || stop != "stopped" {
+		t.Fatalf("refused=%v tree=%v stop=%q", refused, tr, stop)
+	}
+	p.Ledger().SetPoll(nil)
+	tr, stop = p.Parse(src)
+	if stop != "" || tr == nil {
+		t.Fatalf("parse after refusal: %q", stop)
+	}
+	defer tr.Release()
+	fresh, err := ccore.NewParser(ccore.Config{Tables: tables, Scanner: countScanner{calls: new(int)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh.SetForceDerivedRows(true)
+	other, stop := fresh.Parse(src)
+	if stop != "" || other == nil {
+		t.Fatalf("fresh parse: %q", stop)
+	}
+	defer other.Release()
+	if got, want := p.Digest(tr), fresh.Digest(other); got != want {
+		t.Fatalf("digest %s, want %s", got, want)
+	}
+}

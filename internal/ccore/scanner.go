@@ -131,7 +131,9 @@ func (p *Parser) extReset(fresh bool) {
 		}
 	}
 	p.ext.cacheLast = 0
-	p.ext.scans = 0
+	if p.led.Active() {
+		p.ext.scans = 0
+	}
 }
 
 // extRows is C/language.h ts_language_enabled_external_tokens' table: the
@@ -148,16 +150,15 @@ func (p *Parser) extRows() [][]bool {
 	if e.rowsDone {
 		return e.rows
 	}
-	e.rowsDone = true
 	maxID := 0
 	for _, m := range p.t.LexModes {
 		if int(m.ExternalLexState) > maxID {
 			maxID = int(m.ExternalLexState)
 		}
 	}
-	e.rows = mk[[]bool](&p.led, maxID+1)
-	for id := range e.rows {
-		e.rows[id] = mk[bool](&p.led, len(p.t.ExternalSymbols))
+	rows := mk[[]bool](&p.led, maxID+1)
+	for id := range rows {
+		rows[id] = mk[bool](&p.led, len(p.t.ExternalSymbols))
 	}
 	for s, m := range p.t.LexModes {
 		if m.ExternalLexState == 0 {
@@ -165,11 +166,13 @@ func (p *Parser) extRows() [][]bool {
 		}
 		for i, sym := range p.t.ExternalSymbols {
 			if s == 0 || p.hasActions(uint16(s), sym) {
-				e.rows[m.ExternalLexState][i] = true
+				rows[m.ExternalLexState][i] = true
 			}
 		}
 	}
-	return e.rows
+	e.rows = rows
+	e.rowsDone = true
+	return rows
 }
 
 // extFinish is ts_parser__external_scanner_destroy.

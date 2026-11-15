@@ -49,10 +49,7 @@ type Parser struct {
 	reusedBytes  uint64
 	largestReuse uint32
 	finished     Handle
-	opCount      int    // C self->operation_count
-	ledBegun     bool   // Parse began the request's account before the drain; parseWith must not begin it again
-	led          Ledger // the account of the request (ledger.go); its pages are the store's
-	ops          int    // steps of the parse loop in this parse (stop hook)
+	ops          int // steps of the parse loop in this parse (stop hook)
 	stopAt       int
 	stopPanics   bool
 	cacheTok     Handle
@@ -80,7 +77,10 @@ type Parser struct {
 
 	// Counters, always on.
 	shifts, reductions, lexCalls, tokens, maxVersions, multiTokens int
-	compressions                                                   int // calls of compress in the last balance
+	compressions                                                   int    // calls of compress in the last balance
+	opCount                                                        int    // C self->operation_count
+	ledBegun                                                       bool   // Parse began the request's account before the drain
+	led                                                            Ledger // request account; its pages are the store's
 }
 
 // NewParser returns a parser for the language described by c, or an error
@@ -272,9 +272,27 @@ func (p *Parser) accept(version int, lookahead Handle) {
 				if p.led.Active() { // reserve the whole buffer once, before the three appends make it
 					spliced = grow(&p.led, spliced, len(trees)-1+len(kids))
 				}
-				spliced = push(&p.led, spliced, trees[:j]...)
-				spliced = push(&p.led, spliced, kids...)
-				spliced = push(&p.led, spliced, trees[j+1:]...)
+				{
+					values := trees[:j]
+					if len(values) > cap(spliced)-len(spliced) {
+						spliced = grow(&p.led, spliced, len(values))
+					}
+					spliced = append(spliced, values...)
+				}
+				{
+					values := kids
+					if len(values) > cap(spliced)-len(spliced) {
+						spliced = grow(&p.led, spliced, len(values))
+					}
+					spliced = append(spliced, values...)
+				}
+				{
+					values := trees[j+1:]
+					if len(values) > cap(spliced)-len(spliced) {
+						spliced = grow(&p.led, spliced, len(values))
+					}
+					spliced = append(spliced, values...)
+				}
 				root = p.newNode(p.symbol(tree), spliced, p.rec(tree).productionID)
 				p.putBuf(spliced)
 				break
@@ -623,7 +641,9 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 		}
 	}
 	p.src = src
-	p.opCount = 0
+	if p.led.Active() {
+		p.opCount = 0
+	}
 	p.reusedNodes, p.reusedBytes, p.largestReuse = 0, 0, 0
 	p.nodes = p.nodes[:0]
 	p.free = p.free[:0]
@@ -635,7 +655,10 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 	defer p.extFinish()
 	base := p.nodeNew(-1, 0, false, 1)
 	p.nodes[base].refCount++ // ts_stack_clear retains the base node
-	p.heads = push(&p.led, p.heads, stackHead{node: base, status: headActive})
+	if len(p.heads) == cap(p.heads) {
+		p.heads = grow(&p.led, p.heads, 1)
+	}
+	p.heads = append(p.heads, stackHead{node: base, status: headActive})
 	p.reuseActive = old != 0
 	if old != 0 {
 		p.rnReset(old)
@@ -793,6 +816,7 @@ func (p *Parser) Reset() {
 	clear(p.slices[:cap(p.slices)])
 	clear(p.iters[:cap(p.iters)])
 	clear(p.recSlices[:cap(p.recSlices)])
+	clear(p.bufs[len(p.bufs):cap(p.bufs)])
 	p.Store = Store{} // a pooled parser must not point at the store of a tree that a public tree still keeps
 	p.ext.cacheLast = 0
 	p.finished = 0

@@ -223,7 +223,11 @@ func (s *Store) retain(h Handle) {
 func (s *Store) releaseWalk(root Handle) {
 	c := s.core
 	hk := c.hook.Load()
-	stack := fpush(s.led, c.rel[:0], root)
+	stack := c.rel[:0]
+	if len(stack) == cap(stack) {
+		stack = fgrow(s.led, stack, 1)
+	}
+	stack = append(stack, root)
 	for len(stack) > 0 {
 		h := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
@@ -244,7 +248,13 @@ func (s *Store) releaseWalk(root Handle) {
 		}
 		r := s.rec(h)
 		if r.childCount > 0 {
-			stack = fpush(s.led, stack, s.kidSpan(r.childrenStart, r.childCount)...)
+			{
+				values := s.kidSpan(r.childrenStart, r.childCount)
+				if len(values) > cap(stack)-len(stack) {
+					stack = fgrow(s.led, stack, len(values))
+				}
+				stack = append(stack, values...)
+			}
 		}
 		s.freeRecord(uint32(h>>1), r, w)
 	}

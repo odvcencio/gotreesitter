@@ -326,16 +326,13 @@ type Store struct {
 	// finalizer cannot run while a view of its tree exists.
 	owner *cell
 
-	// led is the account of the request that claims pages through this view (the
-	// parser's view during a limited parse, a tree's view during EditWithin); nil
-	// everywhere else. A page is reserved on it before it is claimed.
-	led *Ledger
-
 	fresh   bool // the running parse is the first of a new store: every record is new, nothing is logged
 	logging bool // the running parse logs its allocations and sets the new bit
 
 	nLeaf, nNode, nCopy int // records the running parse allocated, by source (statistics)
 	nKids               int // handles in the child lists the running parse made (bounds the publication walk's stack)
+	// led is the request account, nil outside a limited parse or EditWithin.
+	led *Ledger
 }
 
 func (c *storeCore) view() Store {
@@ -359,7 +356,9 @@ func (s *Store) rec(h Handle) *rec { return &s.recs[h>>(recShift+1)][(h>>1)&recM
 // it has claimed.
 func (s *Store) growRec(cur *arenaCur) {
 	c := s.core
-	s.chargePage(int64(recPageBytes()) + 2*ptrBytes + spanBytes) // the page, its counts page, two table entries, one span
+	if s.led != nil {
+		s.chargePage(int64(recPageBytes()) + 2*ptrBytes + spanBytes) // the page, its counts page, two table entries, one span
+	}
 	ticket := c.reserveFixedPage(fixedRecord)
 	if ticket.active {
 		defer ticket.cancel()
@@ -554,7 +553,9 @@ func (p *childVolumeCursor) pull(c *storeCore) (uint64, bool) {
 }
 func (s *Store) growKids(cur *arenaCur) {
 	c := s.core
-	s.chargePage(int64(kidPageBytes) + ptrBytes) // the page and its table entry
+	if s.led != nil {
+		s.chargePage(int64(kidPageBytes) + ptrBytes) // the page and its table entry
+	}
 	ticket := c.reserveChildPage()
 	// Test hooks may run while the caller holds either the parse lease or emu;
 	// they run outside mu and are not budget callbacks.
@@ -721,7 +722,9 @@ func (p *fixedPageCursor) pull(c *storeCore, finish bool) (uint64, bool) {
 }
 func (s *Store) growState(cur *arenaCur) {
 	c := s.core
-	s.chargePage(int64(stPageLen) + sliceHeaderBytes) // the page and its table entry
+	if s.led != nil {
+		s.chargePage(int64(stPageLen) + sliceHeaderBytes) // the page and its table entry
+	}
 	ticket := c.reserveFixedPage(fixedState)
 	if ticket.active {
 		defer ticket.cancel()
@@ -780,7 +783,9 @@ func stClass(n uint32) (class int, size uint32) {
 func (s *Store) allocKids(cur *arenaCur, n uint32, takeFree bool) uint32 {
 	c := s.core
 	if n > kidPageLen {
-		s.chargePage(int64(n) * handleBytes) // a list longer than a page has an array of its own
+		if s.led != nil {
+			s.chargePage(int64(n) * handleBytes) // a list longer than a page has an array of its own
+		}
 		c.mu.Lock()
 		var idx uint32
 		if k := len(c.freeLarge); k > 0 {
@@ -1095,11 +1100,17 @@ func (s *Store) freeRecord(idx uint32, r *rec, w *uint32) {
 	}
 	if edit {
 		*w = flagFree | flagEdit
-		c.freedEditRecs = fpush(s.led, c.freedEditRecs, idx)
+		if len(c.freedEditRecs) == cap(c.freedEditRecs) {
+			c.freedEditRecs = fgrow(s.led, c.freedEditRecs, 1)
+		}
+		c.freedEditRecs = append(c.freedEditRecs, idx)
 		return
 	}
 	*w = flagFree
-	c.freedRecs = fpush(s.led, c.freedRecs, idx)
+	if len(c.freedRecs) == cap(c.freedRecs) {
+		c.freedRecs = fgrow(s.led, c.freedRecs, 1)
+	}
+	c.freedRecs = append(c.freedRecs, idx)
 }
 
 // freeKidList frees a child list that has a page of its own at once. The lists
@@ -1111,7 +1122,10 @@ func (s *Store) freeKidList(start, n uint32, edit bool) {
 		idx := start &^ largeBit
 		c.mu.Lock()
 		c.large[idx].h = nil
-		c.freeLarge = fpush(s.led, c.freeLarge, idx)
+		if len(c.freeLarge) == cap(c.freeLarge) {
+			c.freeLarge = fgrow(s.led, c.freeLarge, 1)
+		}
+		c.freeLarge = append(c.freeLarge, idx)
 		c.mu.Unlock()
 	}
 }
@@ -1238,7 +1252,10 @@ func (s *Store) freeStateBytes(off, n uint32, edit bool) {
 	c := s.core
 	class, _ := stClass(n)
 	if edit {
-		c.freedEditSt[class] = fpush(s.led, c.freedEditSt[class], off)
+		if len(c.freedEditSt[class]) == cap(c.freedEditSt[class]) {
+			c.freedEditSt[class] = fgrow(s.led, c.freedEditSt[class], 1)
+		}
+		c.freedEditSt[class] = append(c.freedEditSt[class], off)
 		return
 	}
 	pg := s.state[off>>stShift]
@@ -1570,13 +1587,14 @@ func (c *storeCore) scratchBytes() int {
 	if c == nil {
 		return 0
 	}
-	n := (cap(c.freedRecs)+cap(c.sortTmp)+cap(c.freedEditRecs)+cap(c.freeLarge)+cap(c.taken))*4 +
+	n := (cap(c.freedRecs)+cap(c.sortTmp)+cap(c.freedEditRecs)+cap(c.taken))*4 +
 		(cap(c.walk)+cap(c.rel))*int(unsafe.Sizeof(Handle(0))) +
 		cap(c.spans)*int(unsafe.Sizeof(span{}))
 	for i := range c.freedEditSt {
 		n += cap(c.freedEditSt[i]) * 4
 	}
 	c.mu.Lock()
+	n += cap(c.freeLarge) * 4
 	n += (cap(c.pending) + cap(c.spare)) * int(unsafe.Sizeof(op{}))
 	// page tables beyond the inline slots (presize or growth made them)
 	n += (max(cap(c.recs), inlinePages) + max(cap(c.refs), inlinePages) + max(cap(c.kids), inlinePages) - 3*inlinePages) * ptrBytes

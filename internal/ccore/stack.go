@@ -53,7 +53,10 @@ func (p *Parser) nodeNew(prev int32, sub Handle, pending bool, state uint16) int
 		id = p.free[n-1]
 		p.free = p.free[:n-1]
 	} else {
-		p.nodes = push(&p.led, p.nodes, stackNode{})
+		if len(p.nodes) == cap(p.nodes) {
+			p.nodes = grow(&p.led, p.nodes, 1)
+		}
+		p.nodes = append(p.nodes, stackNode{})
 		id = int32(len(p.nodes) - 1)
 	}
 	node := &p.nodes[id]
@@ -133,7 +136,10 @@ func (p *Parser) nodeRelease(id int32) { // C/stack.c stack_node_release
 			}
 			first = node.links[0].node
 		}
-		p.free = push(&p.led, p.free, id)
+		if len(p.free) == cap(p.free) {
+			p.free = grow(&p.led, p.free, 1)
+		}
+		p.free = append(p.free, id)
 		id = first
 	}
 }
@@ -217,7 +223,10 @@ func (p *Parser) headDelete(h *stackHead) { // C/stack.c stack_head_delete
 
 func (p *Parser) addVersion(original int, node int32) int { // C/stack.c ts_stack__add_version
 	o := &p.heads[original]
-	p.heads = push(&p.led, p.heads, stackHead{node: node, nodeCountAtLastError: o.nodeCountAtLastError, lastExternal: o.lastExternal, status: headActive})
+	if len(p.heads) == cap(p.heads) {
+		p.heads = grow(&p.led, p.heads, 1)
+	}
+	p.heads = append(p.heads, stackHead{node: node, nodeCountAtLastError: o.nodeCountAtLastError, lastExternal: o.lastExternal, status: headActive})
 	p.nodeRetain(node)
 	return len(p.heads) - 1
 }
@@ -226,19 +235,26 @@ func (p *Parser) addSlice(original int, node int32, subtrees []Handle) { // C/st
 	for i := len(p.slices) - 1; i >= 0; i-- {
 		v := p.slices[i].version
 		if p.heads[v].node == node {
-			p.slices = push(&p.led, p.slices, stackSlice{})
+			if len(p.slices) == cap(p.slices) {
+				p.slices = grow(&p.led, p.slices, 1)
+			}
+			p.slices = append(p.slices, stackSlice{})
 			copy(p.slices[i+2:], p.slices[i+1:])
 			p.slices[i+1] = stackSlice{subtrees: subtrees, version: v}
 			return
 		}
 	}
 	v := p.addVersion(original, node)
-	p.slices = push(&p.led, p.slices, stackSlice{subtrees: subtrees, version: v})
+	if len(p.slices) == cap(p.slices) {
+		p.slices = grow(&p.led, p.slices, 1)
+	}
+	p.slices = append(p.slices, stackSlice{subtrees: subtrees, version: v})
 }
 
 func (p *Parser) getBuf() []Handle {
 	if n := len(p.bufs); n > 0 {
 		b := p.bufs[n-1]
+		p.bufs[n-1] = nil
 		p.bufs = p.bufs[:n-1]
 		return b[:0]
 	}
@@ -247,7 +263,10 @@ func (p *Parser) getBuf() []Handle {
 
 func (p *Parser) putBuf(b []Handle) {
 	if cap(b) != 0 {
-		p.bufs = push(&p.led, p.bufs, b[:0])
+		if len(p.bufs) == cap(p.bufs) {
+			p.bufs = grow(&p.led, p.bufs, 1)
+		}
+		p.bufs = append(p.bufs, b[:0])
 	}
 }
 
@@ -263,7 +282,10 @@ func (p *Parser) iter(version int, mode int, goal uint32) []stackSlice {
 	}
 	p.slices = p.slices[:0]
 	p.iters = p.iters[:0]
-	p.iters = push(&p.led, p.iters, stackIter{node: p.heads[version].node, subtrees: p.getBuf(), pending: true})
+	if len(p.iters) == cap(p.iters) {
+		p.iters = grow(&p.led, p.iters, 1)
+	}
+	p.iters = append(p.iters, stackIter{node: p.heads[version].node, subtrees: p.getBuf(), pending: true})
 	for len(p.iters) > 0 {
 		size := len(p.iters)
 		for i := 0; i < size; i++ {
@@ -280,7 +302,15 @@ func (p *Parser) iter(version int, mode int, goal uint32) []stackSlice {
 			if pop {
 				subs := it.subtrees
 				if !stop {
-					subs = push(&p.led, p.getBuf(), subs...)
+					{
+						nextBuf := p.getBuf()
+						values := subs
+						subs = nextBuf
+						if len(values) > cap(subs)-len(subs) {
+							subs = grow(&p.led, subs, len(values))
+						}
+						subs = append(subs, values...)
+					}
 				}
 				for a, b := 0, len(subs)-1; a < b; a, b = a+1, b-1 {
 					subs[a], subs[b] = subs[b], subs[a]
@@ -309,13 +339,27 @@ func (p *Parser) iter(version int, mode int, goal uint32) []stackSlice {
 					}
 					link = p.nodes[node].links[j]
 					cur := p.iters[i]
-					cur.subtrees = push(&p.led, p.getBuf(), cur.subtrees...)
-					p.iters = push(&p.led, p.iters, cur)
+					{
+						nextBuf := p.getBuf()
+						values := cur.subtrees
+						cur.subtrees = nextBuf
+						if len(values) > cap(cur.subtrees)-len(cur.subtrees) {
+							cur.subtrees = grow(&p.led, cur.subtrees, len(values))
+						}
+						cur.subtrees = append(cur.subtrees, values...)
+					}
+					if len(p.iters) == cap(p.iters) {
+						p.iters = grow(&p.led, p.iters, 1)
+					}
+					p.iters = append(p.iters, cur)
 					next = &p.iters[len(p.iters)-1]
 				}
 				next.node = link.node
 				if link.sub != 0 {
-					next.subtrees = push(&p.led, next.subtrees, link.sub)
+					if len(next.subtrees) == cap(next.subtrees) {
+						next.subtrees = grow(&p.led, next.subtrees, 1)
+					}
+					next.subtrees = append(next.subtrees, link.sub)
 					if !p.extra(link.sub) {
 						next.subtreeCount++
 						if !link.pending {

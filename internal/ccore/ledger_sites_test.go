@@ -1,10 +1,13 @@
 package ccore
 
 import (
+	"bytes"
 	"go/ast"
+	"go/format"
 	"go/parser"
 	"go/token"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -62,12 +65,13 @@ func TestEveryCoreFileIsScannedOrListed(t *testing.T) {
 // longer allocates, fails: the list cannot go stale.
 var exempt = map[string]string{
 	// pages: the page itself is reserved first by chargePage, with the bytes of its page-table entries
-	"store.go:growRec":   "page and its table entries; chargePage reserves the page first",
-	"store.go:growKids":  "page and its table entry; chargePage reserves the page first",
-	"store.go:growState": "page and its table entry; chargePage reserves the page first",
-	"store.go:allocKids": "a list longer than a page: chargePage reserves its array first",
-	"store.go:presize":   "the page tables of a new store: presizeTables (api.go) reserves their bytes first (presizeBytes) and makes the request stop when refused",
-	"store.go:closeSpan": "one 24-byte span per record page, claimed with that page",
+	"subtree.go:addMulti": "map buckets are reserved before each new key by addMulti",
+	"store.go:growRec":    "page and its table entries; chargePage reserves the page first",
+	"store.go:growKids":   "page and its table entry; chargePage reserves the page first",
+	"store.go:growState":  "page and its table entry; chargePage reserves the page first",
+	"store.go:allocKids":  "a list longer than a page: chargePage reserves its array first",
+	"store.go:presize":    "the page tables of a new store: presizeTables (api.go) reserves their bytes first (presizeBytes) and makes the request stop when refused",
+	"store.go:closeSpan":  "one 24-byte span per record page, claimed with that page",
 	// pool: retention, at most poolMaxBytes (128 MiB), idle pages dropped after 30 s; stated, not charged to a request
 	"store.go:putPages": "page pool retention",
 	"store.go:trimPool": "page pool retention",
@@ -86,6 +90,64 @@ var exempt = map[string]string{
 	"tree.go:commitEdit":  "Tree.Edit: the queued operations of the edit",
 	// bound once
 	"lexdfa.go:BuildLexAscii": "built once per binding",
+}
+
+// guardedAppends recognizes an append immediately preceded by a capacity check
+// which grows the same destination through the ledger.
+func guardedAppends(fd *ast.FuncDecl, fset *token.FileSet) map[token.Pos]bool {
+	result := map[token.Pos]bool{}
+	expr := func(e ast.Expr) string { var b bytes.Buffer; _ = format.Node(&b, fset, e); return b.String() }
+	ast.Inspect(fd, func(n ast.Node) bool {
+		block, ok := n.(*ast.BlockStmt)
+		if !ok {
+			return true
+		}
+		for i := 1; i < len(block.List); i++ {
+			a, ok := block.List[i].(*ast.AssignStmt)
+			if !ok || len(a.Lhs) != 1 || len(a.Rhs) != 1 {
+				continue
+			}
+			call, ok := a.Rhs[0].(*ast.CallExpr)
+			if !ok || len(call.Args) < 2 {
+				continue
+			}
+			id, ok := call.Fun.(*ast.Ident)
+			if !ok || id.Name != "append" || expr(a.Lhs[0]) != expr(call.Args[0]) {
+				continue
+			}
+			guard, ok := block.List[i-1].(*ast.IfStmt)
+			if !ok || len(guard.Body.List) != 1 {
+				continue
+			}
+			growAssign, ok := guard.Body.List[0].(*ast.AssignStmt)
+			if !ok || len(growAssign.Lhs) != 1 || len(growAssign.Rhs) != 1 || expr(growAssign.Lhs[0]) != expr(a.Lhs[0]) {
+				continue
+			}
+			growCall, ok := growAssign.Rhs[0].(*ast.CallExpr)
+			if !ok || len(growCall.Args) != 3 || expr(growCall.Args[1]) != expr(a.Lhs[0]) {
+				continue
+			}
+			growID, ok := growCall.Fun.(*ast.Ident)
+			if !ok || (growID.Name != "grow" && growID.Name != "fgrow") {
+				continue
+			}
+			dst := expr(a.Lhs[0])
+			need := expr(growCall.Args[2])
+			if call.Ellipsis.IsValid() {
+				if len(call.Args) != 2 || need != "len("+expr(call.Args[1])+")" {
+					continue
+				}
+			} else if need != strconv.Itoa(len(call.Args)-1) {
+				continue
+			}
+			condition := expr(guard.Cond)
+			if need == "1" && condition == "len("+dst+") == cap("+dst+")" || condition == need+" > cap("+dst+")-len("+dst+")" || condition == need+" > cap("+dst+") - len("+dst+")" {
+				result[call.Pos()] = true
+			}
+		}
+		return true
+	})
+	return result
 }
 
 // Test 2 (core half): on the served path, append, make and new are called only inside
@@ -107,13 +169,26 @@ func TestServedPathAllocatesOnlyThroughTheLedger(t *testing.T) {
 				continue
 			}
 			key := name + ":" + fd.Name.Name
+			guarded := guardedAppends(fd, fset)
 			ast.Inspect(fd, func(n ast.Node) bool {
 				if c, ok := n.(*ast.CallExpr); ok {
 					if id, ok := c.Fun.(*ast.Ident); ok && (id.Name == "append" || id.Name == "make" || id.Name == "new") {
+						if id.Name == "append" && guarded[c.Pos()] {
+							return true
+						}
 						if _, listed := exempt[key]; listed {
 							used[key] = true
 						} else {
 							t.Errorf("%s: %s calls %s; use the ledger helpers (push, grow, mk, mkCap) or list the function in exempt with a reason", fset.Position(c.Pos()), fd.Name.Name, id.Name)
+						}
+					}
+				}
+				if lit, ok := n.(*ast.CompositeLit); ok {
+					if _, isMap := lit.Type.(*ast.MapType); isMap {
+						if _, listed := exempt[key]; listed {
+							used[key] = true
+						} else {
+							t.Errorf("%s: %s allocates a map literal without ledger accounting", fset.Position(lit.Pos()), key)
 						}
 					}
 				}
@@ -124,6 +199,31 @@ func TestServedPathAllocatesOnlyThroughTheLedger(t *testing.T) {
 	for k := range exempt {
 		if !used[k] {
 			t.Errorf("exempt lists %s, which does not exist or no longer allocates", k)
+		}
+	}
+}
+
+func TestGuardedAppendRecognition(t *testing.T) {
+	cases := []struct {
+		body string
+		want bool
+	}{
+		{`if len(s) == cap(s) { s = grow(l, s, 1) }; s = append(s, x)`, true},
+		{`if len(v) > cap(s)-len(s) { s = grow(l, s, len(v)) }; s = append(s, v...)`, true},
+		{`s = append(s, x)`, false},
+		{`if len(s) == cap(s) { s = grow(l, s, 1) }; s = append(s, x, x)`, false},
+		{`if len(s) == cap(s) { other = grow(l, other, 1) }; s = append(s, x)`, false},
+		{`if len(s) == cap(s) { s = grow(l, s, 1) }; s = append(s, v...)`, false},
+	}
+	for _, tc := range cases {
+		fs := token.NewFileSet()
+		f, err := parser.ParseFile(fs, "case.go", "package ccore\nfunc f(){"+tc.body+"}", 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fd := f.Decls[0].(*ast.FuncDecl)
+		if got := len(guardedAppends(fd, fs)) != 0; got != tc.want {
+			t.Errorf("%s: recognized %v, want %v", tc.body, got, tc.want)
 		}
 	}
 }

@@ -85,7 +85,10 @@ func (p *Parser) candidateRecoveryActions(actions []Action, set *[]reduceAction)
 					}
 				}
 				if !dup {
-					*set = push(&p.led, *set, reduceAction{symbol: a.Symbol, count: uint32(a.ChildCount), dynPrec: int32(a.DynamicPrecedence), productionID: a.ProductionID})
+					if len(*set) == cap(*set) {
+						*set = grow(&p.led, *set, 1)
+					}
+					*set = append(*set, reduceAction{symbol: a.Symbol, count: uint32(a.ChildCount), dynPrec: int32(a.DynamicPrecedence), productionID: a.ProductionID})
 				}
 			}
 		}
@@ -220,7 +223,14 @@ func (p *Parser) recoverToState(version int, depth uint32, goal uint16) bool {
 	// The pop's slices live in the stack's slice array, which
 	// ts_stack_pop_error reuses; C only overwrites entries it has already
 	// read, so working on a copy is equivalent.
-	pop := push(&p.led, p.recSlices[:0], p.iter(version, popCount, depth)...)
+	pop := p.recSlices[:0]
+	{
+		values := p.iter(version, popCount, depth)
+		if len(values) > cap(pop)-len(pop) {
+			pop = grow(&p.led, pop, len(values))
+		}
+		pop = append(pop, values...)
+	}
 	defer func() { p.recSlices = pop[:0] }()
 	previous := -1
 	for i := 0; i < len(pop); i++ {
@@ -241,7 +251,10 @@ func (p *Parser) recoverToState(version int, depth uint32, goal uint16) bool {
 				nested := mk[Handle](&p.led, len(p.children(errorTree)))
 				copy(nested, p.children(errorTree))
 				nestedError := p.newNode(symErrorRepeat, nested, 0)
-				subtrees = push(&p.led, subtrees, 0)
+				if len(subtrees) == cap(subtrees) {
+					subtrees = grow(&p.led, subtrees, 1)
+				}
+				subtrees = append(subtrees, 0)
 				copy(subtrees[1:], subtrees)
 				subtrees[0] = nestedError
 			}
@@ -360,7 +373,11 @@ func (p *Parser) recover(version int, lookahead Handle) {
 			}
 		}
 		p.renumber(first.version, version)
-		children := push(&p.led, first.subtrees, errorRepeat)
+		children := first.subtrees
+		if len(children) == cap(children) {
+			children = grow(&p.led, children, 1)
+		}
+		children = append(children, errorRepeat)
 		errorRepeat = p.newNode(symErrorRepeat, children, 0)
 		p.putBuf(children)
 	}
