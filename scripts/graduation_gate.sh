@@ -32,12 +32,13 @@
 #     equals fresh, ERROR root implies HasError, the root covers the input, a
 #     reparse without edits allocates nothing
 #   3 incremental parse equals C's on the session, and the core's records
-#     (token lookahead bytes included) equal C's
+#     (token lookahead bytes included) equal C's along C's own chain of reparses
 #   4 declines during items 1 to 3: none, or each has an entry in
 #     cgo_harness/testdata/graduation_deny.txt with a reopening condition
 #   5 reuse equals C's subtree events, or a same-length views shortcut reuses all bytes and equals C's tree.
 #   6 tokens equal C's, or are between 1 and C's for a shortcut equal to C's tree; nodes and versions stay at or below the default engine's.
-#   7 highlight, tags, MISSING, ERROR and supertype query results
+#   7 highlight, tags, MISSING, ERROR and supertype query results (the set of
+#     captures: name and byte range)
 #   8 safety: stop reasons, a failing core and scanner, release orders, readers
 #     (also under -race), store bound
 #   9 peak resident set size of a 1 MiB fresh parse and of 1,000 edits, at or below the default
@@ -51,6 +52,9 @@
 #   GRAD_RSS_RUNS     runs per arm for item 9 (default 3)
 #   GRAD_RSS_TIMEOUT  seconds a run of item 9 may take before it is killed (default 480);
 #                     a killed run reports the last progress line as a lower bound
+#
+# The default engine in items 6, 9 and 10 is the present engine of the build under
+# test with the route off, not a pinned release of it.
 #
 # Needs: go with cgo, the pinned C oracle (cgo_harness/docker/run_parity_in_docker.sh sets it up).
 set -uo pipefail

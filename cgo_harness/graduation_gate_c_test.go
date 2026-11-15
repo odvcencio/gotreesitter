@@ -165,8 +165,9 @@ func (s *gradService) numbers() string {
 	return fmt.Sprintf("served_incremental=%d served_fresh=%d fresh_reasons=%s invalid_service=%d", s.incremental, s.fresh, strings.Join(parts, ","), s.invalid)
 }
 
-// gradDefault selects the present engine for the reference arm.
-// gradServedBy verifies that this parser does not use the core.
+// gradDefault selects the present engine for the reference arm: the engine of the
+// build under test with the route off on the parser. It is not a pinned release of
+// that engine. gradServedBy verifies that this parser does not use the core.
 func gradDefault(lang *g.Language) *g.Parser {
 	p := g.NewParser(lang)
 	p.SetAdmissionCandidateRoute(false)
@@ -616,6 +617,13 @@ func TestGraduationInvariants(t *testing.T) {
 
 // Item 3: the session through the route against C's incremental parse, and the
 // core's own parse against C's records (kind, range, flags, token lookahead bytes).
+//
+// The record comparison follows C's own chain: a core parser that the test drives
+// beside the route applies every edit and reparses incrementally, as C does, with
+// the shortcut off. The route's tree for a step can have another history (a fresh
+// parse on a step with an error, an old tree returned by the shortcut), and its
+// records then differ from C's by design; the route's tree is compared with C's
+// tree, not record by record.
 type gradIncrementalCounts struct {
 	steps, edits, recordSteps, equalTrees, equalRecords, invalidService, cDifferences, unapproved int
 }
@@ -706,7 +714,9 @@ func TestGraduationIncremental(t *testing.T) {
 			_, freshAfter, _ := bind.RouteCounters()
 			if freshAfter-freshBefore != 1 {
 				service.invalid++
-				service.first = st.id + ": fresh parse was not served by the core"
+				if service.first == "" {
+					service.first = st.id + ": fresh parse was not served by the core"
+				}
 			}
 		} else {
 			cTree.Edit(gradSitterEdit(*st.edit))

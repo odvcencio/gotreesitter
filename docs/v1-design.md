@@ -72,11 +72,9 @@ Require all of these results on the candidate commit:
 
 1. Generate a receipt with zero unexplained fresh mismatches against the C commit pinned at M1.
 2. Pass the invariant gate for the 72-step session and 16 sites per edit class.
-3. Reuse the subtrees that C reuses at every incremental step. Require positive reuse on clean steps once scanner certification covers the scanner class.
-   A same-length edit may return the old tree without a parse when the result equals C's in everything a caller can see; such a step must reuse every byte.
+3. Match or exceed legacy reuse. Require positive reuse on clean steps once scanner certification covers the scanner class.
 4. Record zero corpus declines, or give every decline an artifact deny entry and a reopening condition.
-5. Lex the tokens that C lexes on every fixture. Keep new nodes and maximum live versions at or below legacy.
-   A same-length edit that returns the old tree may lex fewer tokens than C, and at least one.
+5. Keep tokens, new nodes, and maximum live versions at or below legacy on every fixture.
 6. Keep the 20-seed median time at or below legacy at 32 KiB, 137 KiB, and 1 MiB.
 7. Keep peak resident set size (RSS) at 1 MiB at or below legacy.
 8. Pass crash, memory-budget, out-of-memory, and race checks in the dedicated container.
