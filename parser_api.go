@@ -2181,13 +2181,13 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (tr
 }
 
 func (p *Parser) parseIncrementalChangedSourceRun(source []byte, oldTree *Tree) (*Tree, error) {
-	if !ccoreUnset() && p.admissionCandidateFullParseEligible(nil, true) { // Eligible reparses use a fresh core parse.
+	if !ccoreUnset() && p.admissionCandidateFullParseEligible(nil, true) { // Eligible reparses use the core when admitted.
 		if oldTree == nil {
 			return p.parse(source)
 		}
 		endBudget := p.enterParseBudget() // one budget scope for the attempt and the fallback
 		defer endBudget()
-		if tree, ok := p.ccoreFullParse(source); ok {
+		if tree, ok := p.ccoreReparse(source, oldTree); ok {
 			return tree, nil
 		}
 		cold := p.ensureParserColdState()
@@ -2577,9 +2577,16 @@ func (p *Parser) parseIncrementalProfiledChangedSourceRun(source []byte, oldTree
 		endBudget := p.enterParseBudget()
 		defer endBudget()
 		started := time.Now()
-		if tree, ok := p.ccoreFullParse(source); ok {
+		if tree, ok := p.ccoreReparse(source, oldTree); ok {
+			if st := tree.ccoreStateOf(); st != nil && st.incremental {
+				timing := incrementalParseTimingFromRuntime(*tree.rawParseRuntime())
+				timing.totalNanos = time.Since(started).Nanoseconds()
+				timing.oldTreeReuseRoute = true
+				timing.reusedSubtrees = uint64(st.reusedNodes)
+				timing.reusedBytes = st.reusedBytes
+				return tree, timing.toProfile(), nil
+			}
 			timing := freshParseFallbackTiming(started, tree, "ccore_fresh")
-
 			return tree, timing.toProfile(), nil
 		}
 		cold := p.ensureParserColdState()

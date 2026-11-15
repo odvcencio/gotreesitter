@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -1886,8 +1887,9 @@ func TestCcoreLedgerEqualsTheRealAllocationOnAReparse(t *testing.T) {
 			})
 			defer stopLease()
 			var charged int64
-			// The fresh request charges its own parser buffers and public arena.
-			stopAcc := gts.CcoreTestAccountProbe(func(b, a, _, _ int64) { runtime.ReadMemStats(&at1); charged = b + a })
+			// Exclude the old store, which was allocated before this request.
+			oldPages := int64(gts.CcoreTestStoreBytes(old))
+			stopAcc := gts.CcoreTestAccountProbe(func(b, a, _, _ int64) { runtime.ReadMemStats(&at1); charged = b + a - oldPages })
 			defer stopAcc()
 			gts.CcoreTestDrainPool(lang)
 			gts.DrainArenaPools()
@@ -1896,8 +1898,8 @@ func TestCcoreLedgerEqualsTheRealAllocationOnAReparse(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer nt.Release()
-			if !gts.CcoreTestFromCore(nt) {
-				t.Fatal("the reparse was not served by the core")
+			if _, served := ccoreIncrCount(t); served != 1 {
+				t.Fatalf("the reparse was not served incrementally (%d)", served)
 			}
 			if charged == 0 {
 				t.Fatal("the account hook never ran")
@@ -2004,4 +2006,721 @@ func TestCcoreReparseDeclineAttemptsOnce(t *testing.T) {
 			again.Release()
 		})
 	}
+}
+
+func ccoreIncrCount(t *testing.T) (map[string]int64, int64) {
+	t.Helper()
+	return gts.CcoreTestIncr()
+}
+
+func TestCcoreIncrProfile(t *testing.T) {
+	defer ccoreCertifyIncr()()
+	lang := ccoreRouteLang(t, "json")
+	for _, useOptions := range []bool{false, true} {
+		for _, bad := range []bool{false, true} {
+			t.Run(fmt.Sprintf("options=%t/error=%t", useOptions, bad), func(t *testing.T) {
+				p := ccoreRouteParser(lang)
+				src := ccoreJSONSource(300)
+				if bad {
+					src, _ = ccoreInsert(src, 20, '}')
+				}
+				old, err := p.Parse(src)
+				if err != nil || old == nil || old.RootNode().HasError() != bad {
+					t.Fatalf("old tree: %v", err)
+				}
+				defer old.Release()
+				next, edit := ccoreInsert(src, 25, ' ')
+				old.Edit(edit)
+				var tree *gts.Tree
+				var profile gts.IncrementalParseProfile
+				if useOptions {
+					result, err := p.ParseWith(next, gts.WithOldTree(old), gts.WithProfiling())
+					if err != nil || !result.ProfileAvailable {
+						t.Fatalf("ParseWith: %v", err)
+					}
+					tree, profile = result.Tree, result.Profile
+				} else {
+					tree, profile, err = p.ParseIncrementalProfiled(next, old)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				if tree == nil {
+					t.Fatal("nil tree")
+				}
+				defer tree.Release()
+				nodes, bytes, incremental := gts.CcoreTestReuse(tree)
+				if bad {
+					if incremental || !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "ccore_fresh" || profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+						t.Fatalf("fresh core profile: %+v", profile)
+					}
+				} else if !incremental || nodes == 0 || bytes == 0 || profile.ReusedSubtrees != uint64(nodes) || profile.ReusedBytes != bytes || profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute {
+					t.Fatalf("incremental core reuse=(%d, %d, %t) profile=%+v", nodes, bytes, incremental, profile)
+				}
+			})
+		}
+	}
+}
+
+func TestCcoreIncrSessionEqualsFresh(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	defer ccoreCertifyIncr()()
+	src := ccoreJSONSource(300)
+	p, fp := ccoreRouteParser(lang), ccoreRouteParser(lang)
+	gts.CcoreTestReset()
+	tree, err := p.Parse(src)
+	if err != nil || tree == nil {
+		t.Fatal(err)
+	}
+	steps, reused := 0, uint64(0)
+	for i := 0; i < 60; i++ {
+		var next []byte
+		var e gts.InputEdit
+		at := 5 + (i*131)%(len(src)-10)
+		for at < len(src)-3 && !(src[at] >= '0' && src[at] <= '8') { // a digit: every edit below keeps the text valid json
+			at++
+		}
+		switch i % 3 {
+		case 0: // same-length replacement
+			next, e = ccoreReplace(src, at, src[at]+1)
+		case 1: // a typed character
+			next, e = ccoreInsert(src, at, '1')
+		default: // a deleted byte (the digit before a digit, or a typed one)
+			if src[at+1] >= '0' && src[at+1] <= '9' {
+				next, e = ccoreDeleteByte(src, at)
+			} else {
+				next, e = ccoreInsert(src, at, '2')
+			}
+		}
+		tree.Edit(e)
+		nt, err := p.ParseIncremental(next, tree)
+		if err != nil || nt == nil {
+			t.Fatal(err)
+		}
+		fresh, err := fp.Parse(next)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ccoreWalkDigest(nt, lang) != ccoreWalkDigest(fresh, lang) {
+			t.Fatalf("step %d: the incremental tree differs from a fresh parse", i)
+		}
+		if has, edits, broken := gts.CcoreTestLink(nt); !has || edits != 0 || broken {
+			t.Fatalf("step %d: new tree link has=%v edits=%d broken=%v", i, has, edits, broken)
+		}
+		if _, b, incr := gts.CcoreTestReuse(nt); incr {
+			reused += b
+		}
+		fresh.Release()
+		tree.Release()
+		tree, src = nt, next
+		steps++
+	}
+	tree.Release()
+	fb, served := ccoreIncrCount(t)
+	if served != int64(steps) || len(fb) != 0 || reused == 0 {
+		t.Fatalf("steps %d: served incrementally %d, fallbacks %v, reused bytes %d", steps, served, fb, reused)
+	}
+}
+
+// Each case in which a reparse is a fresh core parse, with its counter.
+func TestCcoreIncrFallbackCases(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	base := ccoreJSONSource(40)
+	type tc struct {
+		name  string
+		modes uint8
+		want  string // fallback counter that must be 1 ("" : served incrementally)
+		setup func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree)
+	}
+	cases := []tc{
+		{"clean", ccoreModesIncr, "", func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree) {
+			out, e := ccoreInsert(src, 20, ' ')
+			tree.Edit(e)
+			return out, tree
+		}},
+		{"incr_not_certified", ccoreAllModes, "incr_not_certified", func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree) {
+			out, e := ccoreInsert(src, 20, ' ')
+			tree.Edit(e)
+			return out, tree
+		}},
+		{"edit_over_budget", ccoreModesIncr, "edits_not_carried", func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree) {
+			// A budget one byte above the pages the tree holds: the first page the edit
+			// claims is refused, the store of the core tree is poisoned, the edit does not
+			// reach it, and the reparse is a fresh parse by the core in a new store (counted
+			// as edits_not_carried, no route decline) that equals the present engine's.
+			pages := gts.CcoreTestEditBudget(tree, 1)
+			gts.CcoreTestEditBudget(tree, int64(pages)+1)
+			out, e := ccoreInsert(src, 20, ' ')
+			tree.Edit(e)
+			if _, _, broken := gts.CcoreTestLink(tree); !broken {
+				t.Fatal("an edit whose pages the budget refuses did not mark the link as broken")
+			}
+			return out, tree
+		}},
+		{"old_tree_foreign", ccoreModesIncr, "old_tree_foreign", func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree) {
+			gts.CcoreTestStripCore(tree) // a tree whose core tree is gone: as one from the present engine
+			out, e := ccoreInsert(src, 20, ' ')
+			tree.Edit(e)
+			return out, tree
+		}},
+		{"edits_not_carried", ccoreModesIncr, "edits_not_carried", func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree) {
+			out, e := ccoreInsert(src, 20, ' ')
+			tree.Edit(e)
+			gts.CcoreTestBreakLink(tree) // the edit did not reach the core tree
+			return out, tree
+		}},
+		{"edit_mismatch", ccoreModesIncr, "edit_mismatch", func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree) {
+			out, e := ccoreInsert(src, 20, ' ')
+			out[300] = ' ' // a change the edit does not describe
+			tree.Edit(e)
+			return out, tree
+		}},
+		{"edit_mismatch_in_the_gap", ccoreModesIncr, "edit_mismatch", func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree) {
+			// Two recorded replacements that keep the length, and a third change between them
+			// that no edit describes. Comparing only the text before the first edit and after
+			// the last one accepts this; the unchanged number between them would be reused.
+			var at []int
+			for i := 30; i < len(src)-8 && len(at) < 3; i++ {
+				if src[i] >= '0' && src[i] <= '8' && (len(at) == 0 || i > at[len(at)-1]+40) {
+					at = append(at, i)
+				}
+			}
+			if len(at) < 3 {
+				t.Fatal("setup: no three digits")
+			}
+			out := append([]byte(nil), src...)
+			out[at[1]]++ // the change nobody recorded
+			out[at[0]]++
+			out[at[2]]++
+			for _, i := range []int{at[0], at[2]} {
+				tree.Edit(gts.InputEdit{StartByte: uint32(i), OldEndByte: uint32(i + 1), NewEndByte: uint32(i + 1),
+					StartPoint: ccorePoint(src, i), OldEndPoint: ccorePoint(src, i+1), NewEndPoint: ccorePoint(out, i+1)})
+			}
+			return out, tree
+		}},
+		{"old_has_error", ccoreModesIncr, "old_has_error", func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree) {
+			// make a tree with an error first, then edit that one
+			bad, e0 := ccoreInsert(src, 20, '}')
+			tree.Edit(e0)
+			bt, err := p.ParseIncremental(bad, tree)
+			if err != nil || !bt.RootNode().HasError() {
+				t.Fatalf("setup: %v", err)
+			}
+			tree.Release()
+			gts.CcoreTestReset()
+			out, e := ccoreInsert(bad, 25, ' ')
+			bt.Edit(e)
+			return out, bt
+		}},
+		{"result_has_error", ccoreModesIncr, "result_has_error", func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree) {
+			out, e := ccoreInsert(src, 20, '}')
+			tree.Edit(e)
+			return out, tree
+		}},
+		{"old_tree_released", ccoreModesIncr, "old_tree_released", func(t *testing.T, p *gts.Parser, tree *gts.Tree, src []byte) ([]byte, *gts.Tree) {
+			out, e := ccoreInsert(src, 20, ' ')
+			tree.Edit(e)
+			gts.CcoreTestCoreTree(tree).Release() // the core tree's store entry is already released
+			return out, tree
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			defer gts.CcoreTestCertify(c.modes, "ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState")()
+			p, fp := ccoreRouteParser(lang), ccoreRouteParser(lang)
+			tree, err := p.Parse(base)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gts.CcoreTestReset()
+			next, tree := c.setup(t, p, tree, base)
+			nt, err := p.ParseIncremental(next, tree)
+			if err != nil || nt == nil {
+				t.Fatal(err)
+			}
+			fresh, _ := fp.Parse(next)
+			if ccoreWalkDigest(nt, lang) != ccoreWalkDigest(fresh, lang) {
+				t.Fatal("the result differs from a fresh parse")
+			}
+			fb, served := ccoreIncrCount(t)
+			decl, _ := gts.CcoreTestCounters()
+			if len(decl) != 0 {
+				t.Fatalf("declines %v", decl)
+			}
+			if c.want == "" {
+				if served != 1 || len(fb) != 0 {
+					t.Fatalf("served %d fallbacks %v; want one incremental parse", served, fb)
+				}
+			} else if served != 0 || fb[c.want] != 1 || len(fb) != 1 {
+				t.Fatalf("served %d fallbacks %v; want only %s", served, fb, c.want)
+			}
+			nt.Release()
+			if tree != nt {
+				tree.Release()
+			}
+			fresh.Release()
+		})
+	}
+}
+
+// ccoreEditsDescribe accepts the edit lists that turn the old text into the new one and refuses the rest.
+func TestCcoreEditsDescribe(t *testing.T) {
+	old := []byte("0123456789")
+	ed := func(s, oe, ne uint32) gts.InputEdit {
+		return gts.InputEdit{StartByte: s, OldEndByte: oe, NewEndByte: ne}
+	}
+	cases := []struct {
+		name  string
+		nw    string
+		edits []gts.InputEdit
+		ok    bool
+	}{
+		{"replace", "01234X6789", []gts.InputEdit{ed(5, 6, 6)}, true},
+		{"insert", "01234XX56789", []gts.InputEdit{ed(5, 5, 7)}, true},
+		{"two", "0Y2345X789", []gts.InputEdit{ed(1, 2, 2), ed(6, 7, 7)}, true},
+		{"insert then delete after", "01X2345678", []gts.InputEdit{ed(2, 2, 3), ed(10, 11, 10)}, true},
+		{"two with the gap unchanged", "0Y2345X789", []gts.InputEdit{ed(1, 2, 2), ed(6, 7, 7)}, true},
+		{"two, a change in the gap between them", "0Y2Z45X789", []gts.InputEdit{ed(1, 2, 2), ed(6, 7, 7)}, false},
+		{"two, a change in the gap, same lengths, wide", "0Y23Z5X789", []gts.InputEdit{ed(1, 2, 2), ed(6, 7, 7)}, false},
+		{"second edit over the first (overlap)", "0AB3456789", []gts.InputEdit{ed(1, 3, 3), ed(1, 3, 3)}, false},
+		{"second edit overlaps the first", "0AB3X56789", []gts.InputEdit{ed(1, 3, 3), ed(2, 5, 5)}, false},
+		{"second edit overlaps the first, change outside both", "0AB3456780", []gts.InputEdit{ed(1, 3, 3), ed(2, 5, 5)}, false},
+		{"insert inside the text the first edit wrote (overlap)", "0A1B3456789", []gts.InputEdit{ed(1, 3, 3), ed(2, 2, 3)}, false},
+		{"touching edits: the second starts where the first ends", "0ABX456789", []gts.InputEdit{ed(1, 3, 3), ed(3, 4, 4)}, true},
+		{"edits one byte apart", "0AB3X56789", []gts.InputEdit{ed(1, 3, 3), ed(4, 5, 5)}, true},
+		{"touching edits: the second ends where the first starts", "0Y2B456789", []gts.InputEdit{ed(2, 4, 4), ed(1, 2, 2)}, true},
+		{"edits one byte apart, the byte between changed", "0AB9X56789", []gts.InputEdit{ed(1, 3, 3), ed(4, 5, 5)}, false},
+		{"delete then insert at the same place", "0123X56789", []gts.InputEdit{ed(4, 5, 4), ed(4, 4, 5)}, true},
+		{"undescribed change", "01234X6789", []gts.InputEdit{ed(1, 2, 2)}, false},
+		{"wrong length", "01234X678", []gts.InputEdit{ed(5, 6, 6)}, false},
+		{"no edit, other text", "0123456780", nil, false},
+		{"end before start", "0123456789", []gts.InputEdit{ed(5, 4, 4)}, false},
+		{"past the end", "0123456789X", []gts.InputEdit{ed(11, 11, 12)}, false},
+	}
+	for _, c := range cases {
+		if got := gts.CcoreTestEditsDescribe(old, []byte(c.nw), c.edits); got != c.ok {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.ok)
+		}
+	}
+	for _, n := range []int{64, 65} {
+		edits := make([]gts.InputEdit, n)
+		if got := gts.CcoreTestEditsDescribe(old, old, edits); got != (n == 64) {
+			t.Errorf("%d edits: got %v", n, got)
+		}
+	}
+	// Two recorded replacements that keep the length; the number between them also became a
+	// string, and no edit says so.
+	oldJSON, newJSON := []byte("[1,0,123,0,3]"), []byte(`[4,0,"x",0,6]`)
+	if gts.CcoreTestEditsDescribe(oldJSON, newJSON, []gts.InputEdit{ed(1, 2, 2), ed(11, 12, 12)}) {
+		t.Error("a change between two recorded edits was described by them")
+	}
+	if !gts.CcoreTestEditsDescribe(oldJSON, newJSON, []gts.InputEdit{ed(1, 2, 2), ed(5, 8, 5+3), ed(11, 12, 12)}) {
+		t.Error("three edits that cover every change were not accepted")
+	}
+}
+
+// Copy, edit, reparse, then release the original, the copy and the new tree in
+// every order: each tree has its own core tree, the others stay readable while
+// one is released, and every core tree is released with its public tree.
+func TestCcoreIncrLifecycleOrders(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	defer ccoreCertifyIncr()()
+	src := ccoreJSONSource(120)
+	at := 41
+	for !(src[at] >= '0' && src[at] <= '8') {
+		at++
+	}
+	next, e := ccoreReplace(src, at, src[at]+1)
+	fp := ccoreRouteParser(lang)
+	f, err := fp.Parse(next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	freshDigest := ccoreWalkDigest(f, lang)
+	f.Release()
+	perms := [][3]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}
+	for _, perm := range perms {
+		p := ccoreRouteParser(lang)
+		a, err := p.Parse(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b := a.Copy()
+		a.Edit(e)
+		a2, err := p.ParseIncremental(next, a)
+		if err != nil || a2 == nil {
+			t.Fatal(err)
+		}
+		trees := [3]*gts.Tree{a, b, a2}
+		cts := [3]*ccore.Tree{gts.CcoreTestCoreTree(a), gts.CcoreTestCoreTree(b), gts.CcoreTestCoreTree(a2)}
+		if cts[0] == nil || cts[1] == nil || cts[2] == nil || cts[0] == cts[1] || cts[0] == cts[2] || cts[1] == cts[2] {
+			t.Fatalf("%v: the trees do not each have a core tree of their own", perm)
+		}
+		if ccoreWalkDigest(a2, lang) != freshDigest {
+			t.Fatalf("%v: the reparse differs from a fresh parse", perm)
+		}
+		origDigest := ccoreWalkDigest(b, lang)
+		for step, i := range perm {
+			trees[i].Release()
+			if !cts[i].Released() {
+				t.Fatalf("%v: releasing tree %d left its core tree alive", perm, i)
+			}
+			for _, j := range perm[step+1:] {
+				if cts[j].Released() || gts.CcoreTestCoreWalk(cts[j]) == 0 {
+					t.Fatalf("%v: releasing tree %d damaged tree %d", perm, i, j)
+				}
+			}
+			if !cts[1].Released() && ccoreWalkDigest(b, lang) != origDigest {
+				t.Fatalf("%v: the copy changed", perm)
+			}
+		}
+	}
+	// The new tree goes on after the old tree and the copy are released.
+	p := ccoreRouteParser(lang)
+	gts.CcoreTestReset()
+	a, _ := p.Parse(src)
+	a.Edit(e)
+	a2, _ := p.ParseIncremental(next, a)
+	a.Release()
+	at2 := 60
+	for !(next[at2] >= '0' && next[at2] <= '8') {
+		at2++
+	}
+	next2, e2 := ccoreReplace(next, at2, next[at2]+1)
+	a2.Edit(e2)
+	a3, err := p.ParseIncremental(next2, a2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, served := gts.CcoreTestIncr(); served != 2 {
+		t.Fatalf("served %d incremental parses, want 2", served)
+	}
+	f, _ = fp.Parse(next2)
+	if ccoreWalkDigest(a3, lang) != ccoreWalkDigest(f, lang) {
+		t.Fatal("second reparse differs from fresh")
+	}
+	f.Release()
+	a2.Release()
+	a3.Release()
+}
+
+// A public tree that is dropped without Release does not keep its core tree
+// reachable, and a pooled core parser does not keep the tree of its last parse.
+func TestCcoreIncrDroppedTreeIsCollectable(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	defer ccoreCertifyIncr()()
+	src := ccoreJSONSource(120)
+	var freed atomic.Int32
+	{ // a released tree first: its arena goes to the pool, and the next tree takes it from there
+		pre, err := ccoreRouteParser(lang).Parse(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pre.Release()
+	}
+	func() {
+		p := ccoreRouteParser(lang)
+		tree, err := p.Parse(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		runtime.SetFinalizer(gts.CcoreTestCoreTree(tree), func(*ccore.Tree) { freed.Add(1) })
+		at := 41
+		for !(src[at] >= '0' && src[at] <= '8') {
+			at++
+		}
+		next, e := ccoreReplace(src, at, src[at]+1)
+		tree.Edit(e)
+		nt, err := p.ParseIncremental(next, tree) // neither tree is released
+		if err != nil {
+			t.Fatal(err)
+		}
+		runtime.SetFinalizer(gts.CcoreTestCoreTree(nt), func(*ccore.Tree) { freed.Add(1) })
+	}()
+	// Nothing else is parsed or released from here on: the dropped trees must be collectable
+	// by themselves, without being retained by the arena pool.
+	for i := 0; i < 300 && freed.Load() < 2; i++ {
+		runtime.GC()
+		time.Sleep(10 * time.Millisecond)
+	}
+	if freed.Load() != 2 {
+		t.Fatalf("%d of 2 core trees were collected after the public trees were dropped", freed.Load())
+	}
+}
+
+// The store of a long edit chain does not grow: after 1,000 edits through the
+// public API (each old tree released) the pages are at most 1.5 times the first tree's.
+func TestCcoreIncrStoreBoundAfter1000Edits(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	defer ccoreCertifyIncr()()
+	src := ccoreJSONSource(300)
+	p := ccoreRouteParser(lang)
+	tree, err := p.Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := gts.CcoreTestStoreBytes(tree)
+	maxSeen := first
+	for i := 0; i < 1000; i++ {
+		at := 5 + (i*977)%(len(src)-10)
+		for !(src[at] >= '0' && src[at] <= '8') {
+			at++
+		}
+		next, e := ccoreReplace(src, at, src[at]+1)
+		tree.Edit(e)
+		nt, err := p.ParseIncremental(next, tree)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tree.Release()
+		tree, src = nt, next
+		if b := gts.CcoreTestStoreBytes(tree); b > maxSeen {
+			maxSeen = b
+		}
+	}
+	defer tree.Release()
+	if _, served := gts.CcoreTestIncr(); served < 1000 {
+		t.Fatalf("served %d of 1000", served)
+	}
+	if float64(maxSeen) > 1.5*float64(first) {
+		t.Fatalf("store pages grew from %d to %d bytes (more than 1.5 times) over 1,000 edits", first, maxSeen)
+	}
+	t.Logf("store pages: first tree %d bytes, largest %d, last %d", first, maxSeen, gts.CcoreTestStoreBytes(tree))
+}
+
+// Readers of a copy on other goroutines while the original is edited and reparsed
+// (run under -race).
+func TestCcoreIncrConcurrentReaders(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	defer ccoreCertifyIncr()()
+	src := ccoreJSONSource(200)
+	p := ccoreRouteParser(lang)
+	tree, err := p.Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+	reader := func(cp *gts.Tree) {
+		defer wg.Done()
+		ct := gts.CcoreTestCoreTree(cp)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			if gts.CcoreTestCoreWalk(ct) == 0 {
+				t.Error("empty walk")
+				return
+			}
+		}
+	}
+	for i := 0; i < 3; i++ {
+		cp := tree.Copy()
+		wg.Add(1)
+		go func() { reader(cp); cp.Release() }()
+	}
+	for i := 0; i < 40; i++ {
+		at := 41 + (i*13)%100
+		for !(src[at] >= '0' && src[at] <= '8') {
+			at++
+		}
+		next, e := ccoreReplace(src, at, src[at]+1)
+		tree.Edit(e)
+		nt, err := p.ParseIncremental(next, tree)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tree.Release()
+		tree, src = nt, next
+	}
+	close(stop)
+	wg.Wait()
+	tree.Release()
+}
+
+// ccoreEdit reports whether the core tree
+// took the edit and moves the core root; ccoreRoot reads it; ccoreLink is the one
+// link (nil for a tree without a core tree).
+func TestCcoreIncrSeams(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	defer ccoreCertifyIncr()()
+	src := ccoreJSONSource(50)
+	p := ccoreRouteParser(lang)
+	tree, err := p.Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	r0, ok := gts.CcoreTestSeamRoot(tree)
+	if !ok || r0 == 0 || gts.CcoreTestSeamLink(tree) != gts.CcoreTestCoreTree(tree) {
+		t.Fatalf("root %d ok %v", r0, ok)
+	}
+	at := 41
+	for !(src[at] >= '0' && src[at] <= '8') {
+		at++
+	}
+	_, e := ccoreReplace(src, at, src[at]+1)
+	if !gts.CcoreTestSeamEdit(tree, e) {
+		t.Fatal("the core tree did not take the edit")
+	}
+	if r1, _ := gts.CcoreTestSeamRoot(tree); r1 == r0 {
+		t.Fatal("the core root did not move after the edit")
+	}
+	bad := e
+	bad.StartByte, bad.OldEndByte = 9, 5 // start after end: refused, and the tree is marked as not carried
+	if gts.CcoreTestSeamEdit(tree, bad) {
+		t.Fatal("an edit with start after end was taken")
+	}
+	if _, _, broken := gts.CcoreTestLink(tree); !broken {
+		t.Fatal("the refused edit did not mark the link")
+	}
+	gts.CcoreTestStripCore(tree)
+	if gts.CcoreTestSeamLink(tree) != nil || gts.CcoreTestSeamEdit(tree, e) {
+		t.Fatal("a tree without a core tree took an edit")
+	}
+	if _, ok := gts.CcoreTestSeamRoot(tree); ok {
+		t.Fatal("a tree without a core tree has a core root")
+	}
+}
+
+func TestCcoreReclamationIsCountedAgainstTheRequestBudget(t *testing.T) {
+	ccoreSkipUnderRace(t, "the race detector changes the allocation sizes this test compares")
+	defer ccoreCertifyIncr()()
+	lang := ccoreRouteLang(t, "json")
+	src := ccoreWideJSON(100000)
+	lo, hi := len(src)/5, 4*len(src)/5
+	changed := append([]byte(nil), src...)
+	for i := lo; i < hi; i++ {
+		if changed[i] == '1' {
+			changed[i] = '7'
+		}
+	}
+	final, e2 := ccoreReplace(changed, hi+1, changed[hi+1]) // a second, small edit for the reparse that drains
+	// scenario: A -> B (the large replacement), release A, then reparse B -> C under a budget.
+	var a *gts.Tree
+	var m0, m1 runtime.MemStats // heap counters at the start of the request and after its drain
+	var convs []bool            // for each limit check, whether the public tree was being built
+	scenario := func(budget int64, releaseAt int) (totals []int64, declines map[string]int64, c *gts.Tree, fresh *gts.Tree) {
+		p := ccoreRouteParser(lang)
+		p.SetMemoryBudgetBytes(1 << 40)
+		gts.CcoreTestDrainPool(lang)
+		gts.DrainArenaPools()
+		gts.CcoreTestReset()
+		var err error
+		a, err = p.Parse(src)
+		if err != nil || a == nil || !gts.CcoreTestFromCore(a) {
+			t.Fatalf("setup: %v", err)
+		}
+		a.Edit(gts.InputEdit{StartByte: uint32(lo), OldEndByte: uint32(hi), NewEndByte: uint32(hi),
+			StartPoint: ccorePoint(src, lo), OldEndPoint: ccorePoint(src, hi), NewEndPoint: ccorePoint(changed, hi)})
+		b, err := p.ParseIncremental(changed, a)
+		if err != nil || b == nil || !gts.CcoreTestFromCore(b) {
+			t.Fatalf("setup: the large replacement was not served by the core: %v", err)
+		}
+		b.Edit(e2)
+		p.SetMemoryBudgetBytes(budget)
+		stop := gts.CcoreTestPollProbe(func(total int64, sample bool, converting bool) {
+			totals = append(totals, total)
+			convs = append(convs, converting)
+			if len(totals) == 2 && releaseAt == 1 {
+				runtime.ReadMemStats(&m1)
+			}
+			if len(totals) == 1 && releaseAt == 1 {
+				runtime.ReadMemStats(&m0)
+			}
+			if len(totals) == releaseAt {
+				// The request holds the store's lease: the release of A cannot be applied now. At
+				// call 1 (the start of the request) it is queued ahead of the request's first drain,
+				// which frees every record that only A holds. At call 2 (after that drain) it is
+				// queued behind the parse and freed by the drain at the exit of the request.
+				a.Release()
+			}
+		})
+		gts.CcoreTestReset()
+		c, err = p.ParseIncremental(final, b)
+		stop()
+		if err != nil || c == nil {
+			t.Fatalf("reparse: %v", err)
+		}
+		declines, _ = gts.CcoreTestCounters()
+		b.Release()
+		pp := gts.NewParser(lang)
+		pp.SetAdmissionCandidateRoute(false)
+		fresh, _ = pp.Parse(final)
+		return
+	}
+	// The first check is the start of the request (Begin); the second is the one after the drain.
+	convs = nil
+	totals, _, c0, f0 := scenario(1<<40, 1)
+	if !gts.CcoreTestFromCore(c0) {
+		t.Fatal("setup: the reparse under a large budget was not served by the core")
+	}
+	c0.Release()
+	f0.Release()
+	if len(totals) < 3 {
+		t.Fatalf("only %d limit checks ran", len(totals))
+	}
+	first, afterDrain := totals[0], totals[1]
+	if afterDrain-first < 200<<10 {
+		t.Fatalf("the drain added %d bytes to the account (%d to %d); the reclamation is not in it", afterDrain-first, first, afterDrain)
+	}
+	realDrain := int64(m1.TotalAlloc - m0.TotalAlloc)
+	t.Logf("drain: counted %d bytes, allocated %d bytes (%.1f%%)", afterDrain-first, realDrain, 100*float64(afterDrain-first)/float64(realDrain))
+	if float64(afterDrain-first) < 0.90*float64(realDrain) || float64(afterDrain-first) > 1.05*float64(realDrain)+16384 {
+		t.Fatalf("the drain was counted as %d bytes for %d bytes really allocated; want 0.90 x allocated <= counted <= 1.05 x allocated + 16384", afterDrain-first, realDrain)
+	}
+	budget := first + 64<<10 // above the start of the request, below what the drain's growth adds
+	totals2, decl, c1, f1 := scenario(budget, 1)
+	defer c1.Release()
+	defer f1.Release()
+	if decl["stop_memory_budget"] != 1 {
+		t.Fatalf("budget %d (the request starts at %d, the drain brings it to %d): declines %v; want one stop_memory_budget", budget, first, afterDrain, decl)
+	}
+	// The request ends at the check after the drain: nothing else was reserved for it.
+	if len(totals2) != 2 || totals2[1] <= budget {
+		t.Fatalf("limit checks %v with a budget of %d; want the request to end at the check after the drain", totals2, budget)
+	}
+	if gts.CcoreTestFromCore(c1) {
+		t.Fatal("a request over its budget was served by the core")
+	}
+	if ccoreSExpr(c1, lang) != ccoreSExpr(f1, lang) {
+		t.Fatal("the result of the declined reparse differs from a fresh parse by the present engine")
+	}
+	t.Logf("the request starts at %d bytes; the drain takes it to %d; with a budget of %d it declines there", first, afterDrain, budget)
+
+	// A release that comes in during the parse is freed by the drain at the exit of the request.
+	// That drain is counted too, and the check after it runs before the tree is served.
+	convs = nil
+	totals3, _, c2, f2 := scenario(1<<40, 2)
+	if !gts.CcoreTestFromCore(c2) {
+		t.Fatal("setup: the reparse with a release during the parse was not served by the core")
+	}
+	c2.Release()
+	f2.Release()
+	last := -1
+	for i, conv := range convs {
+		if !conv {
+			last = i
+		}
+	}
+	if last < 2 {
+		t.Fatalf("limit checks %v (conversion %v): no check ran at the exit of the parse", totals3, convs)
+	}
+	exitDrain := totals3[last] - totals3[last-1]
+	if exitDrain < 200<<10 {
+		t.Fatalf("the drain at the exit added %d bytes to the account (%d to %d); the cleanup is not in it", exitDrain, totals3[last-1], totals3[last])
+	}
+	budget2 := totals3[last-1] + 64<<10 // above everything the parse reserved, below what the exit drain adds
+	totals4, decl2, c3, f3 := scenario(budget2, 2)
+	defer c3.Release()
+	defer f3.Release()
+	if decl2["stop_memory_budget"] != 1 || gts.CcoreTestFromCore(c3) {
+		t.Fatalf("budget %d (the parse ends at %d, the exit drain brings it to %d): declines %v, core tree %t; want one stop_memory_budget and the present engine's tree", budget2, totals3[last-1], totals3[last], decl2, gts.CcoreTestFromCore(c3))
+	}
+	if ccoreSExpr(c3, lang) != ccoreSExpr(f3, lang) {
+		t.Fatal("the result of the reparse declined at the exit differs from a fresh parse by the present engine")
+	}
+	t.Logf("a release during the parse: the exit drain adds %d bytes; with a budget of %d the request declines after it (%d limit checks)", exitDrain, budget2, len(totals4))
 }
