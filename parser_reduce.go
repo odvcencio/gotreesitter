@@ -1563,13 +1563,20 @@ func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Toke
 	}
 
 	errChildren := make([]*Node, 0, len(poppedNodes)-preservedEnd+1)
-	for _, n := range poppedNodes[preservedEnd:] {
+	for i, n := range poppedNodes[preservedEnd:] {
 		// A popped node can be one of pushOrExtendErrorNode's plain-token ERROR
 		// wrappers (see errorNodeOpenForAbsorption). Splice its children in
 		// directly instead of nesting the wrapper, so the rebuilt ERROR here
 		// gets the absorbed tokens as its own direct children — matching C's
 		// error_repeat hoist at the point the outer ERROR is finally built.
-		if n != nil && len(n.children) > 0 && errorNodeOpenForAbsorption(n) {
+		//
+		// A leading ERROR (typically the one an earlier resync pushed) is
+		// spliced the same way whatever its children are, as
+		// C/parser.c:1225 ts_parser__recover_to_state splices the children of
+		// the error tree that ts_stack_pop_error returns. Without this each
+		// retry wraps the previous ERROR once more and the depth grows with
+		// the input.
+		if n != nil && len(n.children) > 0 && (errorNodeOpenForAbsorption(n) || (i == 0 && n.symbol == errorSymbol && !n.isMissing())) {
 			errChildren = append(errChildren, n.children...)
 			continue
 		}
