@@ -316,7 +316,20 @@ type ledgerStop struct{ reason reservationResult }
 
 // push, grow, mk and mkCap are the core's helpers: a refused reservation unwinds by
 // a panic of ledgerStop. Nothing was allocated or changed by the refused call.
+//
+// push is on the parser's hot paths (stack entries, child lists), so its common
+// case must inline: with spare capacity nothing is reserved, and the append is
+// what pushClassified would do. Only growth, or a ledger that has overflowed,
+// takes the call.
 func push[T any](l *Ledger, s []T, v ...T) []T {
+	if len(v) <= cap(s)-len(s) && !l.overflow {
+		return append(s, v...)
+	}
+	return pushSlow(l, s, v)
+}
+
+// pushSlow is push when the slice must grow or the ledger has overflowed.
+func pushSlow[T any](l *Ledger, s []T, v []T) []T {
 	out, reason := pushClassified(l, s, v...)
 	if reason != reservationOK {
 		panic(ledgerStop{reason: reason})
@@ -355,24 +368,32 @@ func deleteAt[T any](s []T, i int) []T {
 // count cannot be represented, it marks the ledger overflowed and panics: an
 // impossible Go slice cannot be allocated to finish cleanup. No invalid make is
 // attempted. A nil ledger means no request is being accounted.
+//
+// fpush is on the release path of every record, so its common case must inline:
+// with spare capacity it is a plain append.
 func fpush[T any](l *Ledger, s []T, v ...T) []T {
-	if len(v) > cap(s)-len(s) {
-		n, ok := GrowSize(s, len(v))
-		if !ok {
-			l.Force(-1)
-			panic("ccore: forced cleanup size is unrepresentable")
-		}
-		bytes, ok := sliceBytes[T](n)
-		if !ok {
-			l.Force(-1)
-			panic("ccore: forced cleanup size is unrepresentable")
-		}
-		l.Force(bytes)
-		t := make([]T, len(s), n)
-		copy(t, s)
-		s = t
+	if len(v) <= cap(s)-len(s) {
+		return append(s, v...)
 	}
-	return append(s, v...)
+	return fpushGrow(l, s, v)
+}
+
+// fpushGrow is fpush when the slice must grow.
+func fpushGrow[T any](l *Ledger, s []T, v []T) []T {
+	n, ok := GrowSize(s, len(v))
+	if !ok {
+		l.Force(-1)
+		panic("ccore: forced cleanup size is unrepresentable")
+	}
+	bytes, ok := sliceBytes[T](n)
+	if !ok {
+		l.Force(-1)
+		panic("ccore: forced cleanup size is unrepresentable")
+	}
+	l.Force(bytes)
+	t := make([]T, len(s), n)
+	copy(t, s)
+	return append(t, v...)
 }
 
 // fmake charges mandatory cleanup. Unrepresentable sizes mark overflow and
@@ -385,4 +406,23 @@ func fmake[T any](l *Ledger, n int) []T {
 	}
 	l.Force(bytes)
 	return make([]T, n)
+}
+
+// fgrow reserves an unavoidable cleanup allocation before growing the slice.
+func fgrow[T any](l *Ledger, s []T, extra int) []T {
+	if l == nil {
+		return slices.Grow(s, extra)
+	}
+	n, ok := GrowSize(s, extra)
+	if !ok {
+		l.Force(-1)
+		panic("ccore: forced cleanup size is unrepresentable")
+	}
+	bytes, ok := sliceBytes[T](n)
+	if !ok {
+		l.Force(-1)
+		panic("ccore: forced cleanup size is unrepresentable")
+	}
+	l.Force(bytes)
+	return GrowTo(s, n)
 }

@@ -12,6 +12,7 @@ yet; these gates cover it before a parse route exists.
 | Race lane `ccore-bind` | `go test -race` of `./internal/ccore/bind` | registration, `New`, `NewFuncScanner` and the import guard (the root package links this package in every build) |
 | Race lane `ccore-bindtest` | `go test -race` of `./internal/ccore/bind/bindtest` | the test-support wrapper that the equality tests use |
 | Race lane `ccore-bindall` | `go test -race` of `./internal/ccore/bind/bindall` | `bind.New` succeeds for every registered language (206 on 10 November 2026; about 24 s under `-race`) |
+| Race lane `ccore-certgen` | `go test -race` of `./internal/ccore/certgen` | the certificate generator: it refuses one blob in two spellings and a record without a configuration hash, and reads the record list |
 
 Campaign tools that count differences (mutation, census, share counters)
 are not part of the repository; they print and assert nothing.

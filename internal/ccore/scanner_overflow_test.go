@@ -55,3 +55,31 @@ func TestScannerStateAboveBufferStopsParse(t *testing.T) {
 		}
 	}
 }
+
+// A scanner state that makes the scanner-state arena grow is reserved in the ledger:
+// the same parse with scanner states of 1000 bytes counts at least 1000 bytes more than
+// with empty states, and the first poll call is Begin.
+func TestScannerStateGrowthIsReservedInTheLedger(t *testing.T) {
+	g := loadGoldens(t)[0]
+	counted := func(n int) (alloc int64, firstCall bool) {
+		tables := *g.Tables
+		modes := append([]ccore.LexMode(nil), tables.LexModes...)
+		modes[tables.InitialState].ExternalLexState = 1
+		tables.LexModes = modes
+		tables.ExternalSymbols = []ccore.Symbol{1}
+		tables.ExternalLexStates = [][]bool{nil, {true}}
+		p, err := ccore.NewParser(ccore.Config{Tables: &tables, Scanner: bigState{n: n}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		calls := 0
+		p.Ledger().SetPoll(func(total int64, sample bool) bool { calls++; return true })
+		_, _ = p.Parse(g.Src)
+		return p.Ledger().Alloc, calls >= 1
+	}
+	small, ok1 := counted(0)
+	big, ok2 := counted(1000)
+	if !ok1 || !ok2 || big-small < 1000 {
+		t.Fatalf("Alloc %d with empty states, %d with 1000-byte states (first call made: %t, %t); want at least 1000 bytes more", small, big, ok1, ok2)
+	}
+}

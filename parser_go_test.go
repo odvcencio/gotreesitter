@@ -2,6 +2,9 @@ package gotreesitter_test
 
 import (
 	"bytes"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certgen"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certgen/certlang"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	"os"
 	"testing"
 	"time"
@@ -1443,5 +1446,71 @@ func TestCcoreScannerConfigurationInvalidatesOldTree(t *testing.T) {
 	defer fresh.Release()
 	if want := q.Digest(fresh); got != want {
 		t.Fatalf("reparse %s != fresh %s", got, want)
+	}
+}
+
+func TestCcoreConfigHashLoadedScanner(t *testing.T) {
+	data, err := os.ReadFile("grammars/grammar_blobs/css.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	load := func() *gotreesitter.Language {
+		l, err := grammarruntime.LoadLanguage("css", data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		l.ExternalScanner = (grammarruntime.CssExternalScanner{}).ExternalScannerForLanguage(l)
+		return l
+	}
+	first, second := load(), load()
+	a, err := bind.ConfigHash(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := bind.ConfigHash(second)
+	if err != nil || a != b {
+		t.Fatalf("two loads differ: %v", err)
+	}
+	// A third load, changed in one symbol name: a Language is not copied.
+	changed := load()
+	changed.SymbolNames = append([]string(nil), first.SymbolNames...)
+	changed.SymbolNames[1] += "x"
+	c, err := bind.ConfigHash(changed)
+	if err != nil || a == c {
+		t.Fatalf("changed symbol name: %v", err)
+	}
+	binding := &gotreesitter.Language{ExternalSymbols: append([]gotreesitter.Symbol(nil), first.ExternalSymbols...), SymbolNames: first.SymbolNames}
+	if len(binding.ExternalSymbols) == 0 {
+		t.Fatal("no external symbols")
+	}
+	binding.ExternalSymbols[0]++
+	first.ExternalScanner = (grammarruntime.CssExternalScanner{}).ExternalScannerForLanguage(binding)
+	c, err = bind.ConfigHash(first)
+	if err != nil || a == c {
+		t.Fatalf("changed scanner configuration: %v", err)
+	}
+}
+
+func TestCcoreCertifiedListIsGenerated(t *testing.T) {
+	raw, err := os.ReadFile("testdata/ccore_certificates.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The same loader as cmd/ccorecert: the configuration hash of every record
+	// comes from the loaded blob.
+	recs, err := certlang.Load(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := certgen.Render(recs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile("internal/ccore/certified/gen.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) || len(recs) != len(certified.Blobs) {
+		t.Fatal("certificate list differs from generated records")
 	}
 }

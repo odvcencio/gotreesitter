@@ -283,3 +283,40 @@ func ParserRetained(p *Parser) (pages, handles int) {
 	handles = len(p.nodes) + len(p.free) + len(p.heads) + len(p.scratch) + len(p.seen) + len(p.compressTmp)
 	return
 }
+
+// StaleHeaders counts the subtree buffers that headers beyond the live length of
+// the slice, iterator and head arrays still reference (a second owner of a buffer
+// that bufs holds).
+func (p *Parser) StaleHeaders() int {
+	n := 0
+	for _, s := range p.slices[:cap(p.slices)] {
+		if s.subtrees != nil {
+			n++
+		}
+	}
+	for _, s := range p.recSlices[:cap(p.recSlices)] {
+		if s.subtrees != nil {
+			n++
+		}
+	}
+	for _, it := range p.iters[:cap(p.iters)] {
+		if it.subtrees != nil {
+			n++
+		}
+	}
+	for _, h := range p.heads[:cap(p.heads)] {
+		if h.summary != nil {
+			n++
+		}
+	}
+	return n
+}
+
+// Finished is the root of the tree the running parse has finished, or 0.
+func (p *Parser) Finished() Handle { return p.finished }
+
+// FirstPageCharges are the bytes a fresh request reserves for the first record page (with its
+// counts page, two table entries and a span) and the first child page (with its table entry).
+func FirstPageCharges() (recPage, kidPage int64) {
+	return int64(recPageBytes()) + 2*ptrBytes + spanBytes, int64(kidPageBytes) + ptrBytes
+}

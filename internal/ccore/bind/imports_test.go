@@ -16,8 +16,9 @@ import (
 // depends on is linked into every user's binary. Test support and the testing
 // package must not be among those dependencies.
 var bannedProductionImports = map[string]bool{
-	"github.com/odvcencio/gotreesitter/internal/ccore/ccoretest":     true,
-	"github.com/odvcencio/gotreesitter/internal/ccore/bind/bindtest": true,
+	"github.com/odvcencio/gotreesitter/internal/ccore/ccoretest":               true,
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind/bindtest":           true,
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified/certifiedtest": true,
 	"testing": true,
 }
 
@@ -60,8 +61,25 @@ func TestProductionImports(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", f, err)
 		}
+		// certify_tagged.go is the one file that may import the test
+		// certification, and only because the tag gts_ccore_test_certify, which
+		// a production build never sets, guards it. The guard is checked here.
+		tagged := false
+		if filepath.Base(f) == "certify_tagged.go" {
+			src, err := os.ReadFile(f)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			if !strings.HasPrefix(string(src), "//go:build gts_ccore_test_certify\n") {
+				t.Errorf("%s must start with the build constraint gts_ccore_test_certify", filepath.Base(f))
+			}
+			tagged = true
+		}
 		for _, imp := range af.Imports {
 			path, _ := strconv.Unquote(imp.Path.Value)
+			if tagged && path == "github.com/odvcencio/gotreesitter/internal/ccore/certified/certifiedtest" {
+				continue
+			}
 			if bannedProductionImports[path] {
 				t.Errorf("%s imports %s", filepath.Base(f), path)
 			}

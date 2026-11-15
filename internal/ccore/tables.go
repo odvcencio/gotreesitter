@@ -344,3 +344,11 @@ func (p *Parser) forEachLookahead(state uint16, visit func(sym Symbol, value uin
 		}
 	}
 }
+
+// NextState is C ts_language_next_state: the next state for a state and a
+// symbol (a goto for a non-terminal; for a token the shift target when the last
+// action of the table entry is a shift, the same state for an extra, otherwise 0;
+// 0 for the error symbols).
+func (t *Tables) NextState(state uint16, sym Symbol) uint16 {
+	return (&Parser{t: t}).nextState(state, sym)
+}
