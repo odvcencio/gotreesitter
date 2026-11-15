@@ -4373,6 +4373,10 @@ func TestGraduationSafetyStatus(t *testing.T) {
 }
 
 func TestGraduationSafety(t *testing.T) {
+	name := os.Getenv("GRAD_LANG")
+	if name == "" {
+		t.Skip("set GRAD_LANG")
+	}
 	census := os.Getenv("GRAD_CENSUS") == "1"
 	if census {
 		switch v := os.Getenv("CCORE_VIEWS"); v {
@@ -4388,10 +4392,6 @@ func TestGraduationSafety(t *testing.T) {
 	}
 	views := gts.CcoreTestViewsEnabled()
 	fmt.Printf("GRADRUN test=%s census=%t views=%t\n", t.Name(), census, views)
-	name := os.Getenv("GRAD_LANG")
-	if name == "" {
-		t.Skip("set GRAD_LANG")
-	}
 	lang := ccoreRouteLang(t, name)
 	route := func(l *gts.Language) *gts.Parser {
 		if census {

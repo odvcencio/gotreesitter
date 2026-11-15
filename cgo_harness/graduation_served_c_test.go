@@ -16,16 +16,16 @@ import (
 
 // TestGraduationServed checks the generated certificate and the route.
 func TestGraduationServed(t *testing.T) {
+	name := os.Getenv("GRAD_LANG")
+	if name == "" {
+		t.Skip("set GRAD_LANG")
+	}
 	if gradCensus() {
 		defer ccoreConfigureViews(t)()
 	} else if _, set := os.LookupEnv("CCORE_VIEWS"); set {
 		t.Fatal("CCORE_VIEWS is for --report --census; the gate measures the default views switch")
 	}
 	gradRun(t)
-	name := os.Getenv("GRAD_LANG")
-	if name == "" {
-		t.Skip("set GRAD_LANG")
-	}
 	entry := grammars.DetectLanguageByName(name)
 	if entry == nil {
 		t.Fatalf("item 0 input=%q: no language", name)

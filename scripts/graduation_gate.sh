@@ -130,15 +130,15 @@ emit_from_log() {
 # It prints "status<TAB>numbers<TAB>first".
 decline_check() {
   local lang=$1 deny=$2; shift 2
-  local seen=0 total=0 bad="" summary="" reason n entry
-  declare -A sum=()
+  local seen=0 total=0 bad="" summary="" reason n entry missing=""
+  declare -A sum=() have=()
   local log line list
   for log in "$@"; do
     [ -f "$log" ] || continue
     while IFS= read -r line; do
       entry=$(field "$line" item)
       case "$entry" in 1|2|3) ;; *) continue ;; esac
-      seen=$((seen + 1))
+      seen=$((seen + 1)); have[$entry]=1
       list=$(field "$line" declines)
       [ -z "$list" ] && continue
       IFS=',' read -ra parts <<<"$list"
@@ -157,8 +157,11 @@ decline_check() {
     if [ -z "$entry" ] && [ -z "$bad" ]; then bad="$reason (${sum[$reason]} declines, no deny entry with a reopening condition)"; fi
   done
   summary=${summary%,}
-  if [ "$total" -eq 0 ]; then printf 'pass\tdeclines=0 counters_read=%s\t\n' "$seen"; return; fi
   if [ -n "$bad" ]; then printf 'fail\tdeclines=%s\t%s\n' "$summary" "$bad"; return; fi
+  # Item 4 speaks for items 1 to 3. A run that left one of them out cannot pass it.
+  for entry in 1 2 3; do [ -n "${have[$entry]:-}" ] || missing+="$entry "; done
+  if [ -n "$missing" ]; then printf 'na\tdeclines=%s counters_read=%s\tno decline counters of item(s) %s\n' "${summary:-0}" "$seen" "${missing% }"; return; fi
+  if [ "$total" -eq 0 ]; then printf 'pass\tdeclines=0 counters_read=%s\t\n' "$seen"; return; fi
   printf 'pass\tdeclines=%s all_denied=true\t\n' "$summary"
 }
 
@@ -201,7 +204,8 @@ if [ "${1:-}" = "--self-test" ]; then
   ok "deny entry without a reopening condition fails" "$(decline_check x "$d/deny_noreopen" "$d/d1.log" | cut -f1)" "fail"
   ok "deny entry of another language fails" "$(decline_check y "$d/deny" "$d/d1.log" | cut -f1)" "fail"
   ok "no counters is n/a" "$(decline_check x "$d/deny" "$d/pass.log" | cut -f1)" "na"
-  ok "a single item is enough" "$(decline_check x "$d/deny" "$d/dmissing.log" | cut -f1)" "pass"
+  ok "counters of one item only is n/a" "$(decline_check x "$d/deny" "$d/dmissing.log" | cut -f1)" "na"
+  ok "the n/a names the missing items" "$(decline_check x "$d/deny" "$d/dmissing.log" | cut -f3)" "no decline counters of item(s) 1 3"
   printf '%s\n' 'GRADRESULT item=2 status=pass steps=2 served_incremental=1 fresh_reasons=old_has_error:1 first=""' >"$d/fallback.log"
   ok "fallback counts kept" "$(emit_from_log x 2 "$d/fallback.log" 0 | grep -c 'fresh_reasons=old_has_error:1')" "1"
   printf '%s\n' 'GRADRESULT item=7 status=pass omitted=tags comparisons=2 first=""' >"$d/query.log"

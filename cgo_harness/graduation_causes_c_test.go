@@ -365,7 +365,10 @@ func TestGraduationCauseDeclines(t *testing.T) {
 	steps, servedIncr, oldErrNotServed, oldCleanNotServed, oldErr := 0, 0, 0, 0, 0
 	for _, st := range chain {
 		if st.edit == nil {
-			tree, _ = p.Parse(st.src)
+			var err error
+			if tree, err = p.Parse(st.src); err != nil || tree == nil {
+				t.Fatalf("%s: parse: %v", st.id, err)
+			}
 			continue
 		}
 		hadErr := tree.RootNode().HasError()
