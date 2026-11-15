@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unicode/utf8"
 
 	"github.com/odvcencio/gotreesitter/internal/ccore"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified/certifiedtest"
 	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
+
+var ccoreEmittingSnapshots atomic.Int64
 
 func tokenAfterResult(t *testing.T, l *ExternalLexer, sym Symbol) Token {
 	t.Helper()
@@ -489,8 +493,11 @@ func TestScanmodeFlagPayload(t *testing.T) {
 func init() {
 	scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
 	scanmode.RegisterScanner(emittingScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		ccoreEmittingSnapshots.Add(1)
 		s := v.(emittingScanner)
 		return s, []byte{byte(s.sym), byte(s.sym >> 8)}, true
+	}, func(a, b any) bool {
+		return a.(emittingScanner) == b.(emittingScanner)
 	})
 	scanmode.RegisterScanner(pooledScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
 	scanmode.RegisterScanner(panicScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
@@ -1395,5 +1402,41 @@ func TestCcoreScannerAdapterSnapshot(t *testing.T) {
 	_, nextType, nextKey, reason := ccoreScannerSnapshot(original)
 	if reason != "" || typ != nextType || bytes.Equal(key, nextKey) {
 		t.Fatal("adapter change was not identified")
+	}
+}
+
+func TestCcoreScannerEmptyAdapterBinding(t *testing.T) {
+	lang := loadBlobForDecode(t, "json")
+	adapter := &externalScannerOrderAdapter{inner: emittingScanner{sym: 1}, targetToSource: []int{}}
+	lang.ExternalScanner = adapter
+	defer certifiedtest.Install(ccoreModeFresh|ccoreModeRecover|ccoreModeScan, nil, nil)()
+	p := NewParser(lang)
+	admission, reason, ok := p.ccoreAdmitQuiet()
+	if !ok {
+		t.Fatalf("admission declined: %s", ccoreDeclineNames[reason])
+	}
+	first := admission.st
+	snapshots := ccoreEmittingSnapshots.Load()
+	for i := 0; i < 3; i++ {
+		next, _, ok := p.ccoreAdmitQuiet()
+		if !ok || next.st != first {
+			t.Fatal("unchanged scanner rebuilt its binding")
+		}
+	}
+	if got := ccoreEmittingSnapshots.Load(); got != snapshots {
+		t.Fatalf("unchanged scanner created %d more snapshots", got-snapshots)
+	}
+	if got := first.scanner.(*externalScannerOrderAdapter).targetToSource; got == nil {
+		t.Fatal("snapshot lost the non-nil empty adapter slice")
+	}
+	adapter.targetToSource = append(adapter.targetToSource, 0)
+	changed, _, ok := p.ccoreAdmitQuiet()
+	if !ok || changed.st == first {
+		t.Fatal("changed scanner reused its binding")
+	}
+	adapter.inner = emittingScanner{sym: 2}
+	changedAgain, _, ok := p.ccoreAdmitQuiet()
+	if !ok || changedAgain.st == changed.st {
+		t.Fatal("changed scanner receiver reused its binding")
 	}
 }

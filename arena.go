@@ -620,7 +620,10 @@ func (a *nodeArena) Release() {
 	if a.refs.Add(-1) != 0 {
 		return
 	}
-	a.ccore.releaseCore() // The last owner releases the core tree.
+	if a.ccore != nil {
+		a.ccore.releaseCore()
+		a.ccore = nil
+	}
 	if a.views != nil {
 		a.views.release()
 		a.views = nil
@@ -652,7 +655,6 @@ func (a *nodeArena) Release() {
 
 func (a *nodeArena) reset() {
 	a.ownership.Reset()
-	a.ccore = nil
 	a.resetLegacyReuseDependencies()
 	a.resetNodeSupertypes()
 	a.resetNodeDependsOnColumn()

@@ -1957,3 +1957,51 @@ func TestCcorePanicInConversionFallsBack(t *testing.T) {
 		t.Fatalf("the parser of a request that panicked went back to the pool (%d bytes)", n)
 	}
 }
+
+func TestCcoreReparseDeclineAttemptsOnce(t *testing.T) {
+	defer ccoreCertifyAll()()
+	lang := ccoreRouteLang(t, "json")
+	for _, profiled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("profiled=%t", profiled), func(t *testing.T) {
+			p := ccoreRouteParser(lang)
+			src := ccoreJSONSource(400)
+			old, err := p.Parse(src)
+			if err != nil || old == nil {
+				t.Fatalf("old parse: %v", err)
+			}
+			defer old.Release()
+			end := uint32(len(src))
+			old.Edit(gts.InputEdit{StartByte: end, OldEndByte: end, NewEndByte: end + 1})
+			changed := append(append([]byte(nil), src...), ' ')
+			attempts := 0
+			defer gts.CcoreTestParserLease(func(_ uintptr, before bool) {
+				if before {
+					attempts++
+				}
+			})()
+			restorePanic := gts.CcoreTestPanicInConversion(1024)
+			defer restorePanic()
+			gts.CcoreTestReset()
+			var tree *gts.Tree
+			if profiled {
+				tree, _, err = p.ParseIncrementalProfiled(changed, old)
+			} else {
+				tree, err = p.ParseIncremental(changed, old)
+			}
+			if err != nil || tree == nil {
+				t.Fatalf("reparse: %v", err)
+			}
+			defer tree.Release()
+			decl, _ := gts.CcoreTestCounters()
+			if attempts != 1 || decl["panic"] != 1 {
+				t.Fatalf("attempts=%d declines=%v, want one attempt and one panic decline", attempts, decl)
+			}
+			restorePanic()
+			again, err := p.Parse(changed)
+			if err != nil || again == nil || !gts.CcoreTestFromCore(again) {
+				t.Fatalf("later parse did not use core: %v", err)
+			}
+			again.Release()
+		})
+	}
+}

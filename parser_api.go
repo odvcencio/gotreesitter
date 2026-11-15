@@ -2189,6 +2189,9 @@ func (p *Parser) parseIncrementalChangedSourceRun(source []byte, oldTree *Tree) 
 		if tree, ok := p.ccoreFullParse(source); ok {
 			return tree, nil
 		}
+		cold := p.ensureParserColdState()
+		cold.ccoreRouteSuppressed++
+		defer func() { cold.ccoreRouteSuppressed-- }()
 	}
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&
@@ -2578,6 +2581,9 @@ func (p *Parser) parseIncrementalProfiledChangedSourceRun(source []byte, oldTree
 
 			return tree, timing.toProfile(), nil
 		}
+		cold := p.ensureParserColdState()
+		cold.ccoreRouteSuppressed++
+		defer func() { cold.ccoreRouteSuppressed-- }()
 	}
 	if oldTree != nil && len(oldTree.edits) == 1 &&
 		oldTree.edits[0].StartByte == uint32(len(oldTree.source)) &&

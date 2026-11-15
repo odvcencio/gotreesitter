@@ -3,7 +3,9 @@ package gotreesitter
 import (
 	"encoding/binary"
 	"errors"
+	"maps"
 	"reflect"
+	"slices"
 	"sort"
 
 	"github.com/odvcencio/gotreesitter/internal/ccore"
@@ -33,6 +35,35 @@ type ccoreExtScanner struct {
 	// failed is the reason a mode reset failed in close. Once set, every later scan
 	// panics with it before Create, Deserialize or Scan of the scanner is called.
 	failed string
+}
+
+// ccoreScannerMatches compares the caller's configuration with the private
+// snapshot. A scanner without an exact comparison must be snapshotted again.
+func ccoreScannerMatches(st *ccoreLanguageTables, sc ExternalScanner) bool {
+	if !st.scannerPresent || st.scannerError != "" {
+		return !st.scannerPresent && sc == nil
+	}
+	private := st.scanner
+	for {
+		original, ok := sc.(*externalScannerOrderAdapter)
+		if !ok {
+			break
+		}
+		copy, ok := private.(*externalScannerOrderAdapter)
+		if !ok || original == nil || copy == nil || original.sourceCount != copy.sourceCount ||
+			!slices.Equal(original.targetToSource, copy.targetToSource) ||
+			!maps.Equal(original.sourceSymbolToIndex, copy.sourceSymbolToIndex) ||
+			!maps.Equal(original.sourceResultToTarget, copy.sourceResultToTarget) ||
+			original.targetGrammar != copy.targetGrammar || original.targetGrammarValid != copy.targetGrammarValid {
+			return false
+		}
+		sc, private = original.inner, copy.inner
+	}
+	if sc == nil || reflect.TypeOf(sc) != st.scannerType || reflect.TypeOf(private) != st.scannerType {
+		return false
+	}
+	reg, ok := scanmode.Lookup(sc)
+	return ok && reg.SameConfig != nil && reg.SameConfig(sc, private)
 }
 
 // Reasons a grammar is not served by the core. Binding fails with one of them and
@@ -144,7 +175,9 @@ func ccoreScannerSnapshot(sc ExternalScanner) (ExternalScanner, reflect.Type, []
 		original := adapters[i]
 		dup := *original
 		dup.inner = cloned
-		dup.targetToSource = append([]int(nil), original.targetToSource...)
+		if original.targetToSource != nil {
+			dup.targetToSource = append([]int{}, original.targetToSource...)
+		}
 		if original.sourceSymbolToIndex != nil {
 			dup.sourceSymbolToIndex = make(map[Symbol]int, len(original.sourceSymbolToIndex))
 			for k, v := range original.sourceSymbolToIndex {

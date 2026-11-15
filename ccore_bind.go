@@ -643,7 +643,9 @@ var ccoreBlobAllowlist = map[[32]byte]bool{}
 var ccoreTestParserHook atomic.Pointer[func(cp *ccore.Parser, before bool)]
 
 // ccoreUnset reports that nothing is certified, which is the default.
-func ccoreUnset() bool { return len(certified.Blobs) == 0 && certified.Current() == nil }
+func ccoreUnset() bool {
+	return !certified.EverActive() || (len(certified.Blobs) == 0 && certified.Current() == nil)
+}
 
 // Decline reasons. Each is counted in ccoreDeclines.
 const (
@@ -761,18 +763,19 @@ func ccoreFieldsChecked(set []string, checked func(string) bool) bool {
 	return true
 }
 
-// ccoreAdmit decides whether the core may serve a request of parser p, and
-// returns the modes the blob is certified for (the caller checks the modes its
-// request needs beyond fresh and recover). Otherwise it counts the reason. The
-// certificate is looked up before any table is built, so a language that is
-// not certified costs a map lookup.
+func (p *Parser) ccoreSuppressed() bool {
+	return p.forestDeclineMemo != nil && p.forestDeclineMemo.ccoreRouteSuppressed > 0
+}
+
+// ccoreAdmitQuiet checks the certificate before building any tables and returns
+// the applicable modes or the reason the request cannot use the core.
 func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	var a ccoreAdmission
 	lang := p.language
 	if lang == nil {
 		return a, ccoreDeclNotCertified, false
 	}
-	if p.recoveryInitialOnly || p.admissionRouteSuppressed > 0 {
+	if p.recoveryInitialOnly || p.admissionRouteSuppressed > 0 || p.ccoreSuppressed() {
 		return a, ccoreDeclInternalParser, false
 	}
 	sha, ok := lang.GrammarBlobSHA256()
@@ -798,7 +801,7 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	}
 	ccoreTablesMu.Lock()
 	st := lang.ccoreTables
-	if st == nil || st.owner != lang || !reflect.DeepEqual(st.scanner, lang.ExternalScanner) {
+	if st == nil || st.owner != lang || !ccoreScannerMatches(st, lang.ExternalScanner) {
 		st = ccoreLanguageTablesForLocked(lang)
 	}
 	ccoreTablesMu.Unlock()
@@ -2253,6 +2256,12 @@ func (p *Parser) canReuseUnchangedTreeForRoute(source []byte, oldTree *Tree, usi
 	if !canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return false
 	}
+	// No certificate has existed in this process: no tree has a core link and
+	// nothing below can apply. This is the whole cost of the route for a reparse
+	// without edits by default.
+	if !certified.EverActive() {
+		return true
+	}
 	st := oldTree.ccoreStateOf()
 	if ccoreUnset() {
 		return st == nil
@@ -2271,7 +2280,7 @@ func (p *Parser) canReuseUnchangedTreeForRoute(source []byte, oldTree *Tree, usi
 // route would be asked and the core admits the request, the core serves it before
 // any shortcut of the present engine. A decline falls back to the existing route.
 func (p *Parser) ccoreFirstFresh(source []byte) (*Tree, bool) {
-	if ccoreUnset() || p.recoveryInitialOnly || !p.admissionCandidateFullParseEligible(nil, true) {
+	if ccoreUnset() || p.ccoreSuppressed() || p.recoveryInitialOnly || !p.admissionCandidateFullParseEligible(nil, true) {
 		return nil, false
 	}
 	tree, ok := p.ccoreFullParse(source)

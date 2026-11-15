@@ -4631,9 +4631,11 @@ func (t *Tree) Copy() *Tree {
 		class = t.arena.class
 	}
 	arena := acquireNodeArena(class)
-	forgetArenaCheckout(arena) // before a core tree is attached: see forgetCheckedOut
 	arena.inheritExternalScannerCheckpointIdentity(t.arena)
-	arena.ccore = t.ccoreStateOf().forTreeCopy() // installed before the clone: a copy of a core tree keeps the meaning of ParseState and its field answers
+	if st := t.ccoreStateOf(); st != nil {
+		forgetArenaCheckout(arena)
+		arena.ccore = st.forTreeCopy()
+	}
 	out.root = cloneTreeNodesIntoArena(t.root, arena)
 	out.arena = arena
 	arena.legacyIncrementalReuseCertified = t.hasCertifiedIncrementalReuse()

@@ -817,11 +817,12 @@ func CcoreTestPooledRecords(l *Language) int {
 type ccoreFakeView struct {
 	kids    map[ccore.Handle][]ccore.Handle
 	visible map[ccore.Handle]bool
+	extra   map[ccore.Handle]bool
 	prod    map[ccore.Handle]uint16
 }
 
 func (f *ccoreFakeView) Children(h ccore.Handle) []ccore.Handle { return f.kids[h] }
-func (f *ccoreFakeView) Extra(ccore.Handle) bool                { return false }
+func (f *ccoreFakeView) Extra(h ccore.Handle) bool              { return f.extra[h] }
 func (f *ccoreFakeView) Visible(h ccore.Handle) bool            { return f.visible[h] }
 func (f *ccoreFakeView) ChildCount(h ccore.Handle) uint32       { return uint32(len(f.kids[h])) }
 func (f *ccoreFakeView) ProductionID(h ccore.Handle) uint16     { return f.prod[h] }

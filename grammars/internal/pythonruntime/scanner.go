@@ -3,6 +3,7 @@ package pythonruntime
 import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/internal/scanmode"
+	"slices"
 )
 
 // External token indexes must match the generated Python grammar ExternalSymbols order.
@@ -62,6 +63,11 @@ type PythonExternalScanner struct {
 func Snapshot(s PythonExternalScanner) (PythonExternalScanner, []gotreesitter.Symbol, []int) {
 	s.externalToToken = append([]int(nil), s.externalToToken...)
 	return s, s.symbols[:], s.externalToToken
+}
+
+// SameConfiguration compares the fields represented by Snapshot's key.
+func SameConfiguration(a, b PythonExternalScanner) bool {
+	return a.symbols == b.symbols && slices.Equal(a.externalToToken, b.externalToToken)
 }
 
 func (PythonExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
