@@ -4350,6 +4350,9 @@ func (t *Tree) rootNodeWithRecoveryOffset(offsetBytes uint32, offsetExtent Point
 func (t *Tree) rootNodeWithOffsetMode(offsetBytes uint32, offsetExtent Point, followPointAdd bool) *Node {
 	if views := nodeViews(t.root); views != nil {
 		copy := views.copyTree(t)
+		if copy == nil {
+			return nil
+		}
 		defer copy.Release()
 		ccoreMaterializeForReason(copy.root, ccoreViewConvOffsetRoot)
 		return cloneTreeNodesWithOffsetMode(copy.root, offsetBytes, offsetExtent, followPointAdd)

@@ -623,6 +623,23 @@ func TestCcoreB7Session(t *testing.T) {
 	}
 }
 
+func b7FirstTreeDifference(a, b *g.Node, lang *g.Language, path string) string {
+	if a == nil || b == nil {
+		return fmt.Sprintf("path=%s incremental=%v fresh=%v", path, a, b)
+	}
+	av := fmt.Sprintf("type=%s bytes=%d-%d points=%v-%v named=%t extra=%t missing=%t children=%d", a.Type(lang), a.StartByte(), a.EndByte(), a.StartPoint(), a.EndPoint(), a.IsNamed(), a.IsExtra(), a.IsMissing(), a.ChildCount())
+	bv := fmt.Sprintf("type=%s bytes=%d-%d points=%v-%v named=%t extra=%t missing=%t children=%d", b.Type(lang), b.StartByte(), b.EndByte(), b.StartPoint(), b.EndPoint(), b.IsNamed(), b.IsExtra(), b.IsMissing(), b.ChildCount())
+	if av != bv {
+		return fmt.Sprintf("path=%s incremental={%s} fresh={%s}", path, av, bv)
+	}
+	for i := 0; i < a.ChildCount(); i++ {
+		if diff := b7FirstTreeDifference(a.Child(i), b.Child(i), lang, fmt.Sprintf("%s/%d", path, i)); diff != "" {
+			return diff
+		}
+	}
+	return ""
+}
+
 func b7Session(t *testing.T, lang string) {
 	gl, cl := b7LangFor(t, lang)
 	cp := sitter.NewParser()
@@ -694,7 +711,7 @@ func b7Session(t *testing.T, lang string) {
 		if ccoreLegacyDigest(nt, gl) == ccoreLegacyDigest(fresh, gl) {
 			eqFresh++
 		} else {
-			ccoreExpect(t, false, "%s step %d: incremental differs from fresh", lang, i)
+			ccoreExpect(t, false, "%s input=b7 step=%d: incremental differs from fresh: %s root_has_error_incremental=%t root_has_error_fresh=%t", lang, i, b7FirstTreeDifference(nt.RootNode(), fresh.RootNode(), gl, "root"), nt.RootNode().HasError(), fresh.RootNode().HasError())
 		}
 		divs := compactT3StructuralDivergences(nt.RootNode(), gl, cn.RootNode())
 		newErr := nt.RootNode().HasError()
@@ -712,7 +729,7 @@ func b7Session(t *testing.T, lang string) {
 			diffNewErr++
 		default:
 			cmpC++
-			ccoreExpect(t, false, "%s step %d: %d divergences from C", lang, i, len(divs))
+			ccoreExpect(t, false, "%s input=b7 step=%d: %d divergences from C; first %s", lang, i, len(divs), compactT3FormatDivergence(divs[0]))
 		}
 		fresh.Release()
 		tree.Release()

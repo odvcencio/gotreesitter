@@ -40,6 +40,25 @@ func ccoreQCaps(t *testing.T, lang *g.Language, tree *g.Tree, q string) []string
 	return ccoreKeys(set)
 }
 
+func ccoreQCursorCaps(t *testing.T, lang *g.Language, tree *g.Tree, q string) []string {
+	query, err := g.NewQuery(q, lang)
+	if err != nil {
+		t.Fatalf("Go query %q: %v", q, err)
+	}
+	set := map[string]bool{}
+	cursor := query.Exec(tree.RootNode(), lang, tree.Source())
+	for {
+		m, ok := cursor.NextMatch()
+		if !ok {
+			break
+		}
+		for _, cp := range m.Captures {
+			set[fmt.Sprintf("%s:%d-%d", cp.Name, cp.Node.StartByte(), cp.Node.EndByte())] = true
+		}
+	}
+	return ccoreKeys(set)
+}
+
 // ccoreQCapsC returns C's captures, and false when C's query compiler rejects the pattern
 // (an impossible pattern: the grammar has no such field under that node).
 func ccoreQCapsC(t *testing.T, cl *sitter.Language, tree *sitter.Tree, q string, src []byte) ([]string, bool) {
@@ -182,8 +201,9 @@ func TestCcoreRouteQueryFieldConstraintsEqualC(t *testing.T) {
 			total++
 			langCompared++
 			got := ccoreQCaps(t, lang, tree, pat)
+			stream := ccoreQCursorCaps(t, lang, tree, pat)
 			present := ccoreQCaps(t, lang, presentTree, pat)
-			same := ccoreSameStrings(got, want)
+			same := ccoreSameStrings(got, want) && ccoreSameStrings(stream, want)
 			if same {
 				equal++
 			}
@@ -191,7 +211,7 @@ func TestCcoreRouteQueryFieldConstraintsEqualC(t *testing.T) {
 				nonEmpty++
 			}
 			fmt.Printf("CCQUERY lang=%s pattern=%q route_captures=%d present_captures=%d c_captures=%d equal=%t\n", c.lang, pat, len(got), len(present), len(want), same)
-			ccoreExpect(t, same, "%s %s: route %d captures, C %d (present engine %d)", c.lang, pat, len(got), len(want), len(present))
+			ccoreExpect(t, same, "%s input=sample pattern=%q path=query: C=%v Execute=%v cursor=%v", c.lang, pat, want, got, stream)
 		}
 		ccoreRequirePositive(t, "queries compared for "+c.lang, langCompared)
 		presentTree.Release()

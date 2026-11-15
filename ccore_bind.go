@@ -2780,15 +2780,7 @@ func (v *ccoreViews) viewForLocked(c ccore.Node, parent *Node) *Node {
 		pi := int(key / ccoreViewPageSize)
 		top := v.top.Load()
 		if top == nil || pi >= len(top.pages) {
-			grown := &ccoreViewTop{pages: make([]atomic.Pointer[ccoreViewPage], max(pi+1, 2*lenTop(top)))}
-			if top != nil {
-				for i := range top.pages {
-					grown.pages[i].Store(top.pages[i].Load())
-				}
-			}
-			v.pageBytes += uint64(len(grown.pages)) * uint64(unsafe.Sizeof(atomic.Pointer[ccoreViewPage]{}))
-			v.top.Store(grown)
-			top = grown
+			top = v.growTop(top, pi)
 		}
 		page := top.pages[pi].Load()
 		if page == nil {
@@ -2815,6 +2807,19 @@ func (v *ccoreViews) viewForLocked(c ccore.Node, parent *Node) *Node {
 	n := v.newHeader(c, parent, key)
 	v.large[lk] = n
 	return n
+}
+
+// growTop replaces the page table while retaining its pages. The caller holds mu.
+func (v *ccoreViews) growTop(top *ccoreViewTop, pi int) *ccoreViewTop {
+	grown := &ccoreViewTop{pages: make([]atomic.Pointer[ccoreViewPage], max(pi+1, 2*lenTop(top)))}
+	if top != nil {
+		for i := range top.pages {
+			grown.pages[i].Store(top.pages[i].Load())
+		}
+	}
+	v.pageBytes += uint64(len(grown.pages)-lenTop(top)) * uint64(unsafe.Sizeof(atomic.Pointer[ccoreViewPage]{}))
+	v.top.Store(grown)
+	return grown
 }
 
 // occurrence keeps distinct headers when a child slot is reached through multiple paths.
@@ -3151,6 +3156,7 @@ func (v *ccoreViews) onlyRoot() bool { return v.made.Load() <= 1 }
 func (v *ccoreViews) materialize() { v.materializeFor(ccoreViewConvOther) }
 
 // materializeFor is the one conversion: it counts the reason when it converts.
+// Conversions outside parse requests do not charge a memory budget because those calls cannot fail.
 func (v *ccoreViews) materializeFor(reason int) {
 	v.mu.Lock()
 	defer v.mu.Unlock()

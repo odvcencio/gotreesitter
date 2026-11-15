@@ -22,7 +22,7 @@
 set -euo pipefail
 
 # The campaign switches must not be set in a required check.
-unset CCORE_REPORT_ONLY CCORE_UPDATE_GOLDEN
+unset CCORE_REPORT_ONLY CCORE_UPDATE_GOLDEN CCORE_VIEWS
 unset CCORE_BUDGET_CHILD CCORE_BUDGET_MIB CCORE_BUDGET_PROCESSES CCORE_MUTATE_COUNTERS CCORE_MUTATE_RECOVERY
 
 # check_output <test> <set> <output file>: succeeds when the output holds the
@@ -45,6 +45,17 @@ check_output() {
     echo "no 'CCLEXPROBE ... committed_record=equal ok=true' line (is the record registered?)" >&2; return 1
   fi
   echo "$n"
+}
+
+# Check the requested arm and require a view tree in the views arm.
+check_arm() {
+  local test=$1 arm=$2 file=$3
+  if ! grep -Eq "^CCARM test=${test} arm=${arm} trees=[0-9]+ views=[0-9]+ conversions=" "$file"; then
+    echo "missing ${arm} arm summary for ${test}" >&2; return 1
+  fi
+  if [ "$arm" = views ] && ! grep -Eq "^CCARM test=${test} arm=views trees=[1-9][0-9]* views=[0-9]+ conversions=" "$file"; then
+    echo "${test} views arm made no view tree" >&2; return 1
+  fi
 }
 
 if [ "${1:-}" = "--self-test" ]; then
@@ -91,6 +102,16 @@ if [ "${1:-}" = "--self-test" ]; then
   expect "node readers with masks are accepted" 0 TestCcoreNodes json-masks "$d/nodes"
   expect "node readers with zero masks fail" 1 TestCcoreNodes json-masks "$d/nodes0"
   expect "store chain that sampled nothing fails" 1 TestCcoreStoreChain python "$d/chain0"
+  printf '%s\n' 'CCCOUNT test=TestX set=json checked=3' 'CCARM test=TestX arm=views trees=1 views=5 conversions=map[]' '--- PASS: TestX (0.01s)' >"$d/views-good"
+  printf '%s\n' 'CCCOUNT test=TestX set=json checked=0' 'CCARM test=TestX arm=views trees=1 views=5 conversions=map[]' '--- PASS: TestX (0.01s)' >"$d/views-zero"
+  printf '%s\n' 'CCCOUNT test=TestX set=json checked=3' 'CCARM test=TestX arm=views trees=0 views=0 conversions=map[]' '--- PASS: TestX (0.01s)' >"$d/views-notree"
+  expect "views compared input" 0 TestX json "$d/views-good"
+  expect "views compared nothing fails" 1 TestX json "$d/views-zero"
+  if check_arm TestX views "$d/views-good" && ! check_arm TestX views "$d/views-notree" 2>/dev/null && ! check_arm TestX views "$d/good" 2>/dev/null; then
+    echo "ok   self-test: views require a tree and arm summary"
+  else
+    echo "FAIL self-test: views require a tree and arm summary"; fails=1
+  fi
   exit "$fails"
 fi
 
@@ -112,7 +133,7 @@ trap 'rm -f "$bin"' EXIT
 go test -c -tags 'cgo treesitter_c_parity gts_ccore_test_certify' -o "$bin" .
 
 failed=0
-total_trace=0 total_digest=0 total_records=0 total_inc=0
+total_trace=0 total_digest=0 total_records=0 total_inc=0 total_eager=0 total_views=0
 last_n=0
 extra_sets=""
 run() { # test-name, set name for the count line, output-line prefix to count, then NAME=value pairs
@@ -127,9 +148,13 @@ run() { # test-name, set name for the count line, output-line prefix to count, t
         if xc=$(check_output "$test" "$x" "$out" 2>>"$out.why"); then xn="$xn $x=$xc"; else xfail="$xfail $x"; fi
       done
     fi
-    if [ -n "${n:-}" ] && [ -z "$xfail" ]; then
+    if [ -n "${n:-}" ] && [ -z "$xfail" ] && { [ -z "${route_arm:-}" ] || check_arm "$test" "$route_arm" "$out" 2>>"$out.why"; }; then
       last_n=$(grep -c "^${prefix} " "$out" || true)
-      echo "ok   ${test} $* checked=${n}${xn} lines=${last_n}"
+      echo "ok   ${test} arm=${route_arm:-default} $* checked=${n}${xn} lines=${last_n}"
+      if [ -n "${route_arm:-}" ]; then
+        grep "^CCARM test=${test} " "$out"
+        if [ "$route_arm" = views ]; then total_views=$((total_views + n)); else total_eager=$((total_eager + n)); fi
+      fi
     else
       echo "FAIL ${test} $*: $(cat "$out.why")"; tail -n 20 "$out"; failed=1
     fi
@@ -181,6 +206,8 @@ fi
 # fresh parses, edit sessions, counters, state IDs and lookahead symbols.
 # Each test prints a CCCOUNT line for its set.
 route_env="$norm CCORE_COUNT_AS"
+for route_arm in eager views; do
+  if [ "$route_arm" = views ]; then export CCORE_VIEWS=1; else unset CCORE_VIEWS; fi
 run TestCcoreRoutePublic "$lang" CCROUTE $route_env=TestCcoreRoutePublic CCORE_LANG=$lang
 # The state comparison uses raw symbol and state IDs; only JSON has matching IDs.
 if [ "$lang" = json ]; then
@@ -200,6 +227,10 @@ if [ "$lang" = json ]; then
   for ql in hack scss dockerfile haskell nushell; do
     run TestCcoreRouteQueryFieldConstraintsEqualC queries CCQUERY $route_env=TestCcoreRouteQueryFieldConstraintsEqualC CCORE_QUERIES=1 CCORE_QUERY_ONLY=$ql GOGC=off
   done
+fi
+done
+unset route_arm CCORE_VIEWS
+if [ "$lang" = json ]; then
   # The root test that starts nine test processes to compare stop reasons under memory budgets.
   budget_out=$(mktemp)
   if (cd .. && CCORE_BUDGET_PROCESSES=1 go test -count=1 -v -run '^TestCcoreRouteBudgetsMatchThePresentEngineInFreshProcesses$' .) >"$budget_out" 2>&1 && budget_n=$(check_output TestCcoreRouteBudgetsMatchThePresentEngineInFreshProcesses budget "$budget_out" 2>"$budget_out.why"); then
@@ -210,7 +241,7 @@ if [ "$lang" = json ]; then
   rm -f "$budget_out" "$budget_out.why"
 fi
 
-echo "SUMMARY language=$lang trace_lines=$total_trace digest_lines=$total_digest record_lines=$total_records incremental_lines=$total_inc failed=$failed"
+echo "SUMMARY language=$lang trace_lines=$total_trace digest_lines=$total_digest record_lines=$total_records incremental_lines=$total_inc eager_checked=$total_eager views_checked=$total_views failed=$failed"
 # A run that skipped every input proves nothing.
 if [ "$total_trace" -eq 0 ] || [ "$total_digest" -eq 0 ] || [ "$total_records" -eq 0 ]; then
   echo "no input was compared for $lang" >&2

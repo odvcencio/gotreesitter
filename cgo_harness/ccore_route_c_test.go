@@ -37,7 +37,25 @@ func ccoreRouteCertify(t testing.TB) func() {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return restore
+	on := os.Getenv("CCORE_VIEWS") == "1"
+	previous := bind.ViewsOn(on)
+	trees0, made0, conversions0 := bind.ViewCounters()
+	return func() {
+		trees, made, conversions := bind.ViewCounters()
+		arm := "eager"
+		if on {
+			arm = "views"
+		}
+		for reason, count := range conversions {
+			conversions[reason] = count - conversions0[reason]
+		}
+		fmt.Printf("CCARM test=%s arm=%s trees=%d views=%d conversions=%v\n", t.Name(), arm, trees-trees0, made-made0, conversions)
+		if on && trees <= trees0 {
+			t.Errorf("%s: views arm made no view tree", t.Name())
+		}
+		bind.ViewsOn(previous)
+		restore()
+	}
 }
 
 func TestCcoreRouteList(t *testing.T) {
@@ -188,7 +206,9 @@ func ccoreRouteCheck(t *testing.T, name, kind string, src []byte, assert bool) {
 	}
 	if assert {
 		ccoreExpect(t, f1 > f0, "%s: the core did not serve the parse (declines %v); the tree compared is the present engine's", name, decl)
-		ccoreExpect(t, len(divs) == 0, "%s: %d divergences from C", name, len(divs))
+		if len(divs) > 0 {
+			t.Errorf("%s input=%s: %d divergences; first %s", name, kind, len(divs), compactT3FormatDivergence(divs[0]))
+		}
 	}
 }
 
@@ -610,10 +630,10 @@ func TestCcoreRouteStates(t *testing.T) {
 	defer rt.Release()
 	_, f1, _ := bind.RouteCounters()
 	ccoreExpect(t, f1 > f0, "%s: the core did not serve the parse; the states compared are the present engine's", name)
-	if len(compactT3StructuralDivergences(rt.RootNode(), lang, cTree.RootNode())) != 0 {
+	if divs := compactT3StructuralDivergences(rt.RootNode(), lang, cTree.RootNode()); len(divs) != 0 {
 		fmt.Printf("CCSTATES lang=%s input=%s compared=false served=%t route_differs_from_c=true\n", name, kind, f1 > f0)
 		fmt.Printf("CCSTATESLINE @states %s unavailable=tree\n", name)
-		t.Errorf("%s: the tree differs from C on the sample", name)
+		t.Errorf("%s input=%s: tree differs from C: %s", name, kind, compactT3FormatDivergence(divs[0]))
 		ccoreCount("TestCcoreRouteStates", name, 1)
 		return
 	}
@@ -647,37 +667,46 @@ func TestCcoreRouteStates(t *testing.T) {
 	// C's "none" state (65535) against the package's "no state" (0): counted, not hidden.
 	total, nonePre, noneNext, otherPre, otherNext, symbolIDs := 0, 0, 0, 0, 0, 0
 	var first []string
-	var walkC func(a *g.Node, c *sitter.Node)
-	walkC = func(a *g.Node, c *sitter.Node) {
+	var walkC func(a *g.Node, c *sitter.Node, path string)
+	walkC = func(a *g.Node, c *sitter.Node, path string) {
 		total++
 		switch cs := c.ParseState(); {
 		case uint16(a.PreGotoState()) == cs:
 		case cs == 65535 && a.PreGotoState() == 0:
 			nonePre++
+			if len(first) < 3 {
+				first = append(first, fmt.Sprintf("path=%s pre route=%d C=%d", path, a.PreGotoState(), cs))
+			}
 		default:
 			otherPre++
 			if len(first) < 3 {
-				first = append(first, fmt.Sprintf("%s[%d,%d) pre route %d C %d", a.Type(lang), a.StartByte(), a.EndByte(), a.PreGotoState(), cs))
+				first = append(first, fmt.Sprintf("path=%s %s[%d,%d) pre route %d C %d", path, a.Type(lang), a.StartByte(), a.EndByte(), a.PreGotoState(), cs))
 			}
 		}
 		switch cs := c.NextParseState(); {
 		case uint16(a.ParseState()) == cs:
 		case cs == 65535 && a.ParseState() == 0:
 			noneNext++
+			if len(first) < 3 {
+				first = append(first, fmt.Sprintf("path=%s next route=%d C=%d", path, a.ParseState(), cs))
+			}
 		default:
 			otherNext++
 			if len(first) < 3 {
-				first = append(first, fmt.Sprintf("%s[%d,%d) next route %d C %d", a.Type(lang), a.StartByte(), a.EndByte(), a.ParseState(), cs))
+				first = append(first, fmt.Sprintf("path=%s %s[%d,%d) next route %d C %d", path, a.Type(lang), a.StartByte(), a.EndByte(), a.ParseState(), cs))
 			}
 		}
 		if uint16(a.Symbol()) != c.KindId() {
 			symbolIDs++
+			if len(first) < 3 {
+				first = append(first, fmt.Sprintf("path=%s symbol route=%d C=%d", path, a.Symbol(), c.KindId()))
+			}
 		}
 		for i := 0; i < a.ChildCount(); i++ {
-			walkC(a.Child(i), c.Child(uint(i)))
+			walkC(a.Child(i), c.Child(uint(i)), fmt.Sprintf("%s/%d", path, i))
 		}
 	}
-	walkC(rt.RootNode(), cTree.RootNode())
+	walkC(rt.RootNode(), cTree.RootNode(), "root")
 	// report only: the present engine's values, where its tree equals C too
 	presentDiff, presentCompared := -1, false
 	if lt, err := g.NewParser(lang).Parse(src); err == nil && lt != nil {
@@ -702,7 +731,7 @@ func TestCcoreRouteStates(t *testing.T) {
 	ccoreRequirePositive(t, name+" states (nodes)", total)
 	ccoreExpect(t, otherPre == 0 && otherNext == 0, "%s: %d nodes differ from C in ParseState/PreGotoState beyond the documented none mapping (%d pre, %d next) of %d; first %v", name, otherPre+otherNext, otherPre, otherNext, total, first)
 	for k, got := range map[string]int{"none_pre": nonePre, "none_next": noneNext, "symbol_ids": symbolIDs} {
-		ccoreExpect(t, got == 0, "%s: %s differs from C on %d nodes", name, k, got)
+		ccoreExpect(t, got == 0, "%s input=%s: %s differs from C on %d nodes; first %v", name, kind, k, got, first)
 	}
 	if as := os.Getenv("CCORE_COUNT_AS"); as != "" {
 		fmt.Printf("CCCOUNT test=%s set=%s checked=%d\n", as, name, total)
@@ -746,9 +775,15 @@ func TestCcoreRouteLookahead(t *testing.T) {
 		}
 		_, lf1, _ := bind.RouteCounters()
 		ccoreExpect(t, lf1 > lf0, "%s: the core did not serve the parse; the symbols compared are the present engine's", name)
+		if divs := compactT3StructuralDivergences(rt.RootNode(), lang, cTree.RootNode()); len(divs) != 0 {
+			t.Errorf("%s input=sample: tree differs from C: %s", name, compactT3FormatDivergence(divs[0]))
+			rt.Release()
+			cTree.Close()
+			continue
+		}
 		checked, equal := 0, 0
-		var walk func(a *g.Node, c *sitter.Node)
-		walk = func(a *g.Node, c *sitter.Node) {
+		var walk func(a *g.Node, c *sitter.Node, path string)
+		walk = func(a *g.Node, c *sitter.Node, path string) {
 			if checked < 400 && a.ParseState() != 0 && checked%1 == 0 {
 				ci := cLang.LookaheadIterator(c.NextParseState())
 				want := map[string]bool{}
@@ -771,14 +806,14 @@ func TestCcoreRouteLookahead(t *testing.T) {
 				if same {
 					equal++
 				} else if checked-equal <= 3 {
-					fmt.Printf("CCLOOKAHEADDIFF lang=%s node=%s[%d,%d) state=%d route=%d symbols C=%d err=%v\n", name, a.Type(lang), a.StartByte(), a.EndByte(), a.ParseState(), len(got), len(want), err)
+					fmt.Printf("CCLOOKAHEADDIFF lang=%s input=sample path=%s node=%s[%d,%d) state=%d route=%v C=%v err=%v\n", name, path, a.Type(lang), a.StartByte(), a.EndByte(), a.ParseState(), got, want, err)
 				}
 			}
 			for i := 0; i < a.ChildCount(); i++ {
-				walk(a.Child(i), c.Child(uint(i)))
+				walk(a.Child(i), c.Child(uint(i)), fmt.Sprintf("%s/%d", path, i))
 			}
 		}
-		walk(rt.RootNode(), cTree.RootNode())
+		walk(rt.RootNode(), cTree.RootNode(), "root")
 		fmt.Printf("CCLOOKAHEAD lang=%s nodes_checked=%d symbol_set_equal_to_c=%d\n", name, checked, equal)
 		if os.Getenv("CCORE_COUNT_AS") != "" {
 			fmt.Printf("CCCOUNT test=%s set=%s checked=%d\n", os.Getenv("CCORE_COUNT_AS"), name, checked)
