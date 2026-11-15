@@ -3119,7 +3119,12 @@ func (v *ccoreViews) copyTree(t *Tree) *Tree {
 func (v *ccoreViews) retainedBytes() uint64 {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	return v.pageBytes + uint64(len(v.largeKeys))*8
+	// Pages are counted exactly. The two maps are counted by entry: a key and a
+	// pointer each, without the map's own overhead, which the runtime does not
+	// report.
+	const largeEntry = 8 + 8      // [2]uint32 key and *Node
+	const duplicateEntry = 24 + 8 // ccoreViewOccurrence key (rounded up) and *Node
+	return v.pageBytes + uint64(len(v.largeKeys))*8 + uint64(len(v.large))*largeEntry + uint64(len(v.duplicates))*duplicateEntry
 }
 
 // release ends the backing: later reads find nothing. The core tree is

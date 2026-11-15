@@ -5576,6 +5576,12 @@ func (t *Tree) Edit(edit InputEdit) {
 			if v.onlyRoot() && t.ccoreEdit(edit) {
 				v.refreshRoot()
 				ccoreViewRootEdits.Add(1)
+				if perfCountersEnabled { // the root-only path records the same edit counters as the path below
+					perfRecordNodeEditCall()
+					if inputEditIsNoop(edit) {
+						perfRecordNodeEditNoopCall()
+					}
+				}
 				t.setIncrementalFreshVerified(false)
 				t.edits = append(t.edits, edit)
 				t.lastEditedLeaf = nil

@@ -34,9 +34,8 @@ type Adapter struct {
 	ViewsOn func(bool) bool
 	// ViewCounters reports views and conversions since startup.
 	ViewCounters func() (int64, int64, map[string]int64)
-	// RouteCounters is optional: the route's decline counts by reason, the
-	// number of fresh parses and the number of reparses the core served, and the
-	// root-only fields the language sets. Test programs read it.
+	// RouteCounters is optional: the route's decline counts by reason, and the
+	// number of fresh parses and reparses the core served. Test programs read it.
 	RouteCounters func() (declines map[string]int64, servedFresh, servedIncr int64)
 	// RouteNanos is optional: nanoseconds the route spent in the core parse, in
 	// the conversion to the public tree, in the core's tree edit and in the check
