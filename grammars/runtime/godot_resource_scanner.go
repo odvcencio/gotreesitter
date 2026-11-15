@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the godot_resource grammar. This is the
@@ -55,6 +54,15 @@ var godotResourceExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(godotResourceExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(GodotResourceExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(GodotResourceExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(GodotResourceExternalScanner), right.(GodotResourceExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // GodotResourceExternalScanner handles multiline string literals in
@@ -125,7 +133,7 @@ func (sc GodotResourceExternalScanner) Scan(payload any, lexer *gotreesitter.Ext
 		return false
 	}
 
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 

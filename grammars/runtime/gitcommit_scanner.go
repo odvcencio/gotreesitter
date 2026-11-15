@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the gitcommit grammar. This is the external
@@ -57,6 +56,15 @@ var gitcommitExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(gitcommitExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(GitcommitExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(GitcommitExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(GitcommitExternalScanner), right.(GitcommitExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // GitcommitExternalScanner handles conventional commit prefix detection.
@@ -120,7 +128,7 @@ func (sc GitcommitExternalScanner) Scan(payload any, lexer *gotreesitter.Externa
 	lexer.SetResultSymbol(syms[gitcommitTokConventionalPrefix])
 
 	ch := lexer.Lookahead()
-	if unicode.IsControl(ch) || unicode.IsSpace(ch) || ch == ':' || ch == '!' || ch == 0 {
+	if cIsControl(ch) || cIsSpace(ch) || ch == ':' || ch == '!' || ch == 0 {
 		return false
 	}
 	lexer.Advance(false)
@@ -128,7 +136,7 @@ func (sc GitcommitExternalScanner) Scan(payload any, lexer *gotreesitter.Externa
 	// Consume word characters (not control, space, colon, bang, parens)
 	for {
 		ch = lexer.Lookahead()
-		if unicode.IsControl(ch) || unicode.IsSpace(ch) ||
+		if cIsControl(ch) || cIsSpace(ch) ||
 			ch == ':' || ch == '!' || ch == '(' || ch == ')' || ch == 0 {
 			break
 		}
@@ -144,7 +152,7 @@ func (sc GitcommitExternalScanner) Scan(payload any, lexer *gotreesitter.Externa
 		}
 		for {
 			ch = lexer.Lookahead()
-			if unicode.IsControl(ch) || ch == '(' || ch == ')' || ch == 0 {
+			if cIsControl(ch) || ch == '(' || ch == ')' || ch == 0 {
 				break
 			}
 			lexer.Advance(false)

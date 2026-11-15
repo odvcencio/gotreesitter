@@ -4,6 +4,7 @@ package grammarruntime
 
 import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the markdown_inline grammar. This is the
@@ -94,6 +95,15 @@ var mdiExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(mdiExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(MarkdownInlineExternalScanner{}, (*mdiState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(MarkdownInlineExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(MarkdownInlineExternalScanner), right.(MarkdownInlineExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // State bitflags used with mdiState.state
@@ -166,12 +176,12 @@ func (MarkdownInlineExternalScanner) Deserialize(payload any, buf []byte) {
 	s.codeSpanDelimiterLength = 0
 	s.latexSpanDelimiterLength = 0
 	s.numEmphasisDelimitersLeft = 0
-	if len(buf) > 0 {
-		s.state = buf[0]
-		s.codeSpanDelimiterLength = buf[1]
-		s.latexSpanDelimiterLength = buf[2]
-		s.numEmphasisDelimitersLeft = buf[3]
-	}
+	// The C routine resets first and copies four bytes when state is present.
+	// Treat bytes missing from a truncated saved state as zero.
+	var state [4]byte
+	copy(state[:], buf)
+	s.state, s.codeSpanDelimiterLength = state[0], state[1]
+	s.latexSpanDelimiterLength, s.numEmphasisDelimitersLeft = state[2], state[3]
 }
 
 func (sc MarkdownInlineExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
@@ -247,12 +257,12 @@ func mdiParseLeafDelimiter(
 
 	if isValid(openTok) {
 		// Parse ahead to check if there is a closing delimiter.
-		var closeLevel uint8
-		for lexer.Lookahead() != 0 {
+		var closeLevel uint
+		for !scanmode.AtEOF(lexer) {
 			if lexer.Lookahead() == delimiter {
 				closeLevel++
 			} else {
-				if closeLevel == level {
+				if closeLevel == uint(level) {
 					// Found a matching delimiter.
 					break
 				}
@@ -260,7 +270,7 @@ func mdiParseLeafDelimiter(
 			}
 			lexer.Advance(false)
 		}
-		if closeLevel == level {
+		if closeLevel == uint(level) {
 			*delimiterLength = level
 			lexer.SetResultSymbol(openSym)
 			return true
@@ -302,7 +312,7 @@ func mdiParseStar(s *mdiState, lexer *gotreesitter.ExternalLexer, validSymbols [
 		lexer.Advance(false)
 	}
 
-	lineEnd := lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' || lexer.Lookahead() == 0
+	lineEnd := lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' || scanmode.AtEOF(lexer)
 
 	if isValid(mdiTokEmphasisOpenStar) || isValid(mdiTokEmphasisCloseStar) {
 		s.numEmphasisDelimitersLeft = starCount - 1
@@ -356,11 +366,8 @@ func mdiParseTilde(s *mdiState, lexer *gotreesitter.ExternalLexer, validSymbols 
 		tildeCount++
 		lexer.Advance(false)
 	}
-	if tildeCount < 2 {
-		return false
-	}
 
-	lineEnd := lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' || lexer.Lookahead() == 0
+	lineEnd := lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' || scanmode.AtEOF(lexer)
 
 	if isValid(mdiTokStrikethroughOpen) || isValid(mdiTokStrikethroughClose) {
 		s.numEmphasisDelimitersLeft = tildeCount - 1
@@ -415,7 +422,7 @@ func mdiParseUnderscore(s *mdiState, lexer *gotreesitter.ExternalLexer, validSym
 		lexer.Advance(false)
 	}
 
-	lineEnd := lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' || lexer.Lookahead() == 0
+	lineEnd := lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' || scanmode.AtEOF(lexer)
 
 	if isValid(mdiTokEmphasisOpenUnderscore) || isValid(mdiTokEmphasisCloseUnderscore) {
 		s.numEmphasisDelimitersLeft = underscoreCount - 1

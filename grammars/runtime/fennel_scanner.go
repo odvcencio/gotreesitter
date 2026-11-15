@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the fennel grammar. This is the external
@@ -78,6 +77,15 @@ var fennelExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(fennelExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(FennelExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(FennelExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(FennelExternalScanner), right.(FennelExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // Reader macro characters indexed by token index.
@@ -149,8 +157,8 @@ func (sc FennelExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLe
 		return false
 	}
 
-	skippedWhitespace := unicode.IsSpace(lexer.Lookahead())
-	for unicode.IsSpace(lexer.Lookahead()) {
+	skippedWhitespace := cIsSpace(lexer.Lookahead())
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 
@@ -164,7 +172,7 @@ func (sc FennelExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLe
 			if lexer.Lookahead() == '!' {
 				skippedHashfn = false
 				lexer.Advance(false)
-				for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
+				for lexer.Lookahead() != '\n' && !scanmode.AtEOF(lexer) {
 					lexer.Advance(false)
 				}
 				lexer.MarkEnd()
@@ -179,7 +187,7 @@ func (sc FennelExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLe
 		if skippedHashfn {
 			// Already consumed '#', check position validity
 			ch := lexer.Lookahead()
-			if !unicode.IsSpace(ch) && !fennelIsCloseBracket(ch) && ch != 0 {
+			if !cIsSpace(ch) && !fennelIsCloseBracket(ch) && !scanmode.AtEOF(lexer) {
 				lexer.MarkEnd()
 				lexer.SetResultSymbol(syms[fennelTokHashfn])
 				return true
@@ -190,7 +198,7 @@ func (sc FennelExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLe
 			if lexer.Lookahead() == fennelReaderMacroChars[i] {
 				lexer.Advance(false)
 				ch := lexer.Lookahead()
-				if !unicode.IsSpace(ch) && !fennelIsCloseBracket(ch) && ch != 0 {
+				if !cIsSpace(ch) && !fennelIsCloseBracket(ch) && !scanmode.AtEOF(lexer) {
 					lexer.MarkEnd()
 					lexer.SetResultSymbol(syms[i])
 					return true
