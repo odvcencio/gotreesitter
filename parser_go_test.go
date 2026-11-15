@@ -2,8 +2,8 @@ package gotreesitter_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"github.com/odvcencio/gotreesitter/internal/ccore/certgen"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certgen/certlang"
 	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	"os"
 	"reflect"
@@ -1498,8 +1498,10 @@ func TestCcoreCertifiedListIsGenerated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var recs []certgen.Record
-	if err := json.Unmarshal(raw, &recs); err != nil {
+	// The same loader as cmd/ccorecert: the configuration hash of every record
+	// comes from the loaded blob.
+	recs, err := certlang.Load(raw)
+	if err != nil {
 		t.Fatal(err)
 	}
 	want, err := certgen.Render(recs)

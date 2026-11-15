@@ -27,3 +27,18 @@ func TestRenderRefusesARecordWithoutAConfigurationHash(t *testing.T) {
 		t.Fatalf("a record without a configuration hash was accepted: %v", err)
 	}
 }
+
+// Parse reads the list form of the certificate file; a value that is not a
+// list is an error.
+func TestParseReadsTheRecordList(t *testing.T) {
+	recs, err := Parse([]byte(`[{"BlobSHA256":"ab","Modes":3,"Scanner":"T"}]`))
+	if err != nil || len(recs) != 1 || recs[0].BlobSHA256 != "ab" || recs[0].Modes != 3 || recs[0].Scanner != "T" {
+		t.Fatalf("records %+v, error %v", recs, err)
+	}
+	if recs, err := Parse([]byte(`[]`)); err != nil || len(recs) != 0 {
+		t.Fatalf("empty list: %+v, %v", recs, err)
+	}
+	if _, err := Parse([]byte(`{"BlobSHA256":"ab"}`)); err == nil {
+		t.Fatal("an object in place of the list was accepted")
+	}
+}

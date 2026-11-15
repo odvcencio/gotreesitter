@@ -12,6 +12,7 @@ package certgen
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -46,6 +47,15 @@ type Record struct {
 	// computes. The route computes the same hash when it first binds a language
 	// value and declines a language that differs.
 	ConfigSHA256 string
+}
+
+// Parse reads the records of testdata/ccore_certificates.json.
+func Parse(raw []byte) ([]Record, error) {
+	var recs []Record
+	if err := json.Unmarshal(raw, &recs); err != nil {
+		return nil, err
+	}
+	return recs, nil
 }
 
 // Render returns the text of internal/ccore/certified/gen.go for the records. With no
