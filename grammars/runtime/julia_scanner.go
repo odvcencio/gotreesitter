@@ -2,7 +2,10 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+)
 
 // External token indexes for the Julia grammar. This is the external index
 // (the position of the token in the grammar's `externals: [...]` list),
@@ -96,6 +99,15 @@ var juliaExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(juliaExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(JuliaExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(JuliaExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(JuliaExternalScanner), right.(JuliaExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // JuliaExternalScanner handles block comments, immediate tokens, and
@@ -198,29 +210,29 @@ func (s JuliaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 	}
 
 	// String and command content scanning
-	if juliaValid(validSymbols, juliaTokContentStr1) {
-		return juliaScanContent(lexer, syms[juliaTokContentStr1], syms[juliaTokEndStr], '"', 1, true)
+	if juliaValid(validSymbols, juliaTokContentStr1) && juliaScanContent(lexer, syms[juliaTokContentStr1], syms[juliaTokEndStr], '"', 1, true) {
+		return true
 	}
-	if juliaValid(validSymbols, juliaTokContentStr3) {
-		return juliaScanContent(lexer, syms[juliaTokContentStr3], syms[juliaTokEndStr], '"', 3, true)
+	if juliaValid(validSymbols, juliaTokContentStr3) && juliaScanContent(lexer, syms[juliaTokContentStr3], syms[juliaTokEndStr], '"', 3, true) {
+		return true
 	}
-	if juliaValid(validSymbols, juliaTokContentCmd1) {
-		return juliaScanContent(lexer, syms[juliaTokContentCmd1], syms[juliaTokEndCmd], '`', 1, true)
+	if juliaValid(validSymbols, juliaTokContentCmd1) && juliaScanContent(lexer, syms[juliaTokContentCmd1], syms[juliaTokEndCmd], '`', 1, true) {
+		return true
 	}
-	if juliaValid(validSymbols, juliaTokContentCmd3) {
-		return juliaScanContent(lexer, syms[juliaTokContentCmd3], syms[juliaTokEndCmd], '`', 3, true)
+	if juliaValid(validSymbols, juliaTokContentCmd3) && juliaScanContent(lexer, syms[juliaTokContentCmd3], syms[juliaTokEndCmd], '`', 3, true) {
+		return true
 	}
-	if juliaValid(validSymbols, juliaTokContentStr1Raw) {
-		return juliaScanContent(lexer, syms[juliaTokContentStr1Raw], syms[juliaTokEndStr], '"', 1, false)
+	if juliaValid(validSymbols, juliaTokContentStr1Raw) && juliaScanContent(lexer, syms[juliaTokContentStr1Raw], syms[juliaTokEndStr], '"', 1, false) {
+		return true
 	}
-	if juliaValid(validSymbols, juliaTokContentStr3Raw) {
-		return juliaScanContent(lexer, syms[juliaTokContentStr3Raw], syms[juliaTokEndStr], '"', 3, false)
+	if juliaValid(validSymbols, juliaTokContentStr3Raw) && juliaScanContent(lexer, syms[juliaTokContentStr3Raw], syms[juliaTokEndStr], '"', 3, false) {
+		return true
 	}
-	if juliaValid(validSymbols, juliaTokContentCmd1Raw) {
-		return juliaScanContent(lexer, syms[juliaTokContentCmd1Raw], syms[juliaTokEndCmd], '`', 1, false)
+	if juliaValid(validSymbols, juliaTokContentCmd1Raw) && juliaScanContent(lexer, syms[juliaTokContentCmd1Raw], syms[juliaTokEndCmd], '`', 1, false) {
+		return true
 	}
-	if juliaValid(validSymbols, juliaTokContentCmd3Raw) {
-		return juliaScanContent(lexer, syms[juliaTokContentCmd3Raw], syms[juliaTokEndCmd], '`', 3, false)
+	if juliaValid(validSymbols, juliaTokContentCmd3Raw) && juliaScanContent(lexer, syms[juliaTokContentCmd3Raw], syms[juliaTokEndCmd], '`', 3, false) {
+		return true
 	}
 
 	return false

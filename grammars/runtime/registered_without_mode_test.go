@@ -30,6 +30,12 @@ func TestScannersRegisteredWithoutAModeBindThroughTheCore(t *testing.T) {
 		{"nix", NixExternalScanner{}},
 		{"toml", TomlExternalScanner{}},
 		{"yuck", YuckExternalScanner{}},
+		{"tablegen", TablegenExternalScanner{}},
+		{"nushell", NushellExternalScanner{}},
+		{"godot_resource", GodotResourceExternalScanner{}},
+		{"julia", JuliaExternalScanner{}},
+		{"ron", RonExternalScanner{}},
+		{"lua", LuaExternalScanner{}},
 	} {
 		t.Run(c.lang, func(t *testing.T) {
 			checkRegisteredScanner(t, c.lang, c.scanner, false, nil)
