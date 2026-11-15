@@ -2,7 +2,10 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+)
 
 // External token indexes for the dockerfile grammar. This is the external
 // index (the position of the token in the grammar's `externals: [...]`
@@ -62,6 +65,15 @@ var dockerfileExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(dockerfileExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(DockerfileExternalScanner{}, (*dockerfileScannerState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(DockerfileExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(DockerfileExternalScanner), right.(DockerfileExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 const dockerfileMaxHeredocs = 10
@@ -245,156 +257,116 @@ func (sc DockerfileExternalScanner) Scan(payload any, lexer *gotreesitter.Extern
 	return false
 }
 
-// dockerfileScanMarker scans a <<[-]DELIM marker.
-func dockerfileScanMarker(s *dockerfileScannerState, lexer *gotreesitter.ExternalLexer, syms *[dockerfileTokenCount]gotreesitter.Symbol) bool {
-	if lexer.Lookahead() != '<' {
-		return false
+// dockerfileSkipWhitespace mirrors C src/scanner.c:112-116.
+func dockerfileSkipWhitespace(lexer *gotreesitter.ExternalLexer) {
+	for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' && cIsSpace(lexer.Lookahead()) {
+		lexer.Advance(true)
 	}
-	lexer.Advance(false)
-	if lexer.Lookahead() != '<' {
-		return false
-	}
-	lexer.Advance(false)
+}
 
-	// Check for strip mode: <<-
+// dockerfileScanMarker follows C src/scanner.c:118-204.
+func dockerfileScanMarker(s *dockerfileScannerState, lexer *gotreesitter.ExternalLexer, syms *[dockerfileTokenCount]gotreesitter.Symbol) bool {
+	dockerfileSkipWhitespace(lexer)
+	if lexer.Lookahead() != '<' {
+		return false
+	}
+	lexer.Advance(false)
+	if lexer.Lookahead() != '<' {
+		return false
+	}
+	lexer.Advance(false)
 	stripping := false
 	if lexer.Lookahead() == '-' {
 		stripping = true
 		lexer.Advance(false)
 	}
-
-	// Delimiter may be quoted or unquoted.
-	var delim []byte
-	ch := lexer.Lookahead()
-	if ch == '"' || ch == '\'' {
-		// Quoted delimiter: consume until matching quote.
-		quote := ch
+	var quote rune
+	if lexer.Lookahead() == '"' || lexer.Lookahead() == '\'' {
+		quote = lexer.Lookahead()
 		lexer.Advance(false)
-		for {
-			ch = lexer.Lookahead()
-			if ch == 0 || ch == '\n' {
+	}
+	delim := []byte{' '}
+	if stripping {
+		delim[0] = '-'
+	}
+	overflow := false
+	for lexer.Lookahead() != 0 && (quote != 0 && lexer.Lookahead() != quote || quote == 0 && !cIsSpace(lexer.Lookahead())) {
+		if lexer.Lookahead() == '\\' {
+			lexer.Advance(false)
+			if lexer.Lookahead() == 0 {
 				return false
 			}
-			if ch == '\\' {
-				lexer.Advance(false)
-				ch = lexer.Lookahead()
-				if ch == 0 || ch == '\n' {
-					return false
-				}
-				delim = append(delim, byte(ch))
-				lexer.Advance(false)
-				continue
-			}
-			if ch == quote {
-				lexer.Advance(false)
-				break
-			}
-			delim = append(delim, byte(ch))
-			lexer.Advance(false)
 		}
-	} else {
-		// Unquoted delimiter: [a-zA-Z_][a-zA-Z0-9_]*
-		if !isDockerfileDelimStart(ch) {
+		if !overflow {
+			delim = append(delim, byte(scanmode.CLookahead(lexer)))
+		}
+		lexer.Advance(false)
+		if len(delim) >= 510 {
+			overflow = true
+		}
+	}
+	if quote != 0 {
+		if lexer.Lookahead() != quote {
 			return false
 		}
-		for isDockerfileDelimChar(lexer.Lookahead()) {
-			delim = append(delim, byte(lexer.Lookahead()))
-			lexer.Advance(false)
+		lexer.Advance(false)
+	}
+	if !overflow && len(s.heredocs) < dockerfileMaxHeredocs {
+		if len(s.heredocs) == 0 {
+			s.stripping = stripping
 		}
+		s.heredocs = append(s.heredocs, string(delim))
 	}
-
-	if len(delim) == 0 {
-		return false
-	}
-
-	if len(s.heredocs) >= dockerfileMaxHeredocs {
-		return false
-	}
-
-	s.heredocs = append(s.heredocs, string(delim))
-	s.stripping = stripping
-	s.inHeredoc = true
-
-	lexer.MarkEnd()
 	lexer.SetResultSymbol(syms[dockerfileTokMarker])
 	return true
 }
 
-// dockerfileScanContent scans heredoc body content. Tries to match the
-// closing delimiter first (if HEREDOC_END is valid), otherwise consumes
-// a content line.
+// dockerfileScanContent follows C src/scanner.c:206-281.
 func dockerfileScanContent(s *dockerfileScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[dockerfileTokenCount]gotreesitter.Symbol) bool {
 	if len(s.heredocs) == 0 {
+		s.inHeredoc = false
 		return false
 	}
-
-	delim := s.heredocs[len(s.heredocs)-1]
-
-	// Try matching the closing delimiter.
-	if dockerfileValid(validSymbols, dockerfileTokEnd) {
-		// Optionally strip leading tabs in <<- mode.
-		if s.stripping {
-			for lexer.Lookahead() == '\t' {
-				lexer.Advance(false)
-			}
-		}
-
-		// Try to match the delimiter character by character.
-		matched := true
-		for i := 0; i < len(delim); i++ {
-			if lexer.Lookahead() != rune(delim[i]) {
-				matched = false
-				break
-			}
-			lexer.Advance(false)
-		}
-
-		if matched {
-			// Delimiter must be followed by newline or EOF.
-			next := lexer.Lookahead()
-			if next == '\n' || next == 0 {
-				lexer.MarkEnd()
-				lexer.SetResultSymbol(syms[dockerfileTokEnd])
-				s.heredocs = s.heredocs[:len(s.heredocs)-1]
-				if len(s.heredocs) == 0 {
-					s.inHeredoc = false
-				}
-				return true
-			}
-		}
-
-		// No match — fall through and try scanning as a content line.
-		// We need to reset, but since the lexer doesn't support rewinding,
-		// we can only scan content if the parser also accepts HEREDOC_LINE.
+	s.inHeredoc = true
+	if s.stripping {
+		dockerfileSkipWhitespace(lexer)
 	}
-
-	// Scan a content line: consume everything until newline.
-	if dockerfileValid(validSymbols, dockerfileTokLine) {
-		hasContent := false
-		for {
-			ch := lexer.Lookahead()
-			if ch == '\n' || ch == 0 {
-				break
-			}
-			hasContent = true
+	if dockerfileValid(validSymbols, dockerfileTokEnd) {
+		delim := s.heredocs[0]
+		i := 1
+		for i < len(delim) && lexer.Lookahead() != 0 && scanmode.CLookahead(lexer) == int32(int8(delim[i])) {
 			lexer.Advance(false)
+			i++
 		}
-		if hasContent {
-			lexer.MarkEnd()
-			lexer.SetResultSymbol(syms[dockerfileTokLine])
+		if i == len(delim) {
+			lexer.SetResultSymbol(syms[dockerfileTokEnd])
+			s.heredocs = s.heredocs[1:]
+			if len(s.heredocs) > 0 {
+				s.stripping = s.heredocs[0][0] == '-'
+			} else {
+				s.inHeredoc = false
+			}
 			return true
 		}
 	}
-
-	return false
-}
-
-func isDockerfileDelimStart(ch rune) bool {
-	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
-}
-
-func isDockerfileDelimChar(ch rune) bool {
-	return isDockerfileDelimStart(ch) || (ch >= '0' && ch <= '9')
+	if !dockerfileValid(validSymbols, dockerfileTokLine) {
+		return false
+	}
+	lexer.SetResultSymbol(syms[dockerfileTokLine])
+	for {
+		switch lexer.Lookahead() {
+		case 0:
+			if scanmode.AtEOF(lexer) {
+				s.inHeredoc = false
+				return true
+			}
+			lexer.Advance(false)
+		case '\n':
+			return true
+		default:
+			lexer.Advance(false)
+		}
+	}
 }
 
 func dockerfileValid(validSymbols []bool, idx int) bool {

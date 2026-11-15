@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the kotlin grammar.
@@ -84,6 +83,15 @@ var kotlinExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(kotlinExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(KotlinExternalScanner{}, (*kotlinScannerState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(KotlinExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(KotlinExternalScanner), right.(KotlinExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // kotlinDelimEntry stores one open string delimiter on the stack: the
@@ -204,7 +212,7 @@ func (k KotlinExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 	// cross-newline case is handled inside scan_automatic_semicolon.
 	if kotlinValid(validSymbols, kotlinTokPrimaryCtorKW) &&
 		!kotlinValid(validSymbols, kotlinTokStringContent) {
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(lexer.Lookahead()) {
 			lexer.Advance(true)
 		}
 		if lexer.Lookahead() == 'c' && kotlinAdvanceMatchWord(lexer, "constructor") {
@@ -225,7 +233,7 @@ func (k KotlinExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 
 	// A string might follow after some whitespace, so we can't lookahead
 	// until we get rid of it.
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 
@@ -308,14 +316,14 @@ func kotlinScanStringContent(s *kotlinScannerState, lexer *gotreesitter.External
 	for {
 		la := lexer.Lookahead()
 
-		// Go's ExternalLexer has no eof() primitive distinct from Lookahead
-		// returning 0: a literal NUL byte in the source is indistinguishable
-		// from real end-of-input here. Treat lookahead==0 as terminal, same
-		// as this port already does at every other EOF check in this file.
-		// This cannot infinite-loop (the C fix's DoS concern): we break
-		// immediately instead of returning false-without-advancing.
+		// C src/scanner.c:107-117 consumes embedded NUL as content.
 		if la == 0 {
-			break
+			if scanmode.AtEOF(lexer) {
+				break
+			}
+			lexer.Advance(false)
+			hasContent = true
+			continue
 		}
 
 		if la == '$' {
@@ -336,7 +344,7 @@ func kotlinScanStringContent(s *kotlinScannerState, lexer *gotreesitter.External
 			}
 			totalDollars := 1 + additionalDollars
 			next := lexer.Lookahead()
-			if totalDollars >= uint16(prefixLen) && (unicode.IsLetter(next) || next == '_' || next == '{') {
+			if totalDollars >= uint16(prefixLen) && (cIsAlpha(next) || next == '_' || next == '{') {
 				if totalDollars > uint16(prefixLen) {
 					// Excess: emit first '$' as literal content; the mark
 					// from right after it makes tree-sitter rewind there.
@@ -360,7 +368,7 @@ func kotlinScanStringContent(s *kotlinScannerState, lexer *gotreesitter.External
 					return true
 				}
 				if kotlinValid(validSymbols, kotlinTokInterpIdentStart) &&
-					(unicode.IsLetter(lexer.Lookahead()) || lexer.Lookahead() == '_') {
+					(cIsAlpha(lexer.Lookahead()) || lexer.Lookahead() == '_') {
 					lexer.SetResultSymbol(symbols[kotlinTokInterpIdentStart])
 					return true
 				}
@@ -479,12 +487,14 @@ func kotlinScanMultilineComment(lexer *gotreesitter.ExternalLexer, symbols *[kot
 				}
 			}
 		case 0:
-			// EOF (see the NUL-vs-EOF note in kotlinScanStringContent: Go
-			// cannot tell a literal NUL byte from real end-of-input here).
-			// Accept unterminated comments rather than rejecting them.
-			lexer.MarkEnd()
-			lexer.SetResultSymbol(symbols[kotlinTokMultilineComment])
-			return true
+			// C src/scanner.c:299-317 distinguishes NUL from EOF.
+			if scanmode.AtEOF(lexer) {
+				lexer.MarkEnd()
+				lexer.SetResultSymbol(symbols[kotlinTokMultilineComment])
+				return true
+			}
+			lexer.Advance(false)
+			afterStar = false
 		default:
 			lexer.Advance(false)
 			afterStar = false
@@ -497,7 +507,7 @@ func kotlinScanMultilineComment(lexer *gotreesitter.ExternalLexer, symbols *[kot
 // token's span. Returns false when a bare '/' is found (not a comment).
 func kotlinSkipWhitespaceAndComments(lexer *gotreesitter.ExternalLexer) bool {
 	for {
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(lexer.Lookahead()) {
 			lexer.Advance(true)
 		}
 		if lexer.Lookahead() != '/' {
@@ -509,7 +519,7 @@ func kotlinSkipWhitespaceAndComments(lexer *gotreesitter.ExternalLexer) bool {
 			lexer.Advance(true)
 			for {
 				la := lexer.Lookahead()
-				if la == '\n' || la == '\r' || la == 0 {
+				if la == '\n' || la == '\r' || scanmode.AtEOF(lexer) {
 					break
 				}
 				lexer.Advance(true)
@@ -519,7 +529,7 @@ func kotlinSkipWhitespaceAndComments(lexer *gotreesitter.ExternalLexer) bool {
 			depth := 1
 			for depth > 0 {
 				la := lexer.Lookahead()
-				if la == 0 {
+				if scanmode.AtEOF(lexer) {
 					break
 				}
 				switch la {
@@ -571,7 +581,7 @@ func kotlinScanAutoSemicolon(lexer *gotreesitter.ExternalLexer, validSymbols []b
 	sameLine := true
 	for {
 		ch := lexer.Lookahead()
-		if ch == 0 { // EOF — always insert ASI.
+		if scanmode.AtEOF(lexer) { // C src/scanner.c:486
 			return true
 		}
 		if ch == ';' {
@@ -579,7 +589,7 @@ func kotlinScanAutoSemicolon(lexer *gotreesitter.ExternalLexer, validSymbols []b
 			lexer.MarkEnd()
 			return true
 		}
-		if !unicode.IsSpace(ch) {
+		if !cIsSpace(ch) {
 			break
 		}
 		if ch == '\n' || ch == '\r' {
@@ -594,7 +604,7 @@ func kotlinScanAutoSemicolon(lexer *gotreesitter.ExternalLexer, validSymbols []b
 	}
 
 	// Skip remaining whitespace.
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 
@@ -665,14 +675,8 @@ func kotlinScanAutoSemicolon(lexer *gotreesitter.ExternalLexer, validSymbols []b
 			lexer.Advance(false)
 			nestingDepth := 1
 			afterStar := false
-			for nestingDepth > 0 {
+			for nestingDepth > 0 && !scanmode.AtEOF(lexer) {
 				la := lexer.Lookahead()
-				if la == 0 {
-					// Unterminated block comment at EOF — produce it.
-					lexer.MarkEnd()
-					lexer.SetResultSymbol(symbols[kotlinTokMultilineComment])
-					return true
-				}
 				switch la {
 				case '*':
 					lexer.Advance(false)
@@ -694,7 +698,7 @@ func kotlinScanAutoSemicolon(lexer *gotreesitter.ExternalLexer, validSymbols []b
 					afterStar = false
 				}
 			}
-			for unicode.IsSpace(lexer.Lookahead()) {
+			for cIsSpace(lexer.Lookahead()) {
 				lexer.Advance(true)
 			}
 			// For keyword checks, mark_end must happen BEFORE
@@ -847,7 +851,7 @@ func kotlinScanImportDot(lexer *gotreesitter.ExternalLexer, symbols *[kotlinToke
 	lexer.Advance(false)
 
 	foundNewline := false
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		if lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' {
 			foundNewline = true
 		}
@@ -869,7 +873,7 @@ func kotlinScanImportDot(lexer *gotreesitter.ExternalLexer, symbols *[kotlinToke
 // ---------------------------------------------------------------------------
 
 func kotlinIsWordChar(ch rune) bool {
-	return unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_'
+	return cIsAlpha(ch) || cIsDigit(ch) || ch == '_'
 }
 
 // kotlinScanWord checks if the input starts with the given word followed
@@ -922,7 +926,7 @@ func kotlinAdvanceMatchWord(lexer *gotreesitter.ExternalLexer, word string) bool
 // modifier followed by whitespace and "constructor".
 func kotlinCheckModifierThenConstructor(lexer *gotreesitter.ExternalLexer) bool {
 	var word []byte
-	for kotlinIsWordChar(lexer.Lookahead()) && len(word) < 20 {
+	for kotlinIsWordChar(lexer.Lookahead()) && len(word) < 19 {
 		word = append(word, byte(lexer.Lookahead()))
 		lexer.Advance(true)
 	}
@@ -986,7 +990,7 @@ func kotlinCheckAnnotationThenConstructor(lexer *gotreesitter.ExternalLexer) boo
 				}
 			}
 		}
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(lexer.Lookahead()) {
 			lexer.Advance(true)
 		}
 	}
