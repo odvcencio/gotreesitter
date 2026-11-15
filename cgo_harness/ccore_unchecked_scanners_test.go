@@ -59,11 +59,11 @@ func registerScannersBoundForComparisonWithC() {
 
 // TestCcoreEveryLanguageBindsInTheHarness: in the harness binary every registered
 // language binds (206 of 206 on this base): the languages without an external scanner,
-// the four whose scanners are checked against C, and the others, whose scanners are
+// those whose scanners are checked against C, and the others, whose scanners are
 // bound for comparison with C by the initializer above and are not checked against C.
 func TestCcoreEveryLanguageBindsInTheHarness(t *testing.T) {
 	entries := grammars.AllLanguages()
-	checked := map[string]bool{"python": true, "javascript": true, "typescript": true, "tsx": true}
+	checked := map[string]bool{"python": true, "javascript": true, "typescript": true, "tsx": true, "css": true, "scss": true, "racket": true, "mojo": true, "starlark": true, "teal": true, "templ": true, "hcl": true, "bash": true, "html": true, "rust": true, "toml": true, "move": true, "yuck": true, "beancount": true, "kdl": true, "haxe": true, "dhall": true, "cooklang": true, "gn": true, "elixir": true, "jsdoc": true, "nix": true}
 	bound := 0
 	for _, e := range entries {
 		if _, err := bind.New(e.Language()); err != nil {

@@ -2,7 +2,10 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+)
 
 // External token indexes for the gn grammar. This is the external index
 // (the position of the token in the grammar's `externals: [...]` list),
@@ -49,6 +52,15 @@ var gnExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(gnExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(GnExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(GnExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(GnExternalScanner), right.(GnExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // GnExternalScanner handles string content for GN (Generate Ninja) build files.
