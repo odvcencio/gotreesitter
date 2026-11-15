@@ -2245,23 +2245,13 @@ func (p *Parser) ccoreFullParse(source []byte) (tree *Tree, ok bool) {
 	return tree, ok
 }
 
-// canReuseUnchangedTreeForRoute is the no-edit shortcut of ParseIncremental: the
-// source is unchanged, so oldTree is returned when it is the tree this request
-// would produce. It is not when the engine or the binding that made it differs
-// from the one the request would use now: a core tree when the route is off, a
-// present-engine tree when the core serves the request, or a core tree made with
-// another binding (another scanner, other tables). The shortcut stays free of
-// allocation: the provenance test reads a few pointers.
-func (p *Parser) canReuseUnchangedTreeForRoute(source []byte, oldTree *Tree, usingProductionDFA bool) bool {
-	if !canReuseUnchangedTree(source, oldTree, p.language, p.included) {
-		return false
-	}
-	// No certificate has existed in this process: no tree has a core link and
-	// nothing below can apply. This is the whole cost of the route for a reparse
-	// without edits by default.
-	if !certified.EverActive() {
-		return true
-	}
+// ccoreUnchangedTreeAllowed decides, once a certificate has existed in this
+// process, whether a reparse of unchanged source may return the old tree. The
+// callers ask canReuseUnchangedTree first, as they did before the route, and then
+// certified.EverActive: while no certificate has existed no tree has a core link
+// and this function is not called, so a reparse without edits costs one flag read
+// more than before and no extra call.
+func (p *Parser) ccoreUnchangedTreeAllowed(oldTree *Tree, usingProductionDFA bool) bool {
 	st := oldTree.ccoreStateOf()
 	if ccoreUnset() {
 		return st == nil

@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"errors"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	"time"
 	"unsafe"
 
@@ -1087,7 +1088,7 @@ func (p *Parser) parseIncrementalWithTokenSourceRun(source []byte, oldTree *Tree
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
-	if p.canReuseUnchangedTreeForRoute(source, oldTree, false) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (!certified.EverActive() || p.ccoreUnchangedTreeAllowed(oldTree, false)) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	if reparseFactory == nil {
@@ -2138,7 +2139,7 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
-	if p.canReuseUnchangedTreeForRoute(source, oldTree, true) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (!certified.EverActive() || p.ccoreUnchangedTreeAllowed(oldTree, true)) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	return sched.Parse(p.schedCall(sched.Incremental, oldTree), func(sched.Request) (*Tree, error) {
@@ -2151,7 +2152,7 @@ func (p *Parser) parseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
-	if p.canReuseUnchangedTreeForRoute(source, oldTree, true) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (!certified.EverActive() || p.ccoreUnchangedTreeAllowed(oldTree, true)) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	return p.parseIncrementalChangedSource(source, oldTree)
@@ -2528,7 +2529,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
-	if p.canReuseUnchangedTreeForRoute(source, oldTree, true) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (!certified.EverActive() || p.ccoreUnchangedTreeAllowed(oldTree, true)) {
 		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
 	result, err := sched.Parse(p.schedCall(sched.Incremental|sched.Profiling, oldTree), func(sched.Request) (profiledParseResult, error) {
@@ -2549,7 +2550,7 @@ func (p *Parser) parseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
-	if p.canReuseUnchangedTreeForRoute(source, oldTree, true) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (!certified.EverActive() || p.ccoreUnchangedTreeAllowed(oldTree, true)) {
 		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
 	return p.parseIncrementalProfiledChangedSource(source, oldTree)
@@ -2739,7 +2740,7 @@ func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
-	if p.canReuseUnchangedTreeForRoute(source, oldTree, false) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (!certified.EverActive() || p.ccoreUnchangedTreeAllowed(oldTree, false)) {
 		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
 	return p.parseIncrementalWithTokenSourceChangedProfiled(source, oldTree, ts)
