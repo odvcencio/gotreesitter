@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/scanmode"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -3140,6 +3141,367 @@ func TestCcoreViewsOracle(t *testing.T) {
 	}
 	if diffs != 0 {
 		t.Errorf("%d differences between the views and the eager conversion", diffs)
+	}
+}
+
+// Consumer oracle counters are deltas, so other tests do not affect the report.
+type ccoreConsumerStats struct {
+	languages, trees, steps, checks, captures, diffs int
+	missing                                          []string
+	treeBefore, viewBefore                           int64
+	convBefore                                       map[string]int64
+}
+
+func newCcoreConsumerStats() *ccoreConsumerStats {
+	a, b, c := gts.CcoreTestViewCounters()
+	return &ccoreConsumerStats{treeBefore: a, viewBefore: b, convBefore: c}
+}
+func (s *ccoreConsumerStats) report(t *testing.T, arm string) {
+	a, b, c := gts.CcoreTestViewCounters()
+	for _, k := range []string{"tree_edit_with_views", "node_edit", "adopt", "offset_root", "test", "other"} {
+		c[k] -= s.convBefore[k]
+	}
+	fmt.Printf("%s oracle languages=%d trees=%d steps=%d checks=%d captures=%d differences=%d view_trees=%d views_made=%d conversions=%v not_served=%v\n", arm, s.languages, s.trees, s.steps, s.checks, s.captures, s.diffs, a-s.treeBefore, b-s.viewBefore, c, s.missing)
+	if s.languages == 0 || s.trees == 0 || s.checks == 0 {
+		t.Errorf("%s oracle compared nothing", arm)
+	}
+	if s.diffs > 0 {
+		t.Errorf("%s oracle found %d differences", arm, s.diffs)
+	}
+}
+func (s *ccoreConsumerStats) compare(t *testing.T, where string, got, want any) {
+	s.checks++
+	if !reflect.DeepEqual(got, want) {
+		s.diffs++
+		if s.diffs <= 20 {
+			t.Errorf("%s: view=%v eager=%v", where, got, want)
+		}
+	}
+}
+func ccoreConsumerNames(samples map[string][]byte) []string {
+	names := make([]string, 0, len(samples))
+	for n := range samples {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	if v := os.Getenv("CCORE_VIEWS_LANGS"); v != "" {
+		names = strings.Split(v, ",")
+	}
+	return names
+}
+func ccoreConsumerTree(t *testing.T, lang *gts.Language, src []byte) (*gts.Tree, *gts.Tree) {
+	t.Helper()
+	restore := gts.CcoreTestViewsOn(true)
+	tree, err := ccoreRouteParser(lang).Parse(src)
+	restore()
+	if err != nil || tree == nil {
+		t.Errorf("parse: %v", err)
+		return nil, nil
+	}
+	if _, ok := gts.CcoreTestViewHeaders(tree); !ok {
+		tree.Release()
+		return nil, nil
+	}
+	eager := gts.CcoreTestEager(tree)
+	if eager == nil {
+		t.Error("eager conversion failed")
+		tree.Release()
+		return nil, nil
+	}
+	return tree, eager
+}
+
+type ccoreCursorSnapshot struct {
+	Type, Field, Text    string
+	Symbol               gts.Symbol
+	Start, End           uint32
+	StartPoint, EndPoint gts.Point
+	Named                bool
+	FieldID              gts.FieldID
+	Depth                int
+}
+
+func ccoreCursorState(c *gts.TreeCursor, lang *gts.Language) ccoreCursorSnapshot {
+	n := c.CurrentNode()
+	if n == nil {
+		return ccoreCursorSnapshot{}
+	}
+	return ccoreCursorSnapshot{n.Type(lang), c.CurrentFieldName(), c.CurrentNodeText(), n.Symbol(), n.StartByte(), n.EndByte(), n.StartPoint(), n.EndPoint(), n.IsNamed(), c.CurrentFieldID(), c.Depth()}
+}
+func ccoreCursorWalk(t *testing.T, s *ccoreConsumerStats, name string, vt, et *gts.Tree, lang *gts.Language, reverse bool, positions []uint32, points []gts.Point) {
+	v, e := gts.NewTreeCursorFromTree(vt), gts.NewTreeCursorFromTree(et)
+	positionParents := 0
+	move := func(label string, vf, ef func() bool) bool {
+		a, b := vf(), ef()
+		s.compare(t, name+" "+label, a, b)
+		s.steps++
+		s.compare(t, name+" "+label+" destination", ccoreCursorState(v, lang), ccoreCursorState(e, lang))
+		return a && b
+	}
+	for {
+		s.compare(t, name+" cursor", ccoreCursorState(v, lang), ccoreCursorState(e, lang))
+		s.compare(t, name+" CurrentNodeType", v.CurrentNodeType(), e.CurrentNodeType())
+		s.compare(t, name+" CurrentNodeIsNamed", v.CurrentNodeIsNamed(), e.CurrentNodeIsNamed())
+		for _, op := range []struct {
+			name string
+			fn   func(*gts.TreeCursor) bool
+		}{
+			{"first named", (*gts.TreeCursor).GotoFirstNamedChild}, {"last named", (*gts.TreeCursor).GotoLastNamedChild},
+			{"next named", (*gts.TreeCursor).GotoNextNamedSibling}, {"previous named", (*gts.TreeCursor).GotoPrevNamedSibling},
+		} {
+			vc, ec := v.Copy(), e.Copy()
+			a, b := op.fn(vc), op.fn(ec)
+			s.compare(t, name+" "+op.name, a, b)
+			s.compare(t, name+" "+op.name+" destination", ccoreCursorState(vc, lang), ccoreCursorState(ec, lang))
+		}
+		// Test every field present on a child, as well as sentinel and absent IDs.
+		ids := []gts.FieldID{0, e.CurrentFieldID()}
+		probe := e.Copy()
+		if probe.GotoFirstChild() {
+			for {
+				ids = append(ids, probe.CurrentFieldID())
+				if !probe.GotoNextSibling() {
+					break
+				}
+			}
+		}
+		if positionParents < 8 {
+			positionParents++
+			for i, pos := range positions {
+				vc, ec := v.Copy(), e.Copy()
+				a, b := vc.GotoFirstChildForByte(pos), ec.GotoFirstChildForByte(pos)
+				s.compare(t, name+" byte index", a, b)
+				s.compare(t, name+" byte destination", ccoreCursorState(vc, lang), ccoreCursorState(ec, lang))
+				vc, ec = v.Copy(), e.Copy()
+				a, b = vc.GotoFirstChildForPoint(points[i]), ec.GotoFirstChildForPoint(points[i])
+				s.compare(t, name+" point index", a, b)
+				s.compare(t, name+" point destination", ccoreCursorState(vc, lang), ccoreCursorState(ec, lang))
+			}
+		}
+		if len(lang.FieldNames) > 1 {
+			ids = append(ids, 1, gts.FieldID(len(lang.FieldNames)-1))
+		}
+		for _, id := range ids {
+			vc, ec := v.Copy(), e.Copy()
+			a, b := vc.GotoChildByFieldID(id), ec.GotoChildByFieldID(id)
+			s.compare(t, name+" field ID", a, b)
+			s.compare(t, name+" field ID destination", ccoreCursorState(vc, lang), ccoreCursorState(ec, lang))
+			if int(id) < len(lang.FieldNames) {
+				vc, ec = v.Copy(), e.Copy()
+				a, b = vc.GotoChildByFieldName(lang.FieldNames[id]), ec.GotoChildByFieldName(lang.FieldNames[id])
+				s.compare(t, name+" field name", a, b)
+				s.compare(t, name+" field name destination", ccoreCursorState(vc, lang), ccoreCursorState(ec, lang))
+			}
+		}
+		var child, sibling func(*gts.TreeCursor) bool
+		if reverse {
+			child = (*gts.TreeCursor).GotoLastChild
+			sibling = (*gts.TreeCursor).GotoPrevSibling
+		} else {
+			child = (*gts.TreeCursor).GotoFirstChild
+			sibling = (*gts.TreeCursor).GotoNextSibling
+		}
+		if move("child", func() bool { return child(v) }, func() bool { return child(e) }) {
+			continue
+		}
+		for {
+			if move("sibling", func() bool { return sibling(v) }, func() bool { return sibling(e) }) {
+				break
+			}
+			if !move("parent", v.GotoParent, e.GotoParent) {
+				goto done
+			}
+		}
+	}
+done:
+	v.Reset(vt.RootNode())
+	e.Reset(et.RootNode())
+	s.compare(t, name+" Reset", ccoreCursorState(v, lang), ccoreCursorState(e, lang))
+	for i, pos := range positions {
+		v.ResetTree(vt)
+		e.ResetTree(et)
+		a, b := v.GotoFirstChildForByte(pos), e.GotoFirstChildForByte(pos)
+		s.compare(t, name+" byte index", a, b)
+		s.compare(t, name+" byte destination", ccoreCursorState(v, lang), ccoreCursorState(e, lang))
+		v.ResetTree(vt)
+		e.ResetTree(et)
+		a, b = v.GotoFirstChildForPoint(points[i]), e.GotoFirstChildForPoint(points[i])
+		s.compare(t, name+" point index", a, b)
+		s.compare(t, name+" point destination", ccoreCursorState(v, lang), ccoreCursorState(e, lang))
+	}
+}
+
+// Collect boundaries using the eager tree, leaving the view untouched.
+func ccoreCursorPositions(root *gts.Node, src []byte) ([]uint32, []gts.Point) {
+	const capPositions = 128
+	pos := []uint32{0, uint32(len(src))}
+	stack := []*gts.Node{root}
+	for len(stack) > 0 && len(pos) < capPositions {
+		n := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		pos = append(pos, n.StartByte(), n.EndByte())
+		for i := n.ChildCount() - 1; i >= 0; i-- {
+			stack = append(stack, n.Child(i))
+		}
+	}
+	rng := rand.New(rand.NewSource(41))
+	for i := 0; i < 32; i++ {
+		pos = append(pos, uint32(rng.Intn(len(src)+1)))
+	}
+	points := make([]gts.Point, len(pos))
+	for i, p := range pos {
+		for _, b := range src[:min(int(p), len(src))] {
+			if b == '\n' {
+				points[i].Row++
+				points[i].Column = 0
+			} else {
+				points[i].Column++
+			}
+		}
+	}
+	return pos, points
+}
+func TestCcoreViewsCursorOracle(t *testing.T) {
+	defer ccoreCertifyAll()()
+	s := newCcoreConsumerStats()
+	defer s.report(t, "CURSOR")
+	samples := ccoreOracleSamples(t)
+	for _, name := range ccoreConsumerNames(samples) {
+		entry := grammars.DetectLanguageByName(name)
+		src := samples[name]
+		if entry == nil || src == nil || entry.Language() == nil {
+			s.missing = append(s.missing, name+" (sample or grammar)")
+			continue
+		}
+		lang := entry.Language()
+		served := false
+		for mode := 0; mode < 2; mode++ {
+			view, eager := ccoreConsumerTree(t, lang, src)
+			if view == nil {
+				break
+			}
+			served = true
+			s.trees++
+			pos, points := ccoreCursorPositions(eager.RootNode(), src)
+			if mode == 1 {
+				stack := []*gts.Node{view.RootNode()}
+				for len(stack) > 0 {
+					n := stack[len(stack)-1]
+					stack = stack[:len(stack)-1]
+					for _, c := range n.Children() {
+						stack = append(stack, c)
+					}
+					_ = n.Type(lang)
+				}
+			}
+			ccoreCursorWalk(t, s, fmt.Sprintf("%s/mode%d/forward", name, mode), view, eager, lang, false, pos, points)
+			ccoreCursorWalk(t, s, fmt.Sprintf("%s/mode%d/reverse", name, mode), view, eager, lang, true, pos, points)
+			view.Release()
+			eager.Release()
+		}
+		if served {
+			s.languages++
+		} else {
+			s.missing = append(s.missing, name+" (route declined)")
+		}
+	}
+}
+
+type ccoreQueryCapture struct {
+	Name, Type string
+	Start, End uint32
+}
+type ccoreQueryMatch struct {
+	Pattern  int
+	Captures []ccoreQueryCapture
+}
+
+func ccoreQueryRecords(matches []gts.QueryMatch, lang *gts.Language) ([]ccoreQueryMatch, int) {
+	var out []ccoreQueryMatch
+	count := 0
+	for _, m := range matches {
+		r := ccoreQueryMatch{Pattern: m.PatternIndex}
+		for _, c := range m.Captures {
+			r.Captures = append(r.Captures, ccoreQueryCapture{c.Name, c.Node.Type(lang), c.Node.StartByte(), c.Node.EndByte()})
+			count++
+		}
+		out = append(out, r)
+	}
+	return out, count
+}
+func TestCcoreViewsQueryOracle(t *testing.T) {
+	defer ccoreCertifyAll()()
+	s := newCcoreConsumerStats()
+	defer s.report(t, "QUERY")
+	samples := ccoreOracleSamples(t)
+	for _, name := range ccoreConsumerNames(samples) {
+		entry := grammars.DetectLanguageByName(name)
+		src := samples[name]
+		if entry == nil || src == nil || entry.Language() == nil {
+			s.missing = append(s.missing, name+" (sample or grammar)")
+			continue
+		}
+		lang := entry.Language()
+		view, eager := ccoreConsumerTree(t, lang, src)
+		if view == nil {
+			s.missing = append(s.missing, name+" (route declined)")
+			continue
+		}
+		queries := []struct{ name, source string }{{"highlights", entry.HighlightQuery}, {"tags", entry.TagsQuery}}
+		used := false
+		for _, item := range queries {
+			if strings.TrimSpace(item.source) == "" {
+				continue
+			}
+			q, err := gts.NewQuery(item.source, lang)
+			if err != nil {
+				t.Errorf("%s %s query compile: %v", name, item.name, err)
+				continue
+			}
+			used = true
+			for _, mode := range []string{"execute", "stream", "range"} {
+				var vm, em []gts.QueryMatch
+				if mode == "execute" {
+					vm = q.Execute(view)
+					em = q.Execute(eager)
+				} else {
+					vc, ec := q.Exec(view.RootNode(), lang, src), q.Exec(eager.RootNode(), lang, src)
+					if mode == "range" {
+						vc.SetByteRange(uint32(len(src)/3), uint32(2*len(src)/3))
+						ec.SetByteRange(uint32(len(src)/3), uint32(2*len(src)/3))
+					}
+					for {
+						m, ok := vc.NextMatch()
+						if !ok {
+							break
+						}
+						vm = append(vm, m)
+					}
+					for {
+						m, ok := ec.NextMatch()
+						if !ok {
+							break
+						}
+						em = append(em, m)
+					}
+				}
+				vr, vc := ccoreQueryRecords(vm, lang)
+				er, ec := ccoreQueryRecords(em, lang)
+				s.captures += max(vc, ec)
+				s.compare(t, name+" "+item.name+" "+mode, vr, er)
+			}
+		}
+		if used {
+			s.languages++
+			s.trees++
+		} else {
+			s.missing = append(s.missing, name+" (no compilable shipped query)")
+		}
+		view.Release()
+		eager.Release()
+	}
+	if s.captures == 0 {
+		t.Error("query oracle compared no captures")
 	}
 }
 
