@@ -698,6 +698,9 @@ type Language struct {
 	// produced this Language. Keep it private so blob encoding stays stable.
 	grammarBlobSHA256      [32]byte
 	grammarBlobSHA256Valid bool
+	// ccoreCertState caches whether the blob has a certificate of the generated
+	// list: 0 not yet asked, 1 no, 2 yes. It is read and written atomically.
+	ccoreCertState uint32
 	// Runtime-only: omitted by gob and granted only to an exact loaded artifact.
 	legacyReductionContinuationsCertified bool
 	// blobInfo records the version header LoadLanguage found (or did not

@@ -56,6 +56,9 @@ for tags and release notes while still in `0.x`.
 
 ### Changed
 
+- Parse JSON with the new core by default. Trees for text with errors now match
+  the C runtime. Call `SetAdmissionCandidateRoute(false)` on a parser to keep
+  using the present engine ([#1665](https://github.com/odvcencio/gotreesitter/pull/1665)).
 - Run the editor-latency CI gate as one job per language, which cuts a pull
   request's CI from about two hours to about 26 minutes, and skip it for pull
   requests that change only `internal/ccore`, its harness tests or

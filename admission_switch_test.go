@@ -1089,6 +1089,7 @@ func ccorePythonSource(minBytes int) []byte {
 }
 
 func TestCcoreRouteChargesTheWholeFootprintDuringConversion(t *testing.T) {
+	defer gts.CcoreTestViewsOn(false)()
 	lang := ccoreRouteLang(t, "json")
 	for _, c := range []struct {
 		name string
@@ -1161,7 +1162,8 @@ func TestCcoreRouteChargesTheWholeFootprintDuringConversion(t *testing.T) {
 }
 
 func TestCcoreRouteServesFreshAndOwnsNothing(t *testing.T) {
-	lang := ccoreRouteLang(t, "json")
+	lang := ccoreCopyLanguage(ccoreRouteLang(t, "json"))
+	gts.CcoreTestSetBlob(lang, [32]byte{1})
 	defer ccoreCertifyAll()()
 	src := ccoreJSONSource(200)
 	p := ccoreRouteParser(lang)
@@ -1248,37 +1250,39 @@ func TestCcoreRouteBudgetsMatchThePresentEngineInFreshProcesses(t *testing.T) {
 	if os.Getenv("CCORE_BUDGET_PROCESSES") == "" {
 		t.Skip("starts nine test processes; set CCORE_BUDGET_PROCESSES=1")
 	}
-	run := func(arm string, mib int) map[string]string {
+	run := func(arm string, mib int, views bool) map[string]string {
 		cmd := exec.Command(os.Args[0], "-test.run=^TestCcoreRouteBudgetChild$", "-test.count=1", "-test.v")
 		var env []string
 		for _, kv := range os.Environ() { // a control variable inherited from the caller must not reach the child
-			if !strings.HasPrefix(kv, "CCORE_BUDGET_CHILD=") && !strings.HasPrefix(kv, "CCORE_BUDGET_MIB=") {
+			if !strings.HasPrefix(kv, "CCORE_BUDGET_CHILD=") && !strings.HasPrefix(kv, "CCORE_BUDGET_MIB=") && !strings.HasPrefix(kv, "CCORE_BUDGET_VIEWS=") {
 				env = append(env, kv)
 			}
 		}
-		cmd.Env = append(env, "CCORE_BUDGET_CHILD="+arm, fmt.Sprintf("CCORE_BUDGET_MIB=%d", mib), "GTS_TEST_CCORE_ROUTE=0", "GOMAXPROCS=1")
+		cmd.Env = append(env, "CCORE_BUDGET_CHILD="+arm, fmt.Sprintf("CCORE_BUDGET_MIB=%d", mib), fmt.Sprintf("CCORE_BUDGET_VIEWS=%t", views), "GTS_TEST_CCORE_ROUTE=0", "GOMAXPROCS=1")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("%s %d MiB: %v\n%s", arm, mib, err, out)
 		}
 		res := map[string]string{}
 		for _, l := range strings.Split(string(out), "\n") {
-			for _, key := range []string{"CCBUDGET ", "CCTREES ", "CCCORE "} {
+			for _, key := range []string{"CCBUDGET ", "CCTREES ", "CCCORE ", "CCSERVED "} {
 				if strings.HasPrefix(l, key) {
 					res[key] = strings.TrimPrefix(l, key)
 				}
 			}
 		}
-		if res["CCBUDGET "] == "" || res["CCTREES "] == "" || res["CCCORE "] == "" {
+		if res["CCBUDGET "] == "" || res["CCTREES "] == "" || res["CCCORE "] == "" || res["CCSERVED "] == "" {
 			t.Fatalf("%s %d MiB: incomplete result lines\n%s", arm, mib, out)
 		}
 		return res
 	}
-	compared := 0
+	compared, viewsServed := 0, 0
 	for _, mib := range []int{3, 4, 8} {
-		off := run("off", mib)
+		off := run("off", mib, false)
 		for _, arm := range []string{"uncertified", "certified"} {
-			got := run(arm, mib)
+			// The uncertified arm hides the certificate; the certified arm here builds
+			// converted trees, the regime these budgets were chosen for.
+			got := run(arm, mib, false)
 			if got["CCBUDGET "] != off["CCBUDGET "] {
 				t.Errorf("%d MiB, arm %s: reasons %s, route off gives %s", mib, arm, got["CCBUDGET "], off["CCBUDGET "])
 			}
@@ -1290,7 +1294,9 @@ func TestCcoreRouteBudgetsMatchThePresentEngineInFreshProcesses(t *testing.T) {
 			// and the comparisons above would hold without the core.
 			want := "served=0 stop_memory_budget=6 other=0"
 			if arm == "uncertified" {
-				want = "served=0 stop_memory_budget=0 other=0" // nothing certified: the route is not even asked
+				// The generated list has a certificate, so the route is asked; it
+				// declines each of the 6 requests because this blob has none.
+				want = "served=0 stop_memory_budget=0 other=6"
 			}
 			if got["CCCORE "] != want {
 				t.Errorf("%d MiB, arm %s: core counters %q, want %q", mib, arm, got["CCCORE "], want)
@@ -1300,10 +1306,53 @@ func TestCcoreRouteBudgetsMatchThePresentEngineInFreshProcesses(t *testing.T) {
 		if !strings.Contains(off["CCBUDGET "], "memory_budget") {
 			t.Errorf("%d MiB: the present engine never stopped for memory (%s); the case proves nothing", mib, off["CCBUDGET "])
 		}
+		// The certified arm with lazy views, which is what a certificate ships. A view
+		// tree needs less memory than a converted one, so under the same budget the core
+		// may serve a request that the present engine stops on. The rule per request:
+		// one the core declines is answered by the present engine with one of the answers
+		// the present engine gives in the route-off run (a stop for memory or the accepted
+		// tree); one the core serves is the accepted tree. When the core serves nothing,
+		// the whole run equals the route-off run, as above.
+		views := run("certified", mib, true)
+		var served, stopped, other int
+		fmt.Sscanf(views["CCCORE "], "served=%d stop_memory_budget=%d other=%d", &served, &stopped, &other)
+		if served+stopped != 6 || other != 0 {
+			t.Errorf("%d MiB, views: core counters %q; want every one of the 6 requests served or declined for memory", mib, views["CCCORE "])
+		}
+		offReasons, offTrees := strings.Split(off["CCBUDGET "], ","), strings.Split(off["CCTREES "], ",")
+		accepted := ""
+		for i, r := range offReasons {
+			if r == string(gts.ParseStopAccepted) {
+				accepted = offTrees[i]
+			}
+		}
+		allowed := map[string]bool{}
+		for i := range offReasons {
+			allowed[offReasons[i]+" "+offTrees[i]] = true
+		}
+		reasons, trees, mask := strings.Split(views["CCBUDGET "], ","), strings.Split(views["CCTREES "], ","), views["CCSERVED "]
+		if len(reasons) != 6 || len(trees) != 6 || len(mask) != 6 {
+			t.Fatalf("%d MiB, views: incomplete result: %v %v %q", mib, reasons, trees, mask)
+		}
+		if served == 0 && (views["CCBUDGET "] != off["CCBUDGET "] || views["CCTREES "] != off["CCTREES "]) {
+			t.Errorf("%d MiB, views: the core served nothing, yet the run differs from the route-off run:\n got %s %s\nwant %s %s", mib, views["CCBUDGET "], views["CCTREES "], off["CCBUDGET "], off["CCTREES "])
+		}
+		for i := range reasons {
+			if mask[i] == '1' {
+				viewsServed++
+				if reasons[i] != string(gts.ParseStopAccepted) || accepted == "" || trees[i] != accepted {
+					t.Errorf("%d MiB, views, request %d: the core served %s %s; want the accepted tree %s", mib, i, reasons[i], trees[i], accepted)
+				}
+			} else if !allowed[reasons[i]+" "+trees[i]] {
+				t.Errorf("%d MiB, views, request %d: after the core declined the answer is %s %s, which the present engine never gives in the route-off run (%s %s)", mib, i, reasons[i], trees[i], off["CCBUDGET "], off["CCTREES "])
+			}
+		}
+		compared++
 	}
 	if compared == 0 {
 		t.Fatal("nothing was compared")
 	}
+	t.Logf("with views the core served %d of 18 requests under these budgets", viewsServed)
 	fmt.Printf("CCCOUNT test=TestCcoreRouteBudgetsMatchThePresentEngineInFreshProcesses set=budget checked=%d\n", compared)
 }
 
@@ -1317,9 +1366,18 @@ func TestCcoreRouteBudgetChild(t *testing.T) {
 	if arm == "certified" {
 		defer ccoreCertifyAll()()
 	}
+	defer gts.CcoreTestViewsOn(os.Getenv("CCORE_BUDGET_VIEWS") == "true")()
 	lang := ccoreRouteLang(t, "json")
+	if arm == "uncertified" {
+		// json has a certificate in the generated list. This arm is the candidate
+		// switch with nothing certified, so it parses with a copy of the language
+		// whose blob identity is not in that list.
+		lang = ccoreCopyLanguage(lang)
+		gts.CcoreTestSetBlob(lang, [32]byte{1})
+	}
 	src := ccoreJSONSource(3000)
 	var out, trees []string
+	servedMask := ""
 	gts.CcoreTestReset()
 	for i := 0; i < 6; i++ {
 		p := gts.NewParser(lang)
@@ -1329,7 +1387,13 @@ func TestCcoreRouteBudgetChild(t *testing.T) {
 		if err != nil || tr == nil {
 			out = append(out, "err")
 			trees = append(trees, "err")
+			servedMask += "0"
 			continue
+		}
+		if gts.CcoreTestFromCore(tr) {
+			servedMask += "1"
+		} else {
+			servedMask += "0"
 		}
 		out = append(out, string(tr.ParseRuntime().StopReason))
 		root := tr.RootNode()
@@ -1344,7 +1408,7 @@ func TestCcoreRouteBudgetChild(t *testing.T) {
 			other += v
 		}
 	}
-	fmt.Printf("CCBUDGET %s\nCCTREES %s\nCCCORE served=%d stop_memory_budget=%d other=%d\n", strings.Join(out, ","), strings.Join(trees, ","), served, decl["stop_memory_budget"], other)
+	fmt.Printf("CCBUDGET %s\nCCTREES %s\nCCCORE served=%d stop_memory_budget=%d other=%d\nCCSERVED %s\n", strings.Join(out, ","), strings.Join(trees, ","), served, decl["stop_memory_budget"], other, servedMask)
 }
 
 func TestCcoreFieldLookupPassesOverAHiddenChildWithoutVisibleDescendants(t *testing.T) {
@@ -1771,6 +1835,48 @@ func ccoreCopyLanguage(l *gts.Language) *gts.Language {
 	return c.Interface().(*gts.Language)
 }
 
+func TestCcoreJSONEndOfInputFlagCannotBeToldApart(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	sha, ok := lang.GrammarBlobSHA256()
+	if !ok || fmt.Sprintf("%x", sha) != "ad656555b6909bc8efbf40eceb2ac98121f7abdf707c829c9dc03ebe6d83bfbf" {
+		t.Fatalf("unexpected JSON blob: %x, present=%t", sha, ok)
+	}
+	flagged := ccoreCopyLanguage(lang)
+	flagged.LexStates = append([]gts.LexState(nil), lang.LexStates...)
+	seen := make(map[int]bool)
+	for _, state := range lang.LexStates {
+		if state.EOF >= 0 && !seen[state.EOF] {
+			seen[state.EOF] = true
+			target := &flagged.LexStates[state.EOF]
+			if target.AcceptToken == 0 && !target.Skip && !target.AcceptEOF {
+				target.AcceptEOF = true
+			}
+		}
+	}
+	if !flagged.LexStates[21].AcceptEOF || lang.LexStates[21].AcceptEOF {
+		t.Fatal("JSON end-of-input state changed")
+	}
+	defer ccoreCertifyAll()()
+	inputs := []string{"", " ", "\n\n", "1", "-", "1.", "1e", "true", "tru", "nul", "\"", "\"abc", "\"a\\", "[", "[1", "[1,", "[1,]", "{", "{\"a\"", "{\"a\":", "{\"a\":1", "{\"a\":1,", "/", "/*", "// c", "[1] ", "[1]x", "\x00", "[\"\xff\"]", "[[[[[[[[1]]]]]]]]", string(ccoreJSONSource(30))}
+	for _, input := range inputs {
+		parse := func(l *gts.Language) string {
+			gts.CcoreTestReset()
+			tree, err := ccoreRouteParser(l).Parse([]byte(input))
+			if err != nil || tree == nil {
+				t.Fatalf("%q: %v", input, err)
+			}
+			defer tree.Release()
+			if _, served := gts.CcoreTestCounters(); served != 1 {
+				t.Fatalf("%q: core did not serve the parse", input)
+			}
+			return ccoreWalkDigest(tree, l)
+		}
+		if got, want := parse(lang), parse(flagged); got != want {
+			t.Fatalf("%q: end-of-input flag changed the tree: %s != %s", input, got, want)
+		}
+	}
+}
+
 func ccoreWrapped(l *gts.Language, wrap func(gts.ExternalScanner) gts.ExternalScanner) gts.ExternalScanner {
 	return gts.CcoreTestWrapScanner(l.ExternalScanner, wrap)
 }
@@ -1869,6 +1975,7 @@ func TestCcoreRoutePeakHeapIsAtMostThePresentEnginesPlusG(t *testing.T) {
 }
 
 func TestCcoreLedgerEqualsTheRealAllocationOnAReparse(t *testing.T) {
+	defer gts.CcoreTestViewsOn(false)()
 	ccoreSkipUnderRace(t, "the race detector adds allocations of its own to the TotalAlloc bound")
 	defer ccoreCertifyIncr()()
 	lang := ccoreRouteLang(t, "json")
@@ -1934,26 +2041,142 @@ func init() {
 	scanmode.RegisterScanner(gradPanicScanner{}, (*gradPanicPayload)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
 }
 
-func TestCcoreDefaultServesNothing(t *testing.T) {
+func TestCcoreDefaultServesJSON(t *testing.T) {
 	if os.Getenv("GTS_TEST_CCORE_ROUTE") == "1" {
 		t.Skip("the route-on run certifies every language")
 	}
+	if gts.CcoreTestCertifiedSize() != 1 || gts.CcoreTestAllowlistSize() != 0 {
+		t.Fatal("expected one core certificate and an empty compact allowlist")
+	}
 	lang := ccoreRouteLang(t, "json")
-	gts.CcoreTestReset()
-	tree, err := ccoreRouteParser(lang).Parse(ccoreJSONSource(20))
+	p := gts.NewParser(lang)
+	for i, src := range [][]byte{[]byte(`[123,456]`), []byte(`[123,]`)} {
+		tree, err := p.Parse(src)
+		if err != nil || tree == nil || !gts.CcoreTestFromCore(tree) {
+			t.Fatalf("default parse %q was not served: %v", src, err)
+		}
+		if tree.RootNode().HasError() != (i == 1) {
+			t.Fatalf("unexpected error state for %q", src)
+		}
+		tree.Release()
+	}
+	src := []byte(`[123,456]`)
+	tree, err := p.Parse(src)
 	if err != nil || tree == nil {
 		t.Fatal(err)
 	}
 	defer tree.Release()
-	if decl, served := gts.CcoreTestCounters(); served != 0 || gts.CcoreTestFromCore(tree) || len(decl) != 0 {
-		t.Fatalf("served %d, declines %v: the default build must not reach the core", served, decl)
+	_, _, counts := gts.CcoreTestViewCounters()
+	before := counts["shortcut_reparses"]
+	nextSrc, edit := ccoreReplace(src, 2, '4')
+	tree.Edit(edit)
+	next, err := p.ParseIncremental(nextSrc, tree)
+	if err != nil || next == nil || !gts.CcoreTestFromCore(next) {
+		t.Fatalf("reparse: %v", err)
 	}
-	if gts.CcoreTestCertifiedSize() != 0 || gts.CcoreTestAllowlistSize() != 0 {
-		t.Fatal("a certificate list is not empty")
+	defer next.Release()
+	_, incremental := gts.CcoreTestIncr()
+	_, _, counts = gts.CcoreTestViewCounters()
+	if incremental == 0 || counts["shortcut_reparses"] != before+1 {
+		t.Fatal("reparse did not use the incremental shortcut")
+	}
+	p.SetAdmissionCandidateRoute(false)
+	legacy, err := p.Parse(src)
+	if err != nil || legacy == nil || gts.CcoreTestFromCore(legacy) {
+		t.Fatalf("opt-out parse: %v", err)
+	}
+	legacy.Release()
+	py, err := gts.NewParser(ccoreRouteLang(t, "python")).Parse([]byte("x = 1\n"))
+	if err != nil || py == nil || gts.CcoreTestFromCore(py) {
+		t.Fatalf("python parse: %v", err)
+	}
+	py.Release()
+}
+
+// A reparse without edits returns the old tree for a grammar without a
+// certificate, on the first call (which records the answer on the language) and
+// on every later one (which reads it), and a parser that opted out of the core
+// does not hand back a tree the core built.
+//
+// The body runs in a child process: there no test certification was ever
+// installed, as in production, so the short first test of the reparse answers.
+func TestCcoreUnchangedReparseWithACertificateInTheBuild(t *testing.T) {
+	if os.Getenv("GTS_TEST_CCORE_ROUTE") == "1" {
+		t.Skip("the route-on run certifies every language")
+	}
+	if os.Getenv("GTS_TEST_CCORE_UNCHANGED_CHILD") != "1" {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestCcoreUnchangedReparseWithACertificateInTheBuild$", "-test.count=1")
+		cmd.Env = append(os.Environ(), "GTS_TEST_CCORE_UNCHANGED_CHILD=1")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("child: %v\n%s", err, out)
+		}
+		return
+	}
+	if gts.CcoreTestEverTest() {
+		t.Fatal("setup: a test certification was installed in the child process")
+	}
+	py := gts.NewParser(ccoreRouteLang(t, "python"))
+	src := []byte("x = 1\n")
+	tree, err := py.Parse(src)
+	if err != nil || tree == nil || gts.CcoreTestFromCore(tree) {
+		t.Fatalf("python parse: %v", err)
+	}
+	defer tree.Release()
+	for i := 0; i < 3; i++ {
+		again, err := py.ParseIncremental(src, tree)
+		if err != nil || again != tree {
+			t.Fatalf("reparse %d without edits of an uncertified grammar did not return the old tree: %v", i, err)
+		}
+	}
+
+	js := gts.NewParser(ccoreRouteLang(t, "json"))
+	jsrc := []byte(`[123,456]`)
+	core, err := js.Parse(jsrc)
+	if err != nil || core == nil || !gts.CcoreTestFromCore(core) {
+		t.Fatalf("json parse was not served by the core: %v", err)
+	}
+	defer core.Release()
+	same, err := js.ParseIncremental(jsrc, core)
+	if err != nil || same != core {
+		t.Fatalf("a reparse without edits by the core's own parser did not return the old tree: %v", err)
+	}
+	js.SetAdmissionCandidateRoute(false)
+	other, err := js.ParseIncremental(jsrc, core)
+	if err != nil || other == nil {
+		t.Fatalf("reparse after opting out: %v", err)
+	}
+	if other == core || gts.CcoreTestFromCore(other) {
+		t.Fatal("a parser that opted out of the core handed back a tree the core built")
+	}
+	other.Release()
+}
+
+func TestCcoreDefaultIgnoresCandidateDefaultOff(t *testing.T) {
+	if os.Getenv("GTS_TEST_CCORE_ENV_CHILD") != "1" {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestCcoreDefaultIgnoresCandidateDefaultOff$", "-test.count=1")
+		cmd.Env = append(os.Environ(), "GTS_ADMISSION_CANDIDATE=0", "GTS_TEST_CCORE_ENV_CHILD=1")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("child: %v\n%s", err, out)
+		}
+		return
+	}
+	if gts.AdmissionCandidateRouteDefault() {
+		t.Fatal("environment did not disable the candidate default")
+	}
+	for _, setDefault := range []bool{false, true} {
+		if setDefault {
+			gts.SetAdmissionCandidateRouteDefault(false)
+		}
+		tree, err := gts.NewParser(ccoreRouteLang(t, "json")).Parse([]byte(`{"x":1}`))
+		if err != nil || tree == nil || !gts.CcoreTestFromCore(tree) {
+			t.Fatalf("default-off parse: %v", err)
+		}
+		tree.Release()
 	}
 }
 
 func TestCcorePanicInConversionFallsBack(t *testing.T) {
+	defer gts.CcoreTestViewsOn(false)()
 	json := ccoreRouteLang(t, "json")
 	src := ccoreJSONSource(3000)
 	defer ccoreCertifyAll()()
@@ -1974,6 +2197,7 @@ func TestCcorePanicInConversionFallsBack(t *testing.T) {
 }
 
 func TestCcoreReparseDeclineAttemptsOnce(t *testing.T) {
+	defer gts.CcoreTestViewsOn(false)()
 	defer ccoreCertifyAll()()
 	lang := ccoreRouteLang(t, "json")
 	for _, profiled := range []bool{false, true} {
@@ -2137,7 +2361,9 @@ func TestCcoreIncrSessionEqualsFresh(t *testing.T) {
 
 // Each case in which a reparse is a fresh core parse, with its counter.
 func TestCcoreIncrFallbackCases(t *testing.T) {
-	lang := ccoreRouteLang(t, "json")
+	defer gts.CcoreTestViewsOn(false)()
+	lang := ccoreCopyLanguage(ccoreRouteLang(t, "json"))
+	gts.CcoreTestSetBlob(lang, [32]byte{1})
 	base := ccoreJSONSource(40)
 	type tc struct {
 		name  string
