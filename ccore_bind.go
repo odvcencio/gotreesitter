@@ -634,8 +634,8 @@ const (
 
 // ccoreBlobAllowlist is the twin of admissionCandidateLanguageAllowlist keyed
 // by grammar blob SHA-256: the blobs for which the default route widens. It is
-// empty and the candidate route does not consult it yet; only
-// TestCcoreUnroutedMarkerMatchesEmptyLists reads it.
+// empty and the candidate route does not consult it yet; CcoreTestAllowlistSize
+// reads it in tests.
 var ccoreBlobAllowlist = map[[32]byte]bool{}
 
 // ccoreTestParserHook is test-only (nil in production): it is called with a
@@ -2336,12 +2336,6 @@ func (p *Parser) ccoreFullParse(source []byte) (tree *Tree, ok bool) {
 	return tree, ok
 }
 
-// ccoreUnchangedTreeAllowed decides, once a certificate has existed in this
-// process, whether a reparse of unchanged source may return the old tree. The
-// callers ask canReuseUnchangedTree first, as they did before the route, and then
-// certified.EverActive: while no certificate has existed no tree has a core link
-// and this function is not called, so a reparse without edits costs one flag read
-// more than before and no extra call.
 // ccoreNeverServes is the first test of a reparse without edits, small enough to
 // be inlined at the call sites because such a reparse takes a few nanoseconds.
 // It is true when the language's blob has no certificate and no test
