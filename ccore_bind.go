@@ -308,7 +308,7 @@ func ccoreBindCheckTables(lang any) (checked, differ int, err error) {
 }
 
 func init() {
-	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables, RouteCounters: ccoreRouteCounters, RouteNanos: ccoreRouteNanos, RouteLimits: ccoreRouteLimits, RootOnlyFields: ccoreBindRootOnlyFields, ViewsOn: ccoreSetViewsOn, ViewCounters: ccoreViewCounters})
+	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables, RouteCounters: ccoreRouteCounters, IncrFallbacks: ccoreRouteIncrFallbacks, RouteNanos: ccoreRouteNanos, RouteLimits: ccoreRouteLimits, RootOnlyFields: ccoreBindRootOnlyFields, ViewsOn: ccoreSetViewsOn, ViewCounters: ccoreViewCounters})
 }
 
 type cfgW struct {
@@ -693,6 +693,16 @@ func ccoreRouteCounters() (map[string]int64, int64, int64) {
 		}
 	}
 	return out, ccoreServedFresh.Load(), ccoreServedIncr.Load()
+}
+
+func ccoreRouteIncrFallbacks() map[string]int64 {
+	out := make(map[string]int64)
+	for i := range ccoreIncrFallbacks {
+		if v := ccoreIncrFallbacks[i].Load(); v != 0 {
+			out[ccoreIncrFallbackNames[i]] = v
+		}
+	}
+	return out
 }
 
 func ccoreBindRootOnlyFields(lang any) []string {

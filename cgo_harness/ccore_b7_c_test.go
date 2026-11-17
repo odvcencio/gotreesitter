@@ -307,7 +307,7 @@ func b7CountCell(t *testing.T, lang, size, class string, gl *g.Language, cl *sit
 	_, _, views1 := bind.ViewCounters()
 	shortcutDelta := views1["shortcut_reparses"] - views0["shortcut_reparses"]
 	shortcut := shortcutDelta == 1
-	wantShortcut := os.Getenv("CCORE_VIEWS") == "1" && class == "same"
+	wantShortcut := ccoreViewsEnabled() && class == "same"
 	if shortcutDelta < 0 || shortcutDelta > 1 || shortcut != wantShortcut {
 		t.Errorf("%s/%s/%s: shortcut reparses=%d, want %t", lang, size, class, shortcutDelta, wantShortcut)
 	}

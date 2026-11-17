@@ -37,6 +37,8 @@ type Adapter struct {
 	// RouteCounters is optional: the route's decline counts by reason, and the
 	// number of fresh parses and reparses the core served. Test programs read it.
 	RouteCounters func() (declines map[string]int64, servedFresh, servedIncr int64)
+	// IncrFallbacks returns fresh-reparse counts by reason.
+	IncrFallbacks func() map[string]int64
 	// RouteNanos is optional: nanoseconds the route spent in the core parse, in
 	// the conversion to the public tree, in the core's tree edit and in the check
 	// of the recorded edits against the bytes, since the
@@ -162,6 +164,15 @@ func RouteCounters() (declines map[string]int64, servedFresh, servedIncr int64) 
 		return nil, 0, 0
 	}
 	return a.RouteCounters()
+}
+
+// IncrFallbacks reads the reasons for fresh reparses.
+func IncrFallbacks() map[string]int64 {
+	a, err := registered()
+	if err != nil || a.IncrFallbacks == nil {
+		return nil
+	}
+	return a.IncrFallbacks()
 }
 
 // RouteNanos reads (and with reset zeroes) the route's time counters (see Adapter.RouteNanos).

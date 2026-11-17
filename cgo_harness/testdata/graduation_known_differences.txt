@@ -1,0 +1,6 @@
+# Approved differences between the core's public tree and pinned C, and between
+# C's incremental and fresh trees for an edited source.
+# One entry per line, tab separated:
+#   language <TAB> grammar blob SHA-256 <TAB> input SHA-256 <TAB> approval reference
+# An entry without an approval reference fails the gate (cgo_harness/graduation_gate_c_test.go).
+# The file starts empty: no difference is approved.
