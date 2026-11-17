@@ -26,6 +26,7 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -248,33 +249,66 @@ func gradCopyMap(m map[string]int64) map[string]int64 {
 	return out
 }
 
-// gradKnownDifferences reads cgo_harness/testdata/graduation_known_differences.txt:
-// one line per entry, tab separated: language, blob SHA-256, input SHA-256,
-// approval reference. An entry without an approval reference fails the run.
-func gradKnownDifferences(t *testing.T) map[[3]string]string {
+const (
+	gradFreshTreeDifference    = "fresh_tree"
+	gradCIncrementalDifference = "c_incremental_vs_fresh"
+)
+
+func gradKnownDifferences(t *testing.T) map[[4]string]string {
 	t.Helper()
-	out := map[[3]string]string{}
-	f, err := os.Open("testdata/graduation_known_differences.txt")
+	const path = "testdata/graduation_known_differences.txt"
+	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	sc := bufio.NewScanner(f)
+	out, err := gradReadKnownDifferences(f)
+	if err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	return out
+}
+
+func gradReadKnownDifferences(r io.Reader) (map[[4]string]string, error) {
+	out := map[[4]string]string{}
+	sc := bufio.NewScanner(r)
 	for n := 1; sc.Scan(); n++ {
 		line := strings.TrimSpace(sc.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 		fields := strings.Split(line, "\t")
-		if len(fields) < 4 || strings.TrimSpace(fields[3]) == "" {
-			t.Fatalf("graduation_known_differences.txt:%d: an entry needs an approval reference", n)
+		if len(fields) != 5 || strings.TrimSpace(fields[4]) == "" {
+			return nil, fmt.Errorf("line %d: an entry needs a comparison, language, blob, witness and approval reference", n)
 		}
-		out[[3]string{fields[0], fields[1], fields[2]}] = fields[3]
+		switch fields[0] {
+		case gradFreshTreeDifference, gradCIncrementalDifference:
+		default:
+			return nil, fmt.Errorf("line %d: unknown comparison %q", n, fields[0])
+		}
+		out[[4]string{fields[0], fields[1], fields[2], fields[3]}] = fields[4]
 	}
-	if err := sc.Err(); err != nil {
-		t.Fatalf("item 1 known differences: %v", err)
+	return out, sc.Err()
+}
+
+func TestGraduationKnownDifferences(t *testing.T) {
+	gradRun(t)
+	const entry = "c_incremental_vs_fresh\tdart\tblob\twitness\tapproved"
+	known, err := gradReadKnownDifferences(strings.NewReader(entry))
+	if err != nil {
+		t.Fatal(err)
 	}
-	return out
+	if known[[4]string{gradCIncrementalDifference, "dart", "blob", "witness"}] != "approved" {
+		t.Fatal("missing approved C incremental/fresh difference")
+	}
+	if known[[4]string{gradFreshTreeDifference, "dart", "blob", "witness"}] != "" {
+		t.Fatal("C incremental/fresh approval leaked into fresh parity")
+	}
+	for _, invalid := range []string{"dart\tblob\twitness\tapproved", "unknown\tdart\tblob\twitness\tapproved", "fresh_tree\tdart\tblob\twitness\t"} {
+		if _, err := gradReadKnownDifferences(strings.NewReader(invalid)); err == nil {
+			t.Fatalf("invalid entry accepted: %q", invalid)
+		}
+	}
 }
 
 func gradSHA(b []byte) string { return fmt.Sprintf("%x", sha256.Sum256(b)) }
@@ -406,7 +440,7 @@ func TestGraduationFresh(t *testing.T) {
 		switch {
 		case n == 0:
 			equal++
-		case !gradNeg(1) && known[[3]string{c.name, c.blob, gradSHA(in.Src)}] != "":
+		case !gradNeg(1) && known[[4]string{gradFreshTreeDifference, c.name, c.blob, gradSHA(in.Src)}] != "":
 			approved++
 		default:
 			diffs++
@@ -602,16 +636,28 @@ func TestGraduationInvariants(t *testing.T) {
 	for _, st := range sites {
 		run("site", []gradStep{{id: "base", src: sample}, st})
 	}
+	oldSteps, oldEq, oldErr, oldCov, oldAlloc := steps, okEq, okErr, okCov, okAlloc
+	oldService := service
+	service = gradService{}
+	cleanSource, cleanName := gradCleanSource(t, c, 4<<10)
+	cleanChain := gradCleanEdits(t, c, cleanSource, 48, 4242)
+	if cleanSource != nil {
+		run("clean", append([]gradStep{{id: "base", src: cleanSource}}, cleanChain...))
+	}
 	status := "pass"
 	switch {
-	case len(chain) != 73 || len(sites) != 48 || steps != 120:
-		status, first = "na", fmt.Sprintf("session_steps=%d sites=%d steps=%d", len(chain)-1, len(sites), steps)
+	case oldService.invalid != 0:
+		status, first = "fail", oldService.first
 	case service.invalid != 0:
 		status, first = "fail", service.first
 	case okEq != steps || okErr != steps || okCov != steps || okAlloc != steps:
 		status = "fail"
+	case len(chain) != 73:
+		status, first = "na", fmt.Sprintf("session_steps=%d", len(chain)-1)
+	case service.incremental < 24:
+		status, first = "na", gradCleanShortReason(cleanSource, len(cleanChain), service.incremental)
 	}
-	gradResult(2, status, fmt.Sprintf("steps=%d incr_equals_fresh=%d error_root_has_error=%d root_covers_input=%d no_edit_zero_alloc=%d %s", steps, okEq, okErr, okCov, okAlloc, service.numbers()), first)
+	gradResult(2, status, fmt.Sprintf("steps=%d incr_equals_fresh=%d error_root_has_error=%d root_covers_input=%d no_edit_zero_alloc=%d %s clean_source=%q clean_steps=%d clean_incremental=%d", oldSteps, oldEq, oldErr, oldCov, oldAlloc, oldService.numbers(), cleanName, len(cleanChain), service.incremental), first)
 	gradPrintDecl(2, base, f0, i0)
 }
 
@@ -634,10 +680,10 @@ func gradIncrementalVerdict(c gradIncrementalCounts) (string, string) {
 		return "fail", "invalid route service"
 	case c.unapproved != 0:
 		return "fail", "C incremental tree differs from fresh without approval"
-	case c.steps == 0 || c.edits == 0 || c.recordSteps == 0:
-		return "na", fmt.Sprintf("steps=%d edits=%d record_steps=%d", c.steps, c.edits, c.recordSteps)
 	case c.equalTrees != c.steps || c.equalRecords != c.recordSteps:
 		return "fail", "tree or record differs from C"
+	case c.steps == 0 || c.edits == 0 || c.recordSteps == 0:
+		return "na", fmt.Sprintf("steps=%d edits=%d record_steps=%d", c.steps, c.edits, c.recordSteps)
 	default:
 		return "pass", ""
 	}
@@ -658,6 +704,7 @@ func TestGraduationIncrementalVerdict(t *testing.T) {
 		{"no steps", gradIncrementalCounts{}, "na", "steps=0 edits=0 record_steps=0"},
 		{"no edits", gradIncrementalCounts{steps: 1, equalTrees: 1}, "na", "steps=1 edits=0 record_steps=0"},
 		{"no records", gradIncrementalCounts{steps: 1, edits: 1, equalTrees: 1}, "na", "steps=1 edits=1 record_steps=0"},
+		{"tree mismatch with no records", gradIncrementalCounts{steps: 1, edits: 1}, "fail", "tree or record differs from C"},
 		{"invalid service", gradIncrementalCounts{invalidService: 1}, "fail", "invalid route service"},
 		{"tree mismatch", gradIncrementalCounts{steps: 2, edits: 1, recordSteps: 1, equalTrees: 1, equalRecords: 1}, "fail", "tree or record differs from C"},
 		{"record mismatch", gradIncrementalCounts{steps: 2, edits: 1, recordSteps: 1, equalTrees: 2}, "fail", "tree or record differs from C"},
@@ -700,117 +747,135 @@ func TestGraduationIncremental(t *testing.T) {
 			first = id + ": " + what
 		}
 	}
-	for _, st := range chain {
-		var next *g.Tree
-		var err error
-		if st.edit == nil {
-			cTree = cp.Parse(st.src, nil)
-			if stop := core.Parse(st.src, nil); stop != "" {
-				t.Fatalf("item 3 input=%s core stop=%s", st.id, stop)
-			}
-			coreTree = core.Tree()
-			_, freshBefore, _ := bind.RouteCounters()
-			next, err = p.Parse(st.src)
-			_, freshAfter, _ := bind.RouteCounters()
-			if freshAfter-freshBefore != 1 {
-				service.invalid++
-				if service.first == "" {
-					service.first = st.id + ": fresh parse was not served by the core"
+	run := func(chain []gradStep) {
+		for _, st := range chain {
+			var next *g.Tree
+			var err error
+			if st.edit == nil {
+				cTree = cp.Parse(st.src, nil)
+				if stop := core.Parse(st.src, nil); stop != "" {
+					t.Fatalf("item 3 input=%s core stop=%s", st.id, stop)
 				}
-			}
-		} else {
-			cTree.Edit(gradSitterEdit(*st.edit))
-			cn := cp.Parse(st.src, cTree)
-			cTree.Close()
-			cTree = cn
-			e := st.edit
-			ce := bindtest.Edit{StartByte: e.StartByte, OldEndByte: e.OldEndByte, NewEndByte: e.NewEndByte, StartRow: e.StartPoint.Row, StartCol: e.StartPoint.Column, OldEndRow: e.OldEndPoint.Row, OldEndCol: e.OldEndPoint.Column, NewEndRow: e.NewEndPoint.Row, NewEndCol: e.NewEndPoint.Column}
-			edited := core.Edit(coreTree, ce)
-			newCore, stop := core.ParseIncremental(st.src, edited, nil)
-			core.Release(edited)
-			core.Release(coreTree)
-			if stop != "" || !newCore.Valid() {
-				t.Fatalf("item 3 input=%s core stop=%q", st.id, stop)
-			}
-			coreTree = newCore
-			oldError := tree.RootNode().HasError()
-			tree.Edit(*st.edit)
-			before, f0, i0 := service.begin()
-			next, err = p.ParseIncremental(st.src, tree)
-			incr := service.end(st.id, before, f0, i0, oldError, next)
-			edits++
-			if incr {
-				ch, ccount, rc := corecords.Hash(cTree, "")
-				gh, gn := core.RecordsHash("")
-				recordSteps++
-				if rc == 0 && ccount > 0 && gn > 0 && ch == gh && ccount == gn {
-					recordEqual++
-				} else {
-					note(st.id, fmt.Sprintf("records route=%x/%d C=%x/%d C_status=%d", gh, gn, ch, ccount, rc))
+				coreTree = core.Tree()
+				_, freshBefore, _ := bind.RouteCounters()
+				next, err = p.Parse(st.src)
+				_, freshAfter, _ := bind.RouteCounters()
+				if freshAfter-freshBefore != 1 {
+					service.invalid++
+					if service.first == "" {
+						service.first = st.id + ": fresh parse was not served by the core"
+					}
 				}
-			}
-		}
-		if err != nil || next == nil {
-			t.Fatalf("%s: parse: %v", st.id, err)
-		}
-		steps++
-		cmp := cTree
-		var freshC *sitter.Tree
-		if st.edit != nil && service.incremental == lastIncr {
-			freshC = cp.Parse(st.src, nil)
-			incrementalDigest, err1 := COracleDeepDigest(cTree)
-			freshDigest, err2 := COracleDeepDigest(freshC)
-			if err1 != nil || err2 != nil {
-				t.Fatalf("item 3 input=%s C tree digest: %v %v", st.id, err1, err2)
-			}
-			if incrementalDigest != freshDigest {
-				cDiff++
-				if _, ok := known[[3]string{c.name, c.blob, gradSHA(st.src)}]; !ok {
-					cUnapproved++
-					if firstUnapproved == "" {
-						firstUnapproved = st.id
+			} else {
+				cTree.Edit(gradSitterEdit(*st.edit))
+				cn := cp.Parse(st.src, cTree)
+				cTree.Close()
+				cTree = cn
+				e := st.edit
+				ce := bindtest.Edit{StartByte: e.StartByte, OldEndByte: e.OldEndByte, NewEndByte: e.NewEndByte, StartRow: e.StartPoint.Row, StartCol: e.StartPoint.Column, OldEndRow: e.OldEndPoint.Row, OldEndCol: e.OldEndPoint.Column, NewEndRow: e.NewEndPoint.Row, NewEndCol: e.NewEndPoint.Column}
+				edited := core.Edit(coreTree, ce)
+				newCore, stop := core.ParseIncremental(st.src, edited, nil)
+				core.Release(edited)
+				core.Release(coreTree)
+				if stop != "" || !newCore.Valid() {
+					t.Fatalf("item 3 input=%s core stop=%q", st.id, stop)
+				}
+				coreTree = newCore
+				oldError := tree.RootNode().HasError()
+				tree.Edit(*st.edit)
+				before, f0, i0 := service.begin()
+				next, err = p.ParseIncremental(st.src, tree)
+				incr := service.end(st.id, before, f0, i0, oldError, next)
+				edits++
+				if incr {
+					ch, ccount, rc := corecords.Hash(cTree, "")
+					gh, gn := core.RecordsHash("")
+					recordSteps++
+					if rc == 0 && ccount > 0 && gn > 0 && ch == gh && ccount == gn {
+						recordEqual++
+					} else {
+						note(st.id, fmt.Sprintf("records route=%x/%d C=%x/%d C_status=%d", gh, gn, ch, ccount, rc))
 					}
 				}
 			}
-			cmp = freshC
+			if err != nil || next == nil {
+				t.Fatalf("%s: parse: %v", st.id, err)
+			}
+			steps++
+			cmp := cTree
+			var freshC *sitter.Tree
+			if st.edit != nil && service.incremental == lastIncr {
+				freshC = cp.Parse(st.src, nil)
+				incrementalDigest, err1 := COracleDeepDigest(cTree)
+				freshDigest, err2 := COracleDeepDigest(freshC)
+				if err1 != nil || err2 != nil {
+					t.Fatalf("item 3 input=%s C tree digest: %v %v", st.id, err1, err2)
+				}
+				if incrementalDigest != freshDigest {
+					cDiff++
+					witness := gradSHA([]byte(strings.Join([]string{COracleRuntimeCommit, gradSHA(st.src), incrementalDigest, freshDigest}, "\n")))
+					if _, ok := known[[4]string{gradCIncrementalDifference, c.name, c.blob, witness}]; !ok {
+						cUnapproved++
+						if firstUnapproved == "" {
+							firstUnapproved = st.id
+						}
+					}
+				}
+				cmp = freshC
+			}
+			lastIncr = service.incremental
+			if gradNeg(3) && cStale != nil {
+				cmp = cStale // corrupted expectation: C's tree of the step before
+			}
+			if st.edit != nil && gradNeg(3) && cStale == nil {
+				cStale = cp.Parse(chain[0].src, nil)
+			}
+			n, why := gradFirstDiv(next, c, cmp)
+			if gradNeg(3) && st.edit != nil {
+				n, why = n+1, "corrupted expectation"
+			}
+			if n == 0 {
+				eqC++
+			} else {
+				note(st.id, fmt.Sprintf("route tree differs from C: %d differences, first %s", n, why))
+			}
+			if freshC != nil {
+				freshC.Close()
+			}
+			if tree != nil && tree != next {
+				tree.Release()
+			}
+			tree = next
 		}
-		lastIncr = service.incremental
-		if gradNeg(3) && cStale != nil {
-			cmp = cStale // corrupted expectation: C's tree of the step before
-		}
-		if st.edit != nil && gradNeg(3) && cStale == nil {
-			cStale = cp.Parse(chain[0].src, nil)
-		}
-		n, why := gradFirstDiv(next, c, cmp)
-		if gradNeg(3) && st.edit != nil {
-			n, why = n+1, "corrupted expectation"
-		}
-		if n == 0 {
-			eqC++
-		} else {
-			note(st.id, fmt.Sprintf("route tree differs from C: %d differences, first %s", n, why))
-		}
-		if freshC != nil {
-			freshC.Close()
-		}
-		if tree != nil && tree != next {
+		if tree != nil {
 			tree.Release()
 		}
-		tree = next
+		cTree.Close()
+		if cStale != nil {
+			cStale.Close()
+		}
+		core.Release(coreTree)
+		tree, cTree, cStale = nil, nil, nil
 	}
-	if tree != nil {
-		tree.Release()
+	run(chain)
+	oldSteps, oldEq, oldRecords, oldRecordEqual, oldCDiff, oldCUnapproved := steps, eqC, recordSteps, recordEqual, cDiff, cUnapproved
+	oldService := service
+	oldService.reasons = gradCopyMap(service.reasons)
+	cleanSource, cleanName := gradCleanSource(t, c, 4<<10)
+	var cleanChain []gradStep
+	if cleanSource != nil {
+		cleanChain = gradCleanEdits(t, c, cleanSource, 48, 4242)
+		run(append([]gradStep{{id: "clean-base", src: cleanSource}}, cleanChain...))
 	}
-	cTree.Close()
-	if cStale != nil {
-		cStale.Close()
-	}
-	core.Release(coreTree)
+	cleanIncremental := service.incremental - oldService.incremental
 	status, reason := gradIncrementalVerdict(gradIncrementalCounts{steps, edits, recordSteps, eqC, recordEqual, service.invalid, cDiff, cUnapproved})
 	if service.invalid != 0 {
 		first = service.first
 	} else if status == "na" {
 		first = reason
+	}
+	if status != "fail" && cleanIncremental < 24 {
+		status, first = "na", gradCleanShortReason(cleanSource, len(cleanChain), cleanIncremental)
 	}
 	if cUnapproved != 0 {
 		detail := firstUnapproved + ": C incremental tree differs from fresh without approval"
@@ -820,14 +885,14 @@ func TestGraduationIncremental(t *testing.T) {
 			first += "; " + detail
 		}
 	}
-	gradResult(3, status, fmt.Sprintf("steps=%d tree_equals_c=%d record_steps=%d records_equal_c=%d c_incremental_differs_from_fresh=%d c_incremental_differs_unapproved=%d %s", steps, eqC, recordSteps, recordEqual, cDiff, cUnapproved, service.numbers()), first)
+	gradResult(3, status, fmt.Sprintf("steps=%d tree_equals_c=%d record_steps=%d records_equal_c=%d c_incremental_differs_from_fresh=%d c_incremental_differs_unapproved=%d %s clean_source=%q clean_steps=%d clean_incremental=%d", oldSteps, oldEq, oldRecords, oldRecordEqual, oldCDiff, oldCUnapproved, oldService.numbers(), cleanName, len(cleanChain), cleanIncremental), first)
 	gradPrintDecl(3, base, f0, i0)
 }
 
 // Item 5: reuse per step of the session. The core-served arm is compared with C: the
 // number of subtrees the route reuses at a step must equal the number of reuse_node
-// events in C's parse log for the same step. The default engine's reused bytes are
-// reported, not judged.
+// events in C after the same history of edits and shortcuts. An independent C
+// chain reparses every edit and checks the shortcut's public result.
 // gradReuseStepRule checks a compared step after shortcut validation.
 func gradReuseStepRule(shortcut, validShortcut bool, route, c uint64) string {
 	if shortcut {
@@ -872,113 +937,172 @@ func TestGraduationReuse(t *testing.T) {
 	sample, _ := gradSample(t, c.name)
 	chain := gradChain(sample)
 	rp, lp := gradRoute(c.lang), gradDefault(c.lang)
-	var clog []string
-	cp := gradCParser(t, c, &clog)
+	cp := gradCParser(t, c, nil)
 	defer cp.Close()
+	var mirrorLog []string
+	mirror := gradCParser(t, c, &mirrorLog)
+	defer mirror.Close()
 	var rt, lt *g.Tree
-	var cTree *sitter.Tree
+	var cTree, mirrorTree *sitter.Tree
 	steps, compared, differ, shortcutSteps, noReuse := 0, 0, 0, 0, 0
 	var service gradService
 	var rSum, lSum, rNodes, cNodes, shortcutNodes uint64
 	first := ""
-	for _, st := range chain {
-		if st.edit == nil {
-			var err error
-			cTree = cp.Parse(st.src, nil)
-			if rt, err = rp.Parse(st.src); err != nil {
+	run := func(chain []gradStep) {
+		for _, st := range chain {
+			if st.edit == nil {
+				var err error
+				cTree = cp.Parse(st.src, nil)
+				if cTree == nil {
+					t.Fatalf("item 5 input=%s: C parse failed", st.id)
+				}
+				mirrorTree = cTree.Clone()
+				if rt, err = rp.Parse(st.src); err != nil {
+					t.Fatal(err)
+				}
+				if lt, err = lp.Parse(st.src); err != nil {
+					t.Fatal(err)
+				}
+				continue
+			}
+			edit := gradSitterEdit(*st.edit)
+			cTree.Edit(edit)
+			cn := cp.Parse(st.src, cTree)
+			cTree.Close()
+			cTree = cn
+			if cTree == nil {
+				t.Fatalf("item 5 input=%s: C incremental parse failed", st.id)
+			}
+			oldError := rt.RootNode().HasError()
+			rt.Edit(*st.edit)
+			lt.Edit(*st.edit)
+			before, f0, i0 := service.begin()
+			_, _, v0 := bind.ViewCounters()
+			rn, rprof, err := rp.ParseIncrementalProfiled(st.src, rt)
+			_, _, v1 := bind.ViewCounters()
+			shortcutDelta := v1["shortcut_reparses"] - v0["shortcut_reparses"]
+			incr := service.end(st.id, before, f0, i0, oldError, rn)
+			if err != nil {
 				t.Fatal(err)
 			}
-			if lt, err = lp.Parse(st.src); err != nil {
+			ln, lprof, err := lp.ParseIncrementalProfiled(st.src, lt)
+			if err != nil {
 				t.Fatal(err)
 			}
-			continue
-		}
-		clog = clog[:0]
-		cTree.Edit(gradSitterEdit(*st.edit))
-		cn := cp.Parse(st.src, cTree)
-		cTree.Close()
-		cTree = cn
-		cReused := gradCount(clog, "reuse_node ")
-		oldError := rt.RootNode().HasError()
-		rt.Edit(*st.edit)
-		lt.Edit(*st.edit)
-		before, f0, i0 := service.begin()
-		_, _, v0 := bind.ViewCounters()
-		rn, rprof, err := rp.ParseIncrementalProfiled(st.src, rt)
-		_, _, v1 := bind.ViewCounters()
-		shortcutDelta := v1["shortcut_reparses"] - v0["shortcut_reparses"]
-		incr := service.end(st.id, before, f0, i0, oldError, rn)
-		if err != nil {
-			t.Fatal(err)
-		}
-		ln, lprof, err := lp.ParseIncrementalProfiled(st.src, lt)
-		if err != nil {
-			t.Fatal(err)
-		}
-		steps++
-		if incr || shortcutDelta != 0 {
-			compared++
-			rSum += rprof.ReusedBytes
-			lSum += lprof.ReusedBytes
-			problem := ""
-			wantBytes := rprof.ReusedBytes
-			if shortcutDelta != 0 {
-				wantBytes = uint64(len(st.src))
+			steps++
+			var cReused int
+			switch {
+			case incr && shortcutDelta == 0:
+				mirrorLog = mirrorLog[:0]
+				mirrorTree.Edit(edit)
+				next := mirror.Parse(st.src, mirrorTree)
+				mirrorTree.Close()
+				mirrorTree = next
+				cReused = gradCount(mirrorLog, "reuse_node ")
+			case !incr:
+				// The route reparsed from scratch. Match its input history
+				// for subsequent edits while leaving the C chain above intact.
+				mirrorLog = mirrorLog[:0]
+				mirrorTree.Close()
+				mirrorTree = mirror.Parse(st.src, nil)
+				// A shortcut kept the pre-edit root. Keep the mirror tree too.
 			}
-			if gradNeg(5) {
-				wantBytes = rprof.ReusedBytes + 1
+			if mirrorTree == nil {
+				t.Fatalf("item 5 input=%s: C parse with matching history failed", st.id)
 			}
-			if rprof.ReusedBytes != wantBytes {
-				problem = fmt.Sprintf("route reused %d bytes, want %d", rprof.ReusedBytes, wantBytes)
-			}
-			if shortcutDelta != 0 {
-				shortcutSteps++
-				shortcutNodes += rprof.ReusedSubtrees
-				validShortcut := shortcutDelta == 1 && incr && ccoreViewsEnabled() && st.edit.OldEndByte-st.edit.StartByte == st.edit.NewEndByte-st.edit.StartByte
-				switch {
-				case gradReuseStepRule(true, validShortcut, rprof.ReusedSubtrees, uint64(cReused)) != "":
-					problem = fmt.Sprintf("invalid shortcut: delta=%d incremental=%t views=%t edit=%+v", shortcutDelta, incr, ccoreViewsEnabled(), *st.edit)
-				default:
-					if divs := compactT3StructuralDivergences(rn.RootNode(), c.lang, cTree.RootNode()); len(divs) != 0 {
-						problem = "shortcut tree differs from C: " + compactT3FormatDivergence(divs[0])
+			if incr || shortcutDelta != 0 {
+				compared++
+				rSum += rprof.ReusedBytes
+				lSum += lprof.ReusedBytes
+				problem := ""
+				if shortcutDelta != 0 {
+					shortcutSteps++
+					shortcutNodes += rprof.ReusedSubtrees
+					wantBytes := uint64(len(st.src))
+					if gradNeg(5) {
+						wantBytes++
+					}
+					validShortcut := shortcutDelta == 1 && incr && ccoreViewsEnabled() &&
+						st.edit.OldEndByte == st.edit.NewEndByte && st.edit.OldEndPoint == st.edit.NewEndPoint
+					switch {
+					case gradReuseStepRule(true, validShortcut, rprof.ReusedSubtrees, uint64(cReused)) != "":
+						problem = fmt.Sprintf("invalid shortcut: delta=%d incremental=%t views=%t edit=%+v", shortcutDelta, incr, ccoreViewsEnabled(), *st.edit)
+					case rprof.ReusedSubtrees != 1 || rprof.ReusedBytes != wantBytes:
+						problem = fmt.Sprintf("shortcut reused %d subtrees and %d bytes, want 1 subtree and %d bytes", rprof.ReusedSubtrees, rprof.ReusedBytes, wantBytes)
+					default:
+						if divs := compactT3StructuralDivergences(rn.RootNode(), c.lang, cTree.RootNode()); len(divs) != 0 {
+							problem = "shortcut tree differs from C: " + compactT3FormatDivergence(divs[0])
+						}
+					}
+				} else {
+					rNodes += rprof.ReusedSubtrees
+					cNodes += uint64(cReused)
+					if rprof.ReusedSubtrees == 0 {
+						noReuse++
+					}
+					wantSubtrees := uint64(cReused)
+					if gradNeg(5) {
+						wantSubtrees = rprof.ReusedSubtrees + 1
+					}
+					problem = gradReuseStepRule(false, false, rprof.ReusedSubtrees, wantSubtrees)
+				}
+				if problem != "" {
+					differ++
+					if first == "" {
+						first = st.id + ": " + problem
 					}
 				}
-			} else {
-				rNodes += rprof.ReusedSubtrees
-				cNodes += uint64(cReused)
-				if rprof.ReusedSubtrees == 0 {
-					noReuse++
-				}
-				if stepProblem := gradReuseStepRule(false, false, rprof.ReusedSubtrees, uint64(cReused)); problem == "" {
-					problem = stepProblem
-				}
 			}
-			if problem != "" {
-				differ++
-				if first == "" {
-					first = st.id + ": " + problem
-				}
+			if rt != rn {
+				rt.Release()
 			}
+			if lt != ln {
+				lt.Release()
+			}
+			rt, lt = rn, ln
 		}
-		if rt != rn {
+		cTree.Close()
+		mirrorTree.Close()
+		if rt != nil {
 			rt.Release()
 		}
-		if lt != ln {
+		if lt != nil {
 			lt.Release()
 		}
-		rt, lt = rn, ln
+		rt, lt, cTree, mirrorTree = nil, nil, nil, nil
 	}
-	cTree.Close()
+	run(chain)
+	oldNumbers := fmt.Sprintf("steps=%d compared=%d shortcut_steps=%d shortcut_subtrees_route=%d clean_steps_without_reuse=%d steps_differing_from_c=%d reused_subtrees_route=%d reused_subtrees_c=%d reused_bytes_route=%d reused_bytes_default_engine=%d %s", steps, compared, shortcutSteps, shortcutNodes, noReuse, differ, rNodes, cNodes, rSum, lSum, service.numbers())
+	oldDiffer, oldInvalid, oldFirst := differ, service.invalid, first
+	oldServiceFirst := service.first
+	steps, compared, differ, shortcutSteps, noReuse = 0, 0, 0, 0, 0
+	rSum, lSum, rNodes, cNodes, shortcutNodes = 0, 0, 0, 0, 0
+	service, first = gradService{}, ""
+	cleanSource, cleanName := gradCleanSource(t, c, 4<<10)
+	var cleanChain []gradStep
+	if cleanSource != nil {
+		cleanChain = gradCleanEdits(t, c, cleanSource, 48, 4242)
+		run(append([]gradStep{{id: "clean-base", src: cleanSource}}, cleanChain...))
+	}
+	noShortcutDiffer, noShortcutReason := gradCleanNoShortcut(t, c, cleanSource, cleanChain)
 	status := "pass"
 	switch {
+	case oldInvalid != 0:
+		status, first = "fail", oldServiceFirst
 	case service.invalid != 0:
 		status, first = "fail", service.first
-	case compared == 0:
-		status, first = "na", "no incremental step compared"
+	case oldDiffer > 0:
+		status, first = "fail", oldFirst
 	case differ > 0:
 		status = "fail"
+	case len(cleanChain) < 48 || service.incremental < 24:
+		status, first = "na", gradCleanShortReason(cleanSource, len(cleanChain), service.incremental)
+	case noShortcutDiffer < 0:
+		status, first = "fail", "shortcut-off replay: "+noShortcutReason
+	case noShortcutDiffer > 0:
+		status, first = "fail", fmt.Sprintf("shortcut-off replay differed from C on %d steps", noShortcutDiffer)
 	}
-	gradResult(5, status, fmt.Sprintf("steps=%d compared=%d shortcut_steps=%d shortcut_subtrees_route=%d clean_steps_without_reuse=%d steps_differing_from_c=%d reused_subtrees_route=%d reused_subtrees_c=%d reused_bytes_route=%d reused_bytes_default_engine=%d %s", steps, compared, shortcutSteps, shortcutNodes, noReuse, differ, rNodes, cNodes, rSum, lSum, service.numbers()), first)
+	gradResult(5, status, fmt.Sprintf("%s clean_source=%q clean_steps=%d clean_incremental=%d clean_compared=%d clean_shortcut_steps=%d clean_steps_differing_from_c=%d clean_reused_subtrees_route=%d clean_reused_subtrees_c=%d clean_noshortcut_steps_differing_from_c=%d clean_noshortcut_reason=%q", oldNumbers, cleanName, len(cleanChain), service.incremental, compared, shortcutSteps, differ, rNodes, cNodes, noShortcutDiffer, noShortcutReason), first)
 }
 
 // Item 6: tokens, new nodes and maximum live versions of the core against the
@@ -1033,6 +1157,7 @@ func TestGraduationCounters(t *testing.T) {
 		t.Fatalf("item 6 input=%s default parse error=%v", kind, err)
 	}
 	lr := lt.ParseRuntime()
+	defaultFreshForest := lr.ForestFastPath
 	lFull := [3]uint64{lr.TokensConsumed, uint64(lr.NodesAllocated), uint64(lr.MaxStacksSeen)}
 	lt.Edit(*st.edit)
 	ln, err := lp.ParseIncremental(st.src, lt)
@@ -1081,8 +1206,15 @@ func TestGraduationCounters(t *testing.T) {
 		lex          int
 		shortcut     bool
 	}{{kind, full, lFull, fullLex, false}, {st.id, inc, lEdit, editLex, editShortcut}} {
+		if row.lex > 0 && row.core[0] > 0 && ((!row.shortcut && row.core[0] != uint64(row.lex)) || (row.shortcut && row.core[0] > uint64(row.lex))) {
+			status, first = "fail", fmt.Sprintf("input=%s core=%v default=%v C_tokens=%d", row.name, row.core, row.legacy, row.lex)
+			break
+		}
 		if row.lex <= 0 || (!row.shortcut && (row.core[0] == 0 || row.core[2] == 0)) || row.legacy[2] == 0 {
 			status, first = "na", fmt.Sprintf("input=%s missing counters core=%v default=%v C_tokens=%d", row.name, row.core, row.legacy, row.lex)
+			if row.name == kind && row.legacy == [3]uint64{} && defaultFreshForest {
+				first = "default engine reports no counters on this path: forest fast path"
+			}
 			break
 		}
 		if (!row.shortcut && row.core[0] != uint64(row.lex)) || (row.shortcut && (row.core[0] == 0 || row.core[0] > uint64(row.lex))) || row.core[1] > row.legacy[1] || row.core[2] > row.legacy[2] {
@@ -1163,10 +1295,65 @@ func gradEqual(a, b []string) bool {
 	return true
 }
 
+// gradMatchesGo preserves capture order and duplicate matches.
+func gradMatchesGo(t *testing.T, lang *g.Language, tree *g.Tree, text string) []string {
+	q, err := g.NewQuery(text, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, m := range q.Execute(tree) {
+		row := fmt.Sprintf("%d", m.PatternIndex)
+		for _, cp := range m.Captures {
+			row += fmt.Sprintf(" %q:%d-%d", cp.Name, cp.Node.StartByte(), cp.Node.EndByte())
+		}
+		out = append(out, row)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func gradMatchesC(t *testing.T, lang *sitter.Language, tree *sitter.Tree, text string, src []byte) []string {
+	q, err := sitter.NewQuery(lang, text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer q.Close()
+	cur := sitter.NewQueryCursor()
+	defer cur.Close()
+	iter := cur.Matches(q, tree.RootNode(), src)
+	names := q.CaptureNames()
+	var out []string
+	for m := iter.Next(); m != nil; m = iter.Next() {
+		if !cQueryMatchSatisfiesGeneralPredicates(m, q, src) {
+			continue
+		}
+		row := fmt.Sprintf("%d", m.PatternIndex)
+		for _, cp := range m.Captures {
+			row += fmt.Sprintf(" %q:%d-%d", names[cp.Index], cp.Node.StartByte(), cp.Node.EndByte())
+		}
+		out = append(out, row)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func gradFirstMatchDifference(got, want []string) string {
+	i := 0
+	for i < len(got) && i < len(want) && got[i] == want[i] {
+		i++
+	}
+	if i < len(got) && (i == len(want) || got[i] < want[i]) {
+		return "route=" + got[i]
+	}
+	return "expected=" + want[i]
+}
+
 // Item 7: highlight and tags query results on the item 1 inputs. The expected
 // output is C's own query output on C's tree. Two extra patterns
 // cover MISSING nodes and ERROR nodes; each supertype of the grammar gets a
 // pattern too.
+// Match differences are reported for review and do not change the verdict.
 func TestGraduationQueries(t *testing.T) {
 	c := gradLoad(t)
 	queries := map[string]string{}
@@ -1185,12 +1372,34 @@ func TestGraduationQueries(t *testing.T) {
 	queries["missing-error-supertype"] = extra
 	inputs := gradInputs(t, c.name)
 	checked, diffs, viaLegacy, viaC := 0, 0, 0, 0
+	matchChecked, matchDiffs, defaultMatchDiffs := 0, 0, 0
+	matchFirst := ""
 	first := ""
 	names := make([]string, 0, len(queries))
 	for k := range queries {
 		names = append(names, k)
 	}
 	sort.Strings(names)
+	loaded := make(map[string]bool)
+	loadErrors, firstLoadError := 0, ""
+	for _, name := range names {
+		status, detail := "loaded", ""
+		if _, err := g.NewQuery(queries[name], c.lang); err != nil {
+			status, detail = "go_error", err.Error()
+		} else if cq, err := sitter.NewQuery(c.cLang, queries[name]); err != nil {
+			status, detail = "c_error", err.Error()
+		} else {
+			cq.Close()
+			loaded[name] = true
+		}
+		fmt.Printf("GRADQUERY lang=%s query=%s status=%s detail=%q\n", c.name, name, status, detail)
+		if status != "loaded" {
+			loadErrors++
+			if firstLoadError == "" {
+				firstLoadError = fmt.Sprintf("query %s %s: %s", name, status, detail)
+			}
+		}
+	}
 	for _, in := range inputs {
 		cTree := compactT3ParseC(t, c.cLang, in.Src)
 		_, before, _ := bind.RouteCounters()
@@ -1204,12 +1413,30 @@ func TestGraduationQueries(t *testing.T) {
 			t.Fatalf("%s: legacy: %v", in.ID, err)
 		}
 		for _, qn := range names {
+			if !loaded[qn] {
+				continue
+			}
 			q := queries[qn]
 			got := gradCaps(t, c.lang, rt, q)
 			// C's own query engine on C's tree is the judge. The default engine's result is
 			// counted when it differs from C's: its tree can equal C's in structure and still
 			// lack the hidden supertype ancestors that a supertype pattern reads.
 			want := gradCapsC(t, c.cLang, cTree, q, in.Src)
+			wantMatches := gradMatchesC(t, c.cLang, cTree, q, in.Src)
+			gotMatches := gradMatchesGo(t, c.lang, rt, q)
+			matchChecked++
+			if !gradEqual(gradMatchesGo(t, c.lang, lt, q), wantMatches) {
+				defaultMatchDiffs++
+			}
+			if !gradEqual(gotMatches, wantMatches) {
+				matchDiffs++
+				if matchFirst == "" {
+					diff := gradFirstMatchDifference(gotMatches, wantMatches)
+					row := strings.SplitN(diff, "=", 2)[1]
+					pattern := strings.Fields(row)[0]
+					matchFirst = fmt.Sprintf("query=%s input=%s pattern=%s first_difference=%q", qn, in.ID, pattern, diff)
+				}
+			}
 			viaC++
 			if !gradEqual(gradCaps(t, c.lang, lt, q), want) {
 				viaLegacy++
@@ -1231,10 +1458,12 @@ func TestGraduationQueries(t *testing.T) {
 	}
 	status := "pass"
 	switch {
-	case checked == 0:
-		status, first = "na", fmt.Sprintf("input=%s comparisons=%d highlight=%t tags=%t", c.name, checked, queries["highlight"] != "", queries["tags"] != "")
 	case diffs > 0:
 		status = "fail"
+	case loadErrors > 0:
+		status, first = "na", firstLoadError
+	case checked == 0:
+		status, first = "na", fmt.Sprintf("input=%s comparisons=%d highlight=%t tags=%t", c.name, checked, queries["highlight"] != "", queries["tags"] != "")
 	}
 	omitted := []string{}
 	for _, name := range []string{"highlight", "tags"} {
@@ -1245,7 +1474,10 @@ func TestGraduationQueries(t *testing.T) {
 	if len(omitted) == 0 {
 		omitted = append(omitted, "none")
 	}
-	gradResult(7, status, fmt.Sprintf("omitted=%s queries=%s inputs=%d comparisons=%d differences=%d default_engine_differs_from_c=%d expected_from_c=%d", strings.Join(omitted, "+"), strings.Join(names, "+"), len(inputs), checked, diffs, viaLegacy, viaC), first)
+	if matchFirst != "" {
+		fmt.Printf("GRADNOTE item=7 %s\n", matchFirst)
+	}
+	gradResult(7, status, fmt.Sprintf("omitted=%s queries=%s load_errors=%d inputs=%d comparisons=%d differences=%d default_engine_differs_from_c=%d expected_from_c=%d match_comparisons=%d match_differences=%d default_engine_match_differences=%d", strings.Join(omitted, "+"), strings.Join(names, "+"), loadErrors, len(inputs), checked, diffs, viaLegacy, viaC, matchChecked, matchDiffs, defaultMatchDiffs), first)
 }
 
 // gradSized builds a source of about target bytes from the sample (a JSON
@@ -1380,7 +1612,40 @@ func TestGraduationRSSChild(t *testing.T) {
 	} else {
 		p = gradDefault(c.lang)
 	}
-	src := gradSized(t, c.name, 1<<20)
+	src, sourceName := gradCleanSource(t, c, 1<<20)
+	if src == nil {
+		fmt.Printf("GRADRSS arm=%s work=%s status=na source=%q bytes=0 reason=%q\n", arm, work, sourceName, "no clean source")
+		return
+	}
+	sourceBytes := len(src)
+	var prepared []g.InputEdit
+	if work == "edits1000" {
+		current := src
+		used := make(map[uint32]bool)
+		var gen benchfixtures.CleanEditGenerator
+		for step := 0; step < 1000; step++ {
+			found := false
+			for _, candidate := range gen.Candidates(current, "space+", 40, uint64(step)*7919) {
+				proposal, err := gen.Apply(current, candidate)
+				if err != nil || used[proposal.Edit.StartPoint.Row] || !gradCleanC(c, proposal.Source) {
+					continue
+				}
+				used[proposal.Edit.StartPoint.Row] = true
+				gen.Accept(candidate)
+				prepared = append(prepared, proposal.Edit)
+				current, found = proposal.Source, true
+				break
+			}
+			if !found {
+				break
+			}
+		}
+		if len(prepared) != 1000 {
+			fmt.Printf("GRADRSS arm=%s work=%s status=na source=%q bytes=%d reason=%q\n", arm, work, sourceName, len(src), fmt.Sprintf("only %d distinct C-clean line ends", len(prepared)))
+			return
+		}
+	}
+	runtime.GC()
 	setupRSS, err := gradResetPeakRSS()
 	if err != nil {
 		t.Fatalf("item 9 arm=%s work=%s cannot reset the peak resident set size: %v", arm, work, err)
@@ -1391,7 +1656,12 @@ func TestGraduationRSSChild(t *testing.T) {
 	}
 	if work == "edits1000" {
 		for i := 0; i < 1000; i++ {
-			next, e := gradEditAt(src, (len(src)/1001)*(i+1))
+			e := prepared[i]
+			at := int(e.StartByte)
+			next := make([]byte, 0, len(src)+1)
+			next = append(next, src[:at]...)
+			next = append(next, ' ')
+			next = append(next, src[at:]...)
 			tree.Edit(e)
 			nt, err := p.ParseIncremental(next, tree)
 			if err != nil || nt == nil {
@@ -1422,7 +1692,7 @@ func TestGraduationRSSChild(t *testing.T) {
 	if (arm == "route" && (servedDelta != 1 || incrDelta != expectedIncr)) || (arm == "default" && (servedDelta != 0 || incrDelta != 0)) {
 		t.Fatalf("item 9 arm=%s work=%s fresh=%d incremental=%d expected_incremental=%d", arm, work, servedDelta, incrDelta, expectedIncr)
 	}
-	fmt.Printf("GRADRSS arm=%s work=%s maxrss_kb=%d setup_rss_kb=%d bytes=%d core_fresh_served=%d core_incremental_served=%d\n", arm, work, peakRSS, setupRSS, len(src), servedDelta, incrDelta)
+	fmt.Printf("GRADRSS arm=%s work=%s status=pass source=%q maxrss_kb=%d setup_rss_kb=%d bytes=%d core_fresh_served=%d core_incremental_served=%d\n", arm, work, sourceName, peakRSS, setupRSS, sourceBytes, servedDelta, incrDelta)
 }
 
 // Item 10: 20 paired rounds; the arm that goes first alternates with the seed.
@@ -1492,35 +1762,66 @@ func gradTypedSites(t *testing.T, c *gradCtx, src []byte) []gradTypedSite {
 
 func TestGraduationTime(t *testing.T) {
 	c := gradLoad(t)
-	rounds := 20
+	const rounds = 20
 	status, first := "pass", ""
-	var parts, newParts, newNA []string
-	newStatus := "pass"
+	var parts, unavailable []string
 	for _, size := range []int{32 << 10, 137 << 10, 1 << 20} {
-		src := gradSized(t, c.name, size)
-		next, edit := gradEditAt(src, len(src)/2)
+		src, sourceName := gradCleanSource(t, c, size)
+		if src == nil {
+			unavailable = append(unavailable, fmt.Sprintf("%dKiB: no clean source (%s)", size>>10, sourceName))
+			parts = append(parts, fmt.Sprintf("fresh@%dKiB source=%q bytes=0 status=na", size>>10, sourceName))
+			continue
+		}
+		var sites []gradTypedSite
+		for _, kind := range []struct{ label, candidate string }{{"edit", "space+"}, {"typed", "type"}, {"deleted", "del"}, {"same_length", "same"}} {
+			var gen benchfixtures.CleanEditGenerator
+			candidates := gen.Candidates(src, kind.candidate, 40, 0)
+			middle := len(src) / 2
+			distance := func(at int) int {
+				if at < middle {
+					return middle - at
+				}
+				return at - middle
+			}
+			sort.SliceStable(candidates, func(i, j int) bool { return distance(candidates[i].At) < distance(candidates[j].At) })
+			found := false
+			for _, candidate := range candidates {
+				proposal, err := gen.Apply(src, candidate)
+				if err == nil && gradCleanC(c, proposal.Source) {
+					sites = append(sites, gradTypedSite{label: kind.label, text: proposal.Source, edit: proposal.Edit})
+					found = true
+					break
+				}
+			}
+			if !found {
+				unavailable = append(unavailable, fmt.Sprintf("%s@%dKiB: no C-clean edit", kind.label, size>>10))
+			}
+		}
 		arms := []struct {
 			name string
 			p    *g.Parser
 		}{{"route", gradRoute(c.lang)}, {"default", gradDefault(c.lang)}}
 		fresh := [2][]float64{}
-		editT := [2][]float64{}
-		sites := gradTypedSites(t, c, src)
-		siteT := map[string]*[2][]float64{}
+		totals, edits, reparses := map[string]*[2][]float64{}, map[string]*[2][]float64{}, map[string]*[2][]float64{}
 		for _, st := range sites {
-			siteT[st.label] = &[2][]float64{}
+			totals[st.label], edits[st.label], reparses[st.label] = &[2][]float64{}, &[2][]float64{}, &[2][]float64{}
 		}
-		if len(sites) != 3 {
-			newNA = append(newNA, fmt.Sprintf("%dKiB: no valid typed-letter or deleted-character site", size>>10))
-		}
-		for _, a := range arms { // warm-up
-			tr, _ := a.p.Parse(src)
-			tr.Edit(edit)
-			nt, _ := a.p.ParseIncremental(next, tr)
-			if tr != nt {
-				tr.Release()
+		for _, arm := range arms {
+			for _, st := range sites {
+				base, err := arm.p.Parse(src)
+				if err != nil || base == nil {
+					t.Fatalf("warm-up parse: %v", err)
+				}
+				base.Edit(st.edit)
+				next, err := arm.p.ParseIncremental(st.text, base)
+				if err != nil || next == nil {
+					t.Fatalf("warm-up reparse: %v", err)
+				}
+				if base != next {
+					base.Release()
+				}
+				next.Release()
 			}
-			nt.Release()
 		}
 		for seed := 1; seed <= rounds; seed++ {
 			order := []int{0, 1}
@@ -1532,104 +1833,75 @@ func TestGraduationTime(t *testing.T) {
 				_, beforeFresh, beforeIncr := bind.RouteCounters()
 				runtime.GC()
 				t0 := time.Now()
-				tr, err := p.Parse(src)
-				d := time.Since(t0)
-				if err != nil || tr == nil {
-					t.Fatal(err)
+				tree, err := p.Parse(src)
+				duration := time.Since(t0)
+				if err != nil || tree == nil {
+					t.Fatalf("fresh parse: %v", err)
 				}
-				fresh[ai] = append(fresh[ai], float64(d.Microseconds())/1000)
-				tr.Edit(edit)
-				runtime.GC()
-				t1 := time.Now()
-				nt, err := p.ParseIncremental(next, tr)
-				d = time.Since(t1)
-				if err != nil || nt == nil {
-					t.Fatal(err)
-				}
-				editT[ai] = append(editT[ai], float64(d.Microseconds())/1000)
-				if tr != nt {
-					tr.Release()
-				}
-				nt.Release()
-				for _, st := range sites { // the edits people type
+				fresh[ai] = append(fresh[ai], float64(duration.Nanoseconds())/1e6)
+				tree.Release()
+				for _, st := range sites {
 					base, err := p.Parse(src)
 					if err != nil || base == nil {
-						t.Fatal(err)
+						t.Fatalf("edit base: %v", err)
 					}
-					base.Edit(st.edit)
 					runtime.GC()
-					t2 := time.Now()
-					nt, err := p.ParseIncremental(st.text, base)
-					d := time.Since(t2)
-					if err != nil || nt == nil {
-						t.Fatal(err)
+					start := time.Now()
+					base.Edit(st.edit)
+					editDuration := time.Since(start)
+					reparseStart := time.Now()
+					next, err := p.ParseIncremental(st.text, base)
+					reparseDuration := time.Since(reparseStart)
+					totalDuration := time.Since(start)
+					if err != nil || next == nil {
+						t.Fatalf("edit reparse: %v", err)
 					}
-					siteT[st.label][ai] = append(siteT[st.label][ai], float64(d.Microseconds())/1000)
-					if base != nt {
+					totals[st.label][ai] = append(totals[st.label][ai], float64(totalDuration.Nanoseconds())/1e6)
+					edits[st.label][ai] = append(edits[st.label][ai], float64(editDuration.Nanoseconds())/1e6)
+					reparses[st.label][ai] = append(reparses[st.label][ai], float64(reparseDuration.Nanoseconds())/1e6)
+					if base != next {
 						base.Release()
 					}
-					nt.Release()
+					next.Release()
 				}
 				_, afterFresh, afterIncr := bind.RouteCounters()
 				wantFresh, wantIncr := int64(0), int64(0)
 				if ai == 0 {
-					wantFresh, wantIncr = int64(1+len(sites)), int64(1+len(sites))
+					wantFresh, wantIncr = int64(1+len(sites)), int64(len(sites))
 				}
 				if afterFresh-beforeFresh != wantFresh || afterIncr-beforeIncr != wantIncr {
 					t.Fatalf("item 10 input=%s size=%d round=%d fresh=%d want=%d incremental=%d want=%d", arms[ai].name, size, seed, afterFresh-beforeFresh, wantFresh, afterIncr-beforeIncr, wantIncr)
 				}
 			}
 		}
-		if gradNeg(10) {
-			for i := range fresh[0] {
-				fresh[0][i] *= 3 // route times tripled
-				editT[0][i] *= 3
-			}
-		}
-		for _, w := range []struct {
-			label string
-			v     [2][]float64
-		}{{"fresh", fresh}, {"edit", editT}} {
-			mr, ml := gradMedian(w.v[0]), gradMedian(w.v[1])
+		compare := func(label string, values [2][]float64) {
+			mr, ml := gradMedian(values[0]), gradMedian(values[1])
 			if gradNeg(10) {
 				mr = ml + 1
 			}
-			lo0, hi0 := gradRange(w.v[0])
-			lo1, hi1 := gradRange(w.v[1])
-			parts = append(parts, fmt.Sprintf("%s@%dKiB route=%.2fms[%.2f-%.2f] default=%.2fms[%.2f-%.2f]", w.label, size>>10, mr, lo0, hi0, ml, lo1, hi1))
+			lo0, hi0 := gradRange(values[0])
+			lo1, hi1 := gradRange(values[1])
+			part := fmt.Sprintf("%s@%dKiB source=%q bytes=%d route=%.2fms[%.2f-%.2f] default=%.2fms[%.2f-%.2f]", label, size>>10, sourceName, len(src), mr, lo0, hi0, ml, lo1, hi1)
+			if label != "fresh" {
+				part += fmt.Sprintf(" route_edit=%.2fms route_reparse=%.2fms default_edit=%.2fms default_reparse=%.2fms", gradMedian(edits[label][0]), gradMedian(reparses[label][0]), gradMedian(edits[label][1]), gradMedian(reparses[label][1]))
+			}
+			parts = append(parts, part)
 			if mr > ml {
 				status = "fail"
 				if first == "" {
-					first = fmt.Sprintf("%s at %d KiB: route median %.2f ms, default %.2f ms", w.label, size>>10, mr, ml)
+					first = fmt.Sprintf("%s at %d KiB: route median %.2f ms, default %.2f ms", label, size>>10, mr, ml)
 				}
 			}
 		}
+		compare("fresh", fresh)
 		for _, st := range sites {
-			v := siteT[st.label]
-			if gradNeg(10) {
-				for i := range v[0] {
-					v[0][i] *= 3
-				}
-			}
-			mr, ml := gradMedian(v[0]), gradMedian(v[1])
-			lo0, hi0 := gradRange(v[0])
-			lo1, hi1 := gradRange(v[1])
-			newParts = append(newParts, fmt.Sprintf("%s@%dKiB route=%.2fms[%.2f-%.2f] default=%.2fms[%.2f-%.2f]", st.label, size>>10, mr, lo0, hi0, ml, lo1, hi1))
-			if mr > ml {
-				newStatus = "fail"
-				if first == "" {
-					first = fmt.Sprintf("%s at %d KiB: route median %.2f ms, default %.2f ms", st.label, size>>10, mr, ml)
-				}
-			}
+			compare(st.label, *totals[st.label])
 		}
 	}
-	if status == "pass" && newStatus == "fail" {
-		status = "fail"
+	if status == "pass" && len(unavailable) > 0 {
+		status, first = "na", strings.Join(unavailable, "; ")
 	}
-	if status == "pass" && len(newNA) > 0 {
-		status, first = "na", "typed, deleted or same-length cells missing: "+strings.Join(newNA, "; ")
-	}
-	gradResult(10, status, fmt.Sprintf("rounds=%d directional=true fresh_and_whitespace_cells: %s typed_deleted_and_same_length_cells(%s): %s", rounds, strings.Join(parts, " "), newStatus, strings.Join(newParts, " ")), first)
+	gradResult(10, status, fmt.Sprintf("rounds=%d directional=true cells: %s", rounds, strings.Join(parts, " ")), first)
 }
 
 func gradMedian(v []float64) float64 {
