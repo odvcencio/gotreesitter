@@ -90,6 +90,10 @@ M1 (Slim core) is the milestone that releases the Q1 to Q6 legacy fixes, complet
 Keep that baseline fixed when later fixes improve the legacy engine.
 The engine exit gate (E-A) uses the same two baselines.
 
+Before the M1 tag exists, the graduation gate compares with the present engine
+of the same build, with the core route disabled. Record the build commit in the
+receipt. Rerun the legacy comparisons against the fixed baseline once M1 is tagged.
+
 Graduation prerequisites:
 
 - A grammar with an external scanner graduates only after scanner certification covers its scanner class. A stateless scanner needs scanner certification. A stateful or unconfirmed scanner needs scanner certification of its class (capability `scanner_state_reuse`, E-E1, in [v1-capability-flags.md](v1-capability-flags.md)).
