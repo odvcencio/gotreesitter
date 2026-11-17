@@ -309,6 +309,7 @@ func ccoreBindCheckTables(lang any) (checked, differ int, err error) {
 }
 
 func init() {
+	ccoreViewsOn.Store(true)
 	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables, RouteCounters: ccoreRouteCounters, IncrFallbacks: ccoreRouteIncrFallbacks, RouteNanos: ccoreRouteNanos, RouteLimits: ccoreRouteLimits, RootOnlyFields: ccoreBindRootOnlyFields, ViewsOn: ccoreSetViewsOn, ViewCounters: ccoreViewCounters})
 }
 
@@ -2664,8 +2665,6 @@ func (p *Parser) ccoreReparse(source []byte, old *Tree) (tree *Tree, ok bool) {
 
 // ccoreViewsOn controls lazy node views; tests can turn them off.
 var ccoreViewsOn atomic.Bool
-
-func init() { ccoreViewsOn.Store(true) }
 
 var ccoreTestShortcutOff atomic.Bool
 var ccoreShortcutReparses atomic.Int64
