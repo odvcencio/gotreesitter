@@ -112,7 +112,7 @@ var admissionCandidateLanguageAllowlist = map[string]bool{}
 // admissionCandidateLanguageAllowlisted reports whether name is on the
 // per-language allowlist that widens the implicit OFF default.
 func admissionCandidateLanguageAllowlisted(name string) bool {
-	if name == "" {
+	if name == "" || len(admissionCandidateLanguageAllowlist) == 0 {
 		return false
 	}
 	return admissionCandidateLanguageAllowlist[strings.ToLower(name)]

@@ -97,6 +97,7 @@ func TestParseIncrementalTypeThenDeleteKeepsUndoReuse(t *testing.T) {
 	lang := grammars.JsonLanguage()
 	source := []byte("[10, 20, 30]")
 	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
 	old, err := parser.Parse(source)
 	if err != nil {
 		t.Fatalf("initial parse: %v", err)

@@ -44,6 +44,10 @@ var current atomic.Pointer[Test]
 // never cleared.
 var everActive atomic.Bool
 
+// everTest is set once a test certification was installed in this process. It
+// is never cleared.
+var everTest atomic.Bool
+
 func init() {
 	if len(Blobs) != 0 {
 		everActive.Store(true)
@@ -55,6 +59,12 @@ func init() {
 // the hot paths of the root package ask this one flag and nothing else.
 func EverActive() bool { return everActive.Load() }
 
+// EverTest reports whether a test certification was ever installed in this
+// process. It is false in production. While it is false the core serves only
+// the blobs of the generated list, so a language whose blob is not in that list
+// has no tree the core built.
+func EverTest() bool { return everTest.Load() }
+
 // Current returns the test certification, nil in production.
 func Current() *Test { return current.Load() }
 
@@ -63,6 +73,7 @@ func Current() *Test { return current.Load() }
 func Swap(t *Test) *Test {
 	if t != nil {
 		everActive.Store(true)
+		everTest.Store(true)
 	}
 	return current.Swap(t)
 }

@@ -355,6 +355,7 @@ func TestCcoreRouteRangeMissReduce(t *testing.T) {
 	if set == "" {
 		t.Skip("set CCORE_RANGE_REDUCE")
 	}
+	t.Setenv("CCORE_VIEWS", "0")
 	defer ccoreRouteCertify(t)()
 	langName := strings.TrimSuffix(set, "-session")
 	lang := grammars.DetectLanguageByName(langName).Language()
@@ -502,6 +503,7 @@ func TestCcoreKnownDifferenceDiffChangedRangesMissesBytesThatCReports(t *testing
 	if os.Getenv("CCORE_LANG") != "python" {
 		t.Skip("set CCORE_LANG=python")
 	}
+	t.Setenv("CCORE_VIEWS", "0")
 	defer ccoreRouteCertify(t)()
 	lang := grammars.DetectLanguageByName("python").Language()
 	cLang, err := ParityCLanguage("python")

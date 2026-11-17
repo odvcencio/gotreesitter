@@ -7,6 +7,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/ccore/certified/certifiedtest"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -997,6 +998,16 @@ func CcoreTestPanicInConversion(n int) func() {
 
 func CcoreTestCertifiedSize() int { return len(certified.Blobs) }
 func CcoreTestAllowlistSize() int { return len(ccoreBlobAllowlist) }
+
+// CcoreTestEverTest reports whether a test certification was ever installed in
+// this process.
+func CcoreTestEverTest() bool { return certified.EverTest() }
+
+func CcoreTestSetBlob(l *Language, sha [32]byte) {
+	l.grammarBlobSHA256 = sha
+	l.grammarBlobSHA256Valid = true
+	atomic.StoreUint32(&l.ccoreCertState, 0) // a copied language asks again
+}
 func CcoreTestPooledFootprint(l *Language) int {
 	st := ccoreTestState(l)
 	if cp, ok := st.pool.Get().(*ccore.Parser); ok {

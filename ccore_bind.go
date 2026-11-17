@@ -18,6 +18,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
+	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
 // Adapter between this package and internal/ccore. It registers its configuration
@@ -308,6 +309,7 @@ func ccoreBindCheckTables(lang any) (checked, differ int, err error) {
 }
 
 func init() {
+	ccoreViewsOn.Store(true)
 	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables, RouteCounters: ccoreRouteCounters, IncrFallbacks: ccoreRouteIncrFallbacks, RouteNanos: ccoreRouteNanos, RouteLimits: ccoreRouteLimits, RootOnlyFields: ccoreBindRootOnlyFields, ViewsOn: ccoreSetViewsOn, ViewCounters: ccoreViewCounters})
 }
 
@@ -632,8 +634,8 @@ const (
 
 // ccoreBlobAllowlist is the twin of admissionCandidateLanguageAllowlist keyed
 // by grammar blob SHA-256: the blobs for which the default route widens. It is
-// empty and the candidate route does not consult it yet; only
-// TestCcoreUnroutedMarkerMatchesEmptyLists reads it.
+// empty and the candidate route does not consult it yet; CcoreTestAllowlistSize
+// reads it in tests.
 var ccoreBlobAllowlist = map[[32]byte]bool{}
 
 // ccoreTestParserHook is test-only (nil in production): it is called with a
@@ -645,6 +647,51 @@ var ccoreTestParserHook atomic.Pointer[func(cp *ccore.Parser, before bool)]
 // ccoreUnset reports that nothing is certified, which is the default.
 func ccoreUnset() bool {
 	return !certified.EverActive() || (len(certified.Blobs) == 0 && certified.Current() == nil)
+}
+
+// ccoreRouteEnabled keeps a per-parser opt-out while allowing a certified blob
+// to use the core independently of the compact route's process-wide switch.
+func (p *Parser) ccoreRouteEnabled() bool {
+	if p == nil || p.admissionCandidateRoute == admissionRouteProductionForced {
+		return false
+	}
+	if p.language != nil && p.language.ccoreBlobCertified() {
+		return true
+	}
+	return p.admissionCandidateRouteEnabled()
+}
+
+// ccoreBlobCertified reports whether the language's blob is in the generated
+// certificate list. The list does not change after start, so the answer is kept
+// on the language and a later call is one atomic load.
+func (l *Language) ccoreBlobCertified() bool {
+	switch atomic.LoadUint32(&l.ccoreCertState) {
+	case 1:
+		return false
+	case 2:
+		return true
+	}
+	state := uint32(1)
+	if len(certified.Blobs) != 0 {
+		if sha, ok := l.GrammarBlobSHA256(); ok {
+			if _, ok := certified.Blobs[sha]; ok {
+				state = 2
+			}
+		}
+	}
+	atomic.StoreUint32(&l.ccoreCertState, state)
+	return state == 2
+}
+
+func (p *Parser) ccoreEligible(usingProductionDFA bool) bool {
+	if p == nil || p.admissionRouteSuppressed > 0 || !p.ccoreRouteEnabled() {
+		return false
+	}
+	var modes sched.Mode
+	if !usingProductionDFA {
+		modes = sched.TokenSource
+	}
+	return sched.Supports(sched.Request{Modes: modes | p.schedImpliedModes(modes, nil)})
 }
 
 // Decline reasons. Each is counted in ccoreDeclines.
@@ -2289,18 +2336,31 @@ func (p *Parser) ccoreFullParse(source []byte) (tree *Tree, ok bool) {
 	return tree, ok
 }
 
-// ccoreUnchangedTreeAllowed decides, once a certificate has existed in this
-// process, whether a reparse of unchanged source may return the old tree. The
-// callers ask canReuseUnchangedTree first, as they did before the route, and then
-// certified.EverActive: while no certificate has existed no tree has a core link
-// and this function is not called, so a reparse without edits costs one flag read
-// more than before and no extra call.
+// ccoreNeverServes is the first test of a reparse without edits, small enough to
+// be inlined at the call sites because such a reparse takes a few nanoseconds.
+// It is true when the language's blob has no certificate and no test
+// certification was ever installed in this process. The core serves only
+// certified blobs, so it never served this language and the old tree is not one
+// of its trees, whatever the candidate switch says: the tree may be returned.
+// The certificate answer is the one ccoreBlobCertified keeps on the language;
+// until it has been asked once this test is false and the caller takes
+// ccoreUnchangedTreeAllowed.
+func (p *Parser) ccoreNeverServes() bool {
+	return p.language != nil && atomic.LoadUint32(&p.language.ccoreCertState) == 1 && !certified.EverTest()
+}
+
+// ccoreUnchangedTreeAllowed is the full decision for a reparse without edits.
+// Through ccoreRouteEnabled it also records whether the language's blob has a
+// certificate, which ccoreNeverServes reads.
 func (p *Parser) ccoreUnchangedTreeAllowed(oldTree *Tree, usingProductionDFA bool) bool {
 	st := oldTree.ccoreStateOf()
+	if st == nil && !p.ccoreRouteEnabled() {
+		return true
+	}
 	if ccoreUnset() {
 		return st == nil
 	}
-	if !p.admissionCandidateFullParseEligible(nil, usingProductionDFA) { // a request with a caller token source is the present engine's
+	if !p.ccoreEligible(usingProductionDFA) { // a request with a caller token source is the present engine's
 		return st == nil
 	}
 	adm, _, ok := p.ccoreAdmitQuiet()
@@ -2314,7 +2374,7 @@ func (p *Parser) ccoreUnchangedTreeAllowed(oldTree *Tree, usingProductionDFA boo
 // route would be asked and the core admits the request, the core serves it before
 // any shortcut of the present engine. A decline falls back to the existing route.
 func (p *Parser) ccoreFirstFresh(source []byte) (*Tree, bool) {
-	if ccoreUnset() || p.ccoreSuppressed() || p.recoveryInitialOnly || !p.admissionCandidateFullParseEligible(nil, true) {
+	if ccoreUnset() || p.ccoreSuppressed() || p.recoveryInitialOnly || !p.ccoreEligible(true) {
 		return nil, false
 	}
 	tree, ok := p.ccoreFullParse(source)
@@ -2550,7 +2610,7 @@ func (t *Tree) ccoreEdit(edit InputEdit) bool {
 // old tree has a usable core tree, else as a fresh core parse. It answers
 // false, with the reason counted, when the present engine must run.
 func (p *Parser) ccoreReparse(source []byte, old *Tree) (tree *Tree, ok bool) {
-	if ccoreUnset() || !p.admissionCandidateFullParseEligible(nil, true) {
+	if ccoreUnset() || !p.ccoreEligible(true) {
 		return nil, false
 	}
 	defer func() { // admission and old-tree tests are inside the recovery boundary
@@ -2603,7 +2663,7 @@ func (p *Parser) ccoreReparse(source []byte, old *Tree) (tree *Tree, ok bool) {
 // updates the root header only; with views below the root it first converts the
 // tree in place (materialize), so a node a caller holds stays correct.
 
-// ccoreViewsOn is the views switch. It is off by default and set by tests.
+// ccoreViewsOn controls lazy node views; tests can turn them off.
 var ccoreViewsOn atomic.Bool
 
 var ccoreTestShortcutOff atomic.Bool
