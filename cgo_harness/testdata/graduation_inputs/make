@@ -1,0 +1,100 @@
+VAR0 = value0
+
+target0: dep0
+	@echo "build $(VAR0)"
+
+VAR1 = value1
+
+target1: dep1
+	@echo "build $(VAR1)"
+
+VAR2 = value2
+
+target2: dep2
+	@echo "build $(VAR2)"
+
+VAR3 = value3
+
+target3: dep3
+	@echo "build $(VAR3)"
+
+VAR4 = value4
+
+target4: dep4
+	@echo "build $(VAR4)"
+
+VAR5 = value5
+
+target5: dep5
+	@echo "build $(VAR5)"
+
+VAR6 = value6
+
+target6: dep6
+	@echo "build $(VAR6)"
+
+VAR7 = value7
+
+target7: dep7
+	@echo "build $(VAR7)"
+
+VAR8 = value8
+
+target8: dep8
+	@echo "build $(VAR8)"
+
+VAR9 = value9
+
+target9: dep9
+	@echo "build $(VAR9)"
+
+VAR10 = value10
+
+target10: dep10
+	@echo "build $(VAR10)"
+
+VAR11 = value11
+
+target11: dep11
+	@echo "build $(VAR11)"
+
+VAR12 = value12
+
+target12: dep12
+	@echo "build $(VAR12)"
+
+VAR13 = value13
+
+target13: dep13
+	@echo "build $(VAR13)"
+
+VAR14 = value14
+
+target14: dep14
+	@echo "build $(VAR14)"
+
+VAR15 = value15
+
+target15: dep15
+	@echo "build $(VAR15)"
+
+VAR16 = value16
+
+target16: dep16
+	@echo "build $(VAR16)"
+
+VAR17 = value17
+
+target17: dep17
+	@echo "build $(VAR17)"
+
+VAR18 = value18
+
+target18: dep18
+	@echo "build $(VAR18)"
+
+VAR19 = value19
+
+target19: dep19
+	@echo "build $(VAR19)"
+
