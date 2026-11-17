@@ -2045,9 +2045,6 @@ func TestCcoreDefaultServesJSON(t *testing.T) {
 	if os.Getenv("GTS_TEST_CCORE_ROUTE") == "1" {
 		t.Skip("the route-on run certifies every language")
 	}
-	if gts.CcoreTestCertifiedSize() != 1 || gts.CcoreTestAllowlistSize() != 0 {
-		t.Fatal("expected one core certificate and an empty compact allowlist")
-	}
 	lang := ccoreRouteLang(t, "json")
 	p := gts.NewParser(lang)
 	for i, src := range [][]byte{[]byte(`[123,456]`), []byte(`[123,]`)} {
@@ -2086,11 +2083,18 @@ func TestCcoreDefaultServesJSON(t *testing.T) {
 		t.Fatalf("opt-out parse: %v", err)
 	}
 	legacy.Release()
-	py, err := gts.NewParser(ccoreRouteLang(t, "python")).Parse([]byte("x = 1\n"))
-	if err != nil || py == nil || gts.CcoreTestFromCore(py) {
-		t.Fatalf("python parse: %v", err)
+	uncertified, err := gts.NewParser(ccoreUncertifiedJSONLanguage(t)).Parse(src)
+	if err != nil || uncertified == nil || gts.CcoreTestFromCore(uncertified) {
+		t.Fatalf("parse of an uncertified blob: %v", err)
 	}
-	py.Release()
+	uncertified.Release()
+}
+
+func ccoreUncertifiedJSONLanguage(t *testing.T) *gts.Language {
+	t.Helper()
+	lang := ccoreCopyLanguage(ccoreRouteLang(t, "json"))
+	gts.CcoreTestSetBlob(lang, [32]byte{})
+	return lang
 }
 
 // A reparse without edits returns the old tree for a grammar without a
@@ -2115,15 +2119,15 @@ func TestCcoreUnchangedReparseWithACertificateInTheBuild(t *testing.T) {
 	if gts.CcoreTestEverTest() {
 		t.Fatal("setup: a test certification was installed in the child process")
 	}
-	py := gts.NewParser(ccoreRouteLang(t, "python"))
-	src := []byte("x = 1\n")
-	tree, err := py.Parse(src)
+	uncertified := gts.NewParser(ccoreUncertifiedJSONLanguage(t))
+	src := []byte(`[123,456]`)
+	tree, err := uncertified.Parse(src)
 	if err != nil || tree == nil || gts.CcoreTestFromCore(tree) {
-		t.Fatalf("python parse: %v", err)
+		t.Fatalf("parse of an uncertified blob: %v", err)
 	}
 	defer tree.Release()
 	for i := 0; i < 3; i++ {
-		again, err := py.ParseIncremental(src, tree)
+		again, err := uncertified.ParseIncremental(src, tree)
 		if err != nil || again != tree {
 			t.Fatalf("reparse %d without edits of an uncertified grammar did not return the old tree: %v", i, err)
 		}

@@ -996,9 +996,6 @@ func CcoreTestPanicInConversion(n int) func() {
 	return func() { ccoreTestConvertHook.Store(nil) }
 }
 
-func CcoreTestCertifiedSize() int { return len(certified.Blobs) }
-func CcoreTestAllowlistSize() int { return len(ccoreBlobAllowlist) }
-
 // CcoreTestEverTest reports whether a test certification was ever installed in
 // this process.
 func CcoreTestEverTest() bool { return certified.EverTest() }

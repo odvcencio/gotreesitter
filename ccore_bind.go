@@ -632,19 +632,13 @@ const (
 	ccoreModeRanges  = certified.Ranges
 )
 
-// ccoreBlobAllowlist is the twin of admissionCandidateLanguageAllowlist keyed
-// by grammar blob SHA-256: the blobs for which the default route widens. It is
-// empty and the candidate route does not consult it yet; CcoreTestAllowlistSize
-// reads it in tests.
-var ccoreBlobAllowlist = map[[32]byte]bool{}
-
 // ccoreTestParserHook is test-only (nil in production): it is called with a
 // core parser just before a parse (before true) and after it, when the parser
 // goes back to the pool (before false), so a test can make one parse stop or
 // panic and reset the parser afterwards.
 var ccoreTestParserHook atomic.Pointer[func(cp *ccore.Parser, before bool)]
 
-// ccoreUnset reports that nothing is certified, which is the default.
+// ccoreUnset reports whether the core currently has no certificates.
 func ccoreUnset() bool {
 	return !certified.EverActive() || (len(certified.Blobs) == 0 && certified.Current() == nil)
 }
