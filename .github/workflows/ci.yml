@@ -2517,6 +2517,9 @@ jobs:
       - name: The equality script fails on a missing test or a zero count
         run: bash cgo_harness/docker/ccore_equality.sh --self-test
 
+      - name: The graduation gate script fails on a missing result, an item that did not run and a partial gate run
+        run: bash scripts/graduation_gate.sh --self-test
+
       - name: internal/ccore equals pinned C (${{ matrix.language }})
         run: |
           GTS_PARITY_MODE=smoke \

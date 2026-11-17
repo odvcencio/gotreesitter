@@ -32,13 +32,33 @@ import (
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
+func ccoreViewsEnabled() bool {
+	on := bind.ViewsOn(false)
+	bind.ViewsOn(on)
+	return on
+}
+
+func ccoreConfigureViews(t testing.TB) func() {
+	t.Helper()
+	switch v := os.Getenv("CCORE_VIEWS"); v {
+	case "":
+		return func() {}
+	case "0", "1":
+		previous := bind.ViewsOn(v == "1")
+		return func() { bind.ViewsOn(previous) }
+	default:
+		t.Fatalf("invalid CCORE_VIEWS=%q: want 0 or 1", v)
+		return func() {}
+	}
+}
+
 func ccoreRouteCertify(t testing.TB) func() {
+	restoreViews := ccoreConfigureViews(t)
 	restore, err := bindtest.CertifyForTests(1|2|4|8, []string{"ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	on := os.Getenv("CCORE_VIEWS") == "1"
-	previous := bind.ViewsOn(on)
+	on := ccoreViewsEnabled()
 	trees0, made0, conversions0 := bind.ViewCounters()
 	return func() {
 		trees, made, conversions := bind.ViewCounters()
@@ -53,7 +73,7 @@ func ccoreRouteCertify(t testing.TB) func() {
 		if on && trees <= trees0 {
 			t.Errorf("%s: views arm made no view tree", t.Name())
 		}
-		bind.ViewsOn(previous)
+		restoreViews()
 		restore()
 	}
 }
