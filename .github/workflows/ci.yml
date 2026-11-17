@@ -1089,7 +1089,7 @@ jobs:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -1104,6 +1104,23 @@ jobs:
 
       - name: Admission route performance sanity (compact vs production, in-process, no C toolchain)
         run: GOWORK=off go test . -run '^TestAdmissionRoutePerformanceSanity$' -count=1 -v
+
+      # These four tests compare the core route's memory accounting with what the
+      # Go heap really allocates. The race detector changes allocation sizes, so
+      # they skip in the race shards; this step is where they run. A test that is
+      # skipped or matches nothing fails the step.
+      - name: Core route heap accounting (without the race detector)
+        run: |
+          set -o pipefail
+          tests='TestCcoreLedgerEqualsTheRealAllocation TestCcoreLedgerEqualsTheRealAllocationOnAReparse TestCcoreRoutePeakHeapIsAtMostThePresentEnginesPlusG TestCcoreReclamationIsCountedAgainstTheRequestBudget'
+          pattern="^($(printf '%s' "$tests" | tr ' ' '|'))\$"
+          GOWORK=off go test . -run "$pattern" -count=1 -v -timeout 6m | tee "$RUNNER_TEMP/ccore-heap-accounting.log"
+          for t in $tests; do
+            grep -q -- "^--- PASS: ${t} " "$RUNNER_TEMP/ccore-heap-accounting.log" || {
+              echo "::error::${t} did not pass: it was skipped or did not run"
+              exit 1
+            }
+          done
 
   # glr_gss_demotion_scaling_gate guards the GLR fork/collapse-per-token
   # superlinear regression fixed alongside tryDemoteSingleLinearGSS's
