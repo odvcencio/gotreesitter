@@ -88,6 +88,9 @@ emit() {
   local lang=$1 item=$2 status=$3 numbers=$4 first=${5:-}
   LAST_STATUS=$status
   [ "$status" = na ] && status="n/a"
+  case "$item" in
+    8|9|10) [[ " $numbers " == *" source="* ]] || numbers="$numbers source=unavailable bytes=0" ;;
+  esac
   [[ " $numbers " == *" views="* ]] || numbers="views=$views $numbers"
   if [ -n "$first" ]; then
     printf 'GRAD %s item=%s %s %s [%s]\n' "$lang" "$item" "$status" "$numbers" "$first"
@@ -165,6 +168,20 @@ decline_check() {
   printf 'pass\tdeclines=%s all_denied=true\t\n' "$summary"
 }
 
+# rss_child_na reads an unavailable workload without mistaking it for a crash.
+rss_child_na() {
+  local line=$1
+  [ "$(field "$line" status)" = na ] || return 1
+  printf '%s' "$(field "$line" reason)"
+}
+
+# source_child_status accepts only the statuses emitted by source preparation.
+source_child_status() {
+  local status
+  status=$(field "$1" status)
+  case "$status" in pass|na) printf '%s' "$status" ;; *) printf '%s' invalid ;; esac
+}
+
 # median <numbers...>
 median() { printf '%s\n' "$@" | sort -n | awk '{a[NR]=$1} END {if (NR) print a[int((NR+1)/2)]}'; }
 
@@ -178,6 +195,11 @@ if [ "${1:-}" = "--self-test" ]; then
   printf '%s\n' '--- SKIP: TestGraduationFresh (0.00s)' >"$d/skip.log"
   printf '%s\n' 'panic: boom' >"$d/crash.log"
   printf '%s\n' 'GRADRESULT item=1 status=pass inputs=3 first=""' >"$d/passrc.log"
+  ok "RSS child unavailable reason" "$(rss_child_na 'GRADRSS status=na reason="only 3 clean edits"')" "only 3 clean edits"
+  ok "RSS child success is not unavailable" "$(rss_child_na 'GRADRSS status=pass' || printf not-na)" "not-na"
+  ok "source preparation pass" "$(source_child_status 'GRADSOURCE status=pass')" "pass"
+  ok "source preparation unavailable" "$(source_child_status 'GRADSOURCE status=na')" "na"
+  ok "source preparation invalid" "$(source_child_status 'GRADSOURCE status=unknown')" "invalid"
   ok "pass line" "$(emit_from_log x 1 "$d/pass.log" 0 | cut -d' ' -f4)" "pass"
   ok "fail line keeps the first failing input" "$(emit_from_log x 1 "$d/fail.log" 0 | grep -c 'a.json: 2 differences')" "1"
   ok "fail line status" "$(emit_from_log x 1 "$d/fail.log" 0 | cut -d' ' -f4)" "fail"
@@ -217,31 +239,35 @@ if [ "${1:-}" = "--self-test" ]; then
   printf '%s\n' 'GRADRESULT item=0 status=fail blob=ab modes=0 need=3 first="not served"' >"$d/served.log"
   printf '%s\n' 'GRADRESULT item=10 status=pending rounds=20 first="same-length cell pending"' >"$d/pend.log"
   ok "a pending cell prints pending" "$(emit_from_log x 10 "$d/pend.log" 0 | cut -d' ' -f4)" "pending"
-  out=$(GRAD_SELF_TEST_STATUS=pending bash "$0" --self-test-gate 2>&1); rc=$?
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE GRAD_SELF_TEST_STATUS=pending bash "$0" --self-test-gate 2>&1); rc=$?
   ok "gate mode does not exit 0 while a cell is pending" "$rc" "1"
   ok "an uncertified grammar fails item 0" "$(emit_from_log x 0 "$d/served.log" 0 | cut -d' ' -f4)" "fail"
   printf '%s\n' 'GRADRESULT item=1 status=fail n=1 first="has_error go=\"x\" c=1"' >"$d/quote.log"
   ok "a quoted value keeps its inner quotes" "$(emit_from_log x 1 "$d/quote.log" 0 | grep -c 'has_error go="x" c=1')" "1"
   # gate mode: a failing item stops the run
-  out=$(GRAD_SELF_TEST_STATUS=fail bash "$0" --self-test-gate 2>&1); rc=$?
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE GRAD_SELF_TEST_STATUS=fail bash "$0" --self-test-gate 2>&1); rc=$?
   ok "gate mode exits non-zero at the first failure" "$rc" "1"
   ok "gate mode skips the later items" "$(grep -c 'item=2' <<<"$out")" "0"
-  out=$(GRAD_SELF_TEST_STATUS=na bash "$0" --self-test-gate 2>&1); rc=$?
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE GRAD_SELF_TEST_STATUS=na bash "$0" --self-test-gate 2>&1); rc=$?
   ok "gate mode does not pass n/a" "$rc" "1"
-  out=$(GRAD_SELF_TEST_STATUS=fail bash "$0" --report --self-test-gate 2>&1); rc=$?
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE GRAD_SELF_TEST_STATUS=fail bash "$0" --report --self-test-gate 2>&1); rc=$?
   ok "report mode exits 0" "$rc" "0"
   ok "report mode runs the later items" "$(grep -c 'item=2' <<<"$out")" "1"
-  out=$(bash "$0" --census json 2>&1); rc=$?
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --census json 2>&1); rc=$?
   ok "--census without --report is refused" "$rc" "2"
-  out=$(bash "$0" --items 0 json 2>&1); rc=$?
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --items 0 json 2>&1); rc=$?
   ok "--items without --report is refused" "$rc" "2"
   ok "--items refusal message" "$out" "graduation_gate.sh: --items needs --report (a gate run runs every item)"
-  out=$(CCORE_VIEWS=0 bash "$0" --report json 2>&1); rc=$?
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE CCORE_VIEWS=0 bash "$0" --report json 2>&1); rc=$?
   ok "CCORE_VIEWS without --census is refused" "$rc" "2"
   ok "CCORE_VIEWS refusal message" "$out" "graduation_gate.sh: CCORE_VIEWS is for --report --census; the gate measures the default views switch"
-  out=$(bash "$0" --report --items 0 --self-test-gate 2>&1); rc=$?
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --report --items 0 --self-test-gate 2>&1); rc=$?
   ok "--report --items 0 is accepted" "$rc" "0"
   ok "--report --items 0 reports item 0" "$(grep -c 'item=0' <<<"$out")" "1"
+  if [ "${GRAD_SELF_TEST_NESTED:-0}" != 1 ]; then
+    out=$(env -u GRAD_CENSUS -u GRAD_NEGATIVE CCORE_VIEWS=1 GRAD_SELF_TEST_NESTED=1 bash "$0" --self-test 2>&1); rc=$?
+    ok "self-test with CCORE_VIEWS exported" "$rc" "0"
+  fi
   exit "$fails"
 fi
 
@@ -340,10 +366,30 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
       emit "$lang" 4 "$st" "$nums" "$first" ;;
     5) run_harness 5 TestGraduationReuse; emit_from_log "$lang" 5 "$LOG" $RC ;;
     6) run_harness 6 TestGraduationCounters; emit_from_log "$lang" 6 "$LOG" $RC ;;
-    7) run_harness 7 TestGraduationQueries; emit_from_log "$lang" 7 "$LOG" $RC ;;
+    7) run_harness 7 TestGraduationQueries; emit_from_log "$lang" 7 "$LOG" $RC; grep -a '^GRADNOTE item=7 ' "$LOG" || : ;;
     8)
+      source_file="$out/item8-source-$$"
+      edits_file="$out/item8-edits-$$"
+      GRAD_SOURCE_FILE="$source_file" GRAD_EDITS_FILE="$edits_file" "$hbin" -test.run '^TestGraduationStoreSource$' -test.count=1 -test.v -test.timeout=40m >"$out/item8-source.log" 2>&1
+      source_rc=$?
+      source_line=$(grep -a '^GRADSOURCE ' "$out/item8-source.log" | tail -n 1)
+      if [ "$source_rc" -ne 0 ] || [ -z "$source_line" ]; then
+        emit "$lang" 8 fail "source=unknown bytes=0" "C source preparation failed (exit $source_rc)"
+        stop_if_needed 8
+        continue
+      fi
+      source_name=$(field "$source_line" source)
+      source_bytes=$(field "$source_line" bytes)
+      source_status=$(source_child_status "$source_line")
+      if [ "$source_status" = invalid ]; then
+        emit "$lang" 8 fail "source=unknown bytes=0" "C source preparation reported an invalid status"
+        stop_if_needed 8
+        continue
+      fi
+      [ "$source_status" = pass ] || source_file=""
+      export GRAD_SOURCE_REQUIRED=1 GRAD_SOURCE_FILE="$source_file" GRAD_SOURCE_NAME="$source_name" GRAD_EDITS_FILE="$edits_file"
       cd "$root" || exit 2
-      go test -c -vet=off -tags gts_ccore_test_certify -o "$rbin" . >"$out/build-root.log" 2>&1 || { emit "$lang" 8 fail "build failed" "$(tail -n 3 "$out/build-root.log" | tr '\n' ' ' | cut -c1-200)"; cd "$root/cgo_harness" || exit 2; stop_if_needed 8; continue; }
+      go test -c -vet=off -tags gts_ccore_test_certify -o "$rbin" . >"$out/build-root.log" 2>&1 || { emit "$lang" 8 fail "source=$source_name bytes=$source_bytes build=failed" "$(tail -n 3 "$out/build-root.log" | tr '\n' ' ' | cut -c1-200)"; cd "$root/cgo_harness" || exit 2; stop_if_needed 8; continue; }
       "$rbin" -test.run '^TestGraduationSafety$' -test.count=1 -test.v -test.timeout=40m >"$out/item8.log" 2>&1; rc=$?
       safety_line=$(emit_from_log "$lang" 8 "$out/item8.log" $rc)
       safety_status=$(cut -d' ' -f4 <<<"$safety_line")
@@ -352,30 +398,31 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
         if [ -x "$rrace" ]; then
           "$rrace" -test.run '^TestGraduationSafety$' -test.count=1 -test.v -test.timeout=40m >"$out/item8-race.log" 2>&1; rrc=$?
           if [ "$rrc" -ne 0 ] || grep -aq 'WARNING: DATA RACE' "$out/item8-race.log"; then
-            safety_line="GRAD $lang item=8 fail views=$views race_run=failed [$(grep -a -m1 -E 'DATA RACE|FAIL|GRADSAFE.*fail' "$out/item8-race.log" | cut -c1-200)]"
+            safety_line="GRAD $lang item=8 fail views=$views source=$source_name bytes=$source_bytes race_run=failed [$(grep -a -m1 -E 'DATA RACE|FAIL|GRADSAFE.*fail' "$out/item8-race.log" | cut -c1-200)]"
             safety_status=fail
           else
             race_status=$(field "$(result_line "$out/item8-race.log" 8)" status)
-            if [ "$race_status" != pass ] && [ "$safety_status" != fail ]; then safety_status=na; safety_line="GRAD $lang item=8 n/a views=$views race_status=$race_status [race checks did not pass]"; fi
+            if [ "$race_status" != pass ] && [ "$safety_status" != fail ]; then safety_status=na; safety_line="GRAD $lang item=8 n/a views=$views source=$source_name bytes=$source_bytes race_status=$race_status [race checks did not pass]"; fi
           fi
         else
           if [ "$safety_status" != fail ]; then
             safety_status=na
-            safety_line="GRAD $lang item=8 n/a views=$views race_build=failed [$(tail -n 2 "$out/build-race.log" | tr '\n' ' ' | cut -c1-200)]"
+            safety_line="GRAD $lang item=8 n/a views=$views source=$source_name bytes=$source_bytes race_build=failed [$(tail -n 2 "$out/build-race.log" | tr '\n' ' ' | cut -c1-200)]"
           fi
         fi
       fi
-      if [ "$race" != 1 ] && [ "$safety_status" = pass ]; then safety_status=na; safety_line="GRAD $lang item=8 n/a views=$views race=not_run [race check is required]"; fi
+      if [ "$race" != 1 ] && [ "$safety_status" = pass ]; then safety_status=na; safety_line="GRAD $lang item=8 n/a views=$views source=$source_name bytes=$source_bytes race=not_run [race check is required]"; fi
       printf '%s\n' "$safety_line"
       LAST_STATUS=$safety_status
       cd "$root/cgo_harness" || exit 2
+      unset GRAD_SOURCE_REQUIRED GRAD_SOURCE_FILE GRAD_SOURCE_NAME GRAD_EDITS_FILE
       ;;
     9)
       runs=${GRAD_RSS_RUNS:-3}
       if [[ ! "$runs" =~ ^[1-9][0-9]*$ ]]; then emit "$lang" 9 fail "runs=$runs" "runs must be positive"; stop_if_needed 9; continue; fi
       declare -A rss=() killed=()
       for work in fresh edits1000; do for arm in route default; do rss[$work.$arm]=""; done; done
-      fail9=""
+      fail9=""; na9=""; source9=""; bytes9=""
       for r in $(seq 1 "$runs"); do
         for work in fresh edits1000; do
           arms="route default"; [ $((r % 2)) = 0 ] && arms="default route"
@@ -384,7 +431,11 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
             child_rc=$?
             line=$(grep -a '^GRADRSS ' "$out/item9-$work-$arm-$r.log" | tail -n 1)
             kb=$(field "$line" maxrss_kb)
-            if [ "$child_rc" -ne 0 ] && [ "$child_rc" -ne 124 ] && [ "$child_rc" -ne 137 ]; then
+            child_na=$(rss_child_na "$line" || true)
+            if [ -n "$line" ]; then source9=$(field "$line" source); bytes9=$(field "$line" bytes); fi
+            if [ "$child_rc" -eq 0 ] && [ -n "$child_na" ]; then
+              na9="$work/$arm: $child_na"
+            elif [ "$child_rc" -ne 0 ] && [ "$child_rc" -ne 124 ] && [ "$child_rc" -ne 137 ]; then
               fail9="$work/$arm run=$r exit=$child_rc: $(tail -n 2 "$out/item9-$work-$arm-$r.log" | tr '\n' ' ')"
             elif [ -z "$kb" ]; then
               # A killed process can only report a lower bound.
@@ -395,8 +446,8 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
           done
         done
       done
-      if [ -n "$fail9" ]; then emit "$lang" 9 fail "runs=$runs" "$fail9"; else
-        status=pass; first=""; nums="runs=$runs"
+      if [ -n "$fail9" ]; then emit "$lang" 9 fail "runs=$runs source=$source9 bytes=$bytes9" "$fail9"; elif [ -n "$na9" ]; then emit "$lang" 9 na "runs=$runs source=$source9 bytes=$bytes9" "$na9"; else
+        status=pass; first=""; nums="runs=$runs source=$source9 bytes=$bytes9"
         for work in fresh edits1000; do
           read -r -a route_values <<< "${rss[$work.route]}"
           read -r -a default_values <<< "${rss[$work.default]}"

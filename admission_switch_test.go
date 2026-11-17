@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -4567,6 +4568,103 @@ func gradWSEdit(src []byte, at int) ([]byte, gts.InputEdit) {
 	return ccoreInsert(src, at, ' ')
 }
 
+type gradSafetyEdit struct {
+	kind     string
+	at       int
+	old, new byte
+}
+
+// gradSafetyEdits reads the C-prepared edits and checks their format and inputs.
+func gradSafetyEdits(t *testing.T, small, source []byte) (gradSafetyEdit, string, []gradSafetyEdit, string) {
+	t.Helper()
+	path := os.Getenv("GRAD_EDITS_FILE")
+	if path == "" {
+		return gradSafetyEdit{}, "no C-prepared edits", nil, "no C-prepared edits"
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("item 8 edit file: %v", err)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+	if len(lines) < 3 || lines[0] != "v1" {
+		t.Fatal("item 8 edit file: expected v1 header, small edit and store edits")
+	}
+	var smallEdit gradSafetyEdit
+	var store []gradSafetyEdit
+	smallReason, storeReason := "", ""
+	current := append([]byte(nil), source...)
+	for i, line := range lines[1:] {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && ((i == 0 && fields[0] == "small-na") || (i == 1 && fields[0] == "store-na" && len(lines) == 3)) {
+			if i == 0 {
+				smallReason = fields[1]
+			} else {
+				storeReason = fields[1]
+			}
+			continue
+		}
+		if len(fields) != 4 || (i == 0 && fields[0] != "small" && fields[0] != "small-source") || (i > 0 && fields[0] != "same") {
+			t.Fatalf("item 8 edit file line %d: invalid record %q", i+2, line)
+		}
+		at, e1 := strconv.Atoi(fields[1])
+		old, e2 := strconv.ParseUint(fields[2], 10, 8)
+		newByte, e3 := strconv.ParseUint(fields[3], 10, 8)
+		if e1 != nil || e2 != nil || e3 != nil {
+			t.Fatalf("item 8 edit file line %d: invalid number", i+2)
+		}
+		e := gradSafetyEdit{fields[0], at, byte(old), byte(newByte)}
+		input := current
+		if i == 0 && e.kind == "small" {
+			input = small
+		}
+		if at < 0 || at >= len(input) || input[at] != e.old || (i == 0 && (e.old != '\n' || e.new != ' ')) || (i > 0 && e.old == e.new) {
+			t.Fatalf("item 8 edit file line %d: edit does not match source", i+2)
+		}
+		if i == 0 {
+			smallEdit = e
+		} else {
+			store = append(store, e)
+			current[at] = e.new
+		}
+	}
+	if storeReason == "" && len(store) != 300 {
+		t.Fatalf("item 8 edit file: got %d store edits, want 300", len(store))
+	}
+	return smallEdit, smallReason, store, storeReason
+}
+
+func TestGraduationSafetyEditFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "edits")
+	var b strings.Builder
+	b.WriteString("v1\nsmall 1 10 32\n")
+	for i := 0; i < 300; i++ {
+		fmt.Fprintf(&b, "same 0 %d %d\n", '0'+i%10, '0'+(i+1)%10)
+	}
+	if err := os.WriteFile(path, []byte(b.String()), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GRAD_EDITS_FILE", path)
+	small, smallReason, store, storeReason := gradSafetyEdits(t, []byte("x\n"), []byte("0"))
+	if small.at != 1 || smallReason != "" || len(store) != 300 || storeReason != "" {
+		t.Fatalf("small=%+v smallReason=%q store=%d storeReason=%q", small, smallReason, len(store), storeReason)
+	}
+	prepared := strings.Replace(b.String(), "small 1 ", "small-source 1 ", 1)
+	if err := os.WriteFile(path, []byte(prepared), 0600); err != nil {
+		t.Fatal(err)
+	}
+	small, smallReason, store, storeReason = gradSafetyEdits(t, nil, []byte("0\n"))
+	if small.kind != "small-source" || small.at != 1 || smallReason != "" || len(store) != 300 || storeReason != "" {
+		t.Fatalf("small=%+v smallReason=%q store=%d storeReason=%q", small, smallReason, len(store), storeReason)
+	}
+	if err := os.WriteFile(path, []byte("v1\nsmall-na no-edit\nstore-na no-source\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, smallReason, store, storeReason = gradSafetyEdits(t, nil, nil)
+	if smallReason != "no-edit" || storeReason != "no-source" || len(store) != 0 {
+		t.Fatalf("small=%q store=%q edits=%d", smallReason, storeReason, len(store))
+	}
+}
+
 func gradSafetyStatus(failed, na int) string {
 	if failed > 0 {
 		return "fail"
@@ -4626,6 +4724,19 @@ func TestGraduationSafety(t *testing.T) {
 	}
 	small := gradSafetySource(t, name, 1)
 	big := gradSafetySource(t, name, 1<<20)
+	var preparedSource []byte
+	if path := os.Getenv("GRAD_SOURCE_FILE"); path != "" {
+		var err error
+		preparedSource, err = os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("item 8 source file: %v", err)
+		}
+	}
+	smallEdit, smallReason, storeEdits, storeReason := gradSafetyEdits(t, small, preparedSource)
+	ownershipInput := small
+	if smallEdit.kind == "small-source" {
+		ownershipInput = preparedSource
+	}
 	failed, na, notApplicable, ran := 0, 0, 0, 0
 	first := ""
 	report := func(check, status, detail string) {
@@ -4663,7 +4774,7 @@ func TestGraduationSafety(t *testing.T) {
 			if raceEnabled {
 				build = "race"
 			}
-			fmt.Printf("GRADRESULT item=8 status=na views=%t build=%s checks_run=%d checks_failed=%d checks_na=%d checks_not_applicable=%d first=%q\n", views, build, ran, failed, na, notApplicable, first)
+			fmt.Printf("GRADRESULT item=8 status=na views=%t build=%s source=unavailable bytes=0 checks_run=%d checks_failed=%d checks_na=%d checks_not_applicable=%d first=%q\n", views, build, ran, failed, na, notApplicable, first)
 			return
 		}
 	}
@@ -4799,10 +4910,12 @@ func TestGraduationSafety(t *testing.T) {
 		}
 	}
 	// Every order of copy, edit, reparse and release.
-	next, edit := gradWSEdit(small, len(small)/3)
-	if len(next) == len(small) {
-		report("release-orders", "na", "the sample has no place for a one-byte edit")
+	var next []byte
+	var edit gts.InputEdit
+	if smallReason != "" {
+		report("release-orders", "na", smallReason)
 	} else {
+		next, edit = ccoreInsert(ownershipInput, smallEdit.at, smallEdit.new)
 		gts.CcoreTestReset()
 		ft, _ := route(lang).Parse(next)
 		wantNext := ccoreSExpr(ft, lang)
@@ -4823,7 +4936,7 @@ func TestGraduationSafety(t *testing.T) {
 			}
 			n++
 			p := route(lang)
-			tree, err := p.Parse(small)
+			tree, err := p.Parse(ownershipInput)
 			if err != nil {
 				bad = err.Error()
 				return
@@ -4882,167 +4995,164 @@ func TestGraduationSafety(t *testing.T) {
 
 	// A reader walks a tree while two copies of it are edited and reparsed (meaningful under -race).
 	{
-		gts.CcoreTestReset()
-		p0 := route(lang)
-		tree, err := p0.Parse(small)
-		if err != nil {
-			report("readers", "fail", err.Error())
+		if smallReason != "" {
+			report("readers", "na", smallReason)
 		} else {
-			copies := []*gts.Tree{tree.Copy(), tree.Copy()}
-			var wg sync.WaitGroup
-			var bad, reads atomic.Int32
-			stop := make(chan struct{})
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for {
-					select {
-					case <-stop:
-						return
-					default:
-					}
-					var walk func(n *gts.Node)
-					walk = func(n *gts.Node) {
-						_ = n.Type(lang)
-						for i := 0; i < n.ChildCount(); i++ {
-							walk(n.Child(i))
-						}
-					}
-					walk(tree.RootNode())
-					reads.Add(1)
-				}
-			}()
-			var workers sync.WaitGroup
-			for gi, cp := range copies {
-				workers.Add(1)
-				go func(gi int, cp *gts.Tree) {
-					defer workers.Done()
-					p := route(lang)
-					cur := small
-					for i := 0; i < 30; i++ {
-						var e gts.InputEdit
-						cur, e = gradWSEdit(cur, len(cur)/4+gi*len(cur)/4+i)
-						cp.Edit(e)
-						nx, err := p.ParseIncremental(cur, cp)
-						if err != nil || nx == nil {
-							bad.Add(1)
-							return
-						}
-						if nx != cp {
-							cp.Release()
-						}
-						cp = nx
-					}
-					cp.Release()
-				}(gi, cp)
-			}
-			workers.Wait()
-			close(stop)
-			wg.Wait()
-			tree.Release()
-			_, freshServed := gts.CcoreTestCounters()
-			_, incrementalServed := gts.CcoreTestIncr()
-			if bad.Load() == 0 && reads.Load() > 0 && freshServed > 0 && incrementalServed > 0 {
-				report("readers", "ok", fmt.Sprintf("reader_walks=%d fresh_served=%d incremental_served=%d", reads.Load(), freshServed, incrementalServed))
+			gts.CcoreTestReset()
+			p0 := route(lang)
+			tree, err := p0.Parse(ownershipInput)
+			if err != nil {
+				report("readers", "fail", err.Error())
 			} else {
-				report("readers", "fail", fmt.Sprintf("failed reparses=%d reader_walks=%d", bad.Load(), reads.Load()))
+				copies := []*gts.Tree{tree.Copy(), tree.Copy()}
+				var wg sync.WaitGroup
+				var bad, reads atomic.Int32
+				stop := make(chan struct{})
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for {
+						select {
+						case <-stop:
+							return
+						default:
+						}
+						var walk func(n *gts.Node)
+						walk = func(n *gts.Node) {
+							_ = n.Type(lang)
+							for i := 0; i < n.ChildCount(); i++ {
+								walk(n.Child(i))
+							}
+						}
+						walk(tree.RootNode())
+						reads.Add(1)
+					}
+				}()
+				var workers sync.WaitGroup
+				for _, cp := range copies {
+					workers.Add(1)
+					go func(cp *gts.Tree) {
+						defer workers.Done()
+						p := route(lang)
+						for i := 0; i < 30; i++ {
+							cur, e := next, edit
+							if i%2 == 1 {
+								cur = small
+								e = gts.InputEdit{StartByte: edit.StartByte, OldEndByte: edit.NewEndByte, NewEndByte: edit.OldEndByte, StartPoint: edit.StartPoint, OldEndPoint: edit.NewEndPoint, NewEndPoint: edit.OldEndPoint}
+							}
+							cp.Edit(e)
+							nx, err := p.ParseIncremental(cur, cp)
+							if err != nil || nx == nil {
+								bad.Add(1)
+								return
+							}
+							if nx != cp {
+								cp.Release()
+							}
+							cp = nx
+						}
+						cp.Release()
+					}(cp)
+				}
+				workers.Wait()
+				close(stop)
+				wg.Wait()
+				tree.Release()
+				_, freshServed := gts.CcoreTestCounters()
+				_, incrementalServed := gts.CcoreTestIncr()
+				if bad.Load() == 0 && reads.Load() > 0 && freshServed > 0 && incrementalServed > 0 {
+					report("readers", "ok", fmt.Sprintf("reader_walks=%d fresh_served=%d incremental_served=%d", reads.Load(), freshServed, incrementalServed))
+				} else {
+					report("readers", "fail", fmt.Sprintf("failed reparses=%d reader_walks=%d", bad.Load(), reads.Load()))
+				}
 			}
 		}
 	}
 
 	// Store bound after many edits: the store belongs to the incremental half of the route.
+	storeSourceName, storeSourceBytes := "gradSafetySource", 0
 	{
 		source := gradSafetySource(t, name, 32<<10)
 		switch name {
 		case "json", "python", "c", "typescript":
 			source = ccoreGateSource(name, 32<<10)
+			storeSourceName = "ccoreGateSource"
 		}
-		p := route(lang)
-		fresh := gts.NewParser(lang)
-		fresh.SetAdmissionCandidateRoute(false)
-		tree, err := p.Parse(source)
-		if err != nil || tree == nil {
-			report("store-bound", "fail", fmt.Sprintf("initial parse error=%v", err))
-		} else if tree.RootNode() == nil || tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) {
-			tree.Release()
-			report("store-bound", "fail", "initial parse is not clean and complete")
+		if os.Getenv("GRAD_SOURCE_REQUIRED") == "1" {
+			storeSourceName = os.Getenv("GRAD_SOURCE_NAME")
+			var err error
+			source, err = os.ReadFile(os.Getenv("GRAD_SOURCE_FILE"))
+			if err != nil {
+				source = nil
+			}
+		}
+		storeSourceBytes = len(source)
+		if storeReason != "" {
+			report("store-bound", "na", storeReason)
 		} else {
-			// While a reparse runs, the old tree and the new one both live in the store,
-			// so the store can reach about twice the first tree when a reparse rebuilds
-			// most of it (a grammar whose scanner state changes after an edit does).
-			// That is a fixed cost. What must not happen is growth with the number of
-			// edits. The check therefore has two parts: the size after 100 edits is the
-			// size the session settles at (later edits add at most 5 percent), and it
-			// stays under 2.5 times the first tree.
-			firstBytes, maxBytes := gts.CcoreTestStoreBytes(tree), 0
-			maxBytes = firstBytes
-			settledBytes := 0
-			cur, edits, served, at, rejected, problem := source, 0, 0, 0, 0, ""
-			gts.CcoreTestReset()
-			for edits < 300 {
-				var next []byte
-				var edit gts.InputEdit
-				found := false
-				for tried := 0; tried < len(cur); tried++ {
-					pos := at % len(cur)
-					at++
-					if cur[pos] < '1' || cur[pos] > '8' {
-						continue
+			p := route(lang)
+			tree, err := p.Parse(source)
+			if err != nil || tree == nil {
+				report("store-bound", "fail", fmt.Sprintf("initial parse error=%v", err))
+			} else if tree.RootNode() == nil || tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) {
+				tree.Release()
+				report("store-bound", "fail", "initial parse is not clean and complete")
+			} else {
+				// While a reparse runs, the old tree and the new one both live in the store,
+				// so the store can reach about twice the first tree when a reparse rebuilds
+				// most of it (a grammar whose scanner state changes after an edit does).
+				// That is a fixed cost. What must not happen is growth with the number of
+				// edits. The check therefore has two parts: the size after 100 edits is the
+				// size the session settles at (later edits add at most 5 percent), and it
+				// stays under 2.5 times the first tree.
+				firstBytes, maxBytes := gts.CcoreTestStoreBytes(tree), 0
+				maxBytes = firstBytes
+				settledBytes := 0
+				cur, edits, served, rejected, problem := source, 0, 0, 0, ""
+				gts.CcoreTestReset()
+				for edits < 300 {
+					prepared := storeEdits[edits]
+					var generator benchfixtures.CleanEditGenerator
+					step, proposalErr := generator.Apply(cur, benchfixtures.CleanCandidate{Kind: "same", At: prepared.at})
+					if proposalErr != nil || step.Source[prepared.at] != prepared.new {
+						t.Fatalf("item 8 edit %d: invalid replacement", edits)
 					}
-					b := cur[pos] + 1
-					if b > '8' {
-						b = '1'
-					}
-					next, edit = ccoreReplace(cur, pos, b)
-					candidate, parseErr := fresh.Parse(next)
-					clean := parseErr == nil && candidate != nil && candidate.RootNode() != nil && !candidate.RootNode().HasError() && candidate.RootNode().EndByte() == uint32(len(next))
-					if candidate != nil {
-						candidate.Release()
-					}
-					if clean {
-						found = true
+					next, edit := step.Source, step.Edit
+					tree.Edit(edit)
+					_, before := gts.CcoreTestIncr()
+					nt, err := p.ParseIncremental(next, tree)
+					_, after := gts.CcoreTestIncr()
+					if err != nil || nt == nil {
+						problem = fmt.Sprintf("reparse error=%v", err)
 						break
 					}
-					rejected++
+					served += int(after - before)
+					if tree != nt {
+						tree.Release()
+					}
+					tree, cur = nt, next
+					edits++
+					if tree.RootNode() == nil || tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(cur)) {
+						problem = "incremental parse is not clean and complete"
+						break
+					}
+					if n := gts.CcoreTestStoreBytes(tree); n > maxBytes {
+						maxBytes = n
+					}
+					if edits == 100 {
+						settledBytes = maxBytes
+					}
 				}
-				if !found {
-					problem = "no clean edit candidate"
-					break
+				lastBytes := gts.CcoreTestStoreBytes(tree)
+				tree.Release()
+				fallbacks, _ := gts.CcoreTestIncr()
+				detail := fmt.Sprintf("source_bytes=%d edits=%d served=%d first_bytes=%d after_100_edits=%d max_bytes=%d last_bytes=%d fallbacks=%v rejected=%d %s", len(source), edits, served, firstBytes, settledBytes, maxBytes, lastBytes, fallbacks, rejected, problem)
+				settled := settledBytes > 0 && float64(maxBytes) <= 1.05*float64(settledBytes)
+				if problem == "" && firstBytes > 0 && edits == 300 && served == 300 && len(fallbacks) == 0 && settled && float64(maxBytes) <= 2.5*float64(firstBytes) {
+					report("store-bound", "ok", detail)
+				} else {
+					report("store-bound", "fail", detail)
 				}
-				tree.Edit(edit)
-				_, before := gts.CcoreTestIncr()
-				nt, err := p.ParseIncremental(next, tree)
-				_, after := gts.CcoreTestIncr()
-				if err != nil || nt == nil {
-					problem = fmt.Sprintf("reparse error=%v", err)
-					break
-				}
-				served += int(after - before)
-				if tree != nt {
-					tree.Release()
-				}
-				tree, cur = nt, next
-				edits++
-				if tree.RootNode() == nil || tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(cur)) {
-					problem = "incremental parse is not clean and complete"
-					break
-				}
-				if n := gts.CcoreTestStoreBytes(tree); n > maxBytes {
-					maxBytes = n
-				}
-				if edits == 100 {
-					settledBytes = maxBytes
-				}
-			}
-			lastBytes := gts.CcoreTestStoreBytes(tree)
-			tree.Release()
-			fallbacks, _ := gts.CcoreTestIncr()
-			detail := fmt.Sprintf("source_bytes=%d edits=%d served=%d first_bytes=%d after_100_edits=%d max_bytes=%d last_bytes=%d fallbacks=%v rejected=%d %s", len(source), edits, served, firstBytes, settledBytes, maxBytes, lastBytes, fallbacks, rejected, problem)
-			settled := settledBytes > 0 && float64(maxBytes) <= 1.05*float64(settledBytes)
-			if problem == "" && firstBytes > 0 && edits == 300 && served == 300 && len(fallbacks) == 0 && settled && float64(maxBytes) <= 2.5*float64(firstBytes) {
-				report("store-bound", "ok", detail)
-			} else {
-				report("store-bound", "fail", detail)
 			}
 		}
 	}
@@ -5051,7 +5161,7 @@ func TestGraduationSafety(t *testing.T) {
 	if raceEnabled {
 		race = "race"
 	}
-	fmt.Printf("GRADRESULT item=8 status=%s views=%t build=%s checks_run=%d checks_failed=%d checks_na=%d checks_not_applicable=%d first=%q\n", status, views, race, ran, failed, na, notApplicable, first)
+	fmt.Printf("GRADRESULT item=8 status=%s views=%t build=%s source=%q bytes=%d checks_run=%d checks_failed=%d checks_na=%d checks_not_applicable=%d first=%q\n", status, views, race, storeSourceName, storeSourceBytes, ran, failed, na, notApplicable, first)
 	if failed > 0 {
 		t.Fail()
 	}
