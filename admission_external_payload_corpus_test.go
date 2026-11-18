@@ -205,6 +205,7 @@ func assertExternalPayloadFallbackEquivalent(t *testing.T, entry grammars.LangEn
 	for _, route := range []bool{false, true} {
 		parser := gotreesitter.NewParser(language)
 		parser.SetAdmissionCandidateRoute(route)
+		parser.SetCompactCertificationTelemetry(route)
 		beforeRouted, beforeFallback := gotreesitter.AdmissionCandidateCounters()
 		tree, err := parser.Parse(source)
 		if err != nil || tree == nil {
