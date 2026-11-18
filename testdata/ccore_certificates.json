@@ -10,4 +10,5 @@
 {"BlobSHA256":"11e45b784b2056d8a3d60e4f184b1f519146f6a97fd4909cf024f702c38fa21a","Modes":11,"Digest":"Zig candidate for fresh, recovery and incremental qualification against pinned C","Scanner":"","Checked":[],"ConfigSHA256":""},
 {"BlobSHA256":"ac216cbb231ef051ea76e0e039e779a2a887bd94e4362f9894af901138e09426","Modes":15,"Digest":"CSS candidate for scanner, recovery and incremental qualification against pinned C","Scanner":"grammarruntime.CssExternalScanner","Checked":[],"ConfigSHA256":""},
 {"BlobSHA256":"79a2deeff86d17d79472ce603713312135fe9dbb08760013412b6d428f351c74","Modes":11,"Digest":"Solidity fresh, recovery and incremental parsing compared with pinned C","Scanner":"","Checked":[],"ConfigSHA256":""},
-{"BlobSHA256":"b404ad7eb675db06f1f293729b277547830a08e3320b17e2bd05b4ae179f869b","Modes":11,"Digest":"Capnp candidate for pinned C qualification","Scanner":"","Checked":[],"ConfigSHA256":""}]
+{"BlobSHA256":"b404ad7eb675db06f1f293729b277547830a08e3320b17e2bd05b4ae179f869b","Modes":11,"Digest":"Capnp candidate for pinned C qualification","Scanner":"","Checked":[],"ConfigSHA256":""},
+{"BlobSHA256":"9889f5f6704ea87f357c8d65ef3194d88fb5865922b45767fe4df0f2eda7e3f0","Modes":15,"Digest":"Elixir fresh, recovery, scanner and incremental parsing compared with pinned C","Scanner":"grammarruntime.ElixirExternalScanner","Checked":[],"ConfigSHA256":""}]
