@@ -20,6 +20,7 @@ import sys
 import tempfile
 import urllib.request
 
+import w5_source_replay
 from w5_private_oracle import check_env, digest, identity_fields, source_fingerprints
 
 
@@ -409,7 +410,11 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
                 ignored = set(grammar_keys) | {"grammar_artifact_path", "grammar_artifact_sha256"}
                 require({k:v for k,v in base["oracle"].items() if k not in ignored} == {k:v for k,v in head["oracle"].items() if k not in ignored}, f"{f['language']}: C runtime/compiler differs between revisions")
                 for role in ("base", "head"):
-                    verify_fresh_proof(receipts[role][2]["fresh_proof"], receipts[role][2]["oracle"])
+                    expected = receipts[role][2]
+                    if "source_replay" in expected:
+                        verify_source_replay(expected, role, base_revision if role == "base" else head_revision)
+                    else:
+                        verify_fresh_proof(expected["fresh_proof"], expected["oracle"])
         if not changed_grammar:
             require(oracle_identity(base["oracle"]) == oracle_identity(head["oracle"]), f"{f['language']}: C oracle differs between revisions")
         if exception is not None and f["language"] == "go":
@@ -816,6 +821,42 @@ def prepare_private_oracle(root, common, directory, language, inputs, image, ima
     return expected
 
 
+def verify_source_replay(expected, role, revision):
+    replay = expected["source_replay"]
+    oracle = expected["oracle"]
+    require(replay.get("schema") == "w5-parent-source-replay-v1" and replay.get("role") == role and
+            replay.get("role_revision") == revision and replay.get("image") == expected["image_id"] and
+            replay.get("compiler") == expected["compilers"][0] and
+            replay.get("artifact") == expected["artifact"] == oracle["grammar_artifact_sha256"] and
+            replay.get("patch_identity") == oracle["grammar_patch_identity"] != "none" and
+            replay.get("locked") == {k:oracle["language" if k == "language" else "grammar_"+k]
+                                     for k in ("repo","commit","subdir","language")}, "wrong parent source replay")
+    require(sha(json.dumps(replay, sort_keys=True).encode()) == expected["source_replay_digest"],
+            "parent source replay changed")
+
+
+def bind_changed_patch_roles(roles, receipts, base, base_revision, language, image_id, cpu):
+    oracles = [receipts[role][2]["oracle"] for role, _, _ in roles]
+    keys = ("grammar_repo","grammar_commit","grammar_subdir","grammar_patch_identity")
+    if all(oracles[0][k] == oracles[1][k] for k in keys):
+        return
+    for role, revision, checkout in roles:
+        directory, _, expected = receipts[role]
+        if expected["oracle"]["grammar_patch_identity"] == "none" or expected["fresh_proof"] is not None:
+            continue
+        replay = w5_source_replay.prepare(checkout, revision, base, base_revision, language,
+                                          expected["oracle"], image_id, cpu)
+        replay["role"] = role
+        expected["source_replay"] = replay
+        expected["source_replay_digest"] = sha(json.dumps(replay, sort_keys=True).encode())
+        verify_source_replay(expected, role, revision)
+        path = directory / "parent-source-replay.json"
+        with path.open("x") as receipt_file:
+            json.dump(replay, receipt_file, sort_keys=True)
+            receipt_file.write("\n")
+        expected["source_replay_file"] = digest(path)
+
+
 def verify_private_oracle(directory, inputs, expected):
     check_env(os.environ)
     require(subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", expected["image"]], text=True).strip() == expected["image_id"], "oracle Docker image changed")
@@ -824,6 +865,9 @@ def verify_private_oracle(directory, inputs, expected):
     require(len(artifacts) == 1 and artifacts[0].name == expected["filename"] and digest(artifacts[0]) == expected["artifact"], "private oracle cache changed")
     require(digest(directory / "identity.json") == expected["identity"], "private oracle identity changed")
     require(digest(directory / "cold-source.json") == expected["fresh_proof_sha256"], "private oracle source proof changed")
+    if "source_replay" in expected:
+        require(digest(directory / "parent-source-replay.json") == expected["source_replay_file"],
+                "private oracle parent replay changed")
     compiler_lines = [line.split() for line in (directory / "compiler.before").read_text().splitlines()]
     require(compiler_lines == expected["compilers"] and (directory / "compiler.before").read_bytes() == (directory / "compiler.after").read_bytes(), "compiler receipt changed")
     require((directory / "environment.before").read_text().strip() == expected["build_env"] and (directory / "environment.after").read_text().strip() == expected["build_env"], "compiler environment receipt changed")
@@ -937,6 +981,7 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                         bind_private_role(module, role, revision, checkout, private_inputs, expected)
                         verify_private_oracle(private_dir, private_inputs, expected)
                         receipts[role] = (private_dir, private_inputs, expected)
+                    bind_changed_patch_roles(roles, receipts, base, base_revision, language, env["image_id"], cpu)
                     private_receipts[language] = receipts
                     env.setdefault("private_oracles", {})[language] = {role: receipt[2] for role, receipt in receipts.items()}
                     write_json(out / "environment.json", env)
