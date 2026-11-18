@@ -28,6 +28,21 @@ type Cert struct {
 	Config  [32]byte // the effective-configuration hash of the blob's loaded language
 }
 
+// blobEntry keeps generated certificates in data. The number of entries
+// does not change the code emitted for package initialization.
+type blobEntry struct {
+	blob [32]byte
+	cert Cert
+}
+
+func makeBlobMap(entries []blobEntry) map[[32]byte]Cert {
+	blobs := make(map[[32]byte]Cert, len(entries))
+	for _, entry := range entries {
+		blobs[entry.blob] = entry.cert
+	}
+	return blobs
+}
+
 // Test is the test certification: every language with a blob identity and a
 // binding is certified for Modes, except a language that sets a root-only field
 // that is not in Checked, and the blobs in Excluded.
