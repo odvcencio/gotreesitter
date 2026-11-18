@@ -1069,22 +1069,8 @@ jobs:
           GOWORK=off go run ./cmd/perf_scan_budget \
             -budget perf_scan/perf_ratio_budgets.json
 
-  # admission_route_performance_sanity is the admission-switch-specific
-  # performance gate (spec.campaign perf-route-and-bookkeeping): it compares
-  # the compact ("candidate") route against the production route, both pure
-  # Go, interleaved in the same process on a fixed multi-language corpus, and
-  # fails only on a gross regression (see the wide, documented tolerance in
-  # TestAdmissionRoutePerformanceSanity itself).
-  #
-  # This intentionally does NOT touch the C oracle perf_scan_budget validates
-  # above: that harness needs a self-hosted runner with a C toolchain and an
-  # external corpus (cgo_harness/perf_scan/CI_PROPOSAL.md), which an ordinary
-  # GitHub-hosted runner does not have, and a live oracle sweep is exactly
-  # what this gate needs to avoid to stay fast and stable on every PR. A
-  # relative, in-process, same-process ratio needs neither: it is what
-  # a benchmark host's harness found stable within 5% even at host load
-  # average 40, which the wide tolerance here still discounts further for a
-  # shared runner's additional noise.
+  # Check the certified default against forced legacy, including a deliberate
+  # refusal. Keep the compact route smoke test for the earlier engine.
   admission_route_performance_sanity:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
@@ -1102,8 +1088,8 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
-      - name: Admission route performance sanity (compact vs production, in-process, no C toolchain)
-        run: GOWORK=off go test . -run '^TestAdmissionRoutePerformanceSanity$' -count=1 -v
+      - name: Certified default and compact route performance sanity
+        run: GOWORK=off go test . -run '^(TestAdmissionCcoreDefaultPerformanceSanity|TestAdmissionRoutePerformanceSanity)$' -count=1 -v
 
       # These four tests compare the core route's memory accounting with what the
       # Go heap really allocates. The race detector changes allocation sizes, so
