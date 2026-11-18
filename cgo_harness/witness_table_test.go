@@ -10,6 +10,7 @@ import (
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 )
 
 // witness is one minimal source that is locked against the C reference.
@@ -532,10 +533,26 @@ func TestAngularInertRecoveryMaterializationLockedCParity(t *testing.T) {
 }
 
 func TestBibtexInertRecoveryMaterializationLockedCParity(t *testing.T) {
-	runWitnessSet(t, witnessSet{lang: "bibtex", rows: []witness{
+	const language = "bibtex"
+	for _, row := range []witness{
 		w("missing_comma_after_key", "@article{test\n    title     = {title-from-embedded-bibtex-file},\n    author    = {author-from-embedded-bibtex-file},\n}\n"),
 		w("missing_key", "@techreport{\n  journal = {Wirtschaftsinformatik},\n  author = {Sam and jason},\n}\n"),
-	}})
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			source := []byte(row.source)
+			cTree := parseLockedC(t, language, source)
+			_, coreBefore, _ := bind.RouteCounters()
+			goTree, goLang, err := parseWithGo(parityCase{name: language}, source, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer goTree.Release()
+			if _, coreAfter, _ := bind.RouteCounters(); coreAfter != coreBefore+1 {
+				t.Fatalf("default parser served %d ccore fresh parses, want 1", coreAfter-coreBefore)
+			}
+			assertLockedCTreeExactWithErrors(t, row.name, goTree, goLang, cTree)
+		})
+	}
 }
 
 func TestEDSInertRecoveryMaterializationLockedCParity(t *testing.T) {
