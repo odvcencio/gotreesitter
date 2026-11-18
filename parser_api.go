@@ -2589,7 +2589,11 @@ func (p *Parser) parseIncrementalProfiledChangedSourceRun(source []byte, oldTree
 				timing.reusedBytes = st.reusedBytes
 				return tree, timing.toProfile(), nil
 			}
-			timing := freshParseFallbackTiming(started, tree, "ccore_fresh")
+			reason := "ccore_fresh"
+			if oldTree.language == p.language && len(oldTree.edits) == 0 && len(oldTree.source) != len(source) {
+				reason = incrementalMissingEditForLengthChangeReason
+			}
+			timing := freshParseFallbackTiming(started, tree, reason)
 			return tree, timing.toProfile(), nil
 		}
 		cold := p.ensureParserColdState()

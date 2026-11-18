@@ -1005,15 +1005,6 @@ func CcoreTestSetBlob(l *Language, sha [32]byte) {
 	l.grammarBlobSHA256Valid = true
 	atomic.StoreUint32(&l.ccoreCertState, 0) // a copied language asks again
 }
-func CcoreTestPooledFootprint(l *Language) int {
-	st := ccoreTestState(l)
-	if cp, ok := st.pool.Get().(*ccore.Parser); ok {
-		n := cp.BufferBytes()
-		st.pool.Put(cp)
-		return n
-	}
-	return 0
-}
 
 // CcoreTestIncr returns the reasons for which a reparse was a fresh core parse
 // (nonzero only) and the number of reparses the core served incrementally.
