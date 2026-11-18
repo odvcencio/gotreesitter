@@ -1215,9 +1215,10 @@ jobs:
           go-version-file: cgo_harness/go.mod
 
       - name: Test editor-latency evidence and failure paths
-        run: |
-          python3 scripts/test_editor_latency_gate.py
-          python3 scripts/test_w5_source_replay.py
+        run: python3 scripts/test_editor_latency_gate.py
+
+      - name: Test patched-source replay
+        run: python3 -m unittest discover -s scripts -p test_w5_source_replay.py
 
       - name: Test private C-oracle cache
         run: |
