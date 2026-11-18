@@ -761,6 +761,9 @@ func (p *Parser) compare(left, right Handle) int {
 	for len(stack) > 0 {
 		right, left = stack[len(stack)-1], stack[len(stack)-2]
 		stack = stack[:len(stack)-2]
+		if left == right {
+			continue
+		}
 		ls, rs := p.symbol(left), p.symbol(right)
 		lc, rc := p.childCount(left), p.childCount(right)
 		switch {
