@@ -2308,6 +2308,8 @@ func TestCcorePanicInConversionFallsBack(t *testing.T) {
 	json := ccoreRouteLang(t, "json")
 	src := ccoreJSONSource(3000)
 	defer ccoreCertifyAll()()
+	// Establish an empty pool so the assertion covers only this request.
+	gts.CcoreTestDrainPool(json)
 	defer gts.CcoreTestPanicInConversion(2048)()
 	gts.CcoreTestReset()
 	tr, err := ccoreRouteParser(json).Parse(src)
