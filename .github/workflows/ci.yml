@@ -1217,6 +1217,9 @@ jobs:
       - name: Test editor-latency evidence and failure paths
         run: python3 scripts/test_editor_latency_gate.py
 
+      - name: Test patched-source replay
+        run: python3 -m unittest discover -s scripts -p test_w5_source_replay.py
+
       - name: Test private C-oracle cache
         run: |
           python3 scripts/test_w5_private_oracle.py
@@ -1243,6 +1246,22 @@ jobs:
             BASE_SHA=$(git rev-parse HEAD^)
           fi
           git fetch --no-tags origin "$BASE_SHA"
+          # A grammar PR cannot substitute its campaign observer, image recipe, or launcher.
+          # Require the common observer to be reviewed on the base before using this mode.
+          if [[ "$W5_LANGUAGE" =~ ^(typescript|tsx)$ ]] &&
+             git cat-file -e "$BASE_SHA:scripts/w5_source_replay.py" 2>/dev/null &&
+             ! git diff --quiet "$BASE_SHA" HEAD -- internal/grammarpatch grammars/patches grammars/languages.lock; then
+            observer=$(mktemp "$RUNNER_TEMP/w5-reviewed-observer.XXXXXXXX.py")
+            git show "$BASE_SHA:scripts/w5_source_replay.py" > "$observer"
+            changed=$(python3 -I "$observer" recipe-changed "$PWD" "$BASE_SHA" "$W5_LANGUAGE")
+            if [ "$changed" = changed ]; then
+              for path in scripts/run_editor_latency_gate.sh scripts/editor_latency_gate.py \
+                scripts/w5_private_oracle.py scripts/w5_source_replay.py \
+                cgo_harness/docker/Dockerfile cgo_harness/docker/run_parity_in_docker.sh; do
+                git show "$BASE_SHA:$path" | cmp - "$path"
+              done
+            fi
+          fi
           w5_options=()
           # The owner-approved exceptions concern Go only: the go job alone gets them.
           if [ "$W5_LANGUAGE" = go ] && [ "${PR_NUMBER:-}" = 1512 ] && [ "$BASE_SHA" = 9d14415d0a8d11632292310c578446b31554217b ]; then
