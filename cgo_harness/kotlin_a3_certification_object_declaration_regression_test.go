@@ -82,6 +82,7 @@ func TestKotlinA3CertificationObjectDeclarationDeclinesUnderShippedProfileCOracl
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	candidate := gotreesitter.NewParser(goLang)
 	candidate.SetAdmissionCandidateRoute(true)
+	candidate.SetCompactCertificationTelemetry(true)
 	candidateTree, err := candidate.Parse(source)
 	if err != nil {
 		t.Fatalf("shipped compact parse: %v", err)
@@ -128,7 +129,7 @@ func TestKotlinA3CertificationObjectDeclarationDeclinesUnderShippedProfileCOracl
 func TestKotlinA3CertificationObjectDeclarationCExactCOracleWhenSplitDropsForced(t *testing.T) {
 	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte("package demo\n\nobject Singleton {\n    fun work() = Unit\n}\n")
-	goLang := grammars.KotlinLanguage()
+	goLang := g18CloneLanguage(grammars.KotlinLanguage())
 	if !goLang.CompactPrimaryAcceptanceDerivationCertified {
 		t.Fatal("kotlin did not receive the A3 primary-acceptance-derivation certification")
 	}
@@ -158,7 +159,6 @@ func TestKotlinA3CertificationObjectDeclarationCExactCOracleWhenSplitDropsForced
 	}
 
 	goLang.CompactConvergedReductionSplitDropsCertified = true
-	defer func() { goLang.CompactConvergedReductionSplitDropsCertified = false }()
 
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	candidate := gotreesitter.NewParser(goLang)
