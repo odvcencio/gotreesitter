@@ -1,0 +1,8 @@
+{
+  "version": "0.24.4",
+  "release_url": "https://github.com/tree-sitter/tree-sitter/releases/tag/v0.24.4",
+  "asset_url": "https://github.com/tree-sitter/tree-sitter/releases/download/v0.24.4/tree-sitter-linux-x64.gz",
+  "asset_id": 205418044,
+  "gzip_sha256": "60578f6e563e046d311d7cac4bf27207eb6982b97ddec6b78022a4afdf736a9b",
+  "executable_sha256": "e62065f887c51079c943ace813a620a2ed4e69b7f0297192e6db6dc5c633715c"
+}
