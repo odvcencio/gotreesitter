@@ -2308,8 +2308,14 @@ func TestCcorePanicInConversionFallsBack(t *testing.T) {
 	json := ccoreRouteLang(t, "json")
 	src := ccoreJSONSource(3000)
 	defer ccoreCertifyAll()()
-	// Establish an empty pool so the assertion covers only this request.
-	gts.CcoreTestDrainPool(json)
+	var requests, poolReturns int
+	defer gts.CcoreTestParserLease(func(_ uintptr, before bool) {
+		if before {
+			requests++
+		} else {
+			poolReturns++
+		}
+	})()
 	defer gts.CcoreTestPanicInConversion(2048)()
 	gts.CcoreTestReset()
 	tr, err := ccoreRouteParser(json).Parse(src)
@@ -2321,8 +2327,8 @@ func TestCcorePanicInConversionFallsBack(t *testing.T) {
 	if served != 0 || decl["panic"] != 1 || gts.CcoreTestFromCore(tr) {
 		t.Fatalf("served %d, declines %v", served, decl)
 	}
-	if n := gts.CcoreTestPooledFootprint(json); n != 0 {
-		t.Fatalf("the parser of a request that panicked went back to the pool (%d bytes)", n)
+	if requests != 1 || poolReturns != 0 {
+		t.Fatalf("parser leases=%d, pool returns=%d; want one lease and no returns", requests, poolReturns)
 	}
 }
 
