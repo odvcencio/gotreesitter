@@ -54,6 +54,7 @@ func TestTypeScriptGenericLineageRegressions(t *testing.T) {
 			routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 			compact := gotreesitter.NewParser(lang)
 			compact.SetAdmissionCandidateRoute(true)
+			compact.SetCompactCertificationTelemetry(true)
 			compactTree, err := compact.Parse(test.source)
 			if err != nil {
 				t.Fatal(err)

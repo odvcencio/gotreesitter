@@ -59,6 +59,8 @@ func TestIssue728IncrementalReuseMeasurement(t *testing.T) {
 				gotreesitter.ResetAdmissionCandidateCountersForTest()
 				parser := gotreesitter.NewParser(tc.lang())
 				parser.SetAdmissionCandidateRoute(true)
+				// This test checks the compact route's reuse reporting.
+				parser.SetCompactCertificationTelemetry(true)
 				oldTree, err := parser.Parse(src)
 				if err != nil {
 					t.Fatalf("initial parse: %v", err)
