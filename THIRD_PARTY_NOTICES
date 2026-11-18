@@ -29,7 +29,7 @@ Summary
      1  MPL-2.0
      1  Unlicense
 
-12 embedded highlight query files, copied from 5 upstream repositories
+13 embedded highlight query files, copied from 6 upstream repositories
 (see "Imported highlight queries").
 
 Copyleft components (GPL-3.0 / MPL-2.0)
@@ -380,7 +380,13 @@ nvim-treesitter -- https://github.com/nvim-treesitter/nvim-treesitter @ a2f69447
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### MIT (4 sources)
+### MIT (5 sources)
+
+solidity -- https://github.com/JoranHonig/tree-sitter-solidity @ 048fe686cb1f
+  Copyright (c) 2020 Joran Honig
+  License file: https://github.com/JoranHonig/tree-sitter-solidity/blob/048fe686cb1fde267243739b8bdbec8fc3a55272/LICENSE
+  Files:
+    solidity.scm         <- queries/highlights.scm (modified)
 
 tree-sitter-html -- https://github.com/tree-sitter/tree-sitter-html @ 73a3947324f6
   Copyright (c) 2014 Max Brunsfeld
