@@ -188,6 +188,7 @@ func runA3CertificationSweep(t *testing.T, language, cLangName string, lang *got
 		routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 		candidate := gotreesitter.NewParser(lang)
 		candidate.SetAdmissionCandidateRoute(true)
+		candidate.SetCompactCertificationTelemetry(true)
 		candidateTree, err := candidate.Parse(src.Source)
 		if err != nil {
 			t.Fatalf("%s: candidate parse: %v", src.Name, err)
