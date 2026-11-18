@@ -413,6 +413,7 @@ func runAdmissionScorecardSource(entry grammars.LangEntry, source []byte) (row s
 
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
+	candidate.SetCompactCertificationTelemetry(true)
 	gts.ResetAdmissionCandidateCountersForTest()
 	candidateTree, err := candidate.Parse(source)
 	if err != nil || candidateTree == nil {

@@ -163,6 +163,7 @@ func parseThroughCompactRoute(lang *gts.Language, source []byte, forceElisionOff
 	defer restore()
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
+	parser.SetCompactCertificationTelemetry(true)
 	gts.ResetAdmissionCandidateCountersForTest()
 	tree, err := parser.Parse(source)
 	if err != nil {
