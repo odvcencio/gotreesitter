@@ -651,6 +651,10 @@ var inferredTagsQueryOverrides = map[string]string{
 		`(list . (symbol) @_head . (symbol) @name (#eq? @_head "define")) @definition.variable`,
 	}, "\n"),
 
+	// CSS calls have a function_name child. The inferred identifier
+	// pattern is impossible and causes pinned C to reject the query.
+	"css": "(call_expression (function_name) @name) @reference.call",
+
 	// Lua: found via the cgo_harness C-oracle fleet census (log-only
 	// FleetCensus subtest, GTS_PARITY_MODE=top50), not the CoreNine sweep --
 	// Lua is not one of the core nine. The shared table's
