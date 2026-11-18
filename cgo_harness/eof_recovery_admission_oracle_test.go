@@ -87,6 +87,7 @@ func TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree(t *testing.T) {
 			routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 			goParser := gotreesitter.NewParser(&candidateLanguage)
 			goParser.SetAdmissionCandidateRoute(true)
+			goParser.SetCompactCertificationTelemetry(true)
 			goTree, err := goParser.Parse(source)
 			if err != nil {
 				t.Fatalf("parse %s admission route: %v", languageName, err)
