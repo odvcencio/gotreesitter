@@ -104,6 +104,7 @@ func retiredDispatchRouteReceiptsWithCompactPolicyAndRoutes(
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	compactParser := gotreesitter.NewParser(lang)
 	compactParser.SetAdmissionCandidateRoute(true)
+	compactParser.SetCompactCertificationTelemetry(true)
 	compact, err := compactParser.Parse(source)
 	if err != nil {
 		t.Fatalf("compact parse failed: %v", err)

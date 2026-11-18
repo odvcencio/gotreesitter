@@ -42,6 +42,7 @@ func TestIssue454HTTPCommentRunCompletes(t *testing.T) {
 		for _, compact := range []bool{false, true} {
 			parser := gotreesitter.NewParser(HttpLanguage())
 			parser.SetAdmissionCandidateRoute(compact)
+			parser.SetCompactCertificationTelemetry(compact)
 			parser.SetTimeoutMicros(2_000_000)
 			tree, err := parser.Parse(source)
 			if err != nil {
