@@ -46,6 +46,7 @@ func TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk(t *
 			gts.ResetAdmissionCandidateCountersForTest()
 			parser := gts.NewParser(grammars.PythonLanguage())
 			parser.SetAdmissionCandidateRoute(true)
+			parser.SetCompactCertificationTelemetry(true)
 			routedBefore, fallbackBefore := gts.AdmissionCandidateCounters()
 			oldTree, err := parser.Parse(source)
 			if err != nil {

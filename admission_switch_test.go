@@ -27,6 +27,8 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
@@ -979,7 +981,9 @@ func TestSchedRequestModesMatchCompactStarts(t *testing.T) {
 			continue
 		}
 		scannerSource := []byte(grammars.ParseSmokeSample(name))
-		incremental("ParseIncremental with a stateful scanner ("+name+")", gts.NewParser(scannerLang), sched.Incremental, scannerSource,
+		scannerParser := gts.NewParser(scannerLang)
+		scannerParser.SetCompactCertificationTelemetry(true)
+		incremental("ParseIncremental with a stateful scanner ("+name+")", scannerParser, sched.Incremental, scannerSource,
 			func(p *gts.Parser) (*gts.Tree, error) { return p.Parse(scannerSource) },
 			reparse)
 		break
@@ -1000,6 +1004,126 @@ func ccoreRouteLang(t testing.TB, name string) *gts.Language {
 		t.Fatalf("language %q unavailable: the test would compare nothing", name)
 	}
 	return e.Language()
+}
+
+// The engine exit census separately measures all 206 locked samples. This
+// quick CI check exercises a core serve, an early refusal, and Go's default.
+func TestAdmissionCcoreDefaultPerformanceSanity(t *testing.T) {
+	if testing.Short() {
+		t.Skip("performance sanity gate skipped under -short")
+	}
+	const (
+		maxRatio        = 1.15
+		maxDeclineRatio = 1.10
+		rounds          = 25
+		batch           = 8
+	)
+	procs := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(procs)
+	compactDefault := gts.AdmissionCandidateRouteDefault()
+	gts.SetAdmissionCandidateRouteDefault(false)
+	defer gts.SetAdmissionCandidateRouteDefault(compactDefault)
+
+	for _, tc := range []struct {
+		name, language string
+		observer       bool
+	}{
+		{"json", "json", false},
+		{"json_observer", "json", true},
+		{"python", "python", false},
+		{"go", "go", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := ccoreRouteLang(t, tc.language)
+			source, err := os.ReadFile(filepath.Join("internal", "benchfixtures", "testdata", "real", tc.language))
+			if err != nil {
+				t.Fatal(err)
+			}
+			blob, _ := lang.GrammarBlobSHA256()
+			_, hasCertificate := certified.Blobs[blob]
+			if tc.language == "json" && !hasCertificate {
+				t.Fatal("JSON must supply a certified core route for the sanity check")
+			}
+
+			legacy := gts.NewParser(lang)
+			legacy.SetAdmissionCandidateRoute(false)
+			candidate := gts.NewParser(lang)
+			legacy.SetCompactCertificationTelemetry(tc.observer)
+			candidate.SetCompactCertificationTelemetry(tc.observer)
+			decline := ""
+			if tc.observer {
+				decline = "observer"
+			}
+			checkPublicPerformanceRoute(t, legacy, source, false, "")
+			checkPublicPerformanceRoute(t, candidate, source, hasCertificate && !tc.observer, decline)
+
+			timed := func(p *gts.Parser) time.Duration {
+				var elapsed time.Duration
+				for i := 0; i < batch; i++ {
+					start := time.Now()
+					tree, err := p.Parse(source)
+					elapsed += time.Since(start)
+					if err != nil || tree == nil {
+						t.Fatalf("timed parse: tree=%v err=%v", tree != nil, err)
+					}
+					tree.Release()
+				}
+				return elapsed
+			}
+			timed(legacy)
+			timed(candidate)
+			ratios := make([]float64, 0, rounds)
+			for i := 0; i < rounds; i++ {
+				var base, current time.Duration
+				if i%2 == 0 {
+					base, current = timed(legacy), timed(candidate)
+				} else {
+					current, base = timed(candidate), timed(legacy)
+				}
+				ratios = append(ratios, float64(current)/float64(base))
+			}
+			ratio := medianFloat64(ratios)
+			t.Logf("public default/forced legacy median = %.3f over %d paired samples", ratio, rounds)
+			limit := maxRatio
+			if decline != "" {
+				limit = maxDeclineRatio
+			}
+			if ratio > limit {
+				t.Fatalf("public default/forced legacy median %.3f exceeds %.2f", ratio, limit)
+			}
+		})
+	}
+}
+
+func checkPublicPerformanceRoute(t *testing.T, parser *gts.Parser, source []byte, core bool, decline string) {
+	t.Helper()
+	before, freshBefore, incrementalBefore := bind.RouteCounters()
+	tree, err := parser.Parse(source)
+	if err != nil || tree == nil {
+		t.Fatalf("route witness: tree=%v err=%v", tree != nil, err)
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if tree.ParseStopReason() != gts.ParseStopAccepted || root == nil || root.HasError() || root.EndByte() != uint32(len(source)) {
+		t.Fatalf("route witness must accept all %d bytes", len(source))
+	}
+	after, freshAfter, incrementalAfter := bind.RouteCounters()
+	wantFresh := int64(0)
+	if core {
+		wantFresh = 1
+	}
+	if gts.CcoreTestFromCore(tree) != core || freshAfter-freshBefore != wantFresh || incrementalAfter != incrementalBefore {
+		t.Fatalf("route witness: core=%v fresh=%d incremental=%d, want core=%v fresh=%d",
+			gts.CcoreTestFromCore(tree), freshAfter-freshBefore, incrementalAfter-incrementalBefore, core, wantFresh)
+	}
+	for reason, count := range after {
+		if reason != decline && count != before[reason] {
+			t.Fatalf("unexpected core refusal %q", reason)
+		}
+	}
+	if decline != "" && after[decline] != before[decline]+1 {
+		t.Fatalf("route witness did not record one %q refusal", decline)
+	}
 }
 
 func ccoreRouteParser(lang *gts.Language) *gts.Parser {
