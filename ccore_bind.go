@@ -2302,6 +2302,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	if root := built.root; root != nil {
 		rt.RootEndByte = root.endByte
 	}
+	rt.IncrementalOldTreeReuseRoute = old != nil
 	rt.MemoryBudgetBytes = lim.budget
 	rt.MaxStacksSeen = cp.MaxVersions()
 	rt.TokensConsumed = uint64(cp.Tokens())
