@@ -979,7 +979,9 @@ func TestSchedRequestModesMatchCompactStarts(t *testing.T) {
 			continue
 		}
 		scannerSource := []byte(grammars.ParseSmokeSample(name))
-		incremental("ParseIncremental with a stateful scanner ("+name+")", gts.NewParser(scannerLang), sched.Incremental, scannerSource,
+		scannerParser := gts.NewParser(scannerLang)
+		scannerParser.SetCompactCertificationTelemetry(true)
+		incremental("ParseIncremental with a stateful scanner ("+name+")", scannerParser, sched.Incremental, scannerSource,
 			func(p *gts.Parser) (*gts.Tree, error) { return p.Parse(scannerSource) },
 			reparse)
 		break

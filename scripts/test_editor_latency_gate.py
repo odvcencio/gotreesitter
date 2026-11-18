@@ -253,6 +253,44 @@ with gate.campaign_lock(Path(sys.argv[1])):
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o444)
 
 
+class Python1670ExceptionTests(unittest.TestCase):
+    def setUp(self):
+        self.fixtures = [{"language": "python", "sha256": gate.PYTHON_1670_FIXTURE}]
+        self.oracles = [{
+            "language": "python",
+            "base_oracle": dict(gate.PYTHON_1670_ORACLE),
+            "oracle": dict(gate.PYTHON_1670_ORACLE),
+        }]
+        self.rows = [
+            {"language": "python", "workload": workload, "step": step,
+             "counter": counter, "before": before, "after": after}
+            for workload, step, counter, before, after in sorted(gate.PYTHON_1670_ROWS)
+        ]
+
+    def approved(self, rows):
+        return gate.python_1670_approved_rows(
+            self.fixtures, gate.PYTHON_1670_MANIFEST, gate.PYTHON_1670_BASE, self.oracles, rows)
+
+    def test_only_the_nine_approved_rows_match(self):
+        extra = dict(self.rows[-1], step=16)
+        self.assertEqual(len(self.rows), 9)
+        self.assertEqual(self.approved(self.rows + [extra]), self.rows)
+        for changed in (self.rows[:-1], self.rows + [self.rows[0]],
+                        self.rows[:-1] + [dict(self.rows[-1], after=117)]):
+            with self.assertRaisesRegex(ValueError, "approved rows changed"):
+                self.approved(changed)
+
+    def test_rejects_changed_oracle_or_reviewed_source(self):
+        self.oracles[0]["oracle"]["grammar_commit"] = "0" * 40
+        with self.assertRaisesRegex(ValueError, "oracle mismatch"):
+            self.approved(self.rows)
+        with mock.patch.object(gate, "git", return_value="f" * 40), \
+                mock.patch.object(gate.subprocess, "run"), \
+                mock.patch.object(gate.subprocess, "check_output", side_effect=[b"", b"ccore_bind.go\0"]):
+            with self.assertRaisesRegex(ValueError, "production inputs changed"):
+                gate.validate_python_1670_exception(Path("."), gate.PYTHON_1670_BASE, "f" * 40)
+
+
 class GateTests(unittest.TestCase):
     def powershell_synthetic_approval(self):
         receipts = {}
