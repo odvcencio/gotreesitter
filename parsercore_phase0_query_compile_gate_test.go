@@ -17,7 +17,7 @@ import (
 const (
 	parserCoreQueryCompileSourceBytes   = 20168
 	parserCoreQueryCompileSourceSHA256  = "b788ee19b0075f0b9b567a9f93ea657e715bc8a6a40a99d3ca5c761404e71894"
-	parserCoreQueryCompileGrammarSHA256 = "9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4"
+	parserCoreQueryCompileGrammarSHA256 = "67b873053c9917055e1b5aec94d3c0d9f7d26834f4340a39159e5970c0a0a598"
 	parserCoreQueryCompileTreeSHA256    = "ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5"
 )
 

@@ -2308,6 +2308,14 @@ func TestCcorePanicInConversionFallsBack(t *testing.T) {
 	json := ccoreRouteLang(t, "json")
 	src := ccoreJSONSource(3000)
 	defer ccoreCertifyAll()()
+	var requests, poolReturns int
+	defer gts.CcoreTestParserLease(func(_ uintptr, before bool) {
+		if before {
+			requests++
+		} else {
+			poolReturns++
+		}
+	})()
 	defer gts.CcoreTestPanicInConversion(2048)()
 	gts.CcoreTestReset()
 	tr, err := ccoreRouteParser(json).Parse(src)
@@ -2319,8 +2327,8 @@ func TestCcorePanicInConversionFallsBack(t *testing.T) {
 	if served != 0 || decl["panic"] != 1 || gts.CcoreTestFromCore(tr) {
 		t.Fatalf("served %d, declines %v", served, decl)
 	}
-	if n := gts.CcoreTestPooledFootprint(json); n != 0 {
-		t.Fatalf("the parser of a request that panicked went back to the pool (%d bytes)", n)
+	if requests != 1 || poolReturns != 0 {
+		t.Fatalf("parser leases=%d, pool returns=%d; want one lease and no returns", requests, poolReturns)
 	}
 }
 
@@ -2381,21 +2389,33 @@ func ccoreIncrCount(t *testing.T) (map[string]int64, int64) {
 func TestCcoreIncrProfile(t *testing.T) {
 	defer ccoreCertifyIncr()()
 	lang := ccoreRouteLang(t, "json")
+	cases := []struct {
+		name        string
+		oldHasError bool
+		recordEdit  bool
+		reason      string
+	}{
+		{name: "error=false", recordEdit: true},
+		{name: "error=true", oldHasError: true, recordEdit: true, reason: "ccore_fresh"},
+		{name: "missing_edit", reason: "missing_edit_for_length_change"},
+	}
 	for _, useOptions := range []bool{false, true} {
-		for _, bad := range []bool{false, true} {
-			t.Run(fmt.Sprintf("options=%t/error=%t", useOptions, bad), func(t *testing.T) {
+		for _, tc := range cases {
+			t.Run(fmt.Sprintf("options=%t/%s", useOptions, tc.name), func(t *testing.T) {
 				p := ccoreRouteParser(lang)
 				src := ccoreJSONSource(300)
-				if bad {
+				if tc.oldHasError {
 					src, _ = ccoreInsert(src, 20, '}')
 				}
 				old, err := p.Parse(src)
-				if err != nil || old == nil || old.RootNode().HasError() != bad {
+				if err != nil || old == nil || old.RootNode().HasError() != tc.oldHasError {
 					t.Fatalf("old tree: %v", err)
 				}
 				defer old.Release()
 				next, edit := ccoreInsert(src, 25, ' ')
-				old.Edit(edit)
+				if tc.recordEdit {
+					old.Edit(edit)
+				}
 				var tree *gts.Tree
 				var profile gts.IncrementalParseProfile
 				if useOptions {
@@ -2415,8 +2435,11 @@ func TestCcoreIncrProfile(t *testing.T) {
 				}
 				defer tree.Release()
 				nodes, bytes, incremental := gts.CcoreTestReuse(tree)
-				if bad {
-					if incremental || !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "ccore_fresh" || profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+				if runtimeReuse := tree.ParseRuntime().IncrementalOldTreeReuseRoute; runtimeReuse != incremental {
+					t.Fatalf("runtime old-tree reuse = %t, core reported incremental = %t", runtimeReuse, incremental)
+				}
+				if tc.reason != "" {
+					if incremental || !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != tc.reason || profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
 						t.Fatalf("fresh core profile: %+v", profile)
 					}
 				} else if !incremental || nodes == 0 || bytes == 0 || profile.ReusedSubtrees != uint64(nodes) || profile.ReusedBytes != bytes || profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute {

@@ -3,9 +3,9 @@ package gotreesitter
 import "testing"
 
 func TestForestTokenInvariantHistoryLifecycle(t *testing.T) {
-	previousForest := glrForestEnabled
-	glrForestEnabled = true
-	t.Cleanup(func() { glrForestEnabled = previousForest })
+	previousForest := glrForestEnabled.Load()
+	glrForestEnabled.Store(true)
+	t.Cleanup(func() { glrForestEnabled.Store(previousForest) })
 	for _, experimental := range []bool{true, false} {
 		name := "dispatch"
 		if experimental {
