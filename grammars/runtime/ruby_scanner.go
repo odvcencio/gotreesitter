@@ -3,6 +3,7 @@
 package grammarruntime
 
 import (
+	"encoding/binary"
 	"strings"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -145,6 +146,15 @@ var rbyExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(rbyExternalScannerSpec)
+	// C checkpoints use a 32-bit heredoc delimiter length. The default mode retains the legacy format.
+	scanmode.RegisterScanner(RubyExternalScanner{}, (*rbyScannerState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(RubyExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(RubyExternalScanner), right.(RubyExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // Maximum serialization buffer size (matches TREE_SITTER_SERIALIZATION_BUFFER_SIZE).
@@ -172,6 +182,7 @@ type rbyHeredoc struct {
 
 // rbyScannerState holds the mutable state for the Ruby external scanner.
 type rbyScannerState struct {
+	scanmode.Flag
 	hasLeadingWhitespace bool
 	literalStack         []rbyLiteral
 	openHeredocs         []rbyHeredoc
@@ -259,10 +270,15 @@ func (RubyExternalScanner) Serialize(payload any, buf []byte) int {
 
 	for i := range s.openHeredocs {
 		hd := &s.openHeredocs[i]
-		if size+4+len(hd.word) >= rbyMaxSerialize {
+		wordBytes := 1
+		if s.On() {
+			wordBytes = 4
+		}
+		header := 3 + wordBytes
+		if size+header+len(hd.word) >= rbyMaxSerialize {
 			return 0
 		}
-		if size+4+len(hd.word) > len(buf) {
+		if size+header+len(hd.word) > len(buf) {
 			return 0
 		}
 		if hd.endWordIndentationAllowed {
@@ -283,8 +299,12 @@ func (RubyExternalScanner) Serialize(payload any, buf []byte) int {
 			buf[size] = 0
 		}
 		size++
-		buf[size] = byte(len(hd.word))
-		size++
+		if s.On() {
+			binary.NativeEndian.PutUint32(buf[size:], uint32(len(hd.word)))
+		} else {
+			buf[size] = byte(len(hd.word))
+		}
+		size += wordBytes
 		copy(buf[size:], hd.word)
 		size += len(hd.word)
 	}
@@ -327,7 +347,11 @@ func (RubyExternalScanner) Deserialize(payload any, buf []byte) {
 	size++
 	for j := 0; j < openHeredocCount && size < len(buf); j++ {
 		hd := rbyHeredoc{}
-		if size+4 > len(buf) {
+		wordBytes := 1
+		if s.On() {
+			wordBytes = 4
+		}
+		if size+3+wordBytes > len(buf) {
 			break
 		}
 		hd.endWordIndentationAllowed = buf[size] != 0
@@ -336,14 +360,17 @@ func (RubyExternalScanner) Deserialize(payload any, buf []byte) {
 		size++
 		hd.started = buf[size] != 0
 		size++
-		wordLen := int(buf[size])
-		size++
-		if size+wordLen > len(buf) {
+		wordLen := uint64(buf[size])
+		if s.On() {
+			wordLen = uint64(binary.NativeEndian.Uint32(buf[size:]))
+		}
+		size += wordBytes
+		if wordLen > uint64(len(buf)-size) {
 			break
 		}
 		hd.word = make([]byte, wordLen)
-		copy(hd.word, buf[size:size+wordLen])
-		size += wordLen
+		copy(hd.word, buf[size:size+int(wordLen)])
+		size += int(wordLen)
 		s.openHeredocs = append(s.openHeredocs, hd)
 	}
 }
