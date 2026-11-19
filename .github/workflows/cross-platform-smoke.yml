@@ -1,9 +1,7 @@
 name: cross-platform-smoke
 
-# Nightly focused checks on platforms that ci.yml does not cover: macOS
-# arm64, Windows, Linux arm64, and wasip1 under a WASI runtime. The set is
-# small on purpose (vet and short tests for grammars, internal, and grep).
-# It does not run the root package or grammargen.
+# Nightly focused checks for all six v1 platforms. Native jobs run vet and
+# short tests for grammars, internal, and grep. WASI runs a smaller suite.
 
 on:
   schedule:
@@ -22,20 +20,36 @@ env:
 
 jobs:
   native:
-    name: native (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: native (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         # macos-14 images retire on 2026-11-02 (actions/runner-images#13518).
-        os: [macos-15, windows-latest, ubuntu-24.04-arm]
+        include:
+          - {runner: ubuntu-24.04, target: linux/amd64, arch: X64}
+          - {runner: ubuntu-24.04-arm, target: linux/arm64, arch: ARM64}
+          - {runner: macos-15, target: darwin/arm64, arch: ARM64}
+          - {runner: windows-latest, target: windows/amd64, arch: X64}
+          - {runner: windows-11-arm, target: windows/arm64, arch: ARM64}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
+
+      - name: Verify native toolchain
+        shell: bash
+        env:
+          EXPECTED_TARGET: ${{ matrix.target }}
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          go version
+          test "$RUNNER_ARCH" = "$EXPECTED_ARCH"
+          test "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" = "$EXPECTED_TARGET"
+          test "$(go env GOOS)/$(go env GOARCH)" = "$EXPECTED_TARGET"
 
       - name: Vet
         shell: bash
