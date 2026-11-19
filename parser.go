@@ -6985,7 +6985,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				// silently accepting it — see
 				// TestOpportunisticTopLevelResyncDoesNotLiftNestedDeclarationStarts/java_import_inside_malformed_method.
 				if len(stacks) == 1 && !p.resyncTopLevelLanguage() && !p.errorCostCompetitionEnabled() {
-					switch p.tryOpportunisticTopLevelResyncRecovery(source, s, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
+					switch p.tryResyncErrorRecoveryMode(source, s, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors, true, dts) {
 					case resyncRetry:
 						currentState = s.top().state
 						needToken = false

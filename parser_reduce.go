@@ -1376,14 +1376,14 @@ func (p *Parser) retryStructuralTopLevelResyncAdvanceAllowed(tok Token) bool {
 //   - resyncAdvance: resynced and folded the current token into the ERROR;
 //     caller advances to the next token.
 func (p *Parser) tryResyncErrorRecovery(source []byte, s *glrStack, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) int {
-	return p.tryResyncErrorRecoveryMode(source, s, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors, false)
+	return p.tryResyncErrorRecoveryMode(source, s, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors, false, nil)
 }
 
 func (p *Parser) tryOpportunisticTopLevelResyncRecovery(source []byte, s *glrStack, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) int {
-	return p.tryResyncErrorRecoveryMode(source, s, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors, true)
+	return p.tryResyncErrorRecoveryMode(source, s, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors, true, nil)
 }
 
-func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool, opportunisticRetryOnly bool) int {
+func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool, opportunisticRetryOnly bool, dts *dfaTokenSource) int {
 	if p == nil || s == nil || arena == nil || tok.Symbol == 0 {
 		return resyncNone
 	}
@@ -1562,6 +1562,31 @@ func (p *Parser) tryResyncErrorRecoveryMode(source []byte, s *glrStack, tok Toke
 		}
 	}
 
+	if status == resyncRetry && !languageScoped && opportunisticRetryOnly && opportunisticRetryAllowed && recoverState == initialState && len(poppedNodes) > preservedEnd && dts != nil && int(tok.EndByte) == dts.lexer.pos && tok.EndByte > tok.StartByte && !tok.ExternalScannerToken && !tok.Missing && realTokenAttachmentGapIsParserPadding(source, s, tok, p.included, p.lineContinuationEscapeByte()) {
+		st := s.top().state
+		next, _, _, _ := dts.scanPreferredTokenForState(st)
+		neutral, _, _, _ := dts.scanPreferredTokenForState(0)
+		if next.StartByte == tok.EndByte && next.EndByte > next.StartByte && next.Symbol != 0 && next.Symbol == neutral.Symbol && next.StartByte == neutral.StartByte && next.EndByte == neutral.EndByte {
+			retryIdx := p.lookupActionIndex(gotoState, tok.Symbol)
+			if retryIdx == 0 || len(p.language.ParseActions[retryIdx].Actions) != 1 {
+				goto originalResync
+			}
+			retryAction := p.language.ParseActions[retryIdx].Actions[0]
+			if retryAction.Type != ParseActionShift || retryAction.Extra {
+				goto originalResync
+			}
+			retry, _, _, _ := dts.scanPreferredTokenForState(retryAction.State)
+			if retry.StartByte != next.StartByte || retry.EndByte <= next.EndByte || retry.Symbol == next.Symbol {
+				goto originalResync
+			}
+			idx := p.lookupActionIndex(st, next.Symbol)
+			if idx != 0 && len(p.language.ParseActions[idx].Actions) == 1 && p.language.ParseActions[idx].Actions[0].Type == ParseActionShift && !p.language.ParseActions[idx].Actions[0].Extra {
+				p.pushOrExtendErrorNode(s, st, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors, true)
+				return resyncAdvance
+			}
+		}
+	}
+originalResync:
 	errChildren := make([]*Node, 0, len(poppedNodes)-preservedEnd+1)
 	for i, n := range poppedNodes[preservedEnd:] {
 		// A popped node can be one of pushOrExtendErrorNode's plain-token ERROR
