@@ -10,6 +10,7 @@ func TestNativeSelectedSnapshotContracts(t *testing.T) {
 		digest    string
 		byDefault bool
 	}{
+		{"67b873053c9917055e1b5aec94d3c0d9f7d26834f4340a39159e5970c0a0a598", true},
 		{"9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4", true},
 		{"214322327c9ee7dda29febf32e415f7ed9e00a90b7690d3c32522e393211b8da", true},
 		{"df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d", true},
