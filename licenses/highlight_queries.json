@@ -1,7 +1,7 @@
 {
   "$schema_note": "License audit for the upstream repositories that the embedded highlight queries in grammars/highlight_queries/ were copied from. Each source is one repository at one commit and carries the same license facts as an entry in licenses/grammars.json. Every .scm file in that directory must be listed under at least one source. Its header comment must agree with this file: one '; Source:' line per source, and a '; Change:' line that starts with 'none' exactly when no source marks the file modified. 'modified' means the embedded query text differs from the upstream file; the header comment itself does not count. Regenerate THIRD_PARTY_NOTICES from this file via `go run ./cmd/gen_license_notices`.",
   "generated_from": "grammars/highlight_queries",
-  "source_count": 7,
+  "source_count": 8,
   "sources": [
     {
       "name": "nvim-treesitter",
@@ -184,6 +184,27 @@
           "file": "v.scm",
           "upstream": "tree_sitter_v/queries/highlights.scm",
           "modified": false
+        }
+      ]
+    },
+    {
+      "name": "solidity",
+      "repo": "https://github.com/JoranHonig/tree-sitter-solidity",
+      "ref": "048fe686cb1fde267243739b8bdbec8fc3a55272",
+      "spdx": "MIT",
+      "license_name": "MIT License",
+      "copyright_holders": [
+        "Copyright (c) 2020 Joran Honig"
+      ],
+      "license_file_url": "https://github.com/JoranHonig/tree-sitter-solidity/blob/048fe686cb1fde267243739b8bdbec8fc3a55272/LICENSE",
+      "method": "github_license_api",
+      "copyleft": false,
+      "repository_owner": "JoranHonig",
+      "files": [
+        {
+          "file": "solidity.scm",
+          "upstream": "queries/highlights.scm",
+          "modified": true
         }
       ]
     }
