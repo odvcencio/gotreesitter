@@ -178,7 +178,11 @@
       "language": "capnp",
       "tier": "T1",
       "tags_query_non_empty": true,
-      "smoke_capture_count": 0,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.type",
+        "name"
+      ],
       "real_corpus_present": true
     },
     {

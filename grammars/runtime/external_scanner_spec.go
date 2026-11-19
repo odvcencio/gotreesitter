@@ -1,6 +1,9 @@
 package grammarruntime
 
 import (
+	"encoding/binary"
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -10,6 +13,10 @@ import (
 type ExternalScannerSourceFile struct {
 	Path   string
 	SHA256 string
+}
+
+func scannerConfigEqual(aSymbols, bSymbols []gotreesitter.Symbol, aTokens, bTokens []int) bool {
+	return slices.Equal(aSymbols, bSymbols) && slices.Equal(aTokens, bTokens)
 }
 
 // ExternalScannerSpec records the source contract for a hand-written external
@@ -69,4 +76,17 @@ func cloneExternalScannerSpec(spec ExternalScannerSpec) ExternalScannerSpec {
 
 func normalizeExternalScannerSpecName(name string) string {
 	return strings.ToLower(strings.TrimSpace(name))
+}
+
+// scannerKey encodes both scanner tables with their lengths.
+func scannerKey(symbols []gotreesitter.Symbol, externalToToken []int) []byte {
+	b := binary.AppendUvarint(nil, uint64(len(symbols)))
+	for _, symbol := range symbols {
+		b = binary.AppendUvarint(b, uint64(symbol))
+	}
+	b = binary.AppendUvarint(b, uint64(len(externalToToken)))
+	for _, token := range externalToToken {
+		b = binary.AppendVarint(b, int64(token))
+	}
+	return b
 }

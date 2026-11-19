@@ -218,3 +218,82 @@ func TestLedgerForcedCleanupSizing(t *testing.T) {
 	}()
 	fmake[uint64](l, math.MaxInt)
 }
+
+type bigElem struct{ b [64]byte }
+
+// Test 1: an array is counted once, when it is made, at its real size, and stays
+// counted; a large array is checked before it is made.
+func TestLedgerChargesEachArrayOnceAndKeepsIt(t *testing.T) {
+	var l Ledger
+	var cur []bigElem
+	type call struct {
+		total  int64
+		oldCap int
+	}
+	var calls []call
+	l.SetPoll(func(total int64, sample bool) bool {
+		calls = append(calls, call{total, cap(cur)})
+		return true
+	})
+	if !l.Begin(1000) {
+		t.Fatal("Begin refused")
+	}
+	elem := sizeOf[bigElem]()
+	var sum int64
+	var last int64
+	prevCap := 0
+	for i := 0; i < 5000; i++ {
+		next, ok := Push(&l, cur, bigElem{})
+		if !ok {
+			t.Fatal("Push refused")
+		}
+		if cap(next) != prevCap {
+			sum += int64(cap(next)) * elem // a new array was made
+			prevCap = cap(next)
+		}
+		cur = next
+		if l.Alloc < last {
+			t.Fatalf("Alloc fell from %d to %d", last, l.Alloc)
+		}
+		last = l.Alloc
+	}
+	if l.Alloc != sum {
+		t.Fatalf("Alloc = %d, want the sum of capacity x size of every array made = %d", l.Alloc, sum)
+	}
+	if l.Total() != 1000+sum {
+		t.Fatalf("Total = %d, want %d", l.Total(), 1000+sum)
+	}
+	// An array of G bytes or more is passed to the poll before it is made: the poll
+	// sees the slice with its old capacity and a total that includes the new array.
+	seen := false
+	for _, c := range calls {
+		if c.total >= 1000+int64(8192)*elem && c.oldCap == 4096 {
+			if c.total != 1000+sum {
+				t.Fatalf("the poll for the 8192-element array saw total %d, want %d (the array included)", c.total, 1000+sum)
+			}
+			seen = true
+		}
+	}
+	if !seen {
+		t.Fatalf("no poll call for the array of %d bytes made while the slice had capacity 4096: %+v", 8192*elem, calls)
+	}
+}
+
+// A refused reservation changes nothing.
+func TestLedgerRefusalChangesNothing(t *testing.T) {
+	var l Ledger
+	l.SetPoll(func(total int64, sample bool) bool { return total < 1<<20 })
+	l.Begin(0)
+	s, ok := Make[byte](&l, 1<<19)
+	if !ok || len(s) != 1<<19 {
+		t.Fatalf("first Make: ok=%v", ok)
+	}
+	before := l.Alloc
+	g, ok := Grow(&l, s, 1<<20)
+	if ok || len(g) != len(s) || l.Alloc != before {
+		t.Fatalf("refused Grow: ok=%v len=%d Alloc %d -> %d", ok, len(g), before, l.Alloc)
+	}
+	if _, ok := Push(&l, []int{}, 1); !ok {
+		t.Fatal("a small Push must pass")
+	}
+}

@@ -37,6 +37,9 @@ type FieldEntry struct {
 // NodeTables is the language data the node readers need beyond Tables.
 // The root adapter builds one per language next to the Tables it shares.
 type NodeTables struct {
+	// SymbolCount is the grammar's declared symbol count. A zero value means
+	// unavailable; NextParseState declines rather than infer it from metadata.
+	SymbolCount  uint32
 	Base         *Tables     // symbol metadata and alias sequences
 	FieldSlices  [][2]uint16 // [production id] -> (first entry, entry count)
 	FieldEntries []FieldEntry
@@ -153,6 +156,52 @@ func (r NodeReader) IsError(n Node) bool { return r.Symbol(n) == errorSymbol }
 
 // ParseState is C ts_node_parse_state (C/node.c:533).
 func (r NodeReader) ParseState(n Node) uint16 { return r.S.parseState(n.H) }
+
+// NextParseState is C ts_node_next_parse_state. It uses the grammar
+// symbol, not an alias, and the last parse action for a terminal.
+func (r NodeReader) NextParseState(n Node) uint16 {
+	if n.H == 0 || r.S == nil || r.T == nil || r.T.Base == nil {
+		return 0
+	}
+	state := r.ParseState(n)
+	if state == stateNone {
+		return stateNone
+	}
+	t := r.T.Base
+	sym := r.GrammarSymbol(n)
+	if uint32(state) >= t.StateCount || sym == symError || sym == symErrorRepeat || uint32(sym) >= r.T.SymbolCount {
+		return 0
+	}
+	if uint32(sym) >= t.TokenCount {
+		gotoState := uint32(t.ActionIndex(uint32(state), sym))
+		if wide := t.LargeStateGotos[uint64(state)<<32|uint64(sym)]; wide != 0 {
+			gotoState = wide
+		}
+		if gotoState >= t.StateCount || gotoState >= uint32(stateNone) {
+			return 0
+		}
+		return uint16(gotoState)
+	}
+	index := t.ActionIndex(uint32(state), sym)
+	if index == 0 || int(index) >= len(t.Actions) {
+		return 0
+	}
+	actions := t.Actions[index].Actions
+	if len(actions) == 0 {
+		return 0
+	}
+	last := actions[len(actions)-1]
+	if last.Type != ActionShift {
+		return 0
+	}
+	if last.Extra {
+		return state
+	}
+	if last.State >= t.StateCount || last.State >= uint32(stateNone) {
+		return 0
+	}
+	return uint16(last.State)
+}
 
 // StartByte is C ts_node_start_byte (C/node.c:39).
 func (r NodeReader) StartByte(n Node) uint32 { return n.Start.bytes }
@@ -282,6 +331,15 @@ func (r NodeReader) superBit(h Handle) uint32 {
 // walk can enter an anonymous visible node that holds named children, as C does)
 // starts them again.
 func (r NodeReader) child(self Node, target uint32, anon bool) (Node, bool) {
+	n, ok, _ := r.childQ(self, target, anon)
+	return n, ok
+}
+
+// childQ is child, and reports whether the named walk met an anonymous visible
+// child that holds named children (the quirk of C/node.c:139): C then numbers
+// the named children differently from the named visible children in sequence.
+func (r NodeReader) childQ(self Node, target uint32, anon bool) (Node, bool, bool) {
+	quirk := false
 	cur := self
 	var inherited, curInh uint16
 	var mask, vis uint32
@@ -303,7 +361,7 @@ func (r NodeReader) child(self Node, target uint32, anon bool) (Node, bool) {
 							child.Field, child.CField = inherited, curInh
 						}
 					}
-					return child, true
+					return child, true, quirk
 				}
 				index++
 				vis++
@@ -311,6 +369,9 @@ func (r NodeReader) child(self Node, target uint32, anon bool) (Node, bool) {
 			}
 			gi := target - index
 			gc := r.relevantCount(&child, anon)
+			if !anon && relA && gc > 0 {
+				quirk = true
+			}
 			if gi < gc {
 				f := r.ownField(it.prod, int(it.structural)-1)
 				if f != 0 {
@@ -339,13 +400,19 @@ func (r NodeReader) child(self Node, target uint32, anon bool) (Node, bool) {
 			}
 		}
 		if !descended {
-			return Node{}, false
+			return Node{}, false, quirk
 		}
 	}
 }
 
 // Child is C ts_node_child (C/node.c:593): the child at index i among the visible children.
 func (r NodeReader) Child(n Node, i uint32) (Node, bool) { return r.child(n, i, true) }
+
+// NamedChildChecked follows C ts_node_named_child (C/node.c:597) and reports
+// whether its walk crossed an anonymous visible child with named descendants.
+func (r NodeReader) NamedChildChecked(n Node, i uint32) (Node, bool, bool) {
+	return r.childQ(n, i, false)
+}
 
 // NamedChild is C ts_node_named_child (C/node.c:597).
 func (r NodeReader) NamedChild(n Node, i uint32) (Node, bool) { return r.child(n, i, false) }
@@ -410,4 +477,142 @@ func (r NodeReader) ChildrenHidden(n Node, dst []Node) ([]Node, bool) {
 		}
 	}
 	return dst, hidden
+}
+
+// ---- field search (C/node.c:601, ts_node_child_by_field_id) ----
+
+type fieldFrame struct {
+	h        Handle
+	sub      []FieldEntry
+	seq      []Symbol
+	children []Handle
+	ci       int   // next raw child
+	k        int   // current entry of sub
+	sidx     int   // structural index of the next non-extra child
+	vbase    int32 // visible children before the next raw child
+	offset   int32 // index of this node's first visible child among the visible children of the node the search began at (or of the visible node it entered)
+	contrib  int32 // visible children of the raw child a recursive call is working on
+	restore  int   // length of the path when the call was made
+}
+
+func (r NodeReader) seqOf(prod uint16) []Symbol {
+	if int(prod) < len(r.T.Base.Alias) {
+		return r.T.Base.Alias[prod]
+	}
+	return nil
+}
+
+func (r NodeReader) relevantAt(child Handle, seq []Symbol, structural int) bool {
+	return r.S.visible(child) || (structural >= 0 && structural < len(seq) && seq[structural] != 0)
+}
+
+func (r NodeReader) newFieldFrame(h Handle, f uint16, offset int32) (fieldFrame, bool) {
+	if f == 0 || r.S.VisibleChildCount(h) == 0 { // C/node.c:603 ts_node_child_count: the visible count
+		return fieldFrame{}, false
+	}
+	prod := r.S.ProductionID(h)
+	var sub []FieldEntry
+	t := r.T
+	if int(prod) < len(t.FieldSlices) {
+		sl := t.FieldSlices[prod]
+		if end := int(sl[0]) + int(sl[1]); end <= len(t.FieldEntries) {
+			for _, e := range t.FieldEntries[sl[0]:end] {
+				if e.FieldID == f {
+					sub = append(sub, e)
+				}
+			}
+		}
+	}
+	if len(sub) == 0 {
+		return fieldFrame{}, false
+	}
+	return fieldFrame{h: h, sub: sub, seq: r.seqOf(prod), children: r.S.Children(h), offset: offset}, true
+}
+
+// FieldPath is C ts_node_child_by_field_id (C/node.c:601): it returns the path of
+// visible-child indexes from n to the node C finds for field f, or false. The
+// path names positions, never handles (an inline leaf is a value and can appear
+// in several slots). The search is iterative: its depth is not limited, and the
+// recursive call of C, for a hidden or visible child that inherits the field
+// when it is not the last candidate, is a frame on the heap.
+func (r NodeReader) FieldPath(n Node, f uint16) ([]int32, bool) {
+	var path []int32
+	var stack []fieldFrame
+	cur, ok := r.newFieldFrame(n.H, f, 0)
+	for {
+		if !ok { // the current call found nothing: return to the caller, which goes on with its next candidate
+			if len(stack) == 0 {
+				return nil, false
+			}
+			cur = stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			path = path[:cur.restore]
+			cur.k++
+			if cur.k == len(cur.sub) {
+				continue // the caller has no candidate left either
+			}
+			cur.vbase += cur.contrib
+			ok = true
+		}
+		found, finished := false, true
+		for cur.ci < len(cur.children) {
+			child := cur.children[cur.ci]
+			cur.ci++
+			var relA bool
+			var sidx int
+			extra := r.S.extra(child)
+			if extra {
+				sidx = -1
+			} else {
+				sidx = cur.sidx
+				cur.sidx++
+			}
+			relA = r.relevantAt(child, cur.seq, sidx)
+			contrib := int32(0)
+			if relA {
+				contrib = 1
+			} else {
+				contrib = int32(r.S.VisibleChildCount(child))
+			}
+			if extra || sidx < int(cur.sub[cur.k].ChildIndex) {
+				cur.vbase += contrib
+				continue
+			}
+			e := cur.sub[cur.k]
+			switch {
+			case e.Inherited:
+				off := cur.offset + cur.vbase
+				restore := len(path)
+				if relA { // a visible node: the search continues inside it, from its own first child
+					path = append(path, off)
+					off = 0
+				}
+				nf, nok := r.newFieldFrame(child, f, off)
+				if cur.k+1 == len(cur.sub) { // the last candidate: C goes on in place (a tail call)
+					cur, ok = nf, nok
+					finished = false
+				} else {
+					cur.contrib, cur.restore = contrib, restore
+					stack = append(stack, cur)
+					cur, ok = nf, nok
+					finished = false
+				}
+			case relA:
+				return append(path, cur.offset+cur.vbase), true
+			case r.S.VisibleChildCount(child) > 0: // C/node.c:658: a node with visible children: its first one
+				return append(path, cur.offset+cur.vbase), true
+			default:
+				cur.k++
+				if cur.k < len(cur.sub) {
+					cur.vbase += contrib
+					continue
+				}
+			}
+			break
+		}
+		_ = found
+		if finished {
+			ok = false
+		}
+	}
 }

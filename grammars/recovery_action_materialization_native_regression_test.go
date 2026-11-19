@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 )
 
 type recoveryActionMaterializationCase struct {
@@ -132,7 +133,9 @@ func TestRecoveryActionMaterializationNeedsNoResultCompatibility(t *testing.T) {
 			assertNoNormalizationPasses(t, tree)
 			assertRecoveryActionMaterializationTree(t, tree, language, test)
 
-			production, err := gotreesitter.NewParser(language).Parse(source)
+			productionParser := gotreesitter.NewParser(language)
+			productionParser.SetAdmissionCandidateRoute(false)
+			production, err := productionParser.Parse(source)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -165,6 +168,7 @@ func TestRecoveryActionMaterializationRoutesStayExactOrFailClosed(t *testing.T) 
 			want := collapsedTokenTreeDigest(t, production, language)
 
 			routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
+			_, coreBefore, _ := bind.RouteCounters()
 			compactParser := gotreesitter.NewParser(language)
 			compactParser.SetAdmissionCandidateRoute(true)
 			compact, err := compactParser.Parse(source)
@@ -186,9 +190,21 @@ func TestRecoveryActionMaterializationRoutesStayExactOrFailClosed(t *testing.T) 
 				)
 			}
 			assertNoNormalizationPasses(t, compact)
-			assertRecoveryActionMaterializationDigest(t, "compact", compact, language, want)
+			candidateWant := want
+			if _, coreAfter, _ := bind.RouteCounters(); coreAfter > coreBefore {
+				// The certified recovery tree has its own pinned C oracle.
+				defaultTree, err := gotreesitter.NewParser(language).Parse(source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(defaultTree.Release)
+				assertNoNormalizationPasses(t, defaultTree)
+				candidateWant = collapsedTokenTreeDigest(t, defaultTree, language)
+			}
+			assertRecoveryActionMaterializationDigest(t, "candidate", compact, language, candidateWant)
 
 			forestParser := gotreesitter.NewParser(language)
+			forestParser.SetAdmissionCandidateRoute(false)
 			forest, ok := forestParser.ParseForestExperimental(source)
 			if ok && forest != nil {
 				t.Cleanup(forest.Release)

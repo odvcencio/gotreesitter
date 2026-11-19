@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the ron grammar.
@@ -56,6 +55,15 @@ var ronExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(ronExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(RonExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(RonExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(RonExternalScanner), right.(RonExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // RonExternalScanner handles string content, raw strings, floats,
@@ -134,7 +142,7 @@ func (sc RonExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	}
 
 	// Skip whitespace
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 
@@ -181,7 +189,7 @@ func (sc RonExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	}
 
 	// Float literal
-	if ronValid(validSymbols, ronTokFloat) && unicode.IsDigit(lexer.Lookahead()) {
+	if ronValid(validSymbols, ronTokFloat) && cIsDigit(lexer.Lookahead()) {
 		lexer.SetResultSymbol(syms[ronTokFloat])
 		lexer.Advance(false)
 		for ronIsNumChar(lexer.Lookahead()) {
@@ -194,7 +202,7 @@ func (sc RonExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 		if lexer.Lookahead() == '.' {
 			hasFraction = true
 			lexer.Advance(false)
-			if unicode.IsLetter(lexer.Lookahead()) {
+			if cIsAlpha(lexer.Lookahead()) {
 				return false
 			}
 			if lexer.Lookahead() == '.' {
@@ -231,10 +239,10 @@ func (sc RonExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 			return true
 		}
 		lexer.Advance(false)
-		if !unicode.IsDigit(lexer.Lookahead()) {
+		if !cIsDigit(lexer.Lookahead()) {
 			return true
 		}
-		for unicode.IsDigit(lexer.Lookahead()) {
+		for cIsDigit(lexer.Lookahead()) {
 			lexer.Advance(false)
 		}
 		lexer.MarkEnd()
@@ -286,7 +294,7 @@ func (sc RonExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 }
 
 func ronIsNumChar(ch rune) bool {
-	return ch == '_' || unicode.IsDigit(ch)
+	return ch == '_' || cIsDigit(ch)
 }
 
 func ronValid(vs []bool, i int) bool { return i < len(vs) && vs[i] }

@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the lua grammar (enum TokenType in scanner.c).
@@ -72,6 +71,15 @@ var luaExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(luaExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(LuaExternalScanner{}, (*luaScannerState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(LuaExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(LuaExternalScanner), right.(LuaExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // luaExternalLexStates mirrors ts_external_scanner_states in the pinned
@@ -247,7 +255,7 @@ func luaScanCommentContent(s *luaScannerState, lexer *gotreesitter.ExternalLexer
 	}
 
 	for lexer.Lookahead() != 0 {
-		if lexer.Lookahead() == rune(s.endingChar) {
+		if scanmode.CLookahead(lexer) == int32(int8(s.endingChar)) {
 			s.reset()
 			lexer.SetResultSymbol(blockCommentContentSym)
 			return true
@@ -299,7 +307,7 @@ func (s LuaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		return true
 	}
 
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 

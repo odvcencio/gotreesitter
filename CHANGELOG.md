@@ -56,6 +56,9 @@ for tags and release notes while still in `0.x`.
 
 ### Changed
 
+- Parse JSON with the new core by default. Trees for text with errors now match
+  the C runtime. Call `SetAdmissionCandidateRoute(false)` on a parser to keep
+  using the present engine ([#1665](https://github.com/odvcencio/gotreesitter/pull/1665)).
 - Run the editor-latency CI gate as one job per language, which cuts a pull
   request's CI from about two hours to about 26 minutes, and skip it for pull
   requests that change only `internal/ccore`, its harness tests or
@@ -86,6 +89,23 @@ for tags and release notes while still in `0.x`.
   harness tests import packages that the baseline lacks. Packages that the
   timing driver needs must still build
   ([#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
+
+- External scanners: fourteen ports now do what their C scanners do on unusual
+  input: a no-break space or a line separator where whitespace is expected, a
+  NUL byte, or an invalid UTF-8 byte. Before, the
+  ports of tablegen, nushell, godot_resource, julia, ron, lua, fennel, tcl,
+  markdown_inline, gitcommit, powershell, luau, odin and fish could return
+  another token than the C runtime on such input, for example a PowerShell
+  statement terminator at U+00A0, or look at more or fewer characters
+  ([#1658](https://github.com/odvcencio/gotreesitter/pull/1658)).
+- External scanners: nine more ports now do what their C scanners do on
+  unusual input: an embedded NUL byte, a non-ASCII space, letter or digit where
+  C accepts ASCII only, or an invalid UTF-8 byte. Before, the ports of erlang,
+  dockerfile, dart, kotlin, nim, r, c_sharp, markdown and ruby could return
+  another token than the C runtime on such input, for example a Kotlin
+  automatic semicolon, miss a Dockerfile heredoc marker that follows
+  whitespace, or look at more or fewer characters
+  ([#1660](https://github.com/odvcencio/gotreesitter/pull/1660)).
 
 ### Evidence
 

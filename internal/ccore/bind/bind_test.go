@@ -38,6 +38,7 @@ func stub(t *testing.T) {
 			}
 			return ccore.Config{Tables: g.Tables}, nil
 		},
+		ConfigHash:  func(lang any) ([32]byte, error) { return [32]byte{42}, nil },
 		CheckTables: func(lang any) (int, int, error) { return 7, 0, nil },
 	})
 }
@@ -59,7 +60,7 @@ func TestRegisterTwicePanics(t *testing.T) {
 			t.Fatal("second Register did not panic")
 		}
 	}()
-	Register(Adapter{Config: func(any) (ccore.Config, error) { return ccore.Config{}, nil }, CheckTables: func(any) (int, int, error) { return 0, 0, nil }})
+	Register(Adapter{Config: func(any) (ccore.Config, error) { return ccore.Config{}, nil }, ConfigHash: func(any) ([32]byte, error) { return [32]byte{}, nil }, CheckTables: func(any) (int, int, error) { return 0, 0, nil }})
 }
 
 func TestRegisterNeedsBothFunctions(t *testing.T) {
@@ -90,10 +91,10 @@ func TestNewRefusesBadTables(t *testing.T) {
 
 func TestFuncScanner(t *testing.T) {
 	closed := false
-	var s ccore.ExtScanner = &FuncScanner{
-		ScanFn:  func([]byte, int, uint32, uint32, []byte, []bool, []byte, *ccore.ExtScan) bool { return true },
-		CloseFn: func() { closed = true },
-	}
+	var s ccore.ExtScanner = NewFuncScanner(
+		func([]byte, int, uint32, uint32, []byte, []bool, []byte, *ccore.ExtScan) bool { return true },
+		func() { closed = true },
+	)
 	if !s.Scan(nil, 0, 0, 0, nil, nil, nil, &ccore.ExtScan{}) {
 		t.Fatal("ScanFn result not passed on")
 	}

@@ -97,6 +97,7 @@ func TestParseIncrementalTypeThenDeleteKeepsUndoReuse(t *testing.T) {
 	lang := grammars.JsonLanguage()
 	source := []byte("[10, 20, 30]")
 	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
 	old, err := parser.Parse(source)
 	if err != nil {
 		t.Fatalf("initial parse: %v", err)
@@ -501,7 +502,7 @@ func observeTree(t *testing.T, lang *gts.Language, tree *gts.Tree, err error) re
 }
 
 func newRetryStopParser(lang *gts.Language, rec *retryStopRecorder) *gts.Parser {
-	p := gts.NewParser(lang)
+	p := newProductionBig3Parser(lang)
 	p.SetTimeoutMicros(60_000_000)
 	gts.SetRetryPassObserverForTests(p, rec.observe)
 	return p
@@ -513,7 +514,7 @@ func TestRetryStopReasonTimeoutDuringRetryPasses(t *testing.T) {
 	src := []byte(retryStopPythonSource)
 
 	baseRec := &retryStopRecorder{}
-	base := gts.NewParser(lang)
+	base := newProductionBig3Parser(lang)
 	gts.SetRetryPassObserverForTests(base, baseRec.observe)
 	tree, err := base.Parse(src)
 	baseline := observeTree(t, lang, tree, err)
@@ -566,7 +567,7 @@ func TestRetryStopReasonCancellationDuringRetryPasses(t *testing.T) {
 	lang := grammars.PythonLanguage()
 	var flag uint32
 	rec := &retryStopRecorder{endAfter: "clean_wide", end: func(*gts.Parser) { atomic.StoreUint32(&flag, 1) }}
-	p := gts.NewParser(lang)
+	p := newProductionBig3Parser(lang)
 	p.SetCancellationFlag(&flag)
 	gts.SetRetryPassObserverForTests(p, rec.observe)
 	tree, err := p.Parse([]byte(retryStopPythonSource))
@@ -807,7 +808,11 @@ func TestRetryStopReasonRepeatSuppressedByDeadline(t *testing.T) {
 func TestRetryStopReasonThroughParserPool(t *testing.T) {
 	t.Parallel()
 	lang := grammars.PythonLanguage()
-	pool := gts.NewParserPool(lang, gts.WithParserPoolTimeoutMicros(60_000_000))
+	// A logger selects the legacy retry ladder on each pool checkout.
+	pool := gts.NewParserPool(lang,
+		gts.WithParserPoolTimeoutMicros(60_000_000),
+		gts.WithParserPoolLogger(func(gts.ParserLogType, string) {}),
+	)
 	rec := &retryStopRecorder{endAfter: "clean_wide", end: gts.ExpireParseDeadlineForTests}
 	gts.SetPoolParserInitForTests(pool, func(p *gts.Parser) { gts.SetRetryPassObserverForTests(p, rec.observe) })
 	parse := func() retryStopObservation {
@@ -915,7 +920,7 @@ func TestRetryStopReasonFreshVerificationKeepsSignal(t *testing.T) {
 	t.Parallel()
 	lang := grammars.PythonLanguage()
 	src := []byte(retryStopPythonSource)
-	plain, err := gts.NewParser(lang).Parse(src)
+	plain, err := newProductionBig3Parser(lang).Parse(src)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -941,7 +946,7 @@ func TestRetryStopReasonFreshVerificationSkippedByDeadline(t *testing.T) {
 	t.Parallel()
 	lang := grammars.PythonLanguage()
 	src := []byte(retryStopPythonSource)
-	plain, err := gts.NewParser(lang).Parse(src)
+	plain, err := newProductionBig3Parser(lang).Parse(src)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -964,7 +969,7 @@ func TestRetryStopReasonIncrementalFullFallback(t *testing.T) {
 	// The fallback parses fresh through a hidden parser that runs its own retry passes.
 	rec := &retryStopRecorder{endAfter: "clean_wide", end: gts.ExpireParseDeadlineForTests}
 	p := newRetryStopParser(lang, rec)
-	first, err := gts.NewParser(lang).Parse(src)
+	first, err := newProductionBig3Parser(lang).Parse(src)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -976,7 +981,7 @@ func TestRetryStopReasonIncrementalFullFallback(t *testing.T) {
 
 	// A deadline that is already over skips the fallback.
 	p2 := newRetryStopParser(lang, &retryStopRecorder{})
-	first2, err := gts.NewParser(lang).Parse(src)
+	first2, err := newProductionBig3Parser(lang).Parse(src)
 	if err != nil {
 		t.Fatal(err)
 	}

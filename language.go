@@ -698,6 +698,9 @@ type Language struct {
 	// produced this Language. Keep it private so blob encoding stays stable.
 	grammarBlobSHA256      [32]byte
 	grammarBlobSHA256Valid bool
+	// ccoreCertState caches whether the blob has a certificate of the generated
+	// list: 0 not yet asked, 1 no, 2 yes. It is read and written atomically.
+	ccoreCertState uint32
 	// Runtime-only: omitted by gob and granted only to an exact loaded artifact.
 	legacyReductionContinuationsCertified bool
 	// blobInfo records the version header LoadLanguage found (or did not
@@ -773,6 +776,10 @@ type Language struct {
 	// post-load mutations (external scanner / ExternalLexStates attach)
 	// invalidate it. See cRecoveryGateCacheKeyFor.
 	cRecoveryGateCache atomic.Pointer[cRecoveryGateCacheEntry]
+
+	// ccoreTables is protected by ccoreTablesMu. The owner check prevents
+	// use of wrappers belonging to a different Language.
+	ccoreTables *ccoreLanguageTables
 
 	// compactTables memoizes the converted compact-parser (parsercorephase0)
 	// action and reduction tables for the Phase-3 admission candidate route. The

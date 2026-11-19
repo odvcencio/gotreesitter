@@ -47,12 +47,18 @@ func (p *Parser) rnAdvance() { // reusable_node_advance
 			break
 		}
 	}
+	if len(p.rn) == cap(p.rn) {
+		p.rn = grow(&p.led, p.rn, 1)
+	}
 	p.rn = append(p.rn, reusableEntry{tree: p.children(tree)[next], childIndex: next, byteOffset: byteOffset})
 }
 
 func (p *Parser) rnDescend() bool { // reusable_node_descend
 	last := p.rn[len(p.rn)-1]
 	if p.childCount(last.tree) > 0 {
+		if len(p.rn) == cap(p.rn) {
+			p.rn = grow(&p.led, p.rn, 1)
+		}
 		p.rn = append(p.rn, reusableEntry{tree: p.children(last.tree)[0], childIndex: 0, byteOffset: last.byteOffset})
 		return true
 	}
@@ -67,6 +73,9 @@ func (p *Parser) rnAdvancePastLeaf() { // reusable_node_advance_past_leaf
 
 func (p *Parser) rnReset(tree Handle) { // reusable_node_reset
 	p.rnClear()
+	if len(p.rn) == cap(p.rn) {
+		p.rn = grow(&p.led, p.rn, 1)
+	}
 	p.rn = append(p.rn, reusableEntry{tree: tree})
 	if !p.rnDescend() {
 		p.rnClear()
@@ -227,7 +236,14 @@ func (p *Parser) breakdownTopOfStack(version int) bool {
 	didBreakDown := false
 	pending := false
 	for {
-		pop := append(p.recSlices[:0], p.popPending(version)...)
+		pop := p.recSlices[:0]
+		{
+			values := p.popPending(version)
+			if len(values) > cap(pop)-len(pop) {
+				pop = grow(&p.led, pop, len(values))
+			}
+			pop = append(pop, values...)
+		}
 		p.recSlices = pop[:0]
 		if len(pop) == 0 {
 			break

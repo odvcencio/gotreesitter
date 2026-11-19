@@ -20,6 +20,7 @@ import sys
 import tempfile
 import urllib.request
 
+import w5_source_replay
 from w5_private_oracle import check_env, digest, identity_fields, source_fingerprints
 
 
@@ -121,6 +122,70 @@ GO_1512_B7_BASE = "b7f1877f72c46ac2992e865ab636edad1d545060"
 GO_1512_B7_REVIEWED = "2782879c97b4e28e9db7209ae7ddfbd6e9b69574"
 GO_1512_B7_UNDO_EXCEPTION = "go-one-byte-undo-b7-to-278"
 GO_1512_B7_SUCCESSOR_PATHS = frozenset(("scripts/editor_latency_gate.py", "scripts/test_editor_latency_gate.py", ".github/workflows/ci.yml"))
+
+# The maintainer approved these nine rows on PR #1670's locked Python fixture.
+PYTHON_1670_BASE = "96e178c2ac2f2e627ffb5eb8aaa8d4b7dbf6b533"
+PYTHON_1670_REVIEWED = "6802b19e16e75d525ce0bb228b7482618eedcd83"
+PYTHON_1670_EXCEPTION = "python-ccore-1670"
+PYTHON_1670_FIXTURE = "dd622639fdeeee94bd0164bb5dcd0d679a47a0a7f3bdb6094893834bc305f6b7"
+PYTHON_1670_MANIFEST = "110352e799c54aced0f169e3852d1f58d6ff7d33abf4412a4cc21842cdf7bd37"
+PYTHON_1670_ORACLE = {
+    "runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
+    "sources_manifest_sha256": "242c4f6b72d2d24421f84a505aa20164e43f144eb6401e876e6d24a167f06f51",
+    "grammar_repo": "https://github.com/tree-sitter/tree-sitter-python",
+    "grammar_commit": "26855eabccb19c6abf499fbc5b8dc7cc9ab8bc64",
+    "grammar_patch_identity": "none",
+}
+PYTHON_1670_ROWS = frozenset((
+    ("one_byte", 0, "reused_subtrees", 20, 1),
+    ("one_byte", 1, "reused_subtrees", 20, 1),
+    ("hundred_byte", 1, "reused_subtrees", 232, 151),
+    ("typing", 0, "tokens", 8, 125),
+    ("typing", 0, "reused_bytes", 20475, 19457),
+    ("typing", 1, "tokens", 8, 60),
+    ("typing", 2, "tokens", 8, 13),
+    ("typing", 3, "tokens", 8, 48),
+    ("typing", 5, "tokens", 8, 12),
+))
+PYTHON_1670_SUCCESSOR_PATHS = frozenset((
+    ".github/workflows/ci.yml",
+    "scripts/editor_latency_gate.py",
+    "scripts/test_editor_latency_gate.py",
+    "admission_switch_test.go",
+    "incremental_edit_sequence_test.go",
+    "issue728_incremental_reuse_regression_test.go",
+    "parser_external_scanner_prefix_frontier_compact_test.go",
+    "scanner_closure_external_test.go",
+))
+
+
+def validate_python_1670_exception(root, base_revision, head_revision):
+    require(base_revision == PYTHON_1670_BASE, "W5 Python exception base mismatch")
+    require(git(root, "rev-parse", "HEAD") == head_revision, "W5 Python exception checkout mismatch")
+    require(not subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--ignored"]),
+            "W5 Python exception requires a clean checkout")
+    subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", PYTHON_1670_REVIEWED, head_revision], check=True)
+    diff = subprocess.check_output(["git", "-C", str(root), "diff", "--no-renames", "--name-only", "-z", PYTHON_1670_REVIEWED, head_revision])
+    require((set(diff.decode().split("\0")) - {""}) <= PYTHON_1670_SUCCESSOR_PATHS, "W5 Python exception production inputs changed")
+    return PYTHON_1670_EXCEPTION
+
+
+def python_1670_approved_rows(fixtures, manifest_sha, base_revision, identities, failures):
+    require(base_revision == PYTHON_1670_BASE and manifest_sha == PYTHON_1670_MANIFEST and
+            len(fixtures) == 1 and fixtures[0]["language"] == "python" and fixtures[0]["sha256"] == PYTHON_1670_FIXTURE,
+            "W5 Python exception fixture or base mismatch")
+    require(len(identities) == 1 and identities[0]["language"] == "python" and
+            all(identities[0][role].get(key) == value for role in ("base_oracle", "oracle")
+                for key, value in PYTHON_1670_ORACLE.items()), "W5 Python exception oracle mismatch")
+    approved = []
+    observed = set()
+    for row in failures:
+        key = (row["workload"], row["step"], row["counter"], row["before"], row["after"])
+        if row["language"] == "python" and key in PYTHON_1670_ROWS:
+            approved.append(row)
+            observed.add(key)
+    require(observed == PYTHON_1670_ROWS and len(approved) == len(PYTHON_1670_ROWS), "W5 Python approved rows changed")
+    return approved
 
 
 def validate_b7_undo_exception(root, base_revision, head_revision, decision_path):
@@ -345,7 +410,11 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
                 ignored = set(grammar_keys) | {"grammar_artifact_path", "grammar_artifact_sha256"}
                 require({k:v for k,v in base["oracle"].items() if k not in ignored} == {k:v for k,v in head["oracle"].items() if k not in ignored}, f"{f['language']}: C runtime/compiler differs between revisions")
                 for role in ("base", "head"):
-                    verify_fresh_proof(receipts[role][2]["fresh_proof"], receipts[role][2]["oracle"])
+                    expected = receipts[role][2]
+                    if "source_replay" in expected:
+                        verify_source_replay(expected, role, base_revision if role == "base" else head_revision)
+                    else:
+                        verify_fresh_proof(expected["fresh_proof"], expected["oracle"])
         if not changed_grammar:
             require(oracle_identity(base["oracle"]) == oracle_identity(head["oracle"]), f"{f['language']}: C oracle differs between revisions")
         if exception is not None and f["language"] == "go":
@@ -374,7 +443,12 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
                             applied.append({"name":exception, "row":row})
                         else:
                             failures.append(row)
-    require(exception is None or len(applied) == 1, "W5 approved row did not match exactly once")
+    if exception == PYTHON_1670_EXCEPTION:
+        approved = python_1670_approved_rows(fixtures, manifest_sha, base_revision, identities, failures)
+        applied.extend({"name": exception, "row": row} for row in approved)
+        failures = [row for row in failures if row not in approved]
+    else:
+        require(exception is None or len(applied) == 1, "W5 approved row did not match exactly once")
     if powershell_approval is not None and exception is None:
         try:
             record = powershell_approval["record"]
@@ -747,6 +821,42 @@ def prepare_private_oracle(root, common, directory, language, inputs, image, ima
     return expected
 
 
+def verify_source_replay(expected, role, revision):
+    replay = expected["source_replay"]
+    oracle = expected["oracle"]
+    require(replay.get("schema") == "w5-parent-source-replay-v1" and replay.get("role") == role and
+            replay.get("role_revision") == revision and replay.get("image") == expected["image_id"] and
+            replay.get("compiler") == expected["compilers"][0] and
+            replay.get("artifact") == expected["artifact"] == oracle["grammar_artifact_sha256"] and
+            replay.get("patch_identity") == oracle["grammar_patch_identity"] != "none" and
+            replay.get("locked") == {k:oracle["language" if k == "language" else "grammar_"+k]
+                                     for k in ("repo","commit","subdir","language")}, "wrong parent source replay")
+    require(sha(json.dumps(replay, sort_keys=True).encode()) == expected["source_replay_digest"],
+            "parent source replay changed")
+
+
+def bind_changed_patch_roles(roles, receipts, base, base_revision, language, image_id, cpu):
+    oracles = [receipts[role][2]["oracle"] for role, _, _ in roles]
+    keys = ("grammar_repo","grammar_commit","grammar_subdir","grammar_patch_identity")
+    if all(oracles[0][k] == oracles[1][k] for k in keys):
+        return
+    for role, revision, checkout in roles:
+        directory, _, expected = receipts[role]
+        if expected["oracle"]["grammar_patch_identity"] == "none" or expected["fresh_proof"] is not None:
+            continue
+        replay = w5_source_replay.prepare(checkout, revision, base, base_revision, language,
+                                          expected["oracle"], image_id, cpu)
+        replay["role"] = role
+        expected["source_replay"] = replay
+        expected["source_replay_digest"] = sha(json.dumps(replay, sort_keys=True).encode())
+        verify_source_replay(expected, role, revision)
+        path = directory / "parent-source-replay.json"
+        with path.open("x") as receipt_file:
+            json.dump(replay, receipt_file, sort_keys=True)
+            receipt_file.write("\n")
+        expected["source_replay_file"] = digest(path)
+
+
 def verify_private_oracle(directory, inputs, expected):
     check_env(os.environ)
     require(subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", expected["image"]], text=True).strip() == expected["image_id"], "oracle Docker image changed")
@@ -755,12 +865,15 @@ def verify_private_oracle(directory, inputs, expected):
     require(len(artifacts) == 1 and artifacts[0].name == expected["filename"] and digest(artifacts[0]) == expected["artifact"], "private oracle cache changed")
     require(digest(directory / "identity.json") == expected["identity"], "private oracle identity changed")
     require(digest(directory / "cold-source.json") == expected["fresh_proof_sha256"], "private oracle source proof changed")
+    if "source_replay" in expected:
+        require(digest(directory / "parent-source-replay.json") == expected["source_replay_file"],
+                "private oracle parent replay changed")
     compiler_lines = [line.split() for line in (directory / "compiler.before").read_text().splitlines()]
     require(compiler_lines == expected["compilers"] and (directory / "compiler.before").read_bytes() == (directory / "compiler.after").read_bytes(), "compiler receipt changed")
     require((directory / "environment.before").read_text().strip() == expected["build_env"] and (directory / "environment.after").read_text().strip() == expected["build_env"], "compiler environment receipt changed")
 
 
-def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receipt=None, languages=None):
+def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receipt=None, languages=None, approved_python_1670=False):
     root = root.resolve(); out = out.resolve()
     selected_fixtures(fixture_manifest(root / "cgo_harness/editor_latency/fixtures.json"), languages)  # reject unknown names before any work
     private_setting = os.environ.get("GTS_W5_PRIVATE_C_CACHE", "")
@@ -771,12 +884,16 @@ def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receip
     head_revision = git(root, "rev-parse", "HEAD")
     base_revision = git(root, "rev-parse", base_revision + "^{commit}")
     clean_revision(root, head_revision)
-    require(not (approved_receipt and approved_b7_receipt), "multiple W5 exceptions are forbidden")
+    require(sum(bool(choice) for choice in (approved_receipt, approved_b7_receipt, approved_python_1670)) <= 1,
+            "multiple W5 exceptions are forbidden")
     if languages is not None and "go" not in languages:
         # The owner-approved Go exceptions belong to the Go run; this run neither needs nor uses them.
         approved_receipt = approved_b7_receipt = None
     exception = validate_1512_undo_exception(root, base_revision, head_revision, approved_receipt) if approved_receipt else None
     if approved_b7_receipt: exception = validate_b7_undo_exception(root, base_revision, head_revision, approved_b7_receipt)
+    if approved_python_1670:
+        require(tuple(languages or ()) == ("python",), "W5 Python exception requires the Python-only run")
+        exception = validate_python_1670_exception(root, base_revision, head_revision)
     powershell_approval = select_powershell_approval(root, base_revision, head_revision) if private_setting and (languages is None or "powershell" in languages) else None
     check_work_exemptions_history(root, base_revision)
     require(not out.exists(), "campaign output already exists; do not overwrite receipts")
@@ -864,6 +981,7 @@ replace github.com/tree-sitter/go-tree-sitter => /workspace/cgo_harness/internal
                         bind_private_role(module, role, revision, checkout, private_inputs, expected)
                         verify_private_oracle(private_dir, private_inputs, expected)
                         receipts[role] = (private_dir, private_inputs, expected)
+                    bind_changed_patch_roles(roles, receipts, base, base_revision, language, env["image_id"], cpu)
                     private_receipts[language] = receipts
                     env.setdefault("private_oracles", {})[language] = {role: receipt[2] for role, receipt in receipts.items()}
                     write_json(out / "environment.json", env)
@@ -943,6 +1061,7 @@ def main():
     run.add_argument("--output", type=Path, required=True)
     run.add_argument("--approved-go-undo-receipt", type=Path)
     run.add_argument("--approved-b7-undo-receipt", type=Path)
+    run.add_argument("--approved-python-ccore-1670", action="store_true")
     run.add_argument("--languages", help="comma-separated languages to run, in manifest order; default is all")
     compare = sub.add_parser("compare")
     compare.add_argument("--output", type=Path, required=True)
@@ -956,7 +1075,8 @@ def main():
         if args.command == "run":
             root = Path(__file__).resolve().parents[1]
             with campaign_lock():
-                campaign(root, args.base, args.output, args.approved_go_undo_receipt, args.approved_b7_undo_receipt, languages)
+                campaign(root, args.base, args.output, args.approved_go_undo_receipt, args.approved_b7_undo_receipt, languages,
+                         approved_python_1670=args.approved_python_ccore_1670)
         else:
             result = compare_timing(args.output, args.manifest, args.base, args.head, languages=languages)
             require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")

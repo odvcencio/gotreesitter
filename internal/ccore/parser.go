@@ -1,5 +1,7 @@
 package ccore
 
+import "unsafe"
+
 // Config names what a Parser needs from the root package.
 type Config struct {
 	Tables  *Tables
@@ -72,9 +74,18 @@ type Parser struct {
 	reduceCheck    bool
 	fastReductions int
 	noLinear       bool // tests: take the general path
+	shortcutOn     bool
+	shortcutTaken  bool
+	shortcutWhy    string
+	shortcutCounts [10]uint64
+	shortcutMemo   shortcutMemo
 
 	// Counters, always on.
 	shifts, reductions, lexCalls, tokens, maxVersions, multiTokens int
+	compressions                                                   int    // calls of compress in the last balance
+	opCount                                                        int    // C self->operation_count
+	ledBegun                                                       bool   // Parse began the request's account before the drain
+	led                                                            Ledger // request account; its pages are the store's
 }
 
 // NewParser returns a parser for the language described by c, or an error
@@ -262,9 +273,31 @@ func (p *Parser) accept(version int, lookahead Handle) {
 			tree := trees[j]
 			if !p.extra(tree) {
 				kids := p.children(tree)
-				spliced := append(p.getBuf(), trees[:j]...)
-				spliced = append(spliced, kids...)
-				spliced = append(spliced, trees[j+1:]...)
+				spliced := p.getBuf()
+				if p.led.Active() { // reserve the whole buffer once, before the three appends make it
+					spliced = grow(&p.led, spliced, len(trees)-1+len(kids))
+				}
+				{
+					values := trees[:j]
+					if len(values) > cap(spliced)-len(spliced) {
+						spliced = grow(&p.led, spliced, len(values))
+					}
+					spliced = append(spliced, values...)
+				}
+				{
+					values := kids
+					if len(values) > cap(spliced)-len(spliced) {
+						spliced = grow(&p.led, spliced, len(values))
+					}
+					spliced = append(spliced, values...)
+				}
+				{
+					values := trees[j+1:]
+					if len(values) > cap(spliced)-len(spliced) {
+						spliced = grow(&p.led, spliced, len(values))
+					}
+					spliced = append(spliced, values...)
+				}
 				root = p.newNode(p.symbol(tree), spliced, p.rec(tree).productionID)
 				p.putBuf(spliced)
 				break
@@ -291,6 +324,14 @@ func (p *Parser) advance(version int, allowReuse bool) bool {
 			panic("ccore: stop hook")
 		}
 		p.stop = "stopped by hook"
+		return false
+	}
+	// C calls ts_parser__check_progress at C/parser.c:1650, inside
+	// ts_parser__advance after the lookahead is chosen and before the actions
+	// run; here it is the first statement. The stop decisions are the same:
+	// operation_count rises by one per advance and by nothing in between, the
+	// hook receives only byte counts, and a stopped parse returns no tree.
+	if p.led.Active() && !p.checkProgress(1) {
 		return false
 	}
 	state := p.nodes[p.heads[version].node].state
@@ -577,18 +618,68 @@ func (p *Parser) condense() uint32 {
 
 // parseWith is the C/parser.c:2124 ts_parser_parse loop. It runs the loop with an optional edited old tree (C: old_tree).
 // ParseWith (api.go) holds the lease, sets up the store and ends the parse.
-func (p *Parser) parseWith(src []byte, old Handle) string {
+//
+// With a limit active (Ledger().SetPoll) the parse starts an account (Begin) and
+// a refused reservation anywhere in the core unwinds by a private panic that this
+// function turns into the stop "stopped"; any other panic passes on unchanged. The
+// next call rebuilds all state it reads.
+func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
+	if p.led.Active() {
+		defer func() {
+			if r := recover(); r != nil {
+				if _, ok := r.(ledgerStop); !ok {
+					panic(r)
+				}
+				p.finished = 0
+				p.stop = stopProgress
+				stop = p.stop
+			}
+		}()
+		// Base: what the parse holds before it claims anything. The pages that an old
+		// tree already holds are in it (not charged again); the parser's own buffers too.
+		if p.ledBegun { // Parse began the account before the drain
+			p.ledBegun = false
+		} else {
+			p.clearStaleHeaders() // no header of an earlier parse is live here
+			if !p.led.Begin(p.accountBase()) {
+				p.finished = 0
+				p.stop = stopProgress
+				return p.stop
+			}
+		}
+	}
 	p.src = src
+	attemptTokens, attemptCalls := 0, 0
+	if old != 0 && p.shortcutOn {
+		p.stop = ""
+		// A taken shortcut returns before the resets below, so the counters it
+		// does not set itself start at zero here.
+		p.lexCalls, p.tokens, p.compressions = 0, 0, 0
+		if p.tryShortcut(src, old) {
+			return ""
+		}
+		attemptTokens, attemptCalls = p.tokens, p.lexCalls
+		if p.stop == stopProgress {
+			return p.stop
+		}
+	}
+	if p.led.Active() {
+		p.opCount = 0
+	}
 	p.reusedNodes, p.reusedBytes, p.largestReuse = 0, 0, 0
 	p.nodes = p.nodes[:0]
 	p.free = p.free[:0]
 	p.heads = p.heads[:0]
 	p.finished, p.cacheTok, p.cacheAt, p.accepts, p.stop = 0, 0, 0, 0, ""
-	p.shifts, p.reductions, p.lexCalls, p.tokens, p.maxVersions, p.multiTokens = 0, 0, 0, 0, 0, 0
+	p.shifts, p.reductions, p.lexCalls, p.tokens, p.maxVersions, p.multiTokens = 0, 0, attemptCalls, attemptTokens, 0, 0
+	p.compressions = 0
 	p.extReset(old == 0)
 	defer p.extFinish()
 	base := p.nodeNew(-1, 0, false, 1)
 	p.nodes[base].refCount++ // ts_stack_clear retains the base node
+	if len(p.heads) == cap(p.heads) {
+		p.heads = grow(&p.led, p.heads, 1)
+	}
 	p.heads = append(p.heads, stackHead{node: base, status: headActive})
 	p.reuseActive = old != 0
 	if old != 0 {
@@ -642,9 +733,124 @@ func (p *Parser) parseWith(src []byte, old Handle) string {
 	if p.finished == 0 {
 		return "no finished tree"
 	}
-	p.balance()
+	if !p.balance() {
+		p.finished = 0 // a stopped parse returns no tree
+		p.stop = stopProgress
+		return p.stop
+	}
 	if p.logf != nil {
 		p.log("done")
 	}
 	return ""
+}
+
+// stopProgress is the stop text of a parse that the Progress hook ended.
+const stopProgress = "stopped"
+
+// operationsPerCheck is C OP_COUNT_PER_PARSER_CALLBACK_CHECK (C/parser.c:81).
+const operationsPerCheck = 100
+
+// checkProgress is C ts_parser__check_progress without the position fields:
+// C polls parse_options.progress_callback every 100 operations (called from
+// ts_parser__advance and from ts_parser__balance_subtree). Here the poll is the
+// ledger's limit check (Ledger().SetPoll); a parse that it stops returns no tree
+// and the text "stopped". With no limit the call sites cost one nil check.
+func (p *Parser) checkProgress(operations int) bool {
+	p.opCount += operations
+	if p.opCount < operationsPerCheck {
+		return true
+	}
+	return p.checkProgressNow()
+}
+
+// checkProgressNow asks the hook at once, whatever the operation count.
+func (p *Parser) checkProgressNow() bool {
+	p.opCount = 0
+	if p.led.Check(false) {
+		return true
+	}
+	p.stop = stopProgress
+	return false
+}
+
+// bufferBytes is the memory the parser's own buffers hold, by capacity: the
+// stack nodes, heads (with their recovery summaries), slices, iterators and the
+// scratch arrays of the parse loop, the recovery code and the reuse walk. It
+// does not include the arena (capBytes) or the payload the language's own scanner holds.
+func (p *Parser) bufferBytes() int {
+	const hs = int(unsafe.Sizeof(Handle(0)))
+	n := cap(p.nodes)*int(unsafe.Sizeof(stackNode{})) + cap(p.free)*4
+	n += cap(p.heads) * int(unsafe.Sizeof(stackHead{}))
+	for _, h := range p.heads[:cap(p.heads)] {
+		n += cap(h.summary) * int(unsafe.Sizeof(summaryEntry{}))
+	}
+	n += cap(p.slices)*int(unsafe.Sizeof(stackSlice{})) + cap(p.recSlices)*int(unsafe.Sizeof(stackSlice{}))
+	for _, sl := range p.slices[:cap(p.slices)] {
+		n += cap(sl.subtrees) * hs
+	}
+	for _, sl := range p.recSlices[:cap(p.recSlices)] {
+		n += cap(sl.subtrees) * hs
+	}
+	n += cap(p.iters) * int(unsafe.Sizeof(stackIter{}))
+	for _, it := range p.iters[:cap(p.iters)] {
+		n += cap(it.subtrees) * hs
+	}
+	n += cap(p.bufs) * int(unsafe.Sizeof([]Handle(nil)))
+	for _, b := range p.bufs[:cap(p.bufs)] {
+		n += cap(b) * hs
+	}
+	n += (cap(p.trailing) + cap(p.trail2) + cap(p.scratch) + cap(p.compressTmp)) * hs
+	n += cap(p.seen) * hs
+	n += cap(p.reachBits) * int(unsafe.Sizeof(uint64(0))) // the mark bits of findMultiBits
+	n += cap(p.reduceSet)*int(unsafe.Sizeof(reduceAction{})) + cap(p.rn)*int(unsafe.Sizeof(reusableEntry{}))
+	// the scanner side the core owns: the serialized state of every external leaf,
+	// the serialization buffer and the derived valid-symbol rows (not the payload the
+	// language's own scanner holds)
+	n += cap(p.ext.buf) + cap(p.ext.rows)*int(unsafe.Sizeof([]bool(nil)))
+	for _, r := range p.ext.rows {
+		n += cap(r)
+	}
+	return n
+}
+
+// BufferBytes is the memory the parser's own buffers hold (Footprint without the
+// store's pages). A pooled parser is judged by this number: the store's pages
+// belong to the trees that keep them.
+func (p *Parser) BufferBytes() int { return p.bufferBytes() }
+
+// Footprint is the complete memory the parser holds during or after a parse:
+// the store's pages plus every buffer of the parser, by capacity. (The ledger, not this
+// number, counts the arrays that growth abandoned during a request.)
+func (p *Parser) Footprint() int { return p.capBytes() + p.bufferBytes() }
+
+// FinishScanner destroys the external scanner's payload and lets it drop its
+// reference to the source. A parse does it when it ends; the caller repeats it
+// after a panic, which can leave the scanner in the middle of a scan.
+func (p *Parser) FinishScanner() { p.extFinish() }
+
+// clearStaleHeaders zeroes the headers the last parse left in the parser's own
+// arrays. A stale slice or iterator header keeps a subtree buffer that bufs also
+// owns; zeroed, each buffer has one owner and bufferBytes counts it once. It
+// must run only between parses, when none of these headers is live. Reset
+// calls it, and so does a request with a limit before it takes the base of its
+// account: a parser reused without Reset would otherwise start the request with
+// its buffers counted two or three times and be stopped for it.
+func (p *Parser) clearStaleHeaders() {
+	clear(p.heads[:cap(p.heads)])
+	clear(p.slices[:cap(p.slices)])
+	clear(p.iters[:cap(p.iters)])
+	clear(p.recSlices[:cap(p.recSlices)])
+	clear(p.bufs[len(p.bufs):cap(p.bufs)])
+}
+
+// Reset drops the parser's view of the store and its reference to the last source,
+// so a pooled parser holds neither a tree nor a document. The buffers keep their
+// capacity; BufferBytes tells how much that is.
+func (p *Parser) Reset() {
+	p.clearStaleHeaders()
+	p.Store = Store{} // a pooled parser must not point at the store of a tree that a public tree still keeps
+	p.ext.cacheLast = 0
+	p.finished = 0
+	p.src = nil
+	p.cacheTok, p.cacheAt = 0, 0
 }

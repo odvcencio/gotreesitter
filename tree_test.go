@@ -868,6 +868,32 @@ func TestTreeCopyIndependentNodes(t *testing.T) {
 	}
 }
 
+func TestTreeCopyWithoutCoreKeepsPoolCheckout(t *testing.T) {
+	root := NewLeafNode(1, true, 0, 1, Point{}, Point{Column: 1})
+	tree := NewTree(root, []byte("x"), testLanguage())
+	defer tree.Release()
+	a := acquireNodeArena(arenaClassIncremental)
+	a.Release()
+	copy := tree.Copy()
+	defer copy.Release()
+	if copy.arena != a {
+		t.Fatal("copy did not use the prepared arena")
+	}
+	incrementalArenaPool.mu.Lock()
+	free := incrementalArenaPool.free[:cap(incrementalArenaPool.free)]
+	found := false
+	for _, slot := range free[len(incrementalArenaPool.free):] {
+		if slot == a {
+			found = true
+			break
+		}
+	}
+	incrementalArenaPool.mu.Unlock()
+	if !found {
+		t.Fatal("non-core copy cleared the checked-out arena slot")
+	}
+}
+
 func TestTreeCopySurvivesOriginalRelease(t *testing.T) {
 	lang := testLanguage()
 	root := NewLeafNode(Symbol(1), true, 0, 1, Point{}, Point{Row: 0, Column: 1})

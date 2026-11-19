@@ -1,8 +1,12 @@
 package gotreesitter
 
 import (
+	"encoding/binary"
 	"errors"
+	"maps"
 	"reflect"
+	"slices"
+	"sort"
 
 	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
@@ -15,7 +19,7 @@ import (
 // ccore_bind.go converts. Nothing in this file parses; ccore_bind.go hands the
 // hook to internal/ccore/bind, which the equality tests in cgo_harness use.
 
-// ccoreExtScanner serves ccore.ExtScanner (through bind.FuncScanner, so that no
+// ccoreExtScanner serves ccore.ExtScanner (through bind.NewFuncScanner, so that no
 // exported method lands on a root type and in the API snapshots) over a language's
 // ExternalScanner. The payload is created on the first Scan and destroyed by
 // Close.
@@ -31,6 +35,35 @@ type ccoreExtScanner struct {
 	// failed is the reason a mode reset failed in close. Once set, every later scan
 	// panics with it before Create, Deserialize or Scan of the scanner is called.
 	failed string
+}
+
+// ccoreScannerMatches compares the caller's configuration with the private
+// snapshot. A scanner without an exact comparison must be snapshotted again.
+func ccoreScannerMatches(st *ccoreLanguageTables, sc ExternalScanner) bool {
+	if !st.scannerPresent || st.scannerError != "" {
+		return !st.scannerPresent && sc == nil
+	}
+	private := st.scanner
+	for {
+		original, ok := sc.(*externalScannerOrderAdapter)
+		if !ok {
+			break
+		}
+		copy, ok := private.(*externalScannerOrderAdapter)
+		if !ok || original == nil || copy == nil || original.sourceCount != copy.sourceCount ||
+			!slices.Equal(original.targetToSource, copy.targetToSource) ||
+			!maps.Equal(original.sourceSymbolToIndex, copy.sourceSymbolToIndex) ||
+			!maps.Equal(original.sourceResultToTarget, copy.sourceResultToTarget) ||
+			original.targetGrammar != copy.targetGrammar || original.targetGrammarValid != copy.targetGrammarValid {
+			return false
+		}
+		sc, private = original.inner, copy.inner
+	}
+	if sc == nil || reflect.TypeOf(sc) != st.scannerType || reflect.TypeOf(private) != st.scannerType {
+		return false
+	}
+	reg, ok := scanmode.Lookup(sc)
+	return ok && reg.SameConfig != nil && reg.SameConfig(sc, private)
 }
 
 // Reasons a grammar is not served by the core. Binding fails with one of them and
@@ -80,6 +113,86 @@ func ccoreScannerChain(sc ExternalScanner) (reg scanmode.Registered, layers int,
 		return scanmode.Registered{}, 0, errScannerNotRegistered
 	}
 	return reg, layers, ""
+}
+
+// ccoreScannerSnapshot copies the chain and encodes every adapter setting.
+func ccoreScannerSnapshot(sc ExternalScanner) (ExternalScanner, reflect.Type, []byte, string) {
+	reg, layers, reason := ccoreScannerChain(sc)
+	if reason != "" {
+		return nil, nil, nil, reason
+	}
+	adapters := make([]*externalScannerOrderAdapter, 0, layers)
+	inner := sc
+	for i := 0; i < layers; i++ {
+		a := inner.(*externalScannerOrderAdapter)
+		adapters = append(adapters, a)
+		inner = a.inner
+	}
+	private, key, ok := reg.Snapshot(inner)
+	cloned, valid := private.(ExternalScanner)
+	if !ok || !valid || isNilValue(cloned) || reflect.TypeOf(cloned) != reflect.TypeOf(inner) {
+		return nil, nil, nil, errScannerNotRegistered
+	}
+	scannerType := reflect.TypeOf(inner)
+	b := binary.AppendUvarint(nil, uint64(layers))
+	putInt := func(v int) { b = binary.AppendVarint(b, int64(v)) }
+	for _, a := range adapters {
+		putInt(a.sourceCount)
+		b = binary.AppendUvarint(b, uint64(len(a.targetToSource)))
+		for _, v := range a.targetToSource {
+			putInt(v)
+		}
+		keys := make([]int, 0, len(a.sourceSymbolToIndex))
+		for k := range a.sourceSymbolToIndex {
+			keys = append(keys, int(k))
+		}
+		sort.Ints(keys)
+		b = binary.AppendUvarint(b, uint64(len(keys)))
+		for _, k := range keys {
+			putInt(k)
+			putInt(a.sourceSymbolToIndex[Symbol(k)])
+		}
+		keys = keys[:0]
+		for k := range a.sourceResultToTarget {
+			keys = append(keys, int(k))
+		}
+		sort.Ints(keys)
+		b = binary.AppendUvarint(b, uint64(len(keys)))
+		for _, k := range keys {
+			putInt(k)
+			putInt(int(a.sourceResultToTarget[Symbol(k)]))
+		}
+		b = append(b, a.targetGrammar[:]...)
+		if a.targetGrammarValid {
+			b = append(b, 1)
+		} else {
+			b = append(b, 0)
+		}
+	}
+	b = binary.AppendUvarint(b, uint64(len(key)))
+	b = append(b, key...)
+	for i := len(adapters) - 1; i >= 0; i-- {
+		original := adapters[i]
+		dup := *original
+		dup.inner = cloned
+		if original.targetToSource != nil {
+			dup.targetToSource = append([]int{}, original.targetToSource...)
+		}
+		if original.sourceSymbolToIndex != nil {
+			dup.sourceSymbolToIndex = make(map[Symbol]int, len(original.sourceSymbolToIndex))
+			for k, v := range original.sourceSymbolToIndex {
+				dup.sourceSymbolToIndex[k] = v
+			}
+		}
+		if original.sourceResultToTarget != nil {
+			dup.sourceResultToTarget = make(map[Symbol]Symbol, len(original.sourceResultToTarget))
+			for k, v := range original.sourceResultToTarget {
+				dup.sourceResultToTarget[k] = v
+			}
+		}
+		cloned = &dup
+	}
+	return cloned, scannerType, b, ""
 }
 
 // ccoreEnter walks a payload created by the chain: order adapter payloads (each
@@ -236,5 +349,5 @@ func (a *ccoreExtScanner) close() {
 
 // hook returns the ccore.ExtScanner for this scanner.
 func (a *ccoreExtScanner) hook() ccore.ExtScanner {
-	return &bind.FuncScanner{ScanFn: a.scan, CloseFn: a.close}
+	return bind.NewFuncScanner(a.scan, a.close)
 }

@@ -277,3 +277,96 @@ func TestWideNodeUsesALargeListAndReadsEveryIndex(t *testing.T) {
 		t.Fatal("Child(count) found a node")
 	}
 }
+
+// An inline leaf is a value: two equal leaves have one handle. A field on the
+// second slot must name the second child, not the first.
+func TestFieldPathKeepsThePositionOfEqualHandles(t *testing.T) {
+	meta := make([]SymbolMeta, 16)
+	meta[1] = SymbolMeta{Visible: true, Named: true}
+	meta[5] = SymbolMeta{Visible: true, Named: true}
+	p := nodeTestParser(t, meta, nil)
+	a, b := nodeLeaf(p, 1), nodeLeaf(p, 1)
+	if a != b || a&1 == 0 {
+		t.Fatalf("setup: the leaves are not equal inline handles (%#x, %#x)", a, b)
+	}
+	root := p.newNode(5, []Handle{a, b}, 1)
+	r := fieldTestReader(p, [][2]uint16{{}, {0, 1}}, []FieldEntry{{FieldID: 4, ChildIndex: 1}})
+	path, ok := r.FieldPath(r.RootNode(root), 4)
+	if !ok || len(path) != 1 || path[0] != 1 {
+		t.Fatalf("FieldPath = %v, %v; want [1]", path, ok)
+	}
+}
+
+// A field inherited through 25,000 hidden levels is found (the conversion's
+// depth limit is 20,000).
+func TestFieldPathHasNoDepthLimit(t *testing.T) {
+	meta := make([]SymbolMeta, 16)
+	meta[1] = SymbolMeta{Visible: true, Named: true}
+	meta[5] = SymbolMeta{Visible: true, Named: true}
+	p := nodeTestParser(t, meta, nil)
+	h := p.newNode(6, []Handle{nodeLeaf(p, 1)}, 3) // production 3: field 4 on child 0, not inherited
+	const depth = 25000
+	for i := 0; i < depth; i++ {
+		h = p.newNode(6, []Handle{h}, 2) // production 2: field 4 on child 0, inherited
+	}
+	root := p.newNode(5, []Handle{h}, 2)
+	r := fieldTestReader(p, [][2]uint16{{}, {}, {0, 1}, {1, 1}}, []FieldEntry{{FieldID: 4, ChildIndex: 0, Inherited: true}, {FieldID: 4, ChildIndex: 0}})
+	path, ok := r.FieldPath(r.RootNode(root), 4)
+	if !ok || len(path) != 1 || path[0] != 0 {
+		t.Fatalf("FieldPath = %v, %v; want [0]", path, ok)
+	}
+}
+
+// NamedChild reports a quirk when C's numbering can differ from the named
+// visible children in sequence: an anonymous visible child that holds named children.
+func TestNamedChildQuirkFlag(t *testing.T) {
+	meta := make([]SymbolMeta, 16)
+	for _, s := range []int{1, 3, 4, 5} {
+		meta[s] = SymbolMeta{Visible: true, Named: true}
+	}
+	meta[2] = SymbolMeta{Visible: true}
+	p := nodeTestParser(t, meta, nil)
+	a := p.newNode(2, []Handle{nodeLeaf(p, 3)}, 0)
+	root := p.newNode(5, []Handle{nodeLeaf(p, 1), a, nodeLeaf(p, 4)}, 0)
+	r := NewNodeReader(&p.Store, &NodeTables{Base: p.t, SuperBit: make([]uint32, 16)})
+	rn := r.RootNode(root)
+	if _, ok, quirk := r.NamedChildChecked(rn, 0); !ok || quirk {
+		t.Errorf("NamedChildChecked(0): found %v, quirk %v; want a plain hit", ok, quirk)
+	}
+	for i := uint32(1); i < 4; i++ {
+		_, _, quirk := r.NamedChildChecked(rn, i)
+		if !quirk {
+			t.Errorf("NamedChildChecked(%d): no quirk reported", i)
+		}
+	}
+	plain := p.newNode(5, []Handle{nodeLeaf(p, 1), nodeLeaf(p, 4)}, 0)
+	pn := r.RootNode(plain)
+	if c, ok, quirk := r.NamedChildChecked(pn, 1); !ok || quirk || r.Symbol(c) != 4 {
+		t.Errorf("plain: found %v quirk %v", ok, quirk)
+	}
+}
+
+// C continues with the next candidate when a candidate has no visible children
+// (C/node.c:603, :658): raw children [H, V], H hidden around a hidden leaf, V visible, the
+// field on both slots. The search must reach V.
+func TestFieldPathAdvancesPastACandidateWithNoVisibleChildren(t *testing.T) {
+	meta := make([]SymbolMeta, 16)
+	meta[1] = SymbolMeta{Visible: true, Named: true}
+	meta[5] = SymbolMeta{Visible: true, Named: true}
+	p := nodeTestParser(t, meta, nil)
+	h := p.newNode(6, []Handle{nodeLeaf(p, 7)}, 0) // hidden, no visible child
+	root := p.newNode(5, []Handle{h, nodeLeaf(p, 1)}, 1)
+	r := fieldTestReader(p, [][2]uint16{{}, {0, 2}}, []FieldEntry{{FieldID: 4, ChildIndex: 0}, {FieldID: 4, ChildIndex: 1}})
+	rn := r.RootNode(root)
+	if got := r.ChildCount(rn); got != 1 {
+		t.Fatalf("setup: %d visible children, want 1", got)
+	}
+	path, ok := r.FieldPath(rn, 4)
+	if !ok || len(path) != 1 || path[0] != 0 {
+		t.Fatalf("FieldPath = %v, %v; want [0], the visible child V", path, ok)
+	}
+}
+
+func fieldTestReader(p *Parser, slices [][2]uint16, entries []FieldEntry) NodeReader {
+	return NewNodeReader(&p.Store, &NodeTables{Base: p.t, FieldSlices: slices, FieldEntries: entries, SuperBit: make([]uint32, 16)})
+}

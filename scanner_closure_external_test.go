@@ -36,6 +36,7 @@ func TestStatefulScannerCompactLeafReauthentication(t *testing.T) {
 			lang := grammars.PythonLanguage()
 			parser := gotreesitter.NewParser(lang)
 			parser.SetAdmissionCandidateRoute(true)
+			parser.SetCompactCertificationTelemetry(true)
 			gotreesitter.ResetAdmissionCandidateCountersForTest()
 			oldTree, err := parser.Parse(tc.source)
 			if err != nil {

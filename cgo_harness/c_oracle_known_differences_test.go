@@ -28,8 +28,6 @@ var knownCOracleDifferences = map[string]string{
 	"TestFIDLVersionedLayoutModifiersLockedCParity/two_modifiers_with_args":                                    "error children are nested differently in 0.27.1",
 	"TestFIDLVersionedLayoutModifiersLockedCParity/single_modifier_with_args":                                  "error children are nested differently in 0.27.1",
 	"TestFIDLVersionedLayoutModifiersLockedCParity/three_modifiers_with_args":                                  "error children are nested differently in 0.27.1",
-	"TestBibtexInertRecoveryMaterializationLockedCParity/missing_comma_after_key":                              "error children are nested differently in 0.27.1",
-	"TestBibtexInertRecoveryMaterializationLockedCParity/missing_key":                                          "error children are nested differently in 0.27.1",
 	"TestAWKDispatchBlockerRoutes/recovery":                                                                    "error children are nested differently in 0.27.1",
 	"TestAWKRecoveredProductionMatchesLockedC":                                                                 "error children are nested differently in 0.27.1",
 	"TestParityQueryExactJavaScriptEcosystemPatterns/anchor_after_zero_or_more_comments":                       "query matching in 0.27.1 returns more matches than Go",

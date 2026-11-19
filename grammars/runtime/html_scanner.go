@@ -79,7 +79,14 @@ var htmlExternalScannerSpec = ExternalScannerSpec{
 func init() {
 	RegisterExternalScannerSpec(htmlExternalScannerSpec)
 	// A port with a behavioural mode (internal/scanmode).
-	scanmode.RegisterScanner(HTMLExternalScanner{}, (*htmlScannerState)(nil), true)
+	scanmode.RegisterScanner(HTMLExternalScanner{}, (*htmlScannerState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(HTMLExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(HTMLExternalScanner), right.(HTMLExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // htmlScannerState holds the tag stack for the HTML scanner.

@@ -61,9 +61,15 @@ func TestCompactOldTreeKeepsTopLevelIncrementalReuse(t *testing.T) {
 
 			parser := gts.NewParser(lang)
 			parser.SetAdmissionCandidateRoute(true)
+			// Compact telemetry keeps this test on the compact route even
+			// when the grammar has a core certificate.
+			parser.SetCompactCertificationTelemetry(true)
 			old, err := parser.Parse(src)
 			if err != nil {
 				t.Fatalf("compact parse: %v", err)
+			}
+			if gts.CcoreTestFromCore(old) {
+				t.Fatal("the core served the compact-route fixture")
 			}
 			routed, fallback := gts.AdmissionCandidateCounters()
 			_ = fallback

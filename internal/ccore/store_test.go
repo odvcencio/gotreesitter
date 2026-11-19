@@ -20,7 +20,7 @@ func TestSortU32(t *testing.T) {
 			}
 			want := append([]uint32(nil), a...)
 			sort.Slice(want, func(i, j int) bool { return want[i] < want[j] })
-			sortU32(a, &tmp)
+			sortU32(a, &tmp, nil)
 			for i := range a {
 				if a[i] != want[i] {
 					t.Fatalf("n=%d max=%d: differs at %d", n, max, i)
