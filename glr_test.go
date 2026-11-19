@@ -5438,3 +5438,54 @@ func TestMergeStacksAllDeadReturnsEmpty(t *testing.T) {
 		t.Fatalf("expected all-dead merge to return empty, got %d", len(merged))
 	}
 }
+
+func TestReviveWiderStackReading(t *testing.T) {
+	wide := Token{Symbol: 41, StartByte: 3, EndByte: 5}
+	other := Token{Symbol: 50, StartByte: 3, EndByte: 6}
+	deadStacks := func() []glrStack {
+		stacks := []glrStack{newGLRStack(10), newGLRStack(20), newGLRStack(30), newGLRStack(40), newGLRStack(50)}
+		for i := range stacks {
+			stacks[i].dead = true
+		}
+		return stacks
+	}
+	// The test's read returns the recorded token; symbol 0 stands for a
+	// stack whose own lex mode reads nothing wider.
+	reads := 0
+	read := func(r widerStackReading) (Token, bool) {
+		reads++
+		return r.tok, r.tok.Symbol != 0
+	}
+	readings := []widerStackReading{
+		{stack: 9, state: 10, depth: 1, tok: wide},  // stack no longer exists
+		{stack: 0, state: 99, depth: 1, tok: wide},  // stack moved on since recording
+		{stack: 4, state: 50, depth: 1},             // reads nothing wider
+		{stack: 1, state: 20, depth: 1, tok: wide},  // first usable reading
+		{stack: 2, state: 30, depth: 1, tok: other}, // differs from the chosen reading
+		{stack: 3, state: 40, depth: 1, tok: wide},  // same reading as the chosen one
+	}
+
+	stacks := deadStacks()
+	got, ok := reviveWiderStackReading(stacks, readings, read)
+	if !ok || got != wide {
+		t.Fatalf("revive = %+v, %v; want %+v, true", got, ok, wide)
+	}
+	for i, wantDead := range []bool{true, false, true, false, true} {
+		if stacks[i].dead != wantDead {
+			t.Errorf("stack %d dead = %v, want %v", i, stacks[i].dead, wantDead)
+		}
+	}
+
+	stacks = deadStacks()
+	stacks[0].dead = false
+	reads = 0
+	if _, ok := reviveWiderStackReading(stacks, readings, read); ok || stacks[1].dead == false {
+		t.Fatal("a live stack must block revival")
+	}
+	if reads != 0 {
+		t.Fatalf("read %d readings while a stack lived; want none", reads)
+	}
+	if _, ok := reviveWiderStackReading(deadStacks(), readings[:3], read); ok {
+		t.Fatal("no usable reading must not revive")
+	}
+}
