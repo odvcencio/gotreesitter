@@ -2619,11 +2619,32 @@ func (p *Parser) retryFullParseWithTokenSourceForOrigin(source []byte, ts TokenS
 
 func (p *Parser) retryIncrementalParseAsFullWithTokenSource(source []byte, ts TokenSource, initialMaxStacks int, tree *Tree, timing *incrementalParseTiming) *Tree {
 	if tree == nil {
-		return tree
+		return nil
 	}
-	deterministicExternalConflicts := fullParseUsesDeterministicExternalConflicts(p.language)
 	retryStart := time.Now()
-	result := p.retryFullParseWithTokenSourceForOrigin(source, ts, initialMaxStacks, deterministicExternalConflicts, tree, fullParseRetryOriginIncremental)
+	var result *Tree
+	if tree.rawParseStopReason() == ParseStopNoStacksAlive && tree.rawParseRuntime().IncrementalOldTreeReuseRoute {
+		resettable, ok := ts.(resettableTokenSource)
+		if !ok {
+			return tree
+		}
+		if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+			p.noteRetryCutSkipped(reason, tree)
+			return tree
+		}
+		// Reuse failed before acceptance. Run the fresh schedule from the
+		// start so its result cannot lose a quality tie to the partial tree.
+		resettable.Reset(source)
+		result = p.incrementalTokenSourceFreshFullParse(source, p.wrapIncludedRanges(ts), nil)
+		p.noteRetryCutFromTree(result)
+		if result == nil {
+			return tree
+		}
+		tree.Release()
+	} else {
+		deterministicExternalConflicts := fullParseUsesDeterministicExternalConflicts(p.language)
+		result = p.retryFullParseWithTokenSourceForOrigin(source, ts, initialMaxStacks, deterministicExternalConflicts, tree, fullParseRetryOriginIncremental)
+	}
 	if result == tree {
 		return tree
 	}
