@@ -12660,14 +12660,14 @@
       "session_sha256": "890a27759bf68b0143e2c36cc51d7967a24ad283a95591fbe545e88d94e64703",
       "route": "default",
       "full": {
-        "tokens": 100,
-        "new_nodes": 141,
+        "tokens": 158,
+        "new_nodes": 233,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
         "block_splices": 0,
-        "stop_reason": "no_stacks_alive",
-        "root_end": 1661,
+        "stop_reason": "accepted_prefix",
+        "root_end": 2194,
         "input_bytes": 2196,
         "has_error": true
       },
@@ -12677,14 +12677,14 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 100,
-            "new_nodes": 142,
+            "tokens": 158,
+            "new_nodes": 234,
             "max_live_versions": 1,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,
-            "stop_reason": "no_stacks_alive",
-            "root_end": 1662,
+            "stop_reason": "accepted",
+            "root_end": 2195,
             "input_bytes": 2197,
             "has_error": true
           }
