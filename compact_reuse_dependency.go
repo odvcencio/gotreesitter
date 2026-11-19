@@ -130,7 +130,14 @@ func copyCompactReuseDependency(dst, src *Node) {
 // Invalidate before coordinates change. The normal edit walk can skip nodes
 // whose text precedes the edit, although their lexer inspected the edited bytes.
 func (arena *nodeArena) editCompactReuseDependencies(edit InputEdit) {
-	if arena == nil || inputEditIsNoop(edit) {
+	if arena == nil {
+		return
+	}
+	arena.editCompactReuseDependenciesNonNil(edit)
+}
+
+func (arena *nodeArena) editCompactReuseDependenciesNonNil(edit InputEdit) {
+	if inputEditIsNoop(edit) {
 		return
 	}
 	arena.compactReuseDependencyMu.Lock()
@@ -241,7 +248,12 @@ func (arena *nodeArena) invalidateIndexedCompactReuseDependencies(edit InputEdit
 }
 
 func (tree *Tree) editCompactReuseDependencies(edit InputEdit) {
-	tree.arena.editCompactReuseDependencies(edit)
+	if tree.arena != nil {
+		if tree.arena.ccore != nil {
+			tree.ccoreEdit(edit)
+		}
+		tree.arena.editCompactReuseDependenciesNonNil(edit)
+	}
 	for _, arena := range tree.borrowedArena {
 		if arena != tree.arena {
 			arena.editCompactReuseDependencies(edit)

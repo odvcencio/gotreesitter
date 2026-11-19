@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"bytes"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	"strings"
 	"sync"
 	"time"
@@ -3246,7 +3247,7 @@ func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSou
 
 func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int, retryAcceptedError bool) (*Tree, error) {
 	// Fast path: unchanged source and no recorded edits.
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (p.ccoreNeverServes() || !certified.EverActive() || p.ccoreUnchangedTreeAllowed(oldTree, underlyingDFATokenSource(ts) != nil)) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	if incr.RequiresFreshWorkLimits(p.parseWorkLimits.NodeLimit, p.parseWorkLimits.IterationLimit, p.parseWorkLimits.StackDepthLimit) {
@@ -3335,6 +3336,15 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 					timing.reuseUnsupportedReason = reason
 				}
 			}
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
+	}
+	// A custom stream that exhausted the old parse's stacks can leave
+	// stateful recovery nodes outside the last accepted parse frontier.
+	if oldTree != nil && oldTree.rawParseStopReason() == ParseStopNoStacksAlive && underlyingDFATokenSource(ts) == nil {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "old_token_source_no_stacks"
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
@@ -5918,8 +5928,23 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	tryMissingSingleShift := func(stackIndex int, s *glrStack, currentState StateID) bool {
 		return missingShift.tryInsert(p, source, stackIndex, s, currentState, tok, ts, &nodeCount, arena, scratch, trackChildErrors)
 	}
+	var widerReadings []widerStackReading
 
 	for iter := 0; iter < maxIter; iter++ {
+		if len(widerReadings) > 0 {
+			if wide, ok := reviveWiderStackReading(stacks, widerReadings, func(r widerStackReading) (Token, bool) {
+				return p.widerOwnLexModeToken(source, r.state, r.tok, r.from, r.lexedIn, r.elected, lexicalReadSpan, dts)
+			}); ok {
+				if p.glrTrace {
+					fmt.Printf("  WIDER-REVIVE: sym=%d [%d-%d]\n", wide.Symbol, wide.StartByte, wide.EndByte)
+				}
+				tok = wide
+				needToken = false
+				dts.lexer.pos, dts.lexer.row, dts.lexer.col = int(wide.EndByte), wide.EndPoint.Row, wide.EndPoint.Column
+				workCountRefreshConvergenceLookahead(tok)
+			}
+			widerReadings = widerReadings[:0]
+		}
 		reusedLookaheadThisPass := !needToken
 		passStartTokensConsumed := perfTokensConsumed
 		if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
@@ -6588,7 +6613,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			ownReading := false
 			ownReadingRetries := 0
 			if !stackRelexActive && len(stacks) > 1 {
-				if ownTok, ok := p.ownLexModeToken(source, currentState, tok, s.byteOffset, lexicalReadSpan, dts); ok {
+				ownTok, ok, wider := p.ownLexModeToken(source, currentState, tok, s.byteOffset, lexicalReadSpan, dts)
+				if ok {
 					if p.glrTrace {
 						fmt.Printf("  stack[%d] OWN-LEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
 							si, tok.Symbol, ownTok.Symbol, ownTok.StartByte, ownTok.EndByte, currentState)
@@ -6596,6 +6622,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					tok = ownTok
 					stackRelexActive = true
 					ownReading = true
+				} else if wider && len(p.included) == 0 {
+					lexedIn, elected := dts.electedScan(tok)
+					widerReadings = append(widerReadings, widerStackReading{stack: si, state: currentState, depth: s.depth(), from: s.byteOffset, tok: tok, lexedIn: lexedIn, elected: elected})
 				}
 			}
 			noteStopDiagnosticStack(s)
@@ -6965,7 +6994,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				// silently accepting it — see
 				// TestOpportunisticTopLevelResyncDoesNotLiftNestedDeclarationStarts/java_import_inside_malformed_method.
 				if len(stacks) == 1 && !p.resyncTopLevelLanguage() && !p.errorCostCompetitionEnabled() {
-					switch p.tryOpportunisticTopLevelResyncRecovery(source, s, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
+					switch p.tryResyncErrorRecoveryMode(source, s, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors, true, dts) {
 					case resyncRetry:
 						currentState = s.top().state
 						needToken = false
@@ -8584,6 +8613,56 @@ func allParseStacksDead(stacks []glrStack) bool {
 		}
 	}
 	return true
+}
+
+// widerStackReading records, at dispatch start and before the stack reduced,
+// where a stack might read the shared lookahead tok wider with its own lex
+// mode. The reading itself is scanned only if every stack dies.
+type widerStackReading struct {
+	stack int
+	state StateID
+	depth int
+	from  uint32
+	tok   Token
+	// lexedIn and elected are dts.electedScan(tok), kept because the
+	// election cache may have moved on by the time every stack is dead.
+	lexedIn StateID
+	elected bool
+}
+
+// reviveWiderStackReading handles the one case lockstep lexing cannot: the
+// shared token killed every stack, but some stack's own lex mode had read a
+// longer token (C++ `i[] >> 8`: the election picks the template `>` and the
+// `>>` version dies). C lexes each version separately, so that version would
+// have lived. When every stack is dead, it reads each record still at its
+// state and depth with read, revives the stacks whose reading matches the
+// first one found, and returns that reading as the next lookahead.
+func reviveWiderStackReading(stacks []glrStack, readings []widerStackReading, read func(widerStackReading) (Token, bool)) (Token, bool) {
+	if !allParseStacksDead(stacks) {
+		return Token{}, false
+	}
+	var chosen Token
+	found := false
+	for _, r := range readings {
+		if r.stack >= len(stacks) {
+			continue
+		}
+		s := &stacks[r.stack]
+		if s.depth() != r.depth || s.top().state != r.state {
+			continue
+		}
+		wide, ok := read(r)
+		if !ok {
+			continue
+		}
+		if !found {
+			chosen, found = wide, true
+		} else if !tokensSameLexForGLRCandidate(wide, chosen) {
+			continue
+		}
+		s.dead = false
+	}
+	return chosen, found
 }
 
 func allLiveUnacceptedStacksShifted(stacks []glrStack) bool {

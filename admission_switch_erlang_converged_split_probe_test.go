@@ -313,6 +313,7 @@ func TestAdmissionCandidateErlangConvergedSplitAdversarialProbe(t *testing.T) {
 			gts.ResetAdmissionCandidateCountersForTest()
 			candidate := gts.NewParser(decertifiedLang)
 			candidate.SetAdmissionCandidateRoute(true)
+			candidate.SetCompactCertificationTelemetry(true)
 			candidateTree, err := candidate.Parse(source)
 			if err != nil {
 				t.Fatalf("candidate parse: %v", err)
@@ -374,6 +375,7 @@ func TestAdmissionCandidateErlangConvergedSplitAdversarialProbe(t *testing.T) {
 				gts.ResetAdmissionCandidateCountersForTest()
 				certifiedCandidate := gts.NewParser(sharedLang)
 				certifiedCandidate.SetAdmissionCandidateRoute(true)
+				certifiedCandidate.SetCompactCertificationTelemetry(true)
 				certifiedTree, err := certifiedCandidate.Parse(source)
 				if err != nil {
 					t.Fatalf("certified control parse: %v", err)

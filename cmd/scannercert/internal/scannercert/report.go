@@ -6,7 +6,7 @@ import (
 )
 
 // Schema names the report layout. Change it with any field change.
-const Schema = "scannercert-report-v2"
+const Schema = "scannercert-report-v3"
 
 // Verdicts. No findings means no check failed on the recorded calls; it is
 // evidence, not proof, and it grants nothing. Not transparent means the parse
@@ -28,6 +28,7 @@ const (
 	KindSpan                   = "span"
 	KindState                  = "state"
 	KindRoundTrip              = "roundtrip"
+	KindFailedRestore          = "failed-restore"
 	KindFailedScanState        = "failed-scan-state"
 	KindFailedScanStateAllowed = "failed-scan-state-allowed"
 	KindSerializeUnstable      = "serialize-unstable"
@@ -174,6 +175,7 @@ type Checks struct {
 	StateMismatches        int `json:"state_mismatches"`
 	RoundTripMismatches    int `json:"roundtrip_mismatches"`
 	FailedScanStateChanges int `json:"failed_scan_state_changes"`
+	FailedRestores         int `json:"failed_restores"`
 	SerializeUnstable      int `json:"serialize_unstable"`
 	SerializeOverflow      int `json:"serialize_overflow"`
 	ReplayPanics           int `json:"replay_panics"`
@@ -186,9 +188,8 @@ type Informational struct {
 	// With the default contract the token source restores the saved state after
 	// a rejected scan, and a scanner that declares RetainsStateOnScanFailure
 	// keeps the change on purpose. Neither is a defect, so the verdict ignores
-	// the count. The replay deserializes into a fresh payload, so it does not
-	// test the restore; under the default contract the count marks the calls
-	// where an incomplete Deserialize would matter.
+	// the count. Under the default contract the replay also checks the
+	// serialized state after restoring into the mutated payload.
 	FailedScanStateAllowed int `json:"failed_scan_state_allowed"`
 }
 
@@ -205,6 +206,8 @@ func (c *Checks) add(kind string) {
 		c.StateMismatches++
 	case KindRoundTrip:
 		c.RoundTripMismatches++
+	case KindFailedRestore:
+		c.FailedRestores++
 	case KindFailedScanState:
 		c.FailedScanStateChanges++
 	case KindSerializeUnstable:
@@ -220,7 +223,7 @@ func (c *Checks) add(kind string) {
 
 func (c Checks) failures() int {
 	return c.ResultMismatches + c.SymbolMismatches + c.SpanMismatches + c.StateMismatches +
-		c.RoundTripMismatches + c.FailedScanStateChanges + c.SerializeUnstable +
+		c.RoundTripMismatches + c.FailedScanStateChanges + c.FailedRestores + c.SerializeUnstable +
 		c.SerializeOverflow + c.ReplayPanics
 }
 

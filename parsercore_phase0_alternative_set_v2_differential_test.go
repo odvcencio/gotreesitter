@@ -86,6 +86,7 @@ func runV2OptInDeciderDifferential(t testing.TB, name string, lang *gts.Language
 	gts.ResetAdmissionCandidateCountersForTest()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
+	candidate.SetCompactCertificationTelemetry(true)
 	candidateTree, err := candidate.Parse(source)
 	if err != nil {
 		result.err = fmt.Errorf("v2-decider candidate parse: %w", err)

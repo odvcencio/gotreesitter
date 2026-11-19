@@ -50,6 +50,12 @@ func NewParser(lang any) (*Parser, error) {
 // table even when the blob has them.
 func (c *Parser) ForceDerivedRows(on bool) { c.p.SetForceDerivedRows(on) }
 
+// SetShortcut selects the same shortcut policy as the public route.
+func (c *Parser) SetShortcut(on bool) { c.p.SetShortcut(on) }
+
+// ShortcutTaken reports whether the last parse took the shortcut.
+func (c *Parser) ShortcutTaken() bool { return c.p.ShortcutTaken() }
+
 // Parse parses src; log, when not nil, receives C's parse log lines.
 func (c *Parser) Parse(src []byte, log func(string)) string {
 	c.syncNorm()

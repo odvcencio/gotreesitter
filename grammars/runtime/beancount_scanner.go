@@ -3,6 +3,7 @@
 package grammarruntime
 
 import (
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -59,6 +60,15 @@ var beancountExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(beancountExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(BeancountExternalScanner{}, (*beancountState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(BeancountExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(BeancountExternalScanner), right.(BeancountExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 const beancountTabWidth = 8

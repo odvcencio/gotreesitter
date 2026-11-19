@@ -69,6 +69,7 @@ func TestKotlinInterpolatedCallRetirementLockedCRoutes(t *testing.T) {
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	compactParser := gotreesitter.NewParser(language)
 	compactParser.SetAdmissionCandidateRoute(true)
+	compactParser.SetCompactCertificationTelemetry(true)
 	compact, err := compactParser.Parse(source)
 	if err != nil {
 		t.Fatal(err)

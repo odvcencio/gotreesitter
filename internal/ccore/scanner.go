@@ -79,6 +79,38 @@ type scannerState struct {
 	active    bool // some lex mode has an external lex state; false: every hook returns at once
 	inited    bool
 	res       ExtScan // scratch for one scan
+	scans     int     // callbacks since the last forced limit check
+	every     int     // callbacks between two forced checks (SetScanCheckEvery); 0 means defaultScanCheckEvery
+}
+
+// defaultScanCheckEvery is the number of scanner callbacks between two forced
+// limit checks (with a real heap sample) when the route sets none.
+const defaultScanCheckEvery = 256
+
+// SetScanCheckEvery sets how many scanner callbacks run between two limit checks
+// that ask for a real heap sample (Check(true)). It applies while a limit is active.
+func (p *Parser) SetScanCheckEvery(n int) { p.ext.every = n }
+
+// afterScan runs after every scanner callback, whether it found a token or not,
+// while a limit is active. It counts the callback; every N-th time it asks the
+// ledger for a limit check with a heap sample. It returns false, with p.stop set,
+// when the check refuses. The error lexer retries the scanner after each skipped
+// character, so a scanner that keeps memory on each failed call reaches this check.
+func (p *Parser) afterScan() bool {
+	e := &p.ext
+	n := e.every
+	if n <= 0 {
+		n = defaultScanCheckEvery
+	}
+	if e.scans++; e.scans < n {
+		return true
+	}
+	e.scans = 0
+	if !p.led.Check(true) {
+		p.stop = stopProgress
+		return false
+	}
+	return true
 }
 
 // extResult is the result of one successful external scan.
@@ -99,6 +131,9 @@ func (p *Parser) extReset(fresh bool) {
 		}
 	}
 	p.ext.cacheLast = 0
+	if p.led.Active() {
+		p.ext.scans = 0
+	}
 }
 
 // extRows is C/language.h ts_language_enabled_external_tokens' table: the
@@ -115,16 +150,15 @@ func (p *Parser) extRows() [][]bool {
 	if e.rowsDone {
 		return e.rows
 	}
-	e.rowsDone = true
 	maxID := 0
 	for _, m := range p.t.LexModes {
 		if int(m.ExternalLexState) > maxID {
 			maxID = int(m.ExternalLexState)
 		}
 	}
-	e.rows = make([][]bool, maxID+1)
-	for id := range e.rows {
-		e.rows[id] = make([]bool, len(p.t.ExternalSymbols))
+	rows := mk[[]bool](&p.led, maxID+1)
+	for id := range rows {
+		rows[id] = mk[bool](&p.led, len(p.t.ExternalSymbols))
 	}
 	for s, m := range p.t.LexModes {
 		if m.ExternalLexState == 0 {
@@ -132,11 +166,13 @@ func (p *Parser) extRows() [][]bool {
 		}
 		for i, sym := range p.t.ExternalSymbols {
 			if s == 0 || p.hasActions(uint16(s), sym) {
-				e.rows[m.ExternalLexState][i] = true
+				rows[m.ExternalLexState][i] = true
 			}
 		}
 	}
-	return e.rows
+	e.rows = rows
+	e.rowsDone = true
+	return rows
 }
 
 // extFinish is ts_parser__external_scanner_destroy.
@@ -265,7 +301,7 @@ func (p *Parser) lexExternal(version int, parseState uint16, mode LexMode, cur L
 		p.log("lex_external state:%d, row:%d, column:%d", mode.ExternalLexState, cur.row, cur.col)
 	}
 	if e.buf == nil {
-		e.buf = make([]byte, extSerializationBufferSize)
+		e.buf = mk[byte](&p.led, extSerializationBufferSize)
 	}
 	last := p.heads[version].lastExternal
 	prev := p.extState(last)
@@ -280,6 +316,9 @@ func (p *Parser) lexExternal(version int, parseState uint16, mode LexMode, cur L
 	*calledGetColumn = *calledGetColumn || res.DidGetColumn
 	if res.LookaheadEnd > *lookaheadEnd { // ts_lexer_finish
 		*lookaheadEnd = res.LookaheadEnd
+	}
+	if p.led.Active() && !p.afterScan() {
+		return false
 	}
 	if !found {
 		return false

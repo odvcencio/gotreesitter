@@ -77,9 +77,9 @@ func TestB4bAlternativeSetV2KotlinWitnessCOracleAdjudication(t *testing.T) {
 	// established erlangConvergedSplitDecertify / certified-escape pattern:
 	// admission_switch_erlang_converged_split_probe_test.go), to materialize
 	// the "if forced" tree the theorem's decline is protecting against.
-	forcedLang := *goLang
+	forcedLang := g18CloneLanguage(goLang)
 	forcedLang.CompactConvergedReductionSplitDropsCertified = true
-	candidate := gotreesitter.NewParser(&forcedLang)
+	candidate := gotreesitter.NewParser(forcedLang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)
 	if err != nil {

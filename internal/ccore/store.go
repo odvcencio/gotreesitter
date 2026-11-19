@@ -15,9 +15,11 @@ import (
 	"fmt"
 	"math/bits"
 	"reflect"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 )
 
 const (
@@ -65,6 +67,27 @@ const (
 
 var recBytes = int(reflect.TypeOf(rec{}).Size())
 
+// The bytes of a page, as the ledger charges them: a record page with its side
+// array of counts, a child page, a scanner-state page.
+const (
+	handleBytes      = 8 // unsafe.Sizeof(Handle(0))
+	ptrBytes         = 8
+	spanBytes        = 24 // one span of the allocation log
+	sliceHeaderBytes = 24
+	kidPageBytes     = kidPageLen * handleBytes
+)
+
+// chargePage reserves n bytes on the ledger of this view before the page is
+// taken or made. A refusal unwinds by ledgerStop (parseWith and EditWithin turn
+// it into a stop); nothing was claimed then.
+func (s *Store) chargePage(n int64) {
+	if s.led != nil {
+		if reason := s.led.reserveClassified(n); reason != reservationOK {
+			panic(ledgerStop{reason: reason})
+		}
+	}
+}
+
 // arenaCur is one allocator's position: the page it fills and the next free
 // position in it. The parse and the edit allocator each own one.
 type arenaCur struct {
@@ -82,8 +105,11 @@ type span struct{ page, first, last int }
 
 // storeCore is the part of a store that all views share.
 type storeCore struct {
-	mu  sync.Mutex // short mutex: page tables, pending operations
-	emu sync.Mutex // edit allocator: serializes Tree.Edit and guards ec
+	// Optional child-page observational sidecar; counters guarded by mu.
+	childAccount atomic.Pointer[childPageAccount]
+	parseTables  *Tables    // table identity, read and cleared under lease
+	mu           sync.Mutex // short mutex: page tables, pending operations
+	emu          sync.Mutex // edit allocator: serializes Tree.Edit and guards ec
 	// page tables (guarded by mu for growth; views hold copies of the headers)
 	recs      []*[recPageLen]rec
 	refs      []*[recPageLen]uint32
@@ -250,6 +276,18 @@ func newStoreCore() *storeCore {
 	return c
 }
 
+// presizeBytes is the bytes of the tables that presize makes for these counts.
+func presizeBytes(recPages, kidPages int) int64 {
+	var n int64
+	if recPages > inlinePages {
+		n += 2 * int64(recPages) * ptrBytes
+	}
+	if kidPages > inlinePages {
+		n += int64(kidPages) * ptrBytes
+	}
+	return n
+}
+
 // presize gives the page tables of a store that has no page yet room for
 // recPages record pages and kidPages child pages, so that the tables do not
 // grow by doubling (one allocation each instead of one per doubling). The
@@ -292,6 +330,9 @@ type Store struct {
 	logging bool // the running parse logs its allocations and sets the new bit
 
 	nLeaf, nNode, nCopy int // records the running parse allocated, by source (statistics)
+	nKids               int // handles in the child lists the running parse made (bounds the publication walk's stack)
+	// led is the request account, nil outside a limited parse or EditWithin.
+	led *Ledger
 }
 
 func (c *storeCore) view() Store {
@@ -315,11 +356,22 @@ func (s *Store) rec(h Handle) *rec { return &s.recs[h>>(recShift+1)][(h>>1)&recM
 // it has claimed.
 func (s *Store) growRec(cur *arenaCur) {
 	c := s.core
+	if s.led != nil {
+		s.chargePage(int64(recPageBytes()) + 2*ptrBytes + spanBytes) // the page, its counts page, two table entries, one span
+	}
+	ticket := c.reserveFixedPage(fixedRecord)
+	if ticket.active {
+		defer ticket.cancel()
+		c.fire("fixed-record-reserved")
+	}
 	pg, rf := takeRecPage()
 	if pg == nil {
 		pg, rf = new([recPageLen]rec), new([recPageLen]uint32)
 	} else {
 		clear(rf[:]) // a page of the pool: records are overwritten on use, flags must start at zero
+	}
+	if ticket.active {
+		c.fire("fixed-record-acquired")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -331,8 +383,16 @@ func (s *Store) growRec(cur *arenaCur) {
 		c.limitPanic("record index limit reached")
 	}
 	first := len(c.recs) == 0
-	c.recs = append(c.recs, pg)
-	c.refs = append(c.refs, rf)
+	// Grow both tables before publishing either header. If the second growth
+	// panics, record and ref tables must still describe the same pages.
+	recs := slices.Grow(c.recs, 1)
+	if ticket.active {
+		c.fire("fixed-record-table-prepared")
+	}
+	refs := slices.Grow(c.refs, 1)
+	recs = append(recs, pg)
+	refs = append(refs, rf)
+	c.recs, c.refs = recs, refs
 	cur.recPage, cur.recSlot = len(c.recs)-1, 0
 	c.nextRec = len(c.recs)
 	if first {
@@ -340,13 +400,175 @@ func (s *Store) growRec(cur *arenaCur) {
 		cur.recSlot = 1
 	}
 	s.syncLocked()
+	ticket.commitLocked()
 }
 
+// childPageAccount observes fixed child, record/ref, and state pages only. It does not enforce a
+// memory budget or account for page tables, other pages, or cleanup buffers.
+// It is installed under the store lease after excluding edits with emu and
+// remains active until store end.
+type childPageAccount struct {
+	record, state         fixedPageCounts // partial extra categories, guarded by store mu
+	held, pending, volume uint64
+	overflow              bool
+}
+
+// childPageTicket is owned by one acquisition; canceled reservations remain
+// in the monotonic volume even when no page was checked out.
+type childPageTicket struct {
+	c      *storeCore
+	a      *childPageAccount
+	gen    uint64
+	active bool
+}
+
+const childPageCharge = uint64(kidPageLen) * 8
+
+// Caller holds the store lease and neither emu nor mu. emu excludes edit-side
+// tickets that started before installation. Never call during page acquisition.
+func (c *storeCore) attachChildAccountUnderLease() bool {
+	if !c.emu.TryLock() {
+		// Test hook: the caller holds the lease, but not emu or mu.
+		c.fire("child-attach-blocked")
+		c.emu.Lock()
+	}
+	defer c.emu.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.ended.Load() {
+		return false
+	}
+	if c.childAccount.Load() != nil {
+		return true
+	}
+	n := uint64(len(c.kids))
+	if n > ^uint64(0)/childPageCharge {
+		return false
+	}
+	if len(c.recs) != len(c.refs) {
+		return false
+	}
+	rn, sn := uint64(len(c.recs)), uint64(len(c.state))
+	rb, sb := uint64(recPageBytes()), uint64(stPageLen)
+	if rb == 0 || rn > ^uint64(0)/rb || sn > ^uint64(0)/sb {
+		return false
+	}
+	for _, pg := range c.state {
+		if len(pg) != stPageLen {
+			return false
+		}
+	}
+	c.childAccount.Store(&childPageAccount{held: n * childPageCharge, record: fixedPageCounts{held: rn * rb}, state: fixedPageCounts{held: sn * sb}})
+	return true
+}
+func (c *storeCore) reserveChildPage() childPageTicket {
+	a := c.childAccount.Load()
+	if a == nil {
+		return childPageTicket{}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	const max = ^uint64(0)
+	if c.childAccount.Load() != a || a.overflow || c.ended.Load() || a.pending > max-childPageCharge || a.volume > max-childPageCharge || a.held > max-a.pending-childPageCharge {
+		a.overflow = true
+		return childPageTicket{}
+	}
+	a.pending += childPageCharge
+	a.volume += childPageCharge
+	return childPageTicket{c: c, a: a, gen: c.gen, active: true}
+}
+func (t *childPageTicket) cancel() {
+	if !t.active {
+		return
+	}
+	c := t.c
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.gen != t.gen || c.childAccount.Load() != t.a || t.a.pending < childPageCharge {
+		t.a.overflow = true
+	} else {
+		t.a.pending -= childPageCharge
+	}
+	t.active = false
+}
+func (t *childPageTicket) commitLocked() {
+	if !t.active {
+		return
+	}
+	c := t.c
+	if c.gen != t.gen || c.childAccount.Load() != t.a || t.a.pending < childPageCharge || t.a.held > ^uint64(0)-childPageCharge {
+		t.a.overflow = true
+	} else {
+		t.a.pending -= childPageCharge
+		t.a.held += childPageCharge
+	}
+	t.active = false
+}
+
+// childVolumeCursor is request-owned: use from one goroutine and do not copy.
+// volume includes all reservations, including canceled ones before checkout.
+type childVolumeCursor struct {
+	a              *childPageAccount
+	gen, watermark uint64
+	valid          bool
+}
+
+func (c *storeCore) childVolumeAttach() (uint64, childVolumeCursor, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if a == nil || a.overflow || c.ended.Load() || a.held > ^uint64(0)-a.pending {
+		return 0, childVolumeCursor{}, false
+	}
+	return a.held + a.pending, childVolumeCursor{a: a, gen: c.gen, watermark: a.volume, valid: true}, true
+}
+
+// finish atomically captures the last delta and invalidates this cursor.
+func (p *childVolumeCursor) finish(c *storeCore) (uint64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if !p.valid || a == nil || p.a != a || a.overflow || c.ended.Load() || p.gen != c.gen || a.volume < p.watermark {
+		p.a = nil
+		p.valid = false
+		return 0, false
+	}
+	d := a.volume - p.watermark
+	p.a = nil
+	p.valid = false
+	return d, true
+}
+func (p *childVolumeCursor) pull(c *storeCore) (uint64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if !p.valid || a == nil || p.a != a || a.overflow || c.ended.Load() || p.gen != c.gen || a.volume < p.watermark {
+		p.a = nil
+		p.valid = false
+		return 0, false
+	}
+	d := a.volume - p.watermark
+	p.watermark = a.volume
+	return d, true
+}
 func (s *Store) growKids(cur *arenaCur) {
 	c := s.core
+	if s.led != nil {
+		s.chargePage(int64(kidPageBytes) + ptrBytes) // the page and its table entry
+	}
+	ticket := c.reserveChildPage()
+	// Test hooks may run while the caller holds either the parse lease or emu;
+	// they run outside mu and are not budget callbacks.
+	if ticket.active {
+		defer ticket.cancel()
+		c.fire("child-reserved")
+	}
 	pg := takeKidPage() // a page of the pool: list contents are written before they are read
 	if pg == nil {
 		pg = new([kidPageLen]Handle)
+	}
+	if ticket.active {
+		c.fire("child-acquired")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -361,13 +583,159 @@ func (s *Store) growKids(cur *arenaCur) {
 		cur.kidOff = 1 // start 0 means no list
 	}
 	s.syncLocked()
+	ticket.commitLocked()
 }
 
+// fixedPageCounts track record/ref pairs and scanner-state pages separately.
+// Observational only: table arrays, buffers, large lists and other storage are excluded.
+type fixedPageCounts struct {
+	held, pending, volume uint64
+	overflow              bool
+}
+type fixedPageKind uint8
+
+const (
+	fixedRecord fixedPageKind = iota
+	fixedState
+)
+
+func (a *childPageAccount) fixed(k fixedPageKind) (*fixedPageCounts, uint64) {
+	switch k {
+	case fixedRecord:
+		return &a.record, uint64(recPageBytes())
+	case fixedState:
+		return &a.state, uint64(stPageLen)
+	default:
+		return nil, 0
+	}
+}
+
+type fixedPageTicket struct {
+	c      *storeCore
+	a      *childPageAccount
+	gen    uint64
+	kind   fixedPageKind
+	active bool
+}
+
+func (c *storeCore) reserveFixedPage(k fixedPageKind) fixedPageTicket {
+	a := c.childAccount.Load()
+	if a == nil {
+		return fixedPageTicket{}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	x, n := a.fixed(k)
+	if x == nil {
+		return fixedPageTicket{}
+	}
+	max := ^uint64(0)
+	if c.childAccount.Load() != a || x.overflow || c.ended.Load() || n == 0 || x.pending > max-n || x.volume > max-n || x.held > max-x.pending-n {
+		x.overflow = true
+		return fixedPageTicket{}
+	}
+	x.pending += n
+	x.volume += n
+	return fixedPageTicket{c: c, a: a, gen: c.gen, kind: k, active: true}
+}
+func (t *fixedPageTicket) cancel() {
+	if !t.active {
+		return
+	}
+	c := t.c
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	x, n := t.a.fixed(t.kind)
+	if x == nil {
+		t.active = false
+		return
+	}
+	if c.gen != t.gen || c.childAccount.Load() != t.a || x.pending < n {
+		x.overflow = true
+	} else {
+		x.pending -= n
+	}
+	t.active = false
+}
+func (t *fixedPageTicket) commitLocked() {
+	if !t.active {
+		return
+	}
+	c := t.c
+	x, n := t.a.fixed(t.kind)
+	if x == nil {
+		t.active = false
+		return
+	}
+	if c.gen != t.gen || c.childAccount.Load() != t.a || x.pending < n || x.held > ^uint64(0)-n {
+		x.overflow = true
+	} else {
+		x.pending -= n
+		x.held += n
+	}
+	t.active = false
+}
+
+// fixedPageCursor is request-owned: use from one goroutine and do not copy.
+type fixedPageCursor struct {
+	a              *childPageAccount
+	gen, watermark uint64
+	kind           fixedPageKind
+	valid          bool
+}
+
+func (c *storeCore) fixedPageAttach(k fixedPageKind) (uint64, fixedPageCursor, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if a == nil || c.ended.Load() {
+		return 0, fixedPageCursor{}, false
+	}
+	x, _ := a.fixed(k)
+	if x == nil || x.overflow || x.held > ^uint64(0)-x.pending {
+		return 0, fixedPageCursor{}, false
+	}
+	return x.held + x.pending, fixedPageCursor{a: a, gen: c.gen, watermark: x.volume, kind: k, valid: true}, true
+}
+func (p *fixedPageCursor) pull(c *storeCore, finish bool) (uint64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if !p.valid || a == nil || p.a != a || c.ended.Load() || p.gen != c.gen {
+		p.a = nil
+		p.valid = false
+		return 0, false
+	}
+	x, _ := a.fixed(p.kind)
+	if x == nil || x.overflow || x.volume < p.watermark {
+		p.a = nil
+		p.valid = false
+		return 0, false
+	}
+	d := x.volume - p.watermark
+	p.watermark = x.volume
+	if finish {
+		p.a = nil
+		p.valid = false
+	}
+	return d, true
+}
 func (s *Store) growState(cur *arenaCur) {
 	c := s.core
+	if s.led != nil {
+		s.chargePage(int64(stPageLen) + sliceHeaderBytes) // the page and its table entry
+	}
+	ticket := c.reserveFixedPage(fixedState)
+	if ticket.active {
+		defer ticket.cancel()
+		c.fire("fixed-state-reserved")
+	}
 	pg := takeStatePage() // a page of the pool: state bytes are written before they are read
 	if pg == nil {
 		pg = make([]byte, stPageLen)
+	}
+	if ticket.active {
+		c.fire("fixed-state-acquired")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -382,6 +750,7 @@ func (s *Store) growState(cur *arenaCur) {
 		cur.stOff = 8 // offset 0 means no bytes
 	}
 	s.syncLocked()
+	ticket.commitLocked()
 }
 
 // kidClass returns the size class of a child list of n handles (n >= 1, n <= kidPageLen).
@@ -414,6 +783,9 @@ func stClass(n uint32) (class int, size uint32) {
 func (s *Store) allocKids(cur *arenaCur, n uint32, takeFree bool) uint32 {
 	c := s.core
 	if n > kidPageLen {
+		if s.led != nil {
+			s.chargePage(int64(n) * handleBytes) // a list longer than a page has an array of its own
+		}
 		c.mu.Lock()
 		var idx uint32
 		if k := len(c.freeLarge); k > 0 {
@@ -613,7 +985,7 @@ func (s *Store) beginParse(fresh bool) {
 	c := s.core
 	s.fresh = fresh
 	s.logging = !fresh
-	s.nLeaf, s.nNode, s.nCopy = 0, 0, 0
+	s.nLeaf, s.nNode, s.nCopy, s.nKids = 0, 0, 0, 0
 	c.spans, c.taken = c.spans[:0], c.taken[:0]
 	c.spanFirst = c.pc.recSlot
 }
@@ -728,10 +1100,16 @@ func (s *Store) freeRecord(idx uint32, r *rec, w *uint32) {
 	}
 	if edit {
 		*w = flagFree | flagEdit
+		if len(c.freedEditRecs) == cap(c.freedEditRecs) {
+			c.freedEditRecs = fgrow(s.led, c.freedEditRecs, 1)
+		}
 		c.freedEditRecs = append(c.freedEditRecs, idx)
 		return
 	}
 	*w = flagFree
+	if len(c.freedRecs) == cap(c.freedRecs) {
+		c.freedRecs = fgrow(s.led, c.freedRecs, 1)
+	}
 	c.freedRecs = append(c.freedRecs, idx)
 }
 
@@ -744,6 +1122,9 @@ func (s *Store) freeKidList(start, n uint32, edit bool) {
 		idx := start &^ largeBit
 		c.mu.Lock()
 		c.large[idx].h = nil
+		if len(c.freeLarge) == cap(c.freeLarge) {
+			c.freeLarge = fgrow(s.led, c.freeLarge, 1)
+		}
 		c.freeLarge = append(c.freeLarge, idx)
 		c.mu.Unlock()
 	}
@@ -766,7 +1147,7 @@ func (s *Store) pushKidList(r *rec, head *[numKidClasses]uint32) {
 func (s *Store) flushFree() {
 	c := s.core
 	if n := len(c.freedRecs); n > 0 {
-		sortU32(c.freedRecs, &c.sortTmp)
+		sortU32(c.freedRecs, &c.sortTmp, s.led)
 		for i := n - 1; i >= 0; i-- {
 			idx := c.freedRecs[i]
 			s.refs[idx>>recShift][idx&recMask] = flagFree | c.freeRec
@@ -789,9 +1170,9 @@ func (s *Store) flushFreeEdit() {
 	if empty {
 		return
 	}
-	sortU32(c.freedEditRecs, &c.sortTmp)
+	sortU32(c.freedEditRecs, &c.sortTmp, s.led)
 	for cl := range c.freedEditSt {
-		sortU32(c.freedEditSt[cl], &c.sortTmp)
+		sortU32(c.freedEditSt[cl], &c.sortTmp, s.led)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -818,7 +1199,7 @@ func (s *Store) flushFreeEdit() {
 
 // sortU32 sorts a in ascending order (least-significant-digit radix sort,
 // 11 bits a pass; tmp is scratch).
-func sortU32(a []uint32, tmp *[]uint32) {
+func sortU32(a []uint32, tmp *[]uint32, led *Ledger) {
 	n := len(a)
 	if n < 2 {
 		return
@@ -841,7 +1222,7 @@ func sortU32(a []uint32, tmp *[]uint32) {
 		}
 	}
 	if cap(*tmp) < n {
-		*tmp = make([]uint32, n)
+		*tmp = fmake[uint32](led, n)
 	}
 	src, dst := a, (*tmp)[:n]
 	for shift := uint(0); shift < 32 && max>>shift != 0; shift += 11 {
@@ -871,6 +1252,9 @@ func (s *Store) freeStateBytes(off, n uint32, edit bool) {
 	c := s.core
 	class, _ := stClass(n)
 	if edit {
+		if len(c.freedEditSt[class]) == cap(c.freedEditSt[class]) {
+			c.freedEditSt[class] = fgrow(s.led, c.freedEditSt[class], 1)
+		}
 		c.freedEditSt[class] = append(c.freedEditSt[class], off)
 		return
 	}
@@ -1085,8 +1469,24 @@ func (c *storeCore) endLocked() {
 	c.editFreeKid = [numKidClasses]uint32{}
 	c.editFreeSt = [numStClasses]uint32{}
 	c.nextRec, c.nextKid, c.nextState = 0, 0, 0
+	if a := c.childAccount.Load(); a != nil {
+		if a.pending != 0 {
+			a.overflow = true
+		}
+		if a.record.pending != 0 {
+			a.record.overflow = true
+		}
+		if a.state.pending != 0 {
+			a.state.overflow = true
+		}
+		a.record.held = 0
+		a.state.held = 0
+		a.held = 0
+		c.childAccount.Store(nil)
+	}
 	c.gen++
 	c.ended.Store(true)
+	c.parseTables = nil
 	c.mu.Unlock()
 	putPages(recs, refs, kids, state)
 	// The first page-table slots live in the core (recsIn, refsIn, kidsIn). The
@@ -1103,4 +1503,108 @@ func (c *storeCore) endLocked() {
 	// long as the store was large, and a reachable core would keep them.
 	c.rel, c.walk, c.taken, c.sortTmp, c.freedRecs, c.freedEditRecs, c.spans = nil, nil, nil, nil, nil, nil, nil
 	c.freedEditSt = [numStClasses][]uint32{}
+}
+
+// fixedPagesSnapshot is an observational atomic snapshot in child, record/ref,
+// state order. held contains held plus pending; watermark is conservative
+// reservation volume, including cancellations.
+type fixedPagesSnapshot struct{ held, watermark [3]uint64 }
+
+// fixedPagesCursor is request-owned: use from one goroutine and do not copy.
+type fixedPagesCursor struct {
+	a         *childPageAccount
+	gen       uint64
+	watermark [3]uint64
+	valid     bool
+}
+
+func (c *storeCore) fixedPagesAttach() (fixedPagesSnapshot, fixedPagesCursor, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	a := c.childAccount.Load()
+	if a == nil || c.ended.Load() {
+		return fixedPagesSnapshot{}, fixedPagesCursor{}, false
+	}
+	counts := [3]fixedPageCounts{{held: a.held, pending: a.pending, volume: a.volume, overflow: a.overflow}, a.record, a.state}
+	var s fixedPagesSnapshot
+	for i, x := range counts {
+		if x.overflow || x.held > ^uint64(0)-x.pending {
+			return fixedPagesSnapshot{}, fixedPagesCursor{}, false
+		}
+		s.held[i] = x.held + x.pending
+		s.watermark[i] = x.volume
+	}
+	return s, fixedPagesCursor{a: a, gen: c.gen, watermark: s.watermark, valid: true}, true
+}
+func (p *fixedPagesCursor) pull(c *storeCore, finish bool) ([3]uint64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var d [3]uint64
+	a := c.childAccount.Load()
+	if !p.valid || a == nil || p.a != a || c.ended.Load() || p.gen != c.gen {
+		p.valid = false
+		p.a = nil
+		return d, false
+	}
+	counts := [3]fixedPageCounts{{volume: a.volume, overflow: a.overflow}, a.record, a.state}
+	for i, x := range counts {
+		if x.overflow || x.volume < p.watermark[i] {
+			p.valid = false
+			p.a = nil
+			return [3]uint64{}, false
+		}
+		d[i] = x.volume - p.watermark[i]
+	}
+	for i, x := range counts {
+		p.watermark[i] = x.volume
+	}
+	if finish {
+		p.valid = false
+		p.a = nil
+	}
+	return d, true
+}
+
+// DropPooledPages empties the page pool. The pool's retention (at most poolMaxBytes,
+// pages idle for 30 s dropped) is stated, not charged to a request: a request that
+// claims a pooled page is charged for it, but the page costs the heap nothing. A test
+// that compares the ledger with the heap starts from an empty pool.
+func DropPooledPages() {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+	clear(pool.recs)
+	clear(pool.kids)
+	clear(pool.state)
+	pool.recs, pool.kids, pool.state = pool.recs[:0], pool.kids[:0], pool.state[:0]
+	pool.bytes = 0
+}
+
+// scratchBytes is the memory the store core keeps for reclamation and the allocation log,
+// by capacity: the batches of freed records and lists, the sort scratch, the walk stacks,
+// the free list of large lists, the spans and taken slots of a parse, and the queues of
+// operations. It stays with the store between requests, so a request's account starts with it.
+func (c *storeCore) scratchBytes() int {
+	if c == nil {
+		return 0
+	}
+	n := (cap(c.freedRecs)+cap(c.sortTmp)+cap(c.freedEditRecs)+cap(c.taken))*4 +
+		(cap(c.walk)+cap(c.rel))*int(unsafe.Sizeof(Handle(0))) +
+		cap(c.spans)*int(unsafe.Sizeof(span{}))
+	for i := range c.freedEditSt {
+		n += cap(c.freedEditSt[i]) * 4
+	}
+	c.mu.Lock()
+	n += cap(c.freeLarge) * 4
+	n += (cap(c.pending) + cap(c.spare)) * int(unsafe.Sizeof(op{}))
+	// page tables beyond the inline slots (presize or growth made them)
+	n += (max(cap(c.recs), inlinePages) + max(cap(c.refs), inlinePages) + max(cap(c.kids), inlinePages) - 3*inlinePages) * ptrBytes
+	c.mu.Unlock()
+	return n
+}
+
+// accountBase is what a request holds before it claims anything: the store's pages, the
+// store's reclamation scratch and allocation log (scratchBytes) and every buffer of the parser.
+// The account of a request (Ledger.Begin) starts with it.
+func (p *Parser) accountBase() int64 {
+	return int64(p.StoreBytes() + p.core.scratchBytes() + p.bufferBytes())
 }

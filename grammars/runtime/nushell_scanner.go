@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the nushell grammar. This is the external
@@ -60,6 +59,15 @@ var nushellExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(nushellExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(NushellExternalScanner{}, (*nushellScannerState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(NushellExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(NushellExternalScanner), right.(NushellExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // nushellScannerState holds the raw string hash level.
@@ -130,6 +138,18 @@ func (NushellExternalScanner) Deserialize(payload any, buf []byte) {
 }
 
 func (sc NushellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if len(sc.externalToToken) > 0 {
+		var semanticValid [nushellTokenCount]bool
+		for externalIdx, valid := range validSymbols {
+			if valid && externalIdx < len(sc.externalToToken) {
+				tokenIdx := sc.externalToToken[externalIdx]
+				if tokenIdx >= 0 && tokenIdx < nushellTokenCount {
+					semanticValid[tokenIdx] = true
+				}
+			}
+		}
+		validSymbols = semanticValid[:]
+	}
 	syms := sc.symbolTable()
 
 	s := payload.(*nushellScannerState)
@@ -137,7 +157,7 @@ func (sc NushellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalL
 	// RAW_STRING_BEGIN: r#+'
 	if nushellValid(validSymbols, nushellTokRawStringBegin) && s.level == 0 {
 		// Skip whitespace
-		for unicode.IsSpace(lexer.Lookahead()) && lexer.Lookahead() != 0 {
+		for cIsSpace(lexer.Lookahead()) && !scanmode.AtEOF(lexer) {
 			lexer.Advance(true)
 		}
 
@@ -147,7 +167,7 @@ func (sc NushellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalL
 		lexer.Advance(false)
 
 		var level uint8
-		for lexer.Lookahead() == '#' && lexer.Lookahead() != 0 {
+		for lexer.Lookahead() == '#' && !scanmode.AtEOF(lexer) {
 			lexer.Advance(false)
 			level++
 		}
@@ -164,12 +184,12 @@ func (sc NushellExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalL
 
 	// RAW_STRING_CONTENT: everything up to the closing '#+
 	if nushellValid(validSymbols, nushellTokRawStringContent) && s.level != 0 {
-		for lexer.Lookahead() != 0 {
+		for !scanmode.AtEOF(lexer) {
 			lexer.MarkEnd()
 			lexer.Advance(false)
 			// Count consecutive '#' after current char
 			var hashCount uint8
-			for lexer.Lookahead() == '#' && lexer.Lookahead() != 0 {
+			for lexer.Lookahead() == '#' && !scanmode.AtEOF(lexer) {
 				lexer.Advance(false)
 				hashCount++
 			}

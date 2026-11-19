@@ -151,6 +151,14 @@ func (c *TreeCursor) CurrentFieldID() FieldID {
 	if parentNode == nil {
 		return 0
 	}
+	if a := parentNode.ownerArena; a != nil && a.ccore != nil { // a tree built by internal/ccore: C's cursor field
+		if v, ok := nodeViews(parentNode).(nodeFieldBacking); ok {
+			return v.cursorFieldAt(parentNode, frame.childIndex)
+		}
+		if fid, ok := a.ccore.cursorField(parentNode, frame.childIndex); ok {
+			return fid
+		}
+	}
 	return nodeFieldIDAt(parentNode, frame.childIndex)
 }
 
@@ -181,6 +189,27 @@ func (c *TreeCursor) GotoChildByFieldID(fid FieldID) bool {
 		return false
 	}
 	count := nodeChildCountNoMaterialize(node)
+	if a := node.ownerArena; a != nil && a.ccore != nil {
+		if v, ok := nodeViews(node).(nodeFieldBacking); ok {
+			child, index := v.cursorChildByField(node, fid)
+			if child == nil {
+				return false
+			}
+			c.stack = append(c.stack, cursorFrame{node: child, childIndex: index})
+			return true
+		}
+		for i := 0; i < count; i++ {
+			field, known := a.ccore.cursorField(node, i)
+			if !known {
+				field = nodeFieldIDAt(node, i)
+			}
+			if field == fid {
+				c.stack = append(c.stack, cursorFrame{node: nodeChildAtForReason(node, i, materializeForCursor), childIndex: i})
+				return true
+			}
+		}
+		return false
+	}
 	for i := 0; i < count; i++ {
 		if nodeFieldIDAt(node, i) == fid {
 			c.stack = append(c.stack, cursorFrame{node: nodeChildAtForReason(node, i, materializeForCursor), childIndex: i})

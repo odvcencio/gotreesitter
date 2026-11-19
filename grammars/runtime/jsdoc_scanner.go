@@ -2,7 +2,10 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+)
 
 // External token indexes for the jsdoc grammar. This is the external
 // index (the position of the token in the grammar's `externals: [...]`
@@ -53,6 +56,15 @@ var jsdocExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(jsdocExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(JsdocExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(JsdocExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(JsdocExternalScanner), right.(JsdocExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // JsdocExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-jsdoc.

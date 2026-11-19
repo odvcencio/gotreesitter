@@ -2,7 +2,10 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+)
 
 // External token indexes for the kdl grammar. This is the external
 // index (the position of the token in the grammar's `externals: [...]`
@@ -56,6 +59,15 @@ var kdlExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(kdlExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(KdlExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(KdlExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(KdlExternalScanner), right.(KdlExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // KdlExternalScanner handles EOF detection, nestable /* */ comments,

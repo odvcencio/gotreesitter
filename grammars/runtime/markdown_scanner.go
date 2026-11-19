@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the Markdown grammar. This is the external
@@ -486,7 +487,7 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 		return true
 	}
 
-	if lexer.Lookahead() == 0 {
+	if scanmode.AtEOF(lexer) {
 		if isValid(mdTokEOF) {
 			lexer.SetResultSymbol(syms[mdTokEOF])
 			return true
@@ -619,7 +620,7 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 				}
 			}
 			allWillBeMatched := s.matched == uint8(len(s.openBlocks))
-			if lexer.Lookahead() != 0 && !mdScan(s, lexer, mdParagraphInterruptSymbols, syms) {
+			if !scanmode.AtEOF(lexer) && !mdScan(s, lexer, mdParagraphInterruptSymbols, syms) {
 				s.matched = matchedTemp
 				s.matched = 0
 				s.indentation = 0
@@ -694,7 +695,7 @@ func mdParseFencedCodeBlock(s *mdState, delimiter rune, lexer *gotreesitter.Exte
 	if isValid(startTok) && level >= 3 {
 		infoHasBacktick := false
 		if delimiter == '`' {
-			for lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' && lexer.Lookahead() != 0 {
+			for lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' && !scanmode.AtEOF(lexer) {
 				if lexer.Lookahead() == '`' {
 					infoHasBacktick = true
 					break
@@ -904,10 +905,10 @@ func mdParsePlus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 						return true
 					}
 				}
-				for lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' && lexer.Lookahead() != 0 {
+				for lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' && !scanmode.AtEOF(lexer) {
 					mdAdvance(s, lexer)
 				}
-				if lexer.Lookahead() == 0 {
+				if scanmode.AtEOF(lexer) {
 					break
 				}
 			}
@@ -1132,10 +1133,10 @@ func mdParseMinus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []
 						return true
 					}
 				}
-				for lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' && lexer.Lookahead() != 0 {
+				for lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' && !scanmode.AtEOF(lexer) {
 					mdAdvance(s, lexer)
 				}
-				if lexer.Lookahead() == 0 {
+				if scanmode.AtEOF(lexer) {
 					break
 				}
 			}
@@ -1314,7 +1315,7 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 						delim := lexer.Lookahead()
 						mdAdvance(s, lexer)
 						for lexer.Lookahead() != delim && lexer.Lookahead() != '\n' &&
-							lexer.Lookahead() != '\r' && lexer.Lookahead() != 0 {
+							lexer.Lookahead() != '\r' && !scanmode.AtEOF(lexer) {
 							mdAdvance(s, lexer)
 						}
 						if lexer.Lookahead() != delim {
@@ -1328,7 +1329,7 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 							lexer.Lookahead() != '=' && lexer.Lookahead() != '<' &&
 							lexer.Lookahead() != '>' && lexer.Lookahead() != '`' &&
 							lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' &&
-							lexer.Lookahead() != 0 {
+							!scanmode.AtEOF(lexer) {
 							mdAdvance(s, lexer)
 							hadOne = true
 						}
@@ -1368,7 +1369,7 @@ func mdParsePipeTable(s *mdState, lexer *gotreesitter.ExternalLexer, _ []bool, s
 		startingPipe = true
 		mdAdvance(s, lexer)
 	}
-	for lexer.Lookahead() != '\r' && lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
+	for lexer.Lookahead() != '\r' && lexer.Lookahead() != '\n' && !scanmode.AtEOF(lexer) {
 		if lexer.Lookahead() == '|' {
 			cellCount++
 			endingPipe = true

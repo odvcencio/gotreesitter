@@ -65,7 +65,14 @@ var scssExternalScannerSpec = ExternalScannerSpec{
 func init() {
 	RegisterExternalScannerSpec(scssExternalScannerSpec)
 	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) with the mode on; the mode selects the C-faithful scan, no saved state.
-	scanmode.RegisterScanner(ScssExternalScanner{}, (*scanmode.Flag)(nil), true)
+	scanmode.RegisterScanner(ScssExternalScanner{}, (*scanmode.Flag)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(ScssExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(ScssExternalScanner), right.(ScssExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // ScssExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-scss.

@@ -47,7 +47,14 @@ var racketExternalScannerSpec = ExternalScannerSpec{
 func init() {
 	RegisterExternalScannerSpec(racketExternalScannerSpec)
 	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) with the mode on; the mode selects the C-faithful scan, no saved state.
-	scanmode.RegisterScanner(RacketExternalScanner{}, (*scanmode.Flag)(nil), true)
+	scanmode.RegisterScanner(RacketExternalScanner{}, (*scanmode.Flag)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(RacketExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(RacketExternalScanner), right.(RacketExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // RacketExternalScanner handles #<<DELIM here-strings for Racket.

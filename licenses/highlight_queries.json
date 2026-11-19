@@ -1,7 +1,7 @@
 {
   "$schema_note": "License audit for the upstream repositories that the embedded highlight queries in grammars/highlight_queries/ were copied from. Each source is one repository at one commit and carries the same license facts as an entry in licenses/grammars.json. Every .scm file in that directory must be listed under at least one source. Its header comment must agree with this file: one '; Source:' line per source, and a '; Change:' line that starts with 'none' exactly when no source marks the file modified. 'modified' means the embedded query text differs from the upstream file; the header comment itself does not count. Regenerate THIRD_PARTY_NOTICES from this file via `go run ./cmd/gen_license_notices`.",
   "generated_from": "grammars/highlight_queries",
-  "source_count": 5,
+  "source_count": 8,
   "sources": [
     {
       "name": "nvim-treesitter",
@@ -64,6 +64,26 @@
       ]
     },
     {
+      "name": "nvim-treesitter-kotlin-query",
+      "repo": "https://github.com/nvim-treesitter/nvim-treesitter",
+      "ref": "f8ab59861eed4a1c168505e3433462ed800f2bae",
+      "spdx": "Apache-2.0",
+      "license_name": "Apache License 2.0",
+      "copyright_holders": [],
+      "license_file_url": "https://github.com/nvim-treesitter/nvim-treesitter/blob/f8ab59861eed4a1c168505e3433462ed800f2bae/LICENSE",
+      "method": "license_file_content",
+      "copyleft": false,
+      "note": "The fwcd query header identifies this revision as its source. The pinned LICENSE has an unfilled copyright appendix, the Kotlin query declares no copyright holder, and the root tree contains no NOTICE file.",
+      "repository_owner": "nvim-treesitter",
+      "files": [
+        {
+          "file": "kotlin.scm",
+          "upstream": "queries/kotlin/highlights.scm",
+          "modified": true
+        }
+      ]
+    },
+    {
       "name": "tree-sitter-html",
       "repo": "https://github.com/tree-sitter/tree-sitter-html",
       "ref": "73a3947324f6efddf9e17c0ea58d454843590cc0",
@@ -81,6 +101,27 @@
           "file": "html.scm",
           "upstream": "queries/highlights.scm",
           "modified": true
+        }
+      ]
+    },
+    {
+      "name": "tree-sitter-kotlin",
+      "repo": "https://github.com/fwcd/tree-sitter-kotlin",
+      "ref": "1852ea17b7f60fb3f9d84e0b1555d56b46b39fb1",
+      "spdx": "MIT",
+      "license_name": "MIT License",
+      "copyright_holders": [
+        "Copyright (c) 2019 fwcd"
+      ],
+      "license_file_url": "https://github.com/fwcd/tree-sitter-kotlin/blob/1852ea17b7f60fb3f9d84e0b1555d56b46b39fb1/LICENSE",
+      "method": "github_license_api",
+      "copyleft": false,
+      "note": "The pinned query credits nvim-treesitter’s Apache-2.0 Kotlin query. This MIT entry covers fwcd’s contributions; the original query is listed separately under Apache-2.0.",
+      "files": [
+        {
+          "file": "kotlin.scm",
+          "upstream": "queries/highlights.scm",
+          "modified": false
         }
       ]
     },
@@ -143,6 +184,27 @@
           "file": "v.scm",
           "upstream": "tree_sitter_v/queries/highlights.scm",
           "modified": false
+        }
+      ]
+    },
+    {
+      "name": "solidity",
+      "repo": "https://github.com/JoranHonig/tree-sitter-solidity",
+      "ref": "048fe686cb1fde267243739b8bdbec8fc3a55272",
+      "spdx": "MIT",
+      "license_name": "MIT License",
+      "copyright_holders": [
+        "Copyright (c) 2020 Joran Honig"
+      ],
+      "license_file_url": "https://github.com/JoranHonig/tree-sitter-solidity/blob/048fe686cb1fde267243739b8bdbec8fc3a55272/LICENSE",
+      "method": "github_license_api",
+      "copyleft": false,
+      "repository_owner": "JoranHonig",
+      "files": [
+        {
+          "file": "solidity.scm",
+          "upstream": "queries/highlights.scm",
+          "modified": true
         }
       ]
     }

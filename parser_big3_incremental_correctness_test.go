@@ -138,7 +138,7 @@ func TestPythonLengthChangingEditUsesDedentCheckpoints(t *testing.T) {
 		NewEndPoint: pointForOffset(edited, offset),
 	})
 
-	incremental, profile, err := gotreesitter.NewParser(lang).ParseIncrementalProfiled(edited, oldTree)
+	incremental, profile, err := newProductionBig3Parser(lang).ParseIncrementalProfiled(edited, oldTree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -496,7 +496,7 @@ func TestMalformedRustIncrementalRunsOneBaseMergeRetryAndKeepsFirstResult(t *tes
 		OldEndPoint: pointForOffset(original, offset+1),
 		NewEndPoint: pointForOffset(edited, offset),
 	})
-	incremental, profile, err := gotreesitter.NewParser(lang).ParseIncrementalProfiled(edited, oldTree)
+	incremental, profile, err := newProductionBig3Parser(lang).ParseIncrementalProfiled(edited, oldTree)
 	if err != nil {
 		t.Fatal(err)
 	}

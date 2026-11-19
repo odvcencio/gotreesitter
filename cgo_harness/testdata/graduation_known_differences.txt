@@ -1,0 +1,7 @@
+# Each approved difference applies to one comparison.
+# Each line has five tab-separated fields.
+#   comparison <TAB> language <TAB> grammar blob SHA-256 <TAB> witness SHA-256 <TAB> approval reference
+# For fresh_tree the witness is the input SHA-256.
+# For c_incremental_vs_fresh hash four newline-separated values in this order.
+# The C runtime commit, input SHA-256, incremental C tree digest, fresh C tree digest.
+# The list starts empty.

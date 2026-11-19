@@ -116,6 +116,15 @@ var (
 //     real, already-documented ambiguity (see the c_sharp golden fixture
 //     purpose string), not a dead pattern, and is left exactly as shipped.
 var inferredTagsQueryOverrides = map[string]string{
+	// Cap’n Proto uses distinct direct names for its declarations. Its
+	// type_definition leaf has no children and cannot match the inferred rule.
+	"capnp": strings.Join([]string{
+		"(struct (type_identifier) @name) @definition.type",
+		"(interface (type_identifier) @name) @definition.type",
+		"(enum (enum_identifier) @name) @definition.type",
+		"(const (const_identifier) @name) @definition.constant",
+		"(method (method_identifier) @name) @definition.method",
+	}, "\n"),
 	"go": strings.Join([]string{
 		"(function_declaration name: (identifier) @name) @definition.function",
 		"(method_declaration name: (field_identifier) @name) @definition.method",
@@ -641,6 +650,10 @@ var inferredTagsQueryOverrides = map[string]string{
 		`(list . (symbol) @_head . (list . (symbol) @name) (#eq? @_head "define")) @definition.function`,
 		`(list . (symbol) @_head . (symbol) @name (#eq? @_head "define")) @definition.variable`,
 	}, "\n"),
+
+	// CSS calls have a function_name child. The inferred identifier
+	// pattern is impossible and causes pinned C to reject the query.
+	"css": "(call_expression (function_name) @name) @reference.call",
 
 	// Lua: found via the cgo_harness C-oracle fleet census (log-only
 	// FleetCensus subtest, GTS_PARITY_MODE=top50), not the CoreNine sweep --

@@ -3,9 +3,10 @@
 package grammarruntime
 
 import (
-	"unicode"
+	"encoding/binary"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the R grammar. These are external indices (the
@@ -102,6 +103,15 @@ var rExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(rExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(RExternalScanner{}, (*rScannerState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(RExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(RExternalScanner), right.(RExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // Scope values for the R scanner's scope stack.
@@ -205,14 +215,10 @@ func (RExternalScanner) Create() any {
 
 func (RExternalScanner) Destroy(payload any) {}
 
-// Serialize encodes the raw string state and scope stack. This wire format
-// is private to this Go port (nothing decodes it in C), so it need not match
-// tree_sitter_r_external_scanner_serialize()'s byte layout, only its
-// behavior: it must round-trip through Deserialize and respect the same
-// rMaxStackSize capacity.
+// Serialize follows the raw string and scope layout at C src/scanner.c:100-114, 241-254.
 func (RExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*rScannerState)
-	needed := 3 + 2 + len(s.stack)
+	needed := 3 + 4 + len(s.stack)
 	if needed > len(buf) {
 		// Should not happen: rMaxStackSize keeps the stack within capacity.
 		return 0
@@ -224,10 +230,8 @@ func (RExternalScanner) Serialize(payload any, buf []byte) int {
 	n++
 	buf[n] = s.closingQuote
 	n++
-	count := len(s.stack)
-	buf[n] = byte(count)
-	buf[n+1] = byte(count >> 8)
-	n += 2
+	binary.NativeEndian.PutUint32(buf[n:], uint32(len(s.stack)))
+	n += 4
 	n += copy(buf[n:], s.stack)
 	return n
 }
@@ -246,18 +250,17 @@ func (RExternalScanner) Deserialize(payload any, buf []byte) {
 	if len(buf) == 0 {
 		return
 	}
-	if len(buf) < 5 {
+	if len(buf) < 7 {
+		return
+	}
+	count := binary.NativeEndian.Uint32(buf[3:7])
+	if count > uint32(len(buf)-7) || count > rMaxStackSize {
 		return
 	}
 	s.closingBracket = buf[0]
 	s.hyphenCount = buf[1]
 	s.closingQuote = buf[2]
-	count := int(buf[3]) | int(buf[4])<<8
-	rest := buf[5:]
-	if count > len(rest) {
-		count = len(rest)
-	}
-	s.stack = append(s.stack, rest[:count]...)
+	s.stack = append(s.stack, buf[7:7+int(count)]...)
 }
 
 func (s RExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
@@ -378,7 +381,7 @@ func rScan(s *rScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 // rConsumeWhitespaceAndIgnoredNewlines skips non-newline whitespace and
 // newlines inside (, [, [[ scopes. It stops at newlines in top-level or {} scope.
 func rConsumeWhitespaceAndIgnoredNewlines(lexer *gotreesitter.ExternalLexer, s *rScannerState) {
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		if lexer.Lookahead() != '\n' {
 			// Whitespace that is not a newline: skip it.
 			lexer.Advance(true)
@@ -406,7 +409,7 @@ func rIsIdentifierContinuation(ch rune) bool {
 	if ch >= 128 {
 		return true
 	}
-	return unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_' || ch == '.'
+	return cIsAlnum(ch) || ch == '_' || ch == '.'
 }
 
 // rScanElse checks for the keyword "else" starting at the current lookahead.
@@ -434,7 +437,7 @@ func rScanElse(lexer *gotreesitter.ExternalLexer, syms *[rTokenCount]gotreesitte
 	lexer.Advance(false)
 
 	// Check that this 'else' isn't part of a larger identifier, like 'else_idx'.
-	if rIsIdentifierContinuation(lexer.Lookahead()) {
+	if rIsIdentifierContinuation(rune(scanmode.CLookahead(lexer))) {
 		return false
 	}
 
@@ -450,7 +453,7 @@ func rScanElse(lexer *gotreesitter.ExternalLexer, syms *[rTokenCount]gotreesitte
 func rScanElseWithLeadingNewlines(lexer *gotreesitter.ExternalLexer, syms *[rTokenCount]gotreesitter.Symbol) bool {
 	// Advance past all whitespace (including newlines).
 	// We know we have at least 1 newline because this function was called.
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		if lexer.Lookahead() != '\n' {
 			lexer.Advance(true)
 			continue
@@ -547,7 +550,7 @@ func rScanRawStringContentOrClose(lexer *gotreesitter.ExternalLexer, s *rScanner
 
 	anyContent := false
 
-	for lexer.Lookahead() != 0 {
+	for !scanmode.AtEOF(lexer) {
 		if lexer.Lookahead() != closingBracket {
 			// Consume an arbitrary string part.
 			lexer.Advance(false)
