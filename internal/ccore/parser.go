@@ -385,7 +385,7 @@ func (p *Parser) accept(version int, lookahead Handle) {
 }
 
 // C/parser.c:1598 ts_parser__advance.
-func (p *Parser) advance(version int, allowReuse bool) bool {
+func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool {
 	if p.ops++; p.stopAt > 0 && p.ops >= p.stopAt {
 		if p.stopPanics {
 			panic("ccore: stop hook")
@@ -427,6 +427,9 @@ func (p *Parser) advance(version int, allowReuse bool) bool {
 			var ok bool
 			lookahead, ok = p.lex(version, state)
 			if !ok {
+				if p.hasDeferredSkip() {
+					p.materializeDeferredSkip()
+				}
 				return false
 			}
 			if lookahead != 0 {
@@ -438,6 +441,9 @@ func (p *Parser) advance(version int, allowReuse bool) bool {
 				}
 			} else {
 				entry = p.tableEntry(state, 0)
+			}
+			if p.hasDeferredSkip() {
+				p.resolveDeferredSkip(lookahead, entry)
 			}
 		}
 		didReduce := false
@@ -490,7 +496,7 @@ func (p *Parser) advance(version int, allowReuse bool) bool {
 				if p.childCount(lookahead) > 0 {
 					lookahead = p.breakdownLookahead(lookahead, 0)
 				}
-				p.recover(version, lookahead)
+				p.recover(version, lookahead, lastPosition, didReuse)
 				if didReuse {
 					p.rnAdvance()
 				}
@@ -522,7 +528,7 @@ func (p *Parser) advance(version int, allowReuse bool) bool {
 			}
 		}
 		if state == 0 {
-			p.recover(version, lookahead)
+			p.recover(version, lookahead, lastPosition, didReuse)
 			return true
 		}
 		// ts_parser__breakdown_top_of_stack: pending links exist only after
@@ -607,7 +613,10 @@ func (p *Parser) condense() uint32 {
 	made := false
 	minCost := ^uint32(0)
 	for i := 0; i < len(p.heads); i++ {
-		if p.heads[i].status == headHalted {
+		if status := p.heads[i].status; status == headHalted || status == headDominated {
+			if status == headDominated {
+				made = true
+			}
 			p.removeVersion(i)
 			i--
 			continue
@@ -776,10 +785,15 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 				if p.logf != nil {
 					p.log("process version:%d, version_count:%d, state:%d, row:%d, col:%d", version, len(p.heads), n.state, n.position.row, n.position.col)
 				}
-				if !p.advance(version, versionCount == 1) {
+				if !p.advance(version, versionCount == 1, lastPosition) {
 					return p.stop
 				}
-				position = p.nodes[p.heads[version].node].position.bytes
+				h := &p.heads[version]
+				position = p.nodes[h.node].position.bytes
+				if h.status == headAwaitingSkip {
+					// Preserve the skipped version's logical end while its sibling lexes.
+					position += p.totalSize(h.lookaheadWhenPaused).bytes
+				}
 				if position > lastPosition || (version > 0 && position == lastPosition) {
 					lastPosition = position
 					break
