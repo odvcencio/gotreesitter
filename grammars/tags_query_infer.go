@@ -642,24 +642,6 @@ var inferredTagsQueryOverrides = map[string]string{
 		`(list . (symbol) @_head . (symbol) @name (#eq? @_head "define")) @definition.variable`,
 	}, "\n"),
 
-	// Preserve the inferred Objective-C tags that compile with the pinned
-	// grammar. The class type_identifier and call field_identifier forms
-	// are impossible direct matches and make C reject the entire query.
-	"objc": strings.Join([]string{
-		"(function_definition (identifier) @name) @definition.function",
-		"(function_definition (field_identifier) @name) @definition.function",
-		"(function_definition (function_declarator (identifier) @name)) @definition.function",
-		"(function_definition (function_declarator (field_identifier) @name)) @definition.function",
-		"(method_declaration (identifier) @name) @definition.method",
-		"(method_declaration (field_identifier) @name) @definition.method",
-		"(method_definition (identifier) @name) @definition.method",
-		"(class_declaration (identifier) @name) @definition.class",
-		"(type_definition (type_identifier) @name) @definition.type",
-		"(type_definition (identifier) @name) @definition.type",
-		"(struct_specifier (type_identifier) @name) @definition.type",
-		"(call_expression (identifier) @name) @reference.call",
-	}, "\n"),
-
 	// Lua: found via the cgo_harness C-oracle fleet census (log-only
 	// FleetCensus subtest, GTS_PARITY_MODE=top50), not the CoreNine sweep --
 	// Lua is not one of the core nine. The shared table's
