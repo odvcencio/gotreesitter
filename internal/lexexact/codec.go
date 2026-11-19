@@ -182,24 +182,25 @@ var (
 	reg   = map[[32]byte][]byte{}
 )
 
-// Register stores the encoded record for the blob with the given SHA-256. A
-// second record for the same blob panics, because it would hide an error in
-// the code that registers them.
+// Register stores a copy of the encoded record for the blob with the given
+// SHA-256. A second record for the same blob panics, because it would hide an
+// error in the code that registers them.
 func Register(blobSHA256 [32]byte, encoded []byte) {
 	regMu.Lock()
 	defer regMu.Unlock()
 	if _, dup := reg[blobSHA256]; dup {
 		panic(fmt.Sprintf("lexexact: record for blob %x registered twice", blobSHA256))
 	}
-	reg[blobSHA256] = encoded
+	reg[blobSHA256] = bytes.Clone(encoded)
 }
 
-// Lookup returns the encoded record registered for the blob, if any.
+// Lookup returns a caller-owned copy of the encoded record registered for the
+// blob, if any.
 func Lookup(blobSHA256 [32]byte) ([]byte, bool) {
 	regMu.RLock()
 	defer regMu.RUnlock()
 	b, ok := reg[blobSHA256]
-	return b, ok
+	return bytes.Clone(b), ok
 }
 
 // MustHash decodes a 64-digit hexadecimal SHA-256. The generated files of

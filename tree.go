@@ -1174,6 +1174,9 @@ func nodeChildrenForReason(n *Node, reason materializeReason) []*Node {
 }
 
 func nodeFieldIDAt(n *Node, i int) FieldID {
+	if v, ok := nodeViews(n).(nodeFieldBacking); ok {
+		return v.fieldIDAt(n, i)
+	}
 	fieldIDs := n.fieldIDs()
 	if i < 0 || i >= len(fieldIDs) {
 		return 0
@@ -2241,9 +2244,20 @@ func (n *Node) Symbol() Symbol {
 
 // ParseState returns the parser state associated with this node. Returns 0
 // for a nil node.
+//
+// On a tree of the present engine it is the state on top of the stack after
+// the node was pushed. On a tree built by internal/ccore it is C's
+// ts_node_next_parse_state, computed when called: the language's next state
+// for the node's PreGotoState and its grammar symbol (a goto for a node with
+// children; for a token the shift target, or 0 when the last action of the
+// table entry is not a shift; the same state for an extra), and 0 for a node
+// without a state (C returns 65535 there).
 func (n *Node) ParseState() StateID {
 	if n == nil {
 		return 0
+	}
+	if a := n.ownerArena; a != nil && a.ccore != nil {
+		return ccoreNextParseState(a.ccore.tables, n) // a tree built by internal/ccore
 	}
 	return n.parseState
 }
@@ -2252,10 +2266,20 @@ func (n *Node) ParseState() StateID {
 // this node was originally pushed (i.e., the state exposed after popping
 // children during reduce). A reused node retains that historical state, which
 // can differ from the state in a fresh parse of the edited source. For
-// non-leaf nodes: lookupGoto(PreGotoState, Symbol) == ParseState. Returns 0
-// for a nil node.
+// non-leaf nodes of the present engine: lookupGoto(PreGotoState, Symbol) ==
+// ParseState. Returns 0 for a nil node.
+//
+// On a tree built by internal/ccore it is C's ts_node_parse_state: the parse
+// state the core recorded for the node, kept in inline leaves too (a token's
+// state is the one it was lexed in, before any reduction that ran between
+// lexing and the shift), and 0 for a node without a state (C returns 65535 for
+// a fragile node). The rule above holds for neither the tokens nor the fragile
+// nodes of such a tree.
 func (n *Node) PreGotoState() StateID {
 	if n == nil {
+		return 0
+	}
+	if n.preGotoState == ccoreStateNone && n.ownerArena != nil && n.ownerArena.ccore != nil {
 		return 0
 	}
 	return n.preGotoState
@@ -2487,11 +2511,31 @@ func (n *Node) NamedChild(i int) *Node {
 // or nil if no child has that field. The Language is needed to resolve field
 // names to IDs. Uses Language.FieldByName for O(1) lookup.
 func (n *Node) ChildByFieldName(name string, lang *Language) *Node {
+	if n == nil {
+		return nil
+	}
 	fid, ok := lang.FieldByName(name)
 	if !ok || fid == 0 {
 		return nil
 	}
 
+	if a := n.ownerArena; a != nil && a.ccore != nil { // a tree built by internal/ccore: C's lookup, where it differs from the stored ids
+		if v, ok := nodeViews(n).(nodeFieldBacking); ok {
+			return v.childByField(n, fid)
+		}
+		if path, found, ok := a.ccore.lookupChild(n, fid); ok {
+			if !found {
+				return nil
+			}
+			cur := n
+			for _, i := range path {
+				if cur = nodeChildAtForReason(cur, int(i), materializeForParentAPI); cur == nil {
+					return nil
+				}
+			}
+			return cur
+		}
+	}
 	childCount := nodeChildCountNoMaterialize(n)
 	for i := 0; i < childCount; i++ {
 		if nodeFieldIDAt(n, i) == fid {
@@ -3656,6 +3700,11 @@ func newParentNode(arena *nodeArena, sym Symbol, named bool, children []*Node, f
 //
 // Deprecated: NewParentNode builds a pointer tree by hand. Parse source with a Parser and read nodes from the resulting Tree instead. The function may be removed in a future release.
 func NewParentNode(sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {
+	if ccoreViewTrees.Load() != 0 {
+		for _, child := range children {
+			ccoreMaterializeForReason(child, ccoreViewConvAdopt)
+		}
+	}
 	children, fieldIDs = dropNilChildren(children, fieldIDs)
 	return newParentNode(nil, sym, named, children, fieldIDs, productionID)
 }
@@ -4301,7 +4350,11 @@ func (t *Tree) rootNodeWithRecoveryOffset(offsetBytes uint32, offsetExtent Point
 func (t *Tree) rootNodeWithOffsetMode(offsetBytes uint32, offsetExtent Point, followPointAdd bool) *Node {
 	if views := nodeViews(t.root); views != nil {
 		copy := views.copyTree(t)
+		if copy == nil {
+			return nil
+		}
 		defer copy.Release()
+		ccoreMaterializeForReason(copy.root, ccoreViewConvOffsetRoot)
 		return cloneTreeNodesWithOffsetMode(copy.root, offsetBytes, offsetExtent, followPointAdd)
 	}
 	return cloneTreeNodesWithOffsetMode(t.root, offsetBytes, offsetExtent, followPointAdd)
@@ -4594,6 +4647,10 @@ func (t *Tree) Copy() *Tree {
 	}
 	arena := acquireNodeArena(class)
 	arena.inheritExternalScannerCheckpointIdentity(t.arena)
+	if st := t.ccoreStateOf(); st != nil {
+		forgetArenaCheckout(arena)
+		arena.ccore = st.forTreeCopy()
+	}
 	out.root = cloneTreeNodesIntoArena(t.root, arena)
 	out.arena = arena
 	arena.legacyIncrementalReuseCertified = t.hasCertifiedIncrementalReuse()
@@ -4689,6 +4746,9 @@ func cloneTreeNodesWithOffsetMode(root *Node, offsetBytes uint32, offsetExtent P
 	}
 	arena := newNodeArena(arenaClassIncremental)
 	arena.finalChildRefs = true
+	if root.ownerArena != nil {
+		arena.ccore = root.ownerArena.ccore.forCopy() // a clone of a core tree keeps the meaning of ParseState and its field answers
+	}
 	offset := &cloneOffset{
 		byteDelta: offsetBytes,
 		point:     offsetExtent,
@@ -4767,6 +4827,9 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	// header, so re-record it explicitly against the destination arena.
 	if arena != nil && src.dependsOnColumn() {
 		arena.setNodeDependsOnColumnBit(dst, true)
+	}
+	if arena != nil && arena.ccore != nil && src.ownerArena != nil && src.ownerArena.ccore != nil {
+		arena.ccore.cloneExtra(dst, src.ownerArena.ccore, src)
 	}
 	copyCompactReuseDependency(dst, src)
 	if src.ownerArena != nil && src.ownerArena.legacyReuseReads != nil {
@@ -5427,7 +5490,14 @@ func (n *Node) Edit(edit InputEdit) {
 		}
 		return
 	}
-	materializeNodeViews(n)
+	if views := nodeViews(n); views != nil {
+		if v, ok := views.(*ccoreViews); ok {
+			v.materializeFor(ccoreViewConvNodeEdit)
+			v.arena.ccore.releaseCore()
+		} else {
+			views.materialize()
+		}
+	}
 	if root := nodeEditRoot(n); root != nil {
 		editNode(root, edit)
 	}
@@ -5501,7 +5571,28 @@ func (t *Tree) Edit(edit InputEdit) {
 	if t == nil {
 		return
 	}
-	materializeNodeViews(t.root)
+	if views := nodeViews(t.root); views != nil {
+		if v, ok := views.(*ccoreViews); ok {
+			if v.onlyRoot() && t.ccoreEdit(edit) {
+				v.refreshRoot()
+				ccoreViewRootEdits.Add(1)
+				if perfCountersEnabled { // the root-only path records the same edit counters as the path below
+					perfRecordNodeEditCall()
+					if inputEditIsNoop(edit) {
+						perfRecordNodeEditNoopCall()
+					}
+				}
+				t.setIncrementalFreshVerified(false)
+				t.edits = append(t.edits, edit)
+				t.lastEditedLeaf = nil
+				t.editIncludedRanges(edit)
+				return
+			}
+			v.materializeFor(ccoreViewConvEditWithViews)
+		} else {
+			views.materialize()
+		}
+	}
 	t.setIncrementalFreshVerified(false)
 	t.ensureResultCompatibility()
 	t.ensureDependsOnColumnPropagated()
@@ -6522,16 +6613,12 @@ func acquireNodeViewArena() *nodeArena {
 		p.free = p.free[:n-1]
 	}
 	p.mu.Unlock()
-	if arena == nil {
+	allocated := arena == nil
+	if allocated {
 		arena = &nodeArena{class: arenaClassFull, viewArena: true, nodes: make([]Node, minArenaNodeCap)}
 		arena.recomputeAllocatedBytes()
-		if arenaProfileEnabled {
-			arenaProfileData.FullNew++
-		}
 	}
-	if arenaProfileEnabled {
-		arenaProfileData.FullAcquire++
-	}
+	recordArenaAcquire(arenaClassFull, allocated)
 	arena.refs.Store(1)
 	arena.viewNodeLimit = 0
 	arena.breakdownEnabled = arenaBreakdownEnabled.Load()

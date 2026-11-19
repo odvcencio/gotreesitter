@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the dart grammar.
@@ -67,6 +66,15 @@ var dartExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(dartExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(DartExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(DartExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(DartExternalScanner), right.(DartExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // DartExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-dart.
@@ -109,7 +117,7 @@ func (s DartExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	}
 
 	// Skip whitespace before checking for block comments.
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 
@@ -189,15 +197,17 @@ func dartScanTemplates(lexer *gotreesitter.ExternalLexer, validSymbols []bool, s
 }
 
 func dartTemplateResultSymbol(validSymbols []bool, symbols *[dartTokenCount]gotreesitter.Symbol) gotreesitter.Symbol {
+	// C src/scanner.c:72-81 checks enum slots 1, 0, 2, 3 in that order.
+	// Those slots have different names in the grammar's externals list.
 	switch {
-	case dartValid(validSymbols, dartTokTemplateCharsDouble):
-		return symbols[dartTokTemplateCharsDouble]
 	case dartValid(validSymbols, dartTokTemplateCharsSingle):
 		return symbols[dartTokTemplateCharsSingle]
-	case dartValid(validSymbols, dartTokTemplateCharsSingleSingle):
-		return symbols[dartTokTemplateCharsSingleSingle]
-	default:
+	case dartValid(validSymbols, dartTokTemplateCharsDouble):
+		return symbols[dartTokTemplateCharsDouble]
+	case dartValid(validSymbols, dartTokTemplateCharsDoubleSingle):
 		return symbols[dartTokTemplateCharsDoubleSingle]
+	default:
+		return symbols[dartTokTemplateCharsSingleSingle]
 	}
 }
 

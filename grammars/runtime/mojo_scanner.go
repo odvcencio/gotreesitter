@@ -747,5 +747,12 @@ afterIndentLoop:
 
 func init() {
 	// A port with a behavioural mode (internal/scanmode); registered with the rest of its set.
-	scanmode.RegisterScanner(MojoExternalScanner{}, (*pythonScannerState)(nil), true)
+	scanmode.RegisterScanner(MojoExternalScanner{}, (*pythonScannerState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(MojoExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(MojoExternalScanner), right.(MojoExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }

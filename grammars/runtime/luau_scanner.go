@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the luau grammar. This is the external
@@ -69,6 +68,15 @@ var luauExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(luauExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(LuauExternalScanner{}, (*luauState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(LuauExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(LuauExternalScanner), right.(LuauExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // luauState stores the ending character and the bracket level count.
@@ -122,7 +130,7 @@ func (LuauExternalScanner) Serialize(payload any, buf []byte) int {
 func (LuauExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*luauState)
 	if len(buf) >= 1 {
-		s.endingChar = rune(buf[0])
+		s.endingChar = rune(int8(buf[0]))
 	}
 	if len(buf) >= 2 {
 		s.levelCount = buf[1]
@@ -160,7 +168,7 @@ func (sc LuauExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 	}
 
 	// Skip whitespace
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 
@@ -259,7 +267,7 @@ func luauScanCommentContent(s *luauState, lexer *gotreesitter.ExternalLexer, sym
 		return false
 	}
 	for lexer.Lookahead() != 0 {
-		if lexer.Lookahead() == s.endingChar {
+		if scanmode.CLookahead(lexer) == int32(s.endingChar) {
 			luauResetState(s)
 			lexer.SetResultSymbol(syms[luauTokBlockCommentContent])
 			return true
@@ -285,7 +293,7 @@ func luauScanStringEnd(s *luauState, lexer *gotreesitter.ExternalLexer) bool {
 	if s.endingChar == 0 {
 		return luauScanBlockEnd(s, lexer)
 	}
-	if lexer.Lookahead() == s.endingChar {
+	if scanmode.CLookahead(lexer) == int32(s.endingChar) {
 		lexer.Advance(false)
 		return true
 	}
@@ -296,12 +304,12 @@ func luauScanStringContent(s *luauState, lexer *gotreesitter.ExternalLexer) bool
 	if s.endingChar == 0 {
 		return luauScanBlockContent(s, lexer)
 	}
-	for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 && lexer.Lookahead() != s.endingChar {
+	for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 && scanmode.CLookahead(lexer) != int32(s.endingChar) {
 		if lexer.Lookahead() == '\\' {
 			lexer.Advance(false)
 			if lexer.Lookahead() == 'z' {
 				lexer.Advance(false)
-				for unicode.IsSpace(lexer.Lookahead()) {
+				for cIsSpace(lexer.Lookahead()) {
 					lexer.Advance(false)
 				}
 				continue

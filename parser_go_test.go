@@ -2,12 +2,18 @@ package gotreesitter_test
 
 import (
 	"bytes"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certgen"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certgen/certlang"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
+	"github.com/odvcencio/gotreesitter/internal/ccore"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 )
 
 func TestGoParserIncludedRangePastEOFDoesNotHang(t *testing.T) {
@@ -1369,4 +1375,142 @@ func TestGoMergePerKeyCapNormalizeGoStaysCleanAtSteadyState(t *testing.T) {
 			t.Fatalf("root has error for minimal_repro:\n%s", root.SExpr(lang))
 		}
 	})
+}
+
+func TestCcoreScannerConfigurationInvalidatesOldTree(t *testing.T) {
+	data, err := os.ReadFile("grammars/grammar_blobs/css.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lang, err := grammarruntime.LoadLanguage("css", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	makeScanner := func() gotreesitter.ExternalScanner {
+		return (grammarruntime.CssExternalScanner{}).ExternalScannerForLanguage(lang)
+	}
+	lang.ExternalScanner = makeScanner()
+	first, err := bind.Config(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ccore.NewParser(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := []byte("a { color: red; }\n")
+	old, stop := p.Parse(source)
+	if stop != "" || old == nil {
+		t.Fatalf("first parse: %s", stop)
+	}
+	defer old.Release()
+	lang.ExternalScanner = makeScanner()
+	equal, err := bind.Config(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Tables != equal.Tables {
+		t.Fatal("equal scanner changed tables")
+	}
+	// A different token binding changes the scanner configuration without changing the language tables.
+	changedLanguage := &gotreesitter.Language{ExternalSymbols: append([]gotreesitter.Symbol(nil), lang.ExternalSymbols...), SymbolNames: lang.SymbolNames}
+	if len(changedLanguage.ExternalSymbols) == 0 {
+		t.Fatal("no CSS external symbols")
+	}
+	changedLanguage.ExternalSymbols[0]++
+	lang.ExternalScanner = (grammarruntime.CssExternalScanner{}).ExternalScannerForLanguage(changedLanguage)
+	changed, err := bind.Config(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed.Tables == first.Tables || changed.Nodes == first.Nodes {
+		t.Fatal("changed scanner reused tables")
+	}
+	q, err := ccore.NewParser(changed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reparsed, stop := q.ParseWith(source, old)
+	if stop != "" || reparsed == nil {
+		t.Fatalf("reparse: %s", stop)
+	}
+	defer reparsed.Release()
+	if nodes, _, _ := q.ReuseStats(); nodes != 0 {
+		t.Fatalf("reused %d nodes", nodes)
+	}
+	got := q.Digest(reparsed)
+	fresh, stop := q.Parse(source)
+	if stop != "" || fresh == nil {
+		t.Fatalf("fresh: %s", stop)
+	}
+	defer fresh.Release()
+	if want := q.Digest(fresh); got != want {
+		t.Fatalf("reparse %s != fresh %s", got, want)
+	}
+}
+
+func TestCcoreConfigHashLoadedScanner(t *testing.T) {
+	data, err := os.ReadFile("grammars/grammar_blobs/css.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	load := func() *gotreesitter.Language {
+		l, err := grammarruntime.LoadLanguage("css", data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		l.ExternalScanner = (grammarruntime.CssExternalScanner{}).ExternalScannerForLanguage(l)
+		return l
+	}
+	first, second := load(), load()
+	a, err := bind.ConfigHash(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := bind.ConfigHash(second)
+	if err != nil || a != b {
+		t.Fatalf("two loads differ: %v", err)
+	}
+	// A third load, changed in one symbol name: a Language is not copied.
+	changed := load()
+	changed.SymbolNames = append([]string(nil), first.SymbolNames...)
+	changed.SymbolNames[1] += "x"
+	c, err := bind.ConfigHash(changed)
+	if err != nil || a == c {
+		t.Fatalf("changed symbol name: %v", err)
+	}
+	binding := &gotreesitter.Language{ExternalSymbols: append([]gotreesitter.Symbol(nil), first.ExternalSymbols...), SymbolNames: first.SymbolNames}
+	if len(binding.ExternalSymbols) == 0 {
+		t.Fatal("no external symbols")
+	}
+	binding.ExternalSymbols[0]++
+	first.ExternalScanner = (grammarruntime.CssExternalScanner{}).ExternalScannerForLanguage(binding)
+	c, err = bind.ConfigHash(first)
+	if err != nil || a == c {
+		t.Fatalf("changed scanner configuration: %v", err)
+	}
+}
+
+func TestCcoreCertifiedListIsGenerated(t *testing.T) {
+	raw, err := os.ReadFile("testdata/ccore_certificates.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The same loader as cmd/ccorecert: the configuration hash of every record
+	// comes from the loaded blob.
+	recs, err := certlang.Load(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := certgen.Render(recs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile("internal/ccore/certified/gen.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) || len(recs) != len(certified.Blobs) {
+		t.Fatal("certificate list differs from generated records")
+	}
 }

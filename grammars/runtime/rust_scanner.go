@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the rust grammar.
@@ -87,10 +88,19 @@ var rustExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(rustExternalScannerSpec)
+	scanmode.RegisterScanner(RustExternalScanner{}, (*rustScannerState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(RustExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(RustExternalScanner), right.(RustExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // rustScannerState holds the opening hash count for raw string literals.
 type rustScannerState struct {
+	scanmode.Flag
 	openingHashCount uint8
 }
 
@@ -174,6 +184,9 @@ func (RustExternalScanner) SupportsIncrementalReuse() bool { return true }
 func (RustExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
 
 func (scanner RustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if payload.(*rustScannerState).On() {
+		return scanner.scanC(payload, lexer, validSymbols)
+	}
 	var semanticValid [rustTokenCount]bool
 	validSymbols = scanner.remapValidSymbols(validSymbols, &semanticValid)
 	symbols := scanner.symbolTable()

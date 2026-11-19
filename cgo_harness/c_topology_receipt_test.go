@@ -171,6 +171,7 @@ func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	goParser := gotreesitter.NewParser(goLanguage)
 	goParser.SetAdmissionCandidateRoute(true)
+	goParser.SetCompactCertificationTelemetry(true)
 	goTree, err := goParser.Parse(source)
 	if err != nil {
 		t.Fatalf("one-byte routed Go parse: %v", err)

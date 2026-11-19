@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unicode/utf8"
 
 	"github.com/odvcencio/gotreesitter/internal/ccore"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified/certifiedtest"
 	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
+
+var ccoreEmittingSnapshots atomic.Int64
 
 func tokenAfterResult(t *testing.T, l *ExternalLexer, sym Symbol) Token {
 	t.Helper()
@@ -487,19 +491,25 @@ func TestScanmodeFlagPayload(t *testing.T) {
 }
 
 func init() {
-	scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner(emittingScanner{}, nil, false)
-	scanmode.RegisterScanner(pooledScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner(panicScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner(lyingScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner(panickyEntryScanner{}, (*panickyProbe)(nil), true)
-	scanmode.RegisterScanner(recordingScanner{}, nil, false)
-	scanmode.RegisterScanner(clearsThenPanicsScanner{}, (*offPanicProbe)(nil), true)
-	scanmode.RegisterScanner(panicsBeforeClearingScanner{}, (*offPanicProbe)(nil), true)
-	scanmode.RegisterScanner(noModeScanner{}, (*countingProbe)(nil), false)
-	scanmode.RegisterScanner(lyingCountingScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner(destroyPanicScanner{}, (*modeProbe)(nil), true)
-	scanmode.RegisterScanner((*pointerScanner)(nil), nil, false)
+	scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(emittingScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		ccoreEmittingSnapshots.Add(1)
+		s := v.(emittingScanner)
+		return s, []byte{byte(s.sym), byte(s.sym >> 8)}, true
+	}, func(a, b any) bool {
+		return a.(emittingScanner) == b.(emittingScanner)
+	})
+	scanmode.RegisterScanner(pooledScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(panicScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(lyingScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(panickyEntryScanner{}, (*panickyProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(recordingScanner{}, nil, false, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(clearsThenPanicsScanner{}, (*offPanicProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(panicsBeforeClearingScanner{}, (*offPanicProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(noModeScanner{}, (*countingProbe)(nil), false, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(lyingCountingScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner(destroyPanicScanner{}, (*modeProbe)(nil), true, func(v any) (any, []byte, bool) { return v, nil, true })
+	scanmode.RegisterScanner((*pointerScanner)(nil), nil, false, func(v any) (any, []byte, bool) { return v, nil, true })
 }
 
 // modeProbe is a scanner payload that records whether the mode is on.
@@ -1099,18 +1109,25 @@ func TestRegisterScannerRejectsDuplicatesAndLateRegistrations(t *testing.T) {
 	if !ok || !before.NeedsMode {
 		t.Fatal("the test scanner is not registered with a mode")
 	}
-	if r := panics(func() { scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), false) }); r == nil || !strings.Contains(r.(string), "twice") {
+	if r := panics(func() {
+		scanmode.RegisterScanner(modeProbeScanner{}, (*modeProbe)(nil), false, func(v any) (any, []byte, bool) { return v, nil, true })
+	}); r == nil || !strings.Contains(r.(string), "twice") {
 		t.Errorf("a duplicate registration: recovered %v, want the duplicate panic", r)
 	}
-	if after, _ := scanmode.Lookup(modeProbeScanner{}); after != before {
-		t.Errorf("a rejected duplicate changed the registration: %+v, was %+v", after, before)
+	// Registered holds a function, so it is compared field by field; the
+	// snapshot function is compared by its code pointer.
+	if after, _ := scanmode.Lookup(modeProbeScanner{}); after.Payload != before.Payload || after.NeedsMode != before.NeedsMode ||
+		reflect.ValueOf(after.Snapshot).Pointer() != reflect.ValueOf(before.Snapshot).Pointer() {
+		t.Errorf("a rejected duplicate changed the registration: payload %v mode %v, was payload %v mode %v", after.Payload, after.NeedsMode, before.Payload, before.NeedsMode)
 	}
 	// Binding starts: from here no registration is accepted.
 	if _, err := newCcoreExtScanner(modeProbeScanner{payload: &modeProbe{}}); err != nil {
 		t.Fatal(err)
 	}
 	type lateScanner struct{ modeProbeScanner }
-	if r := panics(func() { scanmode.RegisterScanner(lateScanner{}, nil, false) }); r == nil || !strings.Contains(r.(string), "after binding started") {
+	if r := panics(func() {
+		scanmode.RegisterScanner(lateScanner{}, nil, false, func(v any) (any, []byte, bool) { return v, nil, true })
+	}); r == nil || !strings.Contains(r.(string), "after binding started") {
 		t.Errorf("a late registration: recovered %v, want the late panic", r)
 	}
 	if _, ok := scanmode.Lookup(lateScanner{}); ok {
@@ -1206,5 +1223,220 @@ func TestScanPanicThenDestroyPanicDestroysTheRuntimePayloadOnce(t *testing.T) {
 		if *destroyed != 1 {
 			t.Errorf("%d layers: Destroy was attempted %d times for one payload, want 1", layers, *destroyed)
 		}
+	}
+}
+
+// A reader belongs to the table binding from which it was created; caller
+// mutation of the language must not rewrite an already-bound field map.
+func TestCcoreNodeReaderFieldMapSnapshot(t *testing.T) {
+	lang := loadBlobForDecode(t, "json")
+	src := []byte(`{"a":1}`)
+	coreRead := func(l *Language) (*ccore.Tree, ccore.NodeReader) {
+		t.Helper()
+		cfg, err := ccoreConfig(l)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := ccore.NewParser(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tree, stop := p.Parse(src)
+		if tree == nil || stop != "" {
+			t.Fatalf("core parse %q", stop)
+		}
+		return tree, ccore.NewNodeReader(tree.Reader(), cfg.Nodes)
+	}
+	coreFields := func(tree *ccore.Tree, r ccore.NodeReader) []uint16 {
+		var out []uint16
+		var visit func(ccore.Node)
+		visit = func(n ccore.Node) {
+			for i := uint32(0); i < r.ChildCount(n); i++ {
+				c, ok := r.Child(n, i)
+				if !ok {
+					t.Fatal("core child")
+				}
+				if c.Field != 0 {
+					out = append(out, c.Field)
+				}
+				visit(c)
+			}
+		}
+		visit(r.RootNode(tree.Root()))
+		return out
+	}
+	legacyFields := func(l *Language) []string {
+		p := NewParser(l)
+		p.SetAdmissionCandidateRoute(false)
+		tree, err := p.Parse(src)
+		if tree == nil || err != nil {
+			t.Fatalf("legacy %v", err)
+		}
+		defer tree.Release()
+		var out []string
+		var visit func(*Node)
+		visit = func(n *Node) {
+			for i := 0; i < n.ChildCount(); i++ {
+				if f := n.FieldNameForChild(i, l); f != "" {
+					out = append(out, f)
+				}
+				visit(n.Child(i))
+			}
+		}
+		visit(tree.RootNode())
+		return out
+	}
+	tree, reader := coreRead(lang)
+	defer tree.Release()
+	if got := coreFields(tree, reader); !reflect.DeepEqual(got, []uint16{1, 2}) {
+		t.Fatalf("initial core fields: %v", got)
+	}
+	if got := legacyFields(lang); !reflect.DeepEqual(got, []string{"key", "value"}) {
+		t.Fatalf("initial legacy fields: %v", got)
+	}
+	if len(lang.FieldMapSlices) < 2 || lang.FieldMapSlices[1][1] == 0 {
+		t.Fatal("unexpected JSON field table")
+	}
+	lang.FieldMapSlices[1] = [2]uint16{}
+	if got := coreFields(tree, reader); !reflect.DeepEqual(got, []uint16{1, 2}) {
+		t.Fatalf("existing reader changed: %v", got)
+	}
+	if got := legacyFields(lang); !reflect.DeepEqual(got, []string{"key", "value"}) {
+		t.Fatalf("warmed legacy changed: %v", got)
+	}
+	changed := loadBlobForDecode(t, "json")
+	changed.FieldMapSlices[1] = [2]uint16{}
+	newTree, newReader := coreRead(changed)
+	defer newTree.Release()
+	if got := coreFields(newTree, newReader); len(got) != 0 {
+		t.Fatalf("new core binding ignored change: %v", got)
+	}
+	if got := legacyFields(changed); len(got) != 0 {
+		t.Fatalf("new legacy binding ignored change: %v", got)
+	}
+}
+
+// A reader must not race with later mutation of the language field table.
+func TestCcoreFieldReaderConcurrentLanguageMutation(t *testing.T) {
+	lang := loadBlobForDecode(t, "json")
+	cfg, err := ccoreConfig(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ccore.NewParser(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, stop := p.Parse([]byte(`{"a":1}`))
+	if tree == nil || stop != "" {
+		t.Fatalf("parse: %q", stop)
+	}
+	defer tree.Release()
+	reader := ccore.NewNodeReader(tree.Reader(), cfg.Nodes)
+	var parent ccore.Node
+	var childIndex uint32
+	found := false
+	var visit func(ccore.Node)
+	visit = func(n ccore.Node) {
+		for i := uint32(0); i < reader.ChildCount(n) && !found; i++ {
+			child, ok := reader.Child(n, i)
+			if !ok {
+				t.Fatal("missing child")
+			}
+			if child.Field != 0 {
+				parent, childIndex, found = n, i, true
+				return
+			}
+			visit(child)
+		}
+	}
+	visit(reader.RootNode(tree.Root()))
+	if !found || len(lang.FieldMapSlices) < 2 {
+		t.Fatal("missing JSON field")
+	}
+	original := lang.FieldMapSlices[1]
+	initial, ok := reader.Child(parent, childIndex)
+	if !ok || initial.Field == 0 {
+		t.Fatal("missing initial field")
+	}
+	start, done := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(done)
+		<-start
+		for i := 0; i < 20000; i++ {
+			lang.FieldMapSlices[1] = [2]uint16{}
+			lang.FieldMapSlices[1] = original
+		}
+	}()
+	close(start)
+	changes := 0
+	for i := 0; i < 20000; i++ {
+		child, ok := reader.Child(parent, childIndex)
+		if !ok || child.Field != initial.Field {
+			changes++
+		}
+	}
+	<-done
+	if changes != 0 {
+		t.Fatalf("field changed during language mutation in %d reads", changes)
+	}
+}
+
+func TestCcoreScannerAdapterSnapshot(t *testing.T) {
+	original := &externalScannerOrderAdapter{
+		inner: emittingScanner{sym: 1}, targetToSource: []int{0}, sourceCount: 1,
+		sourceSymbolToIndex: map[Symbol]int{1: 0}, sourceResultToTarget: map[Symbol]Symbol{1: 2},
+	}
+	private, typ, key, reason := ccoreScannerSnapshot(original)
+	if reason != "" {
+		t.Fatal(reason)
+	}
+	saved := append([]byte(nil), key...)
+	dup := private.(*externalScannerOrderAdapter)
+	original.targetToSource[0] = -1
+	original.sourceSymbolToIndex[1] = 5
+	original.sourceResultToTarget[1] = 7
+	if dup.targetToSource[0] != 0 || dup.sourceSymbolToIndex[1] != 0 || dup.sourceResultToTarget[1] != 2 || !bytes.Equal(key, saved) {
+		t.Fatal("adapter snapshot shares memory")
+	}
+	_, nextType, nextKey, reason := ccoreScannerSnapshot(original)
+	if reason != "" || typ != nextType || bytes.Equal(key, nextKey) {
+		t.Fatal("adapter change was not identified")
+	}
+}
+
+func TestCcoreScannerEmptyAdapterBinding(t *testing.T) {
+	lang := loadBlobForDecode(t, "json")
+	adapter := &externalScannerOrderAdapter{inner: emittingScanner{sym: 1}, targetToSource: []int{}}
+	lang.ExternalScanner = adapter
+	defer certifiedtest.Install(ccoreModeFresh|ccoreModeRecover|ccoreModeScan, nil, nil)()
+	p := NewParser(lang)
+	admission, reason, ok := p.ccoreAdmitQuiet()
+	if !ok {
+		t.Fatalf("admission declined: %s", ccoreDeclineNames[reason])
+	}
+	first := admission.st
+	snapshots := ccoreEmittingSnapshots.Load()
+	for i := 0; i < 3; i++ {
+		next, _, ok := p.ccoreAdmitQuiet()
+		if !ok || next.st != first {
+			t.Fatal("unchanged scanner rebuilt its binding")
+		}
+	}
+	if got := ccoreEmittingSnapshots.Load(); got != snapshots {
+		t.Fatalf("unchanged scanner created %d more snapshots", got-snapshots)
+	}
+	if got := first.scanner.(*externalScannerOrderAdapter).targetToSource; got == nil {
+		t.Fatal("snapshot lost the non-nil empty adapter slice")
+	}
+	adapter.targetToSource = append(adapter.targetToSource, 0)
+	changed, _, ok := p.ccoreAdmitQuiet()
+	if !ok || changed.st == first {
+		t.Fatal("changed scanner reused its binding")
+	}
+	adapter.inner = emittingScanner{sym: 2}
+	changedAgain, _, ok := p.ccoreAdmitQuiet()
+	if !ok || changedAgain.st == changed.st {
+		t.Fatal("changed scanner receiver reused its binding")
 	}
 }

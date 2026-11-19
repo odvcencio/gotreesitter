@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the tablegen grammar.
@@ -47,6 +46,15 @@ var tablegenExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(tablegenExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(TablegenExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(TablegenExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(TablegenExternalScanner), right.(TablegenExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // TablegenExternalScanner handles nestable /* */ comments for TableGen.
@@ -119,7 +127,7 @@ func (sc TablegenExternalScanner) Scan(payload any, lexer *gotreesitter.External
 	// it the scanner bails the moment the lexer is positioned on the space that
 	// precedes "/*" (e.g. inside "{ /*x*/ }"), and the DFA then mis-lexes the
 	// comment body. Passing skip=true moves only the token start, matching C.
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(lexer.Lookahead()) {
 		lexer.Advance(true)
 	}
 

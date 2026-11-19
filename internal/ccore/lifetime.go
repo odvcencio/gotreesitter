@@ -223,7 +223,11 @@ func (s *Store) retain(h Handle) {
 func (s *Store) releaseWalk(root Handle) {
 	c := s.core
 	hk := c.hook.Load()
-	stack := append(c.rel[:0], root)
+	stack := c.rel[:0]
+	if len(stack) == cap(stack) {
+		stack = fgrow(s.led, stack, 1)
+	}
+	stack = append(stack, root)
 	for len(stack) > 0 {
 		h := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
@@ -244,7 +248,13 @@ func (s *Store) releaseWalk(root Handle) {
 		}
 		r := s.rec(h)
 		if r.childCount > 0 {
-			stack = append(stack, s.kidSpan(r.childrenStart, r.childCount)...)
+			{
+				values := s.kidSpan(r.childrenStart, r.childCount)
+				if len(values) > cap(stack)-len(stack) {
+					stack = fgrow(s.led, stack, len(values))
+				}
+				stack = append(stack, values...)
+			}
 		}
 		s.freeRecord(uint32(h>>1), r, w)
 	}
@@ -255,7 +265,11 @@ func (s *Store) releaseWalk(root Handle) {
 // ends the store if no tree and no parse is left, else it applies one snapshot
 // of the queue. It reports whether it got the lease. The lease is released
 // under defer, so a panic inside the drain does not keep it.
-func (c *storeCore) drainRound() bool {
+func (c *storeCore) drainRound() bool { return c.drainRoundLed(nil) }
+
+// drainRoundLed is drainRound with the ledger of a request attached to the view that drains: the
+// growth of the reclamation arrays is counted (Force) on that request.
+func (c *storeCore) drainRoundLed(led *Ledger) bool {
 	if !c.lease.TryLock() {
 		return false
 	}
@@ -268,6 +282,7 @@ func (c *storeCore) drainRound() bool {
 		return true
 	}
 	v := c.view()
+	v.led = led
 	v.drain()
 	return true
 }
@@ -286,16 +301,25 @@ func (c *storeCore) more() bool {
 // tryDrain applies the queued operations if no parse holds the lease; if a
 // parse holds it, the entries stay for that parse. After each round it tests
 // again with the lease released (a round that fails to get the lease, or an entry that arrives during a round, is not lost).
-func (c *storeCore) tryDrain() {
-	for c.drainRound() && c.more() {
+func (c *storeCore) tryDrain() { c.tryDrainLed(nil) }
+
+func (c *storeCore) tryDrainLed(led *Ledger) {
+	for c.drainRoundLed(led) && c.more() {
 	}
 }
 
 // afterParse runs once the exit of a parse has released the lease: an entry
 // that arrived during the parse, or the end of the store, is dealt with here.
-func (c *storeCore) afterParse() {
+func (c *storeCore) afterParse() { c.afterParseLed(nil) }
+
+// afterParseLed is afterParse for the exit of a request: the drain of what came in during the
+// exit drain (a release queued behind it) runs on the request's ledger, so that the check that
+// follows, before a tree is served, sees all of it. A release that comes in after this loop
+// found the queue empty is drained by the goroutine that made it (its own tryDrain), which is not
+// the request's work.
+func (c *storeCore) afterParseLed(led *Ledger) {
 	if c.more() {
-		c.tryDrain()
+		c.tryDrainLed(led)
 	}
 }
 

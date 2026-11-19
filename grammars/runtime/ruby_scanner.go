@@ -3,10 +3,11 @@
 package grammarruntime
 
 import (
+	"encoding/binary"
 	"strings"
-	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the Ruby grammar. This is the external index
@@ -145,6 +146,15 @@ var rbyExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(rbyExternalScannerSpec)
+	// C checkpoints use a 32-bit heredoc delimiter length. The default mode retains the legacy format.
+	scanmode.RegisterScanner(RubyExternalScanner{}, (*rbyScannerState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(RubyExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(RubyExternalScanner), right.(RubyExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // Maximum serialization buffer size (matches TREE_SITTER_SERIALIZATION_BUFFER_SIZE).
@@ -172,6 +182,7 @@ type rbyHeredoc struct {
 
 // rbyScannerState holds the mutable state for the Ruby external scanner.
 type rbyScannerState struct {
+	scanmode.Flag
 	hasLeadingWhitespace bool
 	literalStack         []rbyLiteral
 	openHeredocs         []rbyHeredoc
@@ -259,10 +270,15 @@ func (RubyExternalScanner) Serialize(payload any, buf []byte) int {
 
 	for i := range s.openHeredocs {
 		hd := &s.openHeredocs[i]
-		if size+4+len(hd.word) >= rbyMaxSerialize {
+		wordBytes := 1
+		if s.On() {
+			wordBytes = 4
+		}
+		header := 3 + wordBytes
+		if size+header+len(hd.word) >= rbyMaxSerialize {
 			return 0
 		}
-		if size+4+len(hd.word) > len(buf) {
+		if size+header+len(hd.word) > len(buf) {
 			return 0
 		}
 		if hd.endWordIndentationAllowed {
@@ -283,8 +299,12 @@ func (RubyExternalScanner) Serialize(payload any, buf []byte) int {
 			buf[size] = 0
 		}
 		size++
-		buf[size] = byte(len(hd.word))
-		size++
+		if s.On() {
+			binary.NativeEndian.PutUint32(buf[size:], uint32(len(hd.word)))
+		} else {
+			buf[size] = byte(len(hd.word))
+		}
+		size += wordBytes
 		copy(buf[size:], hd.word)
 		size += len(hd.word)
 	}
@@ -327,7 +347,11 @@ func (RubyExternalScanner) Deserialize(payload any, buf []byte) {
 	size++
 	for j := 0; j < openHeredocCount && size < len(buf); j++ {
 		hd := rbyHeredoc{}
-		if size+4 > len(buf) {
+		wordBytes := 1
+		if s.On() {
+			wordBytes = 4
+		}
+		if size+3+wordBytes > len(buf) {
 			break
 		}
 		hd.endWordIndentationAllowed = buf[size] != 0
@@ -336,14 +360,17 @@ func (RubyExternalScanner) Deserialize(payload any, buf []byte) {
 		size++
 		hd.started = buf[size] != 0
 		size++
-		wordLen := int(buf[size])
-		size++
-		if size+wordLen > len(buf) {
+		wordLen := uint64(buf[size])
+		if s.On() {
+			wordLen = uint64(binary.NativeEndian.Uint32(buf[size:]))
+		}
+		size += wordBytes
+		if wordLen > uint64(len(buf)-size) {
 			break
 		}
 		hd.word = make([]byte, wordLen)
-		copy(hd.word, buf[size:size+wordLen])
-		size += wordLen
+		copy(hd.word, buf[size:size+int(wordLen)])
+		size += int(wordLen)
 		s.openHeredocs = append(s.openHeredocs, hd)
 	}
 }
@@ -382,15 +409,15 @@ func rbyAdvance(lexer *gotreesitter.ExternalLexer) {
 }
 
 func rbyIsEOF(lexer *gotreesitter.ExternalLexer) bool {
-	return lexer.Lookahead() == 0
+	return scanmode.AtEOF(lexer)
 }
 
 func rbyIsIdenChar(c rune) bool {
-	if c == 0 {
-		return false
-	}
-	return !strings.ContainsRune(rbyNonIdentifierChars, c)
+	return strings.IndexByte(rbyNonIdentifierChars, byte(c)) < 0
 }
+
+func rbyIsLower(c rune) bool { return c >= 'a' && c <= 'z' }
+func rbyIsUpper(c rune) bool { return c >= 'A' && c <= 'Z' }
 
 func rbySetResult(lexer *gotreesitter.ExternalLexer, tok int, syms *[rbyTokenCount]gotreesitter.Symbol) {
 	lexer.SetResultSymbol(syms[tok])
@@ -709,12 +736,12 @@ func rbyScanHeredocWord(lexer *gotreesitter.ExternalLexer, heredoc *rbyHeredoc) 
 		rbyAdvance(lexer)
 	default:
 		la := lexer.Lookahead()
-		if unicode.IsLetter(la) || unicode.IsDigit(la) || la == '_' {
+		if cIsAlpha(la) || cIsDigit(la) || la == '_' {
 			word = append(word, byte(la))
 			rbyAdvance(lexer)
 			for {
 				la = lexer.Lookahead()
-				if unicode.IsLetter(la) || unicode.IsDigit(la) || la == '_' {
+				if cIsAlpha(la) || cIsDigit(la) || la == '_' {
 					word = append(word, byte(la))
 					rbyAdvance(lexer)
 				} else {
@@ -731,7 +758,7 @@ func rbyScanHeredocWord(lexer *gotreesitter.ExternalLexer, heredoc *rbyHeredoc) 
 // ---------- scan_short_interpolation ----------
 
 func rbyScanShortInterpolation(lexer *gotreesitter.ExternalLexer, hasContent bool, contentTok int, syms *[rbyTokenCount]gotreesitter.Symbol) bool {
-	start := lexer.Lookahead()
+	start := byte(scanmode.CLookahead(lexer))
 	if start == '@' || start == '$' {
 		if hasContent {
 			rbySetResult(lexer, contentTok, syms)
@@ -741,15 +768,16 @@ func rbyScanShortInterpolation(lexer *gotreesitter.ExternalLexer, hasContent boo
 		rbyAdvance(lexer)
 		isShortInterpolation := false
 		if start == '$' {
-			if strings.ContainsRune("!@&`'+~=/\\,;.<>*$?:\"", lexer.Lookahead()) {
+			ch := byte(scanmode.CLookahead(lexer))
+			if ch == 0 || strings.IndexByte("!@&`'+~=/\\,;.<>*$?:\"", ch) >= 0 {
 				isShortInterpolation = true
 			} else if lexer.Lookahead() == '-' {
 				rbyAdvance(lexer)
 				la := lexer.Lookahead()
-				isShortInterpolation = unicode.IsLetter(la) || la == '_'
+				isShortInterpolation = cIsAlpha(la) || la == '_'
 			} else {
 				la := lexer.Lookahead()
-				isShortInterpolation = unicode.IsLetter(la) || unicode.IsDigit(la) || la == '_'
+				isShortInterpolation = cIsAlpha(la) || cIsDigit(la) || la == '_'
 			}
 		}
 		if start == '@' {
@@ -757,7 +785,7 @@ func rbyScanShortInterpolation(lexer *gotreesitter.ExternalLexer, hasContent boo
 				rbyAdvance(lexer)
 			}
 			la := lexer.Lookahead()
-			isShortInterpolation = rbyIsIdenChar(la) && !unicode.IsDigit(la)
+			isShortInterpolation = rbyIsIdenChar(la) && !cIsDigit(la)
 		}
 		if isShortInterpolation {
 			rbySetResult(lexer, rbyTokShortInterpolation, syms)
@@ -779,9 +807,12 @@ func rbyScanWhitespace(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, va
 	crossedNewline := false
 
 	for {
-		// NOTE: is_at_included_range_start is not available in the Go ExternalLexer API,
-		// so we skip that check. This may cause minor differences in multi-language
-		// injection scenarios but is correct for standalone Ruby parsing.
+		// C src/scanner.c:172-176 emits a line break at a range start.
+		if !rbyIsValid(validSymbols, rbyTokNoLineBreak) && rbyIsValid(validSymbols, rbyTokLineBreak) && scanmode.AtRangeStart(lexer) {
+			lexer.MarkEnd()
+			rbySetResult(lexer, rbyTokLineBreak, syms)
+			return true, true
+		}
 
 		switch lexer.Lookahead() {
 		case ' ', '\t':
@@ -814,7 +845,7 @@ func rbyScanWhitespace(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, va
 			if lexer.Lookahead() == '\r' {
 				rbySkip(s, lexer)
 			}
-			if unicode.IsSpace(lexer.Lookahead()) {
+			if cIsSpace(lexer.Lookahead()) {
 				rbySkip(s, lexer)
 			} else {
 				return false, false
@@ -880,7 +911,7 @@ func rbyScanHeredocContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 			return true
 		}
 
-		if lookForHeredocEnd && lexer.Lookahead() == rune(heredoc.word[positionInWord]) {
+		if lookForHeredocEnd && scanmode.CLookahead(lexer) == int32(int8(heredoc.word[positionInWord])) {
 			rbyAdvance(lexer)
 			positionInWord++
 		} else {
@@ -943,7 +974,7 @@ func rbyScanLiteralContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 	stopOnSpace := literal.tokenType == rbyTokSymbolArrayStart || literal.tokenType == rbyTokStringArrayStart
 
 	for {
-		if stopOnSpace && unicode.IsSpace(lexer.Lookahead()) {
+		if stopOnSpace && cIsSpace(lexer.Lookahead()) {
 			if hasContent {
 				lexer.MarkEnd()
 				rbySetResult(lexer, rbyTokStringContent, syms)
@@ -960,7 +991,7 @@ func rbyScanLiteralContent(s *rbyScannerState, lexer *gotreesitter.ExternalLexer
 				} else {
 					rbyAdvance(lexer)
 					if literal.tokenType == rbyTokRegexStart {
-						for unicode.IsLower(lexer.Lookahead()) {
+						for rbyIsLower(lexer.Lookahead()) {
 							rbyAdvance(lexer)
 						}
 					}
@@ -1044,7 +1075,7 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 		if rbyIsValid(validSymbols, rbyTokBlockAmpersand) {
 			rbyAdvance(lexer)
 			la := lexer.Lookahead()
-			if la != '&' && la != '.' && la != '=' && !unicode.IsSpace(la) {
+			if la != '&' && la != '.' && la != '=' && !cIsSpace(la) {
 				rbySetResult(lexer, rbyTokBlockAmpersand, syms)
 				return true
 			}
@@ -1079,7 +1110,7 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 						rbySetResult(lexer, rbyTokBinaryStarStar, syms)
 						return true
 					}
-					if rbyIsValid(validSymbols, rbyTokHashSplatStarStar) && !unicode.IsSpace(lexer.Lookahead()) {
+					if rbyIsValid(validSymbols, rbyTokHashSplatStarStar) && !cIsSpace(lexer.Lookahead()) {
 						rbySetResult(lexer, rbyTokHashSplatStarStar, syms)
 						return true
 					}
@@ -1099,7 +1130,7 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 				rbySetResult(lexer, rbyTokBinaryStar, syms)
 				return true
 			}
-			if rbyIsValid(validSymbols, rbyTokSplatStar) && !unicode.IsSpace(lexer.Lookahead()) {
+			if rbyIsValid(validSymbols, rbyTokSplatStar) && !cIsSpace(lexer.Lookahead()) {
 				rbySetResult(lexer, rbyTokSplatStar, syms)
 				return true
 			}
@@ -1122,11 +1153,11 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 			if la != '=' && la != '>' {
 				if rbyIsValid(validSymbols, rbyTokUnaryMinusNum) &&
 					(!rbyIsValid(validSymbols, rbyTokBinaryStar) || s.hasLeadingWhitespace) &&
-					unicode.IsDigit(la) {
+					cIsDigit(la) {
 					rbySetResult(lexer, rbyTokUnaryMinusNum, syms)
 					return true
 				}
-				if rbyIsValid(validSymbols, rbyTokUnaryMinus) && s.hasLeadingWhitespace && !unicode.IsSpace(la) {
+				if rbyIsValid(validSymbols, rbyTokUnaryMinus) && s.hasLeadingWhitespace && !cIsSpace(la) {
 					rbySetResult(lexer, rbyTokUnaryMinus, syms)
 				} else if rbyIsValid(validSymbols, rbyTokBinaryMinus) {
 					rbySetResult(lexer, rbyTokBinaryMinus, syms)
@@ -1186,15 +1217,15 @@ func rbyScan(s *rbyScannerState, lexer *gotreesitter.ExternalLexer, validSymbols
 
 	// Identifier/constant suffix and hash key symbol scanning.
 	if ((rbyIsValid(validSymbols, rbyTokHashKeySymbol) || rbyIsValid(validSymbols, rbyTokIdentifierSuffix)) &&
-		(unicode.IsLetter(lexer.Lookahead()) || lexer.Lookahead() == '_')) ||
-		(rbyIsValid(validSymbols, rbyTokConstantSuffix) && unicode.IsUpper(lexer.Lookahead())) {
+		(cIsAlpha(lexer.Lookahead()) || lexer.Lookahead() == '_')) ||
+		(rbyIsValid(validSymbols, rbyTokConstantSuffix) && rbyIsUpper(lexer.Lookahead())) {
 
 		validIdentifierSymbol := rbyTokIdentifierSuffix
-		if unicode.IsUpper(lexer.Lookahead()) {
+		if rbyIsUpper(lexer.Lookahead()) {
 			validIdentifierSymbol = rbyTokConstantSuffix
 		}
 
-		for unicode.IsLetter(lexer.Lookahead()) || unicode.IsDigit(lexer.Lookahead()) || lexer.Lookahead() == '_' {
+		for cIsAlpha(lexer.Lookahead()) || cIsDigit(lexer.Lookahead()) || lexer.Lookahead() == '_' {
 			rbyAdvance(lexer)
 		}
 

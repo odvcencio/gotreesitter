@@ -59,14 +59,12 @@
 // declared.failure_contract:
 //
 //   - restored, the default. The token source restores the state saved before
-//     the scan, so the scanner may change its state freely. The replay does not
-//     test that restore. It deserializes into a fresh payload from Create, and
-//     the token source deserializes into the live payload, which the rejected
-//     scan may already have changed. A Deserialize that does not reset the
-//     whole payload passes every check here.
-//   - preserved, for a scanner that declares PreservesStateOnScanFailure. The
-//     token source restores nothing, so a rejected scan that changes the state
-//     is a finding (checks.failed_scan_state_changes).
+//     the scan, so the scanner may change its state freely. The replay tests
+//     that restore into the mutated payload by comparing the serialized state
+//     afterward. Hidden state may still remain wrong.
+//   - preserved, for a scanner that declares PreservesStateOnScanFailure. A
+//     rejected scan that changes the state is a finding
+//     (checks.failed_scan_state_changes).
 //   - retained, for a scanner that declares RetainsStateOnScanFailure. The
 //     change stays live by design. Retention wins when a scanner declares both,
 //     as it does in the token source.
@@ -74,21 +72,25 @@
 // Under the restored and retained contracts, a rejected scan that changes the
 // state is counted in informational.failed_scan_state_allowed and kept as a
 // witness of kind failed-scan-state-allowed. The verdict ignores it. Under
-// restored, those are the calls where the untested restore matters.
+// restored, those are the calls where the in-place restore matters.
+// A masked retry restores a snapshot even under preserved or retained. The
+// replay checks eligible calls, although recovery can suppress a retry. For
+// preserved scanners it uses the state after the rejection, as on the first
+// retry; it cannot identify later retries that reuse an earlier snapshot.
 //
 // # What a report shows
 //
 // The verdict no-findings means no check failed on the recorded calls. It does
 // not prove the property: a call the corpus never makes is not checked, the
-// replay covers only the states the parser produced, and it restores each into
-// a fresh payload (see "Rejected scans"). Read the counts beside it:
-// how many distinct calls, states and masks the corpus reached, and how many
-// scans the scanner accepted. A scanner that accepted nothing was tested only
-// on its rejections. The verdict no-evidence means the parser never called the
-// scanner. The verdict not-transparent means the parse with the recorder
-// differed from the parse without it for at least one source. The recorded
-// calls then are not the production parser's, so the report says nothing about
-// the scanner, and the command exits nonzero.
+// replay covers only the states the parser produced, and the in-place restore
+// check observes serialized state only (see "Rejected scans"). Read the
+// counts beside it: how many distinct calls, states and masks the corpus
+// reached, and how many scans the scanner accepted. A scanner that accepted
+// nothing was tested only on its rejections. The verdict no-evidence means the
+// parser never called the scanner. The verdict not-transparent means the parse
+// with the recorder differed from the parse without it for at least one source.
+// The recorded calls then are not the production parser's, so the report says
+// nothing about the scanner, and the command exits nonzero.
 //
 // A report also says which grammar and settings produced it.
 // grammar_blob_sha256 is the digest of the blob the loader decoded, whether it

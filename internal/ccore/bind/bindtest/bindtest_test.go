@@ -26,6 +26,7 @@ func TestMain(m *testing.M) {
 			}
 			return ccore.Config{Tables: g.Tables}, nil
 		},
+		ConfigHash:  func(any) ([32]byte, error) { return [32]byte{}, nil },
 		CheckTables: func(lang any) (int, int, error) { return 7, 0, nil },
 	})
 	os.Exit(m.Run())

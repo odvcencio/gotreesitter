@@ -2,7 +2,11 @@
 
 package grammarruntime
 
-import "testing"
+import (
+	"bytes"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+	"testing"
+)
 
 func jsCFaithful(scanner JavaScriptExternalScanner) any {
 	p := scanner.Create().(interface{ SetCFaithful(bool) })
@@ -193,5 +197,35 @@ func TestJavaScriptAutoSemicolonRulesLikeC(t *testing.T) {
 		if c.col >= 0 && int(got.col) != c.col {
 			t.Errorf("%s: cursor column %d, want %d", c.rule, got.col, c.col)
 		}
+	}
+}
+
+func TestScannerSnapshotPrivateConfiguration(t *testing.T) {
+	s := JavaScriptExternalScanner{externalToToken: []int{1, -1, 3}}
+	s.symbols[0] = 12
+	reg, ok := scanmode.Lookup(s)
+	if !ok || reg.Snapshot == nil {
+		t.Fatal("missing snapshot")
+	}
+	v, key, ok := reg.Snapshot(s)
+	if !ok {
+		t.Fatal("snapshot failed")
+	}
+	private := v.(JavaScriptExternalScanner)
+	if reg.SameConfig == nil || !reg.SameConfig(s, private) {
+		t.Fatal("snapshot configuration did not match")
+	}
+	saved := append([]byte(nil), key...)
+	s.externalToToken[0] = 9
+	s.symbols[0] = 15
+	if reg.SameConfig(s, private) {
+		t.Fatal("changed configuration still matched the snapshot")
+	}
+	if private.externalToToken[0] != 1 || private.symbols[0] != 12 || !bytes.Equal(key, saved) {
+		t.Fatal("snapshot shares mutable state")
+	}
+	_, changed, ok := reg.Snapshot(s)
+	if !ok || bytes.Equal(key, changed) {
+		t.Fatal("changed configuration has same key")
 	}
 }

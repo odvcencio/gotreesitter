@@ -1728,6 +1728,10 @@ func newTypeScriptNormalizationContext(source []byte, lang *Language) (typeScrip
 		if ctx.nameFieldID == 0 {
 			ctx.nameFieldID, _ = lang.FieldByName("name")
 		}
+		// TSX has generic members but no type_assertion, so member fields
+		// cannot depend on generic-arrow recovery initializing these symbols.
+		ctx.typeParametersSym, _ = lang.SymbolByName("type_parameters")
+		ctx.typeParametersFieldID, _ = lang.FieldByName("type_parameters")
 		ctx.parametersFieldID, _ = lang.FieldByName("parameters")
 		ctx.returnTypeFieldID, _ = lang.FieldByName("return_type")
 		ctx.typeFieldID, _ = lang.FieldByName("type")
@@ -2152,6 +2156,7 @@ func typeScriptAssignMemberFields(node *Node, ctx *typeScriptNormalizationContex
 	node.setFieldMetadata(fieldIDs, defaultFieldSourcesInArena(node.ownerArena, fieldIDs))
 }
 
+// +spec=`Decline unscanned member prefixes so normalization preserves grammar-owned names`
 func scanTypeScriptMemberPrefixTokens(source []byte, startByte, endByte uint32, startPoint Point) ([]typeScriptMemberToken, bool) {
 	if int(startByte) >= len(source) || startByte >= endByte || int(endByte) > len(source) {
 		return nil, false
@@ -2250,7 +2255,15 @@ func scanTypeScriptMemberPrefixTokens(source []byte, startByte, endByte uint32, 
 			})
 			point = tokEndPoint
 		default:
-			return tokens, len(tokens) > 1
+			switch ch {
+			case '(', ':', '=', ';', '{', '}', '<', '?', '!':
+				return tokens, len(tokens) > 1
+			default:
+				// Unscanned prefixes (for example *, #, or a comment) must
+				// retain their grammar-owned children and name field. The
+				// last scanned modifier is not the member's name.
+				return nil, false
+			}
 		}
 		if pos >= end {
 			break

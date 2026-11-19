@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the fish grammar. This is the external index
@@ -67,6 +66,15 @@ var fishExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(fishExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(FishExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(FishExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(FishExternalScanner), right.(FishExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // FishExternalScanner handles concatenation detection and begin-brace
@@ -133,12 +141,12 @@ func (sc FishExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 
 	// BEGIN_BRACE: { followed by whitespace or ;
 	if fishValid(validSymbols, fishTokBeginBrace) {
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(lexer.Lookahead()) {
 			lexer.Advance(true)
 		}
 		if lexer.Lookahead() == '{' {
 			lexer.Advance(false)
-			if lexer.Lookahead() == ';' || unicode.IsSpace(lexer.Lookahead()) {
+			if lexer.Lookahead() == ';' || cIsSpace(lexer.Lookahead()) {
 				lexer.MarkEnd()
 				lexer.SetResultSymbol(syms[fishTokBeginBrace])
 				return true
@@ -158,7 +166,7 @@ func (sc FishExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 	if fishValid(validSymbols, fishTokConcat) {
 		ch := lexer.Lookahead()
 		if ch != 0 && ch != '>' && ch != '<' && ch != ')' &&
-			ch != ';' && ch != '&' && ch != '|' && !unicode.IsSpace(ch) {
+			ch != ';' && ch != '&' && ch != '|' && !cIsSpace(ch) {
 			lexer.SetResultSymbol(syms[fishTokConcat])
 			return true
 		}
@@ -168,7 +176,7 @@ func (sc FishExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 	if fishValid(validSymbols, fishTokBracketConcat) {
 		ch := lexer.Lookahead()
 		if ch != 0 && ch != ')' && ch != '(' && ch != '}' &&
-			ch != ',' && !unicode.IsSpace(ch) {
+			ch != ',' && !cIsSpace(ch) {
 			lexer.SetResultSymbol(syms[fishTokBracketConcat])
 			return true
 		}

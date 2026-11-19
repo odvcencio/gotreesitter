@@ -296,6 +296,7 @@ func admissionCandidateCompactFootprintBytes(p *Parser) uint64 {
 // full parse. It returns (tree, true, "") on success and (nil, false, reason)
 // on any decline, so the caller falls back to production.
 func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
+	// The public parse attempts the certified core route before its shortcuts.
 	runner, borrowed, err := p.borrowAdmissionCandidateRunner()
 	if err != nil {
 		return nil, false, "runner unavailable: " + err.Error()

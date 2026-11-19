@@ -29,7 +29,13 @@ var pythonExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	// A checked port with a behavioural mode: the core serves it (internal/scanmode).
-	scanmode.RegisterScanner(PythonExternalScanner{}, (*pythonScannerState)(nil), true)
+	scanmode.RegisterScanner(PythonExternalScanner{}, (*pythonScannerState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(PythonExternalScanner)
+		private, symbols, tokens := pythonruntime.Snapshot(s.PythonExternalScanner)
+		return PythonExternalScanner{PythonExternalScanner: private}, scannerKey(symbols, tokens), true
+	}, func(a, b any) bool {
+		return pythonruntime.SameConfiguration(a.(PythonExternalScanner).PythonExternalScanner, b.(PythonExternalScanner).PythonExternalScanner)
+	})
 	RegisterExternalScannerSpec(pythonExternalScannerSpec)
 }
 

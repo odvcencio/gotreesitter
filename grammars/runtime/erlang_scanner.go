@@ -2,7 +2,10 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+)
 
 // External token indexes for the erlang grammar. These are external indices
 // (the position of each token in upstream's grammar.json "externals" list),
@@ -55,6 +58,15 @@ var erlangExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(erlangExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(ErlangExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(ErlangExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(ErlangExternalScanner), right.(ErlangExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // ErlangExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-erlang.
@@ -196,7 +208,7 @@ func (s ErlangExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 				}
 				return true
 			}
-		} else if ch == 0 { // EOF
+		} else if scanmode.AtEOF(lexer) {
 			return false
 		} else {
 			lexer.Advance(false)
@@ -211,12 +223,8 @@ func (s ErlangExternalScanner) symbolTable() *[erlangTokenCount]gotreesitter.Sym
 	return &s.symbols
 }
 
-// isErlangWhitespace matches the C scanner's whitespace range: 0x01-0x20 and 0x80-0xA0,
-// excluding newline (which is handled separately).
+// isErlangWhitespace matches the C scanner's whitespace ranges, including newline.
 func isErlangWhitespace(ch rune) bool {
-	if ch == '\n' {
-		return false
-	}
 	return (ch >= 0x01 && ch <= 0x20) || (ch >= 0x80 && ch <= 0xA0)
 }
 

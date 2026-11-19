@@ -254,5 +254,12 @@ func (s TypeScriptExternalScanner) scanC(lexer *gotreesitter.ExternalLexer, vali
 }
 
 func init() {
-	scanmode.RegisterScanner(TypeScriptExternalScanner{}, (*scanmode.Flag)(nil), true)
+	scanmode.RegisterScanner(TypeScriptExternalScanner{}, (*scanmode.Flag)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(TypeScriptExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(TypeScriptExternalScanner), right.(TypeScriptExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }

@@ -76,10 +76,15 @@ const (
 // It uses ref counting so trees that borrow reused subtrees can keep arena
 // memory alive safely until all dependent trees are released.
 type nodeArena struct {
-	views            nodeViewBacking
-	viewArena        bool
-	viewNodeLimit    int
-	ownership        incr.Ownership
+	views         nodeViewBacking
+	viewArena     bool
+	viewNodeLimit int
+	ownership     incr.Ownership
+	// ccore is set on the arena of a tree that internal/ccore built (and on the
+	// arena of its copies): the language tables Node.ParseState reads when it
+	// is called, and the field answers that differ from the stored field ids
+	// for public node accessors.
+	ccore            *ccoreArenaState
 	class            arenaClass
 	nodes            []Node
 	used             int
@@ -401,10 +406,7 @@ type nodeArenaPool struct {
 }
 
 // ArenaProfile captures node arena allocation statistics.
-// Enable with EnableArenaProfile(true) and retrieve with
-// ArenaProfileSnapshot(). The counters are plain package-level state, not
-// atomic: read and write them from a single goroutine only, with no parse
-// running concurrently.
+// Enable with EnableArenaProfile(true) and retrieve with ArenaProfileSnapshot.
 type ArenaProfile struct {
 	IncrementalAcquire uint64
 	IncrementalNew     uint64
@@ -413,29 +415,73 @@ type ArenaProfile struct {
 }
 
 var (
-	arenaProfileEnabled bool
+	arenaProfileEnabled atomic.Bool
+	arenaProfileMu      sync.Mutex
 	arenaProfileData    ArenaProfile
 )
 
 // EnableArenaProfile toggles arena pool counters.
-// This debug hook is not concurrency-safe and is intended for single-threaded
-// benchmark/profiling runs.
 func EnableArenaProfile(enabled bool) {
-	arenaProfileEnabled = enabled
+	arenaProfileEnabled.Store(enabled)
 }
 
 // ResetArenaProfile resets arena pool counters.
-// This debug hook is not concurrency-safe and is intended for single-threaded
-// benchmark/profiling runs.
 func ResetArenaProfile() {
+	arenaProfileMu.Lock()
 	arenaProfileData = ArenaProfile{}
+	arenaProfileMu.Unlock()
 }
 
 // ArenaProfileSnapshot returns current arena pool counters.
-// This debug hook is not concurrency-safe and is intended for single-threaded
-// benchmark/profiling runs.
 func ArenaProfileSnapshot() ArenaProfile {
+	arenaProfileMu.Lock()
+	defer arenaProfileMu.Unlock()
 	return arenaProfileData
+}
+
+func recordArenaAcquire(class arenaClass, allocated bool) {
+	if !arenaProfileEnabled.Load() {
+		return
+	}
+	arenaProfileMu.Lock()
+	if class == arenaClassIncremental {
+		arenaProfileData.IncrementalAcquire++
+		if allocated {
+			arenaProfileData.IncrementalNew++
+		}
+	} else {
+		arenaProfileData.FullAcquire++
+		if allocated {
+			arenaProfileData.FullNew++
+		}
+	}
+	arenaProfileMu.Unlock()
+}
+
+// forgetCheckedOut clears the slots of the pool's backing array, beyond its length, that
+// still point to a, an arena that was taken from the pool. acquire shortens the slice and
+// leaves the pointer in the array. For an arena that a core tree is attached to, that stale
+// pointer would keep the arena, and through it the core tree, reachable from a global
+// until a later release overwrote the slot, so that a dropped tree could not be collected.
+func (p *nodeArenaPool) forgetCheckedOut(a *nodeArena) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	free := p.free[:cap(p.free)]
+	for i := len(p.free); i < len(free); i++ {
+		if free[i] == a {
+			free[i] = nil
+		}
+	}
+}
+
+// forgetArenaCheckout is forgetCheckedOut on the pool the arena came from. Call it before a core
+// tree is attached to an arena that acquireNodeArena returned.
+func forgetArenaCheckout(a *nodeArena) {
+	if a.class == arenaClassIncremental {
+		incrementalArenaPool.forgetCheckedOut(a)
+	} else {
+		fullArenaPool.forgetCheckedOut(a)
+	}
 }
 
 func (p *nodeArenaPool) acquire() *nodeArena {
@@ -444,29 +490,13 @@ func (p *nodeArenaPool) acquire() *nodeArena {
 	if n == 0 {
 		p.mu.Unlock()
 		a := newNodeArena(p.class)
-		if arenaProfileEnabled {
-			switch p.class {
-			case arenaClassIncremental:
-				arenaProfileData.IncrementalAcquire++
-				arenaProfileData.IncrementalNew++
-			default:
-				arenaProfileData.FullAcquire++
-				arenaProfileData.FullNew++
-			}
-		}
+		recordArenaAcquire(p.class, true)
 		return a
 	}
 	a := p.free[n-1]
 	p.free = p.free[:n-1]
 	p.mu.Unlock()
-	if arenaProfileEnabled {
-		switch p.class {
-		case arenaClassIncremental:
-			arenaProfileData.IncrementalAcquire++
-		default:
-			arenaProfileData.FullAcquire++
-		}
-	}
+	recordArenaAcquire(p.class, false)
 	return a
 }
 
@@ -588,6 +618,10 @@ func (a *nodeArena) Release() {
 	}
 	if a.refs.Add(-1) != 0 {
 		return
+	}
+	if a.ccore != nil {
+		a.ccore.releaseCore()
+		a.ccore = nil
 	}
 	if a.views != nil {
 		a.views.release()

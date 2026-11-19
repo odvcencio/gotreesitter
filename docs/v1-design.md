@@ -72,9 +72,14 @@ Require all of these results on the candidate commit:
 
 1. Generate a receipt with zero unexplained fresh mismatches against the C commit pinned at M1.
 2. Pass the invariant gate for the 72-step session and 16 sites per edit class.
-3. Match or exceed legacy reuse. Require positive reuse on clean steps once scanner certification covers the scanner class.
+3. On each incremental step, require the shipped parser's subtree reuse count to equal C's count on the same tree history.
+   Require positive reuse on clean steps once scanner certification covers the scanner class.
+   A same-length edit may return the old tree without a parse when the result equals C's in everything a caller can see. The shortcut must reuse every byte.
+   For reuse counts, the C comparison keeps its pre-edit tree on a shortcut and starts fresh when the shipped parser does.
+   Replay the clean edit session with shortcuts disabled and require exact reuse counts against C reparsing each step.
 4. Record zero corpus declines, or give every decline an artifact deny entry and a reopening condition.
-5. Keep tokens, new nodes, and maximum live versions at or below legacy on every fixture.
+5. Lex the tokens that C lexes on every fixture. Keep new nodes and maximum live versions at or below legacy.
+   A same-length edit that returns the old tree may lex fewer tokens than C, and at least one.
 6. Keep the 20-seed median time at or below legacy at 32 KiB, 137 KiB, and 1 MiB.
 7. Keep peak resident set size (RSS) at 1 MiB at or below legacy.
 8. Pass crash, memory-budget, out-of-memory, and race checks in the dedicated container.
@@ -87,6 +92,10 @@ Every comparison with the legacy engine uses the default route of the M1 release
 M1 (Slim core) is the milestone that releases the Q1 to Q6 legacy fixes, completes E-A0 to E-A8 and E-C, passes the E-A exit gate, pins C 0.27.x by commit, and generates receipts for all 206 grammars.
 Keep that baseline fixed when later fixes improve the legacy engine.
 The engine exit gate (E-A) uses the same two baselines.
+
+Before the M1 tag exists, the graduation gate compares with the present engine
+of the same build, with the core route disabled. Record the build commit in the
+receipt. Rerun the legacy comparisons against the fixed baseline once M1 is tagged.
 
 Graduation prerequisites:
 
