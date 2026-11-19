@@ -1310,7 +1310,7 @@
             "max_live_versions": 1,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 541,
-            "block_splices": 25,
+            "block_splices": 0,
             "stop_reason": "accepted",
             "root_end": 2041,
             "input_bytes": 2041,
