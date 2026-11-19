@@ -3339,6 +3339,15 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
 	}
+	// A custom stream that exhausted the old parse's stacks can leave
+	// stateful recovery nodes outside the last accepted parse frontier.
+	if oldTree != nil && oldTree.rawParseStopReason() == ParseStopNoStacksAlive && underlyingDFATokenSource(ts) == nil {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "old_token_source_no_stacks"
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing), nil
+	}
 	if tokenSourceUsesLanguageExternalScanner(ts) && oldTree != nil && oldTree.RootNode() != nil && oldTree.RootNode().HasError() &&
 		!languageSupportsIncrementalReuseFromErrorTree(p.language) {
 		if timing != nil {
