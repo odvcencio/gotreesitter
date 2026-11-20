@@ -9,7 +9,7 @@ for tags and release notes while still in `0.x`.
 
 ### Highlights
 
-- 33 grammars now parse by default through `ccore`, the C-faithful parser
+- 34 grammars now parse by default through `ccore`, the C-faithful parser
   core. Each passed the graduation gate in its pull request: trees and subtree
   reuse equal pinned C, and time and memory at or below the existing engine.
 - Other grammars keep the existing engine, and calling code does not change.
@@ -19,7 +19,7 @@ for tags and release notes while still in `0.x`.
 
 ### Upgrade notes
 
-- Trees for the 33 certified grammars can change where v0.57.0 differed from
+- Trees for the 34 certified grammars can change where v0.57.0 differed from
   the C runtime, for example on text with syntax errors; they now match C. This
   affects callers that compare trees or node counts across versions. To keep
   the v0.57.0 engine for one parser, call
@@ -66,7 +66,7 @@ for tags and release notes while still in `0.x`.
 
 ### Changed
 
-- Serve 33 grammars through `ccore` by default. A grammar is served there
+- Serve 34 grammars through `ccore` by default. A grammar is served there
   only when its exact blob is in `testdata/ccore_certificates.json`, and only
   for the parse modes its certificate covers. A parse still uses the existing
   engine when it sets included ranges, a custom token source, parse work
@@ -77,7 +77,8 @@ for tags and release notes while still in `0.x`.
   - Dockerfile [#1686](https://github.com/odvcencio/gotreesitter/pull/1686), Kotlin [#1695](https://github.com/odvcencio/gotreesitter/pull/1695), Erlang [#1693](https://github.com/odvcencio/gotreesitter/pull/1693), Elixir [#1671](https://github.com/odvcencio/gotreesitter/pull/1671), Cap'n Proto [#1697](https://github.com/odvcencio/gotreesitter/pull/1697);
   - Rust, Git Config, INI, Clojure, TOML, Zig, CSS and Solidity [#1676](https://github.com/odvcencio/gotreesitter/pull/1676);
   - R, Ruby, Todo.txt and Git Commit [#1699](https://github.com/odvcencio/gotreesitter/pull/1699), Go Modules [#1704](https://github.com/odvcencio/gotreesitter/pull/1704), EBNF [#1706](https://github.com/odvcencio/gotreesitter/pull/1706);
-  - Objective-C [#1683](https://github.com/odvcencio/gotreesitter/pull/1683), Protobuf [#1688](https://github.com/odvcencio/gotreesitter/pull/1688), Groovy [#1691](https://github.com/odvcencio/gotreesitter/pull/1691) and C [#1677](https://github.com/odvcencio/gotreesitter/pull/1677).
+  - Objective-C [#1683](https://github.com/odvcencio/gotreesitter/pull/1683), Protobuf [#1688](https://github.com/odvcencio/gotreesitter/pull/1688), Groovy [#1691](https://github.com/odvcencio/gotreesitter/pull/1691), C [#1677](https://github.com/odvcencio/gotreesitter/pull/1677) and
+    TypeScript [#1675](https://github.com/odvcencio/gotreesitter/pull/1675).
 - Work counters for the certified grammars change: a fresh parse lexes the
   tokens C lexes, and an edit that starts from a malformed tree reparses fresh
   instead of reusing subtrees. Each grammar's pull request lists its
@@ -172,6 +173,10 @@ for tags and release notes while still in `0.x`.
   ([runs](https://github.com/odvcencio/gotreesitter/releases/download/evidence/kotlin-direct-go-c-7576cb43.tar.gz)).
   These four are not a measurement of the release head or of the other
   grammars.
+- TypeScript editing on the locked 19,950-byte W5 file, paired 20 seeds against
+  the base before #1675: one-byte, 100-byte and typing edits went from 149×,
+  188× and 255× of pinned C's time to 0.83×, 0.89× and 0.85× (about −99.5%)
+  ([W5 job](https://github.com/odvcencio/gotreesitter/actions/runs/44699592485/job/136165477724)).
 
 ## [0.57.0] - 2026-11-07
 
