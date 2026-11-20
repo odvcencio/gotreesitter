@@ -25,8 +25,9 @@ The current release is **v0.58.0**. 34 grammars now parse by default through
 `ccore`, the C-faithful parser core, among them C, TypeScript, JSON, Python,
 Rust, Ruby, Kotlin, Elixir, Erlang, CSS, TOML and Objective-C. Each passed a
 graduation gate: trees and subtree reuse equal pinned C, and time and memory at
-or below the existing engine. The other grammars keep the existing engine, and
-no call changes. To keep the existing engine for one parser:
+or below the existing engine. The other grammars keep the existing engine. No
+API call changes, but trees for these grammars now match C where v0.57.0 did
+not (see the upgrade notes). To keep the existing engine for one parser:
 
 ```go
 parser := gotreesitter.NewParser(lang)
