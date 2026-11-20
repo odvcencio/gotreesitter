@@ -580,14 +580,24 @@ func norgSkip(s *norgState, lexer *gotreesitter.ExternalLexer) {
 
 func norgSetResult(s *norgState, lexer *gotreesitter.ExternalLexer, tok int, syms *[norgTokenCount]gotreesitter.Symbol) {
 	lexer.MarkEnd()
+	norgSetResultAtMark(s, lexer, tok, syms)
+}
+
+// norgSetResultAtMark sets the result without moving the token end, as the
+// pinned C scanner does when it assigns result_symbol after an earlier
+// mark_end (tree-sitter-norg d89d95af src/scanner.cc:324-351, 398-411).
+func norgSetResultAtMark(s *norgState, lexer *gotreesitter.ExternalLexer, tok int, syms *[norgTokenCount]gotreesitter.Symbol) {
 	lexer.SetResultSymbol(norgSym(tok, syms))
 	s.lastToken = tok
 }
 
-func norgToken(lexer *gotreesitter.ExternalLexer, str string) bool {
+// norgToken matches str through advance(), so the checkpointed current and
+// previous characters record how far the lookahead reached, as C's token()
+// does (src/scanner.cc:793-803, advance at 786-791).
+func norgToken(s *norgState, lexer *gotreesitter.ExternalLexer, str string) bool {
 	for _, ch := range str {
 		if lexer.Lookahead() == ch {
-			lexer.Advance(false)
+			norgAdvance(s, lexer)
 		} else {
 			return false
 		}
@@ -667,28 +677,30 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool, sym
 		// Ranged verbatim tag: @something
 		if lexer.Lookahead() == '@' {
 			norgAdvance(s, lexer)
+			// The token ends at @ even when the tag name is inspected
+			// (src/scanner.cc:316-352: one mark_end at 324, no later mark).
 			lexer.MarkEnd()
 
-			if norgToken(lexer, "end") && (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) {
+			if norgToken(s, lexer, "end") && (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) {
 				for norgIsBlank(lexer.Lookahead()) {
 					norgAdvance(s, lexer)
 				}
 				if (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) &&
 					s.tagContext == norgTagInVerbatimTag {
-					norgSetResult(s, lexer, norgRANGED_VERBATIM_TAG_END, syms)
+					norgSetResultAtMark(s, lexer, norgRANGED_VERBATIM_TAG_END, syms)
 					s.tagContext = norgTagNone
 					return true
 				}
-				norgSetResult(s, lexer, norgWORD, syms)
+				norgSetResultAtMark(s, lexer, norgWORD, syms)
 				return true
 			}
 
 			if s.lastToken == norgRANGED_VERBATIM_TAG || s.tagContext == norgTagInVerbatimTag {
-				norgSetResult(s, lexer, norgWORD, syms)
+				norgSetResultAtMark(s, lexer, norgWORD, syms)
 				return true
 			}
 
-			norgSetResult(s, lexer, norgRANGED_VERBATIM_TAG, syms)
+			norgSetResultAtMark(s, lexer, norgRANGED_VERBATIM_TAG, syms)
 			s.tagContext = norgTagOnVerbatimTag
 			return true
 		}
@@ -702,7 +714,7 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool, sym
 			norgAdvance(s, lexer)
 			lexer.MarkEnd()
 
-			if norgToken(lexer, "end") && (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) {
+			if norgToken(s, lexer, "end") && (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) {
 				for lexer.Lookahead() != 0 && unicode.IsSpace(lexer.Lookahead()) && !norgIsNewline(lexer.Lookahead()) {
 					norgAdvance(s, lexer)
 				}
@@ -719,15 +731,17 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool, sym
 					for lexer.Lookahead() == '=' {
 						norgAdvance(s, lexer)
 					}
+					// C marks the end before the newline and keeps that mark
+					// (src/scanner.cc:397-411).
 					if norgIsNewline(lexer.Lookahead()) {
 						lexer.MarkEnd()
 						norgAdvance(s, lexer)
-						norgSetResult(s, lexer, norgSTRONG_PARAGRAPH_DELIMITER, syms)
+						norgSetResultAtMark(s, lexer, norgSTRONG_PARAGRAPH_DELIMITER, syms)
 						return true
 					}
 					lexer.MarkEnd()
 					norgAdvance(s, lexer)
-					norgSetResult(s, lexer, norgWORD, syms)
+					norgSetResultAtMark(s, lexer, norgWORD, syms)
 					return true
 				}
 				lexer.MarkEnd()
@@ -751,7 +765,7 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool, sym
 			norgAdvance(s, lexer)
 			lexer.MarkEnd()
 
-			if norgToken(lexer, "end") && (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) {
+			if norgToken(s, lexer, "end") && (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) {
 				for norgIsBlank(lexer.Lookahead()) {
 					norgAdvance(s, lexer)
 				}
@@ -1031,11 +1045,15 @@ func norgCheckDetached(s *norgState, lexer *gotreesitter.ExternalLexer, results 
 			return true
 		}
 
+		// C looks up the next character (src/scanner.cc:843-844), counts the
+		// marker it just consumed (845-846), and only then tests the lookup to
+		// decide whether to continue (847). So a run that ends on a
+		// non-modifier still counts every marker consumed.
+		i++
+		s.parsedChars++
 		if !norgIsDetachedMod(lexer.Lookahead()) {
 			break
 		}
-		i++
-		s.parsedChars++
 	}
 
 	// If only one character parsed, might be an attached modifier
