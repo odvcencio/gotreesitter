@@ -114,6 +114,28 @@ func TestTsxCModeJSXCharacterReferenceBoundary(t *testing.T) {
 			}
 		}
 	}
+	// Empty input: C's scan_jsx_text sees EOF at once and returns false without
+	// advancing (patched common/scanner.h:313-365). When an automatic semicolon
+	// is also valid, the dispatcher falls through to scan_automatic_semicolon,
+	// which accepts at EOF (scanner.h:82-89, dispatcher at 367-400).
+	for _, additional := range [][]int{nil, {tsxTokHtmlComment}} {
+		valid := make([]bool, tsxTokenCount)
+		valid[tsxTokJsxText] = true
+		for _, token := range additional {
+			valid[token] = true
+		}
+		got := portScan(scanner, payload, "", valid)
+		if got.ok || got.pos != 0 {
+			t.Errorf("empty input mask %v: got %+v, want no token and no advance", additional, got)
+		}
+	}
+	valid := make([]bool, tsxTokenCount)
+	valid[tsxTokJsxText], valid[tsxTokAutoSemicolon], valid[tsxTokTernaryQmark] = true, true, true
+	got := portScan(scanner, payload, "", valid)
+	portWantScan(t, "empty input with automatic semicolon", got, true, tsxDefaultSymTable[tsxTokAutoSemicolon], 0)
+	if got.pos != 0 {
+		t.Errorf("empty input with automatic semicolon advanced to %d", got.pos)
+	}
 	// Both masks leave the JSX scan untouched even when the source begins with '&'.
 	for _, enabled := range [][]int{{tsxTokTernaryQmark}, {tsxTokJsxText, tsxTokTemplateChars, tsxTokAutoSemicolon}} {
 		valid := make([]bool, tsxTokenCount)

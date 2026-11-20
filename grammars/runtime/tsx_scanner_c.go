@@ -238,7 +238,9 @@ func tsxJsxTextC(lexer *gotreesitter.ExternalLexer, symbols *[tsxTokenCount]gotr
 	return sawText, false
 }
 
-// tsScanC is external_scanner_scan (scanner.h:312-352).
+// tsScanC is external_scanner_scan (the patched common/scanner.h:367-400,
+// after tree-sitter-typescript-import-type.patch and
+// tree-sitter-tsx-jsx-text-ampersand.patch).
 func (s TsxExternalScanner) scanC(lexer *gotreesitter.ExternalLexer, validSymbols []bool, symbols *[tsxTokenCount]gotreesitter.Symbol) bool {
 	if tsxValid(validSymbols, tsxTokTemplateChars) {
 		if tsxValid(validSymbols, tsxTokAutoSemicolon) {
