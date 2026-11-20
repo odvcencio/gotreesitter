@@ -27,9 +27,21 @@ Make, Kotlin and TypeScript parsing, and reduces YAML scanner work and compact
 allocation. See [CHANGELOG.md](CHANGELOG.md) for changes and upgrade notes,
 and [docs/v1-design.md](docs/v1-design.md) for engine requirements and validation gates.
 
-On `main`, not yet released: `internal/ccore`, a C-faithful parser core that CI
-compares with pinned C. Only tests parse through it. See the Unreleased section
-of the changelog.
+On `main`, not yet released: 30 grammars parse through `ccore`, a certified
+port of the C tree-sitter 0.27.1 parser, by default. They include JSON, Python,
+Rust, Ruby, Kotlin, Elixir, Erlang, CSS, TOML and Objective-C. Each passed a
+graduation gate against pinned C for fresh and edited trees, subtree reuse,
+time and memory. The other grammars keep the existing engine, and no call
+changes. To keep the existing engine for one parser:
+
+```go
+parser := gotreesitter.NewParser(lang)
+parser.SetAdmissionCandidateRoute(false) // before the first parse
+```
+
+The Unreleased section of the [changelog](CHANGELOG.md) lists every certified
+grammar, and `testdata/ccore_certificates.json` records the exact grammar
+blobs.
 
 ## Quick start
 

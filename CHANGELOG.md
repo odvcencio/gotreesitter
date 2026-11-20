@@ -9,16 +9,29 @@ for tags and release notes while still in `0.x`.
 
 ### Highlights
 
-- A new parser core, `internal/ccore`, is in the tree. It is built to make the
-  same decisions as the C tree-sitter 0.27.1 runtime, and CI compares its
-  decision trace with pinned C's line for line.
-- Public parsing keeps the existing engine routing; no public API reaches the
-  new core.
+- 30 grammars now parse through `ccore`, the certified port of the C
+  tree-sitter 0.27.1 parser, by default. Each passed the graduation gate
+  against pinned C: the same fresh and edited trees, the same subtree reuse on a
+  clean edit session, parse time at or below the existing engine at 32 KiB,
+  137 KiB and 1 MiB, and peak memory at or below it at 1 MiB. On files of
+  about 2 KiB a fresh parse takes 0.30× to 0.44× of pinned C's time (Diff,
+  Kotlin, JSON, Python; 20 paired seeds, see Evidence).
+- The other grammars keep the existing engine. Your code does not change:
+  the same `Parser` and `grammars` calls pick the route per grammar.
 - Add `LangEntry.ParseContext` and `LangEntry.ParseStrict` for cancellation and
-  early-stop errors.
-- Grammar generation: `grammargen` falls back to LALR when precise construction
-  exhausts its state budget, and `ts2go` reads designated supertype
-  initializers correctly.
+  early-stop errors, and `Tree.RetryStopReason()` for a retry that a timeout
+  cut short.
+
+### Upgrade notes
+
+- Trees for the 30 certified grammars can differ from v0.57.0 where v0.57.0
+  differed from the C runtime, mostly on text with syntax errors. They now
+  match C. To compare, or to keep the v0.57.0 engine for one parser, call
+  `parser.SetAdmissionCandidateRoute(false)` before its first parse.
+- Work counters for those grammars change: a fresh parse lexes the tokens C
+  lexes, and an edit that starts from a malformed tree reparses fresh instead
+  of reusing subtrees. The counter ledger records each change with its reason
+  in the grammar's pull request.
 
 ### Added
 
@@ -34,7 +47,8 @@ for tags and release notes while still in `0.x`.
   ([#1590](https://github.com/odvcencio/gotreesitter/pull/1590)).
 - Add `internal/ccore`, a C-faithful parser core: parser, stack, subtrees,
   lexer, error recovery, external scanners, edits and reuse, using only the
-  standard library. No public API reaches it. On the test corpus it equals
+  standard library. It has no public API of its own; certified grammars reach
+  it through the ordinary `Parser` (see Changed). On the test corpus it equals
   pinned C 0.27.1 on 1,197 of 1,198 decision traces, 1,283 of 1,283
   visible-tree digests, 1,233 of 1,233 record sets and 509 of 509 incremental
   session steps. On real files, 178 of 202 grammars are fully equal
@@ -44,7 +58,7 @@ for tags and release notes while still in `0.x`.
   `internal/ccore/bind` and `internal/ccore/bind/bindtest`, table validation,
   and a required CI job, `ccore-equality-cgo`. On every pull request that
   changes code, the job compares the new core with pinned C for json, python, c
-  and typescript. Nothing parses through the new core outside tests
+  and typescript
   ([#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
 - Add `Tree.RetryStopReason()` and the `ParseRuntime.RetryStopReason` field. They
   report `ParseStopTimeout` or `ParseStopCancelled` when a timeout or the
@@ -56,9 +70,20 @@ for tags and release notes while still in `0.x`.
 
 ### Changed
 
-- Parse JSON with the new core by default. Trees for text with errors now match
-  the C runtime. Call `SetAdmissionCandidateRoute(false)` on a parser to keep
-  using the present engine ([#1665](https://github.com/odvcencio/gotreesitter/pull/1665)).
+- Serve 30 grammars through certified `ccore` by default. A grammar is served
+  there only when its exact blob is in `testdata/ccore_certificates.json`, and
+  only for the parse modes its certificate covers. Included ranges, custom
+  token sources and some diagnostic hooks still use the existing engine. Call
+  `SetAdmissionCandidateRoute(false)` on a parser to keep the existing engine.
+  The grammars, by pull request:
+  - JSON [#1665](https://github.com/odvcencio/gotreesitter/pull/1665), Diff [#1667](https://github.com/odvcencio/gotreesitter/pull/1667), Make [#1668](https://github.com/odvcencio/gotreesitter/pull/1668), Python [#1670](https://github.com/odvcencio/gotreesitter/pull/1670), GraphQL [#1672](https://github.com/odvcencio/gotreesitter/pull/1672);
+  - BibTeX, Desktop Entry, Devicetree, SSH config and Textproto [#1673](https://github.com/odvcencio/gotreesitter/pull/1673);
+  - Dockerfile [#1686](https://github.com/odvcencio/gotreesitter/pull/1686), Kotlin [#1695](https://github.com/odvcencio/gotreesitter/pull/1695), Erlang [#1693](https://github.com/odvcencio/gotreesitter/pull/1693), Elixir [#1671](https://github.com/odvcencio/gotreesitter/pull/1671), Cap'n Proto [#1697](https://github.com/odvcencio/gotreesitter/pull/1697);
+  - Rust, Git Config, INI, Clojure, TOML, Zig, CSS and Solidity [#1676](https://github.com/odvcencio/gotreesitter/pull/1676);
+  - R, Ruby, Todo.txt and Git Commit [#1699](https://github.com/odvcencio/gotreesitter/pull/1699), Go Modules [#1704](https://github.com/odvcencio/gotreesitter/pull/1704), EBNF [#1706](https://github.com/odvcencio/gotreesitter/pull/1706),
+    Objective-C [#1683](https://github.com/odvcencio/gotreesitter/pull/1683).
+- Add the graduation gate for one grammar and validate it on clean edit
+  sessions ([#1663](https://github.com/odvcencio/gotreesitter/pull/1663), [#1666](https://github.com/odvcencio/gotreesitter/pull/1666)).
 - Run the editor-latency CI gate as one job per language, which cuts a pull
   request's CI from about two hours to about 26 minutes, and skip it for pull
   requests that change only `internal/ccore`, its harness tests or
@@ -89,7 +114,23 @@ for tags and release notes while still in `0.x`.
   harness tests import packages that the baseline lacks. Packages that the
   timing driver needs must still build
   ([#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
-
+- Generated lexers: keep named string keywords as their own tokens
+  ([#1642](https://github.com/odvcencio/gotreesitter/pull/1642)).
+- TypeScript: preserve member names and generic fields ([#1604](https://github.com/odvcencio/gotreesitter/pull/1604)).
+- JavaScript: keep the declarations that follow a stray quote ([#1701](https://github.com/odvcencio/gotreesitter/pull/1701)).
+- Incremental parsing with a custom token source: retry a failed reparse from
+  fresh input instead of returning the failed tree ([#1702](https://github.com/odvcencio/gotreesitter/pull/1702)).
+- Parser: give each GLR stack its own lex mode for the shared lookahead, and
+  revive a stack whose lex mode read a wider lookahead ([#1629](https://github.com/odvcencio/gotreesitter/pull/1629), [#1632](https://github.com/odvcencio/gotreesitter/pull/1632)); stop
+  no-action re-lex steps from undoing each other ([#1630](https://github.com/odvcencio/gotreesitter/pull/1630)).
+- Result trees: report error extras left beside the result root ([#1635](https://github.com/odvcencio/gotreesitter/pull/1635)).
+- Make: an escaped comma stays inside a word ([#1611](https://github.com/odvcencio/gotreesitter/pull/1611)).
+- `RootNodeWithOffset` and injected trees add points the way C's
+  `point_add` does ([#1614](https://github.com/odvcencio/gotreesitter/pull/1614)).
+- Legacy engine: bound forest searches by child end byte ([#1703](https://github.com/odvcencio/gotreesitter/pull/1703)), and synchronize
+  parser switches and arena profiling so the race detector stays quiet ([#1700](https://github.com/odvcencio/gotreesitter/pull/1700)).
+- `ts2go`: read character-range arrays strictly and fail closed ([#1605](https://github.com/odvcencio/gotreesitter/pull/1605)).
+- Bound the pooled scratch that a tiny parse can receive ([#1613](https://github.com/odvcencio/gotreesitter/pull/1613)).
 - External scanners: fourteen ports now do what their C scanners do on unusual
   input: a no-break space or a line separator where whitespace is expected, a
   NUL byte, or an invalid UTF-8 byte. Before, the
@@ -113,6 +154,14 @@ for tags and release notes while still in `0.x`.
   including [#1592](https://github.com/odvcencio/gotreesitter/pull/1592) and
   [#1595](https://github.com/odvcencio/gotreesitter/pull/1595) for the `ccore`
   comparison with pinned C.
+- Each certified grammar's graduation results (correctness, reuse, timing at
+  three sizes, memory, race) and its counter-ledger changes are in its pull
+  request, listed under Changed.
+- Fresh-parse time against pinned C on about 2 KiB files, 20 paired seeds:
+  JSON 0.43×, Python 0.44×, Diff 0.30×
+  ([runs](https://github.com/odvcencio/gotreesitter/releases/download/evidence/ccore-vs-c-fresh-f3e39124-2b4f6885.tar.gz));
+  Kotlin 0.38×
+  ([runs](https://github.com/odvcencio/gotreesitter/releases/download/evidence/kotlin-direct-go-c-7576cb43.tar.gz)).
 
 ## [0.57.0] - 2026-11-07
 
