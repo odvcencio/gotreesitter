@@ -9,23 +9,10 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// TestIssue454GroovyJuxtFunctionCallSingleStatement is the minimal,
-// non-incremental reproduction behind TestIssue454GroovyIncrementalMatchesFresh:
-// a plain fresh Parse of a command-chain call (e.g. `println "x"`, no
-// parentheses) recognizes it as juxt_function_call only when it is the FIRST
-// statement in a block. A second statement in the same block loses that
-// derivation, even though the identical construct parses correctly at the
-// top level or as a block's only statement. This is a grammar-table gap
-// (grammargen/tree-sitter-groovy), not a parser-runtime defect, and it is
-// unaffected by GOT_GLR_MAX_STACKS at any width (checked 2 through 32): not
-// a survivor-culling artifact.
-//
-// This test pins the CURRENT (gap) behavior so a future grammar fix is
-// visible here, and documents why languageDisablesIncrementalReuse routes
-// every groovy incremental parse through a fresh full parse (parser_retry.go):
-// incremental reuse's leaf-by-leaf splice can accidentally dispatch a later
-// statement from a state that does support the juxtaposition, producing a
-// tree a fresh parse of the same bytes never would.
+// TestIssue454GroovyJuxtFunctionCallSingleStatement pins the legacy behavior
+// behind TestIssue454GroovyIncrementalMatchesFresh. The legacy parser
+// recognizes this juxtaposed call at the top level and as the first
+// statement in a block. A preceding statement changes its derivation.
 func TestIssue454GroovyJuxtFunctionCallSingleStatement(t *testing.T) {
 	lang := grammars.GroovyLanguage()
 
@@ -42,7 +29,9 @@ func TestIssue454GroovyJuxtFunctionCallSingleStatement(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			tree, err := gotreesitter.NewParser(lang).Parse([]byte(test.src))
+			parser := gotreesitter.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(false)
+			tree, err := parser.Parse([]byte(test.src))
 			if err != nil {
 				t.Fatalf("Parse: %v", err)
 			}
@@ -61,14 +50,13 @@ func TestIssue454GroovyJuxtFunctionCallSingleStatement(t *testing.T) {
 // TestIssue454GroovyIncrementalMatchesFresh is issue #454's groovy finding:
 // an incremental parse gained exactly 4 extra nodes (57,370 vs a fresh
 // parse's 57,366 in the downstream report) on every length-changing edit, on
-// both the compact and production admission routes. Root cause: groovy's
-// grammar table only recognizes a juxt_function_call (command-chain call,
-// e.g. `println "x"`) as a block's FIRST statement (see
-// TestIssue454GroovyJuxtFunctionCallSingleStatement); incremental reuse's
+// both the compact and production admission routes. On the legacy route, a juxtaposed call such as
+// `println "x"` gets a juxt_function_call node only as the first statement
+// in a block (see TestIssue454GroovyJuxtFunctionCallSingleStatement). Incremental reuse's
 // leaf splicing through a preceding statement can accidentally land the
 // following statement's dispatch in a state that does support the
 // juxtaposition, gaining wrapper nodes no fresh parse of the identical bytes
-// produces. The fix routes every groovy incremental parse through the same
+// produces. The legacy fix routes Groovy incremental parsing through the same
 // full-parse path Parse() uses (languageDisablesIncrementalReuse,
 // parser_retry.go), trading incremental reuse performance for guaranteed
 // parity with a fresh parse until the grammar table gap itself is fixed.
