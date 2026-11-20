@@ -19,4 +19,5 @@
 {"BlobSHA256":"e7dca79c1b4655caeee59c9bea3befdd199dd568e2e17640e2ff93832839d2c2","Modes":11,"Digest":"gomod fresh, recovery and incremental parsing compared with pinned C","Scanner":"","Checked":[],"ConfigSHA256":""},
 {"BlobSHA256":"6706c12308f7e4d2547ea008ae7f134edadc7fd6e31b03a42e186df52ff7c58c","Modes":11,"Digest":"ebnf fresh, recovery and incremental parsing compared with pinned C","Scanner":"","Checked":[],"ConfigSHA256":""},
 {"BlobSHA256":"c04e841cf500f2b213d699681930a16f3c5f0e74e60f8a4488c36c38015bc09f","Modes":11,"Digest":"Objective-C candidate for fresh, recovery and incremental qualification against pinned C","Scanner":"","Checked":[],"ConfigSHA256":""},
+{"BlobSHA256":"53d45fea8e98faa2ca6c3a7e7c029191ac509c637be9b7c05dfa29f8070bde43","Modes":11,"Digest":"Protobuf fresh, recovery and incremental parsing compared with pinned C","Scanner":"","Checked":[],"ConfigSHA256":""},
 {"BlobSHA256":"a1d1bb30d9971f1c3d645aab456521943a5f0da419b57a0986fc9b2a502a90d9","Modes":11,"Digest":"Groovy candidate for pinned C qualification","Scanner":"","Checked":[],"ConfigSHA256":""}]
