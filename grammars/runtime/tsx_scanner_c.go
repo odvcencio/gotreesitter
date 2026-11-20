@@ -204,11 +204,22 @@ func tsxClosingCommentC(lexer *gotreesitter.ExternalLexer, symbols *[tsxTokenCou
 	return true
 }
 
-// tsxJsxTextC is scan_jsx_text (scanner.h:271-310).
-func tsxJsxTextC(lexer *gotreesitter.ExternalLexer, symbols *[tsxTokenCount]gotreesitter.Symbol) bool {
+// tsxJsxTextC mirrors scan_jsx_text in the patched common/scanner.h:313-364.
+// It reports a JSX text token and whether it stopped at a complete
+// character reference. The internal lexer owns that reference.
+func tsxJsxTextC(lexer *gotreesitter.ExternalLexer, symbols *[tsxTokenCount]gotreesitter.Symbol) (text, atReference bool) {
 	sawText, atNewline := false, false
 	for lexer.Lookahead() != 0 && lexer.Lookahead() != '<' && lexer.Lookahead() != '>' && lexer.Lookahead() != '{' &&
-		lexer.Lookahead() != '}' && lexer.Lookahead() != '&' {
+		lexer.Lookahead() != '}' {
+		if lexer.Lookahead() == '&' {
+			lexer.MarkEnd()
+			if tsxScanHTMLCharacterReference(lexer) {
+				lexer.SetResultSymbol(symbols[tsxTokJsxText])
+				return sawText, true
+			}
+			sawText, atNewline = true, false
+			continue
+		}
 		isWspace := cIsSpace(lexer.Lookahead())
 		if lexer.Lookahead() == '\n' {
 			atNewline = true
@@ -220,8 +231,11 @@ func tsxJsxTextC(lexer *gotreesitter.ExternalLexer, symbols *[tsxTokenCount]gotr
 		}
 		lexer.Advance(false)
 	}
+	if sawText {
+		lexer.MarkEnd()
+	}
 	lexer.SetResultSymbol(symbols[tsxTokJsxText])
-	return sawText
+	return sawText, false
 }
 
 // tsScanC is external_scanner_scan (scanner.h:312-352).
@@ -232,8 +246,11 @@ func (s TsxExternalScanner) scanC(lexer *gotreesitter.ExternalLexer, validSymbol
 		}
 		return tsxScanTemplateChars(lexer, symbols)
 	}
-	if tsxValid(validSymbols, tsxTokJsxText) && tsxJsxTextC(lexer, symbols) {
-		return true
+	if tsxValid(validSymbols, tsxTokJsxText) {
+		text, atReference := tsxJsxTextC(lexer, symbols)
+		if text || atReference {
+			return text
+		}
 	}
 	if tsxValid(validSymbols, tsxTokAutoSemicolon) || tsxValid(validSymbols, tsxTokFuncSigAutoSemi) {
 		scannedComment := false

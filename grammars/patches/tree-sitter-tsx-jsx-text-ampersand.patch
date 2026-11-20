@@ -1,0 +1,95 @@
+diff --git a/common/scanner.h b/common/scanner.h
+--- a/common/scanner.h
++++ b/common/scanner.h
+@@ -278,7 +278,39 @@
+     return true;
+ }
+ 
+-static bool scan_jsx_text(TSLexer *lexer) {
++// Only the TSX dialect treats a bare ampersand as JSX text.
++#ifndef TSX_LITERAL_AMPERSAND
++#define TSX_LITERAL_AMPERSAND 0
++#endif
++
++// Consume the pinned grammar's html_character_reference after the initial '&'.
++// On failure every consumed character belongs to the surrounding JSX text.
++static bool scan_jsx_character_reference(TSLexer *lexer) {
++    advance(lexer);
++    bool numeric = lexer->lookahead == '#';
++    bool hex = false;
++    if (numeric) {
++        advance(lexer);
++        hex = lexer->lookahead == 'x' || lexer->lookahead == 'X';
++        if (hex) advance(lexer);
++    }
++    unsigned limit = hex ? 6 : numeric ? 5 : 30;
++    unsigned count = 0;
++    while (count < limit) {
++        int32_t c = lexer->lookahead;
++        bool digit = '0' <= c && c <= '9';
++        bool letter = ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
++        bool hex_letter = ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
++        if (!(numeric ? digit || (hex && hex_letter) : letter)) break;
++        advance(lexer);
++        count++;
++    }
++    if (count == 0 || lexer->lookahead != ';') return false;
++    advance(lexer);
++    return true;
++}
++
++static bool scan_jsx_text(TSLexer *lexer, bool *at_reference) {
+     // saw_text will be true if we see any non-whitespace content, or any whitespace content that is not a newline and
+     // does not immediately follow a newline.
+     bool saw_text = false;
+@@ -287,7 +319,19 @@
+     bool at_newline = false;
+ 
+     while (lexer->lookahead != 0 && lexer->lookahead != '<' && lexer->lookahead != '>' && lexer->lookahead != '{' &&
+-           lexer->lookahead != '}' && lexer->lookahead != '&') {
++           lexer->lookahead != '}') {
++        if (lexer->lookahead == '&') {
++            if (!TSX_LITERAL_AMPERSAND) break;
++            lexer->mark_end(lexer);
++            if (scan_jsx_character_reference(lexer)) {
++                lexer->result_symbol = JSX_TEXT;
++                *at_reference = true;
++                return saw_text;
++            }
++            saw_text = true;
++            at_newline = false;
++            continue;
++        }
+         bool is_wspace = iswspace(lexer->lookahead);
+         if (lexer->lookahead == '\n') {
+             at_newline = true;
+@@ -315,6 +359,7 @@
+         advance(lexer);
+     }
+ 
++    if (TSX_LITERAL_AMPERSAND && saw_text) lexer->mark_end(lexer);
+     lexer->result_symbol = JSX_TEXT;
+     return saw_text;
+ }
+@@ -327,8 +372,11 @@
+         return scan_template_chars(lexer);
+     }
+ 
+-    if (valid_symbols[JSX_TEXT] && scan_jsx_text(lexer)) {
+-        return true;
++    if (valid_symbols[JSX_TEXT]) {
++        bool at_reference = false;
++        bool text = scan_jsx_text(lexer, &at_reference);
++        // After looking through a reference, no other external rule can use this cursor.
++        if (text || at_reference) return text;
+     }
+ 
+     if (valid_symbols[AUTOMATIC_SEMICOLON] || valid_symbols[FUNCTION_SIGNATURE_AUTOMATIC_SEMICOLON]) {
+diff --git a/tsx/src/scanner.c b/tsx/src/scanner.c
+--- a/tsx/src/scanner.c
++++ b/tsx/src/scanner.c
+@@ -1,3 +1,4 @@
++#define TSX_LITERAL_AMPERSAND 1
+ #include "../../common/scanner.h"
+ 
+ void *tree_sitter_tsx_external_scanner_create() { return NULL; }

@@ -85,13 +85,18 @@ func TestGrammargenOwnedBlobSkipMessageUsesSafeEmitCommand(t *testing.T) {
 	}
 }
 
-func TestUpstreamGrammarPatchPath(t *testing.T) {
+func TestUpstreamGrammarPatchPaths(t *testing.T) {
 	dir := t.TempDir()
-	if got := upstreamGrammarPatchPath("yaml", dir); got != filepath.Join(dir, "patches", "tree-sitter-yaml-multiline-quoted-scalars.patch") {
-		t.Fatalf("yaml patch path = %q", got)
+	tsx := upstreamGrammarPatchPaths("tsx", dir)
+	if len(tsx) != 2 || tsx[0] != filepath.Join(dir, "patches", "tree-sitter-typescript-import-type.patch") ||
+		tsx[1] != filepath.Join(dir, "patches", "tree-sitter-tsx-jsx-text-ampersand.patch") {
+		t.Fatalf("TSX patch paths = %q", tsx)
 	}
-	if got := upstreamGrammarPatchPath("go", dir); got != "" {
-		t.Fatalf("go patch path = %q, want empty", got)
+	if typescript := upstreamGrammarPatchPaths("typescript", dir); len(typescript) != 1 || typescript[0] != tsx[0] {
+		t.Fatalf("TypeScript patch paths = %q", typescript)
+	}
+	if got := upstreamGrammarPatchPaths("go", dir); len(got) != 0 {
+		t.Fatalf("go patch paths = %q, want empty", got)
 	}
 }
 
