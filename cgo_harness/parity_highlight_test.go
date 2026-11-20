@@ -181,6 +181,10 @@ func cQueryMatchSatisfiesGeneralPredicates(m *sitter.QueryMatch, query *sitter.Q
 	}
 	for _, pred := range query.GeneralPredicates(m.PatternIndex) {
 		switch pred.Operator {
+		case "has-ancestor?", "not-has-ancestor?", "has-parent?", "not-has-parent?":
+			if !outlineCAncestorOrParentPredicateSatisfied(pred, m) {
+				return false
+			}
 		case "lua-match?":
 			if len(pred.Args) != 2 || pred.Args[0].CaptureId == nil || pred.Args[1].String == nil {
 				return false

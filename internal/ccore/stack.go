@@ -24,6 +24,8 @@ const (
 	headActive uint8 = iota
 	headPaused
 	headHalted
+	headDominated    // retire at the next ordinary condensation
+	headAwaitingSkip // lookaheadWhenPaused holds an inline skip until the next sibling lex
 )
 
 type stackHead struct { // C StackHead
