@@ -442,6 +442,10 @@ const retryStopPythonSource = "def f(:\n  x = [1,2\n  return )\nclass :\n"
 // which is how the swallowed-error fallback parses.
 const retryStopFallbackSource = "int f( { int a = ; return ) }\nstruct { int x }\n"
 
+// retryStopLastPassFallbackSource makes the swallowed-error fallback end its
+// retry passes with recovery_wide_or_node.
+const retryStopLastPassFallbackSource = "int f( { int a = ;,return ) }\nstruct { int }x }\n"
+
 type retryStopObservation struct {
 	rungs       []string
 	stop        gts.ParseStopReason
@@ -1009,7 +1013,7 @@ func TestRetryStopReasonSwallowedErrorFallbackRejected(t *testing.T) {
 	p.SetCancellationFlag(&flag)
 	gts.SetRetryPassObserverForTests(p, rec.observe)
 	got := gts.RetryCutOperationForTests(p, func() *gts.Tree {
-		return gts.ResolveSwallowedErrorForTests(p, []byte(retryStopFallbackSource), clean)
+		return gts.ResolveSwallowedErrorForTests(p, []byte(retryStopLastPassFallbackSource), clean)
 	})
 	if got != clean {
 		t.Fatalf("fallback was adopted; the test needs a rejected fallback (passes %v, flag %d)", rec.passes(), atomic.LoadUint32(&flag))

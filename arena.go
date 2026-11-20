@@ -406,10 +406,7 @@ type nodeArenaPool struct {
 }
 
 // ArenaProfile captures node arena allocation statistics.
-// Enable with EnableArenaProfile(true) and retrieve with
-// ArenaProfileSnapshot(). The counters are plain package-level state, not
-// atomic: read and write them from a single goroutine only, with no parse
-// running concurrently.
+// Enable with EnableArenaProfile(true) and retrieve with ArenaProfileSnapshot.
 type ArenaProfile struct {
 	IncrementalAcquire uint64
 	IncrementalNew     uint64
@@ -418,29 +415,47 @@ type ArenaProfile struct {
 }
 
 var (
-	arenaProfileEnabled bool
+	arenaProfileEnabled atomic.Bool
+	arenaProfileMu      sync.Mutex
 	arenaProfileData    ArenaProfile
 )
 
 // EnableArenaProfile toggles arena pool counters.
-// This debug hook is not concurrency-safe and is intended for single-threaded
-// benchmark/profiling runs.
 func EnableArenaProfile(enabled bool) {
-	arenaProfileEnabled = enabled
+	arenaProfileEnabled.Store(enabled)
 }
 
 // ResetArenaProfile resets arena pool counters.
-// This debug hook is not concurrency-safe and is intended for single-threaded
-// benchmark/profiling runs.
 func ResetArenaProfile() {
+	arenaProfileMu.Lock()
 	arenaProfileData = ArenaProfile{}
+	arenaProfileMu.Unlock()
 }
 
 // ArenaProfileSnapshot returns current arena pool counters.
-// This debug hook is not concurrency-safe and is intended for single-threaded
-// benchmark/profiling runs.
 func ArenaProfileSnapshot() ArenaProfile {
+	arenaProfileMu.Lock()
+	defer arenaProfileMu.Unlock()
 	return arenaProfileData
+}
+
+func recordArenaAcquire(class arenaClass, allocated bool) {
+	if !arenaProfileEnabled.Load() {
+		return
+	}
+	arenaProfileMu.Lock()
+	if class == arenaClassIncremental {
+		arenaProfileData.IncrementalAcquire++
+		if allocated {
+			arenaProfileData.IncrementalNew++
+		}
+	} else {
+		arenaProfileData.FullAcquire++
+		if allocated {
+			arenaProfileData.FullNew++
+		}
+	}
+	arenaProfileMu.Unlock()
 }
 
 // forgetCheckedOut clears the slots of the pool's backing array, beyond its length, that
@@ -475,29 +490,13 @@ func (p *nodeArenaPool) acquire() *nodeArena {
 	if n == 0 {
 		p.mu.Unlock()
 		a := newNodeArena(p.class)
-		if arenaProfileEnabled {
-			switch p.class {
-			case arenaClassIncremental:
-				arenaProfileData.IncrementalAcquire++
-				arenaProfileData.IncrementalNew++
-			default:
-				arenaProfileData.FullAcquire++
-				arenaProfileData.FullNew++
-			}
-		}
+		recordArenaAcquire(p.class, true)
 		return a
 	}
 	a := p.free[n-1]
 	p.free = p.free[:n-1]
 	p.mu.Unlock()
-	if arenaProfileEnabled {
-		switch p.class {
-		case arenaClassIncremental:
-			arenaProfileData.IncrementalAcquire++
-		default:
-			arenaProfileData.FullAcquire++
-		}
-	}
+	recordArenaAcquire(p.class, false)
 	return a
 }
 

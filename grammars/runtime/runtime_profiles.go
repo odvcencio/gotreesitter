@@ -134,7 +134,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		// certifications were re-validated against this blob via the
 		// cgo_harness Go compact/recovery receipts (TestGoCompactIncrementalExecution*,
 		// TestGoCompactRecoveryVersionTurnsLockedC, TestStage6GoCompactCertification).
-		blobSHA256:                 mustRuntimeProfileSHA256("9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4"),
+		blobSHA256:                 mustRuntimeProfileSHA256("67b873053c9917055e1b5aec94d3c0d9f7d26834f4340a39159e5970c0a0a598"),
 		compactConvergedSplitDrops: true,
 		compactOwnedEOFRecovery:    true,
 		// Let the absorbing version compete before the eagerly shifted

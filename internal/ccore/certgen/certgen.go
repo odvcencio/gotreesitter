@@ -78,7 +78,8 @@ func Render(recs []Record) ([]byte, error) {
 		b.WriteString("var Blobs = map[[32]byte]Cert{}\n")
 		return b.Bytes(), nil
 	}
-	b.WriteString("var Blobs = map[[32]byte]Cert{\n")
+	b.WriteString("var Blobs = makeBlobMap(generatedBlobs[:])\n\n")
+	b.WriteString("var generatedBlobs = [...]blobEntry{\n")
 	seen := map[[32]byte]bool{}
 	for _, r := range sorted {
 		raw, err := hex.DecodeString(r.BlobSHA256)
@@ -101,7 +102,7 @@ func Render(recs []Record) ([]byte, error) {
 		if r.Modes>>5 != 0 {
 			return nil, fmt.Errorf("certgen: blob %s has unknown mode bits %#x", r.BlobSHA256, r.Modes)
 		}
-		fmt.Fprintf(&b, "\t// certificate digest: %s\n\t{", strings.Map(func(c rune) rune {
+		fmt.Fprintf(&b, "\t// certificate digest: %s\n\t{[32]byte{", strings.Map(func(c rune) rune {
 			if c == '\n' || c == '\r' {
 				return ' '
 			}
@@ -113,7 +114,7 @@ func Render(recs []Record) ([]byte, error) {
 			}
 			fmt.Fprintf(&b, "0x%02x", c)
 		}
-		fmt.Fprintf(&b, "}: {Modes: %d, Scanner: %q, Config: [32]byte{", r.Modes, r.Scanner)
+		fmt.Fprintf(&b, "}, Cert{Modes: %d, Scanner: %q, Config: [32]byte{", r.Modes, r.Scanner)
 		for i, c := range cfg {
 			if i > 0 {
 				b.WriteString(", ")
@@ -133,7 +134,7 @@ func Render(recs []Record) ([]byte, error) {
 			}
 			b.WriteString("}")
 		}
-		b.WriteString("},\n")
+		b.WriteString("}},\n")
 	}
 	b.WriteString("}\n")
 	return b.Bytes(), nil

@@ -6613,16 +6613,12 @@ func acquireNodeViewArena() *nodeArena {
 		p.free = p.free[:n-1]
 	}
 	p.mu.Unlock()
-	if arena == nil {
+	allocated := arena == nil
+	if allocated {
 		arena = &nodeArena{class: arenaClassFull, viewArena: true, nodes: make([]Node, minArenaNodeCap)}
 		arena.recomputeAllocatedBytes()
-		if arenaProfileEnabled {
-			arenaProfileData.FullNew++
-		}
 	}
-	if arenaProfileEnabled {
-		arenaProfileData.FullAcquire++
-	}
+	recordArenaAcquire(arenaClassFull, allocated)
 	arena.refs.Store(1)
 	arena.viewNodeLimit = 0
 	arena.breakdownEnabled = arenaBreakdownEnabled.Load()

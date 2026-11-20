@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -45,10 +47,16 @@ import (
 // automatically (with production fallback). Set GOT_GLR_FOREST=0 to disable
 // globally; tests/benchmarks toggle via SetGLRForestEnabled. Languages that
 // want neither always use production regardless of this switch.
-var glrForestEnabled = os.Getenv("GOT_GLR_FOREST") != "0"
+//
+// The switch is atomic because parses read it while tests and benchmarks
+// toggle it.
+var glrForestEnabled atomic.Bool
+
+func init() { glrForestEnabled.Store(os.Getenv("GOT_GLR_FOREST") != "0") }
 
 // SetGLRForestEnabled toggles the GSS-forest path at runtime (tests/benchmarks).
-func SetGLRForestEnabled(on bool) { glrForestEnabled = on }
+// It is safe to call while parses run.
+func SetGLRForestEnabled(on bool) { glrForestEnabled.Store(on) }
 
 // nodeCachedHeight returns the subtree height (root = 1), memoized on the node
 // (n.subtreeHeight, 0 = uncomputed). Nodes are immutable after build and arena
@@ -99,10 +107,12 @@ func forestDedupTieReplace(entry, existing stackEntry) bool {
 // in its states and advances past the token), instead of declining. The aim is to
 // reproduce the production parser's error tree fast; until it is byte-verified
 // against production it must stay OFF in any default path.
-var glrForestRecover = os.Getenv("GOT_GLR_FOREST_RECOVER") == "1"
+var glrForestRecover atomic.Bool
+
+func init() { glrForestRecover.Store(os.Getenv("GOT_GLR_FOREST_RECOVER") == "1") }
 
 // SetGLRForestRecover toggles experimental forest error recovery (tests).
-func SetGLRForestRecover(on bool) { glrForestRecover = on }
+func SetGLRForestRecover(on bool) { glrForestRecover.Store(on) }
 
 // languageWantsForestRecover reports whether a forest-dispatched language enables
 // the recover-action error_cost recovery path by default (so error-bearing files
@@ -228,7 +238,7 @@ func (p *Parser) forestDeclineMemoMode() uint8 {
 		return 0
 	}
 	var mode uint8
-	if glrForestRecover {
+	if glrForestRecover.Load() {
 		mode |= forestDeclineModeRecoverEnabled
 	}
 	if languageWantsForestRecover(p.language.Name) {
@@ -710,7 +720,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	// ForestCapTieStats reporting an earlier, unrelated parse's counts (see
 	// resetForestCapTieStats's doc comment).
 	p.resetForestCapTieStats()
-	if p.parseWorkLimits.configured() || !glrForestEnabled || !parserWantsForest(p) {
+	if p.parseWorkLimits.configured() || !glrForestEnabled.Load() || !parserWantsForest(p) {
 		return nil
 	}
 	if p.language != nil && len(p.language.NativeUnaryWrapperFlattening) != 0 {
@@ -2432,9 +2442,10 @@ func forestPreserveRootVisibleContainerAlternatives(p *Parser, arena *nodeArena,
 	}
 	childCount := resultChildCount(root)
 	out := make([]*Node, 0, childCount)
+	ordered := forestOrderedRootChildren(root)
 	changed := false
 	for i := 0; i < childCount; {
-		if candidate, end, ok := forestRootVisibleContainerAlternativeForSlice(p, arena, root, alternatives, i); ok {
+		if candidate, end, ok := forestRootVisibleContainerAlternativeForSlice(p, arena, root, alternatives, i, ordered); ok {
 			out = append(out, candidate)
 			i = end
 			changed = true
@@ -2455,7 +2466,36 @@ func forestPreserveRootVisibleContainerAlternatives(p *Parser, arena *nodeArena,
 	return true
 }
 
-func forestRootVisibleContainerAlternativeForSlice(p *Parser, arena *nodeArena, root *Node, alternatives *forestAlternativeIndex, start int) (*Node, int, bool) {
+// forestOrderedRootChildren borrows only dense children. The root's child list
+// is replaced after all alternatives have been considered. Inspecting compact
+// or view-backed children here could materialize slots before the normal walk.
+func forestOrderedRootChildren(root *Node) []*Node {
+	if root.childIndex <= finalChildSidecarIndexBase {
+		return nil
+	}
+	var previous uint32
+	for _, child := range root.children {
+		if child == nil || child.endByte < previous {
+			return nil
+		}
+		previous = child.endByte
+	}
+	return root.children
+}
+
+// forestRootEndWindow returns the physical child indexes that may match endByte.
+// Without a proven ordering it preserves the complete original scan interval.
+func forestRootEndWindow(ordered []*Node, start, count int, endByte uint32) (int, int) {
+	if ordered == nil {
+		return start, count
+	}
+	tail := ordered[start:]
+	lo := sort.Search(len(tail), func(i int) bool { return tail[i].endByte >= endByte })
+	hi := lo + sort.Search(len(tail)-lo, func(i int) bool { return tail[lo+i].endByte > endByte })
+	return start + lo, start + hi
+}
+
+func forestRootVisibleContainerAlternativeForSlice(p *Parser, arena *nodeArena, root *Node, alternatives *forestAlternativeIndex, start int, ordered []*Node) (*Node, int, bool) {
 	first := resultChildAt(root, start)
 	if first == nil {
 		return nil, 0, false
@@ -2467,7 +2507,8 @@ func forestRootVisibleContainerAlternativeForSlice(p *Parser, arena *nodeArena, 
 		if !forestVisibleNamedStructuralContainer(p, candidate) || candidate.isExtra() || candidate.isMissing() {
 			continue
 		}
-		for end := childCount; end > start; end-- {
+		lo, hi := forestRootEndWindow(ordered, start, childCount, candidate.endByte)
+		for end := hi; end > lo; end-- {
 			last := resultChildAt(root, end-1)
 			if last == nil || last.endByte != candidate.endByte {
 				continue
@@ -3459,7 +3500,7 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 	processEpoch := int32(0)
 	noLookaheadSteps := 0
 	recoverCount := 0
-	recoverActive := glrForestRecover || languageWantsForestRecover(lang.Name)
+	recoverActive := glrForestRecover.Load() || languageWantsForestRecover(lang.Name)
 	if progress.enabled {
 		progress.emit(time.Now(), "forest_setup_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0,
 			forestProgressExtra(frontier, work, nextFrontier, curIndex, nextIndex, processEpoch, recoverCount, reducer, nil, fmt.Sprintf("recover_active=%t", recoverActive)))
