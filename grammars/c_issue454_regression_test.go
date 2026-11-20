@@ -111,7 +111,7 @@ func testIssue454CIncrementalDeleteMatchesFresh(t *testing.T, lang *gotreesitter
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			oldTree, err := gotreesitter.NewParser(lang).Parse(source)
+			oldTree, err := newIssue454CRecoveryParser(lang).Parse(source)
 			if err != nil {
 				t.Fatalf("old Parse: %v", err)
 			}
@@ -129,7 +129,7 @@ func testIssue454CIncrementalDeleteMatchesFresh(t *testing.T, lang *gotreesitter
 				NewEndPoint: gotreesitter.Point{Row: point.Row, Column: point.Column + test.newCols},
 			})
 
-			incremental, profile, err := gotreesitter.NewParser(lang).ParseIncrementalProfiled(test.edited, oldTree)
+			incremental, profile, err := newIssue454CRecoveryParser(lang).ParseIncrementalProfiled(test.edited, oldTree)
 			if err != nil {
 				t.Fatalf("ParseIncrementalProfiled: %v", err)
 			}
@@ -146,7 +146,7 @@ func testIssue454CIncrementalDeleteMatchesFresh(t *testing.T, lang *gotreesitter
 				t.Fatalf("%s: expected genuine old-tree reuse, got none: profile = %+v", test.name, profile)
 			}
 
-			fresh, err := gotreesitter.NewParser(lang).Parse(test.edited)
+			fresh, err := newIssue454CRecoveryParser(lang).Parse(test.edited)
 			if err != nil {
 				t.Fatalf("fresh edited Parse: %v", err)
 			}
@@ -208,7 +208,7 @@ func testIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T,
 
 	newEditedOldTree := func(t *testing.T) *gotreesitter.Tree {
 		t.Helper()
-		old, err := gotreesitter.NewParser(lang).Parse(source)
+		old, err := newIssue454CRecoveryParser(lang).Parse(source)
 		if err != nil {
 			t.Fatalf("old Parse: %v", err)
 		}
@@ -226,7 +226,7 @@ func testIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T,
 	for i := 0; i < repeats; i++ {
 		old := newEditedOldTree(t)
 		start := time.Now()
-		incremental, err := gotreesitter.NewParser(lang).ParseIncremental(edited, old)
+		incremental, err := newIssue454CRecoveryParser(lang).ParseIncremental(edited, old)
 		if err != nil {
 			t.Fatalf("ParseIncremental: %v", err)
 		}
@@ -241,7 +241,7 @@ func testIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T,
 	for i := 0; i < repeats; i++ {
 		old := newEditedOldTree(t)
 		start := time.Now()
-		incremental, profile, err := gotreesitter.NewParser(lang).ParseIncrementalProfiled(edited, old)
+		incremental, profile, err := newIssue454CRecoveryParser(lang).ParseIncrementalProfiled(edited, old)
 		if err != nil {
 			t.Fatalf("ParseIncrementalProfiled: %v", err)
 		}
@@ -268,7 +268,7 @@ func testIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T,
 	}
 
 	freshStart := time.Now()
-	fresh, err := gotreesitter.NewParser(lang).Parse(edited)
+	fresh, err := newIssue454CRecoveryParser(lang).Parse(edited)
 	freshElapsed := time.Since(freshStart)
 	if err != nil {
 		t.Fatalf("fresh edited Parse: %v", err)
@@ -283,6 +283,13 @@ func testIssue454CParseIncrementalMatchesProfiledOnBudgetFullRetry(t *testing.T,
 	if plainBest > profiledBest*3 {
 		t.Fatalf("ParseIncremental (%v) took more than 3x ParseIncrementalProfiled (%v); the reuse-budget stop is not arming on the plain path", plainBest, profiledBest)
 	}
+}
+
+// These cases exercise the legacy budget guard and the physical recovery order.
+func newIssue454CRecoveryParser(lang *gotreesitter.Language) *gotreesitter.Parser {
+	parser := gotreesitter.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	return parser
 }
 
 func runIssue454CRecoveryRoutes(t *testing.T, check func(*testing.T, *gotreesitter.Language, bool)) {
@@ -312,7 +319,7 @@ type issue454CShape struct {
 
 func issue454CFreshShape(t *testing.T, lang *gotreesitter.Language, source []byte) issue454CShape {
 	t.Helper()
-	tree, err := gotreesitter.NewParser(lang).Parse(source)
+	tree, err := newIssue454CRecoveryParser(lang).Parse(source)
 	if err != nil {
 		t.Fatalf("fresh Parse: %v", err)
 	}
