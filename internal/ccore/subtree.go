@@ -560,6 +560,11 @@ func (p *Parser) newLeaf(sym Symbol, padding, size Length, lookahead uint32, sta
 		return Handle(f | uint64(sym)<<8 | uint64(state)<<16 | uint64(padding.col)<<32 |
 			uint64(padding.row)<<40 | uint64(lookahead)<<44 | uint64(padding.bytes)<<48 | uint64(size.bytes)<<56)
 	}
+	if p.hasDeferredSkip() {
+		// Preserve record ownership, reservation order and limit failures before
+		// the sibling claims any heap token, including an error leaf.
+		p.materializeDeferredSkip()
+	}
 	var fl uint16
 	if vis {
 		fl |= heapVisible

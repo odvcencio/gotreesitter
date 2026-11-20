@@ -209,8 +209,16 @@ func (p *Parser) reduce(version int, sym Symbol, count uint32, dynPrec int32, pr
 			}
 			continue
 		}
+		state := p.nodes[p.heads[sliceVersion].node].state
+		next := p.nextState(state, sym)
 		var children []Handle
 		children, p.trailing = p.removeTrailingExtras(slice.subtrees, p.trailing)
+		if sliceVersion > 1 && len(p.trailing) == 0 && (i+1 == len(pop) || pop[i+1].version != slice.version) && p.wouldRejectReduction(version, sliceVersion, sym, next, children) {
+			p.putBuf(slice.subtrees)
+			p.removeVersion(sliceVersion)
+			removed++
+			continue
+		}
 		parent := p.newNode(sym, children, productionID)
 		p.putBuf(slice.subtrees)
 		for i+1 < len(pop) {
@@ -229,8 +237,6 @@ func (p *Parser) reduce(version int, sym Symbol, count uint32, dynPrec int32, pr
 			}
 			p.putBuf(next.subtrees)
 		}
-		state := p.nodes[p.heads[sliceVersion].node].state
-		next := p.nextState(state, sym)
 		r := p.rec(parent)
 		if endOfNonTerminalExtra && next == state {
 			r.flags |= heapExtra
@@ -260,6 +266,67 @@ func (p *Parser) reduce(version int, sym Symbol, count uint32, dynPrec int32, pr
 		return initialCount
 	}
 	return -1
+}
+
+// wouldRejectReduction checks the first head that the reduced slice would merge
+// into, in reduce's merge order. A full node can still update a compatible
+// predecessor, so rule out subtreeEquivalent for each of its resident links.
+// The positive, error-free parent has its first child's padding and covers
+// exactly its children's bytes. Its symbol or byte extent must distinguish it
+// from every resident link. Otherwise keep the ordinary push and merge.
+func (p *Parser) wouldRejectReduction(version, sliceVersion int, sym Symbol, next uint16, children []Handle) bool {
+	if !p.fresh || p.owner != nil || p.logging || p.reuseActive || p.ext.active || p.scanner != nil ||
+		len(children) == 0 || len(children) > 2 || sym == symError || sym == symErrorRepeat {
+		return false
+	}
+	head := p.heads[sliceVersion]
+	pred := &p.nodes[head.node]
+	if head.status != headActive || head.lastExternal != 0 || pred.errorCost != 0 {
+		return false
+	}
+	if next == 0 {
+		return false
+	}
+	var total uint64
+	for _, ch := range children {
+		if ch == 0 || p.missing(ch) || p.errorCost(ch) != 0 || p.symbol(ch) == symError || p.symbol(ch) == symErrorRepeat {
+			return false
+		}
+		total += uint64(p.padding(ch).bytes) + uint64(p.size(ch).bytes)
+	}
+	end := uint64(pred.position.bytes) + total
+	if total == 0 || end > uint64(^uint32(0)) {
+		return false
+	}
+	padding := p.padding(children[0]).bytes
+	size := uint32(total) - padding
+	if size == 0 {
+		return false
+	}
+	for j := 0; j < sliceVersion; j++ {
+		if j == version {
+			continue
+		}
+		rh := p.heads[j]
+		resident := &p.nodes[rh.node]
+		if rh.status != headActive || resident.state != next || resident.position.bytes != uint32(end) || resident.errorCost != 0 {
+			continue
+		}
+		// With external scanning inactive, canMerge considers all checkpoints
+		// equal. If either head retained an unexpected checkpoint, let merge
+		// handle this first eligible head in its regular order.
+		if rh.lastExternal != head.lastExternal || resident.linkCount != maxLinkCount {
+			return false
+		}
+		for i := uint16(0); i < resident.linkCount; i++ {
+			prior := resident.links[i].sub
+			if prior != 0 && p.symbol(prior) == sym && p.padding(prior).bytes == padding && p.size(prior).bytes == size {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // C/parser.c:1054 ts_parser__accept.
@@ -318,7 +385,7 @@ func (p *Parser) accept(version int, lookahead Handle) {
 }
 
 // C/parser.c:1598 ts_parser__advance.
-func (p *Parser) advance(version int, allowReuse bool) bool {
+func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool {
 	if p.ops++; p.stopAt > 0 && p.ops >= p.stopAt {
 		if p.stopPanics {
 			panic("ccore: stop hook")
@@ -360,6 +427,9 @@ func (p *Parser) advance(version int, allowReuse bool) bool {
 			var ok bool
 			lookahead, ok = p.lex(version, state)
 			if !ok {
+				if p.hasDeferredSkip() {
+					p.materializeDeferredSkip()
+				}
 				return false
 			}
 			if lookahead != 0 {
@@ -371,6 +441,9 @@ func (p *Parser) advance(version int, allowReuse bool) bool {
 				}
 			} else {
 				entry = p.tableEntry(state, 0)
+			}
+			if p.hasDeferredSkip() {
+				p.resolveDeferredSkip(lookahead, entry)
 			}
 		}
 		didReduce := false
@@ -423,7 +496,7 @@ func (p *Parser) advance(version int, allowReuse bool) bool {
 				if p.childCount(lookahead) > 0 {
 					lookahead = p.breakdownLookahead(lookahead, 0)
 				}
-				p.recover(version, lookahead)
+				p.recover(version, lookahead, lastPosition, didReuse)
 				if didReuse {
 					p.rnAdvance()
 				}
@@ -455,7 +528,7 @@ func (p *Parser) advance(version int, allowReuse bool) bool {
 			}
 		}
 		if state == 0 {
-			p.recover(version, lookahead)
+			p.recover(version, lookahead, lastPosition, didReuse)
 			return true
 		}
 		// ts_parser__breakdown_top_of_stack: pending links exist only after
@@ -540,7 +613,10 @@ func (p *Parser) condense() uint32 {
 	made := false
 	minCost := ^uint32(0)
 	for i := 0; i < len(p.heads); i++ {
-		if p.heads[i].status == headHalted {
+		if status := p.heads[i].status; status == headHalted || status == headDominated {
+			if status == headDominated {
+				made = true
+			}
 			p.removeVersion(i)
 			i--
 			continue
@@ -709,10 +785,15 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 				if p.logf != nil {
 					p.log("process version:%d, version_count:%d, state:%d, row:%d, col:%d", version, len(p.heads), n.state, n.position.row, n.position.col)
 				}
-				if !p.advance(version, versionCount == 1) {
+				if !p.advance(version, versionCount == 1, lastPosition) {
 					return p.stop
 				}
-				position = p.nodes[p.heads[version].node].position.bytes
+				h := &p.heads[version]
+				position = p.nodes[h.node].position.bytes
+				if h.status == headAwaitingSkip {
+					// Preserve the skipped version's logical end while its sibling lexes.
+					position += p.totalSize(h.lookaheadWhenPaused).bytes
+				}
 				if position > lastPosition || (version > 0 && position == lastPosition) {
 					lastPosition = position
 					break

@@ -275,9 +275,9 @@ func TestParseForestExperimentalReclaimsRawShapeStorage(t *testing.T) {
 func TestTryForestFastPathReclaimsRawShapeStorage(t *testing.T) {
 	lang := loadBlobForDecode(t, "json")
 	lang.WantsForest = true
-	previous := glrForestEnabled
-	glrForestEnabled = true
-	defer func() { glrForestEnabled = previous }()
+	previous := glrForestEnabled.Load()
+	glrForestEnabled.Store(true)
+	defer func() { glrForestEnabled.Store(previous) }()
 
 	tree := NewParser(lang).tryForestFastPath([]byte(`[1, 2, 3]`))
 	if tree == nil {
