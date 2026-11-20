@@ -21,27 +21,23 @@ go get github.com/odvcencio/gotreesitter
 
 gotreesitter loads the same parse-table format that tree-sitter's C runtime uses. `ts2go` extracts grammar tables from upstream `parser.c` files, compresses them into binary blobs, and deserializes them on first use. 206 grammars ship in the registry.
 
-The current release is **v0.57.0**. It adds a pure-Go parser command and
-grammar-entry helpers, corrects highlight priorities and inheritance, fixes
-Make, Kotlin and TypeScript parsing, and reduces YAML scanner work and compact
-allocation. See [CHANGELOG.md](CHANGELOG.md) for changes and upgrade notes,
-and [docs/v1-design.md](docs/v1-design.md) for engine requirements and validation gates.
-
-On `main`, not yet released: 34 grammars parse by default through `ccore`,
-the C-faithful parser core. They include C, TypeScript, JSON, Python, Rust, Ruby,
-Kotlin, Elixir, Erlang, CSS, TOML and Objective-C. Each passed a graduation gate: trees
-and subtree reuse equal pinned C, and time and memory at or below the existing
-engine. The other grammars keep the existing engine, and no call changes. To
-keep the existing engine for one parser:
+The current release is **v0.58.0**. 34 grammars now parse by default through
+`ccore`, the C-faithful parser core, among them C, TypeScript, JSON, Python,
+Rust, Ruby, Kotlin, Elixir, Erlang, CSS, TOML and Objective-C. Each passed a
+graduation gate: trees and subtree reuse equal pinned C, and time and memory at
+or below the existing engine. The other grammars keep the existing engine. No
+API call changes, but trees for these grammars now match C where v0.57.0 did
+not (see the upgrade notes). To keep the existing engine for one parser:
 
 ```go
 parser := gotreesitter.NewParser(lang)
 parser.SetAdmissionCandidateRoute(false) // applies from the next parse
 ```
 
-The Unreleased section of the [changelog](CHANGELOG.md) lists every certified
-grammar, and `testdata/ccore_certificates.json` records the exact grammar
-blobs.
+See [CHANGELOG.md](CHANGELOG.md) for every certified grammar, upgrade notes and
+fixes, `testdata/ccore_certificates.json` for the exact grammar blobs, and
+[docs/v1-design.md](docs/v1-design.md) for engine requirements and validation
+gates.
 
 ## Quick start
 
