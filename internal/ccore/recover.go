@@ -215,7 +215,7 @@ func (p *Parser) handleError(version int, lookahead Handle) {
 	if p.childCount(lookahead) > 0 {
 		lookahead = p.breakdownLookahead(lookahead, 0)
 	}
-	p.recover(version, lookahead)
+	p.recover(version, lookahead, ^uint32(0), false) // no scheduled sibling while condensing
 }
 
 // C/parser.c:1225 ts_parser__recover_to_state.
@@ -276,7 +276,7 @@ func (p *Parser) recoverToState(version int, depth uint32, goal uint16) bool {
 }
 
 // C/parser.c:1291 ts_parser__recover.
-func (p *Parser) recover(version int, lookahead Handle) {
+func (p *Parser) recover(version int, lookahead Handle, lastPosition uint32, reused bool) {
 	didRecover := false
 	previousCount := len(p.heads)
 	position := p.nodes[p.heads[version].node].position
@@ -360,8 +360,34 @@ func (p *Parser) recover(version int, lookahead Handle) {
 	if p.logf != nil {
 		p.log("skip_token symbol:%s", p.symName(p.symbol(lookahead)))
 	}
+	// Let a stop hook or the sibling advance's next progress poll see the
+	// ordinary skipped head and its reservations.
+	if didRecover && version == 0 && previousCount == 1 && nodeCountSinceError != 0 &&
+		p.stopAt == 0 && (!p.led.Active() || p.opCount+1 < operationsPerCheck) &&
+		p.strictSkipCandidate(lookahead, lastPosition) {
+		other := &p.nodes[p.heads[1].node]
+		if lookahead == p.cacheTok {
+			var entry actionEntry
+			if p.cachedToken(other.state, other.position.bytes, p.heads[1].lastExternal, &entry) == lookahead && ordinaryRecoveryShift(entry) {
+				p.heads[0].status = headDominated
+				return
+			}
+		} else if reused && p.parseState(lookahead) == 0 && p.cacheAt < other.position.bytes &&
+			ordinaryRecoveryShift(p.tableEntry(other.state, p.symbol(lookahead))) {
+			// Version 1 must now lex at its real position. Both heads stay on the
+			// stack, so reuse stays disabled for that dispatch. The saved leaf is
+			// inline and the existing head still owns its unmodified predecessor.
+			p.heads[0].status = headAwaitingSkip
+			p.heads[0].lookaheadWhenPaused = lookahead
+			return
+		}
+	}
+	p.pushSkippedToken(version, lookahead, nodeCountSinceError != 0)
+}
+
+func (p *Parser) pushSkippedToken(version int, lookahead Handle, join bool) {
 	errorRepeat := p.newNode(symErrorRepeat, []Handle{lookahead}, 0)
-	if nodeCountSinceError > 0 {
+	if join {
 		pop := p.iter(version, popCount, 1)
 		first := pop[0]
 		if len(pop) > 1 {
@@ -383,4 +409,67 @@ func (p *Parser) recover(version int, lookahead Handle) {
 	}
 	p.push(version, errorRepeat, false, 0)
 	p.extShift(version, lookahead) // C/parser.c:1463
+}
+
+// These conditions prove strict cost dominance only if the sibling consumes
+// the same ordinary inline leaf in a single non-extra, non-error shift.
+func (p *Parser) strictSkipCandidate(token Handle, lastPosition uint32) bool {
+	if len(p.heads) != 2 || p.ext.active || token&1 == 0 ||
+		!p.visible(token) || p.extra(token) || p.missing(token) {
+		return false
+	}
+	skip, sibling := &p.nodes[p.heads[0].node], &p.nodes[p.heads[1].node]
+	if p.heads[0].status != headActive || p.heads[1].status != headActive ||
+		skip.state != 0 || sibling.state == 0 || skip.position != sibling.position ||
+		skip.linkCount != 1 {
+		return false
+	}
+	// The unmodified pop visits exactly this non-extra predecessor. Joining
+	// two _ERROR children subtracts their extent costs before charging the
+	// combined extent. For a visible, non-extra ordinary leaf the result is
+	// exactly currentCost + costPerSkippedTree + token bytes + 30*token rows.
+	link := skip.links[0]
+	if link.pending || link.sub == 0 || p.symbol(link.sub) != symErrorRepeat || p.extra(link.sub) {
+		return false
+	}
+	total := p.totalSize(token)
+	joinedCost := skip.errorCost + costPerSkippedTree + total.bytes + 30*total.row
+	if sibling.errorCost >= joinedCost {
+		return false
+	}
+	end := skip.position.bytes + total.bytes
+	return end > skip.position.bytes && end > lastPosition
+}
+
+func ordinaryRecoveryShift(entry actionEntry) bool {
+	if len(entry.actions) != 1 {
+		return false
+	}
+	action := entry.actions[0]
+	return action.Type == ActionShift && uint16(action.State) != 0 && !action.Repetition && !action.Extra
+}
+
+func (p *Parser) hasDeferredSkip() bool {
+	return len(p.heads) == 2 && p.heads[0].status == headAwaitingSkip
+}
+
+func (p *Parser) materializeDeferredSkip() {
+	h := &p.heads[0]
+	token := h.lookaheadWhenPaused
+	h.status, h.lookaheadWhenPaused = headActive, 0
+	p.pushSkippedToken(0, token, true)
+}
+
+func (p *Parser) resolveDeferredSkip(selected Handle, entry actionEntry) {
+	h := &p.heads[0]
+	// Match every inline field other than parse state: symbol, flags, padding
+	// and point extent, size, and the farthest lexer dependency. The normal
+	// shift always receives selected, including its actual parse state.
+	const parseStateBits Handle = 0xffff << 16
+	if selected&^parseStateBits == h.lookaheadWhenPaused&^parseStateBits &&
+		p.parseState(selected) == p.nodes[p.heads[1].node].state && ordinaryRecoveryShift(entry) {
+		h.status, h.lookaheadWhenPaused = headDominated, 0
+		return
+	}
+	p.materializeDeferredSkip()
 }

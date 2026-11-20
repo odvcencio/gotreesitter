@@ -77,6 +77,7 @@ func TestKotlinCompactCertificationObjectDeclarationDeclinesUnderShippedProfile(
 	gts.ResetAdmissionCandidateCountersForTest()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
+	candidate.SetCompactCertificationTelemetry(true)
 	candidateTree, err := candidate.Parse(source)
 	if err != nil {
 		t.Fatalf("candidate parse: %v", err)

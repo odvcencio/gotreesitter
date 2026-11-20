@@ -2665,6 +2665,9 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		if !ok {
 			continue
 		}
+		if keywordSet != nil && keywordSet[id] {
+			continue
+		}
 		rule := g.Rules[name]
 		expanded, imm, prec, err := expandTokenRule(rule)
 		if err != nil {

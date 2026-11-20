@@ -89,6 +89,7 @@ func TestCompactOldTreeTransientErrorEditsMatchFreshParse(t *testing.T) {
 				}
 				parser := gts.NewParser(lang)
 				parser.SetAdmissionCandidateRoute(true)
+				parser.SetCompactCertificationTelemetry(true)
 				old, err := parser.Parse(src)
 				if err != nil {
 					t.Fatalf("compact parse: %v", err)
