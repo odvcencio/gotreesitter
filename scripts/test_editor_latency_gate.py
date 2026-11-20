@@ -330,6 +330,44 @@ class TypeScript1675ExceptionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "production inputs changed"):
                 gate.validate_typescript_1675_exception(Path("."), gate.TYPESCRIPT_1675_BASE, "f" * 40)
 
+class Tsx1689ExceptionTests(unittest.TestCase):
+    def setUp(self):
+        self.fixtures = [{"language": "tsx", "sha256": gate.TSX_1689_FIXTURE}]
+        self.oracles = [{
+            "language": "tsx",
+            "base_oracle": dict(gate.TSX_1689_ORACLE),
+            "oracle": dict(gate.TSX_1689_ORACLE),
+        }]
+        self.rows = [
+            {"language": "tsx", "workload": workload, "step": step,
+             "counter": counter, "before": before, "after": after}
+            for workload, step, counter, before, after in sorted(gate.TSX_1689_ROWS)
+        ]
+
+    def approved(self, rows):
+        return gate.tsx_1689_approved_rows(
+            self.fixtures, gate.TSX_1689_MANIFEST, gate.TSX_1689_BASE, self.oracles, rows)
+
+    def test_only_the_approved_rows_match(self):
+        extra = dict(self.rows[-1], step=99)
+        self.assertEqual(self.approved(self.rows + [extra]), self.rows)
+        for changed in (self.rows[:-1], self.rows + [self.rows[0]],
+                        self.rows[:-1] + [dict(self.rows[-1], after=self.rows[-1]["after"] + 1)]):
+            with self.assertRaisesRegex(ValueError, "approved rows changed"):
+                self.approved(changed)
+
+    def test_rejects_other_language_base_or_oracle(self):
+        with self.assertRaisesRegex(ValueError, "fixture or base mismatch"):
+            gate.tsx_1689_approved_rows(self.fixtures, gate.TSX_1689_MANIFEST, "0" * 40, self.oracles, self.rows)
+        self.oracles[0]["oracle"]["grammar_commit"] = "0" * 40
+        with self.assertRaisesRegex(ValueError, "oracle mismatch"):
+            self.approved(self.rows)
+        with mock.patch.object(gate, "git", return_value="f" * 40), \
+                mock.patch.object(gate.subprocess, "run"), \
+                mock.patch.object(gate.subprocess, "check_output", side_effect=[b"", b"ccore_bind.go\0"]):
+            with self.assertRaisesRegex(ValueError, "production inputs changed"):
+                gate.validate_tsx_1689_exception(Path("."), gate.TSX_1689_BASE, "f" * 40)
+
 class GateTests(unittest.TestCase):
     def powershell_synthetic_approval(self):
         receipts = {}
