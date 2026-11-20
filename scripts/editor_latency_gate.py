@@ -188,6 +188,78 @@ def python_1670_approved_rows(fixtures, manifest_sha, base_revision, identities,
     return approved
 
 
+# The owner's delegation approved these rows on PR #1675's locked TypeScript
+# fixture on 20 Nov 2026 (hypha://m31labs/gotreesitter/reports/2026-11-20-pr-queue-decisions).
+# Each row equals pinned C's count on the same edit history.
+TYPESCRIPT_1675_BASE = "210a2b036f8f37d4c5256b635840b89ef0f46ff2"
+TYPESCRIPT_1675_REVIEWED = "01106096d3ec59d23cc6868fa2990f35c58eedad"
+TYPESCRIPT_1675_EXCEPTION = "typescript-ccore-1675"
+TYPESCRIPT_1675_FIXTURE = "1c9771844ea117e1414365311fb181ca3a8fc58dcea06e761abd6d47c190a93f"
+TYPESCRIPT_1675_MANIFEST = "110352e799c54aced0f169e3852d1f58d6ff7d33abf4412a4cc21842cdf7bd37"
+TYPESCRIPT_1675_ORACLE = {
+    "runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
+    "sources_manifest_sha256": "242c4f6b72d2d24421f84a505aa20164e43f144eb6401e876e6d24a167f06f51",
+    "grammar_repo": "https://github.com/tree-sitter/tree-sitter-typescript",
+    "grammar_commit": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+    "grammar_patch_identity": "0907c7af7dbcfb7ab1985a756b806210f1b43bee4ca57002080d8b679b5f90a4"
+}
+TYPESCRIPT_1675_ROWS = frozenset((
+    ('hundred_byte', 0, 'reused_subtrees', 130, 47),
+    ('hundred_byte', 1, 'reused_subtrees', 130, 47),
+    ('typing', 0, 'tokens', 2, 5),
+    ('typing', 1, 'tokens', 2, 5),
+    ('typing', 2, 'tokens', 2, 5),
+    ('typing', 3, 'tokens', 2, 5),
+    ('typing', 4, 'tokens', 2, 5),
+    ('typing', 5, 'tokens', 2, 5),
+    ('typing', 6, 'tokens', 2, 5),
+    ('typing', 7, 'tokens', 2, 5),
+    ('typing', 8, 'tokens', 2, 5),
+    ('typing', 9, 'tokens', 2, 5),
+    ('typing', 10, 'tokens', 2, 5),
+    ('typing', 11, 'tokens', 2, 5),
+    ('typing', 12, 'tokens', 2, 5),
+    ('typing', 13, 'tokens', 2, 5),
+    ('typing', 14, 'tokens', 2, 5),
+    ('typing', 15, 'tokens', 2, 5),
+    ('typing', 16, 'tokens', 2, 5),
+))
+TYPESCRIPT_1675_SUCCESSOR_PATHS = frozenset((
+    ".github/workflows/ci.yml",
+    "scripts/editor_latency_gate.py",
+    "scripts/test_editor_latency_gate.py",
+))
+
+
+def validate_typescript_1675_exception(root, base_revision, head_revision):
+    require(base_revision == TYPESCRIPT_1675_BASE, "W5 TypeScript exception base mismatch")
+    require(git(root, "rev-parse", "HEAD") == head_revision, "W5 TypeScript exception checkout mismatch")
+    require(not subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--ignored"]),
+            "W5 TypeScript exception requires a clean checkout")
+    subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", TYPESCRIPT_1675_REVIEWED, head_revision], check=True)
+    diff = subprocess.check_output(["git", "-C", str(root), "diff", "--no-renames", "--name-only", "-z", TYPESCRIPT_1675_REVIEWED, head_revision])
+    require((set(diff.decode().split("\0")) - {""}) <= TYPESCRIPT_1675_SUCCESSOR_PATHS, "W5 TypeScript exception production inputs changed")
+    return TYPESCRIPT_1675_EXCEPTION
+
+
+def typescript_1675_approved_rows(fixtures, manifest_sha, base_revision, identities, failures):
+    require(base_revision == TYPESCRIPT_1675_BASE and manifest_sha == TYPESCRIPT_1675_MANIFEST and
+            len(fixtures) == 1 and fixtures[0]["language"] == "typescript" and fixtures[0]["sha256"] == TYPESCRIPT_1675_FIXTURE,
+            "W5 TypeScript exception fixture or base mismatch")
+    require(len(identities) == 1 and identities[0]["language"] == "typescript" and
+            all(identities[0][role].get(key) == value for role in ("base_oracle", "oracle")
+                for key, value in TYPESCRIPT_1675_ORACLE.items()), "W5 TypeScript exception oracle mismatch")
+    approved = []
+    observed = set()
+    for row in failures:
+        key = (row["workload"], row["step"], row["counter"], row["before"], row["after"])
+        if row["language"] == "typescript" and key in TYPESCRIPT_1675_ROWS:
+            approved.append(row)
+            observed.add(key)
+    require(observed == TYPESCRIPT_1675_ROWS and len(approved) == len(TYPESCRIPT_1675_ROWS), "W5 TypeScript approved rows changed")
+    return approved
+
+
 def validate_b7_undo_exception(root, base_revision, head_revision, decision_path):
     require(GO_1512_B7_OWNER_APPROVED, "W5 b7 exception has no owner approval")
     require(base_revision == GO_1512_B7_BASE, "W5 b7 exception base mismatch")
@@ -443,8 +515,9 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
                             applied.append({"name":exception, "row":row})
                         else:
                             failures.append(row)
-    if exception == PYTHON_1670_EXCEPTION:
-        approved = python_1670_approved_rows(fixtures, manifest_sha, base_revision, identities, failures)
+    if exception in (PYTHON_1670_EXCEPTION, TYPESCRIPT_1675_EXCEPTION):
+        rows_for = python_1670_approved_rows if exception == PYTHON_1670_EXCEPTION else typescript_1675_approved_rows
+        approved = rows_for(fixtures, manifest_sha, base_revision, identities, failures)
         applied.extend({"name": exception, "row": row} for row in approved)
         failures = [row for row in failures if row not in approved]
     else:
@@ -873,7 +946,8 @@ def verify_private_oracle(directory, inputs, expected):
     require((directory / "environment.before").read_text().strip() == expected["build_env"] and (directory / "environment.after").read_text().strip() == expected["build_env"], "compiler environment receipt changed")
 
 
-def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receipt=None, languages=None, approved_python_1670=False):
+def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receipt=None, languages=None, approved_python_1670=False,
+             approved_typescript_1675=False):
     root = root.resolve(); out = out.resolve()
     selected_fixtures(fixture_manifest(root / "cgo_harness/editor_latency/fixtures.json"), languages)  # reject unknown names before any work
     private_setting = os.environ.get("GTS_W5_PRIVATE_C_CACHE", "")
@@ -884,7 +958,7 @@ def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receip
     head_revision = git(root, "rev-parse", "HEAD")
     base_revision = git(root, "rev-parse", base_revision + "^{commit}")
     clean_revision(root, head_revision)
-    require(sum(bool(choice) for choice in (approved_receipt, approved_b7_receipt, approved_python_1670)) <= 1,
+    require(sum(bool(choice) for choice in (approved_receipt, approved_b7_receipt, approved_python_1670, approved_typescript_1675)) <= 1,
             "multiple W5 exceptions are forbidden")
     if languages is not None and "go" not in languages:
         # The owner-approved Go exceptions belong to the Go run; this run neither needs nor uses them.
@@ -894,6 +968,9 @@ def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receip
     if approved_python_1670:
         require(tuple(languages or ()) == ("python",), "W5 Python exception requires the Python-only run")
         exception = validate_python_1670_exception(root, base_revision, head_revision)
+    if approved_typescript_1675:
+        require(tuple(languages or ()) == ("typescript",), "W5 TypeScript exception requires the TypeScript-only run")
+        exception = validate_typescript_1675_exception(root, base_revision, head_revision)
     powershell_approval = select_powershell_approval(root, base_revision, head_revision) if private_setting and (languages is None or "powershell" in languages) else None
     check_work_exemptions_history(root, base_revision)
     require(not out.exists(), "campaign output already exists; do not overwrite receipts")
@@ -1062,6 +1139,7 @@ def main():
     run.add_argument("--approved-go-undo-receipt", type=Path)
     run.add_argument("--approved-b7-undo-receipt", type=Path)
     run.add_argument("--approved-python-ccore-1670", action="store_true")
+    run.add_argument("--approved-typescript-ccore-1675", action="store_true")
     run.add_argument("--languages", help="comma-separated languages to run, in manifest order; default is all")
     compare = sub.add_parser("compare")
     compare.add_argument("--output", type=Path, required=True)
@@ -1076,7 +1154,8 @@ def main():
             root = Path(__file__).resolve().parents[1]
             with campaign_lock():
                 campaign(root, args.base, args.output, args.approved_go_undo_receipt, args.approved_b7_undo_receipt, languages,
-                         approved_python_1670=args.approved_python_ccore_1670)
+                         approved_python_1670=args.approved_python_ccore_1670,
+                         approved_typescript_1675=args.approved_typescript_ccore_1675)
         else:
             result = compare_timing(args.output, args.manifest, args.base, args.head, languages=languages)
             require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")
