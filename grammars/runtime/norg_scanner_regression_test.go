@@ -100,10 +100,11 @@ func TestNorgStrongDelimiterMarkAndCheckpoint(t *testing.T) {
 	}
 }
 
-// The pinned scanner returns false at end of input before it reads any state
-// (tree-sitter-norg d89d95af src/scanner.cc:270-274), whatever the tag context
-// or the valid tokens. The changed tag, delimiter and detached-marker paths must
-// not produce a token or move the checkpoint on empty input.
+// At end of input the pinned scanner sets no result, clears the active
+// attached modifiers and returns false (tree-sitter-norg d89d95af
+// src/scanner.cc:267-274, reset_active_modifiers at 1306), whatever the tag
+// context or the valid tokens. The changed tag, delimiter and detached-marker
+// paths must not produce a token or move the rest of the checkpoint.
 func TestNorgEmptyInputProducesNoToken(t *testing.T) {
 	scanner := NorgExternalScanner{}
 	for _, tc := range []struct {
@@ -120,6 +121,7 @@ func TestNorgEmptyInputProducesNoToken(t *testing.T) {
 			defer scanner.Destroy(state)
 			state.tagContext = tc.in
 			state.lastToken = tc.last
+			state.activeModifiers = 0b101
 			valid := make([]bool, norgTokenCount)
 			for i := range valid {
 				valid[i] = true
@@ -129,6 +131,9 @@ func TestNorgEmptyInputProducesNoToken(t *testing.T) {
 			if got.pos != 0 || state.tagContext != tc.in || state.lastToken != tc.last || state.parsedChars != 0 {
 				t.Fatalf("after empty input: cursor/tag/last/parsed = %d/%v/%d/%d, want 0/%v/%d/0",
 					got.pos, state.tagContext, state.lastToken, state.parsedChars, tc.in, tc.last)
+			}
+			if state.activeModifiers != 0 {
+				t.Fatalf("after empty input: active modifiers = %#b, want 0 (C resets them)", state.activeModifiers)
 			}
 		})
 	}

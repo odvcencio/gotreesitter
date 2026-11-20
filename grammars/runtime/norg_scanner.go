@@ -678,7 +678,7 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool, sym
 		if lexer.Lookahead() == '@' {
 			norgAdvance(s, lexer)
 			// The token ends at @ even when the tag name is inspected
-			// (src/scanner.cc:316-351: one mark_end at 324, no later mark).
+			// (src/scanner.cc:316-352: one mark_end at 324, no later mark).
 			lexer.MarkEnd()
 
 			if norgToken(s, lexer, "end") && (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) {
@@ -1045,9 +1045,10 @@ func norgCheckDetached(s *norgState, lexer *gotreesitter.ExternalLexer, results 
 			return true
 		}
 
-		// C counts the marker before it tests the next character
-		// (src/scanner.cc:843-847), so a run that ends on a non-modifier
-		// still counts every marker consumed.
+		// C looks up the next character (src/scanner.cc:843-844), counts the
+		// marker it just consumed (845-846), and only then tests the lookup to
+		// decide whether to continue (847). So a run that ends on a
+		// non-modifier still counts every marker consumed.
 		i++
 		s.parsedChars++
 		if !norgIsDetachedMod(lexer.Lookahead()) {
