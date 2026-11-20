@@ -43,6 +43,9 @@ func testTypeScriptTokenInvariantLockedC(t *testing.T, initials []string, replac
 				language := grammars.TypescriptLanguage()
 				parser := gts.NewParser(language)
 				parser.SetAdmissionCandidateRoute(compact)
+				if compact {
+					parser.SetCompactCertificationTelemetry(true)
+				}
 				cParser := sitter.NewParser()
 				defer cParser.Close()
 				if err := cParser.SetLanguage(cLanguage); err != nil {

@@ -111,6 +111,10 @@ func TestTokenSourceRecoveryFrontierMatchesFreshC(t *testing.T) {
 			t.Run(fmt.Sprintf("candidate=%t/%s", candidate, mode), func(t *testing.T) {
 				p := gts.NewParser(lang)
 				p.SetAdmissionCandidateRoute(candidate)
+				if candidate {
+					// Keep the unchanged-input check on the same route as the token-source parse.
+					p.SetCompactCertificationTelemetry(true)
+				}
 				old, err := p.ParseWithTokenSourceFactory(before, factory)
 				if err != nil {
 					t.Fatal(err)
