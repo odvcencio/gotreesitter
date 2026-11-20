@@ -38,6 +38,7 @@ func TestTOMLUnfinishedPairWithScannerPadding(t *testing.T) {
 						}
 						p := gts.NewParser(lang)
 						p.SetAdmissionCandidateRoute(candidate)
+						p.SetCompactCertificationTelemetry(candidate)
 						cp := sitter.NewParser()
 						defer cp.Close()
 						if err := cp.SetLanguage(cl); err != nil {

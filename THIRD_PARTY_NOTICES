@@ -29,7 +29,7 @@ Summary
      1  MPL-2.0
      1  Unlicense
 
-12 embedded highlight query files, copied from 5 upstream repositories
+14 embedded highlight query files, copied from 8 upstream repositories
 (see "Imported highlight queries").
 
 Copyleft components (GPL-3.0 / MPL-2.0)
@@ -152,7 +152,7 @@ header comment that names its source file, commit and license and says what
 changed. A file marked (modified) differs from its upstream file beyond that
 header. The full text of each license follows its group.
 
-### Apache-2.0 (1 source)
+### Apache-2.0 (2 sources)
 
 nvim-treesitter -- https://github.com/nvim-treesitter/nvim-treesitter @ a2f694478be0
   (no copyright line stated upstream; repository owner: nvim-treesitter)
@@ -174,6 +174,15 @@ nvim-treesitter -- https://github.com/nvim-treesitter/nvim-treesitter @ a2f69447
     jsdoc.scm            <- runtime/queries/jsdoc/highlights.scm
     rst.scm              <- runtime/queries/rst/highlights.scm
     typst.scm            <- runtime/queries/typst/highlights.scm (modified)
+
+nvim-treesitter-kotlin-query -- https://github.com/nvim-treesitter/nvim-treesitter @ f8ab59861eed
+  (no copyright line stated upstream; repository owner: nvim-treesitter)
+  License file: https://github.com/nvim-treesitter/nvim-treesitter/blob/f8ab59861eed4a1c168505e3433462ed800f2bae/LICENSE
+  Note: The fwcd query header identifies this revision as its source. The pinned LICENSE has an unfilled
+    copyright appendix, the Kotlin query declares no copyright holder, and the root tree contains no
+    NOTICE file.
+  Files:
+    kotlin.scm           <- queries/kotlin/highlights.scm (modified)
 
 -- Apache-2.0 license text --
 
@@ -380,7 +389,13 @@ nvim-treesitter -- https://github.com/nvim-treesitter/nvim-treesitter @ a2f69447
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### MIT (4 sources)
+### MIT (6 sources)
+
+solidity -- https://github.com/JoranHonig/tree-sitter-solidity @ 048fe686cb1f
+  Copyright (c) 2020 Joran Honig
+  License file: https://github.com/JoranHonig/tree-sitter-solidity/blob/048fe686cb1fde267243739b8bdbec8fc3a55272/LICENSE
+  Files:
+    solidity.scm         <- queries/highlights.scm (modified)
 
 tree-sitter-html -- https://github.com/tree-sitter/tree-sitter-html @ 73a3947324f6
   Copyright (c) 2014 Max Brunsfeld
@@ -389,6 +404,14 @@ tree-sitter-html -- https://github.com/tree-sitter/tree-sitter-html @ 73a3947324
     query alone before nvim-treesitter's html_tags patterns were added.
   Files:
     html.scm             <- queries/highlights.scm (modified)
+
+tree-sitter-kotlin -- https://github.com/fwcd/tree-sitter-kotlin @ 1852ea17b7f6
+  Copyright (c) 2019 fwcd
+  License file: https://github.com/fwcd/tree-sitter-kotlin/blob/1852ea17b7f60fb3f9d84e0b1555d56b46b39fb1/LICENSE
+  Note: The pinned query credits nvim-treesitter’s Apache-2.0 Kotlin query. This MIT entry covers
+    fwcd’s contributions; the original query is listed separately under Apache-2.0.
+  Files:
+    kotlin.scm           <- queries/highlights.scm
 
 tree-sitter-sfapex -- https://github.com/aheber/tree-sitter-sfapex @ da568eee10ce
   Copyright (c) 2012 Anthony Heber
