@@ -1480,9 +1480,27 @@ func TestGraduationQueries(t *testing.T) {
 	gradResult(7, status, fmt.Sprintf("omitted=%s queries=%s load_errors=%d inputs=%d comparisons=%d differences=%d default_engine_differs_from_c=%d expected_from_c=%d match_comparisons=%d match_differences=%d default_engine_match_differences=%d", strings.Join(omitted, "+"), strings.Join(names, "+"), loadErrors, len(inputs), checked, diffs, viaLegacy, viaC, matchChecked, matchDiffs, defaultMatchDiffs), first)
 }
 
-// gradSized builds a source of about target bytes from the sample (a JSON
-// array of the sample for json; the sample repeated otherwise).
+// gradSized builds a source of about target bytes. JSON uses an array and
+// Protobuf uses a single header with several message declarations.
 func gradSized(t *testing.T, name string, target int) []byte {
+	if name == "proto" {
+		var b strings.Builder
+		b.WriteString("syntax = \"proto3\";\npackage graduation;\n\n")
+		for n := 0; b.Len() < target; n++ {
+			fmt.Fprintf(&b, `message WorkItem%d {
+  string id = 1;
+  repeated int64 values = 2;
+  map<string, string> labels = 3;
+  oneof result {
+    string text = 4;
+    bytes data = 5;
+  }
+}
+
+`, n)
+		}
+		return []byte(b.String())
+	}
 	sample, _ := gradSample(t, name)
 	if name == "json" {
 		var b strings.Builder
