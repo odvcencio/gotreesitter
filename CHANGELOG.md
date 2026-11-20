@@ -9,7 +9,7 @@ for tags and release notes while still in `0.x`.
 
 ### Highlights
 
-- 30 grammars now parse through `ccore`, the certified port of the C
+- 33 grammars now parse through `ccore`, the certified port of the C
   tree-sitter 0.27.1 parser, by default. Each passed the graduation gate
   against pinned C: the same fresh and edited trees, the same subtree reuse on a
   clean edit session, parse time at or below the existing engine at 32 KiB,
@@ -24,7 +24,7 @@ for tags and release notes while still in `0.x`.
 
 ### Upgrade notes
 
-- Trees for the 30 certified grammars can differ from v0.57.0 where v0.57.0
+- Trees for the 33 certified grammars can differ from v0.57.0 where v0.57.0
   differed from the C runtime, mostly on text with syntax errors. They now
   match C. To compare, or to keep the v0.57.0 engine for one parser, call
   `parser.SetAdmissionCandidateRoute(false)` before its first parse.
@@ -70,7 +70,7 @@ for tags and release notes while still in `0.x`.
 
 ### Changed
 
-- Serve 30 grammars through certified `ccore` by default. A grammar is served
+- Serve 33 grammars through certified `ccore` by default. A grammar is served
   there only when its exact blob is in `testdata/ccore_certificates.json`, and
   only for the parse modes its certificate covers. Included ranges, custom
   token sources and some diagnostic hooks still use the existing engine. Call
@@ -81,7 +81,8 @@ for tags and release notes while still in `0.x`.
   - Dockerfile [#1686](https://github.com/odvcencio/gotreesitter/pull/1686), Kotlin [#1695](https://github.com/odvcencio/gotreesitter/pull/1695), Erlang [#1693](https://github.com/odvcencio/gotreesitter/pull/1693), Elixir [#1671](https://github.com/odvcencio/gotreesitter/pull/1671), Cap'n Proto [#1697](https://github.com/odvcencio/gotreesitter/pull/1697);
   - Rust, Git Config, INI, Clojure, TOML, Zig, CSS and Solidity [#1676](https://github.com/odvcencio/gotreesitter/pull/1676);
   - R, Ruby, Todo.txt and Git Commit [#1699](https://github.com/odvcencio/gotreesitter/pull/1699), Go Modules [#1704](https://github.com/odvcencio/gotreesitter/pull/1704), EBNF [#1706](https://github.com/odvcencio/gotreesitter/pull/1706),
-    Objective-C [#1683](https://github.com/odvcencio/gotreesitter/pull/1683).
+    Objective-C [#1683](https://github.com/odvcencio/gotreesitter/pull/1683);
+  - Protobuf [#1688](https://github.com/odvcencio/gotreesitter/pull/1688), Groovy [#1691](https://github.com/odvcencio/gotreesitter/pull/1691) and C [#1677](https://github.com/odvcencio/gotreesitter/pull/1677).
 - Add the graduation gate for one grammar and validate it on clean edit
   sessions ([#1663](https://github.com/odvcencio/gotreesitter/pull/1663), [#1666](https://github.com/odvcencio/gotreesitter/pull/1666)).
 - Run the editor-latency CI gate as one job per language, which cuts a pull
@@ -114,6 +115,11 @@ for tags and release notes while still in `0.x`.
   harness tests import packages that the baseline lacks. Packages that the
   timing driver needs must still build
   ([#1595](https://github.com/odvcencio/gotreesitter/pull/1595)).
+- Norg: the scanner ends verbatim-tag and paragraph-delimiter tokens where
+  the pinned C scanner does and counts every detached marker it reads, so a
+  5,382-byte document that used to stop with an error at byte 381 now parses
+  to the end and matches C's tree
+  ([#1674](https://github.com/odvcencio/gotreesitter/pull/1674)).
 - Generated lexers: keep named string keywords as their own tokens
   ([#1642](https://github.com/odvcencio/gotreesitter/pull/1642)).
 - TypeScript: preserve member names and generic fields ([#1604](https://github.com/odvcencio/gotreesitter/pull/1604)).
