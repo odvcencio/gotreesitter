@@ -99,3 +99,37 @@ func TestNorgStrongDelimiterMarkAndCheckpoint(t *testing.T) {
 		})
 	}
 }
+
+// The pinned scanner returns false at end of input before it reads any state
+// (tree-sitter-norg d89d95af src/scanner.cc:270-274), whatever the tag context
+// or the valid tokens. The changed tag, delimiter and detached-marker paths must
+// not produce a token or move the checkpoint on empty input.
+func TestNorgEmptyInputProducesNoToken(t *testing.T) {
+	scanner := NorgExternalScanner{}
+	for _, tc := range []struct {
+		name string
+		in   norgTagType
+		last int
+	}{
+		{"no_tag", norgTagNone, norgWORD},
+		{"inside_verbatim_tag", norgTagInVerbatimTag, norgRANGED_VERBATIM_TAG},
+		{"on_verbatim_tag", norgTagOnVerbatimTag, norgRANGED_VERBATIM_TAG},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			state := scanner.Create().(*norgState)
+			defer scanner.Destroy(state)
+			state.tagContext = tc.in
+			state.lastToken = tc.last
+			valid := make([]bool, norgTokenCount)
+			for i := range valid {
+				valid[i] = true
+			}
+			got := portScan(scanner, state, "", valid)
+			portWantScan(t, tc.name, got, false, 0, 0)
+			if got.pos != 0 || state.tagContext != tc.in || state.lastToken != tc.last || state.parsedChars != 0 {
+				t.Fatalf("after empty input: cursor/tag/last/parsed = %d/%v/%d/%d, want 0/%v/%d/0",
+					got.pos, state.tagContext, state.lastToken, state.parsedChars, tc.in, tc.last)
+			}
+		})
+	}
+}

@@ -583,11 +583,17 @@ func norgSetResult(s *norgState, lexer *gotreesitter.ExternalLexer, tok int, sym
 	norgSetResultAtMark(s, lexer, tok, syms)
 }
 
+// norgSetResultAtMark sets the result without moving the token end, as the
+// pinned C scanner does when it assigns result_symbol after an earlier
+// mark_end (tree-sitter-norg d89d95af src/scanner.cc:324-351, 398-411).
 func norgSetResultAtMark(s *norgState, lexer *gotreesitter.ExternalLexer, tok int, syms *[norgTokenCount]gotreesitter.Symbol) {
 	lexer.SetResultSymbol(norgSym(tok, syms))
 	s.lastToken = tok
 }
 
+// norgToken matches str through advance(), so the checkpointed current and
+// previous characters record how far the lookahead reached, as C's token()
+// does (src/scanner.cc:793-803, advance at 786-791).
 func norgToken(s *norgState, lexer *gotreesitter.ExternalLexer, str string) bool {
 	for _, ch := range str {
 		if lexer.Lookahead() == ch {
@@ -671,7 +677,8 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool, sym
 		// Ranged verbatim tag: @something
 		if lexer.Lookahead() == '@' {
 			norgAdvance(s, lexer)
-			// The token ends at @ even when the tag name is inspected.
+			// The token ends at @ even when the tag name is inspected
+			// (src/scanner.cc:316-351: one mark_end at 324, no later mark).
 			lexer.MarkEnd()
 
 			if norgToken(s, lexer, "end") && (unicode.IsSpace(lexer.Lookahead()) || lexer.Lookahead() == 0) {
@@ -724,6 +731,8 @@ func norgScan(s *norgState, lexer *gotreesitter.ExternalLexer, valid []bool, sym
 					for lexer.Lookahead() == '=' {
 						norgAdvance(s, lexer)
 					}
+					// C marks the end before the newline and keeps that mark
+					// (src/scanner.cc:397-411).
 					if norgIsNewline(lexer.Lookahead()) {
 						lexer.MarkEnd()
 						norgAdvance(s, lexer)
@@ -1036,6 +1045,9 @@ func norgCheckDetached(s *norgState, lexer *gotreesitter.ExternalLexer, results 
 			return true
 		}
 
+		// C counts the marker before it tests the next character
+		// (src/scanner.cc:843-847), so a run that ends on a non-modifier
+		// still counts every marker consumed.
 		i++
 		s.parsedChars++
 		if !norgIsDetachedMod(lexer.Lookahead()) {
