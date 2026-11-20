@@ -708,6 +708,15 @@ fi"
   local source_overlay_block=""
   case "$grammar" in
     typescript|tsx)
+      local scanner_patch_block=""
+      if [[ "$grammar" == tsx ]]; then
+        scanner_patch_block="
+tsx_patch=/workspace/grammars/patches/tree-sitter-tsx-jsx-text-ampersand.patch
+if ! git -C \"\$typescript_repo\" apply --reverse --check \"\$tsx_patch\" >/dev/null 2>&1; then
+  git -C \"\$typescript_repo\" apply --check \"\$tsx_patch\"
+  git -C \"\$typescript_repo\" apply \"\$tsx_patch\"
+fi"
+      fi
       source_overlay_block="
 typescript_repo=/tmp/grammar_parity/typescript
 typescript_patch=/workspace/grammars/patches/tree-sitter-typescript-import-type.patch
@@ -715,6 +724,7 @@ if ! git -C \"\$typescript_repo\" apply --reverse --check \"\$typescript_patch\"
   git -C \"\$typescript_repo\" apply --check \"\$typescript_patch\"
   git -C \"\$typescript_repo\" apply \"\$typescript_patch\"
 fi
+$scanner_patch_block
 (
   cd \"\$typescript_repo\"
   npm ci

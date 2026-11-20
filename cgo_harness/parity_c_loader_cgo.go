@@ -361,11 +361,7 @@ func cOraclePatchIdentity(entry parityLockEntry) (string, error) {
 	if !ok {
 		return "none", nil
 	}
-	path := parityGrammarPatchPath(entry)
-	if path == "" {
-		return "", fmt.Errorf("missing grammar patch for %s", entry.Name)
-	}
-	fileHash, err := fileSHA256(path)
+	patches, err := parityGrammarPatches(spec, spec.File)
 	if err != nil {
 		return "", err
 	}
@@ -373,7 +369,7 @@ func cOraclePatchIdentity(entry parityLockEntry) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(append(append(config, 0), fileHash...))
+	sum := sha256.Sum256(append(append(config, 0), parityPatchDigests(patches)...))
 	return hex.EncodeToString(sum[:]), nil
 }
 
@@ -709,39 +705,61 @@ func parityCachedSOPath(cacheDir string, entry parityLockEntry) string {
 	return filepath.Join(cacheDir, paritySafeName(entry.Name)+"-"+hex.EncodeToString(sum[:])[:16]+".so")
 }
 
-func parityGrammarPatchPath(entry parityLockEntry) string {
-	spec, ok := grammarpatch.Lookup(entry.Name)
-	if !ok {
-		return ""
+type parityGrammarPatch struct {
+	name   string
+	path   string
+	digest string
+}
+
+func parityGrammarPatches(spec any, primary string) ([]parityGrammarPatch, error) {
+	names := []string{primary}
+	// The paired harness is built against the root modules of both revisions.
+	if multi, ok := spec.(interface{ PatchFiles() []string }); ok {
+		names = multi.PatchFiles()
 	}
-	for _, path := range []string{
-		filepath.Join("grammars", "patches", spec.File),
-		filepath.Join("..", "grammars", "patches", spec.File),
-	} {
-		if _, err := os.Stat(path); err == nil {
-			abs, err := filepath.Abs(path)
-			if err == nil {
-				return abs
-			}
-			return path
+	patches := make([]parityGrammarPatch, 0, len(names))
+	for _, name := range names {
+		rel := filepath.Join("grammars", "patches", name)
+		path := rel
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			path = filepath.Join("..", rel)
 		}
+		absolute, err := filepath.Abs(path)
+		if err != nil {
+			return nil, fmt.Errorf("find grammar patch %s: %w", name, err)
+		}
+		digest, err := fileSHA256(absolute)
+		if err != nil {
+			return nil, fmt.Errorf("read grammar patch %s: %w", name, err)
+		}
+		patches = append(patches, parityGrammarPatch{name: name, path: absolute, digest: digest})
 	}
-	return ""
+	return patches, nil
+}
+
+func parityPatchDigests(patches []parityGrammarPatch) string {
+	hashes := make([]string, len(patches))
+	for i, patch := range patches {
+		hashes[i] = patch.digest
+	}
+	return strings.Join(hashes, "\x00")
 }
 
 func parityGrammarPatchIdentity(entry parityLockEntry) string {
-	patchPath := parityGrammarPatchPath(entry)
-	if patchPath == "" {
-		if spec, ok := grammarpatch.Lookup(entry.Name); ok {
-			return "missing-" + spec.File
-		}
+	spec, ok := grammarpatch.Lookup(entry.Name)
+	if !ok {
 		return "none"
 	}
-	sum, err := fileSHA256(patchPath)
+	patches, err := parityGrammarPatches(spec, spec.File)
 	if err != nil {
-		return "unreadable:" + patchPath
+		return "unavailable-" + spec.File
 	}
-	return sum
+	hashes := parityPatchDigests(patches)
+	if len(patches) == 1 {
+		return hashes
+	}
+	sum := sha256.Sum256([]byte(hashes))
+	return hex.EncodeToString(sum[:])
 }
 
 func applyParityGrammarPatch(entry parityLockEntry, repoDir string) error {
@@ -749,19 +767,19 @@ func applyParityGrammarPatch(entry parityLockEntry, repoDir string) error {
 	if !hasPatch {
 		return nil
 	}
-	patchPath := parityGrammarPatchPath(entry)
-	if patchPath == "" {
-		return fmt.Errorf("missing grammar patch %s", spec.File)
+	patches, err := parityGrammarPatches(spec, spec.File)
+	if err != nil {
+		return err
 	}
-	for _, args := range [][]string{{"apply", "--check", patchPath}, {"apply", patchPath}} {
-		if err := runCommand(repoDir, "git", args...); err != nil {
-			return fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+	for _, patch := range patches {
+		for _, args := range [][]string{{"apply", "--check", patch.path}, {"apply", patch.path}} {
+			if err := runCommand(repoDir, "git", args...); err != nil {
+				return fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+			}
 		}
 	}
 	if spec.RegenerateParser {
-		if err := regenerateParityGrammar(repoDir, entry.Subdir, spec); err != nil {
-			return err
-		}
+		return regenerateParityGrammar(repoDir, entry.Subdir, spec)
 	}
 	return nil
 }

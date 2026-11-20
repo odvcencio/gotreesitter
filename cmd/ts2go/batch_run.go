@@ -163,15 +163,16 @@ func applyUpstreamGrammarPatch(entry ManifestEntry, repoDir, manifestDir string)
 	if !ok {
 		return nil
 	}
-	patchPath := upstreamGrammarPatchPath(entry.Name, manifestDir)
-	if _, err := os.Stat(patchPath); err != nil {
-		return fmt.Errorf("read patch %s: %w", patchPath, err)
-	}
-	for _, args := range [][]string{{"apply", "--check", patchPath}, {"apply", patchPath}} {
-		cmd := exec.Command("git", append([]string{"-C", repoDir}, args...)...)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("git %s: %v: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	for _, patchPath := range upstreamGrammarPatchPaths(entry.Name, manifestDir) {
+		if _, err := os.Stat(patchPath); err != nil {
+			return fmt.Errorf("read patch %s: %w", patchPath, err)
+		}
+		for _, args := range [][]string{{"apply", "--check", patchPath}, {"apply", patchPath}} {
+			cmd := exec.Command("git", append([]string{"-C", repoDir}, args...)...)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("git %s: %v: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+			}
 		}
 	}
 	if spec.RegenerateParser {
@@ -182,12 +183,16 @@ func applyUpstreamGrammarPatch(entry ManifestEntry, repoDir, manifestDir string)
 	return nil
 }
 
-func upstreamGrammarPatchPath(name, manifestDir string) string {
+func upstreamGrammarPatchPaths(name, manifestDir string) []string {
 	spec, ok := grammarpatch.Lookup(name)
 	if !ok {
-		return ""
+		return nil
 	}
-	return filepath.Join(manifestDir, "patches", spec.File)
+	files := spec.PatchFiles()
+	for i, name := range files {
+		files[i] = filepath.Join(manifestDir, "patches", name)
+	}
+	return files
 }
 
 type embeddedLoaderSpec struct {
@@ -393,7 +398,9 @@ func externalLexStatesSourceComment(entry ManifestEntry) string {
 	}
 	comment := strings.Join(parts, " ")
 	if spec, ok := grammarpatch.Lookup(entry.Name); ok {
-		comment += " + grammars/patches/" + spec.File
+		for _, name := range spec.PatchFiles() {
+			comment += " + grammars/patches/" + name
+		}
 	}
 	return comment
 }

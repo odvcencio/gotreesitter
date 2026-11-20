@@ -32,6 +32,13 @@ Regeneration fails if upstream changes the surrounding grammar shape. Remove
 each source change after an upstream release includes the same behavior. Then,
 refresh both TypeScript and TSX blobs and their parity fixtures.
 
+`tree-sitter-tsx-jsx-text-ampersand.patch` keeps bare ampersands inside
+JSX text, as TypeScript does. Complete HTML character references remain
+separate tokens. The patch applies after the shared TypeScript patch and
+changes only the TSX scanner. It preserves the Go runtime behavior covered
+by issue #1242. Remove it when the pinned upstream scanner accepts the
+same text and passes the entity boundary tests.
+
 `tree-sitter-yaml-multiline-quoted-scalars.patch` repairs quoted scalar
 continuation and termination after a line break. It applies to the YAML commit
 pinned in `../languages.lock`. The YAML Go DSL and Go scanner contain the same

@@ -3,12 +3,21 @@ package grammarpatch
 
 import "strings"
 
-// Spec describes one checked-in grammar source overlay.
+// Spec describes the checked-in source patches for a grammar.
 type Spec struct {
 	File             string
 	RegenerateParser bool
 	// GeneratorVersion uses the harness-provided CLI instead of a grammar-owned npm lockfile.
 	GeneratorVersion string
+	ExtraFile        string `json:",omitempty"` // applied after File
+}
+
+// PatchFiles returns patch filenames in application order.
+func (s Spec) PatchFiles() []string {
+	if s.ExtraFile == "" {
+		return []string{s.File}
+	}
+	return []string{s.File, s.ExtraFile}
 }
 
 // RegenerateForHarness keeps mixed-revision oracle harnesses compatible.
@@ -29,6 +38,7 @@ var byLanguage = map[string]Spec{
 	"tsx": {
 		File:             "tree-sitter-typescript-import-type.patch",
 		RegenerateParser: true,
+		ExtraFile:        "tree-sitter-tsx-jsx-text-ampersand.patch",
 	},
 	"yaml": {
 		File: "tree-sitter-yaml-multiline-quoted-scalars.patch",
