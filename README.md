@@ -27,16 +27,16 @@ Make, Kotlin and TypeScript parsing, and reduces YAML scanner work and compact
 allocation. See [CHANGELOG.md](CHANGELOG.md) for changes and upgrade notes,
 and [docs/v1-design.md](docs/v1-design.md) for engine requirements and validation gates.
 
-On `main`, not yet released: 33 grammars parse through `ccore`, a certified
-port of the C tree-sitter 0.27.1 parser, by default. They include C, JSON, Python,
-Rust, Ruby, Kotlin, Elixir, Erlang, CSS, TOML and Objective-C. Each passed a
-graduation gate against pinned C for fresh and edited trees, subtree reuse,
-time and memory. The other grammars keep the existing engine, and no call
-changes. To keep the existing engine for one parser:
+On `main`, not yet released: 33 grammars parse by default through `ccore`,
+the C-faithful parser core. They include C, JSON, Python, Rust, Ruby, Kotlin,
+Elixir, Erlang, CSS, TOML and Objective-C. Each passed a graduation gate: trees
+and subtree reuse equal pinned C, and time and memory at or below the existing
+engine. The other grammars keep the existing engine, and no call changes. To
+keep the existing engine for one parser:
 
 ```go
 parser := gotreesitter.NewParser(lang)
-parser.SetAdmissionCandidateRoute(false) // before the first parse
+parser.SetAdmissionCandidateRoute(false) // applies from the next parse
 ```
 
 The Unreleased section of the [changelog](CHANGELOG.md) lists every certified
