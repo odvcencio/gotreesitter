@@ -7,6 +7,8 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-11-20
+
 ### Highlights
 
 - 34 grammars now parse by default through `ccore`, the C-faithful parser
@@ -2564,7 +2566,8 @@ focused on current releases:
 - [v0.24.1 – v0.44.0](docs/changelog/archive-2.md)
 - [v0.1.0 – v0.24.0](docs/changelog/archive-3.md)
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.57.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.58.0...HEAD
+[0.58.0]: https://github.com/odvcencio/gotreesitter/compare/v0.57.0...v0.58.0
 [0.57.0]: https://github.com/odvcencio/gotreesitter/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/odvcencio/gotreesitter/compare/v0.55.1...v0.56.0
 [0.55.1]: https://github.com/odvcencio/gotreesitter/compare/v0.55.0...v0.55.1
