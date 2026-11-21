@@ -126,6 +126,20 @@ func gradCleanSource(t *testing.T, c *gradCtx, target int) ([]byte, string) {
 		}
 		return out
 	}
+	// A template input is written for the gate, so it comes first. It serves a
+	// grammar whose file is one document (one graph, one object), which
+	// cannot be scaled by repeating the whole file, and a grammar whose
+	// samples leave too few lines that take an edit: the input repeats a body
+	// between a fixed head and tail.
+	templatePath := filepath.Join("testdata", "graduation_inputs", c.name)
+	if raw, err := os.ReadFile(templatePath); err == nil {
+		if head, body, tail, ok := gradTemplateParts(raw); ok && try("dedicated_template", gradTemplate(head, body, tail, target)) {
+			r := gradSourceCache[key]
+			return r.text, r.name
+		}
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("graduation input %s: %v", templatePath, err)
+	}
 	sample, _ := gradSample(t, c.name)
 	if len(sample) > 0 && try("gradSized", gradSized(t, c.name, target)) {
 		r := gradSourceCache[key]
@@ -227,15 +241,8 @@ func gradCleanSource(t *testing.T, c *gradCtx, target int) ([]byte, string) {
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatalf("graduation input %s: %v", dedicatedPath, err)
 	}
-	if head, body, tail, ok := gradTemplateParts(dedicated); ok {
-		// A grammar whose file is one document (one graph, one object) cannot
-		// be scaled by repeating the whole file, so its input repeats a body
-		// between a fixed head and tail.
-		if try("dedicated_template", gradTemplate(head, body, tail, target)) {
-			r := gradSourceCache[key]
-			return r.text, r.name
-		}
-		dedicated = nil
+	if _, _, _, ok := gradTemplateParts(dedicated); ok {
+		dedicated = nil // tried first, above
 	}
 	for _, entry := range []struct {
 		name string
