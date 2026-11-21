@@ -1,0 +1,5 @@
+library example;
+
+@@repeat
+const C uint32 = 1;
+@@end

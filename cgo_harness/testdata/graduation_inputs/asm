@@ -1,0 +1,56 @@
+label0:
+    mov eax, 0
+    add eax, ebx
+    jmp label0
+label1:
+    mov eax, 1
+    add eax, ebx
+    jmp label1
+label2:
+    mov eax, 2
+    add eax, ebx
+    jmp label2
+label3:
+    mov eax, 3
+    add eax, ebx
+    jmp label3
+label4:
+    mov eax, 4
+    add eax, ebx
+    jmp label4
+label5:
+    mov eax, 5
+    add eax, ebx
+    jmp label5
+label6:
+    mov eax, 6
+    add eax, ebx
+    jmp label6
+label7:
+    mov eax, 7
+    add eax, ebx
+    jmp label7
+label8:
+    mov eax, 8
+    add eax, ebx
+    jmp label8
+label9:
+    mov eax, 9
+    add eax, ebx
+    jmp label9
+label10:
+    mov eax, 10
+    add eax, ebx
+    jmp label10
+label11:
+    mov eax, 11
+    add eax, ebx
+    jmp label11
+label12:
+    mov eax, 12
+    add eax, ebx
+    jmp label12
+label13:
+    mov eax, 13
+    add eax, ebx
+    jmp label13

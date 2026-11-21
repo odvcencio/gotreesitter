@@ -1,0 +1,6 @@
+{
+@@repeat
+  value = 1,
+@@end
+  last = 2
+}
