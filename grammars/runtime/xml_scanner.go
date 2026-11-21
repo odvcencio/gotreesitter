@@ -4,9 +4,9 @@ package grammarruntime
 
 import (
 	"encoding/binary"
-	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the XML grammar. This is the external index
@@ -140,6 +140,9 @@ func (XMLExternalScanner) Create() any {
 
 func (XMLExternalScanner) Destroy(payload any) {}
 
+// xmlSerializationBufferSize is TREE_SITTER_SERIALIZATION_BUFFER_SIZE.
+const xmlSerializationBufferSize = 1024
+
 func (XMLExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*xmlScannerState)
 	tagCount := len(s.tags)
@@ -164,8 +167,9 @@ func (XMLExternalScanner) Serialize(payload any, buf []byte) int {
 		if nameLen > 255 {
 			nameLen = 255
 		}
-		// Need 1 byte for length + nameLen bytes for the name
-		if size+1+nameLen > len(buf) {
+		// xml/src/scanner.c:220: the C scanner stops when size + 2 + name_length reaches
+		// TREE_SITTER_SERIALIZATION_BUFFER_SIZE (1024); it does not use the whole buffer.
+		if size+2+nameLen >= xmlSerializationBufferSize || size+1+nameLen > len(buf) {
 			break
 		}
 		buf[size] = byte(nameLen)
@@ -185,42 +189,54 @@ func (XMLExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*xmlScannerState)
 	s.tags = s.tags[:0]
 
+	// xml/src/scanner.c:243: only a zero length returns early. A shorter state is read as if it
+	// continued with zero bytes (the scanner reads past the length into a zeroed buffer).
 	if len(buf) == 0 {
 		return
 	}
-	if len(buf) < 8 {
-		return
+	at := func(i int) byte {
+		if i < len(buf) {
+			return buf[i]
+		}
+		return 0
 	}
-
-	serializedTagCount := binary.LittleEndian.Uint32(buf[0:4])
-	tagCount := binary.LittleEndian.Uint32(buf[4:8])
+	u32 := func(i int) uint32 {
+		return uint32(at(i)) | uint32(at(i+1))<<8 | uint32(at(i+2))<<16 | uint32(at(i+3))<<24
+	}
+	serializedTagCount := u32(0)
+	tagCount := u32(4)
 	pos := 8
 
+	// scanner.c:251
 	if tagCount == 0 {
 		return
 	}
-
-	// Pre-allocate
-	if cap(s.tags) < int(tagCount) {
-		s.tags = make([]string, 0, tagCount)
+	// The C scanner reserves tag_count * 16 bytes and then pushes every tag. A count above
+	// UINT16_MAX never comes from serialize (scanner.c:208); the C scanner runs out of memory or
+	// crashes on it, so there is no result to match. Stop here instead of allocating gigabytes.
+	if tagCount > 0xFFFF || serializedTagCount > 0xFFFF {
+		return
 	}
+	s.tags = make([]string, 0, tagCount)
 
 	var i uint32
 	for i = 0; i < serializedTagCount; i++ {
-		if pos >= len(buf) {
-			break
-		}
-		nameLen := int(buf[pos])
+		// scanner.c:258-263
+		nameLen := int(at(pos))
 		pos++
 		name := ""
-		if nameLen > 0 && pos+nameLen <= len(buf) {
-			name = string(buf[pos : pos+nameLen])
+		if nameLen > 0 {
+			b := make([]byte, nameLen)
+			for k := range b {
+				b[k] = at(pos + k)
+			}
+			name = string(b)
 			pos += nameLen
 		}
 		s.tags = append(s.tags, name)
 	}
 
-	// Pad with empty tags if the buffer ran out of room during serialization
+	// scanner.c:268-271: pad with empty tags up to tag_count.
 	for ; i < tagCount; i++ {
 		s.tags = append(s.tags, "")
 	}
@@ -308,14 +324,16 @@ func xmlInErrorRecovery(validSymbols []bool) bool {
 		xmlValid(validSymbols, xmlTokCData)
 }
 
-// isXMLNameStartChar matches iswalpha || '_' || ':'
+// isXMLNameStartChar is iswalpha || '_' || ':' (common/scanner.h:43-45). iswalpha in the C
+// locale is true for ASCII letters only.
 func isXMLNameStartChar(ch rune) bool {
-	return unicode.IsLetter(ch) || ch == '_' || ch == ':'
+	return cIsAlpha(ch) || ch == '_' || ch == ':'
 }
 
-// isXMLNameChar matches iswalnum || '_' || ':' || '.' || '-' || 0xB7
+// isXMLNameChar is iswalnum || '_' || ':' || '.' || '-' || 0xB7 (common/scanner.h:37-39).
+// iswalnum in the C locale is true for ASCII letters and digits only.
 func isXMLNameChar(ch rune) bool {
-	return unicode.IsLetter(ch) || unicode.IsDigit(ch) ||
+	return cIsAlnum(ch) ||
 		ch == '_' || ch == ':' || ch == '.' || ch == '-' || ch == 0xB7
 }
 
@@ -346,7 +364,8 @@ func xmlScanStartTagName(s *xmlScannerState, lexer *gotreesitter.ExternalLexer, 
 	if len(name) == 0 {
 		return false
 	}
-	lexer.MarkEnd()
+	// scanner.c:38: no mark_end here; the token ends where the cursor is, or at an earlier
+	// mark_end of scan_char_data (scanner.c:89).
 	lexer.SetResultSymbol(startTagNameSym)
 	s.tags = append(s.tags, name)
 	return true
@@ -357,8 +376,7 @@ func xmlScanEndTagName(s *xmlScannerState, lexer *gotreesitter.ExternalLexer, en
 	if len(name) == 0 {
 		return false
 	}
-	lexer.MarkEnd()
-
+	// scanner.c:50-58: no mark_end here either.
 	if len(s.tags) > 0 && s.tags[len(s.tags)-1] == name {
 		s.tags = s.tags[:len(s.tags)-1]
 		lexer.SetResultSymbol(endTagNameSym)
@@ -376,7 +394,7 @@ func xmlScanSelfClosingTagDelimiter(s *xmlScannerState, lexer *gotreesitter.Exte
 		return false
 	}
 	lexer.Advance(false)
-	lexer.MarkEnd()
+	// scanner.c:61-69: no mark_end here.
 	if len(s.tags) > 0 {
 		s.tags = s.tags[:len(s.tags)-1]
 		lexer.SetResultSymbol(selfClosingTagSym)
@@ -388,10 +406,15 @@ func xmlScanSelfClosingTagDelimiter(s *xmlScannerState, lexer *gotreesitter.Exte
 // CharData, CData, Comment, PI scanning
 // ---------------------------------------------------------------------------
 
+func xmlInCharData(lexer *gotreesitter.ExternalLexer) bool {
+	return !scanmode.AtEOF(lexer) && lexer.Lookahead() != '<' && lexer.Lookahead() != '&'
+}
+
 func xmlScanCharData(lexer *gotreesitter.ExternalLexer, charDataSym gotreesitter.Symbol) bool {
 	advancedOnce := false
 
-	for lexer.Lookahead() != 0 && lexer.Lookahead() != '<' && lexer.Lookahead() != '&' {
+	// xml/src/scanner.c:79-81 in_char_data tests lexer->eof, so a NUL byte does not stop it.
+	for xmlInCharData(lexer) {
 		if lexer.Lookahead() == ']' {
 			lexer.MarkEnd()
 			lexer.Advance(false)
@@ -408,7 +431,7 @@ func xmlScanCharData(lexer *gotreesitter.ExternalLexer, charDataSym gotreesitter
 		}
 		advancedOnce = true
 		// Re-check in_char_data condition before advancing
-		if lexer.Lookahead() != 0 && lexer.Lookahead() != '<' && lexer.Lookahead() != '&' {
+		if xmlInCharData(lexer) {
 			lexer.Advance(false)
 		}
 	}
@@ -424,7 +447,8 @@ func xmlScanCharData(lexer *gotreesitter.ExternalLexer, charDataSym gotreesitter
 func xmlScanCData(lexer *gotreesitter.ExternalLexer, cDataSym gotreesitter.Symbol) bool {
 	advancedOnce := false
 
-	for lexer.Lookahead() != 0 {
+	// scanner.c:120 tests lexer->eof, not a NUL byte.
+	for !scanmode.AtEOF(lexer) {
 		if lexer.Lookahead() == ']' {
 			lexer.MarkEnd()
 			lexer.Advance(false)
@@ -454,7 +478,8 @@ func xmlScanComment(lexer *gotreesitter.ExternalLexer, commentSym gotreesitter.S
 	}
 	lexer.Advance(false)
 
-	for lexer.Lookahead() != 0 {
+	// common/scanner.h:135 tests lexer->eof, not a NUL byte.
+	for !scanmode.AtEOF(lexer) {
 		if lexer.Lookahead() == '-' {
 			lexer.Advance(false)
 			if lexer.Lookahead() == '-' {
@@ -537,7 +562,8 @@ func xmlCheckWord(lexer *gotreesitter.ExternalLexer, word string) bool {
 }
 
 func xmlScanPIContent(lexer *gotreesitter.ExternalLexer, piContentSym gotreesitter.Symbol) bool {
-	for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' && lexer.Lookahead() != '?' {
+	// common/scanner.h:109 tests lexer->eof, not a NUL byte.
+	for !scanmode.AtEOF(lexer) && lexer.Lookahead() != '\n' && lexer.Lookahead() != '?' {
 		lexer.Advance(false)
 	}
 
