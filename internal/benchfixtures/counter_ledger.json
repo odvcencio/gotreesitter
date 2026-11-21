@@ -8393,7 +8393,7 @@
           "counters": {
             "tokens": 187,
             "new_nodes": 643,
-            "max_live_versions": 1,
+            "max_live_versions": 0,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,
@@ -8546,7 +8546,7 @@
           "counters": {
             "tokens": 517,
             "new_nodes": 1291,
-            "max_live_versions": 1,
+            "max_live_versions": 0,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,
@@ -12718,7 +12718,7 @@
           "counters": {
             "tokens": 401,
             "new_nodes": 731,
-            "max_live_versions": 1,
+            "max_live_versions": 0,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,
