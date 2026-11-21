@@ -77,6 +77,8 @@ func TestMesonStructuralAcceptanceElectionFailsClosedWithoutArtifactCapability(t
 	gts.ResetAdmissionCandidateCountersForTest()
 	parser := gts.NewParser(&language)
 	parser.SetAdmissionCandidateRoute(true)
+	// Keep the request off the certified core, which serves Meson by default.
+	parser.SetCompactCertificationTelemetry(true)
 	tree, err := parser.Parse(source)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
