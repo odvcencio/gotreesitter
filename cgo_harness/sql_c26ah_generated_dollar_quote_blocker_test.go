@@ -48,7 +48,7 @@ func TestSQLC26ahGeneratedDollarQuoteBlocker(t *testing.T) {
 	if !ok {
 		t.Fatal("generated SQL scanner has no checkpoint identity provider")
 	}
-	expectedScanner := decodeSQLIdentity(t, "7e493677411a501e6d8592c6b9cc158e21a1bfed44c72ca914e2d81e4e34861d")
+	expectedScanner := decodeSQLIdentity(t, "6be5f16fe226845e0bf490a42c33bcd00294b029dcc1160e676bb9fa7ae7901b")
 	expectedGrammar := decodeSQLIdentity(t, "4ffb2a6d09e2000126f10101db9028d28e0752ac3e4f83e401f045c3b028ca7c")
 	identity, ok := provider.CheckpointIdentity()
 	if !ok || !bytes.Equal(identity.Scanner, expectedScanner) || !bytes.Equal(identity.Grammar, expectedGrammar) || !bytes.Equal(identity.Grammar, grammarHash[:]) {
