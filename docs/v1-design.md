@@ -78,7 +78,11 @@ Require all of these results on the candidate commit:
    For reuse counts, the C comparison keeps its pre-edit tree on a shortcut and starts fresh when the shipped parser does.
    Replay the clean edit session with shortcuts disabled and require exact reuse counts against C reparsing each step.
 4. Record zero corpus declines, or give every decline an artifact deny entry and a reopening condition.
-5. Lex the tokens that C lexes on every fixture. Keep new nodes and maximum live versions at or below legacy.
+5. Compare the work counters with pinned C on the same history, on every fixture and its pinned edit:
+   lex exactly the tokens that C lexes, and process exactly C's maximum version width (the count at C's `process version` event).
+   Keep new heap records at most 1.10 times C's subtree creations plus 16 (C's heap leaves, internal nodes and clones made during the parse, counted by a test-only instrumented build of the pinned oracle).
+   This overhead was declared on 21 Nov 2026, before any grammar was measured against it, and does not change to fit a result.
+   Report the default engine's tokens, new nodes and maximum live versions alongside; they do not gate.
    A same-length edit that returns the old tree may lex fewer tokens than C, and at least one.
 6. Keep the 20-seed median time at or below legacy at 32 KiB, 137 KiB, and 1 MiB.
 7. Keep peak resident set size (RSS) at 1 MiB at or below legacy.
