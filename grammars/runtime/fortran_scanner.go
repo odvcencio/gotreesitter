@@ -4,9 +4,9 @@ package grammarruntime
 
 import (
 	"encoding/binary"
-	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the Fortran grammar. This is the external
@@ -88,6 +88,16 @@ var ftnExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(ftnExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) on the
+	// safe-state runs: the pinned C scanner itself fails on forged saved states; no mode.
+	scanmode.RegisterScanner(FortranExternalScanner{}, (*ftnState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(FortranExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(FortranExternalScanner), right.(FortranExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // ftnMaxLabelStack is the maximum nesting depth for labeled DO loops.
@@ -210,15 +220,32 @@ func (FortranExternalScanner) Serialize(payload any, buf []byte) int {
 	return size
 }
 
+// Deserialize is src/scanner.c:700-739. The C code never looks at the length except for the
+// empty state: it reads the whole layout from the buffer, so a state that is too short is read
+// as if it continued with zero bytes (the scanner's saved-state buffer is zero filled), and
+// bytes past the layout are ignored. The old data in labels and counts stays where the state
+// does not reach it, as in C.
 func (FortranExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*ftnState)
-	s.inLineContinuation = false
-	s.depth = 0
-	s.pendingLabelVirtual = 0
-	s.isPendingEosVirtual = false
 
+	// :705-711
 	if len(buf) == 0 {
+		s.inLineContinuation = false
+		s.depth = 0
+		s.pendingLabelVirtual = 0
+		s.isPendingEosVirtual = false
 		return
+	}
+
+	// u32 reads four little-endian bytes at off, zero past the end of the saved state.
+	u32 := func(off int) uint32 {
+		var w [4]byte
+		for i := range w {
+			if off+i < len(buf) {
+				w[i] = buf[off+i]
+			}
+		}
+		return binary.LittleEndian.Uint32(w[:])
 	}
 
 	size := 0
@@ -226,10 +253,13 @@ func (FortranExternalScanner) Deserialize(payload any, buf []byte) {
 	s.inLineContinuation = buf[size] != 0
 	size++
 
-	s.depth = int32(binary.LittleEndian.Uint32(buf[size:]))
+	s.depth = int32(u32(size))
 	size += 4
 
-	if s.depth > ftnMaxLabelStack {
+	// :721-726. A depth below 0 passes this test in C and then crashes in memcpy (the size
+	// is a huge unsigned number); no result is defined for it, so it is treated like a
+	// depth above the limit.
+	if s.depth > ftnMaxLabelStack || s.depth < 0 {
 		s.depth = 0
 		s.pendingLabelVirtual = 0
 		s.isPendingEosVirtual = false
@@ -237,19 +267,23 @@ func (FortranExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 
 	for i := int32(0); i < s.depth; i++ {
-		s.labels[i] = int32(binary.LittleEndian.Uint32(buf[size:]))
+		s.labels[i] = int32(u32(size))
 		size += 4
 	}
 
 	for i := int32(0); i < s.depth; i++ {
-		s.counts[i] = int32(binary.LittleEndian.Uint32(buf[size:]))
+		s.counts[i] = int32(u32(size))
 		size += 4
 	}
 
-	s.pendingLabelVirtual = int32(binary.LittleEndian.Uint32(buf[size:]))
+	s.pendingLabelVirtual = int32(u32(size))
 	size += 4
 
-	s.isPendingEosVirtual = buf[size] != 0
+	if size < len(buf) {
+		s.isPendingEosVirtual = buf[size] != 0
+	} else {
+		s.isPendingEosVirtual = false
+	}
 }
 
 func (sc FortranExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
@@ -288,51 +322,65 @@ func ftnSkip(lexer *gotreesitter.ExternalLexer) {
 	lexer.Advance(true)
 }
 
-func ftnIsIdentifierChar(ch rune) bool {
-	return unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_'
+// ftnLA is lexer->lookahead as C sees it: -1 for a byte that is not valid UTF-8.
+func ftnLA(lexer *gotreesitter.ExternalLexer) int32 { return scanmode.CLookahead(lexer) }
+
+// ftnChar is the conversion of lexer->lookahead to a plain char, which C does where a
+// function takes a char (src/scanner.c:66, :68, :82 and the char variables on :364, :383,
+// :449): the low eight bits, as a signed number.
+func ftnChar(la int32) int8 { return int8(la) }
+
+// ftnIsIdentifierChar is is_identifier_char (src/scanner.c:66): the argument is a char, and
+// iswalnum of a negative char is false in the C locale.
+func ftnIsIdentifierChar(la int32) bool {
+	c := ftnChar(la)
+	return c >= 0 && (cIsAlnum(rune(c)) || c == '_')
 }
 
-func ftnIsBozSentinel(ch rune) bool {
-	switch ch {
+// ftnIsBozSentinel is is_boz_sentinel (:68-80); its argument is a char.
+func ftnIsBozSentinel(la int32) bool {
+	switch ftnChar(la) {
 	case 'B', 'b', 'O', 'o', 'Z', 'z':
 		return true
 	}
 	return false
 }
 
-func ftnIsExpSentinel(ch rune) bool {
-	switch ch {
+// ftnIsExpSentinel is is_exp_sentinel (:82-94); its argument is a char.
+func ftnIsExpSentinel(la int32) bool {
+	switch ftnChar(la) {
 	case 'D', 'd', 'E', 'e', 'Q', 'q':
 		return true
 	}
 	return false
 }
 
-func ftnIsBlank(ch rune) bool {
-	// iswblank: horizontal whitespace (space and tab), but not newlines
-	return ch == ' ' || ch == '\t'
+// ftnIsBlank is iswblank in the C locale: space and tab.
+func ftnIsBlank(la int32) bool {
+	return la == ' ' || la == '\t'
 }
 
-func ftnIsHexDigit(ch rune) bool {
-	return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
+// ftnIsHexDigit is iswxdigit in the C locale.
+func ftnIsHexDigit(la int32) bool {
+	return (la >= '0' && la <= '9') || (la >= 'a' && la <= 'f') || (la >= 'A' && la <= 'F')
 }
 
 // ---------------------------------------------------------------------------
 // Skip literal continuation sequence: handles '&' ... '&' across lines
-// inside a literal token.
+// inside a literal token. (src/scanner.c:97-112)
 // ---------------------------------------------------------------------------
 
 func ftnSkipLiteralContinuationSequence(lexer *gotreesitter.ExternalLexer) bool {
-	if lexer.Lookahead() != '&' {
+	if ftnLA(lexer) != '&' {
 		return true
 	}
 
 	ftnAdvance(lexer)
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(ftnLA(lexer)) {
 		ftnAdvance(lexer)
 	}
 	// second '&' technically required to continue the literal
-	if lexer.Lookahead() == '&' {
+	if ftnLA(lexer) == '&' {
 		ftnAdvance(lexer)
 		return true
 	}
@@ -341,10 +389,11 @@ func ftnSkipLiteralContinuationSequence(lexer *gotreesitter.ExternalLexer) bool 
 
 // ---------------------------------------------------------------------------
 // Scan integer digits, optionally computing value and digit count.
+// (src/scanner.c:115-150; iswdigit is ASCII only in the C locale)
 // ---------------------------------------------------------------------------
 
 func ftnScanInt(lexer *gotreesitter.ExternalLexer, value *int32, count *int) bool {
-	if !unicode.IsDigit(lexer.Lookahead()) {
+	if !cIsDigit(ftnLA(lexer)) {
 		return false
 	}
 
@@ -356,16 +405,16 @@ func ftnScanInt(lexer *gotreesitter.ExternalLexer, value *int32, count *int) boo
 	// outer loop for handling line continuations
 	for {
 		// consume digits
-		for unicode.IsDigit(lexer.Lookahead()) {
+		for cIsDigit(ftnLA(lexer)) {
 			if value != nil && count != nil && *count < 7 {
-				*value = *value*10 + int32(lexer.Lookahead()-'0')
+				*value = *value*10 + int32(ftnLA(lexer)-'0')
 				*count++
 			}
 			ftnAdvance(lexer)
 		}
 		lexer.MarkEnd()
 
-		if lexer.Lookahead() == '&' {
+		if ftnLA(lexer) == '&' {
 			if ftnSkipLiteralContinuationSequence(lexer) {
 				continue
 			}
@@ -379,6 +428,7 @@ func ftnScanInt(lexer *gotreesitter.ExternalLexer, value *int32, count *int) boo
 
 // ---------------------------------------------------------------------------
 // Scan number: integer or float (1XXX, 1.0XXX, 0.1XXX, .1X, etc.)
+// (src/scanner.c:153-200)
 // ---------------------------------------------------------------------------
 
 func ftnScanNumber(lexer *gotreesitter.ExternalLexer) ftnNumberResult {
@@ -387,12 +437,10 @@ func ftnScanNumber(lexer *gotreesitter.ExternalLexer) ftnNumberResult {
 	// collect initial digits and compute value
 	digits := ftnScanInt(lexer, &result.value, &result.digitCount)
 
-	if lexer.Lookahead() == '.' {
+	if ftnLA(lexer) == '.' {
 		ftnAdvance(lexer)
-		// exclude decimal if followed by any letter other than d/D and e/E
-		// if no leading digits are present and a non-digit follows
-		// the decimal it's a nonmatch.
-		if digits && !unicode.IsLetter(lexer.Lookahead()) && !unicode.IsDigit(lexer.Lookahead()) {
+		// :168 iswalnum is ASCII only in the C locale
+		if digits && !cIsAlnum(ftnLA(lexer)) {
 			lexer.MarkEnd() // add decimal to token
 		}
 		result.typ = ftnNumberFloat
@@ -405,9 +453,9 @@ func ftnScanNumber(lexer *gotreesitter.ExternalLexer) ftnNumberResult {
 
 	if digits {
 		// process exp notation
-		if ftnIsExpSentinel(lexer.Lookahead()) {
+		if ftnIsExpSentinel(ftnLA(lexer)) {
 			ftnAdvance(lexer)
-			if lexer.Lookahead() == '+' || lexer.Lookahead() == '-' {
+			if ftnLA(lexer) == '+' || ftnLA(lexer) == '-' {
 				ftnAdvance(lexer)
 				lexer.MarkEnd()
 			}
@@ -426,31 +474,31 @@ func ftnScanNumber(lexer *gotreesitter.ExternalLexer) ftnNumberResult {
 }
 
 // ---------------------------------------------------------------------------
-// Scan BOZ literal (binary/octal/hex)
+// Scan BOZ literal (binary/octal/hex) (src/scanner.c:202-230)
 // ---------------------------------------------------------------------------
 
 func ftnScanBoz(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	bozPrefix := false
-	var quote rune
+	var quote int32
 
-	if ftnIsBozSentinel(lexer.Lookahead()) {
+	if ftnIsBozSentinel(ftnLA(lexer)) {
 		ftnAdvance(lexer)
 		bozPrefix = true
 	}
-	if lexer.Lookahead() == '\'' || lexer.Lookahead() == '"' {
-		quote = lexer.Lookahead()
+	if ftnLA(lexer) == '\'' || ftnLA(lexer) == '"' {
+		quote = ftnLA(lexer)
 		ftnAdvance(lexer)
-		if !ftnIsHexDigit(lexer.Lookahead()) {
+		if !ftnIsHexDigit(ftnLA(lexer)) {
 			return false
 		}
-		for ftnIsHexDigit(lexer.Lookahead()) {
+		for ftnIsHexDigit(ftnLA(lexer)) {
 			ftnAdvance(lexer) // store all hex digits
 		}
-		if lexer.Lookahead() != quote {
+		if ftnLA(lexer) != quote {
 			return false
 		}
 		ftnAdvance(lexer) // store enclosing quote
-		if !bozPrefix && !ftnIsBozSentinel(lexer.Lookahead()) {
+		if !bozPrefix && !ftnIsBozSentinel(ftnLA(lexer)) {
 			return false // no boz suffix or prefix provided
 		}
 		lexer.MarkEnd()
@@ -461,14 +509,14 @@ func ftnScanBoz(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesi
 }
 
 // ---------------------------------------------------------------------------
-// Scan Hollerith constant (nH<text>)
+// Scan Hollerith constant (nH<text>) (src/scanner.c:233-276)
 // ---------------------------------------------------------------------------
 
 func ftnScanHollerithConstant(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	// Read integer prefix 'n'
 	var length uint32
-	for unicode.IsDigit(lexer.Lookahead()) {
-		newLength := length*10 + uint32(lexer.Lookahead()-'0')
+	for cIsDigit(ftnLA(lexer)) {
+		newLength := length*10 + uint32(ftnLA(lexer)-'0')
 		// overflow check
 		if newLength < length {
 			return false
@@ -487,14 +535,15 @@ func ftnScanHollerithConstant(lexer *gotreesitter.ExternalLexer, syms *[ftnToken
 	}
 
 	// Expect 'H' or 'h'
-	if lexer.Lookahead() != 'H' && lexer.Lookahead() != 'h' {
+	if ftnLA(lexer) != 'H' && ftnLA(lexer) != 'h' {
 		return false
 	}
 	ftnAdvance(lexer)
 
 	// Read exactly 'n' characters
 	for i := uint32(0); i < length; i++ {
-		if lexer.Lookahead() == 0 {
+		// :265 a NUL byte or the end of input
+		if ftnLA(lexer) == 0 || scanmode.AtEOF(lexer) {
 			return false
 		}
 		if !ftnSkipLiteralContinuationSequence(lexer) {
@@ -502,20 +551,21 @@ func ftnScanHollerithConstant(lexer *gotreesitter.ExternalLexer, syms *[ftnToken
 		}
 		ftnAdvance(lexer)
 	}
-	lexer.MarkEnd()
 	lexer.SetResultSymbol(syms[ftnTokHollerithConstant])
+	lexer.MarkEnd()
 	return true
 }
 
 // ---------------------------------------------------------------------------
-// Scan end-of-statement
+// Scan end-of-statement (src/scanner.c:278-321). C never calls mark_end here
+// or in the other tokens that only move over a few characters, so the token
+// ends where the cursor is.
 // ---------------------------------------------------------------------------
 
 func ftnScanEndOfStatement(s *ftnState, lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
-	// EOF always ends the statement
-	if lexer.Lookahead() == 0 {
+	// EOF always ends the statement (:290; a NUL byte is not the end)
+	if scanmode.AtEOF(lexer) {
 		ftnSkip(lexer)
-		lexer.MarkEnd()
 		lexer.SetResultSymbol(syms[ftnTokEndOfStatement])
 		return true
 	}
@@ -527,37 +577,35 @@ func ftnScanEndOfStatement(s *ftnState, lexer *gotreesitter.ExternalLexer, syms 
 
 	// Consume end of line characters: '\n', '\r\n', '\r'
 	// Handle comments here too, but don't consume them
-	if lexer.Lookahead() == '\r' {
+	if ftnLA(lexer) == '\r' {
 		ftnSkip(lexer)
-		if lexer.Lookahead() == '\n' {
+		if ftnLA(lexer) == '\n' {
 			ftnSkip(lexer)
 		}
 	} else {
-		if lexer.Lookahead() == '\n' {
+		if ftnLA(lexer) == '\n' {
 			ftnSkip(lexer)
-		} else if lexer.Lookahead() != '!' {
+		} else if ftnLA(lexer) != '!' {
 			// Not a newline and not a comment, so not an end-of-statement
 			return false
 		}
 	}
 
-	lexer.MarkEnd()
 	lexer.SetResultSymbol(syms[ftnTokEndOfStatement])
 	return true
 }
 
 // ---------------------------------------------------------------------------
-// Line continuation start/end
+// Line continuation start/end (src/scanner.c:323-352)
 // ---------------------------------------------------------------------------
 
 func ftnScanStartLineContinuation(s *ftnState, lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
-	s.inLineContinuation = (lexer.Lookahead() == '&')
+	s.inLineContinuation = (ftnLA(lexer) == '&')
 	if !s.inLineContinuation {
 		return false
 	}
 	// Consume the '&'
 	ftnAdvance(lexer)
-	lexer.MarkEnd()
 	lexer.SetResultSymbol(syms[ftnTokLineContinuation])
 	return true
 }
@@ -567,73 +615,78 @@ func ftnScanEndLineContinuation(s *ftnState, lexer *gotreesitter.ExternalLexer, 
 		return false
 	}
 	// Everything except comments ends a line continuation
-	if lexer.Lookahead() == '!' {
+	if ftnLA(lexer) == '!' {
 		return false
 	}
 
 	s.inLineContinuation = false
 
 	// Consume any leading line continuation markers
-	if lexer.Lookahead() == '&' {
+	if ftnLA(lexer) == '&' {
 		ftnAdvance(lexer)
 	}
-	lexer.MarkEnd()
 	lexer.SetResultSymbol(syms[ftnTokLineContinuation])
 	return true
 }
 
 // ---------------------------------------------------------------------------
 // String literal kind (identifier prefix for typed strings, e.g. c_"hello")
+// (src/scanner.c:354-380)
 // ---------------------------------------------------------------------------
 
 func ftnScanStringLiteralKind(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
-	if !unicode.IsLetter(lexer.Lookahead()) {
+	if !cIsAlpha(ftnLA(lexer)) {
 		return false
 	}
 
-	var currentChar rune
+	lexer.SetResultSymbol(syms[ftnTokStringLiteralKind])
 
-	for ftnIsIdentifierChar(lexer.Lookahead()) && lexer.Lookahead() != 0 {
-		currentChar = lexer.Lookahead()
+	// current_char is a char: the low byte of the lookahead
+	var currentChar int8
+
+	for ftnIsIdentifierChar(ftnLA(lexer)) && !scanmode.AtEOF(lexer) {
+		currentChar = ftnChar(ftnLA(lexer))
 		// Don't capture the trailing underscore as part of the kind identifier
-		if lexer.Lookahead() == '_' {
+		if ftnLA(lexer) == '_' {
 			lexer.MarkEnd()
 		}
 		ftnAdvance(lexer)
 	}
 
-	if currentChar != '_' || (lexer.Lookahead() != '"' && lexer.Lookahead() != '\'') {
+	if currentChar != '_' || (ftnLA(lexer) != '"' && ftnLA(lexer) != '\'') {
 		return false
 	}
 
-	lexer.SetResultSymbol(syms[ftnTokStringLiteralKind])
 	return true
 }
 
 // ---------------------------------------------------------------------------
-// String literal
+// String literal (src/scanner.c:382-445)
 // ---------------------------------------------------------------------------
 
 func ftnScanStringLiteral(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
-	openingQuote := lexer.Lookahead()
+	// :383 opening_quote is a char: only the low byte of the lookahead is tested
+	openingQuote := ftnChar(ftnLA(lexer))
 
 	if openingQuote != '"' && openingQuote != '\'' {
 		return false
 	}
 
 	ftnAdvance(lexer)
+	lexer.SetResultSymbol(syms[ftnTokStringLiteral])
 
-	for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
+	// :392 a NUL byte is content; only the end of input stops the loop with '\n'
+	for ftnLA(lexer) != '\n' && !scanmode.AtEOF(lexer) {
 		// Handle line continuations inside string literals
-		if lexer.Lookahead() == '&' {
+		if ftnLA(lexer) == '&' {
 			ftnAdvance(lexer)
 			// Consume blanks up to the end of the line or non-blank
-			for ftnIsBlank(lexer.Lookahead()) {
+			for ftnIsBlank(ftnLA(lexer)) {
 				ftnAdvance(lexer)
 			}
 			// If we hit the end of the line, consume all whitespace including new lines
-			if lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' {
-				for unicode.IsSpace(lexer.Lookahead()) {
+			if ftnLA(lexer) == '\n' || ftnLA(lexer) == '\r' {
+				for cIsSpace(ftnLA(lexer)) {
 					ftnAdvance(lexer)
 				}
 			}
@@ -642,14 +695,13 @@ func ftnScanStringLiteral(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCoun
 
 		// If we hit the same kind of quote that opened this literal,
 		// check to see if there's two in a row (escaped quote)
-		if lexer.Lookahead() == openingQuote {
+		if ftnLA(lexer) == int32(openingQuote) {
 			ftnAdvance(lexer)
 			// It was just one quote, so we've successfully reached the end of the literal.
 			// Also check that an escaped quote isn't split in half by a line continuation.
 			lexer.MarkEnd()
 			ftnSkipLiteralContinuationSequence(lexer)
-			if lexer.Lookahead() != openingQuote {
-				lexer.SetResultSymbol(syms[ftnTokStringLiteral])
+			if ftnLA(lexer) != int32(openingQuote) {
 				return true
 			}
 		}
@@ -661,14 +713,13 @@ func ftnScanStringLiteral(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCoun
 }
 
 // ---------------------------------------------------------------------------
-// Preprocessor unary operator
+// Preprocessor unary operator (src/scanner.c:448-456); next_char is a char
 // ---------------------------------------------------------------------------
 
 func ftnScanPreprocUnaryOperator(lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
-	ch := lexer.Lookahead()
+	ch := ftnChar(ftnLA(lexer))
 	if ch == '!' || ch == '~' || ch == '-' || ch == '+' {
 		ftnAdvance(lexer)
-		lexer.MarkEnd()
 		lexer.SetResultSymbol(syms[ftnTokPreprocUnaryOp])
 		return true
 	}
@@ -676,12 +727,20 @@ func ftnScanPreprocUnaryOperator(lexer *gotreesitter.ExternalLexer, syms *[ftnTo
 }
 
 // ---------------------------------------------------------------------------
-// Labeled DO loop tracking
+// Labeled DO loop tracking (src/scanner.c:459-475)
 // ---------------------------------------------------------------------------
 
 func ftnTrackLabeledDo(s *ftnState, label int32) {
-	// check if label already exists at top of stack
-	if s.depth > 0 {
+	// :461 C reads labels[depth-1] without testing depth. With an empty stack that
+	// is labels[-1], which is the depth field itself (0), so a label of 0 matches,
+	// and counts[-1]++ then increments labels[ftnMaxLabelStack-1], the item in front of
+	// counts. Nothing is pushed in that case.
+	if s.depth == 0 {
+		if label == 0 {
+			s.labels[ftnMaxLabelStack-1]++
+			return
+		}
+	} else if s.depth > 0 && s.depth <= ftnMaxLabelStack {
 		i := s.depth - 1
 		if s.labels[i] == label {
 			s.counts[i]++
@@ -690,7 +749,7 @@ func ftnTrackLabeledDo(s *ftnState, label int32) {
 	}
 
 	// not at top of stack, assume new label, add it to stack
-	if s.depth < ftnMaxLabelStack {
+	if s.depth >= 0 && s.depth < ftnMaxLabelStack {
 		s.labels[s.depth] = label
 		s.counts[s.depth] = 1
 		s.depth++
@@ -698,11 +757,11 @@ func ftnTrackLabeledDo(s *ftnState, label int32) {
 }
 
 // ftnScanDoLabelEos checks whether an end-of-statement token for virtual do labels
-// is pending, emits END_OF_STATEMENT and updates internal state accordingly.
+// is pending, emits END_OF_STATEMENT and updates internal state accordingly
+// (src/scanner.c:479-487; no mark_end).
 func ftnScanDoLabelEos(s *ftnState, lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	if s.isPendingEosVirtual {
 		s.isPendingEosVirtual = false
-		lexer.MarkEnd()
 		lexer.SetResultSymbol(syms[ftnTokEndOfStatement])
 		return true
 	}
@@ -710,10 +769,10 @@ func ftnScanDoLabelEos(s *ftnState, lexer *gotreesitter.ExternalLexer, syms *[ft
 }
 
 // ftnScanDoLabelPending checks whether do labels are pending, emits
-// DO_LABEL_VIRTUAL or DO_LABEL_CONTINUE and updates internal state accordingly.
+// DO_LABEL_VIRTUAL or DO_LABEL_CONTINUE and updates internal state accordingly
+// (src/scanner.c:491-507; no mark_end).
 func ftnScanDoLabelPending(s *ftnState, lexer *gotreesitter.ExternalLexer, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
 	if s.pendingLabelVirtual > 0 {
-		lexer.MarkEnd()
 		if s.pendingLabelVirtual > 1 {
 			s.pendingLabelVirtual--
 			// schedule an eos for the next token to finish the virtual statement
@@ -730,10 +789,10 @@ func ftnScanDoLabelPending(s *ftnState, lexer *gotreesitter.ExternalLexer, syms 
 }
 
 // ftnScanDoLabel is invoked after the parser has found a "do" and the scan has
-// consumed a proper integer value as a label.
+// consumed a proper integer value as a label (src/scanner.c:511-514). The token
+// ends at the last mark_end of the number scan.
 func ftnScanDoLabel(s *ftnState, lexer *gotreesitter.ExternalLexer, label int32, syms *[ftnTokenCount]gotreesitter.Symbol) {
 	ftnTrackLabeledDo(s, label)
-	lexer.MarkEnd()
 	lexer.SetResultSymbol(syms[ftnTokDoLabel])
 }
 
@@ -741,7 +800,7 @@ func ftnScanDoLabelContinue(s *ftnState, lexer *gotreesitter.ExternalLexer, labe
 	// determine whether this label belongs to the last labeled do,
 	// if it does, remove it from stack and determine how many loops it closes
 	var loopsToClose int32
-	if s.depth > 0 {
+	if s.depth > 0 && s.depth <= ftnMaxLabelStack {
 		i := s.depth - 1
 		if s.labels[i] == label {
 			loopsToClose = s.counts[i]
@@ -763,7 +822,7 @@ func ftnScanDoLabelContinue(s *ftnState, lexer *gotreesitter.ExternalLexer, labe
 }
 
 // ---------------------------------------------------------------------------
-// Scan label, number, or BOZ
+// Scan label, number, or BOZ (src/scanner.c:543-574)
 // ---------------------------------------------------------------------------
 
 func ftnScanLabelNumberBoz(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
@@ -798,7 +857,7 @@ func ftnScanLabelNumberBoz(s *ftnState, lexer *gotreesitter.ExternalLexer, valid
 }
 
 // ---------------------------------------------------------------------------
-// Main scan entry point
+// Main scan entry point (src/scanner.c:576-654)
 // ---------------------------------------------------------------------------
 
 func ftnScan(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[ftnTokenCount]gotreesitter.Symbol) bool {
@@ -816,7 +875,7 @@ func ftnScan(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 	}
 
 	// Consume any leading whitespace except newlines
-	for ftnIsBlank(lexer.Lookahead()) {
+	for ftnIsBlank(ftnLA(lexer)) {
 		ftnSkip(lexer)
 	}
 
@@ -830,7 +889,7 @@ func ftnScan(s *ftnState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 	// We're now either in a line continuation or between statements,
 	// so we should eat all whitespace including newlines until we come
 	// to something more interesting.
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(ftnLA(lexer)) {
 		ftnSkip(lexer)
 	}
 

@@ -31,8 +31,9 @@ func TestMarkdownScannerCheckpointRoundTrip(t *testing.T) {
 	}
 	buf := make([]byte, 64)
 	n := scanner.Serialize(original, buf)
-	if n != 5+len(original.openBlocks) {
-		t.Fatalf("serialized size = %d, want %d", n, 5+len(original.openBlocks))
+	// five header bytes, then four bytes for each open block (C's enum Block)
+	if n != 5+4*len(original.openBlocks) {
+		t.Fatalf("serialized size = %d, want %d", n, 5+4*len(original.openBlocks))
 	}
 	if n == 0 {
 		t.Fatal("reachable Markdown scanner state serialized as absent")
@@ -53,7 +54,7 @@ func TestMarkdownScannerCheckpointRoundTrip(t *testing.T) {
 func TestMarkdownScannerCheckpointCapacityFailsClosed(t *testing.T) {
 	scanner := MarkdownExternalScanner{}
 	state := &mdState{openBlocks: make([]mdBlock, 12)}
-	exact := make([]byte, 5+len(state.openBlocks))
+	exact := make([]byte, 5+4*len(state.openBlocks))
 	if got := scanner.Serialize(state, exact); got != len(exact) {
 		t.Fatalf("exact-capacity serialization = %d, want %d", got, len(exact))
 	}

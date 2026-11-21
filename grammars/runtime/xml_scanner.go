@@ -87,6 +87,16 @@ var xmlExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(xmlExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) on the
+	// safe-state runs: the pinned C scanner itself fails on forged saved states; no mode.
+	scanmode.RegisterScanner(XMLExternalScanner{}, (*xmlScannerState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(XMLExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(XMLExternalScanner), right.(XMLExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // xmlScannerState holds a stack of tag name strings, mirroring the C
