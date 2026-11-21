@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the janet grammar. This is the external
@@ -57,6 +56,15 @@ var janetExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(janetExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(JanetExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(JanetExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(JanetExternalScanner), right.(JanetExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // JanetExternalScanner handles @`...` long buffers and `...` long strings for Janet.
@@ -107,15 +115,16 @@ func (JanetExternalScanner) PreservesStateOnScanFailure() bool { return true }
 func (sc JanetExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	syms := sc.symbolTable()
 
+	// C skips whitespace before it looks at the valid symbols, with iswspace in
+	// the C locale: ASCII only (src/scanner.c:49-52).
+	for cIsSpace(lexer.Lookahead()) {
+		lexer.Advance(true)
+	}
+
 	bufValid := janetValid(validSymbols, janetTokLongBufLit)
 	strValid := janetValid(validSymbols, janetTokLongStrLit)
 	if !bufValid && !strValid {
 		return false
-	}
-
-	// Skip whitespace
-	for unicode.IsSpace(lexer.Lookahead()) {
-		lexer.Advance(true)
 	}
 
 	// Determine if it's a long buffer (@`) or long string (`)
@@ -136,16 +145,18 @@ func (sc JanetExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 		nBackticks++
 		lexer.Advance(false)
 	}
-	if lexer.Lookahead() == 0 {
+	// C tests lexer->eof, not the lookahead: a NUL byte is an ordinary character
+	// (src/scanner.c:75-77). The first non-backtick character is consumed
+	// (src/scanner.c:83-86).
+	if scanmode.AtEOF(lexer) {
 		return false
 	}
-	// Consume the first non-backtick character
 	lexer.Advance(false)
 
 	// Now look for nBackticks consecutive backticks
 	cbt := uint32(0)
 	for {
-		if lexer.Lookahead() == 0 {
+		if scanmode.AtEOF(lexer) { // src/scanner.c:96-98
 			return false
 		}
 		if lexer.Lookahead() == '`' {

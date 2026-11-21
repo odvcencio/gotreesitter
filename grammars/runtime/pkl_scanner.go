@@ -4,6 +4,7 @@ package grammarruntime
 
 import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the Pkl grammar. This is the external
@@ -100,6 +101,15 @@ var pklExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(pklExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(PklExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(PklExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(PklExternalScanner), right.(PklExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // PklExternalScanner handles string content and contextual operators for Pkl.
@@ -163,22 +173,19 @@ func (sc PklExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 		return false
 	}
 
-	// Single-line string without pounds
+	// The first valid string token decides, in the order of src/scanner.c:259-292:
+	// sl, ml, sl1, ml1, sl2, ml2, ... sl6, ml6. The single-line and multi-line
+	// kinds alternate for each pound count.
 	if pklValid(validSymbols, pklTokSlStringChars) {
 		return pklParseSlStringChars(lexer, syms)
 	}
-	// Multi-line string without pounds
 	if pklValid(validSymbols, pklTokMlStringChars) {
 		return pklParseMlStringChars(lexer, syms)
 	}
-	// Single-line strings with N pounds
 	for i := 1; i <= 6; i++ {
 		if pklValid(validSymbols, pklTokSlStringChars+i) {
 			return pklParseSlxStringChars(lexer, i, syms)
 		}
-	}
-	// Multi-line strings with N pounds
-	for i := 1; i <= 6; i++ {
 		if pklValid(validSymbols, pklTokMlStringChars+i) {
 			return pklParseMlxStringChars(lexer, i, syms)
 		}
@@ -320,7 +327,9 @@ func pklParseMlxStringChars(lexer *gotreesitter.ExternalLexer, numPounds int, sy
 
 // pklParseContextualOp: handles [, (, - that can't have preceding newline or semicolon.
 func pklParseContextualOp(lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[pklTokenCount]gotreesitter.Symbol) bool {
-	if lexer.Lookahead() == 0 {
+	// C tests lexer->eof, which reads no character; a NUL byte is not the end
+	// (src/scanner.c:190-192).
+	if scanmode.AtEOF(lexer) {
 		return false
 	}
 	for {
