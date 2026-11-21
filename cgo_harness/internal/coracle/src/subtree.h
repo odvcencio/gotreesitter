@@ -196,6 +196,10 @@ Subtree ts_subtree_new_error(
   SubtreePool *pool, int32_t lookahead_char, Length padding, Length size,
   uint32_t bytes_scanned, TSStateId parse_state, const TSLanguage *language
 );
+#ifdef GTS_SUBTREE_COUNTERS
+void gts_subtree_counters_note_scratch(void);
+#endif
+
 MutableSubtree ts_subtree_new_node(
   TSSymbol symbol,
   SubtreeArray *chiildren,

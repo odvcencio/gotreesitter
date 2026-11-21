@@ -12,6 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / 'internal/coracle'
 PATCH = ROOT / 'oracle/binding_compat.patch'
+COUNTERS_PATCH = ROOT / 'oracle/subtree_counters.patch'
 
 
 def sha(data):
@@ -39,6 +40,8 @@ def verify():
         raise SystemExit('vendored oracle provenance differs from the contract pins')
     if manifest['binding_patch_sha256'] != sha(PATCH.read_bytes()):
         raise SystemExit('binding compatibility patch differs from the recorded patch')
+    if manifest['subtree_counters_patch_sha256'] != sha(COUNTERS_PATCH.read_bytes()):
+        raise SystemExit('subtree counters patch differs from the recorded patch')
     if manifest['files'] != files(DEST):
         raise SystemExit('vendored oracle bytes differ from the recorded sources')
     print('C oracle source provenance verified')
@@ -74,6 +77,9 @@ def refresh():
         # in the upstream test module cannot change our locked grammar inputs.
         (stage / 'go.mod').write_text('module github.com/tree-sitter/go-tree-sitter\n\ngo 1.23\n\nrequire github.com/mattn/go-pointer v0.0.1\n')
         subprocess.run(['git', 'apply', '--unsafe-paths', '--directory=' + str(stage), str(PATCH)], check=True, cwd=tmp)
+        # Test-only creation counters, compiled in only under the define
+        # GTS_SUBTREE_COUNTERS (Go build tag gts_subtree_counters).
+        subprocess.run(['git', 'apply', '--unsafe-paths', '--directory=' + str(stage), str(COUNTERS_PATCH)], check=True, cwd=tmp)
         manifest = {
             'schema': 'gts-c-oracle-sources/v1', 'pins': contract,
             'binding_repository': 'https://github.com/tree-sitter/go-tree-sitter.git',
@@ -81,7 +87,8 @@ def refresh():
             'runtime_src_tree_oid': git(repos['runtime'], 'rev-parse', 'HEAD:lib/src').decode().strip(),
             'runtime_include_tree_oid': git(repos['runtime'], 'rev-parse', 'HEAD:lib/include').decode().strip(),
             'runtime_license_sha256': sha((repos['runtime'] / 'LICENSE').read_bytes()),
-            'binding_patch_sha256': sha(PATCH.read_bytes()), 'files': files(stage),
+            'binding_patch_sha256': sha(PATCH.read_bytes()),
+            'subtree_counters_patch_sha256': sha(COUNTERS_PATCH.read_bytes()), 'files': files(stage),
         }
         (stage / 'upstream.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
         if DEST.exists():

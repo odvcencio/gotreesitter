@@ -903,6 +903,10 @@ static bool ts_parser__select_children(
     0,
     self->language
   );
+#ifdef GTS_SUBTREE_COUNTERS
+  // Counted as a node by ts_subtree_new_node; the harness subtracts it.
+  gts_subtree_counters_note_scratch();
+#endif
 
   return ts_parser__select_tree(
     self,
