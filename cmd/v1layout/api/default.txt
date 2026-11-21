@@ -26,6 +26,7 @@ const ExternalScannerFullParseRetrySkipRepeat
 const FactAll = FactDefinitions | FactCalls | FactHeritage | FactImports
 const FactCallArguments
 const FactCalls
+const FactConstructorCalls
 const FactDeclarations
 const FactDefinitions FactKind = 1 << iota
 const FactHeritage

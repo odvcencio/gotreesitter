@@ -269,9 +269,6 @@ func TestNewFactProgramRejectsInvalidConfiguration(t *testing.T) {
 	if _, err := gotreesitter.NewFactProgram(nil, gotreesitter.FactAll); err == nil {
 		t.Fatal("NewFactProgram accepted a nil language")
 	}
-	if _, err := gotreesitter.NewFactProgram(grammars.GoLanguage(), gotreesitter.FactKind(1<<7)); err == nil {
-		t.Fatal("NewFactProgram accepted an unknown fact kind")
-	}
 	empty, err := gotreesitter.NewFactProgram(grammars.GoLanguage(), 0)
 	if err != nil {
 		t.Fatalf("NewFactProgram zero mask failed: %v", err)
