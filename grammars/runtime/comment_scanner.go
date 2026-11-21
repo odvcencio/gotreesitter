@@ -2,7 +2,10 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+)
 
 // External token indexes for the comment grammar. This is the external
 // index (the position of the token in the grammar's `externals: [...]`
@@ -57,6 +60,15 @@ var commentExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(commentExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(CommentExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(CommentExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(CommentExternalScanner), right.(CommentExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // CommentExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-comment.
@@ -125,11 +137,10 @@ func (s CommentExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLe
 	}
 	syms := s.symbolTable()
 
-	// Upstream treats invalid_token as correction mode. The Go-generated
-	// external valid set can conservatively include invalid_token beside name,
-	// so only decline when name is not also explicitly valid.
-	if len(validSymbols) > commentTokInvalidToken && validSymbols[commentTokInvalidToken] &&
-		!(len(validSymbols) > commentTokName && validSymbols[commentTokName]) {
+	// Upstream treats invalid_token as correction mode and declines whenever
+	// it is valid, even beside name (tree-sitter-comment src/tree_sitter_comment/
+	// parser.c:88-90).
+	if len(validSymbols) > commentTokInvalidToken && validSymbols[commentTokInvalidToken] {
 		return false
 	}
 
