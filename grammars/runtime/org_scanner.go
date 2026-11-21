@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the org grammar. This is the external
@@ -72,6 +71,15 @@ var orgExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(orgExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(OrgExternalScanner{}, (*orgState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(OrgExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(OrgExternalScanner), right.(OrgExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // org bullet types
@@ -138,27 +146,38 @@ func (OrgExternalScanner) Create() any {
 
 func (OrgExternalScanner) Destroy(payload any) {}
 
+// orgSerializationBufferSize is TREE_SITTER_SERIALIZATION_BUFFER_SIZE.
+const orgSerializationBufferSize = 1024
+
 func (OrgExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*orgState)
-	n := 0
-	indentCount := len(s.indents) - 1
-	if indentCount > 255 {
-		indentCount = 255
+	limit := orgSerializationBufferSize
+	if len(buf) < limit {
+		limit = len(buf)
 	}
-	if n >= len(buf) {
+	n := 0
+	if n >= limit {
 		return 0
+	}
+	// org/src/scanner.c:78-81: the count is the length of the indent stack minus one,
+	// clamped to 255 (a length of 0 gives 255, as the unsigned subtraction wraps).
+	indentCount := len(s.indents) - 1
+	if indentCount > 255 || indentCount < 0 {
+		indentCount = 255
 	}
 	buf[n] = byte(indentCount)
 	n++
-	for i := 1; i <= indentCount && n < len(buf); i++ {
+	// scanner.c:84-102: each stack is written whole, not cut to indent_count, while the
+	// buffer has room (i < 1024). The element is stored as a char.
+	for i := 1; i < len(s.indents) && n < limit; i++ {
 		buf[n] = byte(s.indents[i])
 		n++
 	}
-	for i := 1; i <= indentCount && n < len(buf); i++ {
+	for i := 1; i < len(s.bullets) && n < limit; i++ {
 		buf[n] = byte(s.bullets[i])
 		n++
 	}
-	for i := 1; i < len(s.sections) && n < len(buf); i++ {
+	for i := 1; i < len(s.sections) && n < limit; i++ {
 		buf[n] = byte(s.sections[i])
 		n++
 	}
@@ -167,28 +186,34 @@ func (OrgExternalScanner) Serialize(payload any, buf []byte) int {
 
 func (OrgExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*orgState)
-	s.sections = s.sections[:0]
-	s.sections = append(s.sections, 0)
-	s.indents = s.indents[:0]
-	s.indents = append(s.indents, -1)
-	s.bullets = s.bullets[:0]
-	s.bullets = append(s.bullets, orgBulletNone)
+	s.sections = append(s.sections[:0], 0)
+	s.indents = append(s.indents[:0], -1)
+	s.bullets = append(s.bullets[:0], orgBulletNone)
 
 	if len(buf) == 0 {
 		return
 	}
 
+	// scanner.c:120-127: the indent and bullet loops do not test the length, so a short
+	// state is read as if it continued with zero bytes. Each byte is a char, which is
+	// signed where the C code ran (x86), so it widens with its sign.
+	at := func(i int) int16 {
+		if i < len(buf) {
+			return int16(int8(buf[i]))
+		}
+		return 0
+	}
 	i := 0
 	indentCount := int(buf[i])
 	i++
-	for ; i <= indentCount && i < len(buf); i++ {
-		s.indents = append(s.indents, int16(buf[i]))
+	for ; i <= indentCount; i++ {
+		s.indents = append(s.indents, at(i))
 	}
-	for ; i <= 2*indentCount && i < len(buf); i++ {
-		s.bullets = append(s.bullets, int16(buf[i]))
+	for ; i <= 2*indentCount; i++ {
+		s.bullets = append(s.bullets, at(i))
 	}
 	for ; i < len(buf); i++ {
-		s.sections = append(s.sections, int16(buf[i]))
+		s.sections = append(s.sections, at(i))
 	}
 }
 
@@ -274,12 +299,12 @@ func (sc OrgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 			lexer.Advance(true)
 		}
 
-		if orgValid(validSymbols, orgTokSectionEnd) && unicode.IsSpace(lexer.Lookahead()) &&
+		if orgValid(validSymbols, orgTokSectionEnd) && cIsSpace(lexer.Lookahead()) &&
 			stars > 0 && stars <= s.sections[len(s.sections)-1] {
 			s.sections = s.sections[:len(s.sections)-1]
 			lexer.SetResultSymbol(syms[orgTokSectionEnd])
 			return true
-		} else if orgValid(validSymbols, orgTokHlStars) && unicode.IsSpace(lexer.Lookahead()) {
+		} else if orgValid(validSymbols, orgTokHlStars) && cIsSpace(lexer.Lookahead()) {
 			s.sections = append(s.sections, stars)
 			lexer.SetResultSymbol(syms[orgTokHlStars])
 			return true
@@ -309,8 +334,14 @@ func (sc OrgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 }
 
 func orgDedent(s *orgState, lexer *gotreesitter.ExternalLexer, syms *[orgTokenCount]gotreesitter.Symbol) bool {
-	s.indents = s.indents[:len(s.indents)-1]
-	s.bullets = s.bullets[:len(s.bullets)-1]
+	// scanner.c:131-132: VEC_POP drops the last item. A dedent with only the base item left
+	// leaves the stack empty; the scan ends right after, so nothing reads the empty stack.
+	if len(s.indents) > 0 {
+		s.indents = s.indents[:len(s.indents)-1]
+	}
+	if len(s.bullets) > 0 {
+		s.bullets = s.bullets[:len(s.bullets)-1]
+	}
 	lexer.SetResultSymbol(syms[orgTokListEnd])
 	return true
 }
@@ -319,29 +350,29 @@ func orgGetBullet(lexer *gotreesitter.ExternalLexer) int16 {
 	ch := lexer.Lookahead()
 	if ch == '-' {
 		lexer.Advance(false)
-		if unicode.IsSpace(lexer.Lookahead()) {
+		if cIsSpace(lexer.Lookahead()) {
 			return orgBulletDash
 		}
 	} else if ch == '+' {
 		lexer.Advance(false)
-		if unicode.IsSpace(lexer.Lookahead()) {
+		if cIsSpace(lexer.Lookahead()) {
 			return orgBulletPlus
 		}
 	} else if ch == '*' {
 		lexer.Advance(false)
-		if unicode.IsSpace(lexer.Lookahead()) {
+		if cIsSpace(lexer.Lookahead()) {
 			return orgBulletStar
 		}
 	} else if ch >= 'a' && ch <= 'z' {
 		lexer.Advance(false)
 		if lexer.Lookahead() == '.' {
 			lexer.Advance(false)
-			if unicode.IsSpace(lexer.Lookahead()) {
+			if cIsSpace(lexer.Lookahead()) {
 				return orgBulletLowerDot
 			}
 		} else if lexer.Lookahead() == ')' {
 			lexer.Advance(false)
-			if unicode.IsSpace(lexer.Lookahead()) {
+			if cIsSpace(lexer.Lookahead()) {
 				return orgBulletLowerParen
 			}
 		}
@@ -349,12 +380,12 @@ func orgGetBullet(lexer *gotreesitter.ExternalLexer) int16 {
 		lexer.Advance(false)
 		if lexer.Lookahead() == '.' {
 			lexer.Advance(false)
-			if unicode.IsSpace(lexer.Lookahead()) {
+			if cIsSpace(lexer.Lookahead()) {
 				return orgBulletUpperDot
 			}
 		} else if lexer.Lookahead() == ')' {
 			lexer.Advance(false)
-			if unicode.IsSpace(lexer.Lookahead()) {
+			if cIsSpace(lexer.Lookahead()) {
 				return orgBulletUpperParen
 			}
 		}
@@ -364,12 +395,12 @@ func orgGetBullet(lexer *gotreesitter.ExternalLexer) int16 {
 		}
 		if lexer.Lookahead() == '.' {
 			lexer.Advance(false)
-			if unicode.IsSpace(lexer.Lookahead()) {
+			if cIsSpace(lexer.Lookahead()) {
 				return orgBulletNumDot
 			}
 		} else if lexer.Lookahead() == ')' {
 			lexer.Advance(false)
-			if unicode.IsSpace(lexer.Lookahead()) {
+			if cIsSpace(lexer.Lookahead()) {
 				return orgBulletNumParen
 			}
 		}
