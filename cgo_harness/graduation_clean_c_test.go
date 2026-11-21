@@ -46,6 +46,43 @@ func gradCleanC(c *gradCtx, text []byte) bool {
 	return visit(root)
 }
 
+// gradTemplateMarkers split a template input in cgo_harness/testdata/
+// graduation_inputs: the lines before "@@repeat" are the head, the lines
+// between it and "@@end" are the body, and the lines after "@@end" are the tail.
+const gradTemplateRepeat, gradTemplateEnd = "@@repeat\n", "@@end\n"
+
+// gradTemplateParts splits a template input. It reports false for an input
+// without both markers, in that order and each on a line of its own.
+func gradTemplateParts(src []byte) (head, body, tail []byte, ok bool) {
+	s := string(src)
+	i := strings.Index(s, "\n"+gradTemplateRepeat)
+	if i < 0 && strings.HasPrefix(s, gradTemplateRepeat) {
+		i = -1
+	} else if i < 0 {
+		return nil, nil, nil, false
+	}
+	bodyStart := i + 1 + len(gradTemplateRepeat)
+	j := strings.Index(s[bodyStart:], "\n"+gradTemplateEnd)
+	if j < 0 {
+		return nil, nil, nil, false
+	}
+	bodyEnd := bodyStart + j + 1
+	if bodyEnd <= bodyStart {
+		return nil, nil, nil, false
+	}
+	return []byte(s[:i+1]), []byte(s[bodyStart:bodyEnd]), []byte(s[bodyEnd+len(gradTemplateEnd):]), true
+}
+
+// gradTemplate repeats body between head and tail until the text is at least
+// target bytes long.
+func gradTemplate(head, body, tail []byte, target int) []byte {
+	out := append(make([]byte, 0, target+len(body)+len(tail)), head...)
+	for len(out)+len(tail) < target {
+		out = append(out, body...)
+	}
+	return append(out, tail...)
+}
+
 type gradSourceResult struct {
 	text []byte
 	name string
@@ -189,6 +226,16 @@ func gradCleanSource(t *testing.T, c *gradCtx, target int) ([]byte, string) {
 	dedicated, err := os.ReadFile(dedicatedPath)
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatalf("graduation input %s: %v", dedicatedPath, err)
+	}
+	if head, body, tail, ok := gradTemplateParts(dedicated); ok {
+		// A grammar whose file is one document (one graph, one object) cannot
+		// be scaled by repeating the whole file, so its input repeats a body
+		// between a fixed head and tail.
+		if try("dedicated_template", gradTemplate(head, body, tail, target)) {
+			r := gradSourceCache[key]
+			return r.text, r.name
+		}
+		dedicated = nil
 	}
 	for _, entry := range []struct {
 		name string
@@ -452,4 +499,23 @@ func gradCleanShortReason(source []byte, steps, served int) string {
 		return fmt.Sprintf("clean_incremental=%d clean_steps=%d: no accepted candidate", served, steps)
 	}
 	return fmt.Sprintf("clean_incremental=%d clean_steps=%d: route did not serve enough edits incrementally", served, steps)
+}
+
+func TestGradTemplateParts(t *testing.T) {
+	head, body, tail, ok := gradTemplateParts([]byte("{\n@@repeat\n  a;\n@@end\n}\n"))
+	if !ok || string(head) != "{\n" || string(body) != "  a;\n" || string(tail) != "}\n" {
+		t.Fatalf("parts = %q %q %q %v", head, body, tail, ok)
+	}
+	if got := string(gradTemplate(head, body, tail, 12)); got != "{\n  a;\n  a;\n}\n" {
+		t.Fatalf("template = %q", got)
+	}
+	head, body, tail, ok = gradTemplateParts([]byte("@@repeat\nx +\n@@end\nx\n"))
+	if !ok || string(head) != "" || string(body) != "x +\n" || string(tail) != "x\n" {
+		t.Fatalf("leading marker parts = %q %q %q %v", head, body, tail, ok)
+	}
+	for _, bad := range []string{"a\nb\n", "{\n@@repeat\n  a;\n}\n", "{\n@@end\n  a;\n@@repeat\n}\n", "x @@repeat\na\n@@end\n"} {
+		if _, _, _, ok := gradTemplateParts([]byte(bad)); ok {
+			t.Fatalf("accepted %q", bad)
+		}
+	}
 }
