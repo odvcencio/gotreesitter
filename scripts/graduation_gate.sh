@@ -36,7 +36,13 @@
 #   4 declines during items 1 to 3: none, or each has an entry in
 #     cgo_harness/testdata/graduation_deny.txt with a reopening condition
 #   5 reuse equals C's subtree events, or a same-length views shortcut reuses all bytes and equals C's tree.
-#   6 tokens equal C's, or are between 1 and C's for a shortcut equal to C's tree; nodes and versions stay at or below the default engine's.
+#   6 on the same history as pinned C: the core lexes C's tokens, its processed version
+#     width equals C's largest version_count at a "process version" event, and its new heap
+#     records are at most 1.10 x C's subtree creations + 16 (C's count comes from the oracle
+#     built with the tag gts_subtree_counters: heap leaves, new nodes and clones during the
+#     parse, without the comparison trees of select_children). A same-length shortcut that
+#     returns the old tree keeps the rule: tokens between 1 and C's, tree equal to C's. The
+#     default engine's tokens, new nodes and maximum live versions are printed, not gated.
 #   7 highlight, tags, MISSING, ERROR and supertype query results (the set of
 #     captures: name and byte range)
 #   8 safety: stop reasons, a failing core and scanner, release orders, readers
@@ -322,7 +328,7 @@ want() { [[ ",$items," == *",$1,"* ]]; }
 hbin="$out/harness.test"; rbin="$out/root.test"; rrace="$out/root.race.test"
 need_harness=1
 if [ "$need_harness" = 1 ] && [ ! -x "$hbin" ]; then
-  if ! (cd "$root/cgo_harness" && go test -c -vet=off -tags 'cgo treesitter_c_parity gts_ccore_test_certify' -o "$hbin" .) >"$out/build-harness.log" 2>&1; then
+  if ! (cd "$root/cgo_harness" && go test -c -vet=off -tags 'cgo treesitter_c_parity gts_ccore_test_certify gts_subtree_counters' -o "$hbin" .) >"$out/build-harness.log" 2>&1; then
     emit "$lang" 0 fail "build failed" "$(tail -n 3 "$out/build-harness.log" | tr '\n' ' ' | cut -c1-200)"
     if [ "$report" = 1 ]; then
       for i in $(tr ',' ' ' <<<"$items"); do [ "$i" = 0 ] || emit "$lang" "$i" na "not run" "item 0 build failed"; done
