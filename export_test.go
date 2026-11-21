@@ -1057,6 +1057,15 @@ func CcoreTestStoreBytes(t *Tree) int {
 	return used
 }
 
+// CcoreTestStoreLiveSlots returns the record slots in use in the store of the core tree behind t.
+func CcoreTestStoreLiveSlots(t *Tree) int {
+	ct := CcoreTestCoreTree(t)
+	if ct == nil {
+		return 0
+	}
+	return (&ccore.Parser{}).LiveRecords(ct)
+}
+
 // CcoreTestCoreWalk reads a core tree through the core's reader: the end byte of its root (0 for a released tree).
 func CcoreTestCoreWalk(ct *ccore.Tree) int { return int((&ccore.Parser{}).RootEnd(ct)) }
 

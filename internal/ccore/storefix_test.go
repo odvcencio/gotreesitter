@@ -1307,3 +1307,42 @@ func TestPoisonedByPanicInReleaseWalk(t *testing.T) {
 		nt.Release()
 	})
 }
+
+// LiveRecords counts the record slots handed out and not free: it is above zero for a live
+// tree, it returns to the same count when a session of edits rebuilds the same document
+// (freed slots go back on the free lists, so the count does not grow with the number of
+// edits), and it is zero for a released tree.
+func TestLiveRecordsSettleOverEdits(t *testing.T) {
+	g := goldenNamed(t, "json-object")
+	p := mustParser(t, ccore.Config{Tables: g.Tables})
+	cur, stop := p.Parse(g.Src)
+	if stop != "" {
+		t.Fatal(stop)
+	}
+	first := p.LiveRecords(cur)
+	if first <= 0 {
+		t.Fatalf("a live tree has %d live records", first)
+	}
+	settled := 0
+	for i := 0; i < 200; i++ {
+		e := cur.Copy()
+		e.Edit(selfEdit(g.Src, 6))
+		next, stop := p.ParseWith(g.Src, e)
+		if stop != "" {
+			t.Fatal(stop)
+		}
+		e.Release()
+		cur.Release()
+		cur = next
+		if i == 49 {
+			settled = p.LiveRecords(cur)
+		}
+	}
+	if last := p.LiveRecords(cur); last > settled {
+		t.Fatalf("live records grew with edits: %d after 50 edits, %d after 200 (fresh tree %d)", settled, last, first)
+	}
+	cur.Release()
+	if n := p.LiveRecords(cur); n != 0 {
+		t.Fatalf("a released tree has %d live records", n)
+	}
+}

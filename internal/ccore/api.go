@@ -480,6 +480,17 @@ func (p *Parser) ArenaUse(t *Tree) (used, reachable int) {
 	return t.rd.arenaUse(t.Root())
 }
 
+// LiveRecords returns the number of record slots in use in the store of t (handed
+// out and not free), or 0 for a released tree. Item 8 of the graduation gate
+// bounds it over a long edit session.
+func (p *Parser) LiveRecords(t *Tree) int {
+	if t.c.released.Load() {
+		return 0
+	}
+	defer runtime.KeepAlive(t)
+	return t.c.store.liveRecords()
+}
+
 // reserveWalk reserves, before the publication walk starts, the stack the walk can need:
 // one slot for the root and one for every handle in the child lists that the parse made
 // (the walk pushes the children of new records only). The refusal comes before the walk
