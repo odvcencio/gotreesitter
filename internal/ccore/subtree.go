@@ -194,6 +194,44 @@ func (s *Store) arenaUse(root Handle) (used, reachable int) {
 	return used, reachable
 }
 
+// liveRecords counts the record slots of the store that are in use: every slot
+// the parse and edit allocators have handed out, minus the slots on their free
+// lists. Unlike pageBytes it does not move in steps of a whole page, so a store
+// bound on it measures retention, not page rounding. The caller holds no lock;
+// it takes the lease and the edit lock as Store.Info does.
+func (c *storeCore) liveRecords() int {
+	c.lease.Lock()
+	defer c.afterParse()
+	defer c.lease.Unlock()
+	c.emu.Lock()
+	defer c.emu.Unlock()
+	if c.ended.Load() {
+		return 0
+	}
+	v := c.view()
+	cur, ecur := &c.pc, &c.ec
+	n := 0
+	for pg := 0; pg < c.nextRec; pg++ {
+		k := recPageLen // a page that is not the current page of an allocator is full
+		if pg == cur.recPage {
+			k = cur.recSlot
+		} else if pg == ecur.recPage {
+			k = ecur.recSlot
+		}
+		n += k
+	}
+	if n > 0 {
+		n-- // index 0 is Handle 0, never handed out
+	}
+	for i := c.freeRec; i != 0; i = v.refs[i>>recShift][i&recMask] & countMask {
+		n--
+	}
+	for i := c.editFreeRec; i != 0; i = v.refs[i>>recShift][i&recMask] & countMask {
+		n--
+	}
+	return n
+}
+
 // hashArena writes every record, child handle and state byte the parse has
 // used to w (determinism checks). The caller holds the lease and emu.
 func (s *Store) hashArena(w io.Writer) {
