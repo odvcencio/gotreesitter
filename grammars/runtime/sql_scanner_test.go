@@ -22,14 +22,14 @@ func TestSQLScannerCheckpointRoundTrip(t *testing.T) {
 
 	for _, tag := range []string{"", "$$", "$named_42$", "$" + strings.Repeat("x", sqlMaxDollarTagBytes-2) + "$"} {
 		t.Run(checkpointTagName(tag), func(t *testing.T) {
-			original := &sqlScannerState{tag: tag}
+			original := &sqlScannerState{started: tag != "", tag: tag}
 			n := scanner.Serialize(original, buf)
 			if n == 0 {
 				t.Fatalf("reachable scanner state %q was not checkpointable", tag)
 			}
-			restored := &sqlScannerState{tag: "$stale$"}
+			restored := &sqlScannerState{started: true, tag: "$stale$"}
 			scanner.Deserialize(restored, buf[:n])
-			if restored.tag != tag {
+			if restored.tag != tag || restored.started != (tag != "") {
 				t.Fatalf("checkpoint round trip tag = %q, want %q", restored.tag, tag)
 			}
 		})
@@ -40,27 +40,27 @@ func TestSQLScannerAcceptsUncheckpointableDollarTagForFullParse(t *testing.T) {
 	maxTag := "$" + strings.Repeat("x", sqlMaxDollarTagBytes-2) + "$"
 	tooLongTag := "$" + strings.Repeat("x", sqlMaxDollarTagBytes-1) + "$"
 
-	if tag, ok := scanSqlDollarTag(newSQLExternalLexer([]byte(maxTag), 0, 0, 0), false); !ok || tag != maxTag {
+	if tag, ok := scanSqlDollarTag(newSQLExternalLexer([]byte(maxTag), 0, 0, 0), false, false); !ok || tag != maxTag {
 		t.Fatalf("maximum checkpointable tag was rejected: len=%d ok=%v", len(tag), ok)
 	}
-	if tag, ok := scanSqlDollarTag(newSQLExternalLexer([]byte(tooLongTag), 0, 0, 0), false); !ok || tag != tooLongTag {
+	if tag, ok := scanSqlDollarTag(newSQLExternalLexer([]byte(tooLongTag), 0, 0, 0), false, false); !ok || tag != tooLongTag {
 		t.Fatalf("valid uncheckpointable tag was rejected: len=%d ok=%v", len(tag), ok)
 	}
 	buf := make([]byte, 4096)
-	if n := (SqlExternalScanner{}).Serialize(&sqlScannerState{tag: tooLongTag}, buf); n != 0 {
+	if n := (SqlExternalScanner{}).Serialize(&sqlScannerState{started: true, tag: tooLongTag}, buf); n != 0 {
 		t.Fatalf("uncheckpointable scanner state serialized as %d bytes, want absent checkpoint", n)
 	}
 }
 
 func TestSQLScannerFailedClosePreservesCheckpointState(t *testing.T) {
 	scanner := SqlExternalScanner{}
-	state := &sqlScannerState{tag: "$wanted$"}
+	state := &sqlScannerState{started: true, tag: "$wanted$"}
 	valid := make([]bool, sqlTokDollarTagEnd+1)
 	valid[sqlTokDollarTagEnd] = true
 	if scanner.Scan(state, newSQLExternalLexer([]byte("$other$"), 0, 0, 0), valid) {
 		t.Fatal("mismatched close tag scanned successfully")
 	}
-	if state.tag != "$wanted$" {
+	if state.tag != "$wanted$" || !state.started {
 		t.Fatalf("failed scan mutated tag to %q", state.tag)
 	}
 }
@@ -82,7 +82,7 @@ func TestSQLScannerCheckpointIdentityBindsExactGrammarBlob(t *testing.T) {
 	if string(first.Grammar) != string(grammar[:]) {
 		t.Fatalf("SQL grammar identity = %x, want %x", first.Grammar, grammar)
 	}
-	if got, want := hex.EncodeToString(first.Scanner), "7e493677411a501e6d8592c6b9cc158e21a1bfed44c72ca914e2d81e4e34861d"; got != want {
+	if got, want := hex.EncodeToString(first.Scanner), "6be5f16fe226845e0bf490a42c33bcd00294b029dcc1160e676bb9fa7ae7901b"; got != want {
 		t.Fatalf("SQL scanner identity = %s, want %s", got, want)
 	}
 	second, ok := bound.CheckpointIdentity()
