@@ -83,6 +83,8 @@ type Parser struct {
 	// Counters, always on.
 	shifts, reductions, lexCalls, tokens, maxVersions, multiTokens int
 	compressions                                                   int    // calls of compress in the last balance
+	maxProcessed                                                   int    // largest len(heads) at a "process version" event (C/parser.c:2180-2186)
+	selectCandidates                                               int    // selectChildren calls; each one built no record
 	opCount                                                        int    // C self->operation_count
 	ledBegun                                                       bool   // Parse began the request's account before the drain
 	led                                                            Ledger // request account; its pages are the store's
@@ -117,62 +119,102 @@ func (p *Parser) shift(version int, state uint16, lookahead Handle, extra bool) 
 }
 
 // C/parser.c:889 ts_parser__select_children.
+//
+// C builds the comparison tree in a reusable scratch array and releases nothing
+// (C/parser.c:889-912): it owns no persistent subtree. The candidate here is
+// the same: a symbol, production 0 and the popped children, summarized on the
+// stack by the code that summarizes a node. It claims no record, takes no
+// child-list storage and leaves no handle behind, so a winner is built once by
+// the caller (C/parser.c:1001-1011) and a loser costs no record.
 func (p *Parser) selectChildren(left Handle, children []Handle) bool {
-	scratch := p.newNode(p.symbol(left), children, 0)
-	return p.selectTree(left, scratch)
+	sym := p.symbol(left)
+	var cand rec
+	vis, nam := p.meta(sym)
+	if vis {
+		cand.flags |= heapVisible
+	}
+	if nam {
+		cand.flags |= heapNamed
+	}
+	if sym == symError || sym == symErrorRepeat {
+		cand.flags |= heapFragileLeft | heapFragileRight
+	}
+	cand.symbol, cand.childCount = sym, uint32(len(children))
+	p.summarizeKids(&cand, children)
+	p.selectCandidates++
+	return p.selectWith(left, 0, &cand, children)
 }
 
 // C/parser.c:842 ts_parser__select_tree.
 func (p *Parser) selectTree(left, right Handle) bool {
+	return p.selectWith(left, right, nil, nil)
+}
+
+// selectWith is selectTree. The right tree is the record right, or, when cand
+// is not nil, the summarized candidate cand over the children kids.
+func (p *Parser) selectWith(left, right Handle, cand *rec, kids []Handle) bool {
 	if left == 0 {
 		return true
 	}
-	if right == 0 {
-		return false
+	var rsym Symbol
+	var re uint32
+	var rd int32
+	if cand != nil {
+		rsym, re, rd = cand.symbol, cand.errorCost, cand.dynamicPrecedence
+	} else {
+		if right == 0 {
+			return false
+		}
+		rsym, re, rd = p.symbol(right), p.errorCost(right), p.dynPrec(right)
 	}
-	le, re := p.errorCost(left), p.errorCost(right)
+	lsym, le, ld := p.symbol(left), p.errorCost(left), p.dynPrec(left)
 	if re < le {
 		if p.logf != nil {
-			p.log("select_smaller_error symbol:%s, over_symbol:%s", p.symName(p.symbol(right)), p.symName(p.symbol(left)))
+			p.log("select_smaller_error symbol:%s, over_symbol:%s", p.symName(rsym), p.symName(lsym))
 		}
 		return true
 	}
 	if le < re {
 		if p.logf != nil {
-			p.log("select_smaller_error symbol:%s, over_symbol:%s", p.symName(p.symbol(left)), p.symName(p.symbol(right)))
+			p.log("select_smaller_error symbol:%s, over_symbol:%s", p.symName(lsym), p.symName(rsym))
 		}
 		return false
 	}
-	ld, rd := p.dynPrec(left), p.dynPrec(right)
 	if rd > ld {
 		if p.logf != nil {
-			p.log("select_higher_precedence symbol:%s, prec:%d, over_symbol:%s, other_prec:%d", p.symName(p.symbol(right)), rd, p.symName(p.symbol(left)), ld)
+			p.log("select_higher_precedence symbol:%s, prec:%d, over_symbol:%s, other_prec:%d", p.symName(rsym), rd, p.symName(lsym), ld)
 		}
 		return true
 	}
 	if ld > rd {
 		if p.logf != nil {
-			p.log("select_higher_precedence symbol:%s, prec:%d, over_symbol:%s, other_prec:%d", p.symName(p.symbol(left)), ld, p.symName(p.symbol(right)), rd)
+			p.log("select_higher_precedence symbol:%s, prec:%d, over_symbol:%s, other_prec:%d", p.symName(lsym), ld, p.symName(rsym), rd)
 		}
 		return false
 	}
 	if le > 0 {
 		return true
 	}
-	switch p.compare(left, right) {
+	var c int
+	if cand != nil {
+		c = p.compareCandidate(left, rsym, kids)
+	} else {
+		c = p.compare(left, right)
+	}
+	switch c {
 	case -1:
 		if p.logf != nil {
-			p.log("select_earlier symbol:%s, over_symbol:%s", p.symName(p.symbol(left)), p.symName(p.symbol(right)))
+			p.log("select_earlier symbol:%s, over_symbol:%s", p.symName(lsym), p.symName(rsym))
 		}
 		return false
 	case 1:
 		if p.logf != nil {
-			p.log("select_earlier symbol:%s, over_symbol:%s", p.symName(p.symbol(right)), p.symName(p.symbol(left)))
+			p.log("select_earlier symbol:%s, over_symbol:%s", p.symName(rsym), p.symName(lsym))
 		}
 		return true
 	default:
 		if p.logf != nil {
-			p.log("select_existing symbol:%s, over_symbol:%s", p.symName(p.symbol(left)), p.symName(p.symbol(right)))
+			p.log("select_existing symbol:%s, over_symbol:%s", p.symName(lsym), p.symName(rsym))
 		}
 		return false
 	}
@@ -748,6 +790,7 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 	p.heads = p.heads[:0]
 	p.finished, p.cacheTok, p.cacheAt, p.accepts, p.stop = 0, 0, 0, 0, ""
 	p.shifts, p.reductions, p.lexCalls, p.tokens, p.maxVersions, p.multiTokens = 0, 0, attemptCalls, attemptTokens, 0, 0
+	p.maxProcessed, p.selectCandidates = 0, 0
 	p.compressions = 0
 	p.extReset(old == 0)
 	defer p.extFinish()
@@ -782,6 +825,11 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 			}
 			for p.heads[version].status == headActive {
 				n := &p.nodes[p.heads[version].node]
+				// The version count at the "process version" event, as C logs it
+				// at C/parser.c:2180-2186, counted with logging off too.
+				if len(p.heads) > p.maxProcessed {
+					p.maxProcessed = len(p.heads)
+				}
 				if p.logf != nil {
 					p.log("process version:%d, version_count:%d, state:%d, row:%d, col:%d", version, len(p.heads), n.state, n.position.row, n.position.col)
 				}

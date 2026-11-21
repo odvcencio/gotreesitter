@@ -154,6 +154,14 @@ func (c *Parser) RecordSources() (leaves, nodes, copies int) {
 	return s.RecLeaf, s.RecNode, s.RecCopy
 }
 
+// ProcessedWidth is the largest version count at a "process version" event of
+// the last parse, the counterpart of the largest version_count in C's parse log.
+func (c *Parser) ProcessedWidth() int { return c.p.Stats().MaxProcessed }
+
+// SelectCandidates is the number of selectChildren comparisons of the last
+// parse, each of which built no record.
+func (c *Parser) SelectCandidates() int { return c.p.Stats().SelectCandidates }
+
 // StoreBytes is the memory the pages of the current store hold, in bytes.
 func (c *Parser) StoreBytes() int { return c.p.StoreBytes() }
 

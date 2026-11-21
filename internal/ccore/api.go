@@ -337,18 +337,20 @@ type Edit struct {
 
 // Stats are the counters of the last parse. The first five are always on.
 type Stats struct {
-	LexerCalls   int // calls of the lexer, C ts_parser__lex
-	Shifts       int
-	Reductions   int
-	HeapRecords  int // record slots the store has handed out
-	RecLeaf      int // heap leaves the last parse allocated (lexed tokens, error leaves)
-	RecNode      int // internal nodes the last parse allocated (reductions)
-	RecCopy      int // heap leaf copies the last parse made (set symbol, set extra)
-	MaxVersions  int // maximum live stack versions
-	Tokens       int // tokens lexed
-	MultiTokens  int // tokens lexed while more than one version was live
-	ArenaBytes   int // capacity of the record, child and stack arenas, in bytes
-	Compressions int // calls of compress in the last balance
+	LexerCalls       int // calls of the lexer, C ts_parser__lex
+	Shifts           int
+	Reductions       int
+	HeapRecords      int // record slots the store has handed out
+	RecLeaf          int // heap leaves the last parse allocated (lexed tokens, error leaves)
+	RecNode          int // internal nodes the last parse allocated (reductions)
+	RecCopy          int // heap leaf copies the last parse made (set symbol, set extra)
+	MaxVersions      int // maximum live stack versions
+	MaxProcessed     int // largest version count at a "process version" event (C/parser.c:2180-2186)
+	SelectCandidates int // comparison candidates selectChildren built without a record
+	Tokens           int // tokens lexed
+	MultiTokens      int // tokens lexed while more than one version was live
+	ArenaBytes       int // capacity of the record, child and stack arenas, in bytes
+	Compressions     int // calls of compress in the last balance
 }
 
 // BalanceStats returns, for the last parse, the internal nodes of byte size
@@ -365,7 +367,7 @@ func (p *Parser) BalanceStats() (zeroNodes, checks, refusals int) {
 func (p *Parser) Stats() Stats {
 	return Stats{
 		LexerCalls: p.lexCalls, Shifts: p.shifts, Reductions: p.reductions,
-		HeapRecords: p.allocatedRecords(), MaxVersions: p.maxVersions,
+		HeapRecords: p.allocatedRecords(), MaxVersions: p.maxVersions, MaxProcessed: p.maxProcessed, SelectCandidates: p.selectCandidates,
 		RecLeaf: p.nLeaf, RecNode: p.nNode, RecCopy: p.nCopy,
 		Tokens: p.tokens, MultiTokens: p.multiTokens,
 		ArenaBytes: p.capBytes() + cap(p.nodes)*168, Compressions: p.compressions,

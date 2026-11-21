@@ -649,13 +649,19 @@ func (p *Parser) newNode(sym Symbol, children []Handle, productionID uint16) Han
 // C/subtree.c:349 ts_subtree_summarize_children.
 func (p *Parser) summarize(h Handle) {
 	self := p.rec(h)
+	p.summarizeKids(self, p.kidSpan(self.childrenStart, self.childCount))
+}
+
+// summarizeKids fills the summary fields of self from kids. It is the body of
+// summarize, split so that a candidate that owns no record (selectChildren)
+// summarizes through the same code as a node.
+func (p *Parser) summarizeKids(self *rec, kids []Handle) {
 	self.namedChildCount, self.visibleChildCount, self.errorCost = 0, 0, 0
 	self.repeatDepth, self.visibleDescendantCount, self.dynamicPrecedence = 0, 0, 0
 	self.flags &^= heapHasExternalTokens | heapDependsOnColumn | heapExternalStateChange
 	structural := 0
 	alias := p.aliasSeq(self.productionID)
 	var lookaheadEnd uint32
-	kids := p.kidSpan(self.childrenStart, self.childCount)
 	for i, child := range kids {
 		if p.ext.active {
 			p.extSummarize(self, child, i == 0)
@@ -762,9 +768,40 @@ func (p *Parser) compare(left, right Handle) int {
 		stack = grow(&p.led, stack, 2)
 	}
 	stack = append(stack, left, right)
+	return p.compareStack(stack)
+}
+
+// compareCandidate is compare(left, right) for a right tree that has no
+// record: a symbol and a child list (see selectChildren). The first level is
+// compared here, the rest by compareStack.
+func (p *Parser) compareCandidate(left Handle, rsym Symbol, rkids []Handle) int {
+	ls, lc, rc := p.symbol(left), p.childCount(left), uint32(len(rkids))
+	switch {
+	case ls < rsym:
+		return -1
+	case rsym < ls:
+		return 1
+	case lc < rc:
+		return -1
+	case rc < lc:
+		return 1
+	}
+	stack := p.scratch[:0]
+	for i := lc; i > 0; i-- {
+		if 2 > cap(stack)-len(stack) {
+			stack = grow(&p.led, stack, 2)
+		}
+		stack = append(stack, p.children(left)[i-1], rkids[i-1])
+	}
+	return p.compareStack(stack)
+}
+
+// compareStack runs the comparison over the pairs of trees in stack (left
+// below right, the last pair first) and keeps the stack's storage as p.scratch.
+func (p *Parser) compareStack(stack []Handle) int {
 	defer func() { p.scratch = stack[:0] }()
 	for len(stack) > 0 {
-		right, left = stack[len(stack)-1], stack[len(stack)-2]
+		right, left := stack[len(stack)-1], stack[len(stack)-2]
 		stack = stack[:len(stack)-2]
 		if left == right {
 			continue
