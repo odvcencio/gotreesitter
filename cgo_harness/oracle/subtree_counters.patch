@@ -14,7 +14,7 @@ index dd77e5d1..4559068a 100644
    return ts_parser__select_tree(
      self,
 diff --git a/src/subtree.c b/src/subtree.c
-index 91674fd7..33913e57 100644
+index 91674fd7..8c195028 100644
 --- a/src/subtree.c
 +++ b/src/subtree.c
 @@ -19,6 +19,44 @@ typedef struct {
@@ -78,14 +78,14 @@ index 91674fd7..33913e57 100644
    size_t alloc_size = ts_subtree_alloc_size(self.ptr->child_count);
    Subtree *new_children = ts_malloc(alloc_size);
    Subtree *old_children = ts_subtree_children(self);
-@@ -495,6 +535,7 @@ MutableSubtree ts_subtree_new_node(
-   unsigned production_id,
-   const TSLanguage *language
- ) {
+@@ -523,6 +563,7 @@ MutableSubtree ts_subtree_new_node(
+       .first_leaf = {.symbol = 0, .parse_state = 0},
+     }}
+   };
 +  GTS_SUBTREE_COUNT(GTS_COUNT_NODE);
-   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
-   bool fragile = symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat;
- 
+   MutableSubtree result = {.ptr = data};
+   ts_subtree_summarize_children(result, language);
+   return result;
 diff --git a/src/subtree.h b/src/subtree.h
 index 5d390c71..06f68935 100644
 --- a/src/subtree.h

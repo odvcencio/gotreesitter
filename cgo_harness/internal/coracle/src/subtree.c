@@ -535,7 +535,6 @@ MutableSubtree ts_subtree_new_node(
   unsigned production_id,
   const TSLanguage *language
 ) {
-  GTS_SUBTREE_COUNT(GTS_COUNT_NODE);
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
   bool fragile = symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat;
 
@@ -564,6 +563,7 @@ MutableSubtree ts_subtree_new_node(
       .first_leaf = {.symbol = 0, .parse_state = 0},
     }}
   };
+  GTS_SUBTREE_COUNT(GTS_COUNT_NODE);
   MutableSubtree result = {.ptr = data};
   ts_subtree_summarize_children(result, language);
   return result;

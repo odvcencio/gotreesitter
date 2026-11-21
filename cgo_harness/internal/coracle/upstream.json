@@ -46,7 +46,7 @@
     "src/reusable_node.h": "10be747ea4c733ca181dc43d55d155ac8e5b8caa247079621cca0ce633347bfb",
     "src/stack.c": "f70b7e5823e82901801193562908037db4c1a73721e48da0fe54cdb2a6b5856d",
     "src/stack.h": "dea9df947fa871b253528dca48611aa174181a286ec2734c16d4038e040834f6",
-    "src/subtree.c": "34946ba230adcd441a4484dc333032882910266d4a6ede9bbcf8340bd78dfddb",
+    "src/subtree.c": "e249c274d68b1d8a344350b906eb0d7dd3e07a0ae9c90d550164b7667971b449",
     "src/subtree.h": "b472b1826423f07e3cee757ebc6af7648924c67af129882a1dd55a193bf797a2",
     "src/tree.c": "a0f63bc46fc4fcb88d35caa6fe89d7fc18edb895bc781db20f11d5c58988fb06",
     "src/tree.h": "628701f470166ad550471a673dce078f28a7851193939f02a342c30c3a8ef39c",
@@ -118,5 +118,5 @@
   "runtime_repository": "https://github.com/tree-sitter/tree-sitter.git",
   "runtime_src_tree_oid": "ddf1bd7027f5e48faaba5a74f98a97f4b1390c7a",
   "schema": "gts-c-oracle-sources/v1",
-  "subtree_counters_patch_sha256": "f65d1d359c83dd196cdc621d78375cd29c41914e074e2a9f4992adbb22fcf784"
+  "subtree_counters_patch_sha256": "7116afda3ef87208ea8cdb7ea422cc9e3ab15271ab44141be8b8b62587f56a68"
 }
