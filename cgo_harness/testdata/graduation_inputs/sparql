@@ -1,0 +1,6 @@
+PREFIX ex: <http://example.org/>
+SELECT ?subject WHERE {
+@@repeat
+  ?subject ex:predicate ?object .
+@@end
+}
