@@ -295,6 +295,18 @@ Besides the Go kinds, `object` and `array` literals use `composite_literal`,
 `as`, `satisfies` and `<T>x` use `type_assertion`, and `new X()` uses `call`.
 
 
+### Declaration headers
+
+Given a declaration node, use `grammars.HeaderRange(node, tree.Language())`
+to obtain its half-open byte range and points. Slice `tree.Source()` with the
+returned byte offsets to preserve the original formatting. An exported function
+includes its export prefix, and a decorated Python definition includes its
+decorators and header colon. An initialized binding ends before the assignment
+operator. A Go struct or interface header ends before its opening brace.
+
+The helper uses the grammar's direct body field for other languages. It returns
+`ok == false` when it cannot identify a header boundary.
+
 Call `ExtractInto` to reuse fact storage across trees:
 
 ```go
