@@ -1965,7 +1965,7 @@
           "route": "default",
           "counters": {
             "tokens": 475,
-            "new_nodes": 1214,
+            "new_nodes": 1161,
             "max_live_versions": 3,
             "multi_version_token_share_ppm": 130526,
             "reused_bytes": 0,
