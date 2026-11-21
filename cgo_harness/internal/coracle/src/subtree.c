@@ -19,6 +19,44 @@ typedef struct {
   Length new_end;
 } Edit;
 
+// Test-only creation counters, compiled in only when the harness defines
+// GTS_SUBTREE_COUNTERS (the Go build tag gts_subtree_counters). They count
+// heap leaves (the heap branch of ts_subtree_new_leaf), every
+// ts_subtree_new_node and every ts_subtree_clone, plus the comparison trees
+// that ts_parser__select_children builds on its scratch array. Without the
+// define each GTS_SUBTREE_COUNT is an empty statement and the build is the
+// pinned runtime. The counters are process-wide and not atomic: one parse at
+// a time.
+static uint64_t gts_subtree_counter_values[4];
+#ifdef GTS_SUBTREE_COUNTERS
+#define GTS_SUBTREE_COUNT(slot) (gts_subtree_counter_values[slot]++)
+#else
+#define GTS_SUBTREE_COUNT(slot) ((void)0)
+#endif
+enum { GTS_COUNT_LEAF, GTS_COUNT_NODE, GTS_COUNT_CLONE, GTS_COUNT_SCRATCH };
+
+int gts_subtree_counters_enabled(void) {
+#ifdef GTS_SUBTREE_COUNTERS
+  return 1;
+#else
+  return 0;
+#endif
+}
+
+void gts_subtree_counters_reset(void) {
+  memset(gts_subtree_counter_values, 0, sizeof(gts_subtree_counter_values));
+}
+
+void gts_subtree_counters_read(uint64_t *out) {
+  memcpy(out, gts_subtree_counter_values, sizeof(gts_subtree_counter_values));
+}
+
+#ifdef GTS_SUBTREE_COUNTERS
+void gts_subtree_counters_note_scratch(void) {
+  GTS_SUBTREE_COUNT(GTS_COUNT_SCRATCH);
+}
+#endif
+
 #define TS_MAX_INLINE_TREE_LENGTH UINT8_MAX
 #define TS_MAX_TREE_POOL_SIZE 32
 
@@ -197,6 +235,7 @@ Subtree ts_subtree_new_leaf(
       .is_inline = true,
     }};
   } else {
+    GTS_SUBTREE_COUNT(GTS_COUNT_LEAF);
     SubtreeHeapData *data = ts_subtree_pool_allocate(pool);
     *data = (SubtreeHeapData) {
       .ref_count = 1,
@@ -259,6 +298,7 @@ Subtree ts_subtree_new_error(
 
 // Clone a subtree.
 MutableSubtree ts_subtree_clone(Subtree self) {
+  GTS_SUBTREE_COUNT(GTS_COUNT_CLONE);
   size_t alloc_size = ts_subtree_alloc_size(self.ptr->child_count);
   Subtree *new_children = ts_malloc(alloc_size);
   Subtree *old_children = ts_subtree_children(self);
@@ -495,6 +535,7 @@ MutableSubtree ts_subtree_new_node(
   unsigned production_id,
   const TSLanguage *language
 ) {
+  GTS_SUBTREE_COUNT(GTS_COUNT_NODE);
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
   bool fragile = symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat;
 
