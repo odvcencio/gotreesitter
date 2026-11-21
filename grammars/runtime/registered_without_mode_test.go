@@ -66,6 +66,7 @@ func TestScannersRegisteredWithoutAModeBindThroughTheCore(t *testing.T) {
 		{"xml", XMLExternalScanner{}},
 		{"fortran", FortranExternalScanner{}},
 		{"markdown", MarkdownExternalScanner{}},
+		{"c_sharp", CSharpExternalScanner{}},
 	}, extraRegisteredWithoutModeCases...) {
 		t.Run(c.lang, func(t *testing.T) {
 			checkRegisteredScanner(t, c.lang, c.scanner, false, nil)
