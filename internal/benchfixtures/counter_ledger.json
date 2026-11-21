@@ -1618,7 +1618,7 @@
       "route": "candidate",
       "full": {
         "tokens": 977,
-        "new_nodes": 1727,
+        "new_nodes": 540,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
