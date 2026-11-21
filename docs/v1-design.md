@@ -87,6 +87,9 @@ Require all of these results on the candidate commit:
 6. Keep the 20-seed median time at or below legacy at 32 KiB, 137 KiB, and 1 MiB.
 7. Keep peak resident set size (RSS) at 1 MiB at or below legacy.
 8. Pass crash, memory-budget, out-of-memory, and race checks in the dedicated container.
+   Bound the store over a session of 300 edits by its live record slots (slots handed out and not free), not by its page bytes: the count after 100 edits is what the session settles at (later edits add at most 5 percent), and the largest count stays at or below 2.5 times the first tree's.
+   Page bytes are reported alongside and do not gate, because a store grows by whole record pages of about 300 KiB and one heavy edit late in a session adds a page that later edits reuse.
+   The owner decided this on 21 Nov 2026.
 9. Preserve highlight and tags parity, including supertype and `MISSING` patterns.
 
 Add the language to the allowlist in the PR that publishes its receipt.
