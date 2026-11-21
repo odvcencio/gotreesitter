@@ -4,9 +4,8 @@ package grammarruntime
 
 import (
 	"encoding/binary"
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the PHP grammar. This is the external index
@@ -90,7 +89,23 @@ var phpExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(phpExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) with the
+	// C-faithful mode on: 0 differences on real saved states. The pinned C scanner asserts
+	// on every saved state whose length is not what it reads (common/scanner.h:118) and
+	// reads past the buffer on forged ones.
+	scanmode.RegisterScanner(PhpExternalScanner{}, (*phpState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(PhpExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(PhpExternalScanner), right.(PhpExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
+
+// phpSerializationBufferSize is TREE_SITTER_SERIALIZATION_BUFFER_SIZE of the pinned C
+// runtime, which the C serialize checks against (common/scanner.h:69).
+const phpSerializationBufferSize = 1024
 
 type phpHeredoc struct {
 	endWordIndentAllowed bool
@@ -99,6 +114,18 @@ type phpHeredoc struct {
 
 type phpState struct {
 	heredocs []phpHeredoc
+	// cFaithful is the mode the core turns on (internal/scanmode): the saved state has
+	// the bytes and the stale entries of the pinned C scanner.
+	cFaithful bool
+}
+
+// SetCFaithful implements scanmode.CFaithful.
+func (s *phpState) SetCFaithful(on bool) { s.cFaithful = on }
+
+// phpLA is lexer->lookahead as C sees it: 0 at the end or for a NUL byte, and -1 for a
+// byte that is not valid UTF-8.
+func phpLA(lexer *gotreesitter.ExternalLexer) rune {
+	return rune(scanmode.CLookahead(lexer))
 }
 
 // PhpExternalScanner handles heredocs, encapsed strings, auto-semicolons, and
@@ -146,12 +173,17 @@ func (PhpExternalScanner) Serialize(payload any, buf []byte) int {
 	if len(buf) == 0 {
 		return 0
 	}
+	limit := len(buf)
+	if s.cFaithful && limit > phpSerializationBufferSize {
+		// common/scanner.h:69 checks against the 1,024 bytes of the C runtime.
+		limit = phpSerializationBufferSize
+	}
 	buf[size] = byte(len(s.heredocs))
 	size++
 	for j := range s.heredocs {
 		hd := &s.heredocs[j]
 		wordBytes := len(hd.word) * 4
-		if size+5+wordBytes >= len(buf) {
+		if size+5+wordBytes >= limit {
 			return 0
 		}
 		if hd.endWordIndentAllowed {
@@ -172,16 +204,25 @@ func (PhpExternalScanner) Serialize(payload any, buf []byte) int {
 
 func (PhpExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*phpState)
-	s.heredocs = s.heredocs[:0]
+	if s.cFaithful {
+		// common/scanner.h:88-90: C empties the word of every entry it holds but keeps
+		// the entries, so the stack keeps its size (and serializes the empty entries)
+		// until the new state is longer.
+		for i := range s.heredocs {
+			s.heredocs[i] = phpHeredoc{}
+		}
+	} else {
+		s.heredocs = s.heredocs[:0]
+	}
 
 	if len(buf) == 0 {
-		return
+		return // common/scanner.h:92
 	}
 	size := 0
 	hdCount := int(buf[size])
 	size++
 	for i := 0; i < hdCount && size < len(buf); i++ {
-		hd := phpHeredoc{}
+		var hd phpHeredoc
 		hd.endWordIndentAllowed = buf[size] != 0
 		size++
 		if size+4 > len(buf) {
@@ -189,13 +230,22 @@ func (PhpExternalScanner) Deserialize(payload any, buf []byte) {
 		}
 		wordLen := int(binary.LittleEndian.Uint32(buf[size:]))
 		size += 4
-		hd.word = make([]rune, 0, wordLen)
-		for j := 0; j < wordLen && size+4 <= len(buf); j++ {
-			ch := int32(binary.LittleEndian.Uint32(buf[size:]))
-			hd.word = append(hd.word, rune(ch))
-			size += 4
+		// A word longer than the bytes left is cut to the bytes left.
+		if max := (len(buf) - size) / 4; wordLen > max {
+			wordLen = max
 		}
-		s.heredocs = append(s.heredocs, hd)
+		if wordLen > 0 {
+			hd.word = make([]rune, 0, wordLen)
+			for j := 0; j < wordLen; j++ {
+				hd.word = append(hd.word, rune(int32(binary.LittleEndian.Uint32(buf[size:]))))
+				size += 4
+			}
+		}
+		if s.cFaithful && i < len(s.heredocs) {
+			s.heredocs[i] = hd // common/scanner.h:99-100 reuses the entry
+		} else {
+			s.heredocs = append(s.heredocs, hd) // common/scanner.h:102-104
+		}
 	}
 }
 
@@ -269,7 +319,7 @@ func (s PhpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		}
 		hd := state.heredocs[len(state.heredocs)-1]
 
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(phpLA(lexer)) {
 			lexer.Advance(true)
 		}
 
@@ -287,7 +337,7 @@ func (s PhpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		return false
 	}
 
-	if isValid(phpTokEOF) && lexer.Lookahead() == 0 {
+	if isValid(phpTokEOF) && scanmode.AtEOF(lexer) { // common/scanner.h:477
 		lexer.SetResultSymbol(syms[phpTokEOF])
 		return true
 	}
@@ -296,7 +346,7 @@ func (s PhpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		lexer.SetResultSymbol(syms[phpTokHeredocStart])
 		hd := phpHeredoc{}
 
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(phpLA(lexer)) {
 			lexer.Advance(true)
 		}
 
@@ -312,30 +362,30 @@ func (s PhpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 
 	if isValid(phpTokAutoSemicolon) {
 		lexer.SetResultSymbol(syms[phpTokAutoSemicolon])
-		if lexer.Lookahead() != '?' {
+		if phpLA(lexer) != '?' {
 			return false
 		}
 		lexer.Advance(false)
-		return lexer.Lookahead() == '>'
+		return phpLA(lexer) == '>'
 	}
 
 	return false
 }
 
 func phpIsValidNameChar(lexer *gotreesitter.ExternalLexer) bool {
-	ch := lexer.Lookahead()
-	return unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_' || ch >= 0x80
+	ch := phpLA(lexer)
+	return cIsAlnum(ch) || ch == '_' || ch >= 0x80 // common/scanner.h:145
 }
 
 func phpIsEscapableSequence(lexer *gotreesitter.ExternalLexer) bool {
-	ch := lexer.Lookahead()
+	ch := phpLA(lexer)
 	if ch == 'n' || ch == 'r' || ch == 't' || ch == 'v' || ch == 'e' || ch == 'f' ||
 		ch == '\\' || ch == '$' || ch == '"' {
 		return true
 	}
 	if ch == 'x' {
 		lexer.Advance(false)
-		return phpIsHexDigit(lexer.Lookahead())
+		return phpIsHexDigit(phpLA(lexer))
 	}
 	if ch == 'u' {
 		return true
@@ -349,14 +399,14 @@ func phpIsHexDigit(ch rune) bool {
 
 func phpSkipWhitespace(lexer *gotreesitter.ExternalLexer) bool {
 	for {
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(phpLA(lexer)) {
 			lexer.Advance(false)
 		}
-		if lexer.Lookahead() == '/' {
+		if phpLA(lexer) == '/' {
 			lexer.Advance(false)
-			if lexer.Lookahead() == '/' {
+			if phpLA(lexer) == '/' {
 				lexer.Advance(false)
-				for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' {
+				for phpLA(lexer) != 0 && phpLA(lexer) != '\n' {
 					lexer.Advance(false)
 				}
 			} else {
@@ -371,7 +421,7 @@ func phpSkipWhitespace(lexer *gotreesitter.ExternalLexer) bool {
 func phpScanHeredocWord(lexer *gotreesitter.ExternalLexer) []rune {
 	var result []rune
 	for phpIsValidNameChar(lexer) {
-		result = append(result, lexer.Lookahead())
+		result = append(result, phpLA(lexer))
 		lexer.Advance(false)
 	}
 	return result
@@ -395,7 +445,7 @@ func phpScanNowdoc(s *phpState, lexer *gotreesitter.ExternalLexer) bool {
 		return false
 	}
 
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(phpLA(lexer)) {
 		lexer.Advance(false)
 		hasConsumed = true
 	}
@@ -403,25 +453,25 @@ func phpScanNowdoc(s *phpState, lexer *gotreesitter.ExternalLexer) bool {
 	tag := s.heredocs[len(s.heredocs)-1].word
 	endTagMatched := false
 	for i := 0; i < len(tag); i++ {
-		if lexer.Lookahead() != tag[i] {
+		if phpLA(lexer) != tag[i] {
 			break
 		}
 		lexer.Advance(false)
 		hasConsumed = true
 		if i == len(tag)-1 {
-			la := lexer.Lookahead()
-			if unicode.IsSpace(la) || la == ';' || la == ',' || la == ')' {
+			la := phpLA(lexer)
+			if cIsSpace(la) || la == ';' || la == ',' || la == ')' {
 				endTagMatched = true
 			}
 		}
 	}
 
 	if endTagMatched {
-		for unicode.IsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\r' && lexer.Lookahead() != '\n' {
+		for cIsSpace(phpLA(lexer)) && phpLA(lexer) != '\r' && phpLA(lexer) != '\n' {
 			lexer.Advance(false)
 			hasConsumed = true
 		}
-		la := lexer.Lookahead()
+		la := phpLA(lexer)
 		if la == ';' || la == ',' || la == ')' || la == '\n' || la == '\r' {
 			return false
 		}
@@ -430,11 +480,11 @@ func phpScanNowdoc(s *phpState, lexer *gotreesitter.ExternalLexer) bool {
 	hasContent := hasConsumed
 	for {
 		lexer.MarkEnd()
-		switch lexer.Lookahead() {
+		switch phpLA(lexer) {
 		case '\n', '\r':
 			return hasContent
 		default:
-			if lexer.Lookahead() == 0 {
+			if scanmode.AtEOF(lexer) { // common/scanner.h:238
 				return false
 			}
 			lexer.Advance(false)
@@ -447,7 +497,7 @@ func phpScanEncapsed(s *phpState, lexer *gotreesitter.ExternalLexer, isAfterVari
 	hasConsumed := false
 
 	if isHeredoc && len(s.heredocs) > 0 {
-		for unicode.IsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\r' && lexer.Lookahead() != '\n' {
+		for cIsSpace(phpLA(lexer)) && phpLA(lexer) != '\r' && phpLA(lexer) != '\n' {
 			lexer.Advance(false)
 			hasConsumed = true
 		}
@@ -455,25 +505,25 @@ func phpScanEncapsed(s *phpState, lexer *gotreesitter.ExternalLexer, isAfterVari
 		tag := s.heredocs[len(s.heredocs)-1].word
 		endTagMatched := false
 		for i := 0; i < len(tag); i++ {
-			if lexer.Lookahead() != tag[i] {
+			if phpLA(lexer) != tag[i] {
 				break
 			}
 			hasConsumed = true
 			lexer.Advance(false)
 			if i == len(tag)-1 {
-				la := lexer.Lookahead()
-				if unicode.IsSpace(la) || la == ';' || la == ',' || la == ')' {
+				la := phpLA(lexer)
+				if cIsSpace(la) || la == ';' || la == ',' || la == ')' {
 					endTagMatched = true
 				}
 			}
 		}
 
 		if endTagMatched {
-			for unicode.IsSpace(lexer.Lookahead()) && lexer.Lookahead() != '\r' && lexer.Lookahead() != '\n' {
+			for cIsSpace(phpLA(lexer)) && phpLA(lexer) != '\r' && phpLA(lexer) != '\n' {
 				lexer.Advance(false)
 				hasConsumed = true
 			}
-			la := lexer.Lookahead()
+			la := phpLA(lexer)
 			if la == ';' || la == ',' || la == ')' || la == '\n' || la == '\r' {
 				return false
 			}
@@ -485,7 +535,7 @@ func phpScanEncapsed(s *phpState, lexer *gotreesitter.ExternalLexer, isAfterVari
 	for {
 		lexer.MarkEnd()
 
-		switch lexer.Lookahead() {
+		switch phpLA(lexer) {
 		case '"':
 			if !isHeredoc && !isExecution {
 				return hasContent
@@ -503,24 +553,24 @@ func phpScanEncapsed(s *phpState, lexer *gotreesitter.ExternalLexer, isAfterVari
 			lexer.Advance(false)
 		case '\\':
 			lexer.Advance(false)
-			if lexer.Lookahead() == '{' {
+			if phpLA(lexer) == '{' {
 				lexer.Advance(false)
-			} else if isExecution && lexer.Lookahead() == '`' {
+			} else if isExecution && phpLA(lexer) == '`' {
 				return hasContent
-			} else if isHeredoc && lexer.Lookahead() == '\\' {
+			} else if isHeredoc && phpLA(lexer) == '\\' {
 				lexer.Advance(false)
 			} else if phpIsEscapableSequence(lexer) {
 				return hasContent
 			}
 		case '$':
 			lexer.Advance(false)
-			if (phpIsValidNameChar(lexer) && !unicode.IsDigit(lexer.Lookahead())) || lexer.Lookahead() == '{' {
+			if (phpIsValidNameChar(lexer) && !cIsDigit(phpLA(lexer))) || phpLA(lexer) == '{' {
 				return hasContent
 			}
 		case '-':
 			if afterVar {
 				lexer.Advance(false)
-				if lexer.Lookahead() == '>' {
+				if phpLA(lexer) == '>' {
 					lexer.Advance(false)
 					if phpIsValidNameChar(lexer) {
 						return hasContent
@@ -537,11 +587,11 @@ func phpScanEncapsed(s *phpState, lexer *gotreesitter.ExternalLexer, isAfterVari
 			lexer.Advance(false)
 		case '{':
 			lexer.Advance(false)
-			if lexer.Lookahead() == '$' {
+			if phpLA(lexer) == '$' {
 				return hasContent
 			}
 		default:
-			if lexer.Lookahead() == 0 {
+			if scanmode.AtEOF(lexer) { // common/scanner.h:372
 				return false
 			}
 			lexer.Advance(false)
