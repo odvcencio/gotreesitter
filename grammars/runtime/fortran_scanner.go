@@ -88,6 +88,16 @@ var ftnExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(ftnExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) on the
+	// safe-state runs: the pinned C scanner itself fails on forged saved states; no mode.
+	scanmode.RegisterScanner(FortranExternalScanner{}, (*ftnState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(FortranExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(FortranExternalScanner), right.(FortranExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // ftnMaxLabelStack is the maximum nesting depth for labeled DO loops.

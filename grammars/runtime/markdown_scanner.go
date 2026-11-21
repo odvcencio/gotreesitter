@@ -190,6 +190,16 @@ var mdExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(mdExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) on the
+	// safe-state runs: the pinned C scanner itself fails on forged saved states; no mode.
+	scanmode.RegisterScanner(MarkdownExternalScanner{}, (*mdState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(MarkdownExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(MarkdownExternalScanner), right.(MarkdownExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // Block types
