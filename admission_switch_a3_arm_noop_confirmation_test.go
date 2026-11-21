@@ -254,6 +254,8 @@ func assertA3ArmNoOp(t *testing.T, name string, lang *gts.Language, source []byt
 	gts.ResetAdmissionCandidateCountersForTest()
 	tailed := gts.NewParser(lang)
 	tailed.SetAdmissionCandidateRoute(true)
+	// The probe is about the compact route; keep certified grammars off the core.
+	tailed.SetCompactCertificationTelemetry(true)
 	tailedTree, err := tailed.Parse(source)
 	if err != nil {
 		t.Fatalf("%s: tailed parse: %v", name, err)
@@ -267,6 +269,7 @@ func assertA3ArmNoOp(t *testing.T, name string, lang *gts.Language, source []byt
 	gts.ResetAdmissionCandidateCountersForTest()
 	raw := gts.NewParser(lang)
 	raw.SetAdmissionCandidateRoute(true)
+	raw.SetCompactCertificationTelemetry(true)
 	restore := gts.SetNoResultCompatibilityBenchmarkOnlyForTest(raw, true)
 	rawTree, err := raw.Parse(source)
 	restore()
