@@ -114,8 +114,7 @@ var javascriptExpressionKinds = []gts.ExpressionKindRule{
 	{NodeType: "subscript_expression", Kind: "index"}, {NodeType: "parenthesized_expression", Kind: "parenthesized"},
 }
 
-// New-expression arguments are standalone: JavaScript's CallRef extraction
-// does not report constructor calls, so those arguments have no CallRef to join.
+// Standalone rows emit constructor arguments independently of FactConstructorCalls.
 func javascriptCallArgumentRows(kinds []gts.ExpressionKindRule) []gts.CallArgumentRule {
 	return []gts.CallArgumentRule{
 		{NodeType: "call_expression", ArgumentsField: "arguments", ListNodeType: "arguments", SpreadNodeType: "spread_element", Kinds: kinds},
