@@ -51,7 +51,8 @@
 #   GRAD_OUT          folder for the logs (default: a new temporary folder)
 #   GRAD_RSS_RUNS     runs per arm for item 9 (default 3)
 #   GRAD_RSS_TIMEOUT  seconds a run of item 9 may take before it is killed (default 480);
-#                     a killed run reports the last progress line as a lower bound
+#                     a killed run reports the last progress line as a lower bound.
+#                     The 1,000 edits are prepared once before the timed runs (not timed).
 #
 # The default engine in items 6, 9 and 10 is the present engine of the build under
 # test with the route off, not a pinned release of it.
@@ -423,6 +424,11 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
       declare -A rss=() killed=()
       for work in fresh edits1000; do for arm in route default; do rss[$work.$arm]=""; done; done
       fail9=""; na9=""; source9=""; bytes9=""
+      # Prepare the 1,000 edits once, outside the timed runs: checking each edit
+      # with pinned C on a 1 MiB source can take most of a run's time limit.
+      edits9="$out/item9-edits.json"
+      GRAD_RSS_PREPARE=1 GRAD_RSS_EDITS_FILE="$edits9" GRAD_RSS_ARM=route GRAD_RSS_WORK=edits1000 "$hbin" -test.run '^TestGraduationRSSChild$' -test.count=1 -test.v -test.timeout=40m >"$out/item9-prepare.log" 2>&1
+      if grep -aq '^GRADRSSPREP status=pass' "$out/item9-prepare.log"; then export GRAD_RSS_EDITS_FILE="$edits9"; else unset GRAD_RSS_EDITS_FILE; fi
       for r in $(seq 1 "$runs"); do
         for work in fresh edits1000; do
           arms="route default"; [ $((r % 2)) = 0 ] && arms="default route"
@@ -464,7 +470,8 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
           fi
         done
         emit "$lang" 9 "$status" "$nums" "$first"
-      fi ;;
+      fi
+      unset GRAD_RSS_EDITS_FILE ;;
     10) run_harness 10 TestGraduationTime; emit_from_log "$lang" 10 "$LOG" $RC ;;
   esac
   stop_if_needed "$item"

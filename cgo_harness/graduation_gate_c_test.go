@@ -25,6 +25,7 @@ package cgoharness
 import (
 	"bufio"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -1606,6 +1607,41 @@ func gradResetPeakRSS() (uint64, error) {
 	return peak, nil
 }
 
+// gradRSSEdits is the file of item 9's prepared edits: the SHA-256 of the
+// source they apply to and the edits in order.
+type gradRSSEdits struct {
+	SourceSHA256 string
+	Edits        []g.InputEdit
+}
+
+// gradWriteRSSEdits writes the prepared edits of a source.
+func gradWriteRSSEdits(path string, src []byte, edits []g.InputEdit) error {
+	b, err := json.Marshal(gradRSSEdits{SourceSHA256: gradSHA(src), Edits: edits})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, b, 0o644)
+}
+
+// gradReadRSSEdits reads prepared edits and checks that they were made for src.
+func gradReadRSSEdits(path string, src []byte) ([]g.InputEdit, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var f gradRSSEdits
+	if err := json.Unmarshal(b, &f); err != nil {
+		return nil, err
+	}
+	if f.SourceSHA256 != gradSHA(src) {
+		return nil, fmt.Errorf("prepared for source %s, not %s", f.SourceSHA256, gradSHA(src))
+	}
+	if len(f.Edits) != 1000 {
+		return nil, fmt.Errorf("%d prepared edits, want 1000", len(f.Edits))
+	}
+	return f.Edits, nil
+}
+
 // Item 9, child process: one run of one workload; prints the peak resident set size
 // that the workload reaches (maxrss_kb), measured from a peak that is reset after
 // the setup (setup_rss_kb is the size it starts from).
@@ -1637,7 +1673,14 @@ func TestGraduationRSSChild(t *testing.T) {
 	}
 	sourceBytes := len(src)
 	var prepared []g.InputEdit
-	if work == "edits1000" {
+	editsFile, prepare := os.Getenv("GRAD_RSS_EDITS_FILE"), os.Getenv("GRAD_RSS_PREPARE") == "1"
+	if work == "edits1000" && editsFile != "" && !prepare {
+		// The edits were prepared once, outside the timed runs.
+		var err error
+		if prepared, err = gradReadRSSEdits(editsFile, src); err != nil {
+			t.Fatalf("item 9 arm=%s work=%s prepared edits: %v", arm, work, err)
+		}
+	} else if work == "edits1000" {
 		current := src
 		used := make(map[uint32]bool)
 		var gen benchfixtures.CleanEditGenerator
@@ -1662,6 +1705,16 @@ func TestGraduationRSSChild(t *testing.T) {
 			fmt.Printf("GRADRSS arm=%s work=%s status=na source=%q bytes=%d reason=%q\n", arm, work, sourceName, len(src), fmt.Sprintf("only %d distinct C-clean line ends", len(prepared)))
 			return
 		}
+		if prepare {
+			if editsFile == "" {
+				t.Fatalf("item 9 GRAD_RSS_PREPARE needs GRAD_RSS_EDITS_FILE")
+			}
+			if err := gradWriteRSSEdits(editsFile, src, prepared); err != nil {
+				t.Fatalf("item 9 prepared edits: %v", err)
+			}
+			fmt.Printf("GRADRSSPREP status=pass source=%q bytes=%d edits=%d\n", sourceName, len(src), len(prepared))
+			return
+		}
 	}
 	runtime.GC()
 	setupRSS, err := gradResetPeakRSS()
@@ -1673,6 +1726,11 @@ func TestGraduationRSSChild(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	if work == "edits1000" {
+		// A run killed before its 25th edit still leaves a lower bound: the
+		// peak after the first parse.
+		if peak, _, err := gradProcRSS(); err == nil {
+			fmt.Printf("GRADPROG arm=%s work=%s edits=0 maxrss_kb=%d setup_rss_kb=%d\n", arm, work, peak, setupRSS)
+		}
 		for i := 0; i < 1000; i++ {
 			e := prepared[i]
 			at := int(e.StartByte)
