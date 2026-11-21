@@ -46,7 +46,9 @@
 #   7 highlight, tags, MISSING, ERROR and supertype query results (the set of
 #     captures: name and byte range)
 #   8 safety: stop reasons, a failing core and scanner, release orders, readers
-#     (also under -race), store bound
+#     (also under -race), store bound: over 300 edits the live record slots (handed out
+#     and not free) settle by edit 100 (later edits add at most 5 percent) and stay at or
+#     below 2.5 x the first tree's; page bytes are reported, not gated
 #   9 peak resident set size of a 1 MiB fresh parse and of 1,000 edits, at or below the default
 #     engine's; each run is a child process that resets the peak after its setup and
 #     keeps its heap within 32 MiB of what it holds (a soft memory limit)
