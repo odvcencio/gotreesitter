@@ -1,0 +1,36 @@
+local x0: number = 0
+function f0(a: number): number
+  return a + 0
+end
+local x1: number = 1
+function f1(a: number): number
+  return a + 1
+end
+local x2: number = 2
+function f2(a: number): number
+  return a + 2
+end
+local x3: number = 3
+function f3(a: number): number
+  return a + 3
+end
+local x4: number = 4
+function f4(a: number): number
+  return a + 4
+end
+local x5: number = 5
+function f5(a: number): number
+  return a + 5
+end
+local x6: number = 6
+function f6(a: number): number
+  return a + 6
+end
+local x7: number = 7
+function f7(a: number): number
+  return a + 7
+end
+local x8: number = 8
+function f8(a: number): number
+  return a + 8
+end

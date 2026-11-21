@@ -1,0 +1,6 @@
+digraph g {
+@@repeat
+  a -> b [label="e"];
+  b -> c;
+@@end
+}
