@@ -5017,7 +5017,7 @@ func TestGraduationSafety(t *testing.T) {
 		if !census {
 			restoreCertificate = ccoreCertifyIncr()
 		}
-		outcome := func(candidate bool) (result string, calls int32, declines map[string]int64) {
+		outcome := func(candidate bool, input []byte) (result string, calls int32, declines map[string]int64) {
 			l := ccoreCopyLanguage(lang)
 			var n atomic.Int32
 			l.ExternalScanner = ccoreWrapped(lang, func(inner gts.ExternalScanner) gts.ExternalScanner {
@@ -5032,7 +5032,7 @@ func TestGraduationSafety(t *testing.T) {
 						result = "panic"
 					}
 				}()
-				tr, err := p.Parse(small)
+				tr, err := p.Parse(input)
 				if err != nil {
 					result = "error"
 					return
@@ -5047,10 +5047,24 @@ func TestGraduationSafety(t *testing.T) {
 			declines, _ = gts.CcoreTestCounters()
 			return result, n.Load(), declines
 		}
-		routed, routeCalls, declines := outcome(true)
-		present, presentCalls, _ := outcome(false)
+		inputName := name
+		routed, routeCalls, declines := outcome(true, small)
+		present, presentCalls, _ := outcome(false, small)
+		// Some samples never reach the scanner (Racket's has no here-string). An
+		// input under testdata/graduation_scanner_inputs then gives the check a
+		// text that does.
+		if routeCalls == 0 && presentCalls == 0 {
+			scanPath := filepath.Join("testdata", "graduation_scanner_inputs", name)
+			if extra, err := os.ReadFile(scanPath); err == nil {
+				inputName = scanPath
+				routed, routeCalls, declines = outcome(true, extra)
+				present, presentCalls, _ = outcome(false, extra)
+			} else if !os.IsNotExist(err) {
+				t.Fatalf("scanner input %s: %v", scanPath, err)
+			}
+		}
 		restoreCertificate()
-		detail := fmt.Sprintf("input=%s route=%s default=%s route_scans=%d default_scans=%d declines=%v", name, routed, present, routeCalls, presentCalls, declines)
+		detail := fmt.Sprintf("input=%s route=%s default=%s route_scans=%d default_scans=%d declines=%v", inputName, routed, present, routeCalls, presentCalls, declines)
 		switch {
 		case routeCalls == 0 || presentCalls == 0 || declines["panic"] == 0:
 			report("scanner-panics", "na", "scanner panic was not observed in both paths and as a core decline: "+detail)

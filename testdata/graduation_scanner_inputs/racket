@@ -1,0 +1,6 @@
+(define s #<<END
+hello
+world
+END
+)
+(display s)
