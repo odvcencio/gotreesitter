@@ -5267,12 +5267,18 @@ func TestGraduationSafety(t *testing.T) {
 				// so the store can reach about twice the first tree when a reparse rebuilds
 				// most of it (a grammar whose scanner state changes after an edit does).
 				// That is a fixed cost. What must not happen is growth with the number of
-				// edits. The check therefore has two parts: the size after 100 edits is the
-				// size the session settles at (later edits add at most 5 percent), and it
-				// stays under 2.5 times the first tree.
+				// edits. The check therefore has two parts: the live record slots after 100
+				// edits are what the session settles at (later edits add at most 5 percent),
+				// and they stay under 2.5 times the first tree's. It bounds live slots
+				// (handed out and not free), not page bytes: a store takes record pages of
+				// about 300 KiB, so one heavy edit late in a session adds a whole page that a
+				// later edit reuses, and page bytes measure that rounding, not retention
+				// (owner's decision, 21 Nov 2026). Page bytes are still reported.
 				firstBytes, maxBytes := gts.CcoreTestStoreBytes(tree), 0
 				maxBytes = firstBytes
 				settledBytes := 0
+				firstSlots := gts.CcoreTestStoreLiveSlots(tree)
+				maxSlots, settledSlots := firstSlots, 0
 				cur, edits, served, rejected, problem := source, 0, 0, 0, ""
 				gts.CcoreTestReset()
 				for edits < 300 {
@@ -5304,16 +5310,19 @@ func TestGraduationSafety(t *testing.T) {
 					if n := gts.CcoreTestStoreBytes(tree); n > maxBytes {
 						maxBytes = n
 					}
+					if n := gts.CcoreTestStoreLiveSlots(tree); n > maxSlots {
+						maxSlots = n
+					}
 					if edits == 100 {
-						settledBytes = maxBytes
+						settledBytes, settledSlots = maxBytes, maxSlots
 					}
 				}
-				lastBytes := gts.CcoreTestStoreBytes(tree)
+				lastBytes, lastSlots := gts.CcoreTestStoreBytes(tree), gts.CcoreTestStoreLiveSlots(tree)
 				tree.Release()
 				fallbacks, _ := gts.CcoreTestIncr()
-				detail := fmt.Sprintf("source_bytes=%d edits=%d served=%d first_bytes=%d after_100_edits=%d max_bytes=%d last_bytes=%d fallbacks=%v rejected=%d %s", len(source), edits, served, firstBytes, settledBytes, maxBytes, lastBytes, fallbacks, rejected, problem)
-				settled := settledBytes > 0 && float64(maxBytes) <= 1.05*float64(settledBytes)
-				if problem == "" && firstBytes > 0 && edits == 300 && served == 300 && len(fallbacks) == 0 && settled && float64(maxBytes) <= 2.5*float64(firstBytes) {
+				detail := fmt.Sprintf("source_bytes=%d edits=%d served=%d first_slots=%d after_100_edits_slots=%d max_slots=%d last_slots=%d first_bytes=%d after_100_edits=%d max_bytes=%d last_bytes=%d fallbacks=%v rejected=%d %s", len(source), edits, served, firstSlots, settledSlots, maxSlots, lastSlots, firstBytes, settledBytes, maxBytes, lastBytes, fallbacks, rejected, problem)
+				settled := settledSlots > 0 && float64(maxSlots) <= 1.05*float64(settledSlots)
+				if problem == "" && firstSlots > 0 && edits == 300 && served == 300 && len(fallbacks) == 0 && settled && float64(maxSlots) <= 2.5*float64(firstSlots) {
 					report("store-bound", "ok", detail)
 				} else {
 					report("store-bound", "fail", detail)
