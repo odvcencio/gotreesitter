@@ -237,6 +237,8 @@ func TestValidateQueryPatternsAuditedLanguagesPassClean(t *testing.T) {
 	audited := []string{
 		"go", "python", "javascript", "typescript", "tsx",
 		"rust", "java", "c", "cpp", "c_sharp", "lua",
+		// Audited against pinned C one row at a time, 21 Nov 2026.
+		"apex", "authzed", "circom", "move", "prisma", "scss", "templ",
 	}
 	for _, name := range audited {
 		t.Run(name, func(t *testing.T) {
