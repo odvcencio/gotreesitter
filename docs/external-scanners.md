@@ -725,3 +725,18 @@ exported names, so out-of-tree types satisfy them):
       but hitting the cap means your validity gating is wrong).
 - [ ] Gate every `Scan` branch on `validSymbols`; never return a symbol
       whose index was not valid.
+
+## Registering a port for the C-faithful core
+
+`internal/ccore` serves a grammar with an external scanner only when the port is registered with `scanmode.RegisterScanner` (see the `init` functions in `grammars/runtime/*_scanner.go`). Register a port only after the scanner differential test shows that it does what the pinned C scanner does, call by call. The test compiles the C scanner with the C runtime's own lexer and drives both scanners with the same calls:
+
+```sh
+bash cgo_harness/docker/run_parity_in_docker.sh --label scandiff-<language> -- \
+  "bash /workspace/cgo_harness/docker/scandiff.sh <language> 200000 <seed>"
+```
+
+The gate is three runs of 200,000 calls, each exiting 0 (no difference in a gated category, no C crash): seed 1 and seed 2 with the default forged saved states, and seed 1 with `SCANDIFF_HOSTILE=off`.
+
+Some pinned C scanners crash or exhaust memory when they deserialize a forged saved state (for example a forged tag count or a negative depth). A port cannot pass those runs, because the fault is in C. For such a scanner the gate is the safe-state runs instead: seed 1 with `SCANDIFF_HOSTILE=off`, and seeds 1 and 2 with `SCANDIFF_HOSTILE=trunc` (shorter copies of real saved states), each with 0 differences. Record the C fault as a reproducer in the scanner's comment or test, not as a gated run. (Owner's decision, 21 Nov 2026.)
+
+Fix each difference in the port, cite the C `file:line`, and add a no-cgo reproducer test in `grammars/runtime/<language>_scanner_cparity_test.go` that fails on the old port.
