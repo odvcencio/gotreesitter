@@ -56,6 +56,8 @@ func TestScannersRegisteredWithoutAModeBindThroughTheCore(t *testing.T) {
 		{"liquid", LiquidExternalScanner{}},
 		{"janet", JanetExternalScanner{}},
 		{"pkl", PklExternalScanner{}},
+		{"editorconfig", EditorconfigExternalScanner{}},
+		{"dtd", DtdExternalScanner{}},
 	}, extraRegisteredWithoutModeCases...) {
 		t.Run(c.lang, func(t *testing.T) {
 			checkRegisteredScanner(t, c.lang, c.scanner, false, nil)

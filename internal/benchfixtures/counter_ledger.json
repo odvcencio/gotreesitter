@@ -3243,7 +3243,7 @@
       "route": "candidate",
       "full": {
         "tokens": 288,
-        "new_nodes": 515,
+        "new_nodes": 155,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
