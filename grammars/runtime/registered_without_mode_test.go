@@ -53,6 +53,15 @@ func TestScannersRegisteredWithoutAModeBindThroughTheCore(t *testing.T) {
 		{"odin", OdinExternalScanner{}},
 		{"fish", FishExternalScanner{}},
 		{"tcl", TclExternalScanner{}},
+		{"liquid", LiquidExternalScanner{}},
+		{"janet", JanetExternalScanner{}},
+		{"pkl", PklExternalScanner{}},
+		{"editorconfig", EditorconfigExternalScanner{}},
+		{"dtd", DtdExternalScanner{}},
+		{"org", OrgExternalScanner{}},
+		{"ocaml", OcamlExternalScanner{}},
+		{"comment", CommentExternalScanner{}},
+		{"cue", CueExternalScanner{}},
 	}, extraRegisteredWithoutModeCases...) {
 		t.Run(c.lang, func(t *testing.T) {
 			checkRegisteredScanner(t, c.lang, c.scanner, false, nil)

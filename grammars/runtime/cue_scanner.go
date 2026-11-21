@@ -2,7 +2,10 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+)
 
 // External token indexes for the cue grammar. This is the external index
 // (the position of the token in the grammar's `externals: [...]` list),
@@ -64,6 +67,15 @@ var cueExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(cueExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(CueExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(CueExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(CueExternalScanner), right.(CueExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // CueExternalScanner handles string content scanning for CUE's various
@@ -149,14 +161,20 @@ func (s CueExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	return false
 }
 
-// cueScanMultiline scans content of triple-quoted (""" or ”') strings.
+// cueScanMultiline scans content of triple-quoted strings. Mirrors
+// scan_multiline in tree-sitter-cue src/scanner.c:16-69.
+//
+// Either quote character stops the content (scanner.c:26-40): the end is marked
+// at it, and it does not count as content, so a string of quote marks alone gives
+// no token. A NUL byte is content; only the real end of input fails
+// (scanner.c:56-62).
 func cueScanMultiline(lexer *gotreesitter.ExternalLexer, delim rune, sym gotreesitter.Symbol) bool {
 	lexer.SetResultSymbol(sym)
 	hasContent := false
 	for {
 		ch := lexer.Lookahead()
 		switch {
-		case ch == delim:
+		case ch == '\'' || ch == '"':
 			lexer.MarkEnd()
 			lexer.Advance(false)
 			if lexer.Lookahead() == delim {
@@ -173,7 +191,7 @@ func cueScanMultiline(lexer *gotreesitter.ExternalLexer, delim rune, sym gotrees
 			}
 			lexer.Advance(false)
 			hasContent = true
-		case ch == 0:
+		case ch == 0 && scanmode.AtEOF(lexer):
 			return false
 		default:
 			lexer.Advance(false)
@@ -182,14 +200,18 @@ func cueScanMultiline(lexer *gotreesitter.ExternalLexer, delim rune, sym gotrees
 	}
 }
 
-// cueScanRawMultiline scans raw multiline strings (""" with # delim).
+// cueScanRawMultiline scans raw multiline strings. Mirrors scan_raw_multiline
+// in tree-sitter-cue src/scanner.c:71-127. Either quote character starts the
+// closing test (scanner.c:81-98), the backslash case does not skip a character
+// after a lone backslash (scanner.c:99-113), and a NUL byte is content
+// (scanner.c:114-120).
 func cueScanRawMultiline(lexer *gotreesitter.ExternalLexer, delim rune, sym gotreesitter.Symbol) bool {
 	lexer.SetResultSymbol(sym)
 	hasContent := false
 	for {
 		ch := lexer.Lookahead()
 		switch {
-		case ch == delim:
+		case ch == '\'' || ch == '"':
 			lexer.MarkEnd()
 			lexer.Advance(false)
 			if lexer.Lookahead() == delim {
@@ -211,7 +233,7 @@ func cueScanRawMultiline(lexer *gotreesitter.ExternalLexer, delim rune, sym gotr
 				}
 			}
 			hasContent = true
-		case ch == 0:
+		case ch == 0 && scanmode.AtEOF(lexer):
 			return false
 		default:
 			lexer.Advance(false)
@@ -220,14 +242,16 @@ func cueScanRawMultiline(lexer *gotreesitter.ExternalLexer, delim rune, sym gotr
 	}
 }
 
-// cueScanRaw scans raw string content (single-line with # delim).
+// cueScanRaw scans raw string content. Mirrors scan_raw in tree-sitter-cue
+// src/scanner.c:129-181. Either quote character followed by '#' ends the
+// content (scanner.c:139-150); a NUL byte is content (scanner.c:168-174).
 func cueScanRaw(lexer *gotreesitter.ExternalLexer, delim rune, sym gotreesitter.Symbol) bool {
 	lexer.SetResultSymbol(sym)
 	hasContent := false
 	for {
 		ch := lexer.Lookahead()
 		switch {
-		case ch == delim:
+		case ch == '\'' || ch == '"':
 			lexer.MarkEnd()
 			lexer.Advance(false)
 			if lexer.Lookahead() == '#' {
@@ -245,7 +269,7 @@ func cueScanRaw(lexer *gotreesitter.ExternalLexer, delim rune, sym gotreesitter.
 				lexer.Advance(false)
 			}
 			hasContent = true
-		case ch == 0:
+		case ch == 0 && scanmode.AtEOF(lexer):
 			return false
 		default:
 			lexer.Advance(false)

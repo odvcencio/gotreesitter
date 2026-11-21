@@ -1618,7 +1618,7 @@
       "route": "candidate",
       "full": {
         "tokens": 977,
-        "new_nodes": 1727,
+        "new_nodes": 540,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
@@ -3243,7 +3243,7 @@
       "route": "candidate",
       "full": {
         "tokens": 288,
-        "new_nodes": 515,
+        "new_nodes": 155,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
@@ -6334,7 +6334,7 @@
       "route": "candidate",
       "full": {
         "tokens": 249,
-        "new_nodes": 474,
+        "new_nodes": 301,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
@@ -7300,7 +7300,7 @@
       "route": "candidate",
       "full": {
         "tokens": 101,
-        "new_nodes": 203,
+        "new_nodes": 124,
         "max_live_versions": 2,
         "multi_version_token_share_ppm": 9900,
         "reused_bytes": 0,
@@ -7355,12 +7355,12 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 59,
+            "tokens": 58,
             "new_nodes": 236,
             "max_live_versions": 3,
-            "multi_version_token_share_ppm": 762711,
-            "reused_bytes": 181,
-            "block_splices": 17,
+            "multi_version_token_share_ppm": 775862,
+            "reused_bytes": 183,
+            "block_splices": 18,
             "stop_reason": "accepted",
             "root_end": 1432,
             "input_bytes": 1432,
@@ -8393,7 +8393,7 @@
           "counters": {
             "tokens": 187,
             "new_nodes": 643,
-            "max_live_versions": 1,
+            "max_live_versions": 0,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,
@@ -8546,7 +8546,7 @@
           "counters": {
             "tokens": 517,
             "new_nodes": 1291,
-            "max_live_versions": 1,
+            "max_live_versions": 0,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,
@@ -8849,7 +8849,7 @@
       "route": "candidate",
       "full": {
         "tokens": 133,
-        "new_nodes": 266,
+        "new_nodes": 196,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
@@ -12718,7 +12718,7 @@
           "counters": {
             "tokens": 401,
             "new_nodes": 731,
-            "max_live_versions": 1,
+            "max_live_versions": 0,
             "multi_version_token_share_ppm": 0,
             "reused_bytes": 0,
             "block_splices": 0,

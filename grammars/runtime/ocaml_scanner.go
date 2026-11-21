@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the ocaml grammar. These are scanner-internal
@@ -66,14 +65,62 @@ var ocamlExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(ocamlExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(OcamlExternalScanner{}, (*ocamlScannerState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(OcamlExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(OcamlExternalScanner), right.(OcamlExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
-// ocamlScannerState tracks whether the scanner is inside a string and the
-// current quoted string delimiter identifier, matching upstream's Scanner
-// struct in common/scanner.h.
+// ocamlScannerState mirrors upstream's Scanner struct in common/scanner.h:21-27. The delimiter
+// identifier is kept the way the C code keeps it, because its saved form depends on that:
+// id is the backing array (its length is the capacity, which only grows) and idLen is
+// quoted_string_id_length. The array keeps its old contents when a shorter id is loaded, as
+// the C array does.
 type ocamlScannerState struct {
-	inString       bool
-	quotedStringID []int32 // delimiter chars for {id|...|id} strings
+	inString bool
+	idLen    int
+	id       []int32
+}
+
+// quoted_string_id_resize (common/scanner.h:33-45): grow to at least minCapacity items. The new
+// part holds zeros here; the C array holds whatever the allocator returned.
+func (s *ocamlScannerState) idResize(minCapacity int) {
+	capacity := len(s.id)
+	if capacity >= minCapacity {
+		return
+	}
+	if capacity < 16 {
+		capacity = 16
+	}
+	for capacity < minCapacity {
+		capacity <<= 1
+	}
+	grown := make([]int32, capacity)
+	copy(grown, s.id)
+	s.id = grown
+}
+
+// quoted_string_id_push (common/scanner.h:62-65).
+func (s *ocamlScannerState) idPush(c int32) {
+	s.idResize(s.idLen + 1)
+	s.id[s.idLen] = c
+	s.idLen++
+}
+
+// idByte and setIDByte address the array as bytes in little-endian order, which is what the C
+// memcpy calls on lines 51 and 58 do.
+func (s *ocamlScannerState) idByte(i int) byte {
+	return byte(uint32(s.id[i/4]) >> (8 * uint(i%4)))
+}
+
+func (s *ocamlScannerState) setIDByte(i int, b byte) {
+	shift := 8 * uint(i%4)
+	s.id[i/4] = int32(uint32(s.id[i/4])&^(0xff<<shift) | uint32(b)<<shift)
 }
 
 // OcamlExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-ocaml.
@@ -108,6 +155,12 @@ func (OcamlExternalScanner) Create() any {
 
 func (OcamlExternalScanner) Destroy(payload any) {}
 
+// ocamlSerializationBufferSize is TREE_SITTER_SERIALIZATION_BUFFER_SIZE.
+const ocamlSerializationBufferSize = 1024
+
+// Serialize is common/scanner.h:486-494. quoted_string_id_copy (:56-60) copies
+// quoted_string_id_length BYTES of the int32 array, not that many items, so the saved state is
+// idLen bytes long and holds the low bytes of the first items.
 func (OcamlExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*ocamlScannerState)
 	if len(buf) == 0 {
@@ -118,37 +171,33 @@ func (OcamlExternalScanner) Serialize(payload any, buf []byte) int {
 	} else {
 		buf[0] = 0
 	}
-	// Copy quoted string ID (stored as int32 bytes).
-	idBytes := len(s.quotedStringID) * 4
-	if 1+idBytes > len(buf) {
-		return 1
+	if s.idLen < ocamlSerializationBufferSize && 1+s.idLen <= len(buf) {
+		for i := 0; i < s.idLen; i++ {
+			buf[1+i] = s.idByte(i)
+		}
+		return s.idLen + 1
 	}
-	pos := 1
-	for _, c := range s.quotedStringID {
-		buf[pos] = byte(c)
-		buf[pos+1] = byte(c >> 8)
-		buf[pos+2] = byte(c >> 16)
-		buf[pos+3] = byte(c >> 24)
-		pos += 4
-	}
-	return pos
+	return 1
 }
 
+// Deserialize is common/scanner.h:496-504. quoted_string_id_assign (:47-54) copies length-1
+// bytes into the int32 array and then takes length-1 as the number of items.
 func (OcamlExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*ocamlScannerState)
-	s.inString = false
-	s.quotedStringID = s.quotedStringID[:0]
-
 	if len(buf) == 0 {
+		s.inString = false
+		s.idLen = 0
 		return
 	}
 	s.inString = buf[0] != 0
-	pos := 1
-	for pos+4 <= len(buf) {
-		c := int32(buf[pos]) | int32(buf[pos+1])<<8 | int32(buf[pos+2])<<16 | int32(buf[pos+3])<<24
-		s.quotedStringID = append(s.quotedStringID, c)
-		pos += 4
+	n := len(buf) - 1
+	if n > 0 {
+		s.idResize(n)
+		for i := 0; i < n; i++ {
+			s.setIDByte(i, buf[1+i])
+		}
 	}
+	s.idLen = n
 }
 
 func (s OcamlExternalScanner) symbolTable() *[ocamlTokenCount]gotreesitter.Symbol {
@@ -179,23 +228,27 @@ func (s OcamlExternalScanner) remapValidSymbols(validSymbols []bool, semanticVal
 	return semanticValid[:]
 }
 
+// cla is lexer->lookahead as C sees it: -1 for a byte that is not valid UTF-8.
+func cla(lexer *gotreesitter.ExternalLexer) int32 { return scanmode.CLookahead(lexer) }
+
 func (s OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	state := payload.(*ocamlScannerState)
 	var semanticValid [ocamlTokenCount]bool
 	validSymbols = s.remapValidSymbols(validSymbols, &semanticValid)
 	symbols := s.symbolTable()
 
-	// Left quoted string delimiter: {id|
+	// common/scanner.h:507-512. The C scanner never calls mark_end, so the token ends at the
+	// cursor when it returns.
 	if !ocamlValid(validSymbols, ocamlTokErrorSentinel) &&
 		ocamlValid(validSymbols, ocamlTokLeftQuotedStringDel) {
-		ch := lexer.Lookahead()
+		ch := cla(lexer)
 		if isOcamlLowercaseExt(ch) || ch == '|' {
 			lexer.SetResultSymbol(symbols[ocamlTokLeftQuotedStringDel])
 			return ocamlScanLeftQuotedStringDelim(state, lexer)
 		}
 	}
 
-	// Right quoted string delimiter: |id}
+	// :514-519
 	if !ocamlValid(validSymbols, ocamlTokErrorSentinel) &&
 		ocamlValid(validSymbols, ocamlTokRightQuotedStringDel) &&
 		lexer.Lookahead() == '|' {
@@ -204,38 +257,36 @@ func (s OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 		return ocamlScanRightQuotedStringDelim(state, lexer)
 	}
 
-	// Closing string delimiter (before whitespace skip).
+	// :521-527
 	if state.inString && ocamlValid(validSymbols, ocamlTokStringDelim) &&
 		lexer.Lookahead() == '"' {
 		lexer.Advance(false)
 		state.inString = false
-		lexer.MarkEnd()
 		lexer.SetResultSymbol(symbols[ocamlTokStringDelim])
 		return true
 	}
 
-	// Skip whitespace.
-	for unicode.IsSpace(lexer.Lookahead()) {
+	// :529-531 iswspace in the C locale is ASCII only.
+	for cIsSpace(cla(lexer)) {
 		lexer.Advance(true)
 	}
 
-	// Opening string delimiter.
+	// :533-539
 	if !state.inString && ocamlValid(validSymbols, ocamlTokStringDelim) &&
 		lexer.Lookahead() == '"' {
 		lexer.Advance(false)
 		state.inString = true
-		lexer.MarkEnd()
 		lexer.SetResultSymbol(symbols[ocamlTokStringDelim])
 		return true
 	}
 
-	// Line number directive: # <digits> "filename"
+	// :541-574
 	if !state.inString && ocamlValid(validSymbols, ocamlTokLineNumberDirective) &&
 		lexer.Lookahead() == '#' && lexer.Column() == 0 {
 		return ocamlScanLineNumberDirective(lexer, symbols[ocamlTokLineNumberDirective])
 	}
 
-	// Comment: (* ... *)
+	// :576-581
 	if !state.inString && ocamlValid(validSymbols, ocamlTokComment) &&
 		lexer.Lookahead() == '(' {
 		lexer.Advance(false)
@@ -243,14 +294,11 @@ func (s OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 		return ocamlScanComment(state, lexer)
 	}
 
-	// Null character (literal \0 that isn't EOF). Our ExternalLexer cannot
-	// tell a true embedded NUL byte apart from EOF: Lookahead returns 0 for
-	// both. Every hand-written scanner in this runtime that needs an EOF
-	// check treats Lookahead()==0 as EOF (see cryIsEOF in crystal_scanner.go),
-	// so upstream's "!eof(lexer)" guard is always false here and this token
-	// never fires.
-	if ocamlValid(validSymbols, ocamlTokNull) && lexer.Lookahead() == 0 {
-		return false
+	// :583-588 a NUL byte inside the input, not the end of input.
+	if ocamlValid(validSymbols, ocamlTokNull) && lexer.Lookahead() == 0 && !scanmode.AtEOF(lexer) {
+		lexer.Advance(false)
+		lexer.SetResultSymbol(symbols[ocamlTokNull])
+		return true
 	}
 
 	return false
@@ -261,15 +309,15 @@ func (s OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 // scan_right_quoted_string_delimiter, scan_quoted_string_delim_char)
 // ---------------------------------------------------------------------------
 
+// common/scanner.h:232-248. The identifier is not cleared first: the C code pushes onto
+// whatever the saved state loaded.
 func ocamlScanLeftQuotedStringDelim(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) bool {
-	s.quotedStringID = s.quotedStringID[:0]
-
 	for {
 		c := ocamlScanQuotedStringDelimChar(lexer)
 		if c == 0 {
 			break
 		}
-		s.quotedStringID = append(s.quotedStringID, c)
+		s.idPush(c)
 	}
 
 	if lexer.Lookahead() == '|' {
@@ -278,25 +326,27 @@ func ocamlScanLeftQuotedStringDelim(s *ocamlScannerState, lexer *gotreesitter.Ex
 		return true
 	}
 
-	s.quotedStringID = s.quotedStringID[:0]
+	s.idLen = 0
 	return false
 }
 
+// common/scanner.h:250-265.
 func ocamlScanRightQuotedStringDelim(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) bool {
-	for _, expected := range s.quotedStringID {
-		if ocamlScanQuotedStringDelimChar(lexer) != expected {
+	for i := 0; i < s.idLen; i++ {
+		if ocamlScanQuotedStringDelimChar(lexer) != s.id[i] {
 			return false
 		}
 	}
 
 	if lexer.Lookahead() == '}' {
 		s.inString = false
-		s.quotedStringID = s.quotedStringID[:0]
+		s.idLen = 0
 		return true
 	}
 	return false
 }
 
+// common/scanner.h:267-284. Only the end of input stops the loop, not a NUL byte.
 func ocamlScanQuotedString(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) bool {
 	if !ocamlScanLeftQuotedStringDelim(s, lexer) {
 		return false
@@ -309,7 +359,10 @@ func ocamlScanQuotedString(s *ocamlScannerState, lexer *gotreesitter.ExternalLex
 				return true
 			}
 		case 0:
-			return false
+			if scanmode.AtEOF(lexer) {
+				return false
+			}
+			lexer.Advance(false)
 		default:
 			lexer.Advance(false)
 		}
@@ -365,11 +418,10 @@ func ocamlSearchLowerUTF8Pair(c, diacritic int32) int32 {
 	return 0
 }
 
-// ocamlScanQuotedStringDelimChar scans one character of a quoted string
-// delimiter identifier, mirroring upstream's scan_quoted_string_delim_char.
-// Returns the char, or 0 if the lookahead is not a valid delimiter char.
+// ocamlScanQuotedStringDelimChar is scan_quoted_string_delim_char (common/scanner.h:201-230).
+// It returns the char, or 0 if the lookahead is not a valid delimiter char.
 func ocamlScanQuotedStringDelimChar(lexer *gotreesitter.ExternalLexer) int32 {
-	c := lexer.Lookahead()
+	c := cla(lexer)
 
 	if c == '|' {
 		return 0
@@ -380,7 +432,7 @@ func ocamlScanQuotedStringDelimChar(lexer *gotreesitter.ExternalLexer) int32 {
 	}
 	if c >= 'a' && c <= 'z' {
 		lexer.Advance(false)
-		if next := lexer.Lookahead(); next >= 0x300 && next <= 0x327 {
+		if next := cla(lexer); next >= 0x300 && next <= 0x327 {
 			if r := ocamlSearchLowerUTF8Pair(c, next); r != 0 {
 				lexer.Advance(false)
 				return r
@@ -400,8 +452,8 @@ func ocamlScanQuotedStringDelimChar(lexer *gotreesitter.ExternalLexer) int32 {
 // scan_extattrident, scan_identifier)
 // ---------------------------------------------------------------------------
 
-// ocamlScanString mirrors upstream's scan_string: skips a regular "..."
-// string, used both at top level and while skipping strings inside comments.
+// ocamlScanString is scan_string (common/scanner.h:73-91). A NUL byte does not end it, only the
+// end of input does.
 func ocamlScanString(lexer *gotreesitter.ExternalLexer) {
 	for {
 		switch lexer.Lookahead() {
@@ -412,30 +464,34 @@ func ocamlScanString(lexer *gotreesitter.ExternalLexer) {
 			lexer.Advance(false)
 			return
 		case 0:
-			return
+			if scanmode.AtEOF(lexer) {
+				return
+			}
+			lexer.Advance(false)
 		default:
 			lexer.Advance(false)
 		}
 	}
 }
 
-func isOcamlLowercaseExt(c rune) bool {
+func isOcamlLowercaseExt(c int32) bool {
 	return (c >= 'a' && c <= 'z') || c == '_' || c >= 192
 }
 
-func isOcamlIdentStart(c rune) bool {
+func isOcamlIdentStart(c int32) bool {
 	return isOcamlLowercaseExt(c) || (c >= 'A' && c <= 'Z')
 }
 
-func isOcamlIdentChar(c rune) bool {
+func isOcamlIdentChar(c int32) bool {
 	return isOcamlIdentStart(c) || (c >= '0' && c <= '9') || c == '\''
 }
 
-// ocamlScanIdentifier mirrors upstream's scan_identifier.
+// ocamlScanIdentifier is scan_identifier (common/scanner.h:376-383). The test sees the C
+// lookahead, so an invalid UTF-8 byte (-1) is not an identifier character.
 func ocamlScanIdentifier(lexer *gotreesitter.ExternalLexer) bool {
-	if isOcamlIdentStart(lexer.Lookahead()) {
+	if isOcamlIdentStart(cla(lexer)) {
 		lexer.Advance(false)
-		for isOcamlIdentChar(lexer.Lookahead()) {
+		for isOcamlIdentChar(cla(lexer)) {
 			lexer.Advance(false)
 		}
 		return true
@@ -443,9 +499,7 @@ func ocamlScanIdentifier(lexer *gotreesitter.ExternalLexer) bool {
 	return false
 }
 
-// ocamlScanExtAttrIdent mirrors upstream's scan_extattrident: a dotted chain
-// of identifiers, used by the "{%attr ..." extension-node syntax inside
-// comments.
+// ocamlScanExtAttrIdent is scan_extattrident (common/scanner.h:385-391).
 func ocamlScanExtAttrIdent(lexer *gotreesitter.ExternalLexer) bool {
 	for ocamlScanIdentifier(lexer) {
 		if lexer.Lookahead() != '.' {
@@ -456,44 +510,39 @@ func ocamlScanExtAttrIdent(lexer *gotreesitter.ExternalLexer) bool {
 	return false
 }
 
-// ocamlScanCharacter mirrors upstream's scan_character: scans one OCaml
-// character-literal payload (after the opening quote character), including
-// escape sequences, and reports whether a closing quote character
-// immediately follows.
-//
-// The return value distinguishes two cases the caller (ocamlScanComment)
-// must handle differently:
-//   - 0: either the payload closed on a following quote character (a real
-//     character literal, fully consumed), or the payload was empty/invalid
-//     at EOF.
-//   - non-zero: the payload was NOT followed by a closing quote character.
-//     The scanner already advanced past one lookahead character while
-//     probing for the literal (OCaml's polymorphic type-variable syntax,
-//     e.g. 'a, looks identical up to this point), and that already-consumed
-//     character must be reprocessed by the caller without calling Advance
-//     again.
+// towupper in the C locale changes ASCII letters only.
+func cToUpperWide(c int32) int32 {
+	if c >= 'a' && c <= 'z' {
+		return c - 'a' + 'A'
+	}
+	return c
+}
+
+// ocamlScanCharacter is scan_character (common/scanner.h:286-362). A non-zero result is a
+// character that was read but not followed by a closing quote; the caller handles it again
+// without advancing.
 func ocamlScanCharacter(lexer *gotreesitter.ExternalLexer) int32 {
 	var last int32
 
-	switch c := lexer.Lookahead(); c {
+	switch c := cla(lexer); c {
 	case '\\':
 		lexer.Advance(false)
-		if unicode.IsDigit(lexer.Lookahead()) {
+		if cIsDigit(cla(lexer)) {
 			lexer.Advance(false)
 			for i := 0; i < 2; i++ {
-				if !unicode.IsDigit(lexer.Lookahead()) {
+				if !cIsDigit(cla(lexer)) {
 					return 0
 				}
 				lexer.Advance(false)
 			}
 		} else {
-			switch lexer.Lookahead() {
+			switch cla(lexer) {
 			case 'x':
 				lexer.Advance(false)
 				for i := 0; i < 2; i++ {
-					la := lexer.Lookahead()
-					upper := unicode.ToUpper(la)
-					if !unicode.IsDigit(la) && (upper < 'A' || upper > 'F') {
+					la := cla(lexer)
+					upper := cToUpperWide(la)
+					if !cIsDigit(la) && (upper < 'A' || upper > 'F') {
 						return 0
 					}
 					lexer.Advance(false)
@@ -501,14 +550,14 @@ func ocamlScanCharacter(lexer *gotreesitter.ExternalLexer) int32 {
 			case 'o':
 				lexer.Advance(false)
 				for i := 0; i < 3; i++ {
-					la := lexer.Lookahead()
-					if !unicode.IsDigit(la) || la > '7' {
+					la := cla(lexer)
+					if !cIsDigit(la) || la > '7' {
 						return 0
 					}
 					lexer.Advance(false)
 				}
 			case '\'', '"', '\\', 'n', 't', 'b', 'r', ' ':
-				last = lexer.Lookahead()
+				last = cla(lexer)
 				lexer.Advance(false)
 			default:
 				return 0
@@ -526,8 +575,13 @@ func ocamlScanCharacter(lexer *gotreesitter.ExternalLexer) int32 {
 		}
 		lexer.Advance(false)
 	case 0:
-		return 0
+		// :344-347 only the end of input returns; a NUL byte is skipped.
+		if scanmode.AtEOF(lexer) {
+			return 0
+		}
+		lexer.Advance(false)
 	default:
+		// :348-354 an invalid UTF-8 byte (-1) is below 256.
 		if c < 256 {
 			last = c
 			lexer.Advance(false)
@@ -543,9 +597,7 @@ func ocamlScanCharacter(lexer *gotreesitter.ExternalLexer) int32 {
 	return last
 }
 
-// ocamlScanComment mirrors upstream's scan_comment: an iterative (* *)
-// comment scanner that tracks nesting depth with a counter instead of
-// recursion, so a deeply nested comment cannot grow the Go call stack.
+// ocamlScanComment is scan_comment (common/scanner.h:393-474): an iterative (* *) comment scanner.
 //
 // The `last` local reproduces upstream's reprocess-without-advancing idiom:
 // scan_character's caller sometimes discovers a lookahead character that
@@ -565,7 +617,7 @@ func ocamlScanComment(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) b
 	for {
 		dispatch := last
 		if dispatch == 0 {
-			dispatch = int32(lexer.Lookahead())
+			dispatch = cla(lexer)
 		}
 		switch dispatch {
 		case '(':
@@ -587,7 +639,6 @@ func ocamlScanComment(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) b
 			if lexer.Lookahead() == ')' {
 				lexer.Advance(false)
 				if depth == 0 {
-					lexer.MarkEnd()
 					return true
 				}
 				depth--
@@ -618,7 +669,7 @@ func ocamlScanComment(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) b
 					lexer.Advance(false)
 				}
 				if ocamlScanExtAttrIdent(lexer) {
-					for unicode.IsSpace(lexer.Lookahead()) {
+					for cIsSpace(cla(lexer)) {
 						lexer.Advance(false)
 					}
 				} else {
@@ -629,14 +680,15 @@ func ocamlScanComment(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) b
 				lexer.Advance(false)
 			}
 		case 0:
-			// Our ExternalLexer cannot tell a true embedded NUL byte apart
-			// from EOF (see the ocamlTokNull comment in Scan), so treat this
-			// as always-EOF, matching upstream's `if (eof(lexer)) return
-			// true;` under that convention: an unterminated comment still
-			// closes as a comment at EOF instead of misparsing as other
-			// grammar rules.
-			lexer.MarkEnd()
-			return true
+			// :458-465 only the end of input returns; a NUL byte is skipped.
+			if scanmode.AtEOF(lexer) {
+				return true
+			}
+			if last != 0 {
+				last = 0
+			} else {
+				lexer.Advance(false)
+			}
 		default:
 			if ocamlScanIdentifier(lexer) || last != 0 {
 				last = 0
@@ -651,39 +703,22 @@ func ocamlScanComment(s *ocamlScannerState, lexer *gotreesitter.ExternalLexer) b
 // Line number directive
 // ---------------------------------------------------------------------------
 
+// common/scanner.h:541-574. The loops test lexer->eof; a NUL byte does not stop them.
 func ocamlScanLineNumberDirective(lexer *gotreesitter.ExternalLexer, resultSymbol gotreesitter.Symbol) bool {
 	lexer.Advance(false) // consume '#'
 
-	// Skip spaces/tabs.
 	for lexer.Lookahead() == ' ' || lexer.Lookahead() == '\t' {
 		lexer.Advance(false)
 	}
 
-	// Expect digits.
-	if !unicode.IsDigit(lexer.Lookahead()) {
+	if !cIsDigit(cla(lexer)) {
 		return false
 	}
-	for unicode.IsDigit(lexer.Lookahead()) {
+	for cIsDigit(cla(lexer)) {
 		lexer.Advance(false)
 	}
 
-	// Skip spaces/tabs.
 	for lexer.Lookahead() == ' ' || lexer.Lookahead() == '\t' {
-		lexer.Advance(false)
-	}
-
-	// Expect opening quote.
-	if lexer.Lookahead() != '"' {
-		return false
-	}
-	lexer.Advance(false)
-
-	// Filename: everything until closing quote, newline, or EOF.
-	for {
-		ch := lexer.Lookahead()
-		if ch == '\n' || ch == '\r' || ch == '"' || ch == 0 {
-			break
-		}
 		lexer.Advance(false)
 	}
 
@@ -692,16 +727,20 @@ func ocamlScanLineNumberDirective(lexer *gotreesitter.ExternalLexer, resultSymbo
 	}
 	lexer.Advance(false)
 
-	// Consume rest of line.
-	for {
-		ch := lexer.Lookahead()
-		if ch == '\n' || ch == '\r' || ch == 0 {
-			break
-		}
+	for lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' &&
+		lexer.Lookahead() != '"' && !scanmode.AtEOF(lexer) {
 		lexer.Advance(false)
 	}
 
-	lexer.MarkEnd()
+	if lexer.Lookahead() != '"' {
+		return false
+	}
+	lexer.Advance(false)
+
+	for lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' && !scanmode.AtEOF(lexer) {
+		lexer.Advance(false)
+	}
+
 	lexer.SetResultSymbol(resultSymbol)
 	return true
 }
