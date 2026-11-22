@@ -1,5 +1,7 @@
 package gotreesitter
 
+import "github.com/odvcencio/gotreesitter/internal/ccore"
+
 // parserColdState shares the Parser's existing lazy sidecar slot between
 // uncommon features. It preserves the hot Parser layout for ordinary parses.
 type parserColdState struct {
@@ -21,6 +23,7 @@ type parserColdState struct {
 	admissionCountersSuppressed bool
 	// ccoreRouteSuppressed prevents a second core attempt within a reparse.
 	ccoreRouteSuppressed int
+	ccoreIncluded        []ccore.Range
 	// Nonadvancing stateless markers require C recovery ordering and GSS paths.
 	crecoveryEmptyExternal bool
 	admissionConvergedWork [3]uint64

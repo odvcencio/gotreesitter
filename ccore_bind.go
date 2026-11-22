@@ -883,7 +883,7 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	}
 	a.sha = sha
 	switch {
-	case len(p.included) > 0 && (lang.ExternalScanner != nil || len(p.ccoreIncluded) != len(p.included)):
+	case len(p.included) > 0 && (lang.ExternalScanner != nil || len(p.ccoreIncludedRanges()) != len(p.included)):
 		return a, ccoreDeclIncludedRanges, false
 	case p.hasActiveParseObservability() || p.compactCertificationTelemetry:
 		return a, ccoreDeclObserver, false
@@ -2332,7 +2332,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		tableScan = ccore.NewTableScan(st.base, source)
 		scan = tableScan
 	}
-	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan, p.ccoreIncluded)
+	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan, p.ccoreIncludedRanges())
 	if tableScan != nil {
 		ccoreProviderScans.Add(int64(tableScan.Calls()))
 	}
@@ -2682,11 +2682,14 @@ func (p *Parser) ccoreOldFor(adm ccoreAdmission, old *Tree, source []byte) (*cco
 	return st.ct, -1
 }
 
-// ccoreRangesOf translates the parser's normalized ranges at configuration
-// time. Parse requests can borrow them without allocating an adapter slice.
-func ccoreRangesOf(ranges []Range) []ccore.Range {
+// setCcoreIncludedRanges translates the normalized ranges at configuration
+// time. A parse can borrow them without allocating an adapter slice.
+func (p *Parser) setCcoreIncludedRanges(ranges []Range) {
 	if len(ranges) == 0 {
-		return nil
+		if cold := p.forestDeclineMemo; cold != nil {
+			cold.ccoreIncluded = nil
+		}
+		return
 	}
 	out := make([]ccore.Range, len(ranges))
 	for i, r := range ranges {
@@ -2694,7 +2697,14 @@ func ccoreRangesOf(ranges []Range) []ccore.Range {
 			StartRow: r.StartPoint.Row, StartCol: r.StartPoint.Column,
 			EndRow: r.EndPoint.Row, EndCol: r.EndPoint.Column}
 	}
-	return out
+	p.ensureParserColdState().ccoreIncluded = out
+}
+
+func (p *Parser) ccoreIncludedRanges() []ccore.Range {
+	if len(p.included) != 0 && p.forestDeclineMemo != nil {
+		return p.forestDeclineMemo.ccoreIncluded
+	}
+	return nil
 }
 
 // ccoreEditOf is a public edit as the core's edit.

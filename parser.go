@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/incr"
 	sharedrecover "github.com/odvcencio/gotreesitter/internal/recover"
 	"github.com/odvcencio/gotreesitter/internal/recoveryturn"
@@ -357,7 +356,6 @@ type Parser struct {
 	nonSpanExtendingInvisibleSymbols   []bool
 	aliasPreservedWrapperSymbols       []bool
 	included                           []Range
-	ccoreIncluded                      []ccore.Range
 	logger                             ParserLogger
 	glrTrace                           bool // verbose GLR stack tracing
 	ambiguityProfile                   *AmbiguityProfile
@@ -1795,7 +1793,7 @@ func resetSnippetParser(parser *Parser) {
 	parser.fullGSSHint = 0
 	parser.incrementalGSSHint = 0
 	parser.included = nil
-	parser.ccoreIncluded = nil
+	parser.setCcoreIncludedRanges(nil)
 	parser.logger = nil
 	parser.glrTrace = false
 	parser.ambiguityProfile = nil
