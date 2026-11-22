@@ -772,7 +772,7 @@ func emitLexFunction(b *strings.Builder, funcName string, states []gotreesitter.
 
 		// End-of-input handling.
 		//
-		// grammargen's lexer DFA never populates LexState.EOF (the pure-Go
+		// The default grammargen lexer leaves LexState.EOF empty (the pure-Go
 		// lexer treats EOF specially: it follows an EOF transition if present,
 		// otherwise it stops without evaluating any character transition). The
 		// emitted C must mirror that: at true EOF we must NOT fall through to

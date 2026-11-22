@@ -72,6 +72,7 @@ type Grammar struct {
 	ReservedWordSets                           []ReservedWordSet
 	Supertypes                                 []string
 	Tests                                      []TestCase    // embedded test cases
+	ExplicitLexerEOF                           bool          // encode C-style EOF transitions and treat a bare NUL terminal as a byte
 	SeparateErrorLexMode                       bool          // emit an error-state lexer with non-initial fixed terminals
 	RecoveryLookaheadTokens                    []string      // additional terminals allowed by reduce-follow and missing-token lookahead analysis
 	EnableLRSplitting                          bool          // opt-in: attempt LR(1) state splitting for merge pathology
@@ -335,6 +336,7 @@ func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Gram
 		ReservedWordSets:                   cloneReservedWordSets(base.ReservedWordSets),
 		Supertypes:                         make([]string, len(base.Supertypes)),
 		Tests:                              make([]TestCase, len(base.Tests)),
+		ExplicitLexerEOF:                   base.ExplicitLexerEOF,
 		SeparateErrorLexMode:               base.SeparateErrorLexMode,
 		RecoveryLookaheadTokens:            append([]string(nil), base.RecoveryLookaheadTokens...),
 		EnableLRSplitting:                  base.EnableLRSplitting,

@@ -1325,7 +1325,7 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 				allSyms[e] = true
 			}
 		}
-		lexModes = []lexModeSpec{{validSymbols: allSyms, skipWhitespace: true}}
+		lexModes = []lexModeSpec{{validSymbols: allSyms, skipWhitespace: true, explicitEOF: g.ExplicitLexerEOF, acceptEnd: g.ExplicitLexerEOF}}
 		stateToMode = make([]int, tables.StateCount)
 	} else {
 		lexModes, stateToMode, afterWSModes, err = computeLexModesWithContext(bgCtx,
@@ -1352,6 +1352,7 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 			suppressAfterWhitespaceSymbols(g, ng),
 			patternSyms,
 			zeroWidthSyms,
+			g.ExplicitLexerEOF,
 		)
 		if err != nil {
 			endPhase(map[string]any{"error": true})
@@ -1401,6 +1402,20 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 	if err != nil {
 		endPhase(map[string]any{"error": true})
 		return nil, fmt.Errorf("assemble: %w", err)
+	}
+	if g.ExplicitLexerEOF {
+		for _, terminal := range ng.Terminals {
+			if !isBareNUL(terminal.Rule) {
+				continue
+			}
+			id := terminal.SymbolID
+			lang.ZeroWidthTokens[id] = false
+			if lang.SymbolNames[id] == "\x00" {
+				// C exposes the anonymous NUL terminal as an empty C string.
+				lang.SymbolNames[id] = ""
+				lang.SymbolMetadata[id].Name = ""
+			}
+		}
 	}
 	lang.Name = g.Name
 	lang.WantsForest = g.WantsForest
