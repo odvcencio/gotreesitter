@@ -652,3 +652,54 @@ func TestTypeScriptFactsTolerateSyntaxErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestConstructorCallFacts(t *testing.T) {
+	for _, filename := range []string{"main.js", "main.ts", "main.tsx"} {
+		t.Run(filename, func(t *testing.T) {
+			site := "new pkg.api.Client(42)"
+			if filename != "main.js" {
+				site = "new pkg.api.Client<T>(42)"
+			}
+			src := "new Client; new Client(); " + site + "; new (factory())(x); new table[k]();"
+			facts, _, _ := tsFacts(t, filename, src, gts.FactConstructorCalls|gts.FactCallArguments)
+			sites := []string{"new Client", "new Client()", site, "new (factory())(x)", "new table[k]()"}
+			if len(facts.Calls) != len(sites) {
+				t.Fatalf("calls: %+v", facts.Calls)
+			}
+			for i, ref := range facts.Calls {
+				if ref.Kind != "constructor" || ref.NodeType != "new_expression" || src[ref.StartByte:ref.EndByte] != sites[i] {
+					t.Fatalf("site %d: %+v", i, ref)
+				}
+				if i < 3 {
+					if ref.Name != "Client" || src[ref.NameStartByte:ref.NameEndByte] != "Client" {
+						t.Fatalf("name: %+v", ref)
+					}
+				} else if ref.Name != "" || ref.NameStartByte != 0 || ref.NameEndByte != 0 {
+					t.Fatalf("dynamic target: %+v", ref)
+				}
+				recv := ""
+				if i == 2 {
+					recv = "pkg.api"
+				}
+				if ref.Receiver != recv {
+					t.Fatal(ref)
+				}
+			}
+			ref := facts.Calls[2]
+			joined := false
+			for _, a := range facts.CallArguments {
+				if a.CallStartByte == ref.StartByte && a.CallEndByte == ref.EndByte && src[a.StartByte:a.EndByte] == "42" {
+					joined = true
+				}
+			}
+			if !joined {
+				t.Fatalf("missing argument for %+v", ref)
+			}
+			legacy, _, _ := tsFacts(t, filename, src, gts.FactAll)
+			both, _, _ := tsFacts(t, filename, src, gts.FactCalls|gts.FactConstructorCalls)
+			if len(legacy.Calls) != 1 || legacy.Calls[0].Name != "factory" || len(both.Calls) != len(sites)+1 {
+				t.Fatalf("legacy=%+v both=%+v", legacy.Calls, both.Calls)
+			}
+		})
+	}
+}
