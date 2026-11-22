@@ -1121,6 +1121,14 @@ func CcoreTestViewHeaders(t *Tree) (int64, bool) {
 	}
 	return v.made.Load(), true
 }
+
+// HighlighterTestTree runs h's highlight query on a tree that is already parsed
+// (the second half of HighlightIncremental), so a test can time the reparse and
+// the highlight apart.
+func HighlighterTestTree(h *Highlighter, tree *Tree) []HighlightRange {
+	return h.highlightTree(tree, tree.Source())
+}
+
 func CcoreTestEager(t *Tree) *Tree {
 	st := t.ccoreStateOf()
 	if st == nil || st.ct == nil || st.ct.Released() {
