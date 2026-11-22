@@ -47,7 +47,15 @@ type Record struct {
 	// computes. The route computes the same hash when it first binds a language
 	// value and declines a language that differs.
 	ConfigSHA256 string
+	// Providers lists the scan providers (internal/ccore ScanProvider) whose
+	// answers were compared with pinned C for this blob, by identity ("table-v1").
+	// A token source that carries one of them is served by the core. An omitted
+	// list grants none.
+	Providers []string `json:",omitempty"`
 }
+
+// knownProviders are the provider identities a record may list.
+var knownProviders = map[string]bool{"table-v1": true}
 
 // Parse reads the records of testdata/ccore_certificates.json.
 func Parse(raw []byte) ([]Record, error) {
@@ -102,6 +110,11 @@ func Render(recs []Record) ([]byte, error) {
 		if r.Modes>>5 != 0 {
 			return nil, fmt.Errorf("certgen: blob %s has unknown mode bits %#x", r.BlobSHA256, r.Modes)
 		}
+		for _, id := range r.Providers {
+			if !knownProviders[id] {
+				return nil, fmt.Errorf("certgen: blob %s lists unknown provider %q", r.BlobSHA256, id)
+			}
+		}
 		fmt.Fprintf(&b, "\t// certificate digest: %s\n\t{[32]byte{", strings.Map(func(c rune) rune {
 			if c == '\n' || c == '\r' {
 				return ' '
@@ -131,6 +144,18 @@ func Render(recs []Record) ([]byte, error) {
 					b.WriteString(", ")
 				}
 				fmt.Fprintf(&b, "%q", c)
+			}
+			b.WriteString("}")
+		}
+		if len(r.Providers) > 0 {
+			ids := append([]string(nil), r.Providers...)
+			sort.Strings(ids)
+			fmt.Fprintf(&b, ", Providers: []string{")
+			for i, id := range ids {
+				if i > 0 {
+					b.WriteString(", ")
+				}
+				fmt.Fprintf(&b, "%q", id)
 			}
 			b.WriteString("}")
 		}

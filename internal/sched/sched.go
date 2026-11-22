@@ -97,7 +97,7 @@ var capabilities = [...]Capability{
 	{Deadline, "deadline", true, "tranche B8",
 		"A timeout or a cancellation flag. The compact scheduler polls both and falls back with a compatible stop reason."},
 	{TokenSource, "token_source", false, "E-D1",
-		"A caller-supplied TokenSource or TokenSourceFactory. Compact reproduces only the built-in DFA token stream."},
+		"A caller-supplied TokenSource or TokenSourceFactory. Compact reproduces only the built-in DFA token stream. The C-faithful core serves one scoped case: a source that registered library code marks for the core (internal/coresource) for the parser's language and the request's bytes, on a blob whose certificate lists the table-backed provider (table-v1). The core calls that provider in place of its DFA scan and never reads the source. An ordinary Next() source stays on the present engine."},
 	{IncludedRanges, "included_ranges", false, "E-D2",
 		"Included ranges. Compact lexes the whole source and does not apply ranges."},
 	{Observer, "observer", false, "E-D3",

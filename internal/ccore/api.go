@@ -25,6 +25,17 @@ func (p *Parser) Parse(src []byte) (*Tree, string) { return p.ParseWith(src, nil
 // was released while this call waited for the lease. The parser keeps no
 // reference to the returned tree.
 func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
+	return p.ParseWithScan(src, old, nil)
+}
+
+// ParseWithScan is ParseWith with a scan provider (scanprovider.go) bound for
+// the whole call: the fresh parse, the shortcut probes and the error-mode
+// retries. The provider answers the main lex scan in place of the automaton walk
+// and must read the bytes of src. A nil provider is ParseWith. The binding is
+// cleared when the call returns.
+func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tree, rstop string) {
+	p.scanProv = prov
+	defer func() { p.scanProv = nil }()
 	p.shortcutTaken, p.shortcutWhy = false, ""
 	p.shortcutMemo = shortcutMemo{}
 	var c *storeCore

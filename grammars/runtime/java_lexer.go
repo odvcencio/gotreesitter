@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/coresource"
 )
 
 // JavaTokenSource is a lexer bridge for tree-sitter-java.
@@ -103,13 +104,21 @@ func NewJavaTokenSource(src []byte, lang *gotreesitter.Language) (*JavaTokenSour
 }
 
 // NewJavaTokenSourceOrEOF returns a Java token source, or EOF-only fallback if
-// symbol setup fails.
+// symbol setup fails. A source that was set up is returned marked for the core
+// scan provider (internal/coresource): the parser may serve the
+// request with the core when the Java certificate lists the provider, and
+// otherwise runs this source unchanged. The EOF-only fallback is returned as it
+// is.
 func NewJavaTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
 	ts, err := NewJavaTokenSource(src, lang)
 	if err != nil {
 		return tokenSourceInitError{sourceLen: uint32(len(src))}
 	}
-	return ts
+	marked, _ := coresource.Mark(ts, lang, src).(gotreesitter.TokenSource)
+	if marked == nil {
+		return ts
+	}
+	return marked
 }
 
 // RebuildTokenSource supplies an independent stream for fresh recovery checks.

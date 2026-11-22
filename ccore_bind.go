@@ -18,6 +18,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
+	"github.com/odvcencio/gotreesitter/internal/coresource"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
@@ -677,12 +678,37 @@ func (l *Language) ccoreBlobCertified() bool {
 	return state == 2
 }
 
+// ccoreSource says what produces the tokens of a request: the lexer the core
+// has itself (the built-in DFA), a scan provider that the certificate lists
+// and that the request qualified (a table-backed provider, which the core calls
+// in place of its automaton walk), or an ordinary stream, whose Next the core
+// never calls.
+type ccoreSource uint8
+
+const (
+	ccoreSourceStream   ccoreSource = iota // a caller's TokenSource: the present engine's
+	ccoreSourceDFA                         // the built-in DFA
+	ccoreSourceProvider                    // a qualified scan provider
+)
+
 func (p *Parser) ccoreEligible(usingProductionDFA bool) bool {
+	if usingProductionDFA {
+		return p.ccoreEligibleFor(ccoreSourceDFA)
+	}
+	return p.ccoreEligibleFor(ccoreSourceStream)
+}
+
+// ccoreEligibleFor is ccoreEligible for a kind of token producer. Only an
+// ordinary stream carries the scheduler's token-source requirement, which the
+// compact route keeps: a qualified provider is the core's own scan, so the
+// core does not need the requirement discharged by anything but the
+// qualification.
+func (p *Parser) ccoreEligibleFor(kind ccoreSource) bool {
 	if p == nil || p.admissionRouteSuppressed > 0 || !p.ccoreRouteEnabled() {
 		return false
 	}
 	var modes sched.Mode
-	if !usingProductionDFA {
+	if kind == ccoreSourceStream {
 		modes = sched.TokenSource
 	}
 	return sched.Supports(sched.Request{Modes: modes | p.schedImpliedModes(modes, nil)})
@@ -707,18 +733,21 @@ const (
 	ccoreDeclDepthLimit
 	ccoreDeclConfigChanged
 	ccoreDeclScannerRefused
+	ccoreDeclProviderNotGranted
 	ccoreDeclCount
 )
 
 var ccoreDeclineNames = [ccoreDeclCount]string{
 	"not_certified", "no_binding", "mode_missing", "root_only_field", "included_ranges", "observer",
 	"work_limits", "internal_parser", "stop_deadline", "stop_cancelled", "stop_memory_budget", "core_stop", "panic",
-	"scanner_changed", "depth_limit", "config_changed", "scanner_refused",
+	"scanner_changed", "depth_limit", "config_changed", "scanner_refused", "provider_not_granted",
 }
 
 var (
 	ccoreDeclines    [ccoreDeclCount]atomic.Int64
 	ccoreServedFresh atomic.Int64
+	// Scans that a provider answered for the core, summed over the requests it served.
+	ccoreProviderScans atomic.Int64
 	// Nanoseconds spent in the core parse and in the conversion (read by the
 	// timing test through export_test.go).
 	ccoreParseNanos, ccoreConvertNanos, ccoreEditNanos, ccoreCheckNanos atomic.Int64
@@ -775,13 +804,26 @@ func ccoreRouteLimits(lang any, sourceLen int, softOff bool) (budget, ceiling in
 
 func nowNanos() int64 { return time.Now().UnixNano() }
 
-// ccoreAdmission is the answer of ccoreAdmit: the language state, the blob hash
+// ccoreAdmission is the answer of ccoreAdmitProvider: the language state, the blob hash
 // and the modes the blob is certified for.
 type ccoreAdmission struct {
 	st      *ccoreLanguageTables
 	sha     [32]byte
 	modes   uint8
 	binding *ccoreBinding // the identity of the binding this request qualified with
+	// providers are the scan providers the blob's certificates grant, by identity;
+	// provider is the one this request asks the core to use ("" for the core's own walk).
+	providers []string
+	provider  string
+}
+
+func (a *ccoreAdmission) grants(id string) bool {
+	for _, p := range a.providers {
+		if p == id {
+			return true
+		}
+	}
+	return false
 }
 
 // ccoreScannerIdentity names the scanner a certificate was checked with. The
@@ -882,11 +924,15 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 			rootBad = true
 		default:
 			have = cert.Modes
+			a.providers = cert.Providers
 		}
 	}
 	if tcert != nil {
 		if ccoreFieldsChecked(st.rootOnly, func(f string) bool { return tcert.Checked[f] }) {
 			have |= tcert.Modes
+			if len(tcert.Providers) != 0 {
+				a.providers = append(append([]string(nil), a.providers...), tcert.Providers...)
+			}
 		} else {
 			rootBad = true
 		}
@@ -914,13 +960,42 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	return a, 0, true
 }
 
-// ccoreAdmit is ccoreAdmitQuiet that counts the decline reason.
-func (p *Parser) ccoreAdmit() (ccoreAdmission, bool) {
+// ccoreAdmitProvider is ccoreAdmitQuiet that counts the decline reason. A
+// request that asks the core to use the scan provider id also needs the blob to
+// list the provider; an empty id asks for the core's own walk.
+func (p *Parser) ccoreAdmitProvider(id string) (ccoreAdmission, bool) {
 	a, reason, ok := p.ccoreAdmitQuiet()
+	if ok && id != "" {
+		if a.grants(id) {
+			a.provider = id
+		} else {
+			ok, reason = false, ccoreDeclProviderNotGranted
+		}
+	}
 	if !ok {
 		ccoreDecline(reason)
 	}
 	return a, ok
+}
+
+// ccoreTableProvider is the identity of the table-backed scan provider, as a
+// certificate lists it.
+const ccoreTableProvider = ccore.TableScanID
+
+// ccoreTableProviderQualified is ccoreProviderQualified for the table-backed provider.
+func (p *Parser) ccoreTableProviderQualified() bool {
+	return p.ccoreProviderQualified(ccoreTableProvider)
+}
+
+// ccoreProviderQualified reports whether the core would serve a request that
+// carries the scan provider id: the language is certified, nothing in the
+// parser's configuration declines the route, and the certificate lists id.
+func (p *Parser) ccoreProviderQualified(id string) bool {
+	if ccoreUnset() || !p.ccoreEligibleFor(ccoreSourceProvider) {
+		return false
+	}
+	a, _, ok := p.ccoreAdmitQuiet()
+	return ok && a.grants(id)
 }
 
 // ccoreParser takes a core parser of the language from its pool. Each public
@@ -2242,7 +2317,16 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		cp.SetScanCheckEvery(every)
 	}
 	t0 := nowNanos()
-	ct, stop, resultErr := ccoreParseCore(cp, old, source)
+	var scan ccore.ScanProvider // nil: the core walks its own automaton
+	var tableScan *ccore.TableScan
+	if adm.provider == ccore.TableScanID {
+		tableScan = ccore.NewTableScan(st.base, source)
+		scan = tableScan
+	}
+	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan)
+	if tableScan != nil {
+		ccoreProviderScans.Add(int64(tableScan.Calls()))
+	}
 	t1 := nowNanos()
 	ccoreParseNanos.Add(t1 - t0)
 	retained := false // the public tree keeps ct; every other exit releases it
@@ -2311,6 +2395,12 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 
 // ccoreFullParse serves a fresh parse when the core admits the request.
 func (p *Parser) ccoreFullParse(source []byte) (tree *Tree, ok bool) {
+	return p.ccoreFullParseProvider(source, "")
+}
+
+// ccoreFullParseProvider is ccoreFullParse for a request that asks the core to
+// use the scan provider id ("" for the core's own walk).
+func (p *Parser) ccoreFullParseProvider(source []byte, provider string) (tree *Tree, ok bool) {
 	if ccoreUnset() {
 		return nil, false
 	}
@@ -2320,7 +2410,7 @@ func (p *Parser) ccoreFullParse(source []byte) (tree *Tree, ok bool) {
 			ccoreDecline(ccoreDeclPanic)
 		}
 	}()
-	adm, ok := p.ccoreAdmit()
+	adm, ok := p.ccoreAdmitProvider(provider)
 	if !ok {
 		return nil, false
 	}
@@ -2348,6 +2438,14 @@ func (p *Parser) ccoreNeverServes() bool {
 // Through ccoreRouteEnabled it also records whether the language's blob has a
 // certificate, which ccoreNeverServes reads.
 func (p *Parser) ccoreUnchangedTreeAllowed(oldTree *Tree, usingProductionDFA bool) bool {
+	if usingProductionDFA {
+		return p.ccoreUnchangedTreeAllowedFor(oldTree, ccoreSourceDFA)
+	}
+	return p.ccoreUnchangedTreeAllowedFor(oldTree, ccoreSourceStream)
+}
+
+// ccoreUnchangedTreeAllowedFor is ccoreUnchangedTreeAllowed for a kind of token producer.
+func (p *Parser) ccoreUnchangedTreeAllowedFor(oldTree *Tree, kind ccoreSource) bool {
 	st := oldTree.ccoreStateOf()
 	if st == nil && !p.ccoreRouteEnabled() {
 		return true
@@ -2355,7 +2453,7 @@ func (p *Parser) ccoreUnchangedTreeAllowed(oldTree *Tree, usingProductionDFA boo
 	if ccoreUnset() {
 		return st == nil
 	}
-	if !p.ccoreEligible(usingProductionDFA) { // a request with a caller token source is the present engine's
+	if !p.ccoreEligibleFor(kind) { // a request with an ordinary caller token source is the present engine's
 		return st == nil
 	}
 	adm, _, ok := p.ccoreAdmitQuiet()
@@ -2380,8 +2478,8 @@ func (p *Parser) ccoreFirstFresh(source []byte) (*Tree, bool) {
 }
 
 // ccoreParseCore parses with an optional old core tree.
-func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte) (ct *ccore.Tree, stop string, resultErr bool) {
-	ct, stop = cp.ParseWith(source, old)
+func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore.ScanProvider) (ct *ccore.Tree, stop string, resultErr bool) {
+	ct, stop = cp.ParseWithScan(source, old, scan)
 	if stop != "" || ct == nil || ct.Root() == 0 {
 		return ct, stop, false
 	}
@@ -2605,7 +2703,17 @@ func (t *Tree) ccoreEdit(edit InputEdit) bool {
 // old tree has a usable core tree, else as a fresh core parse. It answers
 // false, with the reason counted, when the present engine must run.
 func (p *Parser) ccoreReparse(source []byte, old *Tree) (tree *Tree, ok bool) {
-	if ccoreUnset() || !p.ccoreEligible(true) {
+	return p.ccoreReparseProvider(source, old, "")
+}
+
+// ccoreReparseProvider is ccoreReparse for a request that asks the core to use
+// the scan provider id ("" for the core's own walk).
+func (p *Parser) ccoreReparseProvider(source []byte, old *Tree, provider string) (tree *Tree, ok bool) {
+	kind := ccoreSourceDFA
+	if provider != "" {
+		kind = ccoreSourceProvider
+	}
+	if ccoreUnset() || !p.ccoreEligibleFor(kind) {
 		return nil, false
 	}
 	defer func() { // admission and old-tree tests are inside the recovery boundary
@@ -2614,7 +2722,7 @@ func (p *Parser) ccoreReparse(source []byte, old *Tree) (tree *Tree, ok bool) {
 			ccoreDecline(ccoreDeclPanic)
 		}
 	}()
-	adm, ok := p.ccoreAdmit()
+	adm, ok := p.ccoreAdmitProvider(provider)
 	if !ok {
 		return nil, false
 	}
@@ -3494,4 +3602,142 @@ func ccoreViewCounters() (trees, made int64, conversions map[string]int64) {
 		conversions["shortcut_reparses"] = v
 	}
 	return ccoreViewTrees.Load(), ccoreViewsMade.Load(), conversions
+}
+
+var errNoTokenSourceRebuilder = errors.New("token source cannot rebuild")
+
+// coreScanTokenSource is the trusted wrapper that NewCoreScanTokenSource
+// returns. It marks a token source as one whose lexing the core can reproduce
+// with a certified scan provider (the table-backed provider of internal/ccore,
+// "table-v1"), bound to one language and one source buffer.
+//
+// The parser recognizes only this exact concrete pointer type. A type that
+// embeds it, or wraps the interface value, is an ordinary stream. Before the
+// present engine runs, the parser takes the wrapper off and passes the
+// fallback unchanged, so every optional interface of the fallback behaves as it
+// does without the wrapper. A request that the core serves never calls the
+// fallback's Next.
+type coreScanTokenSource struct {
+	fallback TokenSource
+	lang     *Language
+	src      []byte
+}
+
+func init() {
+	coresource.Mint = func(fallback, lang any, src []byte) any {
+		ts, _ := fallback.(TokenSource)
+		l, _ := lang.(*Language)
+		if m := newCoreScanTokenSource(ts, l, src); m != nil {
+			return m
+		}
+		return fallback
+	}
+}
+
+// newCoreScanTokenSource returns fallback marked as a token source whose
+// lexing equals the core's table-backed scan provider for lang over src. Parser
+// methods recognize the mark and may serve the request with the core when the
+// language's certificate lists the provider and the request is for the same
+// language and the same source bytes (the same slice start and length). In every
+// other case the fallback runs on the present engine, as it would without the
+// mark. The library that mints the mark states that fallback produces the token
+// stream of lang's own lexer for src; the parser does not check it.
+//
+// The returned value delegates Next and its other methods to fallback. A nil
+// fallback gives nil.
+func newCoreScanTokenSource(fallback TokenSource, lang *Language, src []byte) TokenSource {
+	if fallback == nil {
+		return nil
+	}
+	if t, ok := fallback.(*coreScanTokenSource); ok && t != nil {
+		fallback = t.fallback
+	}
+	return &coreScanTokenSource{fallback: fallback, lang: lang, src: src}
+}
+
+// Next delegates to the fallback.
+func (t *coreScanTokenSource) Next() Token { return t.fallback.Next() }
+
+// Close closes the fallback when it can be closed.
+func (t *coreScanTokenSource) Close() {
+	if c, ok := t.fallback.(closeableTokenSource); ok {
+		c.Close()
+	}
+}
+
+// Reset delegates to the fallback when it can reset. The mark stays bound to the
+// original bytes.
+func (t *coreScanTokenSource) Reset(source []byte) {
+	if r, ok := t.fallback.(resettableTokenSource); ok {
+		r.Reset(source)
+	}
+}
+
+// SetParserState delegates to the fallback when it takes parser states.
+func (t *coreScanTokenSource) SetParserState(state StateID) {
+	if s, ok := t.fallback.(parserStateTokenSource); ok {
+		s.SetParserState(state)
+	}
+}
+
+// SetGLRStates delegates to the fallback when it takes parser states.
+func (t *coreScanTokenSource) SetGLRStates(states []StateID) {
+	if s, ok := t.fallback.(parserStateTokenSource); ok {
+		s.SetGLRStates(states)
+	}
+}
+
+// SkipToByte delegates to the fallback when it can skip; a fallback that cannot
+// skip gives the end-of-input token.
+func (t *coreScanTokenSource) SkipToByte(offset uint32) Token {
+	if s, ok := t.fallback.(ByteSkippableTokenSource); ok {
+		return s.SkipToByte(offset)
+	}
+	return Token{}
+}
+
+// SupportsIncrementalReuse reports what the fallback reports; false when it
+// has no such method.
+func (t *coreScanTokenSource) SupportsIncrementalReuse() bool {
+	r, ok := t.fallback.(IncrementalReuseTokenSource)
+	return ok && r.SupportsIncrementalReuse()
+}
+
+// RebuildTokenSource delegates to the fallback and returns what it returns, an
+// ordinary token source. A fallback with no rebuilder gives an error.
+func (t *coreScanTokenSource) RebuildTokenSource(source []byte, lang *Language) (TokenSource, error) {
+	if r, ok := t.fallback.(TokenSourceRebuilder); ok {
+		return r.RebuildTokenSource(source, lang)
+	}
+	return nil, errNoTokenSourceRebuilder
+}
+
+// unwrapCoreScanTokenSource returns the fallback of a trusted wrapper, or ts.
+func unwrapCoreScanTokenSource(ts TokenSource) TokenSource {
+	if t, ok := ts.(*coreScanTokenSource); ok && t != nil {
+		return t.fallback
+	}
+	return ts
+}
+
+// unwrapCoreScanFactory makes a factory give the fallback of a trusted wrapper
+// in place of the wrapper, so that a reparse the present engine runs from the
+// factory sees the same source as it does without the wrapper.
+func unwrapCoreScanFactory(f TokenSourceFactory) TokenSourceFactory {
+	if f == nil {
+		return nil
+	}
+	return func(source []byte) (TokenSource, error) {
+		ts, err := f(source)
+		return unwrapCoreScanTokenSource(ts), err
+	}
+}
+
+// sameSourceBytes reports whether a and b are the same buffer: the same start
+// and the same length.
+func sameSourceBytes(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	return len(a) == 0 || &a[0] == &b[0]
 }

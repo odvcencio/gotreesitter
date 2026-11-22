@@ -757,6 +757,7 @@ func (p *Parser) acquireParserDFATokenSourceWithErrorRuns(source []byte, forceEr
 }
 
 func (p *Parser) tokenSourceReparseFactory(ts TokenSource) TokenSourceFactory {
+	ts = unwrapCoreScanTokenSource(ts) // the present engine sees the fallback's own interfaces
 	if rebuilder, ok := ts.(TokenSourceRebuilder); ok {
 		return func(source []byte) (TokenSource, error) {
 			return rebuilder.RebuildTokenSource(source, p.language)
@@ -1004,6 +1005,26 @@ type closeableTokenSource interface {
 	Close()
 }
 
+// classifyCoreScanTokenSource is the one place that decides how a token-source
+// request enters the core route. It runs after the source is built and checked.
+// It returns the source the present engine must run with (the fallback of a
+// trusted wrapper, otherwise ts itself), the factory with wrapper results
+// removed, and whether the request is qualified: the source is the trusted
+// wrapper, bound to this parser's language and to source, and the language's
+// certificate lists the table-backed provider. A request that is not qualified
+// stays on the present engine, and the source is never consumed by this check.
+func (p *Parser) classifyCoreScanTokenSource(source []byte, ts TokenSource, factory TokenSourceFactory) (TokenSource, TokenSourceFactory, bool) {
+	t, ok := ts.(*coreScanTokenSource)
+	if !ok || t == nil {
+		return ts, unwrapCoreScanFactory(factory), false
+	}
+	factory = unwrapCoreScanFactory(factory)
+	if t.lang != p.language || !sameSourceBytes(t.src, source) || !p.ccoreTableProviderQualified() {
+		return t.fallback, factory, false
+	}
+	return t.fallback, factory, true
+}
+
 func manageTokenSourceLifetime(ts TokenSource) func() {
 	closer, ok := ts.(closeableTokenSource)
 	if !ok {
@@ -1026,6 +1047,7 @@ func (p *Parser) parseWithTokenSourceRun(source []byte, ts TokenSource, reparseF
 	if ts == nil {
 		return nil, ErrNoTokenSource
 	}
+	ts, reparseFactory, qualified := p.classifyCoreScanTokenSource(source, ts, reparseFactory)
 	// Phase-3 dual-route admission switch (admission_switch.go). This entry
 	// point honors the switch, but a caller-supplied token source is never
 	// eligible: the compact candidate route reproduces the production DFA token
@@ -1035,6 +1057,14 @@ func (p *Parser) parseWithTokenSourceRun(source []byte, ts TokenSource, reparseF
 	// first so that both routes share one deadline.
 	endSharedParseBudget := p.enterParseBudget()
 	defer endSharedParseBudget()
+	if qualified && !p.recoveryInitialOnly {
+		// A qualified scan provider: the core serves the request with its own
+		// provider and never calls the source. The source is still closed once.
+		if tree, ok := p.ccoreFullParseProvider(source, ccoreTableProvider); ok {
+			manageTokenSourceLifetime(ts)()
+			return tree, nil
+		}
+	}
 	if !p.recoveryInitialOnly {
 		if tree, ok := p.attemptAdmissionCandidateFullParse(source, nil, false); ok {
 			return tree, nil
@@ -1087,15 +1117,27 @@ func (p *Parser) parseIncrementalWithTokenSourceRun(source []byte, oldTree *Tree
 	if ts == nil {
 		return nil, ErrNoTokenSource
 	}
+	ts, reparseFactory, qualified := p.classifyCoreScanTokenSource(source, ts, reparseFactory)
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (p.ccoreNeverServes() || !certified.EverActive() || p.ccoreUnchangedTreeAllowed(oldTree, false)) {
+	kind := ccoreSourceStream
+	if qualified {
+		kind = ccoreSourceProvider
+	}
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (p.ccoreNeverServes() || !certified.EverActive() || p.ccoreUnchangedTreeAllowedFor(oldTree, kind)) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	if reparseFactory == nil {
 		reparseFactory = p.tokenSourceReparseFactory(ts)
+	}
+	if qualified {
+		endBudget := p.enterParseBudget() // one budget scope for the core attempt and the fallback
+		defer endBudget()
+		if tree, ok := p.ccoreReparseProvider(source, oldTree, ccoreTableProvider); ok {
+			return tree, nil
+		}
 	}
 	return p.parseIncrementalWithTokenSourceChanged(source, oldTree, ts, reparseFactory)
 }
@@ -2750,14 +2792,46 @@ func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
+	ts, _, qualified := p.classifyCoreScanTokenSource(source, ts, nil)
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
-	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (p.ccoreNeverServes() || !certified.EverActive() || p.ccoreUnchangedTreeAllowed(oldTree, false)) {
+	kind := ccoreSourceStream
+	if qualified {
+		kind = ccoreSourceProvider
+	}
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) && (p.ccoreNeverServes() || !certified.EverActive() || p.ccoreUnchangedTreeAllowedFor(oldTree, kind)) {
 		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
+	if qualified {
+		endBudget := p.enterParseBudget()
+		defer endBudget()
+		started := time.Now()
+		if tree, ok := p.ccoreReparseProvider(source, oldTree, ccoreTableProvider); ok {
+			return tree, p.ccoreServedProfile(tree, oldTree, source, started), nil
+		}
+	}
 	return p.parseIncrementalWithTokenSourceChangedProfiled(source, oldTree, ts)
+}
+
+// ccoreServedProfile is the profile of a reparse that the core served, as the
+// profiled entry for the built-in DFA reports it.
+func (p *Parser) ccoreServedProfile(tree, oldTree *Tree, source []byte, started time.Time) IncrementalParseProfile {
+	if st := tree.ccoreStateOf(); st != nil && st.incremental {
+		timing := incrementalParseTimingFromRuntime(*tree.rawParseRuntime())
+		timing.totalNanos = time.Since(started).Nanoseconds()
+		timing.oldTreeReuseRoute = true
+		timing.reusedSubtrees = uint64(st.reusedNodes)
+		timing.reusedBytes = st.reusedBytes
+		return timing.toProfile()
+	}
+	reason := "ccore_fresh"
+	if oldTree.language == p.language && len(oldTree.edits) == 0 && len(oldTree.source) != len(source) {
+		reason = incrementalMissingEditForLengthChangeReason
+	}
+	timing := freshParseFallbackTiming(started, tree, reason)
+	return timing.toProfile()
 }
 
 // parseIncrementalWithTokenSourceChangedProfiled stamps the retry stop signal of the operation on its result.
