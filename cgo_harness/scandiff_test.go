@@ -396,6 +396,7 @@ type sdRunner struct {
 	n                                          int // call number
 	compared, skipped                          int
 	cCrash                                     int
+	cDeserAbort                                int // of cCrash: aborts in C's deserialize on a truncated real state (SCANDIFF_HOSTILE=trunc)
 	callsCat                                   [nCats]int
 	diffCalls                                  [nCats]int
 	diff                                       [nCats][nKinds]int
@@ -555,6 +556,9 @@ func (r *sdRunner) doCall(c *sdCase) (cr scandiff.Record, ok bool) {
 	hb := pair.before() // the earlier calls of this pair's payload, since its last reset
 	if cr.Crash != 0 {
 		r.cCrash++
+		if r.truncDeserializeAbort(c, cr) {
+			r.cDeserAbort++
+		}
 		name := "ccrash"
 		if c.damaged {
 			name = "damaged-ccrash"
@@ -678,6 +682,17 @@ func (r *sdRunner) chain(s *sdSource, off int, st []byte, maxSteps int, snaps *[
 		}
 	}
 }
+
+// truncDeserializeAbort reports whether a C crash is an abort (SIGABRT) inside the C scanner's deserialize on
+// a truncated real saved state in a SCANDIFF_HOSTILE=trunc run: how the deserialize length assertion of a pinned
+// C scanner (for example C#'s assert(size == length)) stops C. Such a crash is counted, recorded as a
+// reproducer, and does not fail the run.
+func (r *sdRunner) truncDeserializeAbort(c *sdCase, cr scandiff.Record) bool {
+	return r.hostileMode == "trunc" && c.damaged && cr.Crash == sdSIGABRT && scandiff.CrashPhaseName(cr.CrashPhase) == "deserialize"
+}
+
+// sdSIGABRT is the signal number of abort on the Linux hosts the harness runs on.
+const sdSIGABRT = 6
 
 func (r *sdRunner) damagedState(base []byte) []byte {
 	if r.hostileMode == "trunc" { // only shorter copies of a real state: no garbage that a scanner turns into a huge allocation
@@ -1379,8 +1394,11 @@ func sdGate(r *sdRunner, report bool) []string {
 	if !report {
 		// A certificate run has no crash of the C scanner and no skipped call: a crash returns before the
 		// comparison, and a skipped call (after a hang) was never compared.
-		if r.cCrash > 0 && !sdMut("crashgate") {
-			errs = append(errs, fmt.Sprintf("%d calls crashed the C scanner", r.cCrash))
+		// A truncated-state run (SCANDIFF_HOSTILE=trunc) passes C's aborts in deserialize on a truncated real
+		// state: the pinned C scanner's deserialize length assertion stops C itself there (owner's decision,
+		// 21 Nov 2026). Every other crash fails the run.
+		if other := r.cCrash - r.cDeserAbort; other > 0 && !sdMut("crashgate") {
+			errs = append(errs, fmt.Sprintf("%d calls crashed the C scanner", other))
 		}
 		if r.skipped > 0 && !sdMut("crashgate") {
 			errs = append(errs, fmt.Sprintf("%d calls were skipped", r.skipped))
@@ -1778,8 +1796,8 @@ func (r *sdRunner) finish(t *testing.T) {
 		return strings.Join(s, " ")
 	}
 	sort.Strings(r.repros)
-	fmt.Printf("SCANDIFF lang=%s report_mode=%v mode=%s seed=%d calls=%d ordinary_calls=%d skipped=%d c_crashes=%d diff_calls=%d mask_calls=%d mask_diff_calls=%d midchar_calls=%d midchar_diff_calls=%d diag_damaged_calls=%d diag_damaged_diff_calls=%d diag_range_calls=%d diag_range_diff_calls=%d repros_reproducible=%d repros_not_reproducible=%d diff_calls_at_offset0=%d rows_c=%d rows_go=%d row_mismatch=%d derived_rows=%d derived_mismatch=%d unmatched=%d repros=%d stop=%q%s | ordinary: %s | mask: %s | midchar: %s | diag_damaged: %s | diag_range: %s\n",
-		r.lang, r.report, os.Getenv("SCANDIFF_MODE"), r.seed, r.compared, r.callsCat[catOrdinary], r.skipped, r.cCrash,
+	fmt.Printf("SCANDIFF lang=%s report_mode=%v mode=%s seed=%d calls=%d ordinary_calls=%d skipped=%d c_crashes=%d c_deser_aborts=%d diff_calls=%d mask_calls=%d mask_diff_calls=%d midchar_calls=%d midchar_diff_calls=%d diag_damaged_calls=%d diag_damaged_diff_calls=%d diag_range_calls=%d diag_range_diff_calls=%d repros_reproducible=%d repros_not_reproducible=%d diff_calls_at_offset0=%d rows_c=%d rows_go=%d row_mismatch=%d derived_rows=%d derived_mismatch=%d unmatched=%d repros=%d stop=%q%s | ordinary: %s | mask: %s | midchar: %s | diag_damaged: %s | diag_range: %s\n",
+		r.lang, r.report, os.Getenv("SCANDIFF_MODE"), r.seed, r.compared, r.callsCat[catOrdinary], r.skipped, r.cCrash, r.cDeserAbort,
 		r.diffCalls[catOrdinary], r.callsCat[catMask], r.diffCalls[catMask], r.callsCat[catMidChar], r.diffCalls[catMidChar], r.callsCat[catDamaged], r.diffCalls[catDamaged], r.callsCat[catRange], r.diffCalls[catRange], r.reproOK, r.notRepro,
 		r.zeroDiff, r.rowsC, r.rowsGo, r.rowMismatch, r.derivedRows, r.derivedMismatch, len(r.unmatched), len(r.repros), r.stop, cov,
 		kv(r.diff[catOrdinary]), kv(r.diff[catMask]), kv(r.diff[catMidChar]), kv(r.diff[catDamaged]), kv(r.diff[catRange]))
