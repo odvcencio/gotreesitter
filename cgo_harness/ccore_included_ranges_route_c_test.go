@@ -7,6 +7,7 @@ import (
 
 	g "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind/bindtest"
 	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
@@ -15,7 +16,7 @@ import (
 
 func TestCcoreIncludedRangesPublicRoutes(t *testing.T) {
 	testCcoreIncludedRangesPublicRoutes(t, "json", grammars.JsonLanguage(), []byte("xx[1, 2, 3]yy"),
-		[][2]int{{2, 11}}, [][2]int{{2, 7}, {10, 11}})
+		[][2]int{{2, 11}}, [][2]int{{2, 7}, {10, 11}}, nil)
 }
 
 func TestCcoreExternalScannerIncludedRangesPublicRoutes(t *testing.T) {
@@ -30,12 +31,38 @@ func TestCcoreExternalScannerIncludedRangesPublicRoutes(t *testing.T) {
 		t.Run(grammar.name, func(t *testing.T) {
 			source, spans := selectedScannerChunks("OMIT", grammar.chunks)
 			testCcoreIncludedRangesPublicRoutes(t, grammar.name, grammar.load(), source,
-				[][2]int{{0, len(source)}}, spans)
+				[][2]int{{0, len(source)}}, spans, nil)
 		})
 	}
 }
 
-func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Language, src []byte, before, after [][2]int) {
+func TestCcoreTableProviderIncludedRangesPublicRoutes(t *testing.T) {
+	for _, test := range []struct {
+		language string
+		chunks   []string
+	}{
+		{"c", []string{"int kept = 1;\nint a", "bc = 2;\nint last = 3;\n"}},
+		{"cpp", []string{"auto s = R\"tag(ab", "cd)tag\"; int tail = 2;\n"}},
+		{"java", []string{"class Demo { int kept = 1; int a", "bc = 2; int tail = 3; }"}},
+	} {
+		t.Run(test.language, func(t *testing.T) {
+			entry := grammars.DetectLanguageByName(test.language)
+			if entry == nil || entry.TokenSourceFactory == nil {
+				t.Fatal("missing registered token source factory")
+			}
+			lang := entry.Language()
+			makeSource := func(src []byte) (g.TokenSource, error) {
+				return entry.TokenSourceFactory(src, lang), nil
+			}
+			source, after := selectedScannerChunks("OMIT", test.chunks)
+			before := append([][2]int(nil), after...)
+			before[0][1]++ // include just the first omitted byte to keep both parses valid
+			testCcoreIncludedRangesPublicRoutes(t, test.language, lang, source, before, after, makeSource)
+		})
+	}
+}
+
+func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Language, src []byte, before, after [][2]int, factory g.TokenSourceFactory) {
 	t.Helper()
 	goRanges := func(spans [][2]int) []g.Range {
 		core, _ := coreAndCIncludedRanges(src, spans)
@@ -49,10 +76,22 @@ func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Lang
 
 	parser := g.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
+	parse := func() (*g.Tree, error) {
+		if factory != nil {
+			return parser.ParseWithTokenSourceFactory(src, factory)
+		}
+		return parser.Parse(src)
+	}
+	reparse := func(old *g.Tree) (*g.Tree, error) {
+		if factory != nil {
+			return parser.ParseIncrementalWithTokenSourceFactory(src, old, factory)
+		}
+		return parser.ParseIncremental(src, old)
+	}
 
 	parser.SetIncludedRanges(goRanges(before))
 	_, fresh0, incr0 := bind.RouteCounters()
-	ungranted, err := parser.Parse(src)
+	ungranted, err := parse()
 	if err != nil || ungranted == nil {
 		t.Fatalf("ungranted parse: %v", err)
 	}
@@ -66,7 +105,12 @@ func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Lang
 	if lang.ExternalScanner != nil {
 		modes |= certified.Scan
 	}
-	restore, err := bindtest.CertifyForTests(modes, nil, nil)
+	var providers []string
+	if factory != nil {
+		providers = []string{ccore.TableScanID}
+	}
+	checked := []string{"ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState"}
+	restore, err := bindtest.CertifyForTestsProviders(modes, checked, nil, providers)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +137,7 @@ func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Lang
 		t.Fatal("pinned C returned no initial tree")
 	}
 	defer cOld.Close()
-	old, err := parser.Parse(src)
+	old, err := parse()
 	if err != nil || old == nil {
 		t.Fatalf("certified fresh parse: %v", err)
 	}
@@ -111,7 +155,7 @@ func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Lang
 	}
 	defer cNext.Close()
 	parser.SetIncludedRanges(goRanges(after))
-	next, err := parser.ParseIncremental(src, old)
+	next, err := reparse(old)
 	if err != nil || next == nil {
 		t.Fatalf("certified incremental parse: %v", err)
 	}

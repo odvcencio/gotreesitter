@@ -32,6 +32,9 @@ func (p *Parser) scan(lexState uint32, pos int, row, col uint32, out *Token) boo
 
 func (p *Parser) scanIncluded(lexState uint32, pos int, row, col uint32, out *Token) (bool, bool) {
 	cursor := newIncludedCursor(p.src, p.includedRanges, NewLength(uint32(pos), row, col))
+	if p.scanProv != nil {
+		return p.scanProv.(RangedScanProvider).ScanIncluded(lexState, ScannerCursor{cursor}, out, &p.fail)
+	}
 	return scanIncludedDFA(p.t.LexStates, p.t.LexAscii, cursor, lexState, out, &p.fail)
 }
 

@@ -712,9 +712,9 @@ func (p *Parser) ccoreEligibleFor(kind ccoreSource) bool {
 		modes = sched.TokenSource
 	}
 	modes |= p.schedImpliedModes(modes, nil)
-	if kind == ccoreSourceDFA {
-		// The core can meet this mode through a range certificate. Leave the
-		// compact engine and the scan-provider routes on their own policy.
+	if kind == ccoreSourceDFA || kind == ccoreSourceProvider {
+		// Both the built-in DFA and the qualified table provider can read
+		// selected ranges. Admission checks the blob's range grant.
 		modes &^= sched.IncludedRanges
 	}
 	return sched.Supports(sched.Request{Modes: modes})
@@ -2503,7 +2503,7 @@ func (p *Parser) ccoreFirstFresh(source []byte) (*Tree, bool) {
 // ccoreParseCore parses with an optional old core tree.
 func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore.ScanProvider, included []ccore.Range) (ct *ccore.Tree, stop string, resultErr bool) {
 	if len(included) != 0 {
-		ct, stop = cp.ParseWithIncluded(source, old, included)
+		ct, stop = cp.ParseWithIncludedScan(source, old, included, scan)
 	} else {
 		ct, stop = cp.ParseWithScan(source, old, scan)
 	}

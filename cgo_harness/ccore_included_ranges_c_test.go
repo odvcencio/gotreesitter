@@ -23,7 +23,11 @@ func TestCcoreIncludedRangesJSONMatchesPinnedC(t *testing.T) {
 	if err := cp.SetLanguage(cLanguage); err != nil {
 		t.Fatal(err)
 	}
-	parser, err := bind.New(language)
+	config, err := bind.Config(language)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parser, err := ccore.NewParser(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,6 +85,7 @@ func TestCcoreIncludedRangesJSONMatchesPinnedC(t *testing.T) {
 			}
 			defer tree.Release()
 			assertIncludedTreeMatchesC(t, parser, tree, ct)
+			assertIncludedTableProviderMatchesC(t, parser, config.Tables, src, ranges, ct)
 		})
 	}
 }
@@ -121,7 +126,11 @@ func TestCcoreIncludedRangesJavaKeywordMatchesPinnedC(t *testing.T) {
 		t.Fatal("pinned C did not recognize the keyword spanning the gap")
 	}
 
-	parser, err := bind.New(language)
+	config, err := bind.Config(language)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parser, err := ccore.NewParser(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,6 +141,31 @@ func TestCcoreIncludedRangesJavaKeywordMatchesPinnedC(t *testing.T) {
 	}
 	defer tree.Release()
 	assertIncludedTreeMatchesC(t, parser, tree, ct)
+	assertIncludedTableProviderMatchesC(t, parser, config.Tables, []byte(text), ranges, ct)
+}
+
+func assertIncludedTableProviderMatchesC(t *testing.T, parser *ccore.Parser, tables *ccore.Tables, src []byte, ranges []ccore.Range, ct *sitter.Tree) {
+	t.Helper()
+	work := func(stats ccore.Stats) [5]int {
+		return [5]int{stats.Tokens, stats.Shifts + stats.Reductions,
+			stats.RecLeaf + stats.RecNode + stats.RecCopy, stats.MaxProcessed, stats.MultiTokens}
+	}
+	before := work(parser.Stats())
+	provider := ccore.NewTableScan(tables, src)
+	tree, stop := parser.ParseWithIncludedScan(src, nil, ranges, provider)
+	if stop != "" || tree == nil {
+		t.Fatalf("ccore with range provider stopped: %q", stop)
+	}
+	defer tree.Release()
+	assertIncludedTreeMatchesC(t, parser, tree, ct)
+	after := work(parser.Stats())
+	if after != before {
+		t.Fatalf("ranged provider work differs (tokens, steps, records, width, multi-stack tokens): before=%v after=%v", before, after)
+	}
+	t.Logf("tokens, steps, records, width, multi-stack tokens: before=%v after=%v; provider calls=%d", before, after, provider.Calls())
+	if provider.Calls() == 0 {
+		t.Fatal("the core did not ask the range provider to scan")
+	}
 }
 
 func assertIncludedTreeMatchesC(t *testing.T, parser *ccore.Parser, tree *ccore.Tree, ct *sitter.Tree) {

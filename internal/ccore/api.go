@@ -25,8 +25,19 @@ func (p *Parser) ParseIncluded(src []byte, ranges []Range) (*Tree, string) {
 // be sorted and non-overlapping. The old tree already reflects all source edits.
 // A nil or empty list includes the entire source, even when old used ranges.
 func (p *Parser) ParseWithIncluded(src []byte, old *Tree, ranges []Range) (*Tree, string) {
+	return p.ParseWithIncludedScan(src, old, ranges, nil)
+}
+
+// ParseWithIncludedScan is ParseWithIncluded with an optional main lexer.
+// A provider must support selected ranges when the list is nonempty.
+func (p *Parser) ParseWithIncludedScan(src []byte, old *Tree, ranges []Range, provider ScanProvider) (*Tree, string) {
 	if len(ranges) == 0 {
-		return p.ParseWith(src, old)
+		return p.ParseWithScan(src, old, provider)
+	}
+	if provider != nil {
+		if _, ok := provider.(RangedScanProvider); !ok {
+			return nil, "scan provider does not support included ranges"
+		}
 	}
 	if p.scanner != nil {
 		if _, ok := p.scanner.(RangedExtScanner); !ok {
@@ -42,7 +53,7 @@ func (p *Parser) ParseWithIncluded(src []byte, old *Tree, ranges []Range) (*Tree
 	}
 	p.includedRanges = ranges
 	defer func() { p.includedRanges = nil }()
-	return p.ParseWith(src, old)
+	return p.ParseWithScan(src, old, provider)
 }
 
 // ParseWith parses src, reusing the edited old tree when old is not nil (C
