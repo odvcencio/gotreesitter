@@ -165,6 +165,14 @@ func EmitGrammarGo(g *Grammar, pkgName, funcName string) ([]byte, error) {
 		fmt.Fprintf(&buf, "\tg.BinaryRepeatMode = true\n\n")
 	}
 
+	if len(g.BinaryRepeatForParents) > 0 {
+		fmt.Fprintf(&buf, "\tg.BinaryRepeatForParents = []string{\n")
+		for _, name := range g.BinaryRepeatForParents {
+			fmt.Fprintf(&buf, "\t\t%s,\n", goString(name))
+		}
+		fmt.Fprintf(&buf, "\t}\n")
+	}
+
 	if g.FlattenGeneratedRepeatAux {
 		fmt.Fprintf(&buf, "\tg.FlattenGeneratedRepeatAux = true\n\n")
 	}

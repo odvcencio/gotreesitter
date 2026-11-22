@@ -2732,3 +2732,19 @@ func GoGrammar() *Grammar {
 
 	return g
 }
+
+// GoCoreGrammar builds Go's grammar with an internal line-terminator lexer for
+// ccore. It uses the same syntax rules as GoGrammar.
+func GoCoreGrammar() *Grammar {
+	g := GoGrammar()
+	g.Externals = nil
+	// The pinned C lexer consumes adjacent newlines as one terminator. The
+	// NUL alternative remains distinct from the physical end-of-input token.
+	g.Define("_automatic_semicolon", Choice(Pat(`\n+`), Str("\x00")))
+	g.Inline = append(g.Inline, "_automatic_semicolon")
+	g.ExplicitLexerEOF = true
+	g.CCompatibleParseActions = true
+	// Keep an aliased field identifier out of a linear repeat's rotation slots.
+	g.BinaryRepeatForParents = []string{"field_declaration"}
+	return g
+}
