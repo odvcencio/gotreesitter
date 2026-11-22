@@ -29,6 +29,7 @@ type Parser struct {
 	t          *Tables
 	scanner    ExtScanner
 	src        []byte
+	scanProv   ScanProvider // bound for the length of one parse (api.go ParseWithScan); nil walks the automaton
 	nodes      []stackNode
 	free       []int32
 	heads      []stackHead
@@ -981,5 +982,6 @@ func (p *Parser) Reset() {
 	p.ext.cacheLast = 0
 	p.finished = 0
 	p.src = nil
+	p.scanProv = nil
 	p.cacheTok, p.cacheAt = 0, 0
 }

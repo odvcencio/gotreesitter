@@ -26,6 +26,19 @@ type Cert struct {
 	Scanner string   // %T of the external scanner the blob was checked with ("" for none)
 	Checked []string // root-only fields compared with pinned C
 	Config  [32]byte // the effective-configuration hash of the blob's loaded language
+	// Providers lists the scan providers whose answers were compared with pinned C
+	// for this blob, by identity. Empty means none.
+	Providers []string
+}
+
+// HasProvider reports whether the certificate lists the provider.
+func (c Cert) HasProvider(id string) bool {
+	for _, p := range c.Providers {
+		if p == id {
+			return true
+		}
+	}
+	return false
 }
 
 // blobEntry keeps generated certificates in data. The number of entries
@@ -50,6 +63,19 @@ type Test struct {
 	Modes    uint8
 	Checked  map[string]bool
 	Excluded map[[32]byte]bool // blobs the test run does not certify (known differences from C)
+	// Providers lists the scan providers the test grants to every blob it
+	// certifies. Empty grants none.
+	Providers []string
+}
+
+// HasProvider reports whether the test certification grants the provider.
+func (t *Test) HasProvider(id string) bool {
+	for _, p := range t.Providers {
+		if p == id {
+			return true
+		}
+	}
+	return false
 }
 
 var current atomic.Pointer[Test]

@@ -42,3 +42,26 @@ func TestParseReadsTheRecordList(t *testing.T) {
 		t.Fatal("an object in place of the list was accepted")
 	}
 }
+
+// A record lists scan providers by identity. Render writes the list when there
+// is one, writes nothing when there is none, and refuses an identity it does
+// not know.
+func TestRenderWritesAndChecksProviders(t *testing.T) {
+	h := "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+	cfg := strings.Repeat("ab", 32)
+	plain, err := Render([]Record{{BlobSHA256: h, Modes: Fresh | Recover, ConfigSHA256: cfg}})
+	if err != nil || strings.Contains(string(plain), "Providers") {
+		t.Fatalf("a record with no providers: %v\n%s", err, plain)
+	}
+	granted, err := Render([]Record{{BlobSHA256: h, Modes: Fresh | Recover, ConfigSHA256: cfg, Providers: []string{"table-v1"}}})
+	if err != nil || !strings.Contains(string(granted), `Providers: []string{"table-v1"}`) {
+		t.Fatalf("a record with a provider: %v\n%s", err, granted)
+	}
+	if _, err := Render([]Record{{BlobSHA256: h, Modes: Fresh | Recover, ConfigSHA256: cfg, Providers: []string{"other"}}}); err == nil || !strings.Contains(err.Error(), "unknown provider") {
+		t.Fatalf("an unknown provider was accepted: %v", err)
+	}
+	recs, err := Parse([]byte(`[{"BlobSHA256":"ab","Modes":3,"Providers":["table-v1"]}]`))
+	if err != nil || len(recs) != 1 || len(recs[0].Providers) != 1 || recs[0].Providers[0] != "table-v1" {
+		t.Fatalf("records %+v, error %v", recs, err)
+	}
+}
