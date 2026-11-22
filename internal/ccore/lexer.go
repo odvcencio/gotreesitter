@@ -19,8 +19,14 @@ type Token struct {
 }
 
 // scan runs the main lex automaton (the generated ts_lex of the grammar) and
-// records where a failed attempt began and ended.
+// records where a failed attempt began and ended. When a scan provider is bound
+// (scanprovider.go) it answers in place of the automaton walk; the keyword
+// automaton, the external scanner, the error-mode retry and the leaf
+// construction stay here.
 func (p *Parser) scan(lexState uint32, pos int, row, col uint32, out *Token) bool {
+	if p.scanProv != nil {
+		return p.scanProv.Scan(lexState, pos, row, col, out, &p.fail)
+	}
 	return scanDFA(p.t.LexStates, p.t.LexAscii, p.src, lexState, pos, row, col, out, &p.fail)
 }
 

@@ -202,7 +202,11 @@ func TestHTMLErrorTreeIncrementalReuseFailsClosed(t *testing.T) {
 		t.Fatalf("HTML error tree did not fail closed: %+v", profile)
 	}
 
-	fresh, err := gts.NewParser(lang).Parse(edited)
+	// Compare with the same engine: the default route serves HTML through the
+	// certified core, whose recovered trees follow pinned C.
+	freshParser := gts.NewParser(lang)
+	freshParser.SetAdmissionCandidateRoute(false)
+	fresh, err := freshParser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh recovered HTML parse: %v", err)
 	}

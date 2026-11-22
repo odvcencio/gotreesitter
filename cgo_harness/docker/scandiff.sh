@@ -35,7 +35,12 @@ check_output() {
   [ -n "$rm" ] || { echo "no report_mode field in the summary" >&2; return 1; }
   local cc; cc=$(printf '%s\n' "$line" | sed -n 's/.* c_crashes=\([0-9][0-9]*\) .*/\1/p')
   [ -n "$cc" ] || { echo "no c_crashes field in the summary" >&2; return 1; }
-  if [ "$cc" -gt 0 ] && [ "$rm" != true ]; then echo "C scanner crashed $cc times in a gate run" >&2; return 1; fi
+  # c_deser_aborts: of the crashes, aborts inside C's deserialize on a truncated real state in a
+  # SCANDIFF_HOSTILE=trunc run (the pinned C scanner's deserialize length assertion); they do not fail a run.
+  local ab; ab=$(printf '%s\n' "$line" | sed -n 's/.* c_deser_aborts=\([0-9][0-9]*\) .*/\1/p')
+  [ -n "$ab" ] || { echo "no c_deser_aborts field in the summary" >&2; return 1; }
+  if [ "$ab" -gt "$cc" ]; then echo "c_deser_aborts ($ab) exceeds c_crashes ($cc)" >&2; return 1; fi
+  if [ $((cc - ab)) -gt 0 ] && [ "$rm" != true ]; then echo "C scanner crashed $((cc - ab)) times in a gate run" >&2; return 1; fi
   local sk; sk=$(printf '%s\n' "$line" | sed -n 's/.* skipped=\([0-9][0-9]*\) .*/\1/p')
   [ -n "$sk" ] && [ "$sk" -eq 0 ] || { echo "skipped calls: ${sk:-missing}" >&2; return 1; }
 }
@@ -62,7 +67,7 @@ if [ "${1:-}" = "--self-test" ]; then
     if check_output "$@" >/dev/null 2>&1; then got=0; else got=1; fi
     if [ "$got" = "$want" ]; then echo "ok   self-test: ${desc}"; else echo "FAIL self-test: ${desc} (exit ${got}, want ${want})"; fails=1; fi
   }
-  sum='SCANDIFF lang=css report_mode=false mode= seed=1 calls=100 ordinary_calls=100 skipped=0 c_crashes=0 diff_calls=0'
+  sum='SCANDIFF lang=css report_mode=false mode= seed=1 calls=100 ordinary_calls=100 skipped=0 c_crashes=0 c_deser_aborts=0 diff_calls=0'
   printf '%s\n' "$sum" '--- PASS: TestScannerDiff (0.10s)' 'PASS' >"$d/good"
   printf '%s\n' "$sum" 'PASS' >"$d/nopass"
   printf '%s\n' '--- SKIP: TestScannerDiff (0.00s)' 'PASS' >"$d/skip"
@@ -73,6 +78,10 @@ if [ "${1:-}" = "--self-test" ]; then
   printf '%s\n' "${sum/c_crashes=0/c_crashes=3}" '--- PASS: TestScannerDiff (0.10s)' >"$d/crash"
   printf '%s\n' "${sum/c_crashes=0/c_crashes=3}" '--- PASS: TestScannerDiff (0.10s)' | sed 's/report_mode=false/report_mode=true/' >"$d/crashreport"
   printf '%s\n' "${sum/report_mode=false /}" '--- PASS: TestScannerDiff (0.10s)' >"$d/noreport"
+  printf '%s\n' "$(printf '%s' "$sum" | sed 's/c_crashes=0 c_deser_aborts=0/c_crashes=3 c_deser_aborts=3/')" '--- PASS: TestScannerDiff (0.10s)' >"$d/aborts"
+  printf '%s\n' "$(printf '%s' "$sum" | sed 's/c_crashes=0 c_deser_aborts=0/c_crashes=3 c_deser_aborts=2/')" '--- PASS: TestScannerDiff (0.10s)' >"$d/otherabort"
+  printf '%s\n' "$(printf '%s' "$sum" | sed 's/c_crashes=0 c_deser_aborts=0/c_crashes=1 c_deser_aborts=2/')" '--- PASS: TestScannerDiff (0.10s)' >"$d/toomanyaborts"
+  printf '%s\n' "${sum/ c_deser_aborts=0/}" '--- PASS: TestScannerDiff (0.10s)' >"$d/noaborts"
   if (SCANDIFF_MUTANT=len; refuse_mutant) 2>/dev/null; then echo "FAIL self-test: a mutant variable must be refused"; fails=1; else echo "ok   self-test: a mutant variable is refused"; fi
   printf '%s\n' '=== RUN   TestScannerDiff' '    scandiff_test.go:1: reason-line' '--- FAIL: TestScannerDiff (0.00s)' 'FAIL' >"$d/failing"
   if print_log 1 "$d/failing" | grep -q 'reason-line'; then echo "ok   self-test: a failing run prints its whole log"; else echo "FAIL self-test: a failing run hid its reason"; fails=1; fi
@@ -88,6 +97,10 @@ if [ "${1:-}" = "--self-test" ]; then
   expect "C crashes in a gate run fail" 1 css "$d/crash"
   expect "C crashes in report mode are reported, not failed here" 0 css "$d/crashreport"
   expect "a summary without report_mode fails" 1 css "$d/noreport"
+  expect "deserialize aborts on truncated states alone pass" 0 css "$d/aborts"
+  expect "a crash that is not a deserialize abort fails" 1 css "$d/otherabort"
+  expect "more aborts than crashes fails" 1 css "$d/toomanyaborts"
+  expect "a summary without c_deser_aborts fails" 1 css "$d/noaborts"
   exit "$fails"
 fi
 

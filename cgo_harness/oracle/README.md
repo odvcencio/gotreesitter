@@ -23,7 +23,14 @@ progress callbacks, which replace the removed C API functions. It also
 releases synchronous callback and logger handles, checks the result of
 assigning a language, and uses the supported language ABI accessor.
 The unused deprecated query timeout methods are omitted; queries retain
-their explicit progress callback API. The vendored C runtime stays unpatched. `LICENSE` preserves the binding
+their explicit progress callback API. The vendored C runtime changes only by `subtree_counters.patch`: counters
+for the subtrees that a parse creates (heap leaves, `ts_subtree_new_node`,
+`ts_subtree_clone`, and the comparison trees of `ts_parser__select_children`).
+They are compiled in only under the define `GTS_SUBTREE_COUNTERS`, which the
+Go build tag `gts_subtree_counters` sets (`subtree_counters.go`). Without the
+tag every counter site is an empty statement and the runtime behaves as the
+pinned one. The graduation gate builds its harness with the tag (item 6).
+`LICENSE` preserves the binding
 notice, and `RUNTIME_LICENSE` preserves the upstream runtime notice.
 Diagnostic work-count builds apply their separate versioned instrumentation
 patch to a copy of the runtime.

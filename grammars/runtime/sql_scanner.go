@@ -6,11 +6,12 @@ import (
 	"crypto/sha256"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // sqlExternalScannerLocalPortSHA256 identifies the marked local scanner port.
 // A focused test checks this value against the source region below.
-const sqlExternalScannerLocalPortSHA256 = "588328cd27eea49e88b704b9bd8e46958046564187a5db1a70f6622308a7fff8"
+const sqlExternalScannerLocalPortSHA256 = "f2b02624937fb8de4d127c8eb103d4d1948415487b8c9bc69e807e5983ec47d5"
 
 // C26Q_SQL_SCANNER_LOCAL_PORT_BEGIN
 
@@ -21,12 +22,14 @@ const (
 	sqlTokDollarTagEnd   = 2 // "_dollar_quoted_string_end_tag" — closing $tag$
 )
 
-// The runtime currently snapshots scanners into a 4096-byte buffer. One byte
-// is reserved for the trailing NUL, so tags longer than this cannot participate
-// in checkpoint-authenticated incremental reuse. They remain valid SQL and are
-// still accepted by Scan; Serialize returns zero for those states so reuse fails
-// closed at the affected boundary without changing full-parse semantics.
-const sqlMaxDollarTagBytes = 4095
+// C saves the scanner as one "started" byte and the tag, and gives up when the
+// tag and that byte would not fit in TREE_SITTER_SERIALIZATION_BUFFER_SIZE (1024)
+// bytes (scanner.cc:29). A tag of more than 1022 bytes is still accepted by Scan;
+// Serialize returns zero for it, so reuse fails closed at that boundary.
+const (
+	sqlSerializationBufferSize = 1024
+	sqlMaxDollarTagBytes       = sqlSerializationBufferSize - 2
+)
 
 const (
 	sqlExternalScannerUpstreamRepo    = "https://github.com/m-novikov/tree-sitter-sql"
@@ -34,7 +37,7 @@ const (
 	sqlExternalScannerGrammarSHA256   = "42f011860137175a5a0cb820d1a694e5ccca1d17f226729ff6a4e886910cde1c"
 	sqlExternalScannerSourceSHA256    = "d437ad9f517d7a1f4248ccd05abe58370b5040c0037c877dab1f0aefeaa04af6"
 	sqlExternalScannerIdentityVersion = "gotreesitter/sql-external-scanner/v1"
-	sqlExternalScannerSemantics       = "state=tag;empty=0;nonempty=tag-nul;scan=tag-content-end;failure=preserve;max-tag=4095"
+	sqlExternalScannerSemantics       = "state=started-byte+tag;empty=0;scan=tag-content-end;failure=preserve;max-tag=1022;mode=alpha-tags"
 )
 
 var sqlExternalScannerSpec = ExternalScannerSpec{
@@ -54,12 +57,38 @@ var sqlExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(sqlExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) with
+	// the C-faithful mode on: C reads tag names of ASCII letters only (scanner.cc:81).
+	scanmode.RegisterScanner(SqlExternalScanner{}, (*sqlScannerState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(SqlExternalScanner)
+		key := append([]byte{0}, s.grammarBlobSHA256[:]...)
+		if s.grammarIdentityPresent {
+			key[0] = 1
+		}
+		return s, key, true
+	}, func(left, right any) bool {
+		return left.(SqlExternalScanner) == right.(SqlExternalScanner)
+	})
 }
 
-// sqlScannerState stores the dollar-quote tag for matching the closing delimiter.
+// sqlScannerState is the state of the C scanner: whether a dollar-quoted string
+// is open (scanner.cc:18) and the last tag read (scanner.cc:16). As in C, the tag
+// stays after the closing tag has ended the string (scanner.cc:119); it matters
+// only while started is true.
+//
+// cFaithful is the mode the core turns on (scanmode.CFaithful). C reads a tag
+// name of ASCII letters only (scanner.cc:81); the default engine also accepts a
+// leading underscore and digits after the first character, as PostgreSQL does.
 type sqlScannerState struct {
-	tag string // empty when not inside a dollar-quoted string
+	started   bool
+	tag       string
+	cFaithful bool
 }
+
+// SetCFaithful implements scanmode.CFaithful.
+func (s *sqlScannerState) SetCFaithful(on bool) { s.cFaithful = on }
+
+var _ scanmode.CFaithful = (*sqlScannerState)(nil)
 
 // SqlExternalScanner implements gotreesitter.ExternalScanner for tree-sitter-sql.
 //
@@ -105,39 +134,32 @@ func (SqlExternalScanner) Destroy(payload any) {}
 
 func (SqlExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*sqlScannerState)
-	if s.tag == "" {
-		if len(buf) == 0 {
-			return 0
-		}
-		// A one-byte empty-state marker keeps "empty checkpoint" distinct from
-		// the checkpoint store's zero-byte "checkpoint absent" sentinel.
-		buf[0] = 0
-		return 1
-	}
-	// Store tag + null terminator.
-	tagLen := len(s.tag) + 1
-	if tagLen > len(buf) {
+	n := len(s.tag) + 1
+	// scanner.cc:29
+	if n >= sqlSerializationBufferSize || n > len(buf) {
 		return 0
 	}
-	copy(buf, s.tag)
-	buf[len(s.tag)] = 0
-	return tagLen
+	// scanner.cc:30-32: the started byte, then the tag with no terminator.
+	buf[0] = 0
+	if s.started {
+		buf[0] = 1
+	}
+	copy(buf[1:], s.tag)
+	return n
 }
 
 func (SqlExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*sqlScannerState)
-	s.tag = ""
-	if len(buf) > 1 {
-		// Find the null terminator.
-		for i, b := range buf {
-			if b == 0 {
-				s.tag = string(buf[:i])
-				return
-			}
-		}
-		// No null terminator found — use the whole buffer.
-		s.tag = string(buf)
+	// scanner.cc:36-38
+	if len(buf) == 0 {
+		s.started = false
+		s.tag = ""
+		return
 	}
+	// scanner.cc:40-41: any non-zero first byte is started; the rest is the tag,
+	// whatever bytes it holds.
+	s.started = buf[0] != 0
+	s.tag = string(buf[1:])
 }
 
 // SupportsIncrementalReuse certifies the SQL scanner for subtree reuse. Its
@@ -159,31 +181,34 @@ func (SqlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 	contentSym := lang.ExternalSymbols[sqlTokContent]
 	tagEndSym := lang.ExternalSymbols[sqlTokDollarTagEnd]
 
-	// Start tag: scan a $..$ tag and store it.
-	if sqlValid(validSymbols, sqlTokDollarTagStart) && s.tag == "" {
-		tag, ok := scanSqlDollarTag(lexer, true)
+	// scanner.cc:109: start tag. C writes the tag it read into its state even when
+	// the scan fails (scanner.cc:73), but then started stays false and nothing reads
+	// the tag, and the parser restores the saved state before the next scan; the port
+	// leaves the state alone on failure, which no scan can tell apart.
+	if sqlValid(validSymbols, sqlTokDollarTagStart) && !s.started {
+		tag, ok := scanSqlDollarTag(lexer, true, s.cFaithful)
 		if !ok {
 			return false
 		}
 		s.tag = tag
+		s.started = true
 		lexer.MarkEnd()
 		lexer.SetResultSymbol(tagStartSym)
 		return true
 	}
 
-	// Content: scan the body between dollar-quote tags, stopping immediately
-	// before the matching closing tag. Non-matching '$' sequences are content.
-	if sqlValid(validSymbols, sqlTokContent) && s.tag != "" {
+	// scanner.cc:113: content, up to the full matching tag.
+	if sqlValid(validSymbols, sqlTokContent) && s.started {
 		return scanSqlDollarContent(lexer, s.tag, contentSym)
 	}
 
-	// End tag: scan for a matching $..$ tag.
-	if sqlValid(validSymbols, sqlTokDollarTagEnd) && s.tag != "" {
-		tag, ok := scanSqlDollarTag(lexer, false)
-		if !ok || tag != s.tag {
+	// scanner.cc:117: end tag.
+	if sqlValid(validSymbols, sqlTokDollarTagEnd) && s.started {
+		if !scanSqlDollarEndTag(lexer, s.tag) {
 			return false
 		}
-		s.tag = ""
+		// scanner.cc:119-120: started ends, the tag stays.
+		s.started = false
 		lexer.MarkEnd()
 		lexer.SetResultSymbol(tagEndSym)
 		return true
@@ -194,63 +219,59 @@ func (SqlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 
 // scanSqlDollarTag scans a $identifier$ or $$ tag and returns the full tag
 // string (including the $ delimiters). Returns ("", false) if the current
-// position doesn't start a valid dollar tag.
-func scanSqlDollarTag(lexer *gotreesitter.ExternalLexer, skipWhitespace bool) (string, bool) {
+// position doesn't start a valid dollar tag (scanner.cc:70-94).
+func scanSqlDollarTag(lexer *gotreesitter.ExternalLexer, skipWhitespace, cFaithful bool) (string, bool) {
 	if skipWhitespace {
-		for sqlIsScannerWhitespace(lexer.Lookahead()) {
+		// scanner.cc:71
+		for sqlIsScannerWhitespace(scanmode.CLookahead(lexer)) {
 			lexer.Advance(true)
 		}
 	}
-	if lexer.Lookahead() != '$' {
+	if scanmode.CLookahead(lexer) != '$' {
 		return "", false
 	}
 	lexer.Advance(false)
 
-	var tag []byte
-	tag = append(tag, '$')
-
-	// Tag identifier: [a-zA-Z_][a-zA-Z0-9_]* or empty (for $$).
-	ch := lexer.Lookahead()
-	if ch == '$' {
-		// Empty tag: $$
-		lexer.Advance(false)
-		tag = append(tag, '$')
-		return string(tag), true
-	}
-
-	if !isSqlTagStart(ch) {
-		return "", false
-	}
-
-	for isSqlTagChar(lexer.Lookahead()) {
-		tag = append(tag, byte(lexer.Lookahead()))
+	tag := []byte{'$'}
+	// scanner.cc:81: letters only in C; the default engine also takes '_' and,
+	// after the first character, digits.
+	for first := true; ; first = false {
+		ch := scanmode.CLookahead(lexer)
+		if cFaithful {
+			if !isSqlASCIILetter(ch) {
+				break
+			}
+		} else if first && !isSqlTagStart(ch) || !first && !isSqlTagChar(ch) {
+			break
+		}
+		tag = append(tag, byte(ch))
 		lexer.Advance(false)
 	}
 
-	if lexer.Lookahead() != '$' {
+	// scanner.cc:86
+	if scanmode.CLookahead(lexer) != '$' {
 		return "", false
 	}
 	lexer.Advance(false)
 	tag = append(tag, '$')
-
 	return string(tag), true
 }
 
-// scanSqlDollarContent scans the body of a dollar-quoted string. It mirrors
-// upstream tree-sitter-sql: content ends only before the full matching tag.
+// scanSqlDollarContent scans the body of a dollar-quoted string (scanner.cc:45-68):
+// content ends only before the full matching tag. A NUL byte and the end of input
+// both end it without a token (scanner.cc:51). The tag is compared as C does,
+// against its chars (signed bytes): an empty tag reads as NUL and never matches
+// (scanner.cc:53), so the scan runs to the end.
 func scanSqlDollarContent(lexer *gotreesitter.ExternalLexer, tag string, contentSym gotreesitter.Symbol) bool {
-	if tag == "" {
-		return false
-	}
 	pos := 0
 	lexer.SetResultSymbol(contentSym)
 	lexer.MarkEnd()
 	for {
-		ch := lexer.Lookahead()
+		ch := scanmode.CLookahead(lexer)
 		if ch == 0 {
 			return false
 		}
-		if pos < len(tag) && ch == rune(tag[pos]) {
+		if pos < len(tag) && ch == int32(int8(tag[pos])) {
 			if pos == len(tag)-1 {
 				return true
 			}
@@ -270,16 +291,39 @@ func scanSqlDollarContent(lexer *gotreesitter.ExternalLexer, tag string, content
 	}
 }
 
-func isSqlTagStart(ch rune) bool {
+// scanSqlDollarEndTag reads as many characters as the tag has bytes, stopping at
+// NUL or the end of input, and reports whether they are the tag (scanner.cc:96-106).
+// C appends each lookahead to a string of chars, which keeps its low eight bits,
+// and counts characters, not bytes. An empty tag matches with nothing read.
+func scanSqlDollarEndTag(lexer *gotreesitter.ExternalLexer, tag string) bool {
+	word := make([]byte, 0, len(tag))
+	for {
+		ch := scanmode.CLookahead(lexer)
+		if ch == 0 || len(word) >= len(tag) {
+			break
+		}
+		word = append(word, byte(ch))
+		lexer.Advance(false)
+	}
+	return string(word) == tag
+}
+
+func isSqlASCIILetter(ch int32) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+}
+
+func isSqlTagStart(ch int32) bool {
 	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
 }
 
-func isSqlTagChar(ch rune) bool {
+func isSqlTagChar(ch int32) bool {
 	return isSqlTagStart(ch) || (ch >= '0' && ch <= '9')
 }
 
-func sqlIsScannerWhitespace(ch rune) bool {
-	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '\f'
+// sqlIsScannerWhitespace is iswspace in the C locale (scanner.cc:71): ASCII space,
+// tab, line feed, vertical tab, form feed and carriage return.
+func sqlIsScannerWhitespace(ch int32) bool {
+	return ch == ' ' || (ch >= '\t' && ch <= '\r')
 }
 
 func sqlValid(validSymbols []bool, idx int) bool {

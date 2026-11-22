@@ -16,8 +16,15 @@ import "github.com/odvcencio/gotreesitter/internal/ccore/certified/certifiedtest
 // exclude lists blob hashes the test does not certify (known differences). The
 // returned function undoes it.
 func CertifyForTests(modes uint8, checked []string, exclude [][32]byte) (restore func(), err error) {
+	return CertifyForTestsProviders(modes, checked, exclude, nil)
+}
+
+// CertifyForTestsProviders is CertifyForTests that also grants the scan
+// providers in providers (by identity, for example "table-v1") to every language
+// it certifies. It stands for a candidate certificate whose record lists them.
+func CertifyForTestsProviders(modes uint8, checked []string, exclude [][32]byte, providers []string) (restore func(), err error) {
 	if _, err := registered(); err != nil {
 		return func() {}, err
 	}
-	return certifiedtest.Install(modes, checked, exclude), nil
+	return certifiedtest.InstallProviders(modes, checked, exclude, providers), nil
 }

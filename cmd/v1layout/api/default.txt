@@ -399,6 +399,14 @@ func *TreeCursor.GotoPrevNamedSibling() bool
 func *TreeCursor.GotoPrevSibling() bool
 func *TreeCursor.Reset(node *Node)
 func *TreeCursor.ResetTree(tree *Tree)
+func *coreScanTokenSource.Close()
+func *coreScanTokenSource.Next() Token
+func *coreScanTokenSource.RebuildTokenSource(source []byte, lang *Language) (TokenSource, error)
+func *coreScanTokenSource.Reset(source []byte)
+func *coreScanTokenSource.SetGLRStates(states []StateID)
+func *coreScanTokenSource.SetParserState(state StateID)
+func *coreScanTokenSource.SkipToByte(offset uint32) Token
+func *coreScanTokenSource.SupportsIncrementalReuse() bool
 func *dfaTokenSource.CanRelexFromTokenStart(tok Token) bool
 func *dfaTokenSource.Close()
 func *dfaTokenSource.Next() Token

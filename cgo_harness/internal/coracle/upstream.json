@@ -36,7 +36,7 @@
     "src/lexer.h": "7d76308f7a2d3246a3e28fb27698be928f848130d1bfacc39f9f623127671b74",
     "src/lib.c": "a9830f5a1e72db564afef45f690510cf0aa751075ed855789e26c9f25f087b80",
     "src/node.c": "fb0b5eecacb6d7e324f60914893801c0d147f413dd0af73a19ef270d341a77b5",
-    "src/parser.c": "450cb5196ffb74ffd8ba16fcb770b995f000348ac054542afb9f547bd86ab611",
+    "src/parser.c": "3ad02bf00528e135aa7b3dd47fef543ab8837804d1b6bf23c7de0d4ed949b6c3",
     "src/parser.h": "180b893c8734778fd32f372dfbc27bd6ad1cd2221f26150b31256ff6716320d2",
     "src/point.c": "04a101f16f40a651814c0f307fadf3f351d0f24013fa6d8b89c85bf1c6a5e717",
     "src/point.h": "0929027be2ff54627be560f3bafc1af59e81ac6d5a8d5864455601a0dbee50ff",
@@ -46,8 +46,8 @@
     "src/reusable_node.h": "10be747ea4c733ca181dc43d55d155ac8e5b8caa247079621cca0ce633347bfb",
     "src/stack.c": "f70b7e5823e82901801193562908037db4c1a73721e48da0fe54cdb2a6b5856d",
     "src/stack.h": "dea9df947fa871b253528dca48611aa174181a286ec2734c16d4038e040834f6",
-    "src/subtree.c": "6b8737764405898a2941df6951f548d73131ada230eec906ee062ca453a2bb80",
-    "src/subtree.h": "290ac499f1cdd03d2100de98e12c3fccfe806b663337d648eaf4744348bfb2d5",
+    "src/subtree.c": "e249c274d68b1d8a344350b906eb0d7dd3e07a0ae9c90d550164b7667971b449",
+    "src/subtree.h": "b472b1826423f07e3cee757ebc6af7648924c67af129882a1dd55a193bf797a2",
     "src/tree.c": "a0f63bc46fc4fcb88d35caa6fe89d7fc18edb895bc781db20f11d5c58988fb06",
     "src/tree.h": "628701f470166ad550471a673dce078f28a7851193939f02a342c30c3a8ef39c",
     "src/tree_cursor.c": "5638f6702b6d0b40755fcba32d85ca0fc44ab51bd3546525b4787a304a7b503c",
@@ -102,6 +102,7 @@
     "src/wasm-stdlib/stdio.c": "463ff7c94b4f9df0164aa3d966eeb5765a7f9acecdf477119e2fe54891e34b0e",
     "src/wasm_store.c": "e630e55f3984cc9111646a719f793f5b7b4823632767129c4583aa2b1521e746",
     "src/wasm_store.h": "4f70d0500b0775e5d862a8e7d191b3853d73378c65e020e01767838a18debe0e",
+    "subtree_counters.go": "0a04d41a914129f3483300d11a81f45c7f6f3525d25826220123023c7e0e6557",
     "tree.go": "d8d2085106c3d94016c69ea781c649e2c626dc79fe4298c8122e27e087f3bd5e",
     "tree_cursor.go": "ecdcc095ba98b3078e11ab945b1cc5158ba6fe0c1620fd866f706194bb6c2978",
     "tree_sitter.go": "1f735ac9a4a86e3902a88e33b863ec38d0ef1244dd63ef9765bc9d8dd24f9993"
@@ -116,5 +117,6 @@
   "runtime_license_sha256": "c5cfb43042b6b72045f4ba997834d0a7786d2793d91680868b5815b39f14fc78",
   "runtime_repository": "https://github.com/tree-sitter/tree-sitter.git",
   "runtime_src_tree_oid": "ddf1bd7027f5e48faaba5a74f98a97f4b1390c7a",
-  "schema": "gts-c-oracle-sources/v1"
+  "schema": "gts-c-oracle-sources/v1",
+  "subtree_counters_patch_sha256": "7116afda3ef87208ea8cdb7ea422cc9e3ab15271ab44141be8b8b62587f56a68"
 }

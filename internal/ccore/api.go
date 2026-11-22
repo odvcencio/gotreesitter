@@ -25,6 +25,17 @@ func (p *Parser) Parse(src []byte) (*Tree, string) { return p.ParseWith(src, nil
 // was released while this call waited for the lease. The parser keeps no
 // reference to the returned tree.
 func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
+	return p.ParseWithScan(src, old, nil)
+}
+
+// ParseWithScan is ParseWith with a scan provider (scanprovider.go) bound for
+// the whole call: the fresh parse, the shortcut probes and the error-mode
+// retries. The provider answers the main lex scan in place of the automaton walk
+// and must read the bytes of src. A nil provider is ParseWith. The binding is
+// cleared when the call returns.
+func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tree, rstop string) {
+	p.scanProv = prov
+	defer func() { p.scanProv = nil }()
 	p.shortcutTaken, p.shortcutWhy = false, ""
 	p.shortcutMemo = shortcutMemo{}
 	var c *storeCore
@@ -337,18 +348,20 @@ type Edit struct {
 
 // Stats are the counters of the last parse. The first five are always on.
 type Stats struct {
-	LexerCalls   int // calls of the lexer, C ts_parser__lex
-	Shifts       int
-	Reductions   int
-	HeapRecords  int // record slots the store has handed out
-	RecLeaf      int // heap leaves the last parse allocated (lexed tokens, error leaves)
-	RecNode      int // internal nodes the last parse allocated (reductions)
-	RecCopy      int // heap leaf copies the last parse made (set symbol, set extra)
-	MaxVersions  int // maximum live stack versions
-	Tokens       int // tokens lexed
-	MultiTokens  int // tokens lexed while more than one version was live
-	ArenaBytes   int // capacity of the record, child and stack arenas, in bytes
-	Compressions int // calls of compress in the last balance
+	LexerCalls       int // calls of the lexer, C ts_parser__lex
+	Shifts           int
+	Reductions       int
+	HeapRecords      int // record slots the store has handed out
+	RecLeaf          int // heap leaves the last parse allocated (lexed tokens, error leaves)
+	RecNode          int // internal nodes the last parse allocated (reductions)
+	RecCopy          int // heap leaf copies the last parse made (set symbol, set extra)
+	MaxVersions      int // maximum live stack versions
+	MaxProcessed     int // largest version count at a "process version" event (C/parser.c:2180-2186)
+	SelectCandidates int // comparison candidates selectChildren built without a record
+	Tokens           int // tokens lexed
+	MultiTokens      int // tokens lexed while more than one version was live
+	ArenaBytes       int // capacity of the record, child and stack arenas, in bytes
+	Compressions     int // calls of compress in the last balance
 }
 
 // BalanceStats returns, for the last parse, the internal nodes of byte size
@@ -365,7 +378,7 @@ func (p *Parser) BalanceStats() (zeroNodes, checks, refusals int) {
 func (p *Parser) Stats() Stats {
 	return Stats{
 		LexerCalls: p.lexCalls, Shifts: p.shifts, Reductions: p.reductions,
-		HeapRecords: p.allocatedRecords(), MaxVersions: p.maxVersions,
+		HeapRecords: p.allocatedRecords(), MaxVersions: p.maxVersions, MaxProcessed: p.maxProcessed, SelectCandidates: p.selectCandidates,
 		RecLeaf: p.nLeaf, RecNode: p.nNode, RecCopy: p.nCopy,
 		Tokens: p.tokens, MultiTokens: p.multiTokens,
 		ArenaBytes: p.capBytes() + cap(p.nodes)*168, Compressions: p.compressions,
@@ -476,6 +489,17 @@ func (p *Parser) ArenaUse(t *Tree) (used, reachable int) {
 	}
 	defer runtime.KeepAlive(t)
 	return t.rd.arenaUse(t.Root())
+}
+
+// LiveRecords returns the number of record slots in use in the store of t (handed
+// out and not free), or 0 for a released tree. Item 8 of the graduation gate
+// bounds it over a long edit session.
+func (p *Parser) LiveRecords(t *Tree) int {
+	if t.c.released.Load() {
+		return 0
+	}
+	defer runtime.KeepAlive(t)
+	return t.c.store.liveRecords()
 }
 
 // reserveWalk reserves, before the publication walk starts, the stack the walk can need:

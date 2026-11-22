@@ -2,7 +2,10 @@
 
 package grammarruntime
 
-import gotreesitter "github.com/odvcencio/gotreesitter"
+import (
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
+)
 
 // External token indexes for the editorconfig grammar.
 const (
@@ -39,6 +42,15 @@ var editorconfigExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(editorconfigExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(EditorconfigExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(EditorconfigExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(EditorconfigExternalScanner), right.(EditorconfigExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // EditorconfigExternalScanner handles EOF and integer-range detection for .editorconfig files.
@@ -95,7 +107,8 @@ func (s EditorconfigExternalScanner) Scan(payload any, lexer *gotreesitter.Exter
 		return false
 	}
 
-	if eofValid && lexer.Lookahead() == 0 {
+	// C tests lexer->eof, so a NUL byte inside the input is not the end (src/scanner.c:49).
+	if eofValid && scanmode.AtEOF(lexer) {
 		lexer.Advance(false)
 		lexer.MarkEnd()
 		lexer.SetResultSymbol(symbols[editorconfigTokEndOfFile])

@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the liquid grammar.
@@ -55,6 +54,15 @@ var liquidExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(liquidExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(LiquidExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(LiquidExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(LiquidExternalScanner), right.(LiquidExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // LiquidExternalScanner handles comment content, raw blocks, and front matter for Liquid templates.
@@ -113,10 +121,8 @@ func (s LiquidExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 		return liquidScanFrontMatter(lexer, symbols)
 	}
 
-	// Skip whitespace
-	for unicode.IsSpace(lexer.Lookahead()) {
-		lexer.Advance(true)
-	}
+	// Skip whitespace: iswspace in the C locale (src/scanner.c:19-23).
+	liquidAdvanceWS(lexer)
 
 	// Inline comment: # ... (until %} or newline)
 	if liquidValid(validSymbols, liquidTokInlineCommentContent) {
@@ -125,8 +131,12 @@ func (s LiquidExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 			lexer.Advance(false)
 			for lexer.Lookahead() != 0 {
 				lexer.MarkEnd()
-				if lexer.Lookahead() == '\n' {
-					lexer.Advance(false)
+				// is_next_and_advance consumes the character whether or not it is a
+				// newline, so the '%' test below looks at the character after it
+				// (src/scanner.c:39-43, 118-123).
+				isNewline := lexer.Lookahead() == '\n'
+				lexer.Advance(false)
+				if isNewline {
 					lexer.MarkEnd()
 					return true
 				}
@@ -137,7 +147,6 @@ func (s LiquidExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 						return true
 					}
 				}
-				lexer.Advance(false) // consume other chars
 			}
 		}
 	}
@@ -198,12 +207,13 @@ func liquidScanFrontMatter(lexer *gotreesitter.ExternalLexer, symbols *[liquidTo
 				lexer.Advance(false)
 			}
 			if lexer.Lookahead() == '\n' || lexer.Lookahead() == '\r' || lexer.Lookahead() == 0 {
+				// The else branch advances at a NUL byte too (src/scanner.c:87-93).
 				if lexer.Lookahead() == '\r' {
 					lexer.Advance(false)
 					if lexer.Lookahead() == '\n' {
 						lexer.Advance(false)
 					}
-				} else if lexer.Lookahead() != 0 {
+				} else {
 					lexer.Advance(false)
 				}
 				lexer.MarkEnd()
@@ -212,12 +222,21 @@ func liquidScanFrontMatter(lexer *gotreesitter.ExternalLexer, symbols *[liquidTo
 			}
 		}
 		// Consume rest of line
-		for lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' && lexer.Lookahead() != 0 {
+		// C tests lexer->eof here, not the lookahead: a NUL byte does not end the
+		// input (src/scanner.c:97-104).
+		for lexer.Lookahead() != '\n' && lexer.Lookahead() != '\r' && !scanmode.AtEOF(lexer) {
 			lexer.Advance(false)
 		}
-		if lexer.Lookahead() == 0 {
+		if scanmode.AtEOF(lexer) {
 			return false
 		}
+	}
+}
+
+// liquidAdvanceWS is advance_ws: iswspace in the C locale (src/scanner.c:19-23).
+func liquidAdvanceWS(lexer *gotreesitter.ExternalLexer) {
+	for cIsSpace(lexer.Lookahead()) {
+		lexer.Advance(true)
 	}
 }
 
@@ -233,9 +252,7 @@ func liquidScanStr(lexer *gotreesitter.ExternalLexer, s string) bool {
 
 func liquidScanPairedContent(lexer *gotreesitter.ExternalLexer, validSymbols []bool, symbols *[liquidTokenCount]gotreesitter.Symbol) bool {
 	for lexer.Lookahead() != 0 {
-		for unicode.IsSpace(lexer.Lookahead()) {
-			lexer.Advance(true)
-		}
+		liquidAdvanceWS(lexer)
 		lexer.MarkEnd()
 
 		if !liquidValid(validSymbols, liquidTokPairedCommentContentLiq) {
@@ -244,16 +261,17 @@ func liquidScanPairedContent(lexer *gotreesitter.ExternalLexer, validSymbols []b
 				continue
 			}
 			lexer.Advance(false)
-			if lexer.Lookahead() != '%' {
+			// is_next_and_advance consumes the character after '{' even when it is
+			// not '%' (src/scanner.c:150-156).
+			isPercent := lexer.Lookahead() == '%'
+			lexer.Advance(false)
+			if !isPercent {
 				continue
 			}
-			lexer.Advance(false)
 			if lexer.Lookahead() == '-' {
 				lexer.Advance(false)
 			}
-			for unicode.IsSpace(lexer.Lookahead()) {
-				lexer.Advance(true)
-			}
+			liquidAdvanceWS(lexer)
 		}
 
 		// Try "end"
@@ -279,18 +297,20 @@ func liquidScanPairedContent(lexer *gotreesitter.ExternalLexer, validSymbols []b
 			continue
 		}
 
-		for unicode.IsSpace(lexer.Lookahead()) {
-			lexer.Advance(true)
-		}
+		liquidAdvanceWS(lexer)
 		if lexer.Lookahead() == '-' {
 			lexer.Advance(false)
 		}
-		if lexer.Lookahead() != '%' {
+		// Both is_next_and_advance calls consume their character whether or not
+		// it matches (src/scanner.c:196-202).
+		isPercent := lexer.Lookahead() == '%'
+		lexer.Advance(false)
+		if !isPercent {
 			continue
 		}
+		isBrace := lexer.Lookahead() == '}'
 		lexer.Advance(false)
-		if lexer.Lookahead() == '}' {
-			lexer.Advance(false)
+		if isBrace {
 			return true
 		}
 	}

@@ -44,9 +44,8 @@ func TestCompactOldTreeTransientErrorEditsMatchFreshParse(t *testing.T) {
 		{"ini", repeat("[section%d]\nx0 = %d\nname = f\n\n"), "x0"},
 		{"hcl", repeat("resource \"aws_instance\" \"f%d\" {\n  x0 = %d\n  name = \"f\"\n}\n\n"), "x0"},
 	}
-	// Known divergences that predate the issue #454 repair. Both are
-	// production-route or compact-fresh behaviors that this gate documents
-	// rather than pins:
+	// Known divergences. These are production-route, compact-fresh or
+	// core-fresh behaviors that this gate documents rather than pins:
 	//   - c/unbalanced: production's fresh parse wraps the file in ERROR while
 	//     production's incremental parse recovers the function; the compact
 	//     route declines this source, so both trees come from production.
@@ -54,9 +53,17 @@ func TestCompactOldTreeTransientErrorEditsMatchFreshParse(t *testing.T) {
 	//     keeps the trailing function that production wraps in ERROR;
 	//     JavaScript never enters the compact incremental recovery route
 	//     because its scanner is not stateless.
+	//   - hcl/midfile, hcl/unbalanced, hcl/eof: the certified core serves the
+	//     fresh HCL parse; the present engine's incremental recovery on the
+	//     compact old tree recovers differently.
+	//     The core's own incremental-equals-fresh contract is graduation gate
+	//     item 2.
 	known := map[string]string{
 		"c/unbalanced":   "production fresh parse and incremental parse disagree",
 		"javascript/eof": "compact end-of-file recovery differs from production incremental recovery",
+		"hcl/midfile":    "core fresh recovery differs from present-engine incremental recovery",
+		"hcl/unbalanced": "core fresh recovery differs from present-engine incremental recovery",
+		"hcl/eof":        "core fresh recovery differs from present-engine incremental recovery",
 	}
 	deleteAt := func(src []byte, site int) ([]byte, gts.InputEdit) {
 		edited := append(append([]byte{}, src[:site]...), src[site+1:]...)

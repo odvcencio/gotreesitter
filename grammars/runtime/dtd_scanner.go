@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the dtd grammar. This is the external index
@@ -62,6 +61,15 @@ var dtdExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(dtdExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(DtdExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(DtdExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(DtdExternalScanner), right.(DtdExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // DtdExternalScanner handles processing instructions and <!-- --> comments for DTD.
@@ -142,12 +150,14 @@ func (s DtdExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	return false
 }
 
+// iswalpha in the C locale: ASCII letters only (common/scanner.h:43-45).
 func dtdIsValidNameStartChar(ch rune) bool {
-	return unicode.IsLetter(ch) || ch == '_' || ch == ':'
+	return cIsAlpha(ch) || ch == '_' || ch == ':'
 }
 
+// iswalnum in the C locale: ASCII letters and digits only (common/scanner.h:37-39).
 func dtdIsValidNameChar(ch rune) bool {
-	return unicode.IsLetter(ch) || unicode.IsDigit(ch) ||
+	return cIsAlnum(ch) ||
 		ch == '_' || ch == ':' || ch == '.' || ch == '-' || ch == 0xB7
 }
 
@@ -186,7 +196,8 @@ func dtdScanPITarget(lexer *gotreesitter.ExternalLexer, piTargetSym gotreesitter
 }
 
 func dtdScanPIContent(lexer *gotreesitter.ExternalLexer, piContentSym gotreesitter.Symbol) bool {
-	for lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' && lexer.Lookahead() != '?' {
+	// The loop tests lexer->eof, so a NUL byte does not stop it (common/scanner.h:109).
+	for !scanmode.AtEOF(lexer) && lexer.Lookahead() != '\n' && lexer.Lookahead() != '?' {
 		lexer.Advance(false)
 	}
 	if lexer.Lookahead() != '?' {
@@ -199,13 +210,10 @@ func dtdScanPIContent(lexer *gotreesitter.ExternalLexer, piContentSym gotreesitt
 		for lexer.Lookahead() == ' ' {
 			lexer.Advance(false)
 		}
-		if lexer.Lookahead() == '\n' {
-			lexer.Advance(false)
-		} else if lexer.Lookahead() == 0 {
-			return false
-		} else {
+		if lexer.Lookahead() != '\n' {
 			return false
 		}
+		lexer.Advance(false)
 		lexer.SetResultSymbol(piContentSym)
 		return true
 	}
@@ -231,7 +239,8 @@ func dtdScanComment(lexer *gotreesitter.ExternalLexer, commentSym gotreesitter.S
 	}
 	lexer.Advance(false)
 
-	for lexer.Lookahead() != 0 {
+	// The loop tests lexer->eof, so a NUL byte does not stop it (common/scanner.h:135).
+	for !scanmode.AtEOF(lexer) {
 		if lexer.Lookahead() == '-' {
 			lexer.Advance(false)
 			if lexer.Lookahead() == '-' {

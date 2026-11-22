@@ -1,0 +1,48 @@
+proc p0 {a} {
+    set b [expr {$a + 0}]
+    return $b
+}
+proc p1 {a} {
+    set b [expr {$a + 1}]
+    return $b
+}
+proc p2 {a} {
+    set b [expr {$a + 2}]
+    return $b
+}
+proc p3 {a} {
+    set b [expr {$a + 3}]
+    return $b
+}
+proc p4 {a} {
+    set b [expr {$a + 4}]
+    return $b
+}
+proc p5 {a} {
+    set b [expr {$a + 5}]
+    return $b
+}
+proc p6 {a} {
+    set b [expr {$a + 6}]
+    return $b
+}
+proc p7 {a} {
+    set b [expr {$a + 7}]
+    return $b
+}
+proc p8 {a} {
+    set b [expr {$a + 8}]
+    return $b
+}
+proc p9 {a} {
+    set b [expr {$a + 9}]
+    return $b
+}
+proc p10 {a} {
+    set b [expr {$a + 10}]
+    return $b
+}
+proc p11 {a} {
+    set b [expr {$a + 11}]
+    return $b
+}

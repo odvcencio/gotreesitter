@@ -777,6 +777,17 @@ func ForestRescueForTests(p *Parser, source []byte, tree *Tree) (*Tree, bool) {
 func CcoreTestCertify(modes uint8, checked ...string) func() {
 	return certifiedtest.Install(modes, checked, nil)
 }
+
+// CcoreTestCertifyProviders is CcoreTestCertify that also grants the scan
+// providers (by identity) to every blob the test certification covers.
+func CcoreTestCertifyProviders(modes uint8, providers []string, checked ...string) func() {
+	return certifiedtest.InstallProviders(modes, checked, nil, providers)
+}
+
+// CcoreTestProviderScans is the number of scans that scan providers answered for
+// the core since the last CcoreTestReset.
+func CcoreTestProviderScans() int64 { return ccoreProviderScans.Load() }
+
 func CcoreTestCounters() (map[string]int64, int64) {
 	out := map[string]int64{}
 	for i := range ccoreDeclines {
@@ -787,6 +798,7 @@ func CcoreTestCounters() (map[string]int64, int64) {
 	return out, ccoreServedFresh.Load()
 }
 func CcoreTestReset() {
+	ccoreProviderScans.Store(0)
 	for i := range ccoreDeclines {
 		ccoreDeclines[i].Store(0)
 	}
@@ -1057,6 +1069,15 @@ func CcoreTestStoreBytes(t *Tree) int {
 	return used
 }
 
+// CcoreTestStoreLiveSlots returns the record slots in use in the store of the core tree behind t.
+func CcoreTestStoreLiveSlots(t *Tree) int {
+	ct := CcoreTestCoreTree(t)
+	if ct == nil {
+		return 0
+	}
+	return (&ccore.Parser{}).LiveRecords(ct)
+}
+
 // CcoreTestCoreWalk reads a core tree through the core's reader: the end byte of its root (0 for a released tree).
 func CcoreTestCoreWalk(ct *ccore.Tree) int { return int((&ccore.Parser{}).RootEnd(ct)) }
 
@@ -1128,3 +1149,9 @@ func CcoreTestMaterialize(t *Tree) bool {
 }
 
 func CcoreTestMaxDepth() int { return ccoreMaxDepth }
+
+// NewCoreScanTokenSource marks a source for the core scan provider, as library
+// code does through internal/coresource.
+func NewCoreScanTokenSource(fallback TokenSource, lang *Language, src []byte) TokenSource {
+	return newCoreScanTokenSource(fallback, lang, src)
+}

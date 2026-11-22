@@ -1,0 +1,64 @@
+SECTIONS
+{
+  .text0 : { *(.text0) }
+}
+SECTIONS
+{
+  .text1 : { *(.text1) }
+}
+SECTIONS
+{
+  .text2 : { *(.text2) }
+}
+SECTIONS
+{
+  .text3 : { *(.text3) }
+}
+SECTIONS
+{
+  .text4 : { *(.text4) }
+}
+SECTIONS
+{
+  .text5 : { *(.text5) }
+}
+SECTIONS
+{
+  .text6 : { *(.text6) }
+}
+SECTIONS
+{
+  .text7 : { *(.text7) }
+}
+SECTIONS
+{
+  .text8 : { *(.text8) }
+}
+SECTIONS
+{
+  .text9 : { *(.text9) }
+}
+SECTIONS
+{
+  .text10 : { *(.text10) }
+}
+SECTIONS
+{
+  .text11 : { *(.text11) }
+}
+SECTIONS
+{
+  .text12 : { *(.text12) }
+}
+SECTIONS
+{
+  .text13 : { *(.text13) }
+}
+SECTIONS
+{
+  .text14 : { *(.text14) }
+}
+SECTIONS
+{
+  .text15 : { *(.text15) }
+}

@@ -448,6 +448,8 @@ func TestCompactRouteAcceptedRootLeafCoverageGapDeclines(t *testing.T) {
 			gts.ResetAdmissionCandidateCountersForTest()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
+			// Keep the request off the certified core, which serves HTML by default.
+			candidate.SetCompactCertificationTelemetry(true)
 			candidateTree, err := candidate.Parse(source)
 			if err != nil {
 				t.Fatalf("candidate parse: %v", err)
@@ -522,6 +524,8 @@ func TestCompactRouteAcceptedRootTrailingErrorExtraDeclines(t *testing.T) {
 			gts.ResetAdmissionCandidateCountersForTest()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
+			// Keep the request off the certified core, which serves HTML by default.
+			candidate.SetCompactCertificationTelemetry(true)
 			candidateTree, err := candidate.Parse(source)
 			if err != nil {
 				t.Fatalf("candidate parse: %v", err)
@@ -590,6 +594,8 @@ func TestCompactRouteCleanTrailingExtraStillRoutesNatively(t *testing.T) {
 			gts.ResetAdmissionCandidateCountersForTest()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
+			// Keep the request off the certified core, which serves HTML by default.
+			candidate.SetCompactCertificationTelemetry(true)
 			candidateTree, err := candidate.Parse(source)
 			if err != nil {
 				t.Fatalf("candidate parse: %v", err)
