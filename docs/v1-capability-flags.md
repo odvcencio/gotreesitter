@@ -17,7 +17,7 @@ The table does not decide policy. The admission switch, the allowlist, per-parse
 | `profiling` | yes | compact incremental timing | Incremental attribution in IncrementalParseProfile. The compact incremental route records the same timing fields. |
 | `strict` | yes | result check | A partial tree becomes ErrParseStoppedEarly. The check reads the returned tree, so it does not depend on the engine. |
 | `deadline` | yes | tranche B8 | A timeout or a cancellation flag. The compact scheduler polls both and falls back with a compatible stop reason. |
-| `token_source` | no (open) | E-D1 | A caller-supplied TokenSource or TokenSourceFactory. Compact reproduces only the built-in DFA token stream. |
+| `token_source` | no (open) | E-D1 | A caller-supplied TokenSource or TokenSourceFactory. Compact reproduces only the built-in DFA token stream. The C-faithful core serves one scoped case: a source that registered library code marks for the core (internal/coresource) for the parser's language and the request's bytes, on a blob whose certificate lists the table-backed provider (table-v1). The core calls that provider in place of its DFA scan and never reads the source. An ordinary Next() source stays on the present engine. |
 | `included_ranges` | no (open) | E-D2 | Included ranges. Compact lexes the whole source and does not apply ranges. |
 | `observer` | no (open) | E-D3 | A logger, a GLR trace, an ambiguity profile, or GOT_PARSE_PROGRESS events. Compact emits none of these events. |
 | `work_limits` | no (open) | E-D4 | Explicit ParseWorkLimits. Compact keeps separate work counters and must not spend work before a legacy limit trips. |

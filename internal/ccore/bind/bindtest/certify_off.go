@@ -9,3 +9,8 @@ import "errors"
 func CertifyForTests(modes uint8, checked []string, exclude [][32]byte) (func(), error) {
 	return func() {}, errors.New("bindtest: build with -tags gts_ccore_test_certify to certify languages for a test run")
 }
+
+// CertifyForTestsProviders reports that the build has no certification hook.
+func CertifyForTestsProviders(modes uint8, checked []string, exclude [][32]byte, providers []string) (func(), error) {
+	return CertifyForTests(modes, checked, exclude)
+}

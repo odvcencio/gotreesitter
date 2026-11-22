@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/coresource"
 )
 
 // CTokenSource is a lightweight lexer bridge for tree-sitter-c.
@@ -162,7 +163,11 @@ func NewCTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitter.
 	if err != nil {
 		return tokenSourceInitError{sourceLen: uint32(len(src))}
 	}
-	return ts
+	marked, _ := coresource.Mark(ts, lang, src).(gotreesitter.TokenSource)
+	if marked == nil {
+		return ts
+	}
+	return marked
 }
 
 // RebuildTokenSource constructs a fresh C token source for another source

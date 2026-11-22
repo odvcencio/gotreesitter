@@ -162,6 +162,7 @@ func (p *Parser) tryShortcut(src []byte, old Handle) bool {
 	// The one reused node is the root of the whole old tree.
 	p.reusedNodes, p.reusedBytes, p.largestReuse = 1, uint64(len(src)), uint32(len(src))
 	p.shifts, p.reductions, p.maxVersions, p.multiTokens = 0, 0, 0, 0
+	p.maxProcessed, p.selectCandidates = 0, 0
 	p.shortcutTaken = true
 	p.shortcutCounts[0]++
 	return true

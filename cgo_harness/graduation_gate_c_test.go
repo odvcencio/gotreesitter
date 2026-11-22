@@ -25,6 +25,7 @@ package cgoharness
 import (
 	"bufio"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -1105,11 +1106,155 @@ func TestGraduationReuse(t *testing.T) {
 	gradResult(5, status, fmt.Sprintf("%s clean_source=%q clean_steps=%d clean_incremental=%d clean_compared=%d clean_shortcut_steps=%d clean_steps_differing_from_c=%d clean_reused_subtrees_route=%d clean_reused_subtrees_c=%d clean_noshortcut_steps_differing_from_c=%d clean_noshortcut_reason=%q", oldNumbers, cleanName, len(cleanChain), service.incremental, compared, shortcutSteps, differ, rNodes, cNodes, noShortcutDiffer, noShortcutReason), first)
 }
 
-// Item 6: tokens, new nodes and maximum live versions of the core against the
-// default engine, on the ledger fixture and its first pinned edit. The core
-// is read through the binding (the route reports tokens and versions but not
-// new nodes); new nodes are the heap records the core allocated (leaves,
-// internal nodes and copies).
+// Item 6: the core against pinned C on the same history. On the ledger
+// fixture and its first pinned edit, the core
+//
+//	(a) lexes exactly the tokens C lexes (C's lexed_lookahead events);
+//	(b) has a processed version width equal to C's largest version_count at a
+//	    "process version" event;
+//	(c) makes at most 1.10 x C's subtree creations + 16 new heap records
+//	    (core: leaves, nodes and copies; C: heap leaves, new nodes without the
+//	    comparison trees of ts_parser__select_children, and clones, counted by
+//	    the test-only counters of the oracle build with the tag
+//	    gts_subtree_counters, reset before each parse and read right after it).
+//
+// The default engine's tokens, new nodes and maximum live versions are
+// printed, not gated. A same-length shortcut that returns the old tree keeps
+// its own rule: tokens between 1 and C's, and a tree equal to C's.
+// The core is read through the binding on its own parser.
+const (
+	gradCountersSlackNum = 110 // records <= 1.10 x C's creations ...
+	gradCountersSlackDen = 100
+	gradCountersSlackAdd = 16 // ... + 16 (fixed by the owner's rule)
+)
+
+// gradCounterRow is one parse's numbers: the core, pinned C and the shortcut flag.
+type gradCounterRow struct {
+	name         string
+	shortcut     bool
+	cLex         int    // C lexed_lookahead events
+	cWidth       int    // C largest version_count at a process version event
+	cCreated     uint64 // C subtree creations (leaves + nodes - scratch + clones)
+	cCountersOn  bool   // the oracle was built with gts_subtree_counters
+	coreTokens   uint64
+	coreRecords  uint64 // leaves + nodes + copies
+	coreWidth    uint64
+	coreSelected uint64 // selectChildren comparisons (printed only)
+}
+
+// gradCountersVerdict applies the rule to one row.
+func gradCountersVerdict(r gradCounterRow) (status, first string) {
+	if r.cLex <= 0 {
+		return "na", fmt.Sprintf("input=%s no C lexed_lookahead events", r.name)
+	}
+	if r.shortcut {
+		if r.coreTokens == 0 || r.coreTokens > uint64(r.cLex) {
+			return "fail", fmt.Sprintf("input=%s shortcut tokens core=%d C=%d", r.name, r.coreTokens, r.cLex)
+		}
+		return "pass", ""
+	}
+	if !r.cCountersOn {
+		return "na", fmt.Sprintf("input=%s the oracle was built without gts_subtree_counters", r.name)
+	}
+	if r.cWidth <= 0 || r.cCreated == 0 {
+		return "na", fmt.Sprintf("input=%s no C width or creations (width=%d creations=%d)", r.name, r.cWidth, r.cCreated)
+	}
+	if r.coreTokens == 0 || r.coreWidth == 0 {
+		return "na", fmt.Sprintf("input=%s missing core counters tokens=%d width=%d", r.name, r.coreTokens, r.coreWidth)
+	}
+	if r.coreTokens != uint64(r.cLex) {
+		return "fail", fmt.Sprintf("input=%s tokens core=%d C=%d", r.name, r.coreTokens, r.cLex)
+	}
+	if r.coreWidth != uint64(r.cWidth) {
+		return "fail", fmt.Sprintf("input=%s processed width core=%d C=%d", r.name, r.coreWidth, r.cWidth)
+	}
+	if r.coreRecords*gradCountersSlackDen > r.cCreated*gradCountersSlackNum+gradCountersSlackAdd*gradCountersSlackDen {
+		return "fail", fmt.Sprintf("input=%s new records core=%d C creations=%d bound=%d", r.name, r.coreRecords, r.cCreated, (r.cCreated*gradCountersSlackNum+gradCountersSlackAdd*gradCountersSlackDen)/gradCountersSlackDen)
+	}
+	return "pass", ""
+}
+
+// gradCMaxWidth is the largest version_count of the "process version" lines
+// of a C parse log (as cParseVersionCount reads it).
+func gradCMaxWidth(lines []string) int {
+	max := 0
+	for _, l := range lines {
+		if !strings.HasPrefix(l, "process version:") {
+			continue
+		}
+		for _, f := range strings.Split(l, ", ") {
+			var n int
+			if _, err := fmt.Sscanf(f, "version_count:%d", &n); err == nil && n > max {
+				max = n
+			}
+		}
+	}
+	return max
+}
+
+// gradCounterNegative perturbs one number of a row for the negative check of
+// item 6. GRAD_NEGATIVE_KIND picks it: tokens (default), width or records.
+func gradCounterNegative(r *gradCounterRow) {
+	switch os.Getenv("GRAD_NEGATIVE_KIND") {
+	case "width":
+		r.coreWidth++
+	case "records":
+		r.coreRecords = (r.cCreated*gradCountersSlackNum+gradCountersSlackAdd*gradCountersSlackDen)/gradCountersSlackDen + 1
+	default:
+		r.coreTokens = uint64(r.cLex) + 1
+	}
+}
+
+// TestGraduationCountersRule checks the rule on made-up rows: each of the
+// three parts alone fails a row that is otherwise equal, the records bound is
+// exact, a shortcut keeps its rule, and missing data is n/a.
+func TestGraduationCountersRule(t *testing.T) {
+	base := gradCounterRow{name: "x", cLex: 50, cWidth: 2, cCreated: 100, cCountersOn: true, coreTokens: 50, coreRecords: 126, coreWidth: 2}
+	// 1.10 x 100 + 16 = 126.
+	cases := []struct {
+		name   string
+		edit   func(*gradCounterRow)
+		status string
+		reason string
+	}{
+		{"equal", func(r *gradCounterRow) {}, "pass", ""},
+		{"records at the bound", func(r *gradCounterRow) { r.coreRecords = 126 }, "pass", ""},
+		{"records over the bound only", func(r *gradCounterRow) { r.coreRecords = 127 }, "fail", "new records"},
+		{"width only", func(r *gradCounterRow) { r.coreWidth = 3 }, "fail", "processed width"},
+		{"width below C", func(r *gradCounterRow) { r.coreWidth = 1 }, "fail", "processed width"},
+		{"tokens only", func(r *gradCounterRow) { r.coreTokens = 51 }, "fail", "tokens core"},
+		{"fewer tokens", func(r *gradCounterRow) { r.coreTokens = 49 }, "fail", "tokens core"},
+		{"fewer records pass", func(r *gradCounterRow) { r.coreRecords = 1 }, "pass", ""},
+		{"zero creations is n/a", func(r *gradCounterRow) { r.cCreated = 0 }, "na", "no C width or creations"},
+		{"no counters build is n/a", func(r *gradCounterRow) { r.cCountersOn = false }, "na", "without gts_subtree_counters"},
+		{"no C width is n/a", func(r *gradCounterRow) { r.cWidth = 0 }, "na", "no C width"},
+		{"core width 0 is n/a", func(r *gradCounterRow) { r.coreWidth = 0 }, "na", "missing core counters"},
+		{"no C tokens is n/a", func(r *gradCounterRow) { r.cLex = 0 }, "na", "no C lexed_lookahead"},
+		{"shortcut inside C's tokens", func(r *gradCounterRow) { r.shortcut, r.coreTokens, r.coreWidth, r.coreRecords = true, 3, 0, 0 }, "pass", ""},
+		{"shortcut with no token", func(r *gradCounterRow) { r.shortcut, r.coreTokens = true, 0 }, "fail", "shortcut tokens"},
+		{"shortcut over C's tokens", func(r *gradCounterRow) { r.shortcut, r.coreTokens = true, 51 }, "fail", "shortcut tokens"},
+	}
+	for _, c := range cases {
+		r := base
+		c.edit(&r)
+		status, first := gradCountersVerdict(r)
+		if status != c.status || !strings.Contains(first, c.reason) {
+			t.Errorf("%s: status=%s first=%q, want %s containing %q", c.name, status, first, c.status, c.reason)
+		}
+	}
+	for _, kind := range []string{"", "width", "records"} {
+		t.Setenv("GRAD_NEGATIVE_KIND", kind)
+		r := base
+		gradCounterNegative(&r)
+		if status, _ := gradCountersVerdict(r); status != "fail" {
+			t.Errorf("negative kind %q: status=%s, want fail", kind, status)
+		}
+	}
+	if got := gradCMaxWidth([]string{"lexed_lookahead sym:x", "process version:0, version_count:1, state:1, row:0, col:0", "process version:1, version_count:3, state:2, row:0, col:0", "process version:0, version_count:2, state:1, row:0, col:1"}); got != 3 {
+		t.Errorf("gradCMaxWidth = %d, want 3", got)
+	}
+}
+
 func TestGraduationCounters(t *testing.T) {
 	c := gradLoad(t)
 	src, kind := gradSample(t, c.name)
@@ -1119,15 +1264,23 @@ func TestGraduationCounters(t *testing.T) {
 		return
 	}
 	st := chain[1]
+	countersOn := sitter.SubtreeCountersEnabled()
+	// Pinned C on the same history: parse, edit that tree, parse the edited
+	// text against it. The counters are reset right before each parse and read
+	// right after it, so the edit, tree inspection and teardown are outside.
 	var clog []string
 	cp := gradCParser(t, c, &clog)
 	defer cp.Close()
+	sitter.SubtreeCountersReset()
 	ct := cp.Parse(src, nil)
-	fullLex := gradCount(clog, "lexed_lookahead")
+	cFresh := sitter.SubtreeCountersRead()
+	fullLex, fullWidth := gradCount(clog, "lexed_lookahead"), gradCMaxWidth(clog)
 	clog = nil
 	ct.Edit(gradSitterEdit(*st.edit))
+	sitter.SubtreeCountersReset()
 	cn := cp.Parse(st.src, ct)
-	editLex := gradCount(clog, "lexed_lookahead")
+	cEdit := sitter.SubtreeCountersRead()
+	editLex, editWidth := gradCount(clog, "lexed_lookahead"), gradCMaxWidth(clog)
 	ct.Close()
 	defer cn.Close()
 	rp := gradRoute(c.lang)
@@ -1176,10 +1329,14 @@ func TestGraduationCounters(t *testing.T) {
 		gradResult(6, "na", "input="+kind, "core stop="+stop)
 		return
 	}
-	read := func() [3]uint64 {
-		_, tok, mv, _, _ := core.Stats()
+	type coreRead struct {
+		tokens, records, width, selected uint64
+		leaves, nodes, copies            int
+	}
+	read := func() coreRead {
+		_, tok, _, _, _ := core.Stats()
 		leaves, nodes, copies := core.RecordSources()
-		return [3]uint64{uint64(tok), uint64(leaves + nodes + copies), uint64(mv)}
+		return coreRead{uint64(tok), uint64(leaves + nodes + copies), uint64(core.ProcessedWidth()), uint64(core.SelectCandidates()), leaves, nodes, copies}
 	}
 	full := read()
 	old := core.Tree()
@@ -1196,41 +1353,40 @@ func TestGraduationCounters(t *testing.T) {
 	inc := read()
 	coreShortcut := core.ShortcutTaken()
 	core.Release(nt)
+	rows := []gradCounterRow{
+		{name: kind, cLex: fullLex, cWidth: fullWidth, cCreated: cFresh.Total(), cCountersOn: countersOn, coreTokens: full.tokens, coreRecords: full.records, coreWidth: full.width, coreSelected: full.selected},
+		{name: st.id, shortcut: editShortcut, cLex: editLex, cWidth: editWidth, cCreated: cEdit.Total(), cCountersOn: countersOn, coreTokens: inc.tokens, coreRecords: inc.records, coreWidth: inc.width, coreSelected: inc.selected},
+	}
 	if gradNeg(6) {
-		full[0] = uint64(fullLex) + 1
+		gradCounterNegative(&rows[0])
 	}
 	status, first := "pass", ""
-	for _, row := range []struct {
-		name         string
-		core, legacy [3]uint64
-		lex          int
-		shortcut     bool
-	}{{kind, full, lFull, fullLex, false}, {st.id, inc, lEdit, editLex, editShortcut}} {
-		if row.lex > 0 && row.core[0] > 0 && ((!row.shortcut && row.core[0] != uint64(row.lex)) || (row.shortcut && row.core[0] > uint64(row.lex))) {
-			status, first = "fail", fmt.Sprintf("input=%s core=%v default=%v C_tokens=%d", row.name, row.core, row.legacy, row.lex)
-			break
-		}
-		if row.lex <= 0 || (!row.shortcut && (row.core[0] == 0 || row.core[2] == 0)) || row.legacy[2] == 0 {
-			status, first = "na", fmt.Sprintf("input=%s missing counters core=%v default=%v C_tokens=%d", row.name, row.core, row.legacy, row.lex)
-			if row.name == kind && row.legacy == [3]uint64{} && defaultFreshForest {
-				first = "default engine reports no counters on this path: forest fast path"
+	for _, row := range rows {
+		s, f := gradCountersVerdict(row)
+		if s == "fail" || (s == "na" && status == "pass") {
+			status, first = s, f
+			if s == "fail" {
+				break
 			}
-			break
-		}
-		if (!row.shortcut && row.core[0] != uint64(row.lex)) || (row.shortcut && (row.core[0] == 0 || row.core[0] > uint64(row.lex))) || row.core[1] > row.legacy[1] || row.core[2] > row.legacy[2] {
-			status, first = "fail", fmt.Sprintf("input=%s core=%v default=%v C_tokens=%d", row.name, row.core, row.legacy, row.lex)
-			break
 		}
 	}
-	if status == "pass" && (shortcutDelta < 0 || shortcutDelta > 1 || coreShortcut != editShortcut || (editShortcut && (route1-route0 != 1 || !ccoreViewsEnabled() || st.edit.OldEndByte-st.edit.StartByte != st.edit.NewEndByte-st.edit.StartByte || runtime.TokensConsumed != inc[0] || uint64(runtime.MaxStacksSeen) != inc[2]))) {
-		status, first = "fail", fmt.Sprintf("input=%s invalid shortcut delta=%d core_shortcut=%t route_incremental=%d route_tokens=%d route_versions=%d core=%v", st.id, shortcutDelta, coreShortcut, route1-route0, runtime.TokensConsumed, runtime.MaxStacksSeen, inc)
+	if status == "na" && rows[0].coreWidth == 0 && defaultFreshForest && lFull == [3]uint64{} {
+		first += "; default engine reports no counters on this path: forest fast path"
+	}
+	if status == "pass" && (shortcutDelta < 0 || shortcutDelta > 1 || coreShortcut != editShortcut || (editShortcut && (route1-route0 != 1 || !ccoreViewsEnabled() || st.edit.OldEndByte-st.edit.StartByte != st.edit.NewEndByte-st.edit.StartByte || runtime.TokensConsumed != inc.tokens || uint64(runtime.MaxStacksSeen) != inc.width))) {
+		status, first = "fail", fmt.Sprintf("input=%s invalid shortcut delta=%d core_shortcut=%t route_incremental=%d route_tokens=%d route_versions=%d core_tokens=%d core_width=%d", st.id, shortcutDelta, coreShortcut, route1-route0, runtime.TokensConsumed, runtime.MaxStacksSeen, inc.tokens, inc.width)
 	}
 	if status == "pass" && editShortcut {
 		if divs := compactT3StructuralDivergences(rn.RootNode(), c.lang, cn.RootNode()); len(divs) != 0 {
 			status, first = "fail", fmt.Sprintf("input=%s shortcut tree differs from C: %s", st.id, compactT3FormatDivergence(divs[0]))
 		}
 	}
-	gradResult(6, status, fmt.Sprintf("inputs=2 fresh_core=%v fresh_default=%v fresh_c_tokens=%d edit_core=%v edit_default=%v edit_c_tokens=%d edit_shortcut=%t", full, lFull, fullLex, inc, lEdit, editLex, editShortcut), first)
+	line := func(label string, core coreRead, cl, cw int, cc sitter.SubtreeCreations, def [3]uint64) string {
+		return fmt.Sprintf("%s_core=[tokens=%d records=%d width=%d] %s_core_records=[leaves=%d nodes=%d copies=%d select_candidates=%d] %s_c=[tokens=%d creations=%d width=%d] %s_c_creations=[leaves=%d nodes=%d clones=%d scratch=%d] %s_default=[tokens=%d nodes=%d versions=%d]",
+			label, core.tokens, core.records, core.width, label, core.leaves, core.nodes, core.copies, core.selected,
+			label, cl, cc.Total(), cw, label, cc.Leaves, cc.Nodes, cc.Clones, cc.Scratch, label, def[0], def[1], def[2])
+	}
+	gradResult(6, status, fmt.Sprintf("inputs=2 %s %s edit_shortcut=%t counters=%t", line("fresh", full, fullLex, fullWidth, cFresh, lFull), line("edit", inc, editLex, editWidth, cEdit, lEdit), editShortcut, countersOn), first)
 }
 
 // gradCaps is the sorted capture list (name, start, end) of a query on a Go tree.
@@ -1606,6 +1762,41 @@ func gradResetPeakRSS() (uint64, error) {
 	return peak, nil
 }
 
+// gradRSSEdits is the file of item 9's prepared edits: the SHA-256 of the
+// source they apply to and the edits in order.
+type gradRSSEdits struct {
+	SourceSHA256 string
+	Edits        []g.InputEdit
+}
+
+// gradWriteRSSEdits writes the prepared edits of a source.
+func gradWriteRSSEdits(path string, src []byte, edits []g.InputEdit) error {
+	b, err := json.Marshal(gradRSSEdits{SourceSHA256: gradSHA(src), Edits: edits})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, b, 0o644)
+}
+
+// gradReadRSSEdits reads prepared edits and checks that they were made for src.
+func gradReadRSSEdits(path string, src []byte) ([]g.InputEdit, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var f gradRSSEdits
+	if err := json.Unmarshal(b, &f); err != nil {
+		return nil, err
+	}
+	if f.SourceSHA256 != gradSHA(src) {
+		return nil, fmt.Errorf("prepared for source %s, not %s", f.SourceSHA256, gradSHA(src))
+	}
+	if len(f.Edits) != 1000 {
+		return nil, fmt.Errorf("%d prepared edits, want 1000", len(f.Edits))
+	}
+	return f.Edits, nil
+}
+
 // Item 9, child process: one run of one workload; prints the peak resident set size
 // that the workload reaches (maxrss_kb), measured from a peak that is reset after
 // the setup (setup_rss_kb is the size it starts from).
@@ -1637,7 +1828,14 @@ func TestGraduationRSSChild(t *testing.T) {
 	}
 	sourceBytes := len(src)
 	var prepared []g.InputEdit
-	if work == "edits1000" {
+	editsFile, prepare := os.Getenv("GRAD_RSS_EDITS_FILE"), os.Getenv("GRAD_RSS_PREPARE") == "1"
+	if work == "edits1000" && editsFile != "" && !prepare {
+		// The edits were prepared once, outside the timed runs.
+		var err error
+		if prepared, err = gradReadRSSEdits(editsFile, src); err != nil {
+			t.Fatalf("item 9 arm=%s work=%s prepared edits: %v", arm, work, err)
+		}
+	} else if work == "edits1000" {
 		current := src
 		used := make(map[uint32]bool)
 		var gen benchfixtures.CleanEditGenerator
@@ -1662,6 +1860,16 @@ func TestGraduationRSSChild(t *testing.T) {
 			fmt.Printf("GRADRSS arm=%s work=%s status=na source=%q bytes=%d reason=%q\n", arm, work, sourceName, len(src), fmt.Sprintf("only %d distinct C-clean line ends", len(prepared)))
 			return
 		}
+		if prepare {
+			if editsFile == "" {
+				t.Fatalf("item 9 GRAD_RSS_PREPARE needs GRAD_RSS_EDITS_FILE")
+			}
+			if err := gradWriteRSSEdits(editsFile, src, prepared); err != nil {
+				t.Fatalf("item 9 prepared edits: %v", err)
+			}
+			fmt.Printf("GRADRSSPREP status=pass source=%q bytes=%d edits=%d\n", sourceName, len(src), len(prepared))
+			return
+		}
 	}
 	runtime.GC()
 	setupRSS, err := gradResetPeakRSS()
@@ -1673,6 +1881,11 @@ func TestGraduationRSSChild(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	if work == "edits1000" {
+		// A run killed before its 25th edit still leaves a lower bound: the
+		// peak after the first parse.
+		if peak, _, err := gradProcRSS(); err == nil {
+			fmt.Printf("GRADPROG arm=%s work=%s edits=0 maxrss_kb=%d setup_rss_kb=%d\n", arm, work, peak, setupRSS)
+		}
 		for i := 0; i < 1000; i++ {
 			e := prepared[i]
 			at := int(e.StartByte)

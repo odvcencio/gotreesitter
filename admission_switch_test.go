@@ -5017,7 +5017,7 @@ func TestGraduationSafety(t *testing.T) {
 		if !census {
 			restoreCertificate = ccoreCertifyIncr()
 		}
-		outcome := func(candidate bool) (result string, calls int32, declines map[string]int64) {
+		outcome := func(candidate bool, input []byte) (result string, calls int32, declines map[string]int64) {
 			l := ccoreCopyLanguage(lang)
 			var n atomic.Int32
 			l.ExternalScanner = ccoreWrapped(lang, func(inner gts.ExternalScanner) gts.ExternalScanner {
@@ -5032,7 +5032,7 @@ func TestGraduationSafety(t *testing.T) {
 						result = "panic"
 					}
 				}()
-				tr, err := p.Parse(small)
+				tr, err := p.Parse(input)
 				if err != nil {
 					result = "error"
 					return
@@ -5047,10 +5047,24 @@ func TestGraduationSafety(t *testing.T) {
 			declines, _ = gts.CcoreTestCounters()
 			return result, n.Load(), declines
 		}
-		routed, routeCalls, declines := outcome(true)
-		present, presentCalls, _ := outcome(false)
+		inputName := name
+		routed, routeCalls, declines := outcome(true, small)
+		present, presentCalls, _ := outcome(false, small)
+		// Some samples never reach the scanner (Racket's has no here-string). An
+		// input under testdata/graduation_scanner_inputs then gives the check a
+		// text that does.
+		if routeCalls == 0 && presentCalls == 0 {
+			scanPath := filepath.Join("testdata", "graduation_scanner_inputs", name)
+			if extra, err := os.ReadFile(scanPath); err == nil {
+				inputName = scanPath
+				routed, routeCalls, declines = outcome(true, extra)
+				present, presentCalls, _ = outcome(false, extra)
+			} else if !os.IsNotExist(err) {
+				t.Fatalf("scanner input %s: %v", scanPath, err)
+			}
+		}
 		restoreCertificate()
-		detail := fmt.Sprintf("input=%s route=%s default=%s route_scans=%d default_scans=%d declines=%v", name, routed, present, routeCalls, presentCalls, declines)
+		detail := fmt.Sprintf("input=%s route=%s default=%s route_scans=%d default_scans=%d declines=%v", inputName, routed, present, routeCalls, presentCalls, declines)
 		switch {
 		case routeCalls == 0 || presentCalls == 0 || declines["panic"] == 0:
 			report("scanner-panics", "na", "scanner panic was not observed in both paths and as a core decline: "+detail)
@@ -5253,12 +5267,18 @@ func TestGraduationSafety(t *testing.T) {
 				// so the store can reach about twice the first tree when a reparse rebuilds
 				// most of it (a grammar whose scanner state changes after an edit does).
 				// That is a fixed cost. What must not happen is growth with the number of
-				// edits. The check therefore has two parts: the size after 100 edits is the
-				// size the session settles at (later edits add at most 5 percent), and it
-				// stays under 2.5 times the first tree.
+				// edits. The check therefore has two parts: the live record slots after 100
+				// edits are what the session settles at (later edits add at most 5 percent),
+				// and they stay under 2.5 times the first tree's. It bounds live slots
+				// (handed out and not free), not page bytes: a store takes record pages of
+				// about 300 KiB, so one heavy edit late in a session adds a whole page that a
+				// later edit reuses, and page bytes measure that rounding, not retention
+				// (owner's decision, 21 Nov 2026). Page bytes are still reported.
 				firstBytes, maxBytes := gts.CcoreTestStoreBytes(tree), 0
 				maxBytes = firstBytes
 				settledBytes := 0
+				firstSlots := gts.CcoreTestStoreLiveSlots(tree)
+				maxSlots, settledSlots := firstSlots, 0
 				cur, edits, served, rejected, problem := source, 0, 0, 0, ""
 				gts.CcoreTestReset()
 				for edits < 300 {
@@ -5290,16 +5310,19 @@ func TestGraduationSafety(t *testing.T) {
 					if n := gts.CcoreTestStoreBytes(tree); n > maxBytes {
 						maxBytes = n
 					}
+					if n := gts.CcoreTestStoreLiveSlots(tree); n > maxSlots {
+						maxSlots = n
+					}
 					if edits == 100 {
-						settledBytes = maxBytes
+						settledBytes, settledSlots = maxBytes, maxSlots
 					}
 				}
-				lastBytes := gts.CcoreTestStoreBytes(tree)
+				lastBytes, lastSlots := gts.CcoreTestStoreBytes(tree), gts.CcoreTestStoreLiveSlots(tree)
 				tree.Release()
 				fallbacks, _ := gts.CcoreTestIncr()
-				detail := fmt.Sprintf("source_bytes=%d edits=%d served=%d first_bytes=%d after_100_edits=%d max_bytes=%d last_bytes=%d fallbacks=%v rejected=%d %s", len(source), edits, served, firstBytes, settledBytes, maxBytes, lastBytes, fallbacks, rejected, problem)
-				settled := settledBytes > 0 && float64(maxBytes) <= 1.05*float64(settledBytes)
-				if problem == "" && firstBytes > 0 && edits == 300 && served == 300 && len(fallbacks) == 0 && settled && float64(maxBytes) <= 2.5*float64(firstBytes) {
+				detail := fmt.Sprintf("source_bytes=%d edits=%d served=%d first_slots=%d after_100_edits_slots=%d max_slots=%d last_slots=%d first_bytes=%d after_100_edits=%d max_bytes=%d last_bytes=%d fallbacks=%v rejected=%d %s", len(source), edits, served, firstSlots, settledSlots, maxSlots, lastSlots, firstBytes, settledBytes, maxBytes, lastBytes, fallbacks, rejected, problem)
+				settled := settledSlots > 0 && float64(maxSlots) <= 1.05*float64(settledSlots)
+				if problem == "" && firstSlots > 0 && edits == 300 && served == 300 && len(fallbacks) == 0 && settled && float64(maxSlots) <= 2.5*float64(firstSlots) {
 					report("store-bound", "ok", detail)
 				} else {
 					report("store-bound", "fail", detail)
@@ -5315,5 +5338,569 @@ func TestGraduationSafety(t *testing.T) {
 	fmt.Printf("GRADRESULT item=8 status=%s views=%t build=%s source=%q bytes=%d checks_run=%d checks_failed=%d checks_na=%d checks_not_applicable=%d first=%q\n", status, views, race, storeSourceName, storeSourceBytes, ran, failed, na, notApplicable, first)
 	if failed > 0 {
 		t.Fail()
+	}
+}
+
+// scanProbe is a token source that has no tokens: its tree is never the
+// language's own, so a tree that it did not produce shows that the core ran in
+// its place. It counts how often the parser reads and closes it.
+type scanProbe struct{ next, closed int }
+
+func (s *scanProbe) Next() gts.Token { s.next++; return gts.Token{} }
+func (s *scanProbe) Close()          { s.closed++ }
+
+// embeddedTrusted embeds the trusted wrapper and overrides Next. It is not the
+// wrapper's own type, so it must stay an ordinary stream.
+type embeddedTrusted struct {
+	gts.TokenSource
+	probe *scanProbe
+}
+
+func (e *embeddedTrusted) Next() gts.Token { e.probe.next++; return gts.Token{} }
+
+// scanRig builds the sources of one variant and keeps every probe it made.
+type scanRig struct {
+	lang, other *gts.Language
+	variant     string
+	probes      []*scanProbe
+}
+
+func (r *scanRig) source(src []byte) gts.TokenSource {
+	p := &scanProbe{}
+	r.probes = append(r.probes, p)
+	switch r.variant {
+	case "stream":
+		return p
+	case "embedded":
+		return &embeddedTrusted{TokenSource: gts.NewCoreScanTokenSource(p, r.lang, src), probe: p}
+	case "other_bytes":
+		return gts.NewCoreScanTokenSource(p, r.lang, append([]byte(nil), src...))
+	case "other_language":
+		return gts.NewCoreScanTokenSource(p, r.other, src)
+	default: // "trusted", "no_grant"
+		return gts.NewCoreScanTokenSource(p, r.lang, src)
+	}
+}
+
+func (r *scanRig) factory() gts.TokenSourceFactory {
+	return func(b []byte) (gts.TokenSource, error) { return r.source(b), nil }
+}
+
+func (r *scanRig) nexts() (n int) {
+	for _, p := range r.probes {
+		n += p.next
+	}
+	return n
+}
+
+// scanCall is one entry point of the parser that takes a token source.
+type scanCall struct {
+	name string
+	incr bool // an edited old tree is passed
+	same bool // the old tree and the source are unchanged
+	run  func(p *gts.Parser, r *scanRig, src []byte, old *gts.Tree) (*gts.Tree, error)
+}
+
+func scanCalls() []scanCall {
+	return []scanCall{
+		{name: "ParseWithTokenSource", run: func(p *gts.Parser, r *scanRig, src []byte, _ *gts.Tree) (*gts.Tree, error) {
+			return p.ParseWithTokenSource(src, r.source(src))
+		}},
+		{name: "ParseWithTokenSourceStrict", run: func(p *gts.Parser, r *scanRig, src []byte, _ *gts.Tree) (*gts.Tree, error) {
+			tree, err := p.ParseWithTokenSourceStrict(src, r.source(src))
+			if tree != nil && err != nil && r.variant != "trusted" {
+				err = nil // a stream with no tokens stops early; the tree is what is compared
+			}
+			return tree, err
+		}},
+		{name: "ParseWithTokenSourceFactory", run: func(p *gts.Parser, r *scanRig, src []byte, _ *gts.Tree) (*gts.Tree, error) {
+			return p.ParseWithTokenSourceFactory(src, r.factory())
+		}},
+		{name: "ParseWith", run: func(p *gts.Parser, r *scanRig, src []byte, _ *gts.Tree) (*gts.Tree, error) {
+			res, err := p.ParseWith(src, gts.WithTokenSource(r.source(src)))
+			return res.Tree, err
+		}},
+		{name: "ParseUTF16WithTokenSourceFactory", run: func(p *gts.Parser, r *scanRig, src []byte, _ *gts.Tree) (*gts.Tree, error) {
+			return p.ParseUTF16WithTokenSourceFactory(utf16.Encode([]rune(string(src))), r.factory())
+		}},
+		{name: "ParseIncrementalWithTokenSource", incr: true, run: func(p *gts.Parser, r *scanRig, src []byte, old *gts.Tree) (*gts.Tree, error) {
+			return p.ParseIncrementalWithTokenSource(src, old, r.source(src))
+		}},
+		{name: "ParseIncrementalWithTokenSourceFactory", incr: true, run: func(p *gts.Parser, r *scanRig, src []byte, old *gts.Tree) (*gts.Tree, error) {
+			return p.ParseIncrementalWithTokenSourceFactory(src, old, r.factory())
+		}},
+		{name: "ParseIncrementalWithTokenSourceProfiled", incr: true, run: func(p *gts.Parser, r *scanRig, src []byte, old *gts.Tree) (*gts.Tree, error) {
+			tree, _, err := p.ParseIncrementalWithTokenSourceProfiled(src, old, r.source(src))
+			return tree, err
+		}},
+		{name: "ParseWith_WithOldTree", incr: true, run: func(p *gts.Parser, r *scanRig, src []byte, old *gts.Tree) (*gts.Tree, error) {
+			res, err := p.ParseWith(src, gts.WithOldTree(old), gts.WithTokenSource(r.source(src)))
+			return res.Tree, err
+		}},
+		{name: "ParseIncrementalWithTokenSource_unchanged", incr: true, same: true, run: func(p *gts.Parser, r *scanRig, src []byte, old *gts.Tree) (*gts.Tree, error) {
+			return p.ParseIncrementalWithTokenSource(src, old, r.source(src))
+		}},
+		{name: "ParseIncrementalWithTokenSourceProfiled_unchanged", incr: true, same: true, run: func(p *gts.Parser, r *scanRig, src []byte, old *gts.Tree) (*gts.Tree, error) {
+			tree, _, err := p.ParseIncrementalWithTokenSourceProfiled(src, old, r.source(src))
+			return tree, err
+		}},
+	}
+}
+
+type scanOutcome struct {
+	digest         string
+	nexts          int
+	closedFirst    int
+	served, scans  int64
+	probes         int
+	expectedDigest string
+}
+
+func scanSource(t *testing.T, name string) []byte {
+	t.Helper()
+	if name == "json" {
+		return ccoreJSONSource(3)
+	}
+	return ccoreGateSource(name, 800)
+}
+
+// scanRun runs one call for one variant and returns what happened. The old
+// tree, when the call takes one, is the core's own tree of src, edited.
+func scanRun(t *testing.T, langName string, call scanCall, variant string, grants []string) scanOutcome {
+	t.Helper()
+	defer gts.CcoreTestCertifyProviders(ccoreModesIncr, grants, "ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState")()
+	lang := ccoreRouteLang(t, langName)
+	other := ccoreRouteLang(t, "python")
+	if langName == "python" {
+		other = ccoreRouteLang(t, "json")
+	}
+	src := scanSource(t, langName)
+	p, fp := ccoreRouteParser(lang), ccoreRouteParser(lang)
+	reqSrc, old := src, (*gts.Tree)(nil)
+	if call.incr {
+		var err error
+		if old, err = p.Parse(src); err != nil || old == nil {
+			t.Fatal(err)
+		}
+		defer old.Release()
+		if !call.same {
+			var e gts.InputEdit
+			reqSrc, e = ccoreInsert(src, 20, ' ')
+			old.Edit(e)
+		}
+	}
+	// What the core gives for the bytes of the request, from a parser of its own.
+	want, err := fp.Parse(reqSrc)
+	if err != nil || want == nil {
+		t.Fatal(err)
+	}
+	defer want.Release()
+	rig := &scanRig{lang: lang, other: other, variant: variant}
+	gts.CcoreTestReset()
+	tree, err := call.run(p, rig, reqSrc, old)
+	if tree == nil {
+		t.Fatalf("%s/%s: no tree (error %v)", call.name, variant, err)
+	}
+	if err != nil && variant == "trusted" {
+		t.Fatalf("%s/%s: %v", call.name, variant, err)
+	}
+	defer tree.Release() // an unchanged reparse returns the old tree with a handle of its own
+	_, fresh := gts.CcoreTestCounters()
+	_, incr := gts.CcoreTestIncr()
+	out := scanOutcome{
+		digest: ccoreWalkDigest(tree, lang), expectedDigest: ccoreWalkDigest(want, lang),
+		nexts: rig.nexts(), served: fresh + incr, scans: gts.CcoreTestProviderScans(), probes: len(rig.probes),
+	}
+	if len(rig.probes) > 0 {
+		out.closedFirst = rig.probes[0].closed
+	}
+	return out
+}
+
+var scanLangs = []string{"json", "python"}
+
+// A token source that the core cannot vouch for is never replaced: its tokens
+// give its own tree, the parser reads it, and the core serves nothing. This
+// holds for a plain stream, for a type that embeds the trusted wrapper, for a
+// wrapper made over other bytes or for another language, and for a wrapper over
+// a blob whose certificate lists no provider.
+func TestCoreScanTokenSourceNeverReplacesAStream(t *testing.T) {
+	for _, langName := range scanLangs {
+		for _, call := range scanCalls() {
+			control := scanRun(t, langName, call, "stream", []string{"table-v1"})
+			if control.nexts == 0 || control.served != 0 || control.scans != 0 {
+				t.Fatalf("%s/%s control: nexts %d served %d scans %d", langName, call.name, control.nexts, control.served, control.scans)
+			}
+			if control.digest == control.expectedDigest {
+				t.Fatalf("%s/%s: the probe gives the language's own tree; the test would show nothing", langName, call.name)
+			}
+			for _, variant := range []string{"embedded", "other_bytes", "other_language", "no_grant"} {
+				grants := []string{"table-v1"}
+				if variant == "no_grant" {
+					grants = nil
+				}
+				got := scanRun(t, langName, call, variant, grants)
+				if got.digest != control.digest {
+					t.Errorf("%s/%s/%s: tree differs from the stream's own tree", langName, call.name, variant)
+				}
+				if got.nexts == 0 || got.served != 0 || got.scans != 0 {
+					t.Errorf("%s/%s/%s: nexts %d served %d provider scans %d, want the source read and the core unused", langName, call.name, variant, got.nexts, got.served, got.scans)
+				}
+				if variant != "embedded" && got.closedFirst != 1 {
+					t.Errorf("%s/%s/%s: the first source was closed %d times, want 1", langName, call.name, variant, got.closedFirst)
+				}
+			}
+		}
+	}
+}
+
+// With the grant, the trusted wrapper over its own language and bytes is served
+// by the core: the provider answers scans, the fallback is never read, it is
+// closed once, and the tree is the one Parser.Parse gives for the same bytes.
+func TestCoreScanTokenSourceIsServedByTheCore(t *testing.T) {
+	for _, langName := range scanLangs {
+		for _, call := range scanCalls() {
+			got := scanRun(t, langName, call, "trusted", []string{"table-v1"})
+			if got.digest != got.expectedDigest {
+				t.Errorf("%s/%s: tree differs from Parser.Parse on the same bytes", langName, call.name)
+			}
+			if got.nexts != 0 {
+				t.Errorf("%s/%s: the fallback was read %d times", langName, call.name, got.nexts)
+			}
+			if got.closedFirst != 1 {
+				t.Errorf("%s/%s: the fallback was closed %d times, want 1", langName, call.name, got.closedFirst)
+			}
+			if call.same {
+				// Nothing is parsed: the old tree comes back.
+				if got.served != 0 || got.scans != 0 {
+					t.Errorf("%s/%s: unchanged reparse served %d scans %d, want none", langName, call.name, got.served, got.scans)
+				}
+				continue
+			}
+			if got.served != 1 || got.scans == 0 {
+				t.Errorf("%s/%s: core serves %d, provider scans %d, want 1 and more than 0", langName, call.name, got.served, got.scans)
+			}
+		}
+	}
+}
+
+// The wrapper is for the request it was made for: the parser's own language and
+// the same bytes. A request over equal but separate bytes is an ordinary stream.
+func TestCoreScanTokenSourceBindingIsTheBuffer(t *testing.T) {
+	defer gts.CcoreTestCertifyProviders(ccoreModesIncr, []string{"table-v1"}, "ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState")()
+	lang := ccoreRouteLang(t, "json")
+	src := ccoreJSONSource(2)
+	probe := &scanProbe{}
+	ts := gts.NewCoreScanTokenSource(probe, lang, src)
+	gts.CcoreTestReset()
+	tree, err := ccoreRouteParser(lang).ParseWithTokenSource(append([]byte(nil), src...), ts)
+	if err != nil || tree == nil {
+		t.Fatal(err)
+	}
+	tree.Release()
+	if probe.next == 0 || gts.CcoreTestProviderScans() != 0 {
+		t.Fatalf("equal bytes in another buffer: nexts %d scans %d", probe.next, gts.CcoreTestProviderScans())
+	}
+}
+
+// The wrapper delegates to the fallback and never mints a second wrapper.
+func TestCoreScanTokenSourceDelegates(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	if gts.NewCoreScanTokenSource(nil, lang, nil) != nil {
+		t.Fatal("a nil fallback gave a source")
+	}
+	probe := &scanProbe{}
+	ts := gts.NewCoreScanTokenSource(probe, lang, []byte("x"))
+	ts.Next()
+	ts.Next()
+	if probe.next != 2 {
+		t.Fatalf("Next reached the fallback %d times, want 2", probe.next)
+	}
+	ts.(interface{ Close() }).Close()
+	if probe.closed != 1 {
+		t.Fatalf("Close reached the fallback %d times, want 1", probe.closed)
+	}
+	if again := gts.NewCoreScanTokenSource(ts, lang, []byte("x")); again == ts {
+		t.Fatal("a wrapper was reused as a wrapper of itself")
+	}
+}
+
+// The registered entries pass the source they get to the parser as it is: an
+// overridden factory on a LangEntry and on the highlighter. A plain stream is
+// read; the trusted wrapper is served by the core.
+func TestCoreScanTokenSourceThroughEntries(t *testing.T) {
+	defer gts.CcoreTestCertifyProviders(ccoreModesIncr, []string{"table-v1"}, "ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState")()
+	base := grammars.DetectLanguageByName("json")
+	if base == nil {
+		t.Fatal("json is not registered")
+	}
+	lang := base.Language()
+	src := ccoreJSONSource(3)
+	want, err := gts.NewParser(lang).Parse(src)
+	if err != nil || want == nil {
+		t.Fatal(err)
+	}
+	defer want.Release()
+	wantDigest := ccoreWalkDigest(want, lang)
+
+	for _, variant := range []string{"stream", "trusted"} {
+		t.Run(variant, func(t *testing.T) {
+			rig := &scanRig{lang: lang, variant: variant}
+			entry := *base
+			entry.TokenSourceFactory = func(b []byte, l *gts.Language) gts.TokenSource { return rig.source(b) }
+			served := func() int64 {
+				_, f := gts.CcoreTestCounters()
+				_, i := gts.CcoreTestIncr()
+				return f + i
+			}
+			check := func(what string, tree *gts.Tree, wantServed int64, digest string) {
+				t.Helper()
+				if tree == nil {
+					t.Fatalf("%s: no tree", what)
+				}
+				if variant == "trusted" {
+					if rig.nexts() != 0 || served() != wantServed || gts.CcoreTestProviderScans() == 0 || ccoreWalkDigest(tree, lang) != digest {
+						t.Errorf("%s: nexts %d served %d scans %d, want the core to serve %d", what, rig.nexts(), served(), gts.CcoreTestProviderScans(), wantServed)
+					}
+					return
+				}
+				if rig.nexts() == 0 || served() != 0 || gts.CcoreTestProviderScans() != 0 {
+					t.Errorf("%s: nexts %d served %d scans %d, want the stream read and the core unused", what, rig.nexts(), served(), gts.CcoreTestProviderScans())
+				}
+			}
+
+			gts.CcoreTestReset()
+			tree, err := entry.Parse(src)
+			if err != nil && variant == "trusted" {
+				t.Fatal(err)
+			}
+			check("LangEntry.Parse", tree, 1, wantDigest)
+			if tree != nil {
+				tree.Release()
+			}
+
+			h, err := entry.NewHighlighter()
+			if err != nil {
+				t.Fatal(err)
+			}
+			gts.CcoreTestReset()
+			rig.probes = nil
+			_, first := h.HighlightIncremental(src, nil)
+			check("Highlighter fresh", first, 1, wantDigest)
+			if first == nil {
+				return
+			}
+			defer first.Release()
+			edited, e := ccoreInsert(src, 5, ' ')
+			first.Edit(e)
+			wantEdited, err := gts.NewParser(lang).Parse(edited)
+			if err != nil || wantEdited == nil {
+				t.Fatal(err)
+			}
+			defer wantEdited.Release()
+			gts.CcoreTestReset()
+			rig.probes = nil
+			_, second := h.HighlightIncremental(edited, first)
+			check("Highlighter incremental", second, 1, ccoreWalkDigest(wantEdited, lang))
+			if second != nil && second != first {
+				second.Release()
+			}
+		})
+	}
+}
+
+const coreScanJavaSource = "class A {\n int x = 1;\n void f() { x++; }\n}\n"
+
+func coreScanJavaCounts() (served, scans int64) {
+	_, f := gts.CcoreTestCounters()
+	_, i := gts.CcoreTestIncr()
+	return f + i, gts.CcoreTestProviderScans()
+}
+
+// Java's registered factory, with a test grant for its blob: LangEntry.Parse and
+// the incremental entry points are served by the core, the provider answers the
+// scans, and the tree is the one Parser.Parse gives. Without the grant the same
+// calls stay on the present engine and give the tree of the unwrapped Java source.
+func TestCoreScanJavaRegisteredFactory(t *testing.T) {
+	entry := grammars.DetectLanguageByName("java")
+	if entry == nil || entry.TokenSourceFactory == nil {
+		t.Fatal("java has no registered token source factory")
+	}
+	lang := entry.Language()
+	src := []byte(coreScanJavaSource)
+	edited, edit := ccoreInsert(src, 10, ' ')
+	checked := []string{"ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState"}
+
+	// What the present engine gives for the real Java source, with no core involved.
+	plain := gts.NewParser(lang)
+	raw, err := plain.ParseWithTokenSource(src, mustJavaSource(t, src, lang))
+	if err != nil || raw == nil {
+		t.Fatal(err)
+	}
+	defer raw.Release()
+	rawEdited, err := gts.NewParser(lang).ParseWithTokenSource(edited, mustJavaSource(t, edited, lang))
+	if err != nil || rawEdited == nil {
+		t.Fatal(err)
+	}
+	defer rawEdited.Release()
+
+	t.Run("granted", func(t *testing.T) {
+		// Java's blob is not in the generated list, so the parsers that the entry and the
+		// highlighter make need the process default for the candidate route.
+		prev := gts.AdmissionCandidateRouteDefault()
+		gts.SetAdmissionCandidateRouteDefault(true)
+		defer gts.SetAdmissionCandidateRouteDefault(prev)
+		defer gts.CcoreTestCertifyProviders(ccoreModesIncr, []string{"table-v1"}, checked...)()
+		want, err := ccoreRouteParser(lang).Parse(src)
+		if err != nil || want == nil {
+			t.Fatal(err)
+		}
+		defer want.Release()
+		gts.CcoreTestReset()
+		tree, err := entry.Parse(src)
+		if err != nil || tree == nil {
+			t.Fatal(err)
+		}
+		defer tree.Release()
+		served, scans := coreScanJavaCounts()
+		if served != 1 || scans == 0 {
+			decl, _ := gts.CcoreTestCounters()
+			t.Fatalf("LangEntry.Parse: core serves %d, provider scans %d, want 1 and more than 0 (declines %v)", served, scans, decl)
+		}
+		if ccoreWalkDigest(tree, lang) != ccoreWalkDigest(want, lang) {
+			t.Fatal("LangEntry.Parse differs from Parser.Parse on the same bytes")
+		}
+
+		// An edit through the token-source entry point.
+		old, err := ccoreRouteParser(lang).Parse(src)
+		if err != nil || old == nil {
+			t.Fatal(err)
+		}
+		defer old.Release()
+		old.Edit(edit)
+		gts.CcoreTestReset()
+		next, err := ccoreRouteParser(lang).ParseIncrementalWithTokenSource(edited, old, entry.TokenSourceFactory(edited, lang))
+		if err != nil || next == nil {
+			t.Fatal(err)
+		}
+		defer next.Release()
+		if served, scans := coreScanJavaCounts(); served != 1 || scans == 0 {
+			t.Fatalf("ParseIncrementalWithTokenSource: core serves %d, provider scans %d", served, scans)
+		}
+		wantEdited, _ := ccoreRouteParser(lang).Parse(edited)
+		defer wantEdited.Release()
+		if ccoreWalkDigest(next, lang) != ccoreWalkDigest(wantEdited, lang) {
+			t.Fatal("incremental tree differs from Parser.Parse on the edited bytes")
+		}
+
+		// The same through the highlighter.
+		h, err := entry.NewHighlighter()
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, first := h.HighlightIncremental(src, nil)
+		defer first.Release()
+		first.Edit(edit)
+		gts.CcoreTestReset()
+		_, second := h.HighlightIncremental(edited, first)
+		defer second.Release()
+		if served, scans := coreScanJavaCounts(); served != 1 || scans == 0 {
+			t.Fatalf("highlighter incremental: core serves %d, provider scans %d", served, scans)
+		}
+	})
+
+	t.Run("not_granted", func(t *testing.T) {
+		defer gts.CcoreTestCertify(ccoreModesIncr, checked...)()
+		gts.CcoreTestReset()
+		tree, err := entry.Parse(src)
+		if err != nil || tree == nil {
+			t.Fatal(err)
+		}
+		defer tree.Release()
+		if served, scans := coreScanJavaCounts(); served != 0 || scans != 0 {
+			t.Fatalf("without the grant: core serves %d, provider scans %d, want none", served, scans)
+		}
+		if ccoreWalkDigest(tree, lang) != ccoreWalkDigest(raw, lang) {
+			t.Fatal("without the grant the tree differs from the unwrapped Java source's")
+		}
+	})
+}
+
+func mustJavaSource(t *testing.T, src []byte, lang *gts.Language) gts.TokenSource {
+	t.Helper()
+	ts, err := grammars.NewJavaTokenSource(src, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ts
+}
+
+// The present engine sees the real Java source behind the wrapper: an
+// end-of-file comment append is verified the same number of times, and gives the
+// same tree, through the registered factory as through the unwrapped source.
+func TestCoreScanJavaWrapperKeepsTheEOFExtraProof(t *testing.T) {
+	lang := ccoreRouteLang(t, "java")
+	source := []byte("class Main {\n int x = 2;\n}\n// ")
+	edited := append(bytes.Clone(source), 'w')
+	run := func(mk func([]byte) gts.TokenSource) (streams int, digest string) {
+		factory := func(b []byte) (gts.TokenSource, error) { streams++; return mk(b), nil }
+		p := gts.NewParser(lang)
+		old, err := p.ParseWithTokenSourceFactory(source, factory)
+		if err != nil || old == nil {
+			t.Fatal(err)
+		}
+		defer old.Release()
+		old.Edit(gts.InputEdit{StartByte: uint32(len(source)), OldEndByte: uint32(len(source)), NewEndByte: uint32(len(edited)),
+			StartPoint: gts.Point{Row: 3, Column: 3}, OldEndPoint: gts.Point{Row: 3, Column: 3}, NewEndPoint: gts.Point{Row: 3, Column: 4}})
+		streams = 0
+		next, err := p.ParseIncrementalWithTokenSourceFactory(edited, old, factory)
+		if err != nil || next == nil {
+			t.Fatal(err)
+		}
+		defer next.Release()
+		return streams, ccoreWalkDigest(next, lang)
+	}
+	wrapped, wd := run(func(b []byte) gts.TokenSource { return grammars.NewJavaTokenSourceOrEOF(b, lang) })
+	rawStreams, rd := run(func(b []byte) gts.TokenSource { return mustJavaSource(t, b, lang) })
+	if wrapped != rawStreams || wd != rd {
+		t.Fatalf("wrapped: %d streams, raw: %d; trees equal %v", wrapped, rawStreams, wd == rd)
+	}
+}
+
+// C and C++ mark their registered token source for the core scan provider, as
+// Java does. C's blob is certified, but its record lists no provider, so
+// LangEntry.Parse stays on the present engine: the tree is the one the unwrapped
+// source gives, and the core serves nothing and the provider answers no scan.
+func TestCoreScanCAndCppWithoutAGrantAreUnchanged(t *testing.T) {
+	for _, name := range []string{"c", "cpp"} {
+		t.Run(name, func(t *testing.T) {
+			entry := grammars.DetectLanguageByName(name)
+			if entry == nil || entry.TokenSourceFactory == nil {
+				t.Fatalf("%s has no registered token source factory", name)
+			}
+			lang := entry.Language()
+			src := []byte("#include <stdio.h>\nint main(void) {\n  int x = 1;\n  return x + 2;\n}\n")
+			raw, err := grammars.NewCTokenSource(src, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := gts.NewParser(lang).ParseWithTokenSource(src, raw)
+			if err != nil || want == nil {
+				t.Fatal(err)
+			}
+			defer want.Release()
+			gts.CcoreTestReset()
+			got, err := entry.Parse(src)
+			if err != nil || got == nil {
+				t.Fatal(err)
+			}
+			defer got.Release()
+			if served, scans := coreScanJavaCounts(); served != 0 || scans != 0 {
+				t.Fatalf("core serves %d, provider scans %d, want none", served, scans)
+			}
+			if ccoreWalkDigest(got, lang) != ccoreWalkDigest(want, lang) {
+				t.Fatal("LangEntry.Parse differs from the unwrapped source's tree")
+			}
+		})
 	}
 }

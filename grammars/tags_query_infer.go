@@ -673,6 +673,69 @@ var inferredTagsQueryOverrides = map[string]string{
 		"(call_expression (identifier) @name) @reference.call",
 	}, "\n"),
 
+	// The next eight keep the inferred rows that pinned C compiles. Pinned C
+	// rejected each inferred query whole as an "Impossible pattern"; every
+	// row left out below was rejected on its own when each inferred row was
+	// compiled separately against the pinned grammar. The rows left out match
+	// nothing in Go either, so Go results do not change.
+	//
+	// Apex: names are identifier, never field_identifier or type_identifier.
+	"apex": strings.Join([]string{
+		"(method_declaration (identifier) @name) @definition.method",
+		"(class_declaration (identifier) @name) @definition.class",
+		"(interface_declaration (identifier) @name) @definition.interface",
+		"(enum_declaration (identifier) @name) @definition.type",
+		"(constructor_declaration (identifier) @name) @definition.constructor",
+		"(method_invocation (identifier) @name) @reference.call",
+	}, "\n"),
+	// Circom: a call has no property_identifier or member_expression callee.
+	"circom": strings.Join([]string{
+		"(function_definition (identifier) @name) @definition.function",
+		"(call_expression (identifier) @name) @reference.call",
+	}, "\n"),
+	// GLSL: a call's callee is never a bare field_identifier.
+	"glsl": strings.Join([]string{
+		"(function_definition (identifier) @name) @definition.function",
+		"(function_definition (field_identifier) @name) @definition.function",
+		"(function_definition (function_declarator (identifier) @name)) @definition.function",
+		"(function_definition (function_declarator (field_identifier) @name)) @definition.function",
+		"(type_definition (type_identifier) @name) @definition.type",
+		"(type_definition (identifier) @name) @definition.type",
+		"(struct_specifier (type_identifier) @name) @definition.type",
+		"(call_expression (identifier) @name) @reference.call",
+	}, "\n"),
+	// Move: a call's callee is never a bare identifier.
+	"move": strings.Join([]string{
+		"(function_declaration (identifier) @name) @definition.function",
+		"(enum_declaration (identifier) @name) @definition.type",
+	}, "\n"),
+	// Prisma: a call has no property_identifier or member_expression callee.
+	"prisma": strings.Join([]string{
+		"(enum_declaration (identifier) @name) @definition.type",
+		"(call_expression (identifier) @name) @reference.call",
+	}, "\n"),
+	// SCSS, as CSS: a call names its callee with function_name.
+	"scss": "(call_expression (function_name) @name) @reference.call",
+	// Templ: the method and short-variable rows and the bare field call
+	// cannot occur.
+	"templ": strings.Join([]string{
+		"(function_declaration (identifier) @name) @definition.function",
+		"(function_declaration (type_identifier) @name) @definition.function",
+		"(method_declaration (field_identifier) @name) @definition.method",
+		"(type_declaration (type_spec (type_identifier) @name)) @definition.type",
+		"(type_declaration (type_alias (type_identifier) @name)) @definition.type",
+		"(type_alias (type_identifier) @name) @definition.type",
+		"(const_spec (identifier) @name) @definition.constant",
+		"(var_spec (identifier) @name) @definition.variable",
+		"(call_expression (identifier) @name) @reference.call",
+		"(call_expression (selector_expression (field_identifier) @name)) @reference.call",
+	}, "\n"),
+	// AuthZed: a call's callee is never a bare field_identifier.
+	"authzed": strings.Join([]string{
+		"(call_expression (identifier) @name) @reference.call",
+		"(call_expression (selector_expression (field_identifier) @name)) @reference.call",
+	}, "\n"),
+
 	// Lua: found via the cgo_harness C-oracle fleet census (log-only
 	// FleetCensus subtest, GTS_PARITY_MODE=top50), not the CoreNine sweep --
 	// Lua is not one of the core nine. The shared table's

@@ -725,3 +725,20 @@ exported names, so out-of-tree types satisfy them):
       but hitting the cap means your validity gating is wrong).
 - [ ] Gate every `Scan` branch on `validSymbols`; never return a symbol
       whose index was not valid.
+
+## Registering a port for the C-faithful core
+
+`internal/ccore` serves a grammar with an external scanner only when the port is registered with `scanmode.RegisterScanner` (see the `init` functions in `grammars/runtime/*_scanner.go`). Register a port only after the scanner differential test shows that it does what the pinned C scanner does, call by call. The test compiles the C scanner with the C runtime's own lexer and drives both scanners with the same calls:
+
+```sh
+bash cgo_harness/docker/run_parity_in_docker.sh --label scandiff-<language> -- \
+  "bash /workspace/cgo_harness/docker/scandiff.sh <language> 200000 <seed>"
+```
+
+The gate is three runs of 200,000 calls, each exiting 0 (no difference in a gated category, no C crash): seed 1 and seed 2 with the default forged saved states, and seed 1 with `SCANDIFF_HOSTILE=off`.
+
+Some pinned C scanners crash or exhaust memory when they deserialize a forged saved state (for example a forged tag count or a negative depth). A port cannot pass those runs, because the fault is in C. For such a scanner the gate is the safe-state runs instead: seed 1 with `SCANDIFF_HOSTILE=off`, and seeds 1 and 2 with `SCANDIFF_HOSTILE=trunc` (shorter copies of real saved states), each with 0 differences. Record the C fault as a reproducer in the scanner's comment or test, not as a gated run. (Owner's decision, 21 Nov 2026.)
+
+Some pinned C scanners also assert on every truncated saved state, because their deserialize checks that it read exactly the saved length (for example C#'s `assert(size == length)`, `src/scanner.c:174`). A truncated-state run then crashes C on every truncated state. Such a run passes when it has 0 differences and every C crash is an abort inside C's deserialize on a truncated real state: the summary counts those crashes as `c_deser_aborts`, and only `c_crashes` minus `c_deser_aborts` fails a gated run. Any other C crash still fails it. (Owner's decision, 21 Nov 2026: "Yes, pass it".)
+
+Fix each difference in the port, cite the C `file:line`, and add a no-cgo reproducer test in `grammars/runtime/<language>_scanner_cparity_test.go` that fails on the old port.

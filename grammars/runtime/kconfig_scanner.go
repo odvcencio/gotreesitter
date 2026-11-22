@@ -3,9 +3,8 @@
 package grammarruntime
 
 import (
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the kconfig grammar. This is the external
@@ -54,6 +53,15 @@ var kconfigExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(kconfigExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls); no mode.
+	scanmode.RegisterScanner(KconfigExternalScanner{}, nil, false, func(v any) (any, []byte, bool) {
+		s := v.(KconfigExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(KconfigExternalScanner), right.(KconfigExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // KconfigExternalScanner handles indented help text blocks in Linux Kconfig files.
@@ -104,18 +112,21 @@ func (sc KconfigExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalL
 		return false
 	}
 
+	// src/scanner.c:23-37. iswspace is the C locale's, so only ASCII white space counts
+	// (and an invalid UTF-8 byte, which C sees as -1, is not white space).
 	startCol := uint32(0)
-	for unicode.IsSpace(lexer.Lookahead()) {
+	for cIsSpace(scanmode.CLookahead(lexer)) {
 		startCol = kconfigScannerIndentColumn(startCol, lexer.Lookahead())
 		lexer.Advance(true)
 	}
 
 	for {
-		for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
+		// :41-43 a NUL byte inside the input is text; only lexer->eof ends the loop.
+		for lexer.Lookahead() != '\n' && !scanmode.AtEOF(lexer) {
 			lexer.Advance(false)
 		}
 
-		if lexer.Lookahead() == 0 {
+		if scanmode.AtEOF(lexer) {
 			lexer.MarkEnd()
 			lexer.SetResultSymbol(syms[kconfigTokText])
 			return true
@@ -123,7 +134,7 @@ func (sc KconfigExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalL
 
 		lexer.MarkEnd()
 		nextCol := uint32(0)
-		for unicode.IsSpace(lexer.Lookahead()) {
+		for cIsSpace(scanmode.CLookahead(lexer)) {
 			nextCol = kconfigScannerIndentColumn(nextCol, lexer.Lookahead())
 			lexer.Advance(false)
 		}

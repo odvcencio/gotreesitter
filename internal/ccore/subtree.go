@@ -194,6 +194,44 @@ func (s *Store) arenaUse(root Handle) (used, reachable int) {
 	return used, reachable
 }
 
+// liveRecords counts the record slots of the store that are in use: every slot
+// the parse and edit allocators have handed out, minus the slots on their free
+// lists. Unlike pageBytes it does not move in steps of a whole page, so a store
+// bound on it measures retention, not page rounding. The caller holds no lock;
+// it takes the lease and the edit lock as Store.Info does.
+func (c *storeCore) liveRecords() int {
+	c.lease.Lock()
+	defer c.afterParse()
+	defer c.lease.Unlock()
+	c.emu.Lock()
+	defer c.emu.Unlock()
+	if c.ended.Load() {
+		return 0
+	}
+	v := c.view()
+	cur, ecur := &c.pc, &c.ec
+	n := 0
+	for pg := 0; pg < c.nextRec; pg++ {
+		k := recPageLen // a page that is not the current page of an allocator is full
+		if pg == cur.recPage {
+			k = cur.recSlot
+		} else if pg == ecur.recPage {
+			k = ecur.recSlot
+		}
+		n += k
+	}
+	if n > 0 {
+		n-- // index 0 is Handle 0, never handed out
+	}
+	for i := c.freeRec; i != 0; i = v.refs[i>>recShift][i&recMask] & countMask {
+		n--
+	}
+	for i := c.editFreeRec; i != 0; i = v.refs[i>>recShift][i&recMask] & countMask {
+		n--
+	}
+	return n
+}
+
 // hashArena writes every record, child handle and state byte the parse has
 // used to w (determinism checks). The caller holds the lease and emu.
 func (s *Store) hashArena(w io.Writer) {
@@ -649,13 +687,19 @@ func (p *Parser) newNode(sym Symbol, children []Handle, productionID uint16) Han
 // C/subtree.c:349 ts_subtree_summarize_children.
 func (p *Parser) summarize(h Handle) {
 	self := p.rec(h)
+	p.summarizeKids(self, p.kidSpan(self.childrenStart, self.childCount))
+}
+
+// summarizeKids fills the summary fields of self from kids. It is the body of
+// summarize, split so that a candidate that owns no record (selectChildren)
+// summarizes through the same code as a node.
+func (p *Parser) summarizeKids(self *rec, kids []Handle) {
 	self.namedChildCount, self.visibleChildCount, self.errorCost = 0, 0, 0
 	self.repeatDepth, self.visibleDescendantCount, self.dynamicPrecedence = 0, 0, 0
 	self.flags &^= heapHasExternalTokens | heapDependsOnColumn | heapExternalStateChange
 	structural := 0
 	alias := p.aliasSeq(self.productionID)
 	var lookaheadEnd uint32
-	kids := p.kidSpan(self.childrenStart, self.childCount)
 	for i, child := range kids {
 		if p.ext.active {
 			p.extSummarize(self, child, i == 0)
@@ -762,9 +806,40 @@ func (p *Parser) compare(left, right Handle) int {
 		stack = grow(&p.led, stack, 2)
 	}
 	stack = append(stack, left, right)
+	return p.compareStack(stack)
+}
+
+// compareCandidate is compare(left, right) for a right tree that has no
+// record: a symbol and a child list (see selectChildren). The first level is
+// compared here, the rest by compareStack.
+func (p *Parser) compareCandidate(left Handle, rsym Symbol, rkids []Handle) int {
+	ls, lc, rc := p.symbol(left), p.childCount(left), uint32(len(rkids))
+	switch {
+	case ls < rsym:
+		return -1
+	case rsym < ls:
+		return 1
+	case lc < rc:
+		return -1
+	case rc < lc:
+		return 1
+	}
+	stack := p.scratch[:0]
+	for i := lc; i > 0; i-- {
+		if 2 > cap(stack)-len(stack) {
+			stack = grow(&p.led, stack, 2)
+		}
+		stack = append(stack, p.children(left)[i-1], rkids[i-1])
+	}
+	return p.compareStack(stack)
+}
+
+// compareStack runs the comparison over the pairs of trees in stack (left
+// below right, the last pair first) and keeps the stack's storage as p.scratch.
+func (p *Parser) compareStack(stack []Handle) int {
 	defer func() { p.scratch = stack[:0] }()
 	for len(stack) > 0 {
-		right, left = stack[len(stack)-1], stack[len(stack)-2]
+		right, left := stack[len(stack)-1], stack[len(stack)-2]
 		stack = stack[:len(stack)-2]
 		if left == right {
 			continue

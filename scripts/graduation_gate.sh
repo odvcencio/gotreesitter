@@ -13,6 +13,11 @@
 #   --negative <n>    self-check: corrupt one expectation of item n; the item
 #                     must then fail (sets GRAD_NEGATIVE=<n>)
 #   --no-race         skip the -race build of item 8
+#   --candidate <p>   with --report --census only: item 0 treats the grammar as certified
+#                     with a record that lists the scan providers <p> (comma-separated,
+#                     for example table-v1; "none" lists no provider). A grammar whose
+#                     registry entry has a token-source factory must then be served on
+#                     every route that uses it; with "none" item 0 fails and names the route.
 #   --census          with --report only: run the items for a grammar that has
 #                     no certificate. Item 0 is still printed as it is, and
 #                     the other items run under the test certification. The
@@ -36,11 +41,19 @@
 #   4 declines during items 1 to 3: none, or each has an entry in
 #     cgo_harness/testdata/graduation_deny.txt with a reopening condition
 #   5 reuse equals C's subtree events, or a same-length views shortcut reuses all bytes and equals C's tree.
-#   6 tokens equal C's, or are between 1 and C's for a shortcut equal to C's tree; nodes and versions stay at or below the default engine's.
+#   6 on the same history as pinned C: the core lexes C's tokens, its processed version
+#     width equals C's largest version_count at a "process version" event, and its new heap
+#     records are at most 1.10 x C's subtree creations + 16 (C's count comes from the oracle
+#     built with the tag gts_subtree_counters: heap leaves, new nodes and clones during the
+#     parse, without the comparison trees of select_children). A same-length shortcut that
+#     returns the old tree keeps the rule: tokens between 1 and C's, tree equal to C's. The
+#     default engine's tokens, new nodes and maximum live versions are printed, not gated.
 #   7 highlight, tags, MISSING, ERROR and supertype query results (the set of
 #     captures: name and byte range)
 #   8 safety: stop reasons, a failing core and scanner, release orders, readers
-#     (also under -race), store bound
+#     (also under -race), store bound: over 300 edits the live record slots (handed out
+#     and not free) settle by edit 100 (later edits add at most 5 percent) and stay at or
+#     below 2.5 x the first tree's; page bytes are reported, not gated
 #   9 peak resident set size of a 1 MiB fresh parse and of 1,000 edits, at or below the default
 #     engine's; each run is a child process that resets the peak after its setup and
 #     keeps its heap within 32 MiB of what it holds (a soft memory limit)
@@ -51,14 +64,15 @@
 #   GRAD_OUT          folder for the logs (default: a new temporary folder)
 #   GRAD_RSS_RUNS     runs per arm for item 9 (default 3)
 #   GRAD_RSS_TIMEOUT  seconds a run of item 9 may take before it is killed (default 480);
-#                     a killed run reports the last progress line as a lower bound
+#                     a killed run reports the last progress line as a lower bound.
+#                     The 1,000 edits are prepared once before the timed runs (not timed).
 #
 # The default engine in items 6, 9 and 10 is the present engine of the build under
 # test with the route off, not a pinned release of it.
 #
 # Needs: go with cgo, the pinned C oracle (cgo_harness/docker/run_parity_in_docker.sh sets it up).
 set -uo pipefail
-unset CCORE_REPORT_ONLY CCORE_UPDATE_GOLDEN GRAD_NEGATIVE GRAD_CENSUS GTS_ADMISSION_CANDIDATE
+unset CCORE_REPORT_ONLY CCORE_UPDATE_GOLDEN GRAD_NEGATIVE GRAD_CENSUS GRAD_CANDIDATE GRAD_CANDIDATE_PROVIDERS GTS_ADMISSION_CANDIDATE
 
 # result_line <log> <item>: the last GRADRESULT line of an item in a log.
 result_line() { grep -a "^GRADRESULT item=$2 " "$1" 2>/dev/null | tail -n 1; }
@@ -255,6 +269,8 @@ if [ "${1:-}" = "--self-test" ]; then
   ok "report mode runs the later items" "$(grep -c 'item=2' <<<"$out")" "1"
   out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --census json 2>&1); rc=$?
   ok "--census without --report is refused" "$rc" "2"
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --report --candidate table-v1 json 2>&1); rc=$?
+  ok "--candidate without --census is refused" "$rc" "2"
   out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --items 0 json 2>&1); rc=$?
   ok "--items without --report is refused" "$rc" "2"
   ok "--items refusal message" "$out" "graduation_gate.sh: --items needs --report (a gate run runs every item)"
@@ -271,7 +287,7 @@ if [ "${1:-}" = "--self-test" ]; then
   exit "$fails"
 fi
 
-report=0; census=0; items="1,2,3,4,5,6,7,8,9,10"; negative=""; race=1; selftestgate=0; lang=""; items_set=0
+report=0; census=0; candidate=""; items="1,2,3,4,5,6,7,8,9,10"; negative=""; race=1; selftestgate=0; lang=""; items_set=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --report) report=1 ;;
@@ -279,6 +295,7 @@ while [ $# -gt 0 ]; do
     --negative) negative=$2; shift ;;
     --no-race) race=0 ;;
     --census) census=1 ;;
+    --candidate) candidate=$2; shift ;;
     --self-test-gate) selftestgate=1 ;;
     -*) echo "graduation_gate.sh: unknown option $1" >&2; exit 2 ;;
     *) lang=$1 ;;
@@ -294,6 +311,11 @@ if [ "$census" = 1 ] && [ "$report" = 0 ]; then echo "graduation_gate.sh: --cens
 if [ "$items_set" = 1 ] && [ "$report" = 0 ]; then echo "graduation_gate.sh: --items needs --report (a gate run runs every item)" >&2; exit 2; fi
 if [ "$census" = 0 ] && [ "${CCORE_VIEWS+x}" = x ]; then echo "graduation_gate.sh: CCORE_VIEWS is for --report --census; the gate measures the default views switch" >&2; exit 2; fi
 if [ "$census" = 1 ]; then export GRAD_CENSUS=1; fi
+if [ -n "$candidate" ]; then
+  if [ "$census" = 0 ]; then echo "graduation_gate.sh: --candidate needs --report --census" >&2; exit 2; fi
+  export GRAD_CANDIDATE=1
+  if [ "$candidate" = none ]; then export GRAD_CANDIDATE_PROVIDERS=; else export GRAD_CANDIDATE_PROVIDERS=$candidate; fi
+fi
 
 if [ "$selftestgate" = 1 ]; then
   if [ "$items_set" = 1 ] && [ "$items" = 0 ]; then emit selftest 0 pass "numbers" ""; exit 0; fi
@@ -304,7 +326,7 @@ if [ "$selftestgate" = 1 ]; then
   exit 0
 fi
 
-[ -n "$lang" ] || { echo "usage: graduation_gate.sh [--report [--census]] [--items list] [--negative n] [--no-race] <language> | --self-test" >&2; exit 2; }
+[ -n "$lang" ] || { echo "usage: graduation_gate.sh [--report [--census [--candidate providers]]] [--items list] [--negative n] [--no-race] <language> | --self-test" >&2; exit 2; }
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 if [ -n "${GRAD_OUT:-}" ]; then
   mkdir -p "$GRAD_OUT" || exit 2
@@ -322,7 +344,7 @@ want() { [[ ",$items," == *",$1,"* ]]; }
 hbin="$out/harness.test"; rbin="$out/root.test"; rrace="$out/root.race.test"
 need_harness=1
 if [ "$need_harness" = 1 ] && [ ! -x "$hbin" ]; then
-  if ! (cd "$root/cgo_harness" && go test -c -vet=off -tags 'cgo treesitter_c_parity gts_ccore_test_certify' -o "$hbin" .) >"$out/build-harness.log" 2>&1; then
+  if ! (cd "$root/cgo_harness" && go test -c -vet=off -tags 'cgo treesitter_c_parity gts_ccore_test_certify gts_subtree_counters' -o "$hbin" .) >"$out/build-harness.log" 2>&1; then
     emit "$lang" 0 fail "build failed" "$(tail -n 3 "$out/build-harness.log" | tr '\n' ' ' | cut -c1-200)"
     if [ "$report" = 1 ]; then
       for i in $(tr ',' ' ' <<<"$items"); do [ "$i" = 0 ] || emit "$lang" "$i" na "not run" "item 0 build failed"; done
@@ -423,6 +445,11 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
       declare -A rss=() killed=()
       for work in fresh edits1000; do for arm in route default; do rss[$work.$arm]=""; done; done
       fail9=""; na9=""; source9=""; bytes9=""
+      # Prepare the 1,000 edits once, outside the timed runs: checking each edit
+      # with pinned C on a 1 MiB source can take most of a run's time limit.
+      edits9="$out/item9-edits.json"
+      GRAD_RSS_PREPARE=1 GRAD_RSS_EDITS_FILE="$edits9" GRAD_RSS_ARM=route GRAD_RSS_WORK=edits1000 "$hbin" -test.run '^TestGraduationRSSChild$' -test.count=1 -test.v -test.timeout=40m >"$out/item9-prepare.log" 2>&1
+      if grep -aq '^GRADRSSPREP status=pass' "$out/item9-prepare.log"; then export GRAD_RSS_EDITS_FILE="$edits9"; else unset GRAD_RSS_EDITS_FILE; fi
       for r in $(seq 1 "$runs"); do
         for work in fresh edits1000; do
           arms="route default"; [ $((r % 2)) = 0 ] && arms="default route"
@@ -464,7 +491,8 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
           fi
         done
         emit "$lang" 9 "$status" "$nums" "$first"
-      fi ;;
+      fi
+      unset GRAD_RSS_EDITS_FILE ;;
     10) run_harness 10 TestGraduationTime; emit_from_log "$lang" 10 "$LOG" $RC ;;
   esac
   stop_if_needed "$item"

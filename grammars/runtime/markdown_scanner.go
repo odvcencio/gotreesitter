@@ -3,9 +3,6 @@
 package grammarruntime
 
 import (
-	"strings"
-	"unicode"
-
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
@@ -193,10 +190,23 @@ var mdExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(mdExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) on the
+	// safe-state runs: the pinned C scanner itself fails on forged saved states; no mode.
+	scanmode.RegisterScanner(MarkdownExternalScanner{}, (*mdState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(MarkdownExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(MarkdownExternalScanner), right.(MarkdownExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // Block types
-type mdBlock uint8
+// mdBlock is C's enum Block, which is four bytes wide (src/scanner.c:67-88): a saved state
+// holds each open block as four bytes, and a list item block is LIST_ITEM plus a number
+// that can be larger than 255.
+type mdBlock uint32
 
 const (
 	mdBlockQuote mdBlock = iota
@@ -315,10 +325,13 @@ func (MarkdownExternalScanner) Create() any {
 }
 func (MarkdownExternalScanner) Destroy(payload any) {}
 
+// Serialize is src/scanner.c:239-253. Every open block is saved as the four bytes of C's enum
+// Block, least significant byte first. C writes past the end of the 1,024-byte buffer when
+// there are more than 254 open blocks; a state that does not fit is reported as empty here.
 func (MarkdownExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*mdState)
 	size := 0
-	if 5+len(s.openBlocks) > len(buf) {
+	if 5+4*len(s.openBlocks) > len(buf) {
 		return 0
 	}
 	buf[size] = s.state
@@ -333,11 +346,18 @@ func (MarkdownExternalScanner) Serialize(payload any, buf []byte) int {
 	size++
 	for _, b := range s.openBlocks {
 		buf[size] = byte(b)
-		size++
+		buf[size+1] = byte(b >> 8)
+		buf[size+2] = byte(b >> 16)
+		buf[size+3] = byte(b >> 24)
+		size += 4
 	}
 	return size
 }
 
+// Deserialize is src/scanner.c:257-289. The blocks are the whole four-byte groups after the
+// five header bytes; a rest of one to three bytes is ignored. C treats a state of one to four
+// bytes as a huge block count and stops on a failed allocation; the header is read here as
+// if the state went on with zero bytes, and there are no blocks.
 func (MarkdownExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*mdState)
 	s.openBlocks = s.openBlocks[:0]
@@ -349,19 +369,19 @@ func (MarkdownExternalScanner) Deserialize(payload any, buf []byte) {
 	if len(buf) == 0 {
 		return
 	}
-	size := 0
-	s.state = buf[size]
-	size++
-	s.matched = buf[size]
-	size++
-	s.indentation = buf[size]
-	size++
-	s.column = buf[size]
-	size++
-	s.fencedCodeBlockDelimiterLength = buf[size]
-	size++
-	for ; size < len(buf); size++ {
-		s.openBlocks = append(s.openBlocks, mdBlock(buf[size]))
+	at := func(i int) uint8 {
+		if i < len(buf) {
+			return buf[i]
+		}
+		return 0
+	}
+	s.state = at(0)
+	s.matched = at(1)
+	s.indentation = at(2)
+	s.column = at(3)
+	s.fencedCodeBlockDelimiterLength = at(4)
+	for size := 5; size+4 <= len(buf); size += 4 {
+		s.openBlocks = append(s.openBlocks, mdBlock(uint32(buf[size])|uint32(buf[size+1])<<8|uint32(buf[size+2])<<16|uint32(buf[size+3])<<24))
 	}
 }
 
@@ -554,7 +574,7 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 		// Matching state
 		partialSuccess := false
 		for s.matched < uint8(len(s.openBlocks)) {
-			if s.matched == uint8(len(s.openBlocks))-1 && (s.state&mdStateCloseBlock) != 0 {
+			if int(s.matched) == int(uint8(len(s.openBlocks)))-1 && (s.state&mdStateCloseBlock) != 0 {
 				if !partialSuccess {
 					s.state &^= mdStateCloseBlock
 				}
@@ -571,7 +591,7 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 			}
 		}
 		if partialSuccess {
-			if s.matched == uint8(len(s.openBlocks)) {
+			if int(s.matched) == len(s.openBlocks) {
 				s.state &^= mdStateMatching
 			}
 			lexer.SetResultSymbol(syms[mdTokBlockContinuation])
@@ -580,7 +600,7 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 		if (s.state & mdStateWasSoftLineBreak) == 0 {
 			lexer.SetResultSymbol(syms[mdTokBlockClose])
 			mdPopBlock(s)
-			if s.matched == uint8(len(s.openBlocks)) {
+			if int(s.matched) == len(s.openBlocks) {
 				s.state &^= mdStateMatching
 			}
 			return true
@@ -619,7 +639,7 @@ func mdScan(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, 
 					break
 				}
 			}
-			allWillBeMatched := s.matched == uint8(len(s.openBlocks))
+			allWillBeMatched := int(s.matched) == len(s.openBlocks)
 			if !scanmode.AtEOF(lexer) && !mdScan(s, lexer, mdParagraphInterruptSymbols, syms) {
 				s.matched = matchedTemp
 				s.matched = 0
@@ -719,7 +739,7 @@ func mdParseStar(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 
 	mdAdvance(s, lexer)
 	mdMarkEnd(s, lexer)
-	starCount := uint16(1)
+	starCount := 1
 	extraIndent := uint8(0)
 	for {
 		if lexer.Lookahead() == '*' {
@@ -742,7 +762,7 @@ func mdParseStar(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 	dontInterrupt := false
 	if starCount == 1 && lineEnd {
 		extraIndent = 1
-		dontInterrupt = s.matched == uint8(len(s.openBlocks))
+		dontInterrupt = int(s.matched) == len(s.openBlocks)
 	}
 	thematicBreak := starCount >= 3 && lineEnd
 	listMarkerStar := starCount >= 1 && extraIndent >= 1
@@ -772,7 +792,7 @@ func mdParseStar(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 			s.indentation = extraIndent
 			extraIndent = tmp
 		}
-		mdPushBlock(s, mdBlock(uint8(mdListItem)+extraIndent))
+		mdPushBlock(s, mdBlock(uint32(mdListItem)+uint32(extraIndent)))
 		lexer.SetResultSymbol(sym)
 		return true
 	}
@@ -784,7 +804,7 @@ func mdParseThematicBreakUnderscore(s *mdState, lexer *gotreesitter.ExternalLexe
 
 	mdAdvance(s, lexer)
 	mdMarkEnd(s, lexer)
-	count := uint16(1)
+	count := 1
 	for {
 		if lexer.Lookahead() == '_' {
 			count++
@@ -839,7 +859,7 @@ func mdParseAtxHeading(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbo
 }
 
 func mdParseSetextUnderline(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
-	if validSymbols[mdTokSetextH1Underline] && s.matched == uint8(len(s.openBlocks)) {
+	if validSymbols[mdTokSetextH1Underline] && int(s.matched) == len(s.openBlocks) {
 		mdMarkEnd(s, lexer)
 		for lexer.Lookahead() == '=' {
 			mdAdvance(s, lexer)
@@ -922,7 +942,7 @@ func mdParsePlus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 				extraIndent = 1
 				dontInterrupt = true
 			}
-			dontInterrupt = dontInterrupt && s.matched == uint8(len(s.openBlocks))
+			dontInterrupt = dontInterrupt && int(s.matched) == len(s.openBlocks)
 			tok := mdTokListMarkerPlus
 			sym := syms[mdTokListMarkerPlus]
 			if dontInterrupt {
@@ -940,7 +960,7 @@ func mdParsePlus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []b
 					s.indentation = extraIndent
 					extraIndent = tmp
 				}
-				mdPushBlock(s, mdBlock(uint8(mdListItem)+extraIndent))
+				mdPushBlock(s, mdBlock(uint32(mdListItem)+uint32(extraIndent)))
 				return true
 			}
 		}
@@ -953,7 +973,7 @@ func mdParseOrderedListMarker(s *mdState, lexer *gotreesitter.ExternalLexer, val
 
 	if s.indentation <= 3 && (isValid(mdTokListMarkerParenthesis) || isValid(mdTokListMarkerDot) ||
 		isValid(mdTokListMarkerParenthesisDontInterrupt) || isValid(mdTokListMarkerDotDontInterrupt)) {
-		digits := uint16(1)
+		digits := 1
 		dontInterrupt := !mdIsDigit(lexer.Lookahead())
 		mdAdvance(s, lexer)
 		for mdIsDigit(lexer.Lookahead()) {
@@ -981,7 +1001,7 @@ func mdParseOrderedListMarker(s *mdState, lexer *gotreesitter.ExternalLexer, val
 					extraIndent = 1
 					dontInterrupt = true
 				}
-				dontInterrupt = dontInterrupt && s.matched == uint8(len(s.openBlocks))
+				dontInterrupt = dontInterrupt && int(s.matched) == len(s.openBlocks)
 
 				var tok int
 				var sym gotreesitter.Symbol
@@ -1012,7 +1032,7 @@ func mdParseOrderedListMarker(s *mdState, lexer *gotreesitter.ExternalLexer, val
 						s.indentation = extraIndent
 						extraIndent = tmp
 					}
-					mdPushBlock(s, mdBlock(uint8(mdListItem)+extraIndent+uint8(digits)))
+					mdPushBlock(s, mdBlock(uint32(mdListItem)+uint32(extraIndent)+uint32(digits)))
 					return true
 				}
 			}
@@ -1029,7 +1049,7 @@ func mdParseMinus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []
 		mdMarkEnd(s, lexer)
 		wsAfterMinus := false
 		minusAfterWS := false
-		minusCount := uint16(0)
+		minusCount := 0
 		extraIndent := uint8(0)
 
 		for {
@@ -1057,10 +1077,10 @@ func mdParseMinus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []
 			extraIndent = 1
 			dontInterrupt = true
 		}
-		dontInterrupt = dontInterrupt && s.matched == uint8(len(s.openBlocks))
+		dontInterrupt = dontInterrupt && int(s.matched) == len(s.openBlocks)
 
 		thematicBreak := minusCount >= 3 && lineEnd
-		underline := minusCount >= 1 && !minusAfterWS && lineEnd && s.matched == uint8(len(s.openBlocks))
+		underline := minusCount >= 1 && !minusAfterWS && lineEnd && int(s.matched) == len(s.openBlocks)
 		listMarkerMinus := minusCount >= 1 && extraIndent >= 1
 		success := false
 
@@ -1094,7 +1114,7 @@ func mdParseMinus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []
 					s.indentation = extraIndent
 					extraIndent = tmp
 				}
-				mdPushBlock(s, mdBlock(uint8(mdListItem)+extraIndent))
+				mdPushBlock(s, mdBlock(uint32(mdListItem)+uint32(extraIndent)))
 				lexer.SetResultSymbol(sym)
 				return true
 			}
@@ -1110,7 +1130,7 @@ func mdParseMinus(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbols []
 				} else {
 					mdAdvance(s, lexer)
 				}
-				mc := uint16(0)
+				mc := 0
 				for lexer.Lookahead() == '-' {
 					mc++
 					mdAdvance(s, lexer)
@@ -1213,9 +1233,10 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 
 	var nameBuf [11]byte
 	nameLen := 0
-	for unicode.IsLetter(lexer.Lookahead()) {
+	// src/scanner.c:1009-1011: iswalpha and towlower are those of the C locale, which only know ASCII.
+	for cIsAlpha(lexer.Lookahead()) {
 		if nameLen < 10 {
-			nameBuf[nameLen] = byte(unicode.ToLower(lexer.Lookahead()))
+			nameBuf[nameLen] = byte(lexer.Lookahead()) | 0x20 // ASCII letters only
 			nameLen++
 		} else {
 			nameLen = 12
@@ -1271,7 +1292,8 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 	}
 
 	if !tagClosed {
-		for unicode.IsLetter(lexer.Lookahead()) || unicode.IsDigit(lexer.Lookahead()) || lexer.Lookahead() == '-' {
+		// :1072 iswalnum, C locale
+		for cIsAlnum(lexer.Lookahead()) || lexer.Lookahead() == '-' {
 			mdAdvance(s, lexer)
 		}
 		if !startingSlash {
@@ -1291,12 +1313,12 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 				if !hadWS {
 					return false
 				}
-				if !unicode.IsLetter(lexer.Lookahead()) && lexer.Lookahead() != '_' && lexer.Lookahead() != ':' {
+				if !cIsAlpha(lexer.Lookahead()) && lexer.Lookahead() != '_' && lexer.Lookahead() != ':' {
 					return false
 				}
 				hadWS = false
 				mdAdvance(s, lexer)
-				for unicode.IsLetter(lexer.Lookahead()) || unicode.IsDigit(lexer.Lookahead()) ||
+				for cIsAlnum(lexer.Lookahead()) ||
 					lexer.Lookahead() == '_' || lexer.Lookahead() == '.' ||
 					lexer.Lookahead() == ':' || lexer.Lookahead() == '-' {
 					mdAdvance(s, lexer)
@@ -1362,7 +1384,7 @@ func mdParseHTMLBlock(s *mdState, lexer *gotreesitter.ExternalLexer, validSymbol
 
 func mdParsePipeTable(s *mdState, lexer *gotreesitter.ExternalLexer, _ []bool, syms *[mdTokenCount]gotreesitter.Symbol) bool {
 	mdMarkEnd(s, lexer)
-	cellCount := uint16(0)
+	cellCount := 0
 	startingPipe := false
 	endingPipe := false
 	if lexer.Lookahead() == '|' {
@@ -1421,7 +1443,7 @@ func mdParsePipeTable(s *mdState, lexer *gotreesitter.ExternalLexer, _ []bool, s
 		}
 	}
 
-	delimCellCount := uint16(0)
+	delimCellCount := 0
 	if lexer.Lookahead() == '|' {
 		mdAdvance(s, lexer)
 	}
@@ -1480,10 +1502,10 @@ func mdIsDigit(ch rune) bool {
 	return ch >= '0' && ch <= '9'
 }
 
-func mdIsPunctuation(ch rune) bool {
+// mdIsPunctuation is is_punctuation (src/scanner.c:91-94), whose argument is a char: the
+// callers pass lexer->lookahead, so only its low eight bits count, as a signed number.
+func mdIsPunctuation(la rune) bool {
+	ch := rune(int8(la))
 	return (ch >= '!' && ch <= '/') || (ch >= ':' && ch <= '@') ||
 		(ch >= '[' && ch <= '`') || (ch >= '{' && ch <= '~')
 }
-
-// Ensure string comparison helper is available.
-var _ = strings.ToLower

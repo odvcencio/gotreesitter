@@ -1,0 +1,5 @@
+{
+@@repeat
+    foo = "a"
+@@end
+}

@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // SupportsCheckpointReadDependencies certifies the raw-string scanner's
@@ -59,6 +60,17 @@ var cppExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(cppExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls) with the
+	// C-faithful mode on, on the safe-state runs: the pinned C scanner corrupts its own heap
+	// on a forged saved state longer than its 16-character delimiter (scanner.c:132-140).
+	scanmode.RegisterScanner(CppExternalScanner{}, (*cppState)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(CppExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(CppExternalScanner), right.(CppExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // CppExternalScanner handles C++ R"delim(...)delim" raw string literals. It
@@ -98,9 +110,21 @@ func (s CppExternalScanner) symbolTable() *[cppTokenCount]gotreesitter.Symbol {
 	return &s.symbols
 }
 
-func (CppExternalScanner) Create() any         { return rawStringCreate() }
+// cppState is the payload of the cpp scanner: the raw-string delimiter shared
+// with the other raw-string scanners, and the C-faithful mode (internal/scanmode)
+// that the core turns on.
+type cppState struct {
+	scanmode.Flag
+	rawStringState
+}
+
+func (CppExternalScanner) Create() any         { return &cppState{} }
 func (CppExternalScanner) Destroy(payload any) {}
 func (CppExternalScanner) Serialize(payload any, buf []byte) int {
+	if st := payload.(*cppState); st.On() {
+		return cppSerializeC(&st.rawStringState, buf)
+	}
+	payload = &payload.(*cppState).rawStringState
 	// A leading format byte distinguishes a complete empty state from an
 	// absent checkpoint. Refuse a short buffer rather than truncate a state.
 	size := 1
@@ -118,6 +142,11 @@ func (CppExternalScanner) Serialize(payload any, buf []byte) int {
 	return n
 }
 func (CppExternalScanner) Deserialize(payload any, buf []byte) {
+	if st := payload.(*cppState); st.On() {
+		cppDeserializeC(&st.rawStringState, buf)
+		return
+	}
+	payload = &payload.(*cppState).rawStringState
 	if len(buf) > 0 && buf[0] == 1 {
 		rawStringDeserialize(payload, buf[1:])
 	} else {
@@ -146,7 +175,10 @@ func (s CppExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		validSymbols = semanticValid[:]
 	}
 	syms := s.symbolTable()
-	return rawStringScan(payload, lexer, validSymbols,
+	if st := payload.(*cppState); st.On() {
+		return cppScanC(&st.rawStringState, lexer, validSymbols, syms[cppTokRawStringDelimiter], syms[cppTokRawStringContent])
+	}
+	return rawStringScan(&payload.(*cppState).rawStringState, lexer, validSymbols,
 		cppTokRawStringDelimiter, cppTokRawStringContent,
 		syms[cppTokRawStringDelimiter], syms[cppTokRawStringContent])
 }
