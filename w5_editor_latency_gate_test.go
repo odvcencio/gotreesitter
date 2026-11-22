@@ -1361,3 +1361,330 @@ func TestGoCommentEditBoundaries(t *testing.T) {
 		})
 	}
 }
+
+// The editor loop of issue #454 on a certified grammar (CSS at 137 KB), in the
+// two shapes an editor can use:
+//
+//   - inplace: Edit the highlighted tree, which the highlight query has read,
+//     then reparse from it;
+//   - copy: keep the highlighted tree untouched, Edit a Copy of it, and reparse
+//     from the copy.
+//
+// Each keystroke is timed in its stages (copy, edit, reparse, highlight,
+// release), and the Go node headers made in each stage are counted, with the
+// route that served the reparse. The highlight is the language's own highlight
+// query, either over the whole tree ("full") or over the top-level blocks the
+// edit touches after a walk of the top-level children ("block"), which is the
+// shape of the editor in the report.
+//
+//	go test -run '^$' -bench BenchmarkCcoreEditorLoop -benchtime 200x .
+
+// ccoreEditorCSSSize is the size of the documents in the #454 report (137 KB).
+const ccoreEditorCSSSize = 137 << 10
+
+// ccoreEditorCSS builds a stylesheet of at least n bytes from a few rule shapes:
+// custom properties, compound and attribute selectors, pseudo-classes, media
+// queries, comments, strings, functions and !important. letters are offsets
+// inside a class name, where an inserted letter keeps the text valid; newlines
+// are offsets just after a declaration's semicolon, where an inserted newline
+// keeps it valid.
+func ccoreEditorCSS(n int) (src []byte, letters, newlines []int) {
+	var b strings.Builder
+	b.Grow(n + 512)
+	b.WriteString("/* Synthetic stylesheet for the editor loop benchmark. */\n")
+	b.WriteString(":root {\n  --brand: #336699;\n  --gap: 8px;\n  --font: \"Inter\", sans-serif;\n}\n\n")
+	for i := 0; b.Len() < n; i++ {
+		switch i % 5 {
+		case 0:
+			letters = append(letters, b.Len()+2) // ".c|ard-"
+			fmt.Fprintf(&b, ".card-%d > .title:hover {\n  color: var(--brand);", i)
+			newlines = append(newlines, b.Len())
+			fmt.Fprintf(&b, "\n  margin: calc(var(--gap) * %d) 0;\n  font-family: var(--font);\n}\n\n", i%7+1)
+		case 1:
+			letters = append(letters, b.Len()+6) // "nav .l|ink"
+			fmt.Fprintf(&b, "nav .link-%d[data-state=\"open\"],\nnav .link-%d:focus-visible {\n  outline: 2px solid #%06x;", i, i, (uint32(i)*2654435761)&0xffffff)
+			newlines = append(newlines, b.Len())
+			b.WriteString("\n  padding: 4px 8px !important;\n}\n\n")
+		case 2:
+			fmt.Fprintf(&b, "@media (min-width: %dpx) {\n  ", 480+i%5*160)
+			letters = append(letters, b.Len()+2) // ".g|rid-"
+			fmt.Fprintf(&b, ".grid-%d {\n    display: grid;", i)
+			newlines = append(newlines, b.Len())
+			fmt.Fprintf(&b, "\n    grid-template-columns: repeat(%d, 1fr);\n  }\n}\n\n", i%6+2)
+		case 3:
+			fmt.Fprintf(&b, "/* section %d */\n", i)
+			letters = append(letters, b.Len()+2) // ".b|tn-"
+			fmt.Fprintf(&b, ".btn-%d::before {\n  content: \"\\2014  item %d\";", i, i)
+			newlines = append(newlines, b.Len())
+			fmt.Fprintf(&b, "\n  background: url(\"img/icon-%d.svg\") no-repeat;\n  transition: opacity 0.%ds ease-in-out;\n}\n\n", i, i%9+1)
+		case 4:
+			letters = append(letters, b.Len()+8) // "#main .p|anel-"
+			fmt.Fprintf(&b, "#main .panel-%d:not(.hidden) {\n  border: 1px solid rgba(0, 0, 0, 0.%d);", i, i%9+1)
+			newlines = append(newlines, b.Len())
+			fmt.Fprintf(&b, "\n  transform: translate(%dpx, -%dpx) rotate(%ddeg);\n}\n\n", i%40, i%30, i%360)
+		}
+	}
+	return []byte(b.String()), letters, newlines
+}
+
+// ccoreEditorKey is keystroke k of the loop over cur: an insert at an even k,
+// the delete that undoes it at an odd k, so the document returns to the clean
+// source every second keystroke. Every fourth insert is a newline; the others are
+// a letter inside a class name. undo is the offset to delete at the next keystroke.
+func ccoreEditorKey(cur []byte, k int, letters, newlines []int, undo int) (next []byte, edit gts.InputEdit, nextUndo int) {
+	if k%2 == 1 {
+		at := undo
+		next = append(append([]byte(nil), cur[:at]...), cur[at+1:]...)
+		p0 := ccorePoint(cur, at)
+		return next, gts.InputEdit{StartByte: uint32(at), OldEndByte: uint32(at + 1), NewEndByte: uint32(at),
+			StartPoint: p0, OldEndPoint: ccorePoint(cur, at+1), NewEndPoint: p0}, -1
+	}
+	i := k / 2
+	if i%4 == 3 {
+		at := newlines[(i*7919)%len(newlines)]
+		next, edit = ccoreInsert(cur, at, '\n')
+		return next, edit, at
+	}
+	at := letters[(i*104729)%len(letters)]
+	next, edit = ccoreInsert(cur, at, 'x')
+	return next, edit, at
+}
+
+// ccoreEditorStage is one keystroke of the loop.
+type ccoreEditorStage struct {
+	copy, edit, reparse, highlight, release, total time.Duration
+	// Go node headers made in each stage (ccoreViewsMade).
+	hCopy, hEdit, hReparse, hHighlight int64
+	incr, fresh                        int64 // reparses the core served incrementally, fresh
+	fallbacks                          map[string]int64
+	conversions                        int64 // whole-tree conversions of a view tree during the edit
+	ranges                             int   // highlight ranges or matches
+}
+
+type ccoreEditorLoop struct {
+	tb       testing.TB
+	lang     *gts.Language
+	parser   *gts.Parser
+	hl       *gts.Highlighter
+	query    *gts.Query
+	mode     string // "copy" or "inplace"
+	hlMode   string // "full" or "block"
+	src      []byte
+	letters  []int
+	newlines []int
+	tree     *gts.Tree // the highlighted tree
+	k, undo  int
+}
+
+func newCcoreEditorLoop(tb testing.TB, mode, hlMode string) *ccoreEditorLoop {
+	tb.Helper()
+	entry := grammars.DetectLanguageByName("css")
+	if entry == nil || entry.Language() == nil {
+		tb.Fatal("css unavailable")
+	}
+	lang := entry.Language()
+	hl, err := entry.NewHighlighter()
+	if err != nil {
+		tb.Fatal(err)
+	}
+	q, err := gts.NewQuery(entry.HighlightQuery, lang)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	src, letters, newlines := ccoreEditorCSS(ccoreEditorCSSSize)
+	l := &ccoreEditorLoop{tb: tb, lang: lang, parser: gts.NewParser(lang), hl: hl, query: q, mode: mode, hlMode: hlMode,
+		src: src, letters: letters, newlines: newlines, undo: -1}
+	tree, err := l.parser.Parse(src)
+	if err != nil || !gts.CcoreTestFromCore(tree) {
+		tb.Fatalf("open: err %v, built by the core %v", err, gts.CcoreTestFromCore(tree))
+	}
+	gts.HighlighterTestTree(hl, tree) // the editor highlights the whole document when it opens it
+	l.tree = tree
+	return l
+}
+
+func ccoreViewsMadeNow() int64 { _, made, _ := gts.CcoreTestViewCounters(); return made }
+
+func ccoreConversionsNow() int64 {
+	_, _, conv := gts.CcoreTestViewCounters()
+	var n int64
+	for k, v := range conv {
+		if k != "root_only_edits" && k != "shortcut_reparses" {
+			n += v
+		}
+	}
+	return n
+}
+
+// step runs one keystroke and returns its stage times and counts.
+func (l *ccoreEditorLoop) step() ccoreEditorStage {
+	next, edit, undo := ccoreEditorKey(l.src, l.k, l.letters, l.newlines, l.undo)
+	l.k++
+	l.undo = undo
+	var s ccoreEditorStage
+	_, incr0 := gts.CcoreTestIncr()
+	_, fresh0 := gts.CcoreTestCounters()
+	fb0, _ := gts.CcoreTestIncr()
+	conv0 := ccoreConversionsNow()
+
+	t0 := time.Now()
+	h0 := ccoreViewsMadeNow()
+	old := l.tree
+	working := old
+	if l.mode == "copy" {
+		working = old.Copy()
+	}
+	t1 := time.Now()
+	h1 := ccoreViewsMadeNow()
+	working.Edit(edit)
+	t2 := time.Now()
+	h2 := ccoreViewsMadeNow()
+	s.conversions = ccoreConversionsNow() - conv0
+	tree, err := l.parser.ParseIncremental(next, working)
+	if err != nil {
+		l.tb.Fatal(err)
+	}
+	t3 := time.Now()
+	h3 := ccoreViewsMadeNow()
+	s.ranges = l.highlight(tree, edit)
+	t4 := time.Now()
+	h4 := ccoreViewsMadeNow()
+	if working != old {
+		working.Release()
+	}
+	old.Release()
+	t5 := time.Now()
+
+	s.copy, s.edit, s.reparse, s.highlight, s.release, s.total = t1.Sub(t0), t2.Sub(t1), t3.Sub(t2), t4.Sub(t3), t5.Sub(t4), t5.Sub(t0)
+	s.hCopy, s.hEdit, s.hReparse, s.hHighlight = h1-h0, h2-h1, h3-h2, h4-h3
+	fb1, incr1 := gts.CcoreTestIncr()
+	_, fresh1 := gts.CcoreTestCounters()
+	s.incr, s.fresh = incr1-incr0, fresh1-fresh0
+	for k, v := range fb1 {
+		if d := v - fb0[k]; d != 0 {
+			if s.fallbacks == nil {
+				s.fallbacks = map[string]int64{}
+			}
+			s.fallbacks[k] = d
+		}
+	}
+	l.tree, l.src = tree, next
+	return s
+}
+
+// highlight is the editor's highlight of the new tree: the whole tree, or a walk
+// of the top-level children (the editor matches each to its old colours by
+// position, symbol, length and child count) and the query over the blocks the
+// edit touches.
+func (l *ccoreEditorLoop) highlight(tree *gts.Tree, edit gts.InputEdit) int {
+	if l.hlMode == "full" {
+		return len(gts.HighlighterTestTree(l.hl, tree))
+	}
+	root := tree.RootNode()
+	n := 0
+	for i := 0; i < root.ChildCount(); i++ {
+		c := root.Child(i)
+		_, _, _ = c.Symbol(), c.EndByte()-c.StartByte(), c.ChildCount()
+		if c.EndByte() >= edit.StartByte && c.StartByte() <= edit.NewEndByte {
+			n += len(l.query.ExecuteNode(c, l.lang, tree.Source()))
+		}
+	}
+	return n
+}
+
+func (l *ccoreEditorLoop) close() {
+	if l.tree != nil {
+		l.tree.Release()
+		l.tree = nil
+	}
+}
+
+// TestCcoreEditorLoopRoutes checks what the benchmark measures, at 137 KB: the
+// copy path makes one header for the copy's root and none in the edit, and the
+// core serves its reparse incrementally; every incremental tree and its
+// highlight equal a fresh parse's. It logs the in-place path's counts, the
+// baseline that the sparse rebind of Tree.Edit is measured against.
+func TestCcoreEditorLoopRoutes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("137 KB editor loop skipped under -short")
+	}
+	for _, mode := range []string{"copy", "inplace"} {
+		for _, hlMode := range []string{"full", "block"} {
+			t.Run(mode+"/"+hlMode, func(t *testing.T) {
+				l := newCcoreEditorLoop(t, mode, hlMode)
+				defer l.close()
+				fresh := gts.NewParser(l.lang)
+				for k := 0; k < 8; k++ {
+					s := l.step()
+					if s.incr != 1 || s.fresh != 0 || len(s.fallbacks) != 0 {
+						t.Fatalf("key %d: served incr %d fresh %d, fallbacks %v; want one incremental reparse", k, s.incr, s.fresh, s.fallbacks)
+					}
+					if mode == "copy" && (s.hCopy != 1 || s.hEdit != 0 || s.conversions != 0) {
+						t.Fatalf("key %d: copy made %d headers, edit %d, conversions %d; want 1, 0, 0", k, s.hCopy, s.hEdit, s.conversions)
+					}
+					want, err := fresh.Parse(l.src)
+					if err != nil {
+						t.Fatal(err)
+					}
+					// The checks read a copy, so they make no view in the tree the next keystroke edits.
+					chk := l.tree.Copy()
+					if got, w := ccoreSExpr(chk, l.lang), ccoreSExpr(want, l.lang); got != w {
+						t.Fatalf("key %d: incremental tree differs from a fresh parse", k)
+					}
+					if got, w := fmt.Sprint(gts.HighlighterTestTree(l.hl, chk)), fmt.Sprint(gts.HighlighterTestTree(l.hl, want)); got != w {
+						t.Fatalf("key %d: highlight of the incremental tree differs from a fresh parse's", k)
+					}
+					chk.Release()
+					want.Release()
+					t.Logf("key %d: headers copy %d edit %d reparse %d highlight %d; conversions %d", k, s.hCopy, s.hEdit, s.hReparse, s.hHighlight, s.conversions)
+				}
+			})
+		}
+	}
+}
+
+// BenchmarkCcoreEditorLoop times one keystroke of the editor loop per op, by
+// stage. The metrics are means over b.N keystrokes, GC included in the stage
+// that ran when it struck.
+func BenchmarkCcoreEditorLoop(b *testing.B) {
+	for _, hlMode := range []string{"block", "full"} {
+		for _, mode := range []string{"inplace", "copy"} {
+			b.Run(hlMode+"/"+mode, func(b *testing.B) {
+				l := newCcoreEditorLoop(b, mode, hlMode)
+				defer l.close()
+				for k := 0; k < 4; k++ { // the first keystrokes after the open
+					l.step()
+				}
+				var sum ccoreEditorStage
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					s := l.step()
+					sum.copy += s.copy
+					sum.edit += s.edit
+					sum.reparse += s.reparse
+					sum.highlight += s.highlight
+					sum.release += s.release
+					sum.hCopy += s.hCopy
+					sum.hEdit += s.hEdit
+					sum.hReparse += s.hReparse
+					sum.hHighlight += s.hHighlight
+					sum.incr += s.incr
+					sum.fresh += s.fresh
+				}
+				b.StopTimer()
+				n := float64(b.N)
+				ms := func(d time.Duration) float64 { return float64(d) / 1e6 / n }
+				b.ReportMetric(ms(sum.copy), "copy-ms/op")
+				b.ReportMetric(ms(sum.edit), "edit-ms/op")
+				b.ReportMetric(ms(sum.reparse), "reparse-ms/op")
+				b.ReportMetric(ms(sum.highlight), "highlight-ms/op")
+				b.ReportMetric(ms(sum.release), "release-ms/op")
+				b.ReportMetric(float64(sum.hEdit)/n, "edit-headers/op")
+				b.ReportMetric(float64(sum.hCopy+sum.hEdit+sum.hReparse+sum.hHighlight)/n, "headers/op")
+				b.ReportMetric(float64(sum.incr)/n, "incr/op")
+				b.ReportMetric(float64(sum.fresh)/n, "fresh/op")
+			})
+		}
+	}
+}
