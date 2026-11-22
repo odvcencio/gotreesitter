@@ -32,8 +32,10 @@ const (
 	FactSignatures
 	// FactCallArguments selects direct call arguments, independently of FactCalls.
 	// It requires WithCallArgumentRules. JavaScript, TypeScript and TSX constructor
-	// arguments use the new_expression range and join no CallRef.
+	// arguments use the new_expression range, including when FactConstructorCalls is off.
 	FactCallArguments
+	// FactConstructorCalls emits JS, TS and TSX new expressions into Calls, independently of FactCalls.
+	FactConstructorCalls
 
 	// FactAll selects the original fact kinds. FactDeclarations is opt-in and
 	// intentionally excluded to preserve existing results.
@@ -85,9 +87,10 @@ const (
 	factRoleDefinitionName
 	factRoleCallName
 	factRoleCallTargetSkip
+	factOpConstructor
 )
 
-const factOperationMask = factDefinitionKindMask | factOpCall | factOpHeritage | factOpImport
+const factOperationMask = factDefinitionKindMask | factOpCall | factOpHeritage | factOpImport | factOpConstructor
 
 type factDefinitionKind uint16
 
@@ -133,9 +136,6 @@ func NewFactProgram(lang *Language, kinds FactKind) (*FactProgram, error) {
 func NewFactProgramWithOptions(lang *Language, kinds FactKind, opts ...FactProgramOption) (*FactProgram, error) {
 	if lang == nil {
 		return nil, fmt.Errorf("fact program: language is nil")
-	}
-	if unknown := kinds &^ (FactAll | FactDeclarations | FactSignatures | FactCallArguments); unknown != 0 {
-		return nil, fmt.Errorf("fact program: unknown fact-kind bits 0x%x", uint8(unknown))
 	}
 
 	program := &FactProgram{
@@ -344,6 +344,12 @@ func (p *FactProgram) compileInstruction(nodeType string) factInstruction {
 			instruction |= factRoleCallTargetSkip
 		}
 	}
+	if p.kinds&FactConstructorCalls != 0 && nodeType == "new_expression" {
+		switch p.language.Name {
+		case "javascript", "typescript", "tsx":
+			instruction |= factOpConstructor
+		}
+	}
 	if p.kinds&FactImports != 0 && factImportNodeType(p.importer, nodeType) {
 		instruction |= factOpImport
 	}
@@ -495,6 +501,9 @@ func (p *FactProgram) extractNode(n *Node, source []byte, importsActive bool, fa
 				appendHeritageForNodeWithSpan(span, n, p.language, source, &facts.Heritage)
 			}
 		}
+	}
+	if instruction&factOpConstructor != 0 {
+		facts.Calls = append(facts.Calls, constructorRef(n, p.language, source))
 	}
 	if instruction&factOpCall != 0 {
 		if ref, ok := p.callRef(n, source); ok {
@@ -705,7 +714,7 @@ func WithSignatureRules(rules []SignatureRule) FactProgramOption {
 
 // WithCallArgumentRules replaces argument rules when FactCallArguments is selected.
 // Ordinary call ranges join Calls even when FactCalls is off. Standalone
-// constructor arguments use the new_expression range and join no CallRef. With
+// constructor arguments use the new_expression range and can join FactConstructorCalls. With
 // the bit off, it retains no rows and adds no extraction pass.
 func WithCallArgumentRules(rules []CallArgumentRule) FactProgramOption {
 	return func(p *FactProgram) {

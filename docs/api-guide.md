@@ -247,7 +247,8 @@ TypeScript and TSX supply rows. Unsupported languages return no rows.
   Single arrow parameters, defaults and rest are supported. Destructured
   parameters use the pattern text as `Name`; all types remain empty.
 - `CallArguments` covers ordinary and optional calls and standalone constructor
-  arguments. Spread keeps its full wrapper range. Unmapped expressions use
+  arguments. Select `FactConstructorCalls` to join constructor arguments to
+  entries in `Calls` by their full site range. Spread keeps its full wrapper range. Unmapped expressions use
   `other`, including a constructor used as an argument.
 
 Local and conditional bindings, destructured declarations, class expressions,
@@ -288,8 +289,10 @@ container. TSX uses the same rows but excludes angle-bracket assertions, which
 conflict with JSX. JSX arguments keep their real node types and use `other`.
 
 `CallArguments` covers `call_expression` arguments. Type arguments (`f<T>(x)`)
-and tagged templates are not value arguments. `new` expressions are not
-`CallRef`s; their arguments are standalone facts with the constructor range.
+and tagged templates are not value arguments. Select `FactConstructorCalls`
+to emit `new` expressions as `CallRef`s with kind `constructor`. A static
+dotted target supplies the final name and receiver. A computed target supplies
+only the site. Constructor arguments use that same range with either selection.
 `spread_element` sets `Spread`.
 Besides the Go kinds, `object` and `array` literals use `composite_literal`,
 `as`, `satisfies` and `<T>x` use `type_assertion`, and `new X()` uses `call`.

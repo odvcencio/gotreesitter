@@ -56,13 +56,14 @@ type ParameterFact = syntaxfacts.ParameterFact
 // CallArgumentFact holds an argument in source order. CallStartByte/CallEndByte
 // join CallRef's range for ordinary calls, independently of FactCalls. JavaScript,
 // TypeScript and TSX constructor arguments instead use the new_expression range
-// and join no CallRef. Spread includes the ellipsis
+// and join a CallRef when FactConstructorCalls is selected. Spread includes the ellipsis
 // in its range and retains the wrapper NodeType while Kind describes its operand.
 // Calls with no arguments produce no entries.
 type CallArgumentFact = syntaxfacts.CallArgumentFact
 
 // CallRef is a compact language-neutral call-site reference extracted from a
-// syntax tree.
+// syntax tree. Kind "constructor" denotes an ECMAScript new expression. Dynamic
+// constructors retain the site range with an empty name, receiver and name range.
 type CallRef struct {
 	Lang          string
 	Kind          string
@@ -275,6 +276,42 @@ func callRefForNode(n *Node, lang *Language, source []byte) (CallRef, bool) {
 		NameStartByte: nameStart,
 		NameEndByte:   nameEnd,
 	}, true
+}
+
+// constructorRef records the site even when its target is computed at runtime.
+func constructorRef(n *Node, lang *Language, source []byte) CallRef {
+	ref := CallRef{Lang: lang.Name, Kind: "constructor", NodeType: "new_expression", StartByte: n.StartByte(), EndByte: n.EndByte()}
+	target := n.ChildByFieldName("constructor", lang)
+	if target == nil {
+		return ref
+	}
+	name := target
+	switch target.Type(lang) {
+	case "identifier":
+	case "member_expression":
+		name = target.ChildByFieldName("property", lang)
+		object := target.ChildByFieldName("object", lang)
+		if name == nil || name.Type(lang) != "property_identifier" || object == nil {
+			return ref
+		}
+		base := object
+		for base != nil && base.Type(lang) == "member_expression" {
+			base = base.ChildByFieldName("object", lang)
+		}
+		if base == nil {
+			return ref
+		}
+		switch base.Type(lang) {
+		case "identifier", "this", "super":
+		default:
+			return ref
+		}
+		ref.Receiver = object.Text(source)
+	default:
+		return ref
+	}
+	ref.Name, ref.NameStartByte, ref.NameEndByte = name.Text(source), name.StartByte(), name.EndByte()
+	return ref
 }
 
 func isCallNode(langName, nodeType string) bool {
