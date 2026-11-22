@@ -711,7 +711,13 @@ func (p *Parser) ccoreEligibleFor(kind ccoreSource) bool {
 	if kind == ccoreSourceStream {
 		modes = sched.TokenSource
 	}
-	return sched.Supports(sched.Request{Modes: modes | p.schedImpliedModes(modes, nil)})
+	modes |= p.schedImpliedModes(modes, nil)
+	if kind == ccoreSourceDFA {
+		// The core can meet this mode through a range certificate. Leave the
+		// compact engine and the scan-provider routes on their own policy.
+		modes &^= sched.IncludedRanges
+	}
+	return sched.Supports(sched.Request{Modes: modes})
 }
 
 // Decline reasons. Each is counted in ccoreDeclines.
@@ -877,7 +883,7 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	}
 	a.sha = sha
 	switch {
-	case len(p.included) > 0: // the core does not apply included ranges
+	case len(p.included) > 0 && (lang.ExternalScanner != nil || len(p.ccoreIncluded) != len(p.included)):
 		return a, ccoreDeclIncludedRanges, false
 	case p.hasActiveParseObservability() || p.compactCertificationTelemetry:
 		return a, ccoreDeclObserver, false
@@ -954,6 +960,9 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	}
 	if have&need != need {
 		return a, ccoreDeclModeMissing, false
+	}
+	if len(p.included) > 0 && have&ccoreModeRanges == 0 {
+		return a, ccoreDeclIncludedRanges, false
 	}
 	a.modes = have
 	a.binding = st.token
@@ -2323,7 +2332,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		tableScan = ccore.NewTableScan(st.base, source)
 		scan = tableScan
 	}
-	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan)
+	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan, p.ccoreIncluded)
 	if tableScan != nil {
 		ccoreProviderScans.Add(int64(tableScan.Calls()))
 	}
@@ -2353,6 +2362,16 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	// conversion reserves its own arrays in the same ledger, on top of the core's.
 	var end ccoreConvEnd
 	converting = true
+	var included []Range
+	if len(p.included) > 0 {
+		var ok bool
+		included, ok = ccore.Make[Range](cp.Ledger(), len(p.included))
+		if !ok {
+			ccoreStopDecline(stopped)
+			return nil, false, false
+		}
+		copy(included, p.included)
+	}
 	var built *Tree
 	var tooDeep bool
 	if ccoreViewsOn.Load() {
@@ -2373,6 +2392,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		return nil, false, false
 	}
 	retained = true
+	built.includedRanges = included
 	if cp.ShortcutTaken() {
 		ccoreShortcutReparses.Add(1)
 	}
@@ -2383,6 +2403,9 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	rt.StopReason = ParseStopAccepted
 	rt.SourceLen = uint32(len(source))
 	rt.ExpectedEOFByte = uint32(len(source))
+	if n := len(included); n != 0 {
+		rt.ExpectedEOFByte = included[n-1].EndByte
+	}
 	if root := built.root; root != nil {
 		rt.RootEndByte = root.endByte
 	}
@@ -2478,8 +2501,12 @@ func (p *Parser) ccoreFirstFresh(source []byte) (*Tree, bool) {
 }
 
 // ccoreParseCore parses with an optional old core tree.
-func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore.ScanProvider) (ct *ccore.Tree, stop string, resultErr bool) {
-	ct, stop = cp.ParseWithScan(source, old, scan)
+func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore.ScanProvider, included []ccore.Range) (ct *ccore.Tree, stop string, resultErr bool) {
+	if len(included) != 0 {
+		ct, stop = cp.ParseWithIncluded(source, old, included)
+	} else {
+		ct, stop = cp.ParseWithScan(source, old, scan)
+	}
 	if stop != "" || ct == nil || ct.Root() == 0 {
 		return ct, stop, false
 	}
@@ -2626,6 +2653,9 @@ func (p *Parser) ccoreOldFor(adm ccoreAdmission, old *Tree, source []byte) (*cco
 	if old == nil || old.released {
 		return nil, ccoreIncrReleased
 	}
+	if len(old.includedRanges) > 0 && adm.modes&ccoreModeRanges == 0 {
+		return nil, ccoreIncrNotCertified
+	}
 	st := old.ccoreStateOf()
 	if st == nil || st.ct == nil {
 		return nil, ccoreIncrForeign
@@ -2650,6 +2680,21 @@ func (p *Parser) ccoreOldFor(adm ccoreAdmission, old *Tree, source []byte) (*cco
 		return nil, ccoreIncrOldHasError
 	}
 	return st.ct, -1
+}
+
+// ccoreRangesOf translates the parser's normalized ranges at configuration
+// time. Parse requests can borrow them without allocating an adapter slice.
+func ccoreRangesOf(ranges []Range) []ccore.Range {
+	if len(ranges) == 0 {
+		return nil
+	}
+	out := make([]ccore.Range, len(ranges))
+	for i, r := range ranges {
+		out[i] = ccore.Range{StartByte: r.StartByte, EndByte: r.EndByte,
+			StartRow: r.StartPoint.Row, StartCol: r.StartPoint.Column,
+			EndRow: r.EndPoint.Row, EndCol: r.EndPoint.Column}
+	}
+	return out
 }
 
 // ccoreEditOf is a public edit as the core's edit.

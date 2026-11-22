@@ -13,18 +13,20 @@ package ccore
 
 import (
 	"runtime"
+	"slices"
 	"sync/atomic"
 )
 
 // cell is the owner of one root: one count in the store's cell count.
 type cell struct {
-	store    *storeCore
-	gen      uint64
-	root     atomic.Uint64
-	released atomic.Bool
-	editing  bool          // an Edit is running on this cell (guarded by store.mu); a release then leaves the queueing of its entry to the Edit's commit
-	deferred bool          // drop met a running Edit and did not queue the release of the root; Edit queues it at its commit (guarded by store.mu)
-	shortcut *shortcutMemo // guarded by store.mu
+	store          *storeCore
+	gen            uint64
+	root           atomic.Uint64
+	released       atomic.Bool
+	editing        bool          // an Edit is running on this cell (guarded by store.mu); a release then leaves the queueing of its entry to the Edit's commit
+	deferred       bool          // drop met a running Edit and did not queue the release of the root; Edit queues it at its commit (guarded by store.mu)
+	shortcut       *shortcutMemo // guarded by store.mu
+	includedRanges []Range       // immutable backing, guarded by store.mu
 }
 
 // Tree is a parse result: a root in a store. Readers of a published tree take
@@ -65,6 +67,7 @@ func (cl *cell) drop() bool {
 		cl.shortcut.base = 0
 	}
 	cl.shortcut = nil
+	cl.includedRanges = nil
 	if cl.editing {
 		// A running Edit reads the records of this root. Queueing their release
 		// now could let a drain on another goroutine free them under the edit, so
@@ -202,8 +205,8 @@ func (t *Tree) Release() {
 // Copy returns a tree with the same root (C ts_tree_copy). It queues one
 // retain of the root. Copy may run while other goroutines read this Tree value
 // (the reader contract is at Reader); it is the way to get a Tree of one's own
-// for reading while another goroutine edits or releases this one. C also copies the included ranges because Edit rewrites
-// them (C/tree.c:21-22, 98-100); this core keeps no included ranges.
+// for reading while another goroutine edits or releases this one. The range
+// snapshot is immutable and may be shared. An edit installs a new snapshot.
 func (t *Tree) Copy() *Tree {
 	c := t.c.store
 	c.mu.Lock() // the test of released, the read of the root and the queued retain are one section
@@ -215,6 +218,7 @@ func (t *Tree) Copy() *Tree {
 	n := &Tree{c: c.newCell(root), rd: t.rd}
 	n.rd.owner = n.c
 	n.c.gen = t.c.gen
+	n.c.includedRanges = t.c.includedRanges
 	c.pending = append(c.pending, op{kind: opRetain, h: root, gen: t.c.gen})
 	if t.c.shortcut != nil {
 		memo := *t.c.shortcut
@@ -225,6 +229,14 @@ func (t *Tree) Copy() *Tree {
 	}
 	runtime.KeepAlive(t) // t's finalizer must not run before the retain is queued
 	return n
+}
+
+// IncludedRanges returns an owned copy of the explicit ranges of this tree.
+func (t *Tree) IncludedRanges() []Range {
+	c := t.c.store
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(t.c.includedRanges)
 }
 
 // Edit is C ts_tree_edit (lifetime.go, step 6). It copies the records on the edit
@@ -313,6 +325,7 @@ func (t *Tree) edit(e Edit, led *Ledger, counted, releasedMeanwhile *bool) {
 			return
 		}
 	}
+	included := cl.includedRanges
 	cl.editing = true
 	c.cells.Add(1)
 	*counted = true
@@ -363,19 +376,23 @@ func (t *Tree) edit(e Edit, led *Ledger, counted, releasedMeanwhile *bool) {
 	s.syncLocked()
 	c.mu.Unlock()
 	c.fire("edit")
-	armed = true // from the first allocation until the commit has published the ownership, a failure poisons the store
-	root, created := s.subtreeEdit(&editor{s: s, edit: true}, old, editRange{
+	span := editRange{
 		start:  Length{bytes: e.StartByte, row: e.StartRow, col: e.StartCol},
 		oldEnd: Length{bytes: e.OldEndByte, row: e.OldEndRow, col: e.OldEndCol},
 		newEnd: Length{bytes: e.NewEndByte, row: e.NewEndRow, col: e.NewEndCol},
-	})
+	}
+	if len(included) > 0 {
+		included = editIncludedRanges(included, span, led)
+	}
+	armed = true // from the first subtree allocation until publication, a failure poisons the store
+	root, created := s.subtreeEdit(&editor{s: s, edit: true}, old, span)
 	t.lastEdit = len(created)
 	var ops []op
 	if root != old {
 		c.fire("edit-retain")
 		ops = s.retainEdited(created, cl.gen)
 	}
-	t.commitEdit(old, root, ops, e, releasedMeanwhile, &committed)
+	t.commitEdit(old, root, ops, span, included, releasedMeanwhile, &committed)
 }
 
 // commitEdit is the end of an edit: in one section of the short mutex it queues
@@ -383,7 +400,7 @@ func (t *Tree) edit(e Edit, led *Ledger, counted, releasedMeanwhile *bool) {
 // is deferred, so a failure inside leaves the mutex free; *committed is set last,
 // after everything is published, so a failure before that point is handled as a
 // failed edit (poisoned store, editing mark cleared) by the caller's defer.
-func (t *Tree) commitEdit(old, root Handle, ops []op, edit Edit, releasedMeanwhile, committed *bool) {
+func (t *Tree) commitEdit(old, root Handle, ops []op, edit editRange, included []Range, releasedMeanwhile, committed *bool) {
 	c, cl, s := t.c.store, t.c, &t.rd
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -394,7 +411,7 @@ func (t *Tree) commitEdit(old, root Handle, ops []op, edit Edit, releasedMeanwhi
 		m.edits++
 		if m.edits == 1 && root != old {
 			m.base = old
-			m.edit = editRange{start: Length{bytes: edit.StartByte, row: edit.StartRow, col: edit.StartCol}, oldEnd: Length{bytes: edit.OldEndByte, row: edit.OldEndRow, col: edit.OldEndCol}, newEnd: Length{bytes: edit.NewEndByte, row: edit.NewEndRow, col: edit.NewEndCol}}
+			m.edit = edit
 			keepOld = true
 		} else {
 			if m.base != 0 {
@@ -416,6 +433,9 @@ func (t *Tree) commitEdit(old, root Handle, ops []op, edit Edit, releasedMeanwhi
 	}
 	c.pending = append(c.pending, ops...)
 	s.syncLocked()
+	if !meanwhile {
+		cl.includedRanges = included
+	}
 	if root != old && !meanwhile {
 		cl.root.Store(uint64(root))
 	}

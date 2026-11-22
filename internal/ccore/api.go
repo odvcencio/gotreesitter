@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"io"
 	"runtime"
+	"slices"
 )
 
 // Parse parses src from scratch into a new store (C ts_parser_parse with no
@@ -15,13 +16,17 @@ import (
 // stopped; a parse that stopped returns no tree.
 func (p *Parser) Parse(src []byte) (*Tree, string) { return p.ParseWith(src, nil) }
 
-// ParseIncluded parses selected source ranges from scratch. Ranges must be
-// sorted by byte with no overlap, as with ts_parser_set_included_ranges.
-// External scanners and old-tree reuse require their own range integration
-// before the root adapter can expose this path.
+// ParseIncluded parses selected source ranges from scratch.
 func (p *Parser) ParseIncluded(src []byte, ranges []Range) (*Tree, string) {
+	return p.ParseWithIncluded(src, nil, ranges)
+}
+
+// ParseWithIncluded applies ranges to a fresh or incremental parse. Ranges must
+// be sorted and non-overlapping. The old tree already reflects all source edits.
+// A nil or empty list includes the entire source, even when old used ranges.
+func (p *Parser) ParseWithIncluded(src []byte, old *Tree, ranges []Range) (*Tree, string) {
 	if len(ranges) == 0 {
-		return p.Parse(src)
+		return p.ParseWith(src, old)
 	}
 	if p.scanner != nil {
 		return nil, "included ranges require external scanner integration"
@@ -35,7 +40,7 @@ func (p *Parser) ParseIncluded(src []byte, ranges []Range) (*Tree, string) {
 	}
 	p.includedRanges = ranges
 	defer func() { p.includedRanges = nil }()
-	return p.Parse(src)
+	return p.ParseWith(src, old)
 }
 
 // ParseWith parses src, reusing the edited old tree when old is not nil (C
@@ -150,6 +155,7 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 	}
 	c.fire("parse-start")
 	var oldRoot Handle
+	var oldIncluded []Range
 	var oldShortcutBytes int64
 	if old != nil {
 		// The released flag, the root and the page-table headers are captured
@@ -159,7 +165,8 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 		c.mu.Lock()
 		released := old.c.released.Load()
 		oldRoot = Handle(old.c.root.Load())
-		if old.c.shortcut != nil {
+		oldIncluded = old.c.includedRanges
+		if p.includedRanges == nil && old.c.shortcut != nil {
 			oldShortcutBytes = int64(len(old.c.shortcut.src)) + sizeOf[shortcutMemo]()
 			if p.shortcutOn {
 				p.shortcutMemo = *old.c.shortcut
@@ -173,9 +180,34 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 		if oldShortcutBytes != 0 && p.led.Active() && !p.led.Reserve(oldShortcutBytes) {
 			return nil, stopProgress
 		}
+		if len(oldIncluded) != 0 && p.led.Active() {
+			bytes, ok := sliceBytes[Range](len(oldIncluded))
+			if !ok || !p.led.Reserve(bytes) {
+				return nil, stopProgress
+			}
+		}
+		if !slices.Equal(oldIncluded, p.includedRanges) {
+			// At most one output span for each pair of the two lists'
+			// endpoints. Include one extra range for C's implicit full input.
+			differences, ok := MakeCap[Range](&p.led, len(oldIncluded)+len(p.includedRanges)+1)
+			if !ok {
+				return nil, stopProgress
+			}
+			p.includedDifferences = differences
+			rangeArrayChangedEffective(oldIncluded, p.includedRanges, &p.includedDifferences)
+		}
+	}
+	var included []Range
+	if len(p.includedRanges) > 0 {
+		var ok bool
+		included, ok = Make[Range](&p.led, len(p.includedRanges))
+		if !ok {
+			return nil, stopProgress
+		}
+		copy(included, p.includedRanges)
 	}
 	var nextMemo *shortcutMemo
-	if p.shortcutOn {
+	if p.shortcutOn && p.includedRanges == nil {
 		if p.led.Active() && !p.led.Reserve(sizeOf[shortcutMemo]()) {
 			return nil, stopProgress
 		}
@@ -200,6 +232,7 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 	}
 	t := &Tree{c: c.newCell(p.finished), rd: p.Store}
 	t.c.shortcut = nextMemo
+	t.c.includedRanges = included
 	t.rd.fresh, t.rd.logging, t.rd.led = false, false, nil
 	t.rd.owner = t.c
 	published = true
@@ -328,6 +361,8 @@ func (p *Parser) endParse(published bool) {
 // store alive).
 func (p *Parser) clearHandles() {
 	p.shortcutMemo = shortcutMemo{}
+	p.includedDifferences = nil
+	p.includedDifferenceIndex = 0
 	p.fresh, p.logging = false, false
 	p.finished = 0
 	p.cacheTok, p.cacheAt, p.ext.cacheLast = 0, 0, 0

@@ -197,3 +197,55 @@ func includedLexTransition(st *LexDFAState, ascii [][128]int32, state int32, ch 
 	}
 	return st.Default, false
 }
+
+// editIncludedRanges applies C get_changed_ranges.c:106 to each boundary.
+// The old backing is shared by Tree.Copy and may still be read by a parse.
+func editIncludedRanges(ranges []Range, edit editRange, led *Ledger) []Range {
+	if led != nil && led.Active() {
+		bytes, ok := sliceBytes[Range](len(ranges))
+		if !ok {
+			panic(ledgerStop{reason: reservationInvalid})
+		}
+		if reason := led.reserveClassified(bytes); reason != reservationOK {
+			panic(ledgerStop{reason: reason})
+		}
+	}
+	var edited []Range
+	for i, r := range ranges {
+		start := editIncludedPosition(NewLength(r.StartByte, r.StartRow, r.StartCol), edit)
+		end := NewLength(r.EndByte, r.EndRow, r.EndCol)
+		if end.bytes != ^uint32(0) {
+			end = editIncludedPosition(end, edit)
+		}
+		next := Range{StartByte: start.bytes, StartRow: start.row, StartCol: start.col, EndByte: end.bytes, EndRow: end.row, EndCol: end.col}
+		if edited == nil && next != r {
+			var unlimited Ledger
+			if led == nil {
+				led = &unlimited
+			}
+			edited = mk[Range](led, len(ranges))
+			copy(edited[:i], ranges[:i])
+		}
+		if edited != nil {
+			edited[i] = next
+		}
+	}
+	if edited == nil {
+		return ranges
+	}
+	return edited
+}
+
+func editIncludedPosition(position Length, e editRange) Length {
+	if position.bytes >= e.oldEnd.bytes {
+		updated := lenAdd(e.newEnd, lenSub(position, e.oldEnd))
+		if updated.bytes < e.newEnd.bytes {
+			return lengthMax
+		}
+		return updated
+	}
+	if position.bytes > e.start.bytes {
+		return e.start
+	}
+	return position
+}
