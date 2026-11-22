@@ -76,7 +76,10 @@ type CallRef struct {
 	NameEndByte   uint32
 }
 
-// HeritageRef is a compact language-neutral inheritance/base-class reference.
+// HeritageRef is a language-neutral inheritance/base-class reference.
+// In Python and ECMAScript, Parent is the written expression, including any
+// type arguments. ParentNodeType identifies its syntax (e.g. a call); it
+// does not identify a resolved symbol. Java leaves ParentNodeType empty.
 type HeritageRef struct {
 	Lang            string
 	Kind            string
@@ -87,6 +90,7 @@ type HeritageRef struct {
 	EndByte         uint32
 	ParentStartByte uint32
 	ParentEndByte   uint32
+	ParentNodeType  string `json:",omitempty"`
 }
 
 // ExtractDefinitionSpans returns language-neutral declaration spans for common
@@ -233,8 +237,10 @@ func definitionKind(langName, nodeType string) string {
 			return "function"
 		case "method_definition":
 			return "method"
-		case "class_declaration":
+		case "class_declaration", "abstract_class_declaration":
 			return "class"
+		case "interface_declaration":
+			return "interface"
 		}
 	}
 	return ""
@@ -408,9 +414,9 @@ func appendHeritageForNodeWithSpan(span DefinitionSpan, n *Node, lang *Language,
 	case "java":
 		appendJavaHeritage(span, n, source, refs)
 	case "python":
-		appendPythonHeritage(span, n, source, refs)
+		appendPythonHeritage(span, n, lang, source, refs)
 	case "javascript", "typescript", "tsx":
-		appendJavaScriptHeritage(span, n, source, refs)
+		appendECMAHeritage(span, n, lang, source, refs)
 	}
 }
 
@@ -423,34 +429,67 @@ func appendJavaHeritage(span DefinitionSpan, n *Node, source []byte, refs *[]Her
 	appendDelimitedHeritage(span, header, "implements", "implements", []string{"permits"}, n.StartByte(), refs)
 }
 
-func appendPythonHeritage(span DefinitionSpan, n *Node, source []byte, refs *[]HeritageRef) {
-	if span.Kind != "class" {
+func appendPythonHeritage(span DefinitionSpan, n *Node, lang *Language, source []byte, refs *[]HeritageRef) {
+	bases := n.ChildByFieldName("superclasses", lang)
+	if bases == nil {
 		return
 	}
-	header := declarationHeader(n.Text(source))
-	open := strings.IndexByte(header, '(')
-	if open < 0 {
-		return
-	}
-	close := findClosingParen(header, open)
-	if close < 0 {
-		return
-	}
-	for _, parent := range splitImportList(header[open+1 : close]) {
-		parent = strings.TrimSpace(parent)
-		if parent == "" || strings.Contains(parent, "=") {
+	for i := 0; i < bases.NamedChildCount(); i++ {
+		base := bases.NamedChild(i)
+		switch base.Type(lang) {
+		case "keyword_argument", "dictionary_splat":
 			continue
 		}
-		appendHeritageRef(span, "base", parent, header, n.StartByte(), refs)
+		appendHeritageExpression(span, "base", base, base, lang, source, refs)
 	}
 }
 
-func appendJavaScriptHeritage(span DefinitionSpan, n *Node, source []byte, refs *[]HeritageRef) {
-	if span.Kind != "class" {
+func appendECMAHeritage(span DefinitionSpan, n *Node, lang *Language, source []byte, refs *[]HeritageRef) {
+	for i := 0; i < n.NamedChildCount(); i++ {
+		clause := n.NamedChild(i)
+		switch clause.Type(lang) {
+		case "extends_type_clause":
+			appendHeritageList(span, "extends", clause, lang, source, refs)
+		case "class_heritage":
+			for j := 0; j < clause.NamedChildCount(); j++ {
+				part := clause.NamedChild(j)
+				switch part.Type(lang) {
+				case "extends_clause":
+					base := part.ChildByFieldName("value", lang)
+					end := part.ChildByFieldName("type_arguments", lang)
+					if end == nil {
+						end = base
+					}
+					appendHeritageExpression(span, "extends", base, end, lang, source, refs)
+				case "implements_clause":
+					appendHeritageList(span, "implements", part, lang, source, refs)
+				default:
+					// JavaScript puts its extends expression directly in class_heritage.
+					appendHeritageExpression(span, "extends", part, part, lang, source, refs)
+				}
+			}
+		}
+	}
+}
+
+func appendHeritageList(span DefinitionSpan, kind string, clause *Node, lang *Language, source []byte, refs *[]HeritageRef) {
+	for i := 0; i < clause.NamedChildCount(); i++ {
+		base := clause.NamedChild(i)
+		appendHeritageExpression(span, kind, base, base, lang, source, refs)
+	}
+}
+
+func appendHeritageExpression(span DefinitionSpan, kind string, base, end *Node, lang *Language, source []byte, refs *[]HeritageRef) {
+	if base == nil || end == nil || base.IsExtra() || base.IsError() || base.IsMissing() || end.IsMissing() {
 		return
 	}
-	header := declarationHeader(n.Text(source))
-	appendDelimitedHeritage(span, header, "extends", "extends", nil, n.StartByte(), refs)
+	startByte, endByte := base.StartByte(), end.EndByte()
+	*refs = append(*refs, HeritageRef{
+		Lang: span.Lang, Kind: kind, Name: span.Name, NodeType: span.NodeType,
+		StartByte: span.StartByte, EndByte: span.EndByte,
+		Parent: string(source[startByte:endByte]), ParentNodeType: base.Type(lang),
+		ParentStartByte: startByte, ParentEndByte: endByte,
+	})
 }
 
 func appendDelimitedHeritage(span DefinitionSpan, header, keyword, kind string, stopKeywords []string, baseByte uint32, refs *[]HeritageRef) {

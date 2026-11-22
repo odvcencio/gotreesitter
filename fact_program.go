@@ -407,7 +407,7 @@ func factDefinitionHasHeritage(langName string, kind factDefinitionKind) bool {
 	case "java":
 		return kind == factDefinitionClass || kind == factDefinitionInterface || kind == factDefinitionRecord
 	case "python", "javascript", "typescript", "tsx":
-		return kind == factDefinitionClass
+		return kind == factDefinitionClass || kind == factDefinitionInterface
 	default:
 		return false
 	}
