@@ -223,3 +223,24 @@ func (f funcScanner) Scan(src []byte, pos int, row, col uint32, prev []byte, val
 	return f.state.scan(src, pos, row, col, prev, valid, buf, out)
 }
 func (f funcScanner) Close() { f.state.close() }
+
+// NewRangedFuncScanner constructs a scanner with an included-range hook.
+func NewRangedFuncScanner(
+	scan func(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool,
+	scanIncluded func(src []byte, cursor ccore.ScannerCursor, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool,
+	close func(),
+) ccore.RangedExtScanner {
+	return rangedFuncScanner{
+		funcScanner:  funcScanner{state: &funcScannerState{scan: scan, close: close}},
+		scanIncluded: scanIncluded,
+	}
+}
+
+type rangedFuncScanner struct {
+	funcScanner
+	scanIncluded func(src []byte, cursor ccore.ScannerCursor, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool
+}
+
+func (f rangedFuncScanner) ScanIncluded(src []byte, cursor ccore.ScannerCursor, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool {
+	return f.scanIncluded(src, cursor, prev, valid, buf, out)
+}

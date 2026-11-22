@@ -883,7 +883,7 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	}
 	a.sha = sha
 	switch {
-	case len(p.included) > 0 && (lang.ExternalScanner != nil || len(p.ccoreIncludedRanges()) != len(p.included)):
+	case len(p.included) > 0 && len(p.ccoreIncludedRanges()) != len(p.included):
 		return a, ccoreDeclIncludedRanges, false
 	case p.hasActiveParseObservability() || p.compactCertificationTelemetry:
 		return a, ccoreDeclObserver, false

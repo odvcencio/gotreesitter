@@ -29,7 +29,9 @@ func (p *Parser) ParseWithIncluded(src []byte, old *Tree, ranges []Range) (*Tree
 		return p.ParseWith(src, old)
 	}
 	if p.scanner != nil {
-		return nil, "included ranges require external scanner integration"
+		if _, ok := p.scanner.(RangedExtScanner); !ok {
+			return nil, "external scanner does not support included ranges"
+		}
 	}
 	var previousEnd uint32
 	for _, r := range ranges {

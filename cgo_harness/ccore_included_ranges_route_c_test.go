@@ -14,18 +14,39 @@ import (
 )
 
 func TestCcoreIncludedRangesPublicRoutes(t *testing.T) {
-	lang := grammars.JsonLanguage()
-	src := []byte("xx[1, 2, 3]yy")
+	testCcoreIncludedRangesPublicRoutes(t, "json", grammars.JsonLanguage(), []byte("xx[1, 2, 3]yy"),
+		[][2]int{{2, 11}}, [][2]int{{2, 7}, {10, 11}})
+}
+
+func TestCcoreExternalScannerIncludedRangesPublicRoutes(t *testing.T) {
+	for _, grammar := range []struct {
+		name   string
+		load   func() *g.Language
+		chunks []string
+	}{
+		{"javascript", grammars.JavascriptLanguage, []string{"const t = \x60ab", "cd\x60; let n = 1;"}},
+		{"python", grammars.PythonLanguage, []string{"x = \x27\x27\x27ab", "cd\x27\x27\x27\ny = 2\n"}},
+	} {
+		t.Run(grammar.name, func(t *testing.T) {
+			source, spans := selectedScannerChunks("OMIT", grammar.chunks)
+			testCcoreIncludedRangesPublicRoutes(t, grammar.name, grammar.load(), source,
+				[][2]int{{0, len(source)}}, spans)
+		})
+	}
+}
+
+func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Language, src []byte, before, after [][2]int) {
+	t.Helper()
 	goRanges := func(spans [][2]int) []g.Range {
-		ranges := make([]g.Range, len(spans))
-		for i, span := range spans {
-			ranges[i] = g.Range{StartByte: uint32(span[0]), EndByte: uint32(span[1]),
-				StartPoint: g.Point{Column: uint32(span[0])}, EndPoint: g.Point{Column: uint32(span[1])}}
+		core, _ := coreAndCIncludedRanges(src, spans)
+		ranges := make([]g.Range, len(core))
+		for i, r := range core {
+			ranges[i] = g.Range{StartByte: r.StartByte, EndByte: r.EndByte,
+				StartPoint: g.Point{Row: r.StartRow, Column: r.StartCol}, EndPoint: g.Point{Row: r.EndRow, Column: r.EndCol}}
 		}
 		return ranges
 	}
-	before := [][2]int{{2, 11}}
-	after := [][2]int{{2, 7}, {10, 11}}
+
 	parser := g.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
 
@@ -41,14 +62,18 @@ func TestCcoreIncludedRangesPublicRoutes(t *testing.T) {
 		t.Fatal("the core served ranges without a range certificate")
 	}
 
-	restore, err := bindtest.CertifyForTests(certified.Fresh|certified.Recover|certified.Incr|certified.Ranges, nil, nil)
+	modes := uint8(certified.Fresh | certified.Recover | certified.Incr | certified.Ranges)
+	if lang.ExternalScanner != nil {
+		modes |= certified.Scan
+	}
+	restore, err := bindtest.CertifyForTests(modes, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer restore()
 	cp := sitter.NewParser()
 	defer cp.Close()
-	cl, err := COracleLanguage("json")
+	cl, err := COracleLanguage(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +99,8 @@ func TestCcoreIncludedRangesPublicRoutes(t *testing.T) {
 	}
 	defer old.Release()
 	assertLockedCTreeExact(t, "ranged fresh", old, lang, cOld)
-	if rt := old.ParseRuntime(); rt.ExpectedEOFByte != 11 || rt.RootEndByte != 11 {
+	expectedEOF := uint32(after[len(after)-1][1])
+	if rt := old.ParseRuntime(); rt.ExpectedEOFByte != expectedEOF || rt.RootEndByte != expectedEOF {
 		t.Fatalf("fresh range extent: %+v", rt)
 	}
 
@@ -95,7 +121,7 @@ func TestCcoreIncludedRangesPublicRoutes(t *testing.T) {
 	if fresh2-fresh1 != 1 || incr2-incr1 != 1 {
 		t.Fatalf("ccore served fresh=%d incremental=%d, want 1 each", fresh2-fresh1, incr2-incr1)
 	}
-	if rt := next.ParseRuntime(); !rt.IncrementalOldTreeReuseRoute || rt.ExpectedEOFByte != 11 {
+	if rt := next.ParseRuntime(); !rt.IncrementalOldTreeReuseRoute || rt.ExpectedEOFByte != expectedEOF {
 		t.Fatalf("incremental range attribution: %+v", rt)
 	}
 }

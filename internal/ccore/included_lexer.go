@@ -85,6 +85,43 @@ func (c *includedCursor) frontier() uint32 {
 	return uint32(min(end, uint64(^uint32(0))))
 }
 
+// ScannerCursor gives the scanner adapter the same range navigation as
+// the table lexer, without exposing the parser's mutable lexer state.
+type ScannerCursor struct{ includedCursor }
+
+// At starts a separate traversal from at, moving to the next range if
+// necessary. A scanner can use this to restore a saved cursor or read a column.
+func (c ScannerCursor) At(at Length) ScannerCursor {
+	if at == c.pos {
+		return c
+	}
+	if c.index < len(c.ranges) {
+		r := c.ranges[c.index]
+		if r.StartByte < at.bytes && at.bytes < r.EndByte {
+			c.pos = at
+			return c
+		}
+	}
+	return ScannerCursor{newIncludedCursor(c.src, c.ranges, at)}
+}
+
+func (c ScannerCursor) Position() Length { return c.pos }
+func (c ScannerCursor) EOF() bool        { return c.eof() }
+func (c ScannerCursor) MarkEnd() Length  { return c.markEnd() }
+func (c ScannerCursor) AtRangeStart() bool {
+	return !c.eof() && c.pos.bytes == c.ranges[c.index].StartByte
+}
+
+// Advance consumes one code point, then skips to the next selected range
+// when the current range ends. The width excludes the skipped gap.
+func (c *ScannerCursor) Advance() (rune, uint32) {
+	r, width := c.lookahead()
+	if width != 0 {
+		c.advance(r, width)
+	}
+	return r, width
+}
+
 // scanIncludedDFA walks the same tables as scanDFA with the range cursor.
 // Dispatch stays outside scanDFA so ordinary scanning keeps its ASCII run
 // loop. The second result distinguishes the end token from a skipped run.
