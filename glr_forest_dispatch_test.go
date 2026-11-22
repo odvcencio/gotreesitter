@@ -257,7 +257,12 @@ func TestForestExperimentalAppliesBashCompatibility(t *testing.T) {
 
 	src := []byte("url=`(curl -SsL https://registry.npmjs.org/npm/$t; echo \"\") \\\n     | sed -e 's/^.*tarball\":\"//' \\\n     | sed -e 's/\".*$//'`\n\nret=$?\n")
 	lang := grm.BashLanguage()
-	prod, err := gts.NewParser(lang).Parse(src)
+	// The certified core serves Bash by default and gives pinned C's tree, which keeps
+	// these two newline-separated assignments apart; the forest path's compatibility
+	// target is the present engine, so the comparison keeps the request off the core.
+	prodParser := gts.NewParser(lang)
+	prodParser.SetCompactCertificationTelemetry(true)
+	prod, err := prodParser.Parse(src)
 	if err != nil {
 		t.Fatalf("production parse: %v", err)
 	}
