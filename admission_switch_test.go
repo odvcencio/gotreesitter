@@ -5866,3 +5866,41 @@ func TestCoreScanJavaWrapperKeepsTheEOFExtraProof(t *testing.T) {
 		t.Fatalf("wrapped: %d streams, raw: %d; trees equal %v", wrapped, rawStreams, wd == rd)
 	}
 }
+
+// C and C++ mark their registered token source for the core scan provider, as
+// Java does. C's blob is certified, but its record lists no provider, so
+// LangEntry.Parse stays on the present engine: the tree is the one the unwrapped
+// source gives, and the core serves nothing and the provider answers no scan.
+func TestCoreScanCAndCppWithoutAGrantAreUnchanged(t *testing.T) {
+	for _, name := range []string{"c", "cpp"} {
+		t.Run(name, func(t *testing.T) {
+			entry := grammars.DetectLanguageByName(name)
+			if entry == nil || entry.TokenSourceFactory == nil {
+				t.Fatalf("%s has no registered token source factory", name)
+			}
+			lang := entry.Language()
+			src := []byte("#include <stdio.h>\nint main(void) {\n  int x = 1;\n  return x + 2;\n}\n")
+			raw, err := grammars.NewCTokenSource(src, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := gts.NewParser(lang).ParseWithTokenSource(src, raw)
+			if err != nil || want == nil {
+				t.Fatal(err)
+			}
+			defer want.Release()
+			gts.CcoreTestReset()
+			got, err := entry.Parse(src)
+			if err != nil || got == nil {
+				t.Fatal(err)
+			}
+			defer got.Release()
+			if served, scans := coreScanJavaCounts(); served != 0 || scans != 0 {
+				t.Fatalf("core serves %d, provider scans %d, want none", served, scans)
+			}
+			if ccoreWalkDigest(got, lang) != ccoreWalkDigest(want, lang) {
+				t.Fatal("LangEntry.Parse differs from the unwrapped source's tree")
+			}
+		})
+	}
+}
