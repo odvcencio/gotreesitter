@@ -5573,10 +5573,15 @@ func (t *Tree) Edit(edit InputEdit) {
 	}
 	if views := nodeViews(t.root); views != nil {
 		if v, ok := views.(*ccoreViews); ok {
-			if v.onlyRoot() && t.ccoreEdit(edit) {
+			rootOnly := v.onlyRoot() && t.ccoreEdit(edit)
+			if rootOnly {
 				v.refreshRoot()
 				ccoreViewRootEdits.Add(1)
-				if perfCountersEnabled { // the root-only path records the same edit counters as the path below
+			}
+			// With views below the root, the sparse rebind refreshes the headers
+			// that exist; the conversion below is what remains when it cannot.
+			if rootOnly || t.ccoreEditSparse(v, edit) {
+				if perfCountersEnabled { // these paths record the same edit counters as the path below
 					perfRecordNodeEditCall()
 					if inputEditIsNoop(edit) {
 						perfRecordNodeEditNoopCall()

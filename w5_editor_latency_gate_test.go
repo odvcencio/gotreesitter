@@ -1382,6 +1382,16 @@ func TestGoCommentEditBoundaries(t *testing.T) {
 // ccoreEditorCSSSize is the size of the documents in the #454 report (137 KB).
 const ccoreEditorCSSSize = 137 << 10
 
+// ccoreEditorTestSize is the size the tests of the editor loop use: 137 KB, and
+// 24 KB in a build with the race detector, where the root package's tests share
+// a time limit and what these tests check does not depend on the size.
+func ccoreEditorTestSize() int {
+	if raceEnabled {
+		return 24 << 10
+	}
+	return ccoreEditorCSSSize
+}
+
 // ccoreEditorCSS builds a stylesheet of at least n bytes from a few rule shapes:
 // custom properties, compound and attribute selectors, pseudo-classes, media
 // queries, comments, strings, functions and !important. letters are offsets
@@ -1491,7 +1501,11 @@ func newCcoreEditorLoop(tb testing.TB, mode, hlMode string) *ccoreEditorLoop {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	src, letters, newlines := ccoreEditorCSS(ccoreEditorCSSSize)
+	size := ccoreEditorCSSSize
+	if _, bench := tb.(*testing.B); !bench {
+		size = ccoreEditorTestSize()
+	}
+	src, letters, newlines := ccoreEditorCSS(size)
 	l := &ccoreEditorLoop{tb: tb, lang: lang, parser: gts.NewParser(lang), hl: hl, query: q, mode: mode, hlMode: hlMode,
 		src: src, letters: letters, newlines: newlines, undo: -1}
 	tree, err := l.parser.Parse(src)
@@ -1686,5 +1700,649 @@ func BenchmarkCcoreEditorLoop(b *testing.B) {
 				b.ReportMetric(float64(sum.fresh)/n, "fresh/op")
 			})
 		}
+	}
+}
+
+// ---- The sparse rebind of Tree.Edit (issue #454) ----
+//
+// Tree.Edit on a view tree with views below the root refreshes the headers that
+// exist from the edited core tree and makes none (ccoreEditSparse). The tests
+// below hold it to three things: no new header in the edit, the held nodes equal
+// to those of the path it replaces (the conversion, then the walk over Go
+// nodes), and the tree after the edit equal to the eager conversion of the
+// edited core tree. The reparse must be served incrementally and equal a fresh
+// parse, with the same highlight.
+
+// ccoreSparseSig is what an edit must keep right about a node.
+type ccoreSparseSig struct {
+	ok    bool
+	sym   gts.Symbol
+	r     gts.Range
+	named bool
+	kids  int
+}
+
+func ccoreSparseSigOf(n *gts.Node) ccoreSparseSig {
+	if n == nil {
+		return ccoreSparseSig{}
+	}
+	return ccoreSparseSig{true, n.Symbol(), n.Range(), n.IsNamed(), n.ChildCount()}
+}
+
+// ccoreSparseHeldDiffs compares each held node of the edited view tree with the
+// same node of the twin, which took the conversion: the node, and what
+// navigation from it reaches (parent, siblings, first and last child; for more
+// than 4,000 held nodes the navigation of every node of a stride, because a
+// sibling of a view costs the width of its parent). It returns the number of
+// nodes that differ and describes the first.
+//
+// boundary counts the differences of one known kind, which are not in diffs. The
+// walk over Go nodes that follows the conversion is not C's edit: when an edit
+// replaces text that starts exactly where a node ends, it moves that node's end
+// to the end of the new text, and C leaves the node as it is (the replaced text
+// is padding of the next node). The sparse rebind reads the core, so it gives
+// C's span.
+func ccoreSparseHeldDiffs(held, twin []*gts.Node, edit gts.InputEdit) (diffs, boundary int, first string) {
+	stride := 1
+	if len(held) > 4000 {
+		stride = len(held) / 2000
+	}
+	for i := range held {
+		a, b := held[i], twin[i]
+		bad, known := "", false
+		check := func(what string, x, y *gts.Node) bool {
+			sx, sy := ccoreSparseSigOf(x), ccoreSparseSigOf(y)
+			if sx == sy {
+				return true
+			}
+			if sx.ok && sy.ok && sx.sym == sy.sym && sx.named == sy.named && sx.kids == sy.kids &&
+				sx.r.StartByte == sy.r.StartByte && sx.r.StartPoint == sy.r.StartPoint &&
+				edit.OldEndByte > edit.StartByte && edit.NewEndByte > edit.StartByte &&
+				sx.r.EndByte == edit.StartByte && sy.r.EndByte == edit.NewEndByte {
+				known = true
+				return false
+			}
+			bad = fmt.Sprintf("%s: sparse %+v, conversion %+v", what, sx, sy)
+			return false
+		}
+		ok := check("node", a, b) && check("parent", a.Parent(), b.Parent())
+		if ok && i%stride == 0 {
+			ok = check("next sibling", a.NextSibling(), b.NextSibling()) && check("previous sibling", a.PrevSibling(), b.PrevSibling())
+			if ok && a.ChildCount() > 0 {
+				_ = check("first child", a.Child(0), b.Child(0)) && check("last child", a.Child(a.ChildCount()-1), b.Child(b.ChildCount()-1))
+			}
+		}
+		switch {
+		case bad != "":
+			if diffs == 0 {
+				first = fmt.Sprintf("held node %d: %s", i, bad)
+			}
+			diffs++
+		case known:
+			boundary++
+		}
+	}
+	return diffs, boundary, first
+}
+
+// ccoreSparseAll returns every node of the tree in one fixed order. It makes a
+// view of each.
+func ccoreSparseAll(tree *gts.Tree) []*gts.Node {
+	out := []*gts.Node{tree.RootNode()}
+	for i := 0; i < len(out); i++ {
+		out = append(out, out[i].Children()...)
+	}
+	return out
+}
+
+// ccoreSparseTopChild is the index of the top-level child that holds byte at,
+// found on a copy so that the tree itself gets no view.
+func ccoreSparseTopChild(tree *gts.Tree, at uint32) int {
+	cp := tree.Copy()
+	defer cp.Release()
+	root := cp.RootNode()
+	lo, hi := 0, root.ChildCount()-1
+	for lo < hi {
+		mid := (lo + hi) / 2
+		if root.Child(mid).EndByte() <= at {
+			lo = mid + 1
+		} else {
+			hi = mid
+		}
+	}
+	return lo
+}
+
+type ccoreSparseCounts struct {
+	made    int64
+	convert int64 // whole-tree conversions
+	sparse  int64
+	rootly  int64
+	stops   int64
+}
+
+func ccoreSparseCountsNow() ccoreSparseCounts {
+	_, made, m := gts.CcoreTestViewCounters()
+	c := ccoreSparseCounts{made: made, sparse: m["sparse_edits"], rootly: m["root_only_edits"]}
+	for k, v := range m {
+		switch {
+		case strings.HasPrefix(k, "sparse_stop_"):
+			c.stops += v
+		case k == "sparse_edits" || k == "sparse_refreshed" || k == "root_only_edits" || k == "shortcut_reparses":
+		default:
+			c.convert += v
+		}
+	}
+	return c
+}
+
+// ccoreSparseEdit applies edit to tree and checks the counters of the edit: no
+// header made, no conversion, and one sparse edit (one root-only edit when the
+// tree has no view below its root).
+func ccoreSparseEdit(t *testing.T, what string, tree *gts.Tree, edit gts.InputEdit) {
+	t.Helper()
+	madeBefore, isView := gts.CcoreTestViewHeaders(tree)
+	if !isView {
+		t.Fatalf("%s: the tree is not a view tree before the edit", what)
+	}
+	c0 := ccoreSparseCountsNow()
+	tree.Edit(edit)
+	c1 := ccoreSparseCountsNow()
+	madeAfter, isView := gts.CcoreTestViewHeaders(tree)
+	if !isView {
+		t.Fatalf("%s: the edit converted the tree", what)
+	}
+	if madeAfter != madeBefore || c1.made != c0.made {
+		t.Fatalf("%s: the edit made %d headers in the tree (%d in the process), want 0", what, madeAfter-madeBefore, c1.made-c0.made)
+	}
+	wantSparse, wantRoot := int64(1), int64(0)
+	if madeBefore <= 1 {
+		wantSparse, wantRoot = 0, 1
+	}
+	if c1.convert != c0.convert || c1.stops != c0.stops || c1.sparse-c0.sparse != wantSparse || c1.rootly-c0.rootly != wantRoot {
+		t.Fatalf("%s: conversions %d, sparse stops %d, sparse edits %d, root-only edits %d; want 0, 0, %d, %d",
+			what, c1.convert-c0.convert, c1.stops-c0.stops, c1.sparse-c0.sparse, c1.rootly-c0.rootly, wantSparse, wantRoot)
+	}
+	small, large, repeated, _ := gts.CcoreTestViewTable(tree)
+	if int64(small+large+repeated) != madeAfter-1 {
+		t.Fatalf("%s: the view table holds %d+%d+%d views for %d headers below the root", what, small, large, repeated, madeAfter-1)
+	}
+}
+
+// ccoreSparseTwinEdit applies edit to the twin with the sparse rebind off, so
+// the twin takes the conversion and the walk over Go nodes.
+func ccoreSparseTwinEdit(t *testing.T, what string, twin *gts.Tree, edit gts.InputEdit) {
+	t.Helper()
+	madeBefore, _ := gts.CcoreTestViewHeaders(twin)
+	restore := gts.CcoreTestSparseOff()
+	twin.Edit(edit)
+	restore()
+	if _, isView := gts.CcoreTestViewHeaders(twin); isView && madeBefore > 1 {
+		t.Fatalf("%s: the twin with views below its root was not converted", what)
+	}
+}
+
+// ccoreSparsePos is an inserted byte and the offset it went to in the clean source.
+type ccoreSparsePos struct {
+	at int
+	b  byte
+}
+
+type ccoreSparseKey struct {
+	next []byte
+	edit gts.InputEdit
+}
+
+// ccoreSparseKeys returns the edits of one step on cur, each with the source
+// after it. Steps 0 and 2 insert a letter and a newline; step 4 makes three
+// inserts (two letters and a newline) at three places; each odd step deletes
+// what the step before inserted, so the source is clean again after it. The
+// edits of one step never touch text an earlier edit of the step wrote, which
+// the route requires to carry them.
+func ccoreSparseKeys(step int, cur []byte, letters, newlines []int, pending *[]ccoreSparsePos) []ccoreSparseKey {
+	var keys []ccoreSparseKey
+	ins := func(p ccoreSparsePos) {
+		next, edit := ccoreInsert(cur, p.at, p.b)
+		keys = append(keys, ccoreSparseKey{next, edit})
+		cur = next
+	}
+	letter := func(i int) ccoreSparsePos { return ccoreSparsePos{letters[(i*104729)%len(letters)], 'x'} }
+	newline := func(i int) ccoreSparsePos { return ccoreSparsePos{newlines[(i*7919)%len(newlines)], '\n'} }
+	switch step % 6 {
+	case 0:
+		*pending = []ccoreSparsePos{letter(step)}
+		ins((*pending)[0])
+	case 2:
+		*pending = []ccoreSparsePos{newline(step)}
+		ins((*pending)[0])
+	case 4:
+		at := []ccoreSparsePos{letter(step), newline(step + 1), letter(step + 2)}
+		for i := 1; i < len(at); i++ { // in the order of the offsets
+			for j := i; j > 0 && at[j].at < at[j-1].at; j-- {
+				at[j], at[j-1] = at[j-1], at[j]
+			}
+		}
+		for i := len(at) - 1; i >= 0; i-- { // the last first, so the earlier offsets still hold
+			ins(at[i])
+		}
+		*pending = at
+	default:
+		for _, p := range *pending { // the first first: each delete moves the later ones back by one
+			next := append(append([]byte(nil), cur[:p.at]...), cur[p.at+1:]...)
+			p0 := ccorePoint(cur, p.at)
+			keys = append(keys, ccoreSparseKey{next, gts.InputEdit{StartByte: uint32(p.at), OldEndByte: uint32(p.at + 1), NewEndByte: uint32(p.at),
+				StartPoint: p0, OldEndPoint: ccorePoint(cur, p.at+1), NewEndPoint: p0}})
+			cur = next
+		}
+		*pending = nil
+	}
+	return keys
+}
+
+// TestCcoreSparseRebindGate is the gate of the sparse rebind on the 137 KB CSS
+// document of issue #454, for a tree with no view below the root, with one held
+// child, with the editor's block walk, after the language's highlight query, and
+// with a view of every node. The keystrokes are a letter, a newline and the
+// deletes that undo them, then three inserts before one reparse and the three
+// deletes that undo those before the next.
+func TestCcoreSparseRebindGate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("137 KB sparse rebind gate skipped under -short")
+	}
+	entry := grammars.DetectLanguageByName("css")
+	if entry == nil || entry.Language() == nil {
+		t.Fatal("css unavailable")
+	}
+	lang := entry.Language()
+	hl, err := entry.NewHighlighter()
+	if err != nil {
+		t.Fatal(err)
+	}
+	query, err := gts.NewQuery(entry.HighlightQuery, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type exposure struct {
+		name string
+		hold func(tree *gts.Tree, at uint32) []*gts.Node
+	}
+	exposures := []exposure{
+		{"root", func(tree *gts.Tree, _ uint32) []*gts.Node { return []*gts.Node{tree.RootNode()} }},
+		{"child", func(tree *gts.Tree, at uint32) []*gts.Node {
+			root := tree.RootNode()
+			return []*gts.Node{root, root.Child(ccoreSparseTopChild(tree, at))}
+		}},
+		{"block", func(tree *gts.Tree, at uint32) []*gts.Node {
+			root := tree.RootNode()
+			held := []*gts.Node{root}
+			for i := 0; i < root.ChildCount(); i++ {
+				c := root.Child(i)
+				held = append(held, c)
+				if c.EndByte() >= at && c.StartByte() <= at {
+					query.ExecuteNode(c, lang, tree.Source())
+				}
+			}
+			return held
+		}},
+		{"highlight", func(tree *gts.Tree, _ uint32) []*gts.Node {
+			gts.HighlighterTestTree(hl, tree)
+			return []*gts.Node{tree.RootNode()}
+		}},
+		{"all", func(tree *gts.Tree, _ uint32) []*gts.Node {
+			gts.HighlighterTestTree(hl, tree)
+			return ccoreSparseAll(tree)
+		}},
+	}
+	const steps = 6
+	for _, ex := range exposures {
+		t.Run(ex.name, func(t *testing.T) {
+			src, letters, newlines := ccoreEditorCSS(ccoreEditorTestSize())
+			parser := gts.NewParser(lang)
+			fresh := gts.NewParser(lang)
+			tree, err := parser.Parse(src)
+			if err != nil || !gts.CcoreTestFromCore(tree) {
+				t.Fatalf("open: err %v, built by the core %v", err, gts.CcoreTestFromCore(tree))
+			}
+			defer func() { tree.Release() }()
+			keys := 0
+			var pending []ccoreSparsePos
+			var heldNodes, refreshed int64
+			for step := 0; step < steps; step++ {
+				cur := src
+				var held, twinHeld []*gts.Node
+				var twin *gts.Tree
+				_, incr0 := gts.CcoreTestIncr()
+				fb0, _ := gts.CcoreTestIncr()
+				for e, key := range ccoreSparseKeys(step, src, letters, newlines, &pending) {
+					next, edit := key.next, key.edit
+					what := fmt.Sprintf("step %d edit %d (at byte %d)", step, e, edit.StartByte)
+					keys++
+					if e == 0 {
+						twin = tree.Copy()
+						held, twinHeld = ex.hold(tree, edit.StartByte), ex.hold(twin, edit.StartByte)
+						if len(held) != len(twinHeld) {
+							t.Fatalf("%s: %d held nodes, %d in the twin", what, len(held), len(twinHeld))
+						}
+						heldNodes += int64(len(held))
+					}
+					_, _, m0 := gts.CcoreTestViewCounters()
+					ccoreSparseEdit(t, what, tree, edit)
+					_, _, m1 := gts.CcoreTestViewCounters()
+					refreshed += m1["sparse_refreshed"] - m0["sparse_refreshed"]
+					ccoreSparseTwinEdit(t, what, twin, edit)
+					if held[0] != tree.RootNode() {
+						t.Fatalf("%s: the root is another pointer after the edit", what)
+					}
+					if ex.name == "child" {
+						made, _ := gts.CcoreTestViewHeaders(tree)
+						// The index of the held child can change (a comment's newline is a
+						// child of its own), so find it again by where it starts now.
+						if again := tree.RootNode().Child(ccoreSparseTopChild(tree, held[1].StartByte())); again != held[1] {
+							t.Fatalf("%s: the held child is another pointer after the edit", what)
+						}
+						if after, _ := gts.CcoreTestViewHeaders(tree); after != made {
+							t.Fatalf("%s: reading the held child again made %d headers", what, after-made)
+						}
+					}
+					if diffs, boundary, first := ccoreSparseHeldDiffs(held, twinHeld, edit); diffs != 0 || boundary != 0 {
+						t.Fatalf("%s: %d of %d held nodes differ from the conversion path (and %d at an edit boundary); %s", what, diffs, len(held), boundary, first)
+					}
+					cur = next
+				}
+				twin.Release()
+				nextTree, err := parser.ParseIncremental(cur, tree)
+				if err != nil {
+					t.Fatal(err)
+				}
+				fb1, incr1 := gts.CcoreTestIncr()
+				if incr1-incr0 != 1 || fmt.Sprint(fb1) != fmt.Sprint(fb0) {
+					t.Fatalf("step %d: %d incremental reparses, fallbacks %v then %v; want one incremental reparse", step, incr1-incr0, fb0, fb1)
+				}
+				want, err := fresh.Parse(cur)
+				if err != nil {
+					t.Fatal(err)
+				}
+				chk := nextTree.Copy() // the checks read a copy, so the next step's tree has the views its exposure makes
+				if ccoreSExpr(chk, lang) != ccoreSExpr(want, lang) {
+					t.Fatalf("step %d: the incremental tree differs from a fresh parse", step)
+				}
+				if fmt.Sprint(gts.HighlighterTestTree(hl, chk)) != fmt.Sprint(gts.HighlighterTestTree(hl, want)) {
+					t.Fatalf("step %d: the highlight of the incremental tree differs from a fresh parse's", step)
+				}
+				chk.Release()
+				want.Release()
+				if step == 0 || step == steps-1 {
+					// The edited tree, read through the headers it kept and the ones the walk
+					// now makes, against the eager conversion of the edited core tree.
+					eager := gts.CcoreTestEager(tree)
+					if eager == nil {
+						t.Fatalf("step %d: no eager conversion of the edited tree", step)
+					}
+					o := &ccoreOracle{t: t, lang: lang, name: "css/sparse/" + ex.name, src: cur}
+					o.compare(tree.RootNode(), eager.RootNode())
+					eager.Release()
+					if o.diffs != 0 || o.checks == 0 {
+						t.Fatalf("step %d: %d differences from the eager conversion of the edited tree in %d checks", step, o.diffs, o.checks)
+					}
+				}
+				tree.Release()
+				tree, src = nextTree, cur
+			}
+			t.Logf("%s: %d bytes, %d steps, %d edits, %d held nodes compared with the conversion path, %d headers refreshed, 0 made", ex.name, len(src), steps, keys, heldNodes, refreshed)
+		})
+	}
+}
+
+// ccoreSparseExpose makes views in tree in one of four ways and returns the
+// nodes it read, in an order that is the same for a copy of the tree: every
+// node; the path from the root to the smallest node at byte at; the children of
+// the root; the first-child and last-child chains with the named children of
+// each node on them.
+func ccoreSparseExpose(way int, tree *gts.Tree, at uint32) []*gts.Node {
+	root := tree.RootNode()
+	switch way % 4 {
+	case 0:
+		return ccoreSparseAll(tree)
+	case 1:
+		held := []*gts.Node{root}
+		for n := root.DescendantForByteRange(at, at); n != nil && n != root; n = n.Parent() {
+			held = append(held, n)
+		}
+		return held
+	case 2:
+		return append([]*gts.Node{root}, root.Children()...)
+	default:
+		held := []*gts.Node{root}
+		for _, last := range []bool{false, true} {
+			for n := root; n != nil && n.ChildCount() > 0; {
+				for j := 0; j < n.NamedChildCount() && j < 8; j++ {
+					held = append(held, n.NamedChild(j))
+				}
+				if last {
+					n = n.Child(n.ChildCount() - 1)
+				} else {
+					n = n.Child(0)
+				}
+				held = append(held, n)
+			}
+		}
+		return held
+	}
+}
+
+// TestCcoreSparseRebindSessions runs the 72-edit session (inserts, deletes and
+// replacements at seeded offsets, most of which leave a syntax error) on the
+// sample of several languages. Before each edit it makes views in one of four
+// ways. Every edit with a view below the root must be a sparse edit that makes
+// no header; the held nodes must equal those of the conversion path, but for
+// the spans the walk over Go nodes gives at an edit boundary (counted; see
+// ccoreSparseHeldDiffs); the whole edited tree must equal the eager conversion
+// of the edited core tree; every reparse must equal a fresh parse.
+func TestCcoreSparseRebindSessions(t *testing.T) {
+	defer ccoreCertifyAll()()
+	defer gts.CcoreTestViewsOn(true)()
+	samples := ccoreOracleSamples(t)
+	names := []string{"json", "css", "typescript", "tsx", "python", "c", "rust", "html", "ruby", "bash", "javascript", "markdown", "toml", "yaml", "java", "lua"}
+	if raceEnabled { // a third of the languages, and the whole-tree comparison at every eighth step
+		names = []string{"json", "css", "typescript", "rust", "markdown"}
+	}
+	if only := os.Getenv("CCORE_VIEWS_LANGS"); only != "" {
+		names = strings.Split(only, ",")
+	}
+	served := 0
+	for _, name := range names {
+		src := samples[name]
+		entry := grammars.DetectLanguageByName(name)
+		if src == nil || entry == nil || entry.Language() == nil {
+			if os.Getenv("CCORE_VIEWS_LANGS") != "" {
+				t.Fatalf("%s unavailable", name)
+			}
+			t.Logf("%s unavailable", name)
+			continue
+		}
+		lang := entry.Language()
+		p := ccoreRouteParser(lang)
+		tree, err := p.Parse(src)
+		if err != nil || tree == nil {
+			t.Fatalf("%s: parse: %v", name, err)
+		}
+		if _, ok := gts.CcoreTestViewHeaders(tree); !ok {
+			tree.Release()
+			if os.Getenv("CCORE_VIEWS_LANGS") != "" {
+				t.Fatalf("%s: the route declined it", name)
+			}
+			t.Logf("%s: the route declined it", name)
+			continue
+		}
+		served++
+		o := &ccoreOracle{t: t, lang: lang, name: name + "/sparse-session"}
+		var held, refreshed int64
+		steps, repeated, differs, boundary := 0, 0, 0, 0
+		_, _, m0 := gts.CcoreTestViewCounters()
+		for i, step := range benchfixtures.EditingSession(src) {
+			steps++
+			what := fmt.Sprintf("%s step %d (way %d, edit at byte %d)", name, i+1, i%4, step.Edit.StartByte)
+			twin := tree.Copy()
+			a, b := ccoreSparseExpose(i, tree, step.Edit.StartByte), ccoreSparseExpose(i, twin, step.Edit.StartByte)
+			if len(a) != len(b) {
+				t.Fatalf("%s: %d held nodes, %d in the twin", what, len(a), len(b))
+			}
+			held += int64(len(a))
+			if _, _, r, _ := gts.CcoreTestViewTable(tree); r != 0 {
+				repeated++
+			}
+			ccoreSparseEdit(t, what, tree, step.Edit)
+			ccoreSparseTwinEdit(t, what, twin, step.Edit)
+			diffs, known, first := ccoreSparseHeldDiffs(a, b, step.Edit)
+			if diffs != 0 {
+				t.Fatalf("%s: %d of %d held nodes differ from the conversion path; %s", what, diffs, len(a), first)
+			}
+			boundary += known
+			twin.Release()
+			if !raceEnabled || i%8 == 0 {
+				eager := gts.CcoreTestEager(tree)
+				if eager == nil {
+					t.Fatalf("%s: no eager conversion of the edited tree", what)
+				}
+				o.src = step.Source
+				o.compare(tree.RootNode(), eager.RootNode())
+				eager.Release()
+			}
+			next, err := p.ParseIncremental(step.Source, tree)
+			if err != nil || next == nil {
+				t.Fatalf("%s: reparse: %v", what, err)
+			}
+			tree.Release()
+			tree = next
+			freshTree, err := ccoreRouteParser(lang).Parse(step.Source)
+			if err != nil || freshTree == nil {
+				t.Fatalf("%s: fresh parse: %v", what, err)
+			}
+			cp := tree.Copy() // read the whole tree through a copy: the next step chooses the views of `tree`
+			if cp.RootNode().SExpr(lang) != freshTree.RootNode().SExpr(lang) || tree.RootNode().Range() != freshTree.RootNode().Range() {
+				differs++
+				t.Errorf("%s: the reparse differs from a fresh parse", what)
+			}
+			cp.Release()
+			freshTree.Release()
+		}
+		tree.Release()
+		_, _, m1 := gts.CcoreTestViewCounters()
+		refreshed = m1["sparse_refreshed"] - m0["sparse_refreshed"]
+		fmt.Printf("SPARSESESSION lang=%s steps=%d sparse_edits=%d held_nodes=%d refreshed=%d trees_with_repeated_slots=%d differ_from_conversion_path=0 go_walk_boundary_spans=%d oracle_checks=%d differences=%d reparse_differs=%d\n",
+			name, steps, m1["sparse_edits"]-m0["sparse_edits"], held, refreshed, repeated, boundary, o.checks, o.diffs, differs)
+		if o.diffs != 0 || o.checks == 0 {
+			t.Errorf("%s: %d differences from the eager conversion in %d checks", name, o.diffs, o.checks)
+		}
+	}
+	if served == 0 {
+		t.Fatal("no edit sessions were compared")
+	}
+}
+
+// TestCcoreSparseRebindLargeList: a record with more children than a child page
+// holds (4,096 handles) has a list of its own, and the views of its children are
+// in the map of large lists. Recovery makes such a record from thousands of
+// unclosed brackets. The edit copies the record with a new list; every view
+// must move to it. The test parses once: a parse of this input takes seconds.
+func TestCcoreSparseRebindLargeList(t *testing.T) {
+	defer ccoreCertifyAll()()
+	defer gts.CcoreTestViewsOn(true)()
+	lang := ccoreRouteLang(t, "json")
+	const unit = "[ "
+	src := []byte(strings.Repeat(unit, 4100))
+	tree, err := ccoreRouteParser(lang).Parse(src)
+	if err != nil || tree == nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	if _, ok := gts.CcoreTestViewHeaders(tree); !ok {
+		t.Fatal("the route declined json")
+	}
+	twin := tree.Copy()
+	defer twin.Release()
+	held, twinHeld := ccoreSparseAll(tree), ccoreSparseAll(twin)
+	_, large, _, _ := gts.CcoreTestViewTable(tree)
+	if large <= 4096 {
+		t.Fatalf("%d views in large lists: the input no longer gives a large list", large)
+	}
+	// The last offset first, so the earlier offsets still hold and no edit
+	// touches text another wrote.
+	for step, at := range []int{len(src) - 1, len(unit) * 2050, 1} {
+		b := byte(' ')
+		if step == 1 {
+			b = '\n'
+		}
+		what := fmt.Sprintf("edit %d at byte %d", step, at)
+		next, edit := ccoreInsert(src, at, b)
+		ccoreSparseEdit(t, what, tree, edit)
+		ccoreSparseTwinEdit(t, what, twin, edit)
+		if _, after, _, _ := gts.CcoreTestViewTable(tree); after != large {
+			t.Fatalf("%s: %d views in large lists after the edit, %d before", what, after, large)
+		}
+		if diffs, _, first := ccoreSparseHeldDiffs(held, twinHeld, edit); diffs != 0 {
+			t.Fatalf("%s: %d of %d held nodes differ from the conversion path; %s", what, diffs, len(held), first)
+		}
+		src = next
+	}
+	eager := gts.CcoreTestEager(tree)
+	if eager == nil {
+		t.Fatal("no eager conversion of the edited tree")
+	}
+	defer eager.Release()
+	o := &ccoreOracle{t: t, lang: lang, name: "json/sparse-large", src: src}
+	o.compare(tree.RootNode(), eager.RootNode())
+	if o.diffs != 0 || o.checks == 0 {
+		t.Fatalf("%d differences from the eager conversion in %d checks", o.diffs, o.checks)
+	}
+}
+
+// TestCcoreSparseRebindRefusedEdit: when the budget of the tree refuses the
+// staged edit, Tree.Edit converts the tree as before the sparse rebind: the
+// held nodes move with the edit, the link is broken, and the reparse is a fresh
+// parse by the core.
+func TestCcoreSparseRebindRefusedEdit(t *testing.T) {
+	defer ccoreCertifyAll()()
+	defer gts.CcoreTestViewsOn(true)()
+	lang := ccoreRouteLang(t, "json")
+	src := ccoreJSONSource(60)
+	p := ccoreRouteParser(lang)
+	tree, err := p.Parse(src)
+	if err != nil || tree == nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	held := tree.RootNode().Child(0)
+	last := held.Child(held.ChildCount() - 1)
+	startBefore, endBefore := last.StartByte(), last.EndByte()
+	gts.CcoreTestEditBudget(tree, 1) // any claim of the edit is over the budget
+	_, _, before := gts.CcoreTestViewCounters()
+	out, edit := ccoreInsert(src, 3, ' ')
+	tree.Edit(edit)
+	_, _, after := gts.CcoreTestViewCounters()
+	if after["sparse_stop_refused"] != before["sparse_stop_refused"]+1 || after["tree_edit_with_views"] != before["tree_edit_with_views"]+1 ||
+		after["sparse_edits"] != before["sparse_edits"] {
+		t.Fatalf("counters before %v, after %v; want one refused sparse edit and one conversion", before, after)
+	}
+	if has, _, broken := gts.CcoreTestLink(tree); !has || !broken {
+		t.Fatalf("link: has %v, broken %v; want a broken link", has, broken)
+	}
+	if held != tree.RootNode().Child(0) || last.StartByte() != startBefore+1 || last.EndByte() != endBefore+1 {
+		t.Fatalf("a held node did not move with the edit: %d-%d, was %d-%d", last.StartByte(), last.EndByte(), startBefore, endBefore)
+	}
+	fb0, incr0 := gts.CcoreTestIncr()
+	next, err := p.ParseIncremental(out, tree)
+	if err != nil || next == nil {
+		t.Fatal(err)
+	}
+	defer next.Release()
+	fb1, incr1 := gts.CcoreTestIncr()
+	if incr1 != incr0 || fb1["edits_not_carried"] != fb0["edits_not_carried"]+1 {
+		t.Fatalf("reparse: incremental %d, fallbacks %v then %v; want a fresh parse for edits_not_carried", incr1-incr0, fb0, fb1)
+	}
+	fresh, _ := ccoreRouteParser(lang).Parse(out)
+	defer fresh.Release()
+	if next.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
+		t.Error("the reparse differs from a fresh parse")
 	}
 }

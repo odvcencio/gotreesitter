@@ -2652,6 +2652,16 @@ func (p *Parser) ccoreOldFor(adm ccoreAdmission, old *Tree, source []byte) (*cco
 	return st.ct, -1
 }
 
+// ccoreEditOf is a public edit as the core's edit.
+func ccoreEditOf(edit InputEdit) ccore.Edit {
+	return ccore.Edit{
+		StartByte: edit.StartByte, OldEndByte: edit.OldEndByte, NewEndByte: edit.NewEndByte,
+		StartRow: edit.StartPoint.Row, StartCol: edit.StartPoint.Column,
+		OldEndRow: edit.OldEndPoint.Row, OldEndCol: edit.OldEndPoint.Column,
+		NewEndRow: edit.NewEndPoint.Row, NewEndCol: edit.NewEndPoint.Column,
+	}
+}
+
 // ccoreEdit forwards a public edit to its linked core tree.
 func (t *Tree) ccoreEdit(edit InputEdit) bool {
 	st := t.ccoreStateOf()
@@ -2670,12 +2680,7 @@ func (t *Tree) ccoreEdit(edit InputEdit) bool {
 			st.broken = true
 		}
 	}()
-	ce := ccore.Edit{
-		StartByte: edit.StartByte, OldEndByte: edit.OldEndByte, NewEndByte: edit.NewEndByte,
-		StartRow: edit.StartPoint.Row, StartCol: edit.StartPoint.Column,
-		OldEndRow: edit.OldEndPoint.Row, OldEndCol: edit.OldEndPoint.Column,
-		NewEndRow: edit.NewEndPoint.Row, NewEndCol: edit.NewEndPoint.Column,
-	}
+	ce := ccoreEditOf(edit)
 	if st.budget > 0 {
 		// The pages the edit claims are charged against the budget of the request that
 		// built the tree, before they are claimed. A refusal poisons the core tree's store
@@ -2763,8 +2768,10 @@ func (p *Parser) ccoreReparseProvider(source []byte, old *Tree, provider string)
 // ordinal among the visible children of the parent; dynamicPrecedence holds the
 // supertype mask; preGotoState is the record's parse state; parent is set when
 // the view is made; children stays nil. Tree.Edit with no view below the root
-// updates the root header only; with views below the root it first converts the
-// tree in place (materialize), so a node a caller holds stays correct.
+// updates the root header only. With views below the root it refreshes the
+// headers that exist from the edited core tree and makes none (the sparse
+// rebind, ccoreEditSparse); when it cannot, it converts the tree in place first
+// (materialize). Either way a node a caller holds stays correct.
 
 // ccoreViewsOn controls lazy node views; tests can turn them off.
 var ccoreViewsOn atomic.Bool
@@ -2790,7 +2797,26 @@ var (
 	ccoreViewsMade       atomic.Int64 // headers made by views of all trees
 	ccoreViewTrees       atomic.Int64 // view trees built
 	ccoreViewRootEdits   atomic.Int64 // Tree.Edit calls served by the root header alone
+	ccoreViewSparseEdits atomic.Int64 // Tree.Edit calls served by the sparse rebind
+	ccoreViewSparseMoved atomic.Int64 // headers the sparse rebind refreshed
+	ccoreViewSparseStops [ccoreSparseStopCount]atomic.Int64
+	ccoreTestSparseOff   atomic.Bool // tests: Tree.Edit with views takes the conversion
 )
+
+// Reasons for which Tree.Edit with a view below the root did not take the
+// sparse rebind and converted the tree, counted in ccoreViewSparseStops.
+const (
+	ccoreSparseStopOff        = iota // switched off by a test
+	ccoreSparseStopLink              // no usable core tree: the link is broken or the edit is out of bounds
+	ccoreSparseStopRefused           // the budget refused the staged edit, or the core's edit failed
+	ccoreSparseStopDuplicates        // a child slot has views of two occurrences
+	ccoreSparseStopMismatch          // the edited tree and the views do not match, or a new slot is taken
+	ccoreSparseStopCount
+)
+
+var ccoreSparseStopNames = [ccoreSparseStopCount]string{
+	"sparse_stop_off", "sparse_stop_link", "sparse_stop_refused", "sparse_stop_duplicates", "sparse_stop_mismatch",
+}
 
 const ccoreViewPageSize = 128
 
@@ -3332,6 +3358,325 @@ func (v *ccoreViews) refreshRoot() {
 // onlyRoot reports whether no view exists below the root.
 func (v *ccoreViews) onlyRoot() bool { return v.made.Load() <= 1 }
 
+// ---- The sparse rebind: Tree.Edit on a view tree with views below the root ----
+//
+// The core's edit copies every record on the edit path and gives each copy a new
+// child list (internal/ccore/edit.go). After it a view can be wrong in two
+// ways: its start has moved, and the slot its key names no longer holds its
+// handle. The rebind refreshes the headers that exist and makes none.
+//
+//  1. The edit is staged on a copy of the core tree (one retain of the root, as
+//     Tree.Copy takes). The tree the views describe stays readable and keeps
+//     its child lists, so a slot the edit allocates is never a slot a view names.
+//  2. Both trees are walked from the root along the records the edit copied,
+//     through the views that exist and no others. A view is found by its
+//     parent view and its ordinal among the visible children, in the slot the
+//     tree before the edit gives that child; not by its handle (one record can
+//     occur at several positions) and not by a byte offset. The children of
+//     one parent are read in one pass.
+//  3. This walk writes nothing: it lists the views of the children of copied
+//     records, each with its span, has_changes and slot after the edit. When
+//     the two trees do not match, or a new slot is taken, the staged tree is
+//     released and Tree.Edit converts the tree as it did before the rebind
+//     existed.
+//  4. Then each listed header gets its span and has_changes, and a moved one
+//     its new slot key. A listed view whose record the edit did not copy but
+//     whose start moved is the root of a subtree that only moved: the views
+//     below it keep their slots, and a second walk, through those views only,
+//     gives each its new span. A view whose record and start are as before is
+//     the root of a subtree the edit left alone: nothing below it is read.
+//     Last, the backing reads the staged tree, and the tree before the edit is
+//     released.
+//
+// The *Node pointers of the edited tree stay the same. A node of the tree a
+// reparse returns is still another pointer than the node of this tree.
+
+// ccoreRebind is the view of one child of a copied record, with what the edit
+// made of it.
+type ccoreRebind struct {
+	n          *Node
+	now        ccore.Node // the child in the edited tree
+	end        ccore.Length
+	moved      bool // the slot is not the slot before the edit
+	shifted    bool // the record is the one before the edit, at another start: the views below only move
+	hasChanges bool // C's has_changes after the edit
+}
+
+// ccoreEditSparse is Tree.Edit for a view tree with views below the root. It
+// reports false, with the reason counted, when the tree must be converted; then
+// it has changed nothing but, after a refused or failed core edit, the broken
+// mark of the link (as ccoreEdit sets it).
+func (t *Tree) ccoreEditSparse(v *ccoreViews, edit InputEdit) (done bool) {
+	if ccoreTestSparseOff.Load() {
+		ccoreViewSparseStops[ccoreSparseStopOff].Add(1)
+		return false
+	}
+	st := t.ccoreStateOf()
+	if st == nil || st.ct == nil || st.broken || st.ct != v.core || st.ct.Released() || v.released.Load() ||
+		edit.StartByte > edit.OldEndByte || edit.StartByte > edit.NewEndByte || int64(edit.OldEndByte) > st.curLen {
+		ccoreViewSparseStops[ccoreSparseStopLink].Add(1)
+		return false
+	}
+	started := nowNanos()
+	defer func() { ccoreEditNanos.Add(nowNanos() - started) }()
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	if len(v.duplicates) != 0 {
+		// Two occurrences share a slot: moving one would need the other found and
+		// kept. The conversion handles it.
+		ccoreViewSparseStops[ccoreSparseStopDuplicates].Add(1)
+		return false
+	}
+	staged := st.ct.Copy()
+	if staged == nil {
+		ccoreViewSparseStops[ccoreSparseStopLink].Add(1)
+		return false
+	}
+	const (
+		editing = iota // the core's edit runs on the staged tree
+		walking        // the two trees are compared; nothing is written
+		writing        // the headers and the table are written; no failure is handled from here
+	)
+	stage := editing
+	defer func() {
+		if stage == writing {
+			return
+		}
+		if r := recover(); r != nil {
+			done = false
+			if stage == editing {
+				st.broken = true // as ccoreEdit: the store may be poisoned
+				ccoreViewSparseStops[ccoreSparseStopRefused].Add(1)
+			} else {
+				ccoreViewSparseStops[ccoreSparseStopMismatch].Add(1)
+			}
+		}
+		staged.Release()
+	}()
+	ce := ccoreEditOf(edit)
+	if st.budget > 0 {
+		// The same charge as ccoreEdit makes; a refusal breaks the link in the same way.
+		var led ccore.Ledger
+		budget := st.budget
+		led.SetPoll(func(total int64, _ bool) bool { return total < budget })
+		if !led.Begin(int64(staged.PageBytes())) || !staged.EditWithin(ce, &led) {
+			st.broken = true
+			ccoreViewSparseStops[ccoreSparseStopRefused].Add(1)
+			return false
+		}
+	} else {
+		staged.Edit(ce)
+	}
+	stage = walking
+	nrd := ccore.NewNodeReader(staged.Reader(), v.rd.T)
+	plan, ok := v.sparsePlan(nrd, staged.Root())
+	if !ok {
+		ccoreViewSparseStops[ccoreSparseStopMismatch].Add(1)
+		return false
+	}
+	stage = writing
+	refreshed := v.sparseApply(nrd, plan)
+	before := st.ct
+	st.ct, v.core, v.rd = staged, staged, nrd
+	v.refreshRoot()
+	st.edits++
+	st.curLen += int64(edit.NewEndByte) - int64(edit.OldEndByte)
+	before.Release()
+	ccoreViewSparseEdits.Add(1)
+	ccoreViewSparseMoved.Add(int64(refreshed))
+	return true
+}
+
+// cached returns the view of the occurrence read at c below parent, or nil
+// when none was made. It makes nothing. The caller holds mu and has seen that
+// no slot has views of two occurrences.
+func (v *ccoreViews) cached(c *ccore.Node, parent *Node) *Node {
+	var n *Node
+	if key, ok := ccoreSlotKey(*c); ok {
+		n = v.lookup(key)
+	} else {
+		n = v.large[[2]uint32{c.List, c.Slot}]
+	}
+	if n == nil || n.parent != parent || n.equivVersion != c.Ordinal {
+		return nil
+	}
+	return n
+}
+
+// sparsePlan walks the tree the views describe and the edited tree (nrd, root)
+// together, along the records the edit copied, and lists the views of their
+// children. It writes nothing. It reports false when the trees do not match or
+// a slot a view would move to holds a view. The caller holds mu.
+func (v *ccoreViews) sparsePlan(nrd ccore.NodeReader, root ccore.Handle) ([]ccoreRebind, bool) {
+	ord := v.rd
+	oldRoot, newRoot := ord.RootNode(v.core.Root()), nrd.RootNode(root)
+	if oldRoot.Null() || newRoot.Null() {
+		return nil, false
+	}
+	if oldRoot.H == newRoot.H {
+		return nil, true // the edit changed no record
+	}
+	type frame struct {
+		n        *Node
+		was, now ccore.Node // a copied record, before and after the edit
+	}
+	work := []frame{{v.root, oldRoot, newRoot}}
+	var plan []ccoreRebind
+	var oldKids, newKids []ccore.Node
+	for len(work) > 0 {
+		f := work[len(work)-1]
+		work = work[:len(work)-1]
+		oldKids, newKids = ord.Children(f.was, oldKids[:0]), nrd.Children(f.now, newKids[:0])
+		if len(oldKids) != len(newKids) {
+			return nil, false
+		}
+		for i := range newKids {
+			was, now := &oldKids[i], &newKids[i]
+			if was.Ordinal != now.Ordinal || was.Mask != now.Mask || was.Alias != now.Alias ||
+				ccore.LargeSlot(was.List) != ccore.LargeSlot(now.List) || ord.GrammarSymbol(*was) != nrd.GrammarSymbol(*now) {
+				return nil, false
+			}
+			n := v.cached(was, f.n)
+			if n == nil {
+				continue // no view of this child, so none below it
+			}
+			moved := was.List != now.List || was.Slot != now.Slot
+			if moved {
+				taken := false
+				if key, small := ccoreSlotKey(*now); small {
+					taken = v.lookup(key) != nil
+				} else {
+					taken = v.large[[2]uint32{now.List, now.Slot}] != nil
+				}
+				if taken {
+					return nil, false
+				}
+			}
+			copied := was.H != now.H
+			plan = append(plan, ccoreRebind{n: n, now: *now, end: nrd.End(*now), moved: moved, hasChanges: nrd.HasChanges(*now),
+				shifted: !copied && (now.Start.Bytes() != n.startByte || now.Start.Row() != n.startPoint.Row || now.Start.Col() != n.startPoint.Column)})
+			if copied {
+				work = append(work, frame{n: n, now: *now, was: ccore.Node{
+					H:     was.H,
+					Start: ccore.NewLength(n.startByte, n.startPoint.Row, n.startPoint.Column),
+					Mask:  uint32(n.dynamicPrecedence),
+				}})
+			}
+		}
+	}
+	return plan, true
+}
+
+// sparseApply writes the plan of sparsePlan and returns the number of headers
+// it refreshed. Every moved view leaves its slot before any enters its new one,
+// then each listed header gets its span and has_changes. A table page that the
+// moves left empty is dropped. Then the views below each listed view that only
+// moved get their spans from the edited tree nrd: their records and slots are
+// those before the edit, so there is nothing to match and nothing to move. The
+// caller holds mu.
+func (v *ccoreViews) sparseApply(nrd ccore.NodeReader, plan []ccoreRebind) (refreshed int) {
+	var vacated []int // table pages a view left, in runs
+	for i := range plan {
+		it := &plan[i]
+		if !it.moved {
+			continue
+		}
+		key := uint32(it.n.rawShape)
+		if key&ccoreLargeKey != 0 {
+			delete(v.large, v.largeKeys[key&^ccoreLargeKey])
+			continue
+		}
+		pi := int(key / ccoreViewPageSize)
+		v.top.Load().pages[pi].Load()[key%ccoreViewPageSize].Store(nil)
+		if len(vacated) == 0 || vacated[len(vacated)-1] != pi {
+			vacated = append(vacated, pi)
+		}
+	}
+	setSpan := func(n *Node, start, end ccore.Length) {
+		n.startByte, n.endByte = start.Bytes(), end.Bytes()
+		n.startPoint = Point{Row: start.Row(), Column: start.Col()}
+		n.endPoint = Point{Row: end.Row(), Column: end.Col()}
+	}
+	type frame struct {
+		n   *Node
+		now ccore.Node
+	}
+	var work []frame
+	for i := range plan {
+		it := &plan[i]
+		n := it.n
+		if it.moved {
+			if ccore.LargeSlot(it.now.List) {
+				lk := [2]uint32{it.now.List, it.now.Slot}
+				v.largeKeys[uint32(n.rawShape)&^ccoreLargeKey] = lk
+				v.large[lk] = n
+			} else {
+				slot := it.now.Slot
+				pi := int(slot / ccoreViewPageSize)
+				top := v.top.Load()
+				if top == nil || pi >= len(top.pages) {
+					top = v.growTop(top, pi)
+				}
+				page := top.pages[pi].Load()
+				if page == nil {
+					page = new(ccoreViewPage)
+					v.pageBytes += uint64(unsafe.Sizeof(*page))
+					top.pages[pi].Store(page)
+				}
+				page[slot%ccoreViewPageSize].Store(n)
+				n.rawShape = rawShapeRef(slot)
+			}
+		}
+		setSpan(n, it.now.Start, it.end)
+		n.setDirty(it.hasChanges)
+		if it.shifted {
+			if _, kids := nrd.S.ChildSlots(it.now.H); kids != 0 {
+				work = append(work, frame{n, it.now})
+			}
+		}
+	}
+	refreshed = len(plan)
+	top := v.top.Load()
+	for _, pi := range vacated {
+		page := top.pages[pi].Load()
+		if page == nil {
+			continue
+		}
+		empty := true
+		for j := range page {
+			if page[j].Load() != nil {
+				empty = false
+				break
+			}
+		}
+		if empty {
+			top.pages[pi].Store(nil)
+			v.pageBytes -= uint64(unsafe.Sizeof(*page))
+		}
+	}
+	// The subtrees that only moved. The moved views are in their new slots by
+	// now, and these keep theirs.
+	var kids []ccore.Node
+	for len(work) > 0 {
+		f := work[len(work)-1]
+		work = work[:len(work)-1]
+		kids = nrd.Children(f.now, kids[:0])
+		for i := range kids {
+			k := &kids[i]
+			n := v.cached(k, f.n)
+			if n == nil {
+				continue
+			}
+			setSpan(n, k.Start, nrd.End(*k))
+			refreshed++
+			if _, below := nrd.S.ChildSlots(k.H); below != 0 {
+				work = append(work, frame{n, *k})
+			}
+		}
+	}
+	return refreshed
+}
+
 // materialize turns the view tree into an eager tree in place: every node gets
 // a header, children, field ids and the field answers the eager conversion
 // records, and the arena stops being a view arena. Held pointers stay valid.
@@ -3600,6 +3945,15 @@ func ccoreViewCounters() (trees, made int64, conversions map[string]int64) {
 	}
 	if v := ccoreShortcutReparses.Load(); v != 0 {
 		conversions["shortcut_reparses"] = v
+	}
+	if v := ccoreViewSparseEdits.Load(); v != 0 {
+		conversions["sparse_edits"] = v // not a conversion: the edits that refreshed the headers that exist
+		conversions["sparse_refreshed"] = ccoreViewSparseMoved.Load()
+	}
+	for i := range ccoreViewSparseStops {
+		if v := ccoreViewSparseStops[i].Load(); v != 0 {
+			conversions[ccoreSparseStopNames[i]] = v
+		}
 	}
 	return ccoreViewTrees.Load(), ccoreViewsMade.Load(), conversions
 }
