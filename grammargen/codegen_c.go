@@ -59,11 +59,11 @@ func EmitC(name string, lang *gotreesitter.Language) (string, error) {
 	emitPrimaryStateIDs(&b, lang)
 	emitReservedWords(&b, lang, cNames)
 	emitSupertypes(&b, lang, cNames)
-	emitLexFunction(&b, "ts_lex", lang.LexStates, lang, cNames, mainLexStartStates(lang))
+	emitLexFunction(&b, "ts_lex", lang.LexStates, cNames, mainLexStartStates(lang), lang.LexerStateAcceptsEndBeforeEOF)
 	if len(lang.KeywordLexStates) > 0 {
 		// The keyword lexer is always invoked with state 0 (see
 		// ts_parser__call_keyword_lex_fn), so state 0 is its only start.
-		emitLexFunction(&b, "ts_lex_keywords", lang.KeywordLexStates, lang, cNames, map[int]bool{0: true})
+		emitLexFunction(&b, "ts_lex_keywords", lang.KeywordLexStates, cNames, map[int]bool{0: true}, nil)
 	}
 	if len(lang.ExternalSymbols) > 0 {
 		emitExternalScanner(&b, lang, cNames)
@@ -739,7 +739,7 @@ func emitSupertypes(b *strings.Builder, lang *gotreesitter.Language, cNames []st
 	fmt.Fprintf(b, "};\n\n")
 }
 
-func emitLexFunction(b *strings.Builder, funcName string, states []gotreesitter.LexState, lang *gotreesitter.Language, cNames []string, startStates map[int]bool) {
+func emitLexFunction(b *strings.Builder, funcName string, states []gotreesitter.LexState, cNames []string, startStates map[int]bool, acceptsEnd func(int) bool) {
 	fmt.Fprintf(b, "static bool %s(TSLexer *lexer, TSStateId state) {\n", funcName)
 	fmt.Fprintf(b, "  START_LEXER();\n")
 	fmt.Fprintf(b, "  eof = lexer->eof(lexer);\n")
@@ -757,6 +757,7 @@ func emitLexFunction(b *strings.Builder, funcName string, states []gotreesitter.
 	modeStarts := sortedIntKeys(startStates)
 
 	for i, st := range states {
+		acceptEnd := acceptsEnd != nil && acceptsEnd(i)
 		fmt.Fprintf(b, "    case %d:\n", i)
 
 		// Accept the real token this state matches, if any. ACCEPT_TOKEN sets
@@ -766,6 +767,8 @@ func emitLexFunction(b *strings.Builder, funcName string, states []gotreesitter.
 		// stops matching).
 		if st.AcceptToken > 0 {
 			fmt.Fprintf(b, "      ACCEPT_TOKEN(%s);\n", cNames[st.AcceptToken])
+		} else if acceptEnd {
+			fmt.Fprintln(b, "      ACCEPT_TOKEN(ts_builtin_sym_end);")
 		} else if st.AcceptEOF {
 			fmt.Fprintln(b, "      if (eof) ACCEPT_TOKEN(ts_builtin_sym_end);")
 		}
@@ -790,7 +793,7 @@ func emitLexFunction(b *strings.Builder, funcName string, states []gotreesitter.
 		// correctly becomes a lex error rather than a spurious end token.
 		if st.EOF >= 0 {
 			fmt.Fprintf(b, "      if (eof) ADVANCE(%d);\n", st.EOF)
-		} else if startStates[i] && st.AcceptToken == 0 && !st.Skip && !st.AcceptEOF {
+		} else if startStates[i] && st.AcceptToken == 0 && !st.Skip && !st.AcceptEOF && !acceptEnd {
 			fmt.Fprintf(b, "      if (eof) ACCEPT_TOKEN(ts_builtin_sym_end);\n")
 			fmt.Fprintf(b, "      if (eof) END_STATE();\n")
 		} else {

@@ -22,7 +22,9 @@ func TestExtendGrammarCopiesImportMetadata(t *testing.T) {
 	base.Precedences = [][]PrecEntry{
 		{{Name: "call"}, {IsSymbol: true, Name: "program"}},
 	}
+	base.ExternalLexerOnly = true
 	base.ExplicitLexerEOF = true
+	base.AllExternalTokensInRecovery = true
 	base.CCompatibleParseActions = true
 	base.EnableLRSplitting = true
 	base.BinaryRepeatMode = true
@@ -37,12 +39,14 @@ func TestExtendGrammarCopiesImportMetadata(t *testing.T) {
 	base.CompactParseStates = true
 	base.ChoiceLiftThreshold = 16
 	base.ExactPrefixStates = 2048
+	base.DefaultAliasDisplays = []string{"_capture_expression"}
 	base.PreserveHiddenChoicePassthrough = []string{"_capture_expression"}
 	base.Test("identifier", "abc", "")
 
 	extended := ExtendGrammar("extended", base, func(g *Grammar) {
 		g.Rules["identifier"].Value = `[A-Z]+`
 		g.BinaryRepeatForParents[0] = "statement"
+		g.DefaultAliasDisplays[0] = "_updated_capture"
 		g.Extras[0].Value = `[ \t]+`
 		g.Externals[0].Value = "_different_external"
 		g.ReservedWordSets[0].Rules[0].Value = "when"
@@ -52,11 +56,17 @@ func TestExtendGrammarCopiesImportMetadata(t *testing.T) {
 	if extended.Name != "extended" {
 		t.Fatalf("extended.Name = %q, want extended", extended.Name)
 	}
-	if !extended.ExplicitLexerEOF || !extended.CCompatibleParseActions || !extended.EnableLRSplitting || !extended.BinaryRepeatMode {
+	if !extended.ExternalLexerOnly || !extended.ExplicitLexerEOF || !extended.CCompatibleParseActions || !extended.EnableLRSplitting || !extended.BinaryRepeatMode {
 		t.Fatalf("extension did not inherit generator mode flags")
 	}
 	if !slices.Equal(extended.BinaryRepeatForParents, []string{"statement"}) || !slices.Equal(base.BinaryRepeatForParents, []string{"program"}) {
 		t.Fatalf("extension did not copy binary-repeat parents independently: base %v, extension %v", base.BinaryRepeatForParents, extended.BinaryRepeatForParents)
+	}
+	if !extended.AllExternalTokensInRecovery {
+		t.Fatal("extension did not inherit the recovery external-token mask")
+	}
+	if base.DefaultAliasDisplays[0] != "_capture_expression" || extended.DefaultAliasDisplays[0] != "_updated_capture" {
+		t.Fatal("extension did not copy default alias displays independently")
 	}
 	if !extended.FlattenGeneratedRepeatAux {
 		t.Fatalf("extension did not inherit generated repeat flattening flag")
@@ -131,9 +141,11 @@ func TestEmitGrammarGoIncludesImportMetadata(t *testing.T) {
 	g.Precedences = [][]PrecEntry{
 		{{Name: "call"}, {IsSymbol: true, Name: "program"}},
 	}
+	g.ExternalLexerOnly = true
 	g.ExplicitLexerEOF = true
 	g.CCompatibleParseActions = true
 	g.SeparateErrorLexMode = true
+	g.AllExternalTokensInRecovery = true
 	g.RecoveryLookaheadTokens = []string{":"}
 	g.EnableLRSplitting = true
 	g.BinaryRepeatMode = true
@@ -148,6 +160,7 @@ func TestEmitGrammarGoIncludesImportMetadata(t *testing.T) {
 	g.CompactParseStates = true
 	g.ChoiceLiftThreshold = 8
 	g.ExactPrefixStates = 2048
+	g.DefaultAliasDisplays = []string{"_capture_expression"}
 	g.PreserveHiddenChoicePassthrough = []string{"_capture_expression"}
 	g.Test("valid identifier", "abc", "(program (identifier))")
 	g.TestError("invalid identifier", "123")
@@ -161,9 +174,11 @@ func TestEmitGrammarGoIncludesImportMetadata(t *testing.T) {
 		"g.ReservedWordSets = []ReservedWordSet{",
 		"g.Precedences = [][]PrecEntry{",
 		"{IsSymbol: true, Name: \"program\"}",
+		"g.ExternalLexerOnly = true",
 		"g.ExplicitLexerEOF = true",
 		"g.CCompatibleParseActions = true",
 		"g.SeparateErrorLexMode = true",
+		"g.AllExternalTokensInRecovery = true",
 		"g.RecoveryLookaheadTokens = []string{",
 		"g.EnableLRSplitting = true",
 		"g.BinaryRepeatMode = true",
@@ -179,6 +194,7 @@ func TestEmitGrammarGoIncludesImportMetadata(t *testing.T) {
 		"g.CompactParseStates = true",
 		"g.ChoiceLiftThreshold = 8",
 		"g.ExactPrefixStates = 2048",
+		"g.DefaultAliasDisplays = []string{",
 		"g.PreserveHiddenChoicePassthrough = []string{",
 		"\"_capture_expression\"",
 		"g.Test(\"valid identifier\", \"abc\", \"(program (identifier))\")",

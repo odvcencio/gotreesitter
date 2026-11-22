@@ -1375,7 +1375,21 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 	})
 
 	endPhase = trace.start("build_lex_dfa", map[string]any{"lex_modes": len(lexModes), "terminals": len(ng.Terminals), "extras": len(ng.ExtraSymbols)})
-	lexStates, lexModeOffsets, err := buildLexDFA(bgCtx, ng.Terminals, ng.ExtraSymbols, skipExtras, lexModes)
+	var lexStates []gotreesitter.LexState
+	var lexModeOffsets []int
+	if g.ExternalLexerOnly {
+		if len(ng.ExternalSymbols) == 0 || ng.TokenCount() != len(ng.ExternalSymbols)+1 ||
+			len(ng.Terminals) != 0 || len(ng.KeywordEntries) != 0 {
+			endPhase(map[string]any{"error": true})
+			return nil, fmt.Errorf("external-only lexer requires only external terminals and builtin end")
+		}
+		// All modes delegate whitespace to the scanner. Once it declines,
+		// the empty internal lexer accepts the builtin end token.
+		lexStates = []gotreesitter.LexState{{Default: -1, EOF: -1}}
+		lexModeOffsets = make([]int, len(lexModes))
+	} else {
+		lexStates, lexModeOffsets, err = buildLexDFA(bgCtx, ng.Terminals, ng.ExtraSymbols, skipExtras, lexModes)
+	}
 	if err != nil {
 		endPhase(map[string]any{"error": true})
 		return nil, fmt.Errorf("build lex DFA: %w", err)
@@ -1402,6 +1416,12 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 	if err != nil {
 		endPhase(map[string]any{"error": true})
 		return nil, fmt.Errorf("assemble: %w", err)
+	}
+	if g.ExternalLexerOnly {
+		if err := lang.SetLexerEndStates([]uint32{0}); err != nil {
+			endPhase(map[string]any{"error": true})
+			return nil, fmt.Errorf("assemble external-only lexer: %w", err)
+		}
 	}
 	if g.CCompatibleParseActions {
 		// The C action loop stops at a shift. Keep reduction order and

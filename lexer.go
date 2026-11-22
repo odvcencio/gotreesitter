@@ -130,6 +130,7 @@ type Lexer struct {
 	reuseReads                *incr.Reads
 
 	states           []LexState
+	language         *Language    // unconditional end states, if present
 	asciiTable       [][128]int32 // ASCII fast-path transition table (nil = not available)
 	source           []byte
 	pos              int
@@ -175,6 +176,11 @@ func NewLexer(states []LexState, source []byte) *Lexer {
 		states: states,
 		source: source,
 	}
+}
+
+// NewLexer returns a lexer for the language's main DFA and its end states.
+func (l *Language) NewLexer(source []byte) *Lexer {
+	return &Lexer{states: l.LexStates, language: l, source: source}
 }
 
 // Next lexes the next token starting from the given lex state index.
@@ -247,7 +253,7 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 		ok := l.scanInto(startState, tokenStartPos, tokenStartRow, tokenStartCol, &tok)
 		lookaheadEndByte = maxUint32(lookaheadEndByte, tok.lexerLookaheadEndByte)
 		if ok {
-			if tok.Symbol == 0 {
+			if tok.Symbol == 0 && (!tok.lexerInternalDFALexed() || l.atLogicalEOF()) {
 				// Skip token (whitespace). Verify the lexer actually
 				// advanced past the skipped content to prevent an
 				// infinite loop on zero-width skip matches.
@@ -467,7 +473,7 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 		}
 		st := &l.states[int(curState)]
 
-		if st.AcceptToken > 0 || st.Skip || (st.AcceptEOF && scanPos >= len(l.source)) {
+		if st.AcceptToken > 0 || st.Skip || (st.AcceptEOF && scanPos >= len(l.source)) || l.language.LexerStateAcceptsEndBeforeEOF(int(curState)) {
 			// Reject immediate tokens that matched after whitespace was
 			// consumed. Immediate tokens must match at the original position.
 			isImmediate := st.AcceptToken > 0 && int(st.AcceptToken) < len(l.immediateTokens) && l.immediateTokens[st.AcceptToken]

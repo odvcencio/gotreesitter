@@ -104,7 +104,7 @@ var (
 )
 
 // ccoreLexStates converts the root's lex states once per language.
-func ccoreLexStates(in []LexState) []ccore.LexDFAState {
+func ccoreLexStates(in []LexState, endStates []bool) []ccore.LexDFAState {
 	out := make([]ccore.LexDFAState, len(in))
 	for i := range in {
 		st := &in[i]
@@ -112,6 +112,7 @@ func ccoreLexStates(in []LexState) []ccore.LexDFAState {
 			AcceptToken: ccore.Symbol(st.AcceptToken), AcceptPriority: st.AcceptPriority,
 			Skip: st.Skip, AcceptEOF: st.AcceptEOF, Default: int32(st.Default), EOF: int32(st.EOF),
 		}
+		o.AcceptEnd = i < len(endStates) && endStates[i]
 		if len(st.Transitions) != 0 {
 			o.Trans = make([]ccore.LexTrans, len(st.Transitions))
 			for j, tr := range st.Transitions {
@@ -140,10 +141,10 @@ func buildCcoreTables(lang *Language) *ccore.Tables {
 		MaxReservedWordSetSize: lang.MaxReservedWordSetSize,
 		ExternalLexStates:      lang.ExternalLexStates,
 	}
-	t.LexStates = ccoreLexStates(lang.LexStates)
+	t.LexStates = ccoreLexStates(lang.LexStates, lang.lexerEndStates)
 	t.LexAscii = lang.LexAsciiTable()
 	if len(lang.KeywordLexStates) != 0 {
-		t.KeywordLexStates = ccoreLexStates(lang.KeywordLexStates)
+		t.KeywordLexStates = ccoreLexStates(lang.KeywordLexStates, nil)
 		t.KeywordLexAscii = lang.KeywordLexAsciiTable()
 	}
 	if len(p.smallLookup) > 0 {
@@ -433,6 +434,16 @@ func ccoreConfigHashWithTables(l *Language, t *ccore.Tables) ([32]byte, error) {
 				w.u(uint64(int64(t.NextState)))
 				w.b(t.Skip)
 			}
+		}
+	}
+	var endStates bool
+	for i, st := range t.LexStates {
+		if st.AcceptEnd {
+			if !endStates {
+				w.tag("builtin-end")
+				endStates = true
+			}
+			w.u(uint64(i))
 		}
 	}
 	w.tag("fields")
@@ -2390,6 +2401,13 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	rt.MemoryBudgetBytes = lim.budget
 	rt.MaxStacksSeen = cp.MaxVersions()
 	rt.TokensConsumed = uint64(cp.Tokens())
+	if cp.ScannedBuiltinEnd() {
+		rt.Truncated = rt.RootEndByte < rt.ExpectedEOFByte
+		if rt.Truncated && rt.StopReason == ParseStopAccepted {
+			rt.StopReason = ParseStopAcceptedPrefix
+		}
+		markTruncatedTreeHasError(*rt, built.root)
+	}
 	return built, true, false
 }
 

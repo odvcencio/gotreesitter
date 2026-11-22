@@ -3037,6 +3037,25 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 	}
 	ctx.recordFreshState(0)
 
+	var semanticStates map[string]int
+	var representatives [][]uint32
+	if yamlReferenceScannerRows(ctx.ng) {
+		semanticStates = make(map[string]int)
+		ids := make(map[string]uint32)
+		dotKeys := buildCompactProductionDotKeys(ctx.ng)
+		representatives = make([][]uint32, len(dotKeys))
+		for production, keys := range dotKeys {
+			representatives[production] = make([]uint32, len(keys))
+			for dot, key := range keys {
+				id, found := ids[key]
+				if !found {
+					id = uint32(production)
+					ids[key] = id
+				}
+				representatives[production][dot] = id
+			}
+		}
+	}
 	worklist := []int{0}
 	inWorklist := map[int]bool{0: true}
 	worklistIter := 0
@@ -3072,6 +3091,12 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 			}
 		}
 
+		if representatives != nil {
+			// Allocate states in grammar symbol order. Symbol IDs put terminal
+			// successors before nonterminal successors.
+			sort.Ints(syms)
+		}
+
 		for _, sym := range syms {
 			// Compute GOTO(itemSet, sym): advance dot past sym.
 			advanced := ctx.gotoAdvancedScratch[:0]
@@ -3089,6 +3114,35 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 				continue
 			}
 
+			var semanticKey string
+			if representatives != nil {
+				// Use compact identities for reuse while retaining the first
+				// concrete item for the next advance. A later child can make
+				// previously consumed symbols relevant through inherited fields.
+				byKey := make(map[[2]uint32]int)
+				concrete := make([]coreEntry, 0, len(advanced))
+				for _, item := range advanced {
+					key := [2]uint32{representatives[item.prodIdx][item.dot], item.dot}
+					if index, found := byKey[key]; found {
+						concrete[index].lookaheads.unionWith(&item.lookaheads)
+						continue
+					}
+					byKey[key] = len(concrete)
+					item.lookaheads = item.lookaheads.clone()
+					concrete = append(concrete, item)
+				}
+				keys := make([]string, 0, len(byKey))
+				for key, index := range byKey {
+					keys = append(keys, fmt.Sprint(key, concrete[index].lookaheads.words))
+				}
+				sort.Strings(keys)
+				semanticKey = encodeStringList(keys)
+				if target, found := semanticStates[semanticKey]; found {
+					ctx.addTransition(stateIdx, sym, target)
+					continue
+				}
+				advanced = concrete
+			}
 			closedSet := ctx.closureToSet(advanced)
 			closedSet.annotationArgTag = ctx.annotationArgTagForTransition(stateIdx, &closedSet)
 			closedSet.annotationArgTag |= ctx.templateContextTagForTransition(stateIdx, sym, &closedSet)
@@ -3106,6 +3160,9 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 				&worklist, &inWorklist,
 			)
 
+			if representatives != nil {
+				semanticStates[semanticKey] = targetIdx
+			}
 			// Record transition for table construction.
 			ctx.addTransition(stateIdx, sym, targetIdx)
 			if preciseStateBudget > 0 && len(ctx.itemSets) > preciseStateBudget {

@@ -135,6 +135,12 @@ line-terminator lexer:
 go run ./cmd/grammargen emit go-core -bin go-core.bin
 ```
 
+Generate the YAML ccore candidate from the owned DSL:
+
+```sh
+go run ./cmd/grammargen emit yaml-core -bin yaml-core.bin
+```
+
 ## Go DSL
 
 The first defined rule is the start rule. Names beginning with `_` are hidden
@@ -323,3 +329,20 @@ When corpus parity fails, narrow before changing generator behavior: one
 language, one focused test, one sample if possible. Use `GTS_GRAMMARGEN_REAL_CORPUS_ONLY`,
 `GTS_GRAMMARGEN_REAL_CORPUS_MAX_CASES`, and the focused Docker runners to keep
 the workload reproducible and attributable.
+
+
+### YAML scanner row parity
+
+Emit the YAML parser directly from its DSL. The scanner gate compares each
+external-token mask at its exact row index against pinned C. In the
+repository's parity container, use the generated blob for all three runs.
+
+~~~
+blob=$(mktemp)
+go run ./cmd/grammargen emit yaml-core -bin "$blob"
+export SCANDIFF_GENERATED_YAML_BLOB="$blob"
+export YAML_GENERATED_TEST_SHA=$(sha256sum "$blob" | cut -d' ' -f1)
+SCANDIFF_HOSTILE=off bash cgo_harness/docker/scandiff.sh yaml 200000 1
+SCANDIFF_HOSTILE=trunc bash cgo_harness/docker/scandiff.sh yaml 200000 1
+SCANDIFF_HOSTILE=trunc bash cgo_harness/docker/scandiff.sh yaml 200000 2
+~~~

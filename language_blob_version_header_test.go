@@ -6,6 +6,8 @@ import (
 	"encoding/gob"
 	"strings"
 	"testing"
+
+	"github.com/odvcencio/gotreesitter/internal/lexrun"
 )
 
 func gzipGobBlobForVersionHeaderTest(t *testing.T, v any) []byte {
@@ -134,8 +136,8 @@ func TestLoadLanguageRecordsBlobInfoForHeaderedBlob(t *testing.T) {
 	if info.GeneratorVersion != "test-generator/1.0" {
 		t.Fatalf("BlobInfo().GeneratorVersion = %q, want %q", info.GeneratorVersion, "test-generator/1.0")
 	}
-	if info.MinRuntimeVersion != BlobRuntimeVersion {
-		t.Fatalf("BlobInfo().MinRuntimeVersion = %d, want %d", info.MinRuntimeVersion, BlobRuntimeVersion)
+	if info.MinRuntimeVersion != baseBlobRuntimeVersion {
+		t.Fatalf("BlobInfo().MinRuntimeVersion = %d, want %d", info.MinRuntimeVersion, baseBlobRuntimeVersion)
 	}
 }
 
@@ -278,5 +280,80 @@ func TestLegacyReductionContinuationGrantRequiresExactRuntimeArtifact(t *testing
 	}
 	if roundtrip.legacyReductionContinuationsCertified {
 		t.Fatal("runtime grant survived encoding")
+	}
+}
+
+func TestBlobUnconditionalLexerEndRoundTrip(t *testing.T) {
+	lang := &Language{Name: "early_end", LexStates: []LexState{{Default: -1, EOF: -1}, {Default: -1, EOF: -1}}}
+	base, err := EncodeLanguageBlob(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldPayload, oldInfo, err := UnwrapLanguageBlobVersionHeader(base)
+	if err != nil || oldInfo.MinRuntimeVersion != 1 {
+		t.Fatalf("old payload version %+v err=%v", oldInfo, err)
+	}
+	if err := lang.SetLexerEndStates([]uint32{1}); err != nil {
+		t.Fatal(err)
+	}
+	blob, err := EncodeLanguageBlob(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, info, err := UnwrapLanguageBlobVersionHeader(blob)
+	if err != nil || info.MinRuntimeVersion != BlobRuntimeVersion || info.MinRuntimeVersion <= oldInfo.MinRuntimeVersion {
+		t.Fatalf("new payload version %+v err=%v", info, err)
+	}
+	gobPayload, marked, err := lexrun.UnwrapBuiltinEndStates(payload)
+	if err != nil || !bytes.Equal(oldPayload, gobPayload) || len(marked) != 1 || marked[0] != 1 {
+		t.Fatalf("new encoding changed original payload or missed states: %v %v", marked, err)
+	}
+	got, err := LoadLanguage(blob)
+	if err != nil || got.LexerStateAcceptsEndBeforeEOF(0) || !got.LexerStateAcceptsEndBeforeEOF(1) {
+		t.Fatalf("marker did not round-trip: %+v err=%v", got, err)
+	}
+	roundTrip, err := EncodeLanguageBlob(got)
+	if err != nil || !bytes.Equal(blob, roundTrip) {
+		t.Fatalf("re-encoding changed bytes: %v", err)
+	}
+	if _, err := LoadLanguage(payload); err == nil {
+		t.Fatal("accepted end metadata without a version requirement")
+	}
+
+	for _, tc := range []struct {
+		name string
+		data []byte
+	}{
+		{"truncated", payload[:10]},
+		{"duplicate", lexrun.WrapBuiltinEndStates(oldPayload, []uint32{1, 1})},
+		{"out-of-range", lexrun.WrapBuiltinEndStates(oldPayload, []uint32{2})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			blob, err := WrapLanguageBlobVersionHeader(tc.data, BlobRuntimeVersion, DefaultBlobGeneratorVersion)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := LoadLanguage(blob); err == nil {
+				t.Fatal("accepted invalid end metadata")
+			}
+		})
+	}
+}
+
+func TestLexerUnconditionalEndBeforeUnreadText(t *testing.T) {
+	state := LexState{Default: -1, EOF: -1, AcceptEOF: true}
+	src := []byte(" !")
+	orig := NewLexer([]LexState{state}, src).NextWithErrorRuns(0)
+	if orig.EndByte != 2 {
+		t.Fatalf("ordinary EOF-only lexer stopped early: %+v", orig)
+	}
+	state.AcceptEOF = false
+	lang := &Language{LexStates: []LexState{state}}
+	if err := lang.SetLexerEndStates([]uint32{0}); err != nil {
+		t.Fatal(err)
+	}
+	got := lang.NewLexer(src).NextWithErrorRuns(0)
+	if got.Symbol != 0 || got.StartByte != 0 || got.EndByte != 0 || got.lexerLookaheadEndByte != 1 {
+		t.Fatalf("end marker consumed text: %+v", got)
 	}
 }

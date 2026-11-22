@@ -43,28 +43,29 @@ type Parser struct {
 	recSlices []stackSlice
 	reduceSet []reduceAction
 	// incremental parsing (reuse.go, edit.go)
-	rn           []reusableEntry
-	rnLastExt    Handle // C ReusableNode.last_external_token
-	reuseActive  bool
-	reusedNodes  int
-	reusedBytes  uint64
-	largestReuse uint32
-	finished     Handle
-	ops          int // steps of the parse loop in this parse (stop hook)
-	stopAt       int
-	stopPanics   bool
-	cacheTok     Handle
-	cacheAt      uint32
-	accepts      int
-	logf         func(string)
-	stop         string
-	ext          scannerState // external scanner side (scanner.go)
-	forceRows    bool
-	fail         [2]Length // where the last failed main scan began and ended
-	kwFail       [2]Length // the same for a keyword scan (not read)
-	lexTok       Token     // scratch tokens
-	kwTok        Token
-	skipTok      Token
+	rn                []reusableEntry
+	rnLastExt         Handle // C ReusableNode.last_external_token
+	reuseActive       bool
+	reusedNodes       int
+	reusedBytes       uint64
+	largestReuse      uint32
+	finished          Handle
+	ops               int // steps of the parse loop in this parse (stop hook)
+	stopAt            int
+	stopPanics        bool
+	cacheTok          Handle
+	cacheAt           uint32
+	accepts           int
+	logf              func(string)
+	stop              string
+	ext               scannerState // external scanner side (scanner.go)
+	forceRows         bool
+	fail              [2]Length // where the last failed main scan began and ended
+	kwFail            [2]Length // the same for a keyword scan (not read)
+	lexTok            Token     // scratch tokens
+	kwTok             Token
+	skipTok           Token
+	scannedBuiltinEnd bool
 
 	// NormNames makes digest records compare node names with backslashes
 	// removed (a test switch for grammars whose Go table spells a name with

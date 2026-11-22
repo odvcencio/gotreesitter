@@ -259,6 +259,10 @@ func ccoreInputs(t testing.TB, lang string, small bool) []ccoreInput {
 }
 
 func ccoreLanguages(t testing.TB, name string) (*g.Language, *sitter.Language) {
+	return ccoreLanguagesWithFixture(t, name, nil)
+}
+
+func ccoreLanguagesWithFixture(t testing.TB, name string, gl *g.Language) (*g.Language, *sitter.Language) {
 	name = ccoreBaseLang(name)
 	bindtest.NormalizeNames(os.Getenv("CCORE_NORM_NAMES") != "")
 	switch name {
@@ -276,7 +280,9 @@ func ccoreLanguages(t testing.TB, name string) (*g.Language, *sitter.Language) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gl := grammars.DetectLanguageByName(name).Language()
+	if gl == nil {
+		gl = grammars.DetectLanguageByName(name).Language()
+	}
 	sum, ok := gl.GrammarBlobSHA256()
 	fmt.Printf("EXTSCAN language=%s scanner=%t external_lex_states=%d external_symbols=%d\n", name, gl.ExternalScanner != nil, len(gl.ExternalLexStates), len(gl.ExternalSymbols))
 	fmt.Printf("GOLANG language=%s blob=%s ok=%t symbols=%d states=%d\n", name, hex.EncodeToString(sum[:]), ok, gl.SymbolCount, gl.StateCount)

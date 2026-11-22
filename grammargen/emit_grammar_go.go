@@ -129,11 +129,17 @@ func EmitGrammarGo(g *Grammar, pkgName, funcName string) ([]byte, error) {
 		fmt.Fprintf(&buf, "\t}\n\n")
 	}
 
+	if g.ExternalLexerOnly {
+		fmt.Fprintln(&buf, "\tg.ExternalLexerOnly = true")
+	}
 	if g.ExplicitLexerEOF {
 		fmt.Fprint(&buf, "\tg.ExplicitLexerEOF = true\n\n")
 	}
 	if g.CCompatibleParseActions {
 		fmt.Fprint(&buf, "\tg.CCompatibleParseActions = true\n\n")
+	}
+	if g.AllExternalTokensInRecovery {
+		fmt.Fprintf(&buf, "\tg.AllExternalTokensInRecovery = true\n\n")
 	}
 	if g.SeparateErrorLexMode {
 		fmt.Fprintf(&buf, "\tg.SeparateErrorLexMode = true\n\n")
@@ -227,6 +233,14 @@ func EmitGrammarGo(g *Grammar, pkgName, funcName string) ([]byte, error) {
 		fmt.Fprintf(&buf, "\tg.PriorityInlinePatterns = []string{\n")
 		for _, pattern := range g.PriorityInlinePatterns {
 			fmt.Fprintf(&buf, "\t\t%s,\n", goString(pattern))
+		}
+		fmt.Fprintf(&buf, "\t}\n\n")
+	}
+
+	if len(g.DefaultAliasDisplays) > 0 {
+		fmt.Fprintf(&buf, "\tg.DefaultAliasDisplays = []string{\n")
+		for _, name := range g.DefaultAliasDisplays {
+			fmt.Fprintf(&buf, "\t\t%s,\n", goString(name))
 		}
 		fmt.Fprintf(&buf, "\t}\n\n")
 	}
