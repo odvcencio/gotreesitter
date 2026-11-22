@@ -104,10 +104,7 @@ func newExternalLexer(source []byte, pos int, row, col uint32) *ExternalLexer {
 // Lookahead returns the current rune or 0 at EOF.
 func (l *ExternalLexer) Lookahead() rune {
 	l.recordReadFrontier()
-	if l.pos >= len(l.source) {
-		return 0
-	}
-	if cursor := l.includedCursor(); cursor != nil && cursor.At(l.includedPosition()).EOF() {
+	if l.atEOF() {
 		return 0
 	}
 	b := l.source[l.pos]
@@ -328,7 +325,10 @@ func (l *ExternalLexer) AdvanceLineContent(skip bool) (int, int, rune) {
 
 // MarkEnd marks the current scanner position as the token end.
 func (l *ExternalLexer) MarkEnd() {
-	l.endPos, l.endPoint = l.tokenEnd()
+	l.endPos, l.endPoint = l.pos, l.point
+	if l.includedCursor() != nil {
+		l.endPos, l.endPoint = l.tokenEnd()
+	}
 	l.endMarked = true
 }
 
@@ -566,10 +566,8 @@ func (l *ExternalLexer) atEOF() bool {
 	if l.pos >= len(l.source) {
 		return true
 	}
-	if cursor := l.includedCursor(); cursor != nil {
-		return cursor.At(l.includedPosition()).EOF()
-	}
-	return false
+	cursor := l.includedCursor()
+	return cursor != nil && cursor.AtSelectedEnd(uint32(l.pos))
 }
 
 // cLookahead is the lookahead as C sees it: -1 (TS_DECODE_ERROR) for a byte that

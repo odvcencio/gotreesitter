@@ -106,8 +106,15 @@ func (c ScannerCursor) At(at Length) ScannerCursor {
 }
 
 func (c ScannerCursor) Position() Length { return c.pos }
-func (c ScannerCursor) EOF() bool        { return c.eof() }
-func (c ScannerCursor) MarkEnd() Length  { return c.markEnd() }
+
+// AtSelectedEnd reports whether a positioned byte has reached the final
+// range's end. It can be queried even after the scanner restores its cursor.
+func (c ScannerCursor) AtSelectedEnd(position uint32) bool {
+	return position >= c.ranges[len(c.ranges)-1].EndByte
+}
+
+func (c ScannerCursor) EOF() bool       { return c.eof() }
+func (c ScannerCursor) MarkEnd() Length { return c.markEnd() }
 func (c ScannerCursor) AtRangeStart() bool {
 	return !c.eof() && c.pos.bytes == c.ranges[c.index].StartByte
 }
