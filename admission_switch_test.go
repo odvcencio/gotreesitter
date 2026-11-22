@@ -4034,8 +4034,8 @@ func TestCcoreViewsEditSessions(t *testing.T) {
 }
 
 // TestCcoreViewsEditKeepsHeldNodes: a node a caller holds stays correct after Tree.Edit. With a
-// view below the root, Tree.Edit converts the tree first (reason tree_edit_with_views) and the
-// present walk then moves the node, as for an eager tree.
+// view below the root, Tree.Edit refreshes the headers that exist from the edited core tree (a
+// sparse edit): it converts nothing and makes no header.
 func TestCcoreViewsEditKeepsHeldNodes(t *testing.T) {
 	defer ccoreCertifyAll()()
 	lang := ccoreRouteLang(t, "json")
@@ -4051,11 +4051,15 @@ func TestCcoreViewsEditKeepsHeldNodes(t *testing.T) {
 	last := held.Child(held.ChildCount() - 1) // its closing bracket
 	startBefore, endBefore := last.StartByte(), last.EndByte()
 	_, _, before := gts.CcoreTestViewCounters()
+	madeBefore, _ := gts.CcoreTestViewHeaders(tree)
 	out, edit := ccoreInsert(src, 3, ' ')
 	tree.Edit(edit)
 	_, _, after := gts.CcoreTestViewCounters()
-	if after["tree_edit_with_views"] != before["tree_edit_with_views"]+1 {
-		t.Fatalf("conversions by reason: before %v, after %v", before, after)
+	if after["tree_edit_with_views"] != before["tree_edit_with_views"] || after["sparse_edits"] != before["sparse_edits"]+1 {
+		t.Fatalf("conversions by reason: before %v, after %v; want one sparse edit and no conversion", before, after)
+	}
+	if made, isView := gts.CcoreTestViewHeaders(tree); !isView || made != madeBefore {
+		t.Fatalf("after the edit: view tree %t with %d headers, want a view tree with %d", isView, made, madeBefore)
 	}
 	if held != tree.RootNode().Child(0) {
 		t.Errorf("the node held before the edit is not the first child after it")
@@ -4072,6 +4076,56 @@ func TestCcoreViewsEditKeepsHeldNodes(t *testing.T) {
 	defer fresh.Release()
 	if next.RootNode().SExpr(lang) != fresh.RootNode().SExpr(lang) {
 		t.Error("the reparse differs from a fresh parse")
+	}
+}
+
+func TestCcoreViewsEditChangeFlagsMatchPinnedC(t *testing.T) {
+	defer ccoreCertifyAll()()
+	defer gts.CcoreTestViewsOn(true)()
+	lang := ccoreRouteLang(t, "json")
+
+	cases := []struct {
+		name          string
+		source        string
+		edit          gts.InputEdit
+		numberIndex   int
+		numberChanged bool
+	}{
+		{name: "empty edit at start", source: "[1]"},
+		{
+			name: "whitespace replacement before number", source: "[1, 2]",
+			edit: gts.InputEdit{
+				StartByte: 3, OldEndByte: 4, NewEndByte: 4,
+				StartPoint: gts.Point{Column: 3}, OldEndPoint: gts.Point{Column: 4}, NewEndPoint: gts.Point{Column: 4},
+			},
+			numberIndex: 1, numberChanged: true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tree, err := ccoreRouteParser(lang).Parse([]byte(c.source))
+			if err != nil || tree == nil || !gts.CcoreTestFromCore(tree) {
+				t.Fatalf("core parse: %v", err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			array := root.Child(0)
+			number := array.NamedChild(c.numberIndex)
+			if root.HasChanges() || array.HasChanges() || number.HasChanges() {
+				t.Fatal("fresh nodes are marked changed")
+			}
+			numberRange := number.Range()
+
+			tree.Edit(c.edit)
+
+			if !root.HasChanges() || !array.HasChanges() || number.HasChanges() != c.numberChanged {
+				t.Fatalf("changed flags for root, array and number are %t, %t, %t; want true, true, %t",
+					root.HasChanges(), array.HasChanges(), number.HasChanges(), c.numberChanged)
+			}
+			if number.Range() != numberRange || root.Child(0).NamedChild(c.numberIndex) != number {
+				t.Fatal("expected the same held number and range after the edit")
+			}
+		})
 	}
 }
 

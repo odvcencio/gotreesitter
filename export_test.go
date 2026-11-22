@@ -1129,6 +1129,40 @@ func HighlighterTestTree(h *Highlighter, tree *Tree) []HighlightRange {
 	return h.highlightTree(tree, tree.Source())
 }
 
+// CcoreTestSparseOff makes Tree.Edit on a view tree with views below the root
+// convert the tree (the path before the sparse rebind) until the returned
+// function runs.
+func CcoreTestSparseOff() func() {
+	prev := ccoreTestSparseOff.Swap(true)
+	return func() { ccoreTestSparseOff.Store(prev) }
+}
+
+// CcoreTestViewTable reports what the view table of t holds: the views in small
+// slots, in large lists and in the map of repeated slots, and its pages.
+func CcoreTestViewTable(t *Tree) (small, large, repeated, pages int) {
+	v := ccoreViewsOf(t.root)
+	if v == nil {
+		return 0, 0, 0, 0
+	}
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	if top := v.top.Load(); top != nil {
+		for i := range top.pages {
+			page := top.pages[i].Load()
+			if page == nil {
+				continue
+			}
+			pages++
+			for j := range page {
+				if page[j].Load() != nil {
+					small++
+				}
+			}
+		}
+	}
+	return small, len(v.large), len(v.duplicates), pages
+}
+
 func CcoreTestEager(t *Tree) *Tree {
 	st := t.ccoreStateOf()
 	if st == nil || st.ct == nil || st.ct.Released() {
