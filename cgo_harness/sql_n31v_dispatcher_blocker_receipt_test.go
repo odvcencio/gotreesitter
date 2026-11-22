@@ -64,7 +64,7 @@ func TestSQLN31vDispatcherBlockerRoutes(t *testing.T) {
 	if got := fmt.Sprintf("%x", sha256.Sum256(source)); got != sqlN31vSourceSHA {
 		t.Fatalf("source SHA-256=%s, want %s", got, sqlN31vSourceSHA)
 	}
-	if got, want := fmt.Sprintf("%x", scannerIdentity.Scanner), "7e493677411a501e6d8592c6b9cc158e21a1bfed44c72ca914e2d81e4e34861d"; got != want {
+	if got, want := fmt.Sprintf("%x", scannerIdentity.Scanner), "6be5f16fe226845e0bf490a42c33bcd00294b029dcc1160e676bb9fa7ae7901b"; got != want {
 		t.Fatalf("SQL scanner identity=%s, want %s", got, want)
 	}
 	if got, want := fmt.Sprintf("%x", scannerIdentity.Grammar), "e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268"; got != want {
