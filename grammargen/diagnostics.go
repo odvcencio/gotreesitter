@@ -1403,6 +1403,16 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 		endPhase(map[string]any{"error": true})
 		return nil, fmt.Errorf("assemble: %w", err)
 	}
+	if g.ShiftActionsLast {
+		// The C action loop stops at a shift. Keep reduction order and
+		// existing table group indices while moving each shift to the end.
+		for _, entry := range lang.ParseActions {
+			actions := entry.Actions
+			sort.SliceStable(actions, func(i, j int) bool {
+				return actions[i].Type != gotreesitter.ParseActionShift && actions[j].Type == gotreesitter.ParseActionShift
+			})
+		}
+	}
 	if g.ExplicitLexerEOF {
 		for _, terminal := range ng.Terminals {
 			if !isBareNUL(terminal.Rule) {

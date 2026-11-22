@@ -11,9 +11,10 @@ import (
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
-func TestGoOwnedLexerEOFMatchesPinnedC(t *testing.T) {
+func TestGoOwnedLexerEOFAndConflictsMatchPinnedC(t *testing.T) {
 	grammar := grammargen.GoGrammar()
 	grammar.ExplicitLexerEOF = true
+	grammar.ShiftActionsLast = true
 	grammar.Externals = nil
 	var inline func(*grammargen.Rule) *grammargen.Rule
 	inline = func(rule *grammargen.Rule) *grammargen.Rule {
@@ -55,6 +56,14 @@ func TestGoOwnedLexerEOFMatchesPinnedC(t *testing.T) {
 		"package p\x00",
 		"package p\nfunc f(){}\n",
 		"package p\nfunc f(){return}\n",
+		"package p\nfunc f() (bool, bool) { return }\n",
+		"package p\nfunc f(){ _ = a[b]() }\n",
+		"package p\nfunc f(){ _ = a[b] }\n",
+		"package p\nfunc f(){ _ = a[0] }\n",
+		"package p\nfunc f(){ _ = a[b, c] }\n",
+		"package p\nfunc f() (a, b T) { return }\n",
+		"package p\nfunc f(){ _ = a[0].b }\n",
+		"package p\nfunc f() (A, B) { return }\n",
 	} {
 		parser, err := bindtest.NewParser(lang)
 		if err != nil {
