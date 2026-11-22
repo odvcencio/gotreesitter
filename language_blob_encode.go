@@ -32,8 +32,8 @@ func EncodeLanguageBlob(lang *Language) ([]byte, error) {
 // the versioned fail-closed GTSBLOB envelope understood by LoadLanguage.
 //
 // The result is then wrapped in a version header (see
-// language_blob_version_header.go) recording BlobRuntimeVersion as the
-// blob's generator identity and required runtime version. The optional
+// language_blob_version_header.go) recording the generator identity and
+// the minimum runtime version required by the blob. The optional
 // lexer end extension requires version 2. Other blobs keep version 1.
 // LoadLanguage rejects a blob whose MinRuntimeVersion is newer than this
 // runtime's BlobRuntimeVersion, and exposes the header's contents (or its

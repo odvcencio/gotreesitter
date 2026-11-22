@@ -86,7 +86,7 @@ type LexDFAState struct {
 	AcceptPriority int16  // lower wins
 	Skip           bool   // the state accepts skipped characters
 	AcceptEOF      bool   // the state accepts the end token at the end of input
-	AcceptEnd      bool   // the state accepts builtin end without an EOF condition
+	AcceptEnd      bool   `json:",omitempty"` // the state accepts builtin end without an EOF condition
 	Default        int32  // next state when no range matches; -1 if none
 	EOF            int32  // next state at the end of input; -1 if none
 	Trans          []LexTrans

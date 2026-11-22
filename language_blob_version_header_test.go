@@ -352,7 +352,7 @@ func TestLexerUnconditionalEndBeforeUnreadText(t *testing.T) {
 	if err := lang.SetLexerEndStates([]uint32{0}); err != nil {
 		t.Fatal(err)
 	}
-	got := lang.NewLexer(src).NextWithErrorRuns(0)
+	got := lang.newLexer(src).NextWithErrorRuns(0)
 	if got.Symbol != 0 || got.StartByte != 0 || got.EndByte != 0 || got.lexerLookaheadEndByte != 1 {
 		t.Fatalf("end marker consumed text: %+v", got)
 	}

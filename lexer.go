@@ -178,8 +178,8 @@ func NewLexer(states []LexState, source []byte) *Lexer {
 	}
 }
 
-// NewLexer returns a lexer for the language's main DFA and its end states.
-func (l *Language) NewLexer(source []byte) *Lexer {
+// newLexer returns a lexer for the language's main DFA and its end states.
+func (l *Language) newLexer(source []byte) *Lexer {
 	return &Lexer{states: l.LexStates, language: l, source: source}
 }
 
