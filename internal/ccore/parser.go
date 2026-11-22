@@ -39,6 +39,9 @@ type Parser struct {
 	trailing   []Handle
 	trail2     []Handle
 	scratch    []Handle
+
+	includedRanges []Range // borrowed for one fresh range parse
+
 	// recovery scratch (recover.go)
 	recSlices []stackSlice
 	reduceSet []reduceAction

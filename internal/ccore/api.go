@@ -15,6 +15,29 @@ import (
 // stopped; a parse that stopped returns no tree.
 func (p *Parser) Parse(src []byte) (*Tree, string) { return p.ParseWith(src, nil) }
 
+// ParseIncluded parses selected source ranges from scratch. Ranges must be
+// sorted by byte with no overlap, as with ts_parser_set_included_ranges.
+// External scanners and old-tree reuse require their own range integration
+// before the root adapter can expose this path.
+func (p *Parser) ParseIncluded(src []byte, ranges []Range) (*Tree, string) {
+	if len(ranges) == 0 {
+		return p.Parse(src)
+	}
+	if p.scanner != nil {
+		return nil, "included ranges require external scanner integration"
+	}
+	var previousEnd uint32
+	for _, r := range ranges {
+		if r.StartByte < previousEnd || r.EndByte < r.StartByte {
+			return nil, "invalid included ranges"
+		}
+		previousEnd = r.EndByte
+	}
+	p.includedRanges = ranges
+	defer func() { p.includedRanges = nil }()
+	return p.Parse(src)
+}
+
 // ParseWith parses src, reusing the edited old tree when old is not nil (C
 // ts_parser_parse with an old tree). An incremental parse appends to the
 // store of old, so old stays valid. The parse holds the store's lease from

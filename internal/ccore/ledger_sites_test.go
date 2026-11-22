@@ -15,7 +15,7 @@ import (
 // servedFiles are the files of this package whose code runs while a served request parses.
 // Every other non-test file must be listed in notServedFiles with the reason, so that a new
 // file cannot add an allocation to the served path without being scanned.
-var servedFiles = []string{"parser.go", "subtree.go", "stack.go", "stack_summary.go", "recover.go", "lexer.go", "lexdfa.go", "scanner.go", "reduce_linear.go", "reuse.go", "store.go", "lifetime.go", "edit.go", "tree.go", "api.go", "store_ledger.go", "shortcut.go", "scanprovider.go"}
+var servedFiles = []string{"parser.go", "subtree.go", "stack.go", "stack_summary.go", "recover.go", "lexer.go", "lexdfa.go", "included_lexer.go", "scanner.go", "reduce_linear.go", "reuse.go", "store.go", "lifetime.go", "edit.go", "tree.go", "api.go", "store_ledger.go", "shortcut.go", "scanprovider.go"}
 
 var notServedFiles = map[string]string{
 	"changed_ranges.go": "compares finished trees outside a parse request",
