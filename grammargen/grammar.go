@@ -73,7 +73,7 @@ type Grammar struct {
 	Supertypes                                 []string
 	Tests                                      []TestCase    // embedded test cases
 	ExplicitLexerEOF                           bool          // encode C-style EOF transitions and treat a bare NUL terminal as a byte
-	ShiftActionsLast                           bool          // emit shifts after the other actions in each parse table entry
+	CCompatibleParseActions                    bool          // order shifts last and honor precedence in derived keyword conflicts
 	SeparateErrorLexMode                       bool          // emit an error-state lexer with non-initial fixed terminals
 	RecoveryLookaheadTokens                    []string      // additional terminals allowed by reduce-follow and missing-token lookahead analysis
 	EnableLRSplitting                          bool          // opt-in: attempt LR(1) state splitting for merge pathology
@@ -338,7 +338,7 @@ func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Gram
 		Supertypes:                         make([]string, len(base.Supertypes)),
 		Tests:                              make([]TestCase, len(base.Tests)),
 		ExplicitLexerEOF:                   base.ExplicitLexerEOF,
-		ShiftActionsLast:                   base.ShiftActionsLast,
+		CCompatibleParseActions:            base.CCompatibleParseActions,
 		SeparateErrorLexMode:               base.SeparateErrorLexMode,
 		RecoveryLookaheadTokens:            append([]string(nil), base.RecoveryLookaheadTokens...),
 		EnableLRSplitting:                  base.EnableLRSplitting,

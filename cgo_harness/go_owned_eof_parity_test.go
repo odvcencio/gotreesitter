@@ -14,7 +14,7 @@ import (
 func TestGoOwnedLexerEOFAndConflictsMatchPinnedC(t *testing.T) {
 	grammar := grammargen.GoGrammar()
 	grammar.ExplicitLexerEOF = true
-	grammar.ShiftActionsLast = true
+	grammar.CCompatibleParseActions = true
 	grammar.Externals = nil
 	var inline func(*grammargen.Rule) *grammargen.Rule
 	inline = func(rule *grammargen.Rule) *grammargen.Rule {
@@ -64,6 +64,12 @@ func TestGoOwnedLexerEOFAndConflictsMatchPinnedC(t *testing.T) {
 		"package p\nfunc f() (a, b T) { return }\n",
 		"package p\nfunc f(){ _ = a[0].b }\n",
 		"package p\nfunc f() (A, B) { return }\n",
+		"package p\nfunc f() { _ = new(T) }\n",
+		"package p\nfunc f() { _ = make(T, 2) }\n",
+		"package p\nfunc f() { _ = new([]T) }\n",
+		"package p\nfunc f() { _ = f(T) }\n",
+		"package p\nfunc f() { _ = pkg.new(T) }\n",
+		"package p\nfunc f() { _ = new }\n",
 	} {
 		parser, err := bindtest.NewParser(lang)
 		if err != nil {

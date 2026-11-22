@@ -117,6 +117,7 @@ type NormalizedGrammar struct {
 
 	PreserveKeywordIdentifierConflicts         bool
 	DerivedKeywordIdentifierConflicts          bool
+	cCompatibleParseActions                    bool
 	PreferExpressionOperatorIdentifierReduces  bool
 	PreferParenthesizedCallDoBlockReduces      bool
 	PreferRemoteCallOperatorReduces            bool
@@ -298,6 +299,8 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		return nil, fmt.Errorf("grammar has no rules")
 	}
 
+	ng := &NormalizedGrammar{GrammarName: g.Name, cCompatibleParseActions: g.CCompatibleParseActions}
+
 	// Shallow-clone g so later phases (e.g. liftInlineTokens) that write
 	// back into g.Rules don't mutate the caller's Grammar.
 	gCopy := *g
@@ -326,7 +329,6 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 	}
 	st.choiceLiftThreshold = g.ChoiceLiftThreshold
 	st.gRules = g.Rules
-	ng := &NormalizedGrammar{GrammarName: g.Name}
 
 	// Phase 1: Collect all string literals and register terminal symbols.
 	// Walk all rules to find string literals (anonymous terminals).

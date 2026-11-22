@@ -3682,6 +3682,13 @@ func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedG
 			return repeated, nil
 		}
 		if shouldPreserveDerivedKeywordIdentifierShiftReduce(lookaheadSym, reduces, ng) {
+			if ng.cCompatibleParseActions {
+				// An inferred ambiguity cannot override a strict precedence
+				// difference on the advanced items, such as new(T) in Go.
+				if preferred, ok := preferredAdvancedShiftPrecedence(shifts, reduces, ng); ok {
+					return preferred, nil
+				}
+			}
 			return actions, nil
 		}
 		if shouldPreferTemplateAnnotationTypeReduce(lookaheadSym, shifts, reduces, ng) {

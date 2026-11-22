@@ -129,6 +129,12 @@ func EmitGrammarGo(g *Grammar, pkgName, funcName string) ([]byte, error) {
 		fmt.Fprintf(&buf, "\t}\n\n")
 	}
 
+	if g.ExplicitLexerEOF {
+		fmt.Fprint(&buf, "\tg.ExplicitLexerEOF = true\n\n")
+	}
+	if g.CCompatibleParseActions {
+		fmt.Fprint(&buf, "\tg.CCompatibleParseActions = true\n\n")
+	}
 	if g.SeparateErrorLexMode {
 		fmt.Fprintf(&buf, "\tg.SeparateErrorLexMode = true\n\n")
 	}
