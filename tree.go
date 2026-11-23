@@ -3435,12 +3435,22 @@ func (t *Tree) ensureResultCompatibility() {
 		hadCompactLineage := t.compactMaterialized || compactTreeContainsMaterializedNode(t.root)
 		compatibilitySnapshot := snapshotCompactCompatibilityTree(t.root, hadCompactLineage)
 		defer compatibilitySnapshot.release()
+		defer func() {
+			// Selected trailing trivia belongs to the accepted range root.
+			// Finish the span after lazy normalization, before exposing it.
+			if t.resultCompatibilityApplied && len(t.includedRanges) != 0 {
+				rt := t.rawParseRuntime()
+				if rt.StopReason == ParseStopAccepted && !rt.Truncated && t.root.endByte < rt.ExpectedEOFByte {
+					finalizeReturnedTreeRootSpan(t, t.source)
+				}
+			}
+			t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
+		}()
 		if !parsePhaseTimingEnabled() {
 			parser := &Parser{language: t.language}
 			result := normalizeResultCompatibility(t.root, t.source, parser, nil)
 			t.resultErrorSummary = result.errorSummary
 			t.resultCompatibilityApplied = !resultMaterializationShouldStop(result.stopReason)
-			t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
 			// Diagnostic-only, mirrors the timing-enabled branch below: without
 			// this, every deferred-compatibility language (typescript/tsx by
 			// default, see shouldDeferResultCompatibility) would
@@ -3461,7 +3471,6 @@ func (t *Tree) ensureResultCompatibility() {
 		result := normalizeResultCompatibility(t.root, t.source, parser, nil)
 		t.resultErrorSummary = result.errorSummary
 		t.resultCompatibilityApplied = !resultMaterializationShouldStop(result.stopReason)
-		t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
 		timing.addResultCompatibility(start)
 		t.ensureParseRuntime().ResultCompatibilityNanos += timing.resultCompatibilityNanos
 		parser.copyNormalizationStats(t.ensureParseRuntime())
