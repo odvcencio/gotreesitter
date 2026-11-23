@@ -10,6 +10,8 @@ package cgoharness
 //
 // Switches (environment):
 //   SCANDIFF_LANG     grammar name (required)
+//   SCANDIFF_GENERATED_YAML_BLOB  use this generated YAML grammar with the existing scanner and row checks
+//   YAML_GENERATED_TEST_SHA  required SHA-256 of that file when the generated fixture is enabled
 //   SCANDIFF_REQUIRE  1: a missing SCANDIFF_LANG fails instead of skipping (the wrapper sets it)
 //   SCANDIFF_SEED     seed (default 1); the run is deterministic for a seed, with or without SCANDIFF_OUT
 //   SCANDIFF_CALLS    call budget (default 20000; must be above 0)
@@ -49,9 +51,43 @@ import (
 
 	g "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/cgo_harness/internal/scandiff"
+	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 )
+
+// sdGeneratedYAML returns nil only when no generated fixture was requested.
+func sdGeneratedYAML(t *testing.T, lang string) *g.Language {
+	t.Helper()
+	path, enabled := os.LookupEnv("SCANDIFF_GENERATED_YAML_BLOB")
+	if !enabled {
+		return nil
+	}
+	if lang != "yaml" {
+		t.Fatalf("SCANDIFF_GENERATED_YAML_BLOB requires SCANDIFF_LANG=yaml, got %q", lang)
+	}
+	want, err := hex.DecodeString(os.Getenv("YAML_GENERATED_TEST_SHA"))
+	if err != nil || len(want) != sha256.Size {
+		t.Fatal("generated YAML fixture requires a 64-digit YAML_GENERATED_TEST_SHA")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read generated YAML fixture: %v", err)
+	}
+	sum := sha256.Sum256(data)
+	if !bytes.Equal(sum[:], want) {
+		t.Fatalf("generated YAML fixture digest mismatch: got %x want %x", sum, want)
+	}
+	gl, err := g.LoadLanguage(data)
+	if err != nil {
+		t.Fatalf("load generated YAML fixture: %v", err)
+	}
+	if !grammars.AdaptScannerForLanguage("yaml", gl) {
+		t.Fatal("could not bind YAML scanner to generated fixture")
+	}
+	fmt.Printf("SCANDIFF_GENERATED_YAML sha256=%x states=%d external_rows=%d\n", sum, gl.StateCount, len(gl.ExternalLexStates))
+	return gl
+}
 
 var sdKinds = []string{"found", "symbol", "start", "end", "point", "lookahead", "column", "state", "gopanic", "overflow"}
 
@@ -1499,7 +1535,7 @@ func TestScannerDiff(t *testing.T) {
 	if budget <= 0 || batch <= 0 {
 		t.Fatalf("SCANDIFF_CALLS (%d) and SCANDIFF_BATCH (%d) must be above 0", budget, batch)
 	}
-	gl, cl := ccoreLanguages(t, lang)
+	gl, cl := ccoreLanguagesWithFixture(t, lang, sdGeneratedYAML(t, lang))
 	scannerType := fmt.Sprintf("%T", gl.ExternalScanner)
 	goLang := gl
 	if n := sdEnvInt("SCANDIFF_ADAPT", 0); n > 0 {

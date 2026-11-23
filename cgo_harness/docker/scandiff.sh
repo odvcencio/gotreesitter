@@ -111,6 +111,11 @@ seed=${3:-1}
 case "$calls" in ''|*[!0-9]*) echo "calls must be a number above 0" >&2; exit 2;; esac
 [ "$calls" -gt 0 ] || { echo "calls must be above 0" >&2; exit 2; }
 case "$seed" in ''|*[!0-9]*) echo "seed must be a number" >&2; exit 2;; esac
+# Resolve a caller-relative fixture before changing into the Go test package.
+case "${SCANDIFF_GENERATED_YAML_BLOB-}" in
+  ""|/*) ;;
+  *) export SCANDIFF_GENERATED_YAML_BLOB="$PWD/$SCANDIFF_GENERATED_YAML_BLOB" ;;
+esac
 cd "$(dirname "${BASH_SOURCE[0]}")/.."   # cgo_harness
 export GOWORK=off GOMAXPROCS=1 SCANDIFF_REQUIRE=1
 bin="${TMPDIR:-/tmp}/scandiff.$$.test"

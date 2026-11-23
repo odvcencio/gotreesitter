@@ -86,6 +86,7 @@ type LexDFAState struct {
 	AcceptPriority int16  // lower wins
 	Skip           bool   // the state accepts skipped characters
 	AcceptEOF      bool   // the state accepts the end token at the end of input
+	AcceptEnd      bool   `json:",omitempty"` // the state accepts builtin end without an EOF condition
 	Default        int32  // next state when no range matches; -1 if none
 	EOF            int32  // next state at the end of input; -1 if none
 	Trans          []LexTrans
@@ -119,7 +120,7 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 	var acceptStartPos int
 	var acceptStartRow, acceptStartCol uint32
 	var acceptSymbol Symbol
-	acceptSkip := false
+	var acceptSkip, acceptEnd bool
 	acceptPriorityBest := int16(32767)
 
 	eofHops := 0
@@ -129,7 +130,7 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 		}
 		st := &states[int(curState)]
 
-		if st.AcceptToken > 0 || st.Skip || (st.AcceptEOF && scanPos >= len(src)) {
+		if st.AcceptToken > 0 || st.Skip || st.AcceptEnd || (st.AcceptEOF && scanPos >= len(src)) {
 			newPrio := st.AcceptPriority
 			if acceptPos < 0 || newPrio < acceptPriorityBest || (newPrio == acceptPriorityBest && scanPos >= acceptPos) {
 				acceptPos = scanPos
@@ -139,7 +140,7 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 				acceptStartRow = tokenStartRow
 				acceptStartCol = tokenStartCol
 				acceptSymbol = st.AcceptToken
-				acceptSkip = st.Skip
+				acceptSkip, acceptEnd = st.Skip, st.AcceptEnd
 				acceptPriorityBest = newPrio
 			}
 		}
@@ -176,7 +177,7 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 						acceptStartRow = tokenStartRow
 						acceptStartCol = tokenStartCol
 						acceptSymbol = 0
-						acceptSkip = false
+						acceptSkip, acceptEnd = false, tg.AcceptEnd
 						acceptPriorityBest = tg.AcceptPriority
 					}
 				}
@@ -276,7 +277,7 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 			if acceptSkip {
 				acceptPos = -1
 				acceptSymbol = 0
-				acceptSkip = false
+				acceptSkip, acceptEnd = false, false
 			} else if acceptPos >= 0 {
 				acceptStartPos, acceptStartRow, acceptStartCol = acceptPos, acceptRow, acceptCol
 			}
@@ -324,6 +325,7 @@ func scanDFA(states []LexDFAState, ascii [][128]int32, src []byte, startState ui
 	// A skipped run is returned with symbol 0.
 	*out = Token{
 		Symbol:       acceptSymbol,
+		BuiltinEnd:   acceptEnd,
 		StartByte:    uint32(acceptStartPos),
 		EndByte:      uint32(acceptPos),
 		StartRow:     acceptStartRow,

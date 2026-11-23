@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/odvcencio/gotreesitter/internal/lexrun"
 )
 
 // LoadLanguage deserializes a compressed grammar blob into a Language.
@@ -22,6 +24,13 @@ func LoadLanguage(data []byte) (*Language, error) {
 		return nil, fmt.Errorf("decode language: %w", err)
 	}
 
+	enveloped, endStates, err := lexrun.UnwrapBuiltinEndStates(enveloped)
+	if err != nil {
+		return nil, fmt.Errorf("decode language: %w", err)
+	}
+	if len(endStates) != 0 && blobInfo.MinRuntimeVersion < lexrun.BuiltinEndBlobRuntimeVersion {
+		return nil, fmt.Errorf("decode language: lexer end metadata requires blob runtime version %d", lexrun.BuiltinEndBlobRuntimeVersion)
+	}
 	compressed, expectsTrailer, err := UnwrapLanguageBlobEnvelope(enveloped)
 	if err != nil {
 		return nil, fmt.Errorf("decode language: %w", err)
@@ -64,6 +73,9 @@ func LoadLanguage(data []byte) (*Language, error) {
 	}
 	if trailer != nil {
 		lang.LargeStateGotos = trailer
+	}
+	if err := lang.SetLexerEndStates(endStates); err != nil {
+		return nil, fmt.Errorf("decode language: %w", err)
 	}
 	if err := validateDecodedLanguage(&lang); err != nil {
 		return nil, fmt.Errorf("decode language: %w", err)
