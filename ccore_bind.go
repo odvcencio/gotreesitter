@@ -3369,6 +3369,7 @@ func (v *ccoreViews) copyTree(t *Tree) *Tree {
 		dependsOnColumnPropagated:         t.dependsOnColumnPropagated,
 	}
 	*out.parseRuntime = *t.rawParseRuntime()
+	out.setIncludedRanges(t.includedRanges)
 	if len(t.edits) > 0 {
 		out.edits = make([]InputEdit, len(t.edits))
 		copy(out.edits, t.edits)
