@@ -285,6 +285,7 @@ func initDFATokenSourceWithCRecovery(ts *dfaTokenSource, lexer *Lexer, language 
 	ts.externalValidMaskByState = externalValidMaskByState
 	if lexer != nil && language != nil {
 		ts.lexer.states = language.LexStates
+		ts.lexer.language = language
 		ts.lexer.immediateTokens = language.ImmediateTokens
 		ts.lexer.zeroWidthTokens = language.ZeroWidthTokens
 		ts.lexer.asciiTable = language.LexAsciiTable()
@@ -475,6 +476,7 @@ func (d *dfaTokenSource) Reset(source []byte) {
 	d.lexer.normalizeIncludedPosition()
 	if d.language != nil {
 		d.lexer.states = d.language.LexStates
+		d.lexer.language = d.language
 		d.lexer.immediateTokens = d.language.ImmediateTokens
 		d.lexer.zeroWidthTokens = d.language.ZeroWidthTokens
 		d.lexer.asciiTable = d.language.LexAsciiTable()

@@ -11,15 +11,17 @@ import (
 // encoding could produce silently incorrect (not just absent) behavior if
 // decoded by an older runtime -- for example, adding a new *Certified
 // capability flag whose zero value is unsafe to assume, the way an older
-// runtime decoding a newer blob would. EncodeLanguageBlob stamps every newly
-// written blob's MinRuntimeVersion with this constant.
+// runtime decoding a newer blob would. The encoder sets a blob's required
+// version according to the features it uses.
 //
 // This is a distinct axis from LanguageVersion (the tree-sitter grammar ABI
 // version, 13-15): LanguageVersion says whether the grammar rules a blob was
 // compiled from are compatible with this parser; BlobRuntimeVersion says
 // whether this runtime's Go struct layout is new enough to decode the blob's
 // gob stream correctly.
-const BlobRuntimeVersion uint32 = 1
+const BlobRuntimeVersion uint32 = 2
+
+const baseBlobRuntimeVersion uint32 = 1
 
 // languageBlobVersionHeaderMagic identifies a version-header-wrapped blob. It
 // is distinct from both the gzip magic (0x1f 0x8b) and languageBlobEnvelope's

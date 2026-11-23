@@ -9,6 +9,7 @@ import "unicode/utf8"
 // Token is one lexed token.
 type Token struct {
 	Symbol       Symbol
+	BuiltinEnd   bool // an explicit builtin end acceptance, even with source left
 	StartByte    uint32
 	EndByte      uint32
 	StartRow     uint32
@@ -42,6 +43,13 @@ func (p *Parser) scanIncluded(lexState uint32, pos int, row, col uint32, out *To
 // retry, error skip, keyword promotion and leaf construction.
 func (p *Parser) lex(version int, parseState uint16) (Handle, bool) {
 	p.lexCalls++
+	if p.forestElection != nil {
+		return p.forestLex(version, parseState)
+	}
+	return p.nativeLex(version, parseState)
+}
+
+func (p *Parser) nativeLex(version int, parseState uint16) (Handle, bool) {
 	if int(parseState) >= len(p.t.LexModes) {
 		p.stop = "needs recovery: no lex mode"
 		return 0, false
@@ -135,7 +143,7 @@ retry:
 			}
 			return result, true
 		}
-		if tok.Symbol == 0 {
+		if tok.Symbol == 0 && !tok.BuiltinEnd {
 			if int(tok.EndByte) <= pos {
 				p.stop = "needs recovery: lexer made no progress"
 				return 0, false
@@ -144,6 +152,9 @@ retry:
 			continue
 		}
 		break
+	}
+	if !foundExternal && tok.BuiltinEnd {
+		p.scannedBuiltinEnd = true
 	}
 	tokStart := Length{bytes: tok.StartByte, row: tok.StartRow, col: tok.StartCol}
 	tokEnd := Length{bytes: tok.EndByte, row: tok.EndRow, col: tok.EndCol}
@@ -311,7 +322,7 @@ func (p *Parser) scanFrom(mode LexMode, at Length) (bool, Length, uint32) {
 		if !matched {
 			return false, p.fail[1], tok.LookaheadEnd
 		}
-		if tok.Symbol == 0 {
+		if tok.Symbol == 0 && !tok.BuiltinEnd {
 			if int(tok.EndByte) <= pos {
 				return false, Length{bytes: uint32(pos), row: row, col: col}, tok.LookaheadEnd
 			}

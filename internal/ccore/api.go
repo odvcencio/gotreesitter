@@ -76,6 +76,7 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
 // cleared when the call returns.
 func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tree, rstop string) {
 	p.scanProv = prov
+	p.scannedBuiltinEnd = false
 	defer func() { p.scanProv = nil }()
 	p.shortcutTaken, p.shortcutWhy = false, ""
 	p.shortcutMemo = shortcutMemo{}
@@ -529,6 +530,10 @@ func (p *Parser) ArenaDigest(t *Tree) string {
 	v.hashArena(h)
 	return hex.EncodeToString(h.Sum(nil))
 }
+
+// ScannedBuiltinEnd reports whether the last byte-source parse read a token
+// from a state that unconditionally accepts builtin end.
+func (p *Parser) ScannedBuiltinEnd() bool { return p.scannedBuiltinEnd }
 
 // RootEnd is the end byte of t.
 func (p *Parser) RootEnd(t *Tree) uint32 {

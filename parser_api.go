@@ -2227,7 +2227,7 @@ func (p *Parser) parseIncrementalChangedSource(source []byte, oldTree *Tree) (tr
 }
 
 func (p *Parser) parseIncrementalChangedSourceRun(source []byte, oldTree *Tree) (*Tree, error) {
-	if !ccoreUnset() && p.ccoreEligible(true) { // Eligible reparses use the core when admitted.
+	if !ccoreUnset() && p.ccoreEligibleForReparse(ccoreSourceDFA, oldTree) { // Eligible reparses use the core when admitted.
 		if oldTree == nil {
 			return p.parse(source)
 		}
@@ -2613,7 +2613,7 @@ func (p *Parser) parseIncrementalProfiledChangedSource(source []byte, oldTree *T
 }
 
 func (p *Parser) parseIncrementalProfiledChangedSourceRun(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
-	if !ccoreUnset() && p.ccoreEligible(true) { // as in parseIncrementalChangedSource
+	if !ccoreUnset() && p.ccoreEligibleForReparse(ccoreSourceDFA, oldTree) { // as in parseIncrementalChangedSource
 		if oldTree == nil {
 			started := time.Now()
 			tree, err := p.parse(source)

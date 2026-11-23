@@ -406,6 +406,9 @@ func (p *Parser) parseForestExperimental(source []byte, cleanOnly bool) (*Tree, 
 		p.recordForestDecline(forestDeclineUnaryWrapperProfile, Token{}, nil)
 		return nil, false
 	}
+	if tree, handled := p.serveCoreForestTransport(source, false); handled {
+		return tree, tree != nil
+	}
 	arena := acquireNodeArena(arenaClassFull)
 	arena.ownership.BeginFresh()
 	incrementalReuseProven := forestIncrementalReuseProven(p.language)
@@ -733,6 +736,9 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 			progress.emit(time.Now(), "forest_try_decline", 0, 0, Token{}, false, nil, 0, 0, 0, false, 0, 0, fmt.Sprintf("reason=included_ranges count=%d", len(p.included)))
 		}
 		return nil
+	}
+	if tree, handled := p.serveCoreForestTransport(source, true); handled {
+		return tree
 	}
 	if p.forestDeclineMemoHit(source) {
 		return nil
@@ -3192,6 +3198,42 @@ func (idx *gssForestIndex) lookup(key gssForestKey) *gssForestNode {
 	return nil
 }
 
+// A consumed actor can be replaced only on a non-recovering single-head
+// epoch that continues through unambiguous, non-empty reductions.
+func forestCanReopenReduction(headCount int, recovering bool) bool {
+	return headCount == 1 && !recovering
+}
+
+func forestHasSingleReduction(actions []ParseAction) bool {
+	return len(actions) == 1 && actions[0].Type == ParseActionReduce && actions[0].ChildCount > 0
+}
+
+// advanceConsumed gives a strictly outward deterministic reduction a fresh actor
+// when its previous incarnation has already consumed the same lookahead.
+// Existing GSS edges retain the immutable, earlier actor.
+func (idx *gssForestIndex) advanceConsumed(slab *gssForestNodeSlab, key gssForestKey, popTo *gssForestNode, score int, epoch int32) {
+	old := idx.lookup(key)
+	if old == nil || old.processedEpoch != epoch || old.processedDirty != old.dirty || len(old.links) != 1 {
+		return
+	}
+	prev := old.links[0].prev
+	if prev == nil || popTo.byteOffset >= prev.byteOffset {
+		return
+	}
+	entries := idx.spill
+	if entries == nil {
+		entries = idx.inline[:idx.inlineLen]
+	}
+	for i := range entries {
+		if entries[i].node == old {
+			actor := slab.alloc(key.state, key.byteOffset, score, popTo.errorCost)
+			entries[i].node = actor
+			idx.lastKey, idx.lastNode, idx.lastValid = key, actor, true
+			return
+		}
+	}
+}
+
 func (idx *gssForestIndex) set(key gssForestKey, node *gssForestNode) {
 	entry := gssForestEntry{key: key, node: node}
 	if idx.spill != nil {
@@ -3615,6 +3657,7 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 		reducer.visitCount = 0
 		reducer.visitCap = forestReduceVisitCap
 		reducer.capReason = ""
+		deterministic := forestCanReopenReduction(len(frontier), recoverActive)
 		workVisits := 0
 		for len(work) > 0 {
 			workVisits++
@@ -3696,6 +3739,7 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 					forestProgressExtra(frontier, work, nextFrontier, curIndex, nextIndex, processEpoch, recoverCount, reducer, accepted,
 						fmt.Sprintf("state=%d action_count=%d reduce_actions=%d shift_actions=%d accept_actions=%d", node.state, len(nodeActions), reduceActions, shiftActions, acceptActions)))
 			}
+			deterministic = deterministic && forestHasSingleReduction(nodeActions)
 			for _, act := range nodeActions {
 				switch act.Type {
 				case ParseActionReduce:
@@ -3722,6 +3766,7 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 					}
 					popVisits := 0
 					reducer.reduce(node, cc, func(children []stackEntry, childScore int, popTo *gssForestNode, noExtras bool) {
+						deterministic = deterministic && len(reducer.emits) == 1 && noExtras
 						popVisits++
 						if popVisits > 1 {
 							arena.legacyReuseReads.Abstain()
@@ -3914,6 +3959,9 @@ func (p *Parser) parseForestWithMode(arena *nodeArena, source []byte, captureExt
 						parentEntry := stackEntry{node: unsafe.Pointer(parent), state: gotoState, kind: stackEntryKindNode}
 						// Subtree score = this production's dynamic precedence +
 						// the children's accumulated scores.
+						if deterministic {
+							curIndex.advanceConsumed(slab, gssForestKey{gotoState, parentEnd}, popTo, score, processEpoch)
+						}
 						top := coalesceForestWithRawAndAlternatives(p, arena, &curIndex, slab, gotoState, parentEnd, popTo,
 							parentEntry,
 							score, popTo.errorCost, linkCap, alternatives)

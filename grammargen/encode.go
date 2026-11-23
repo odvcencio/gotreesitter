@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/lexrun"
 )
 
 // Generate compiles a Grammar definition into a binary blob that
@@ -125,9 +126,16 @@ func encodeLanguageBlob(lang *gotreesitter.Language) ([]byte, error) {
 // version-header unwrap functions LoadLanguage uses, so the wire format
 // itself cannot drift between the two decoders.
 func decodeLanguageBlob(data []byte) (*gotreesitter.Language, error) {
-	enveloped, _, err := gotreesitter.UnwrapLanguageBlobVersionHeader(data)
+	enveloped, info, err := gotreesitter.UnwrapLanguageBlobVersionHeader(data)
 	if err != nil {
 		return nil, fmt.Errorf("decode language blob: %w", err)
+	}
+	enveloped, endStates, err := lexrun.UnwrapBuiltinEndStates(enveloped)
+	if err != nil {
+		return nil, fmt.Errorf("decode language blob: %w", err)
+	}
+	if len(endStates) != 0 && info.MinRuntimeVersion < lexrun.BuiltinEndBlobRuntimeVersion {
+		return nil, fmt.Errorf("decode language blob: lexer end metadata requires blob runtime version %d", lexrun.BuiltinEndBlobRuntimeVersion)
 	}
 	compressed, expectsTrailer, err := gotreesitter.UnwrapLanguageBlobEnvelope(enveloped)
 	if err != nil {
@@ -165,6 +173,9 @@ func decodeLanguageBlob(data []byte) (*gotreesitter.Language, error) {
 	}
 	if trailer != nil {
 		lang.LargeStateGotos = trailer
+	}
+	if err := lang.SetLexerEndStates(endStates); err != nil {
+		return nil, fmt.Errorf("decode language blob: %w", err)
 	}
 	return &lang, nil
 }

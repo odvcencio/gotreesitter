@@ -3,6 +3,8 @@ package certgen
 import (
 	"strings"
 	"testing"
+
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 )
 
 // Two spellings of one SHA-256 (upper and lower case) are one blob: Render
@@ -63,5 +65,22 @@ func TestRenderWritesAndChecksProviders(t *testing.T) {
 	recs, err := Parse([]byte(`[{"BlobSHA256":"ab","Modes":3,"Providers":["table-v1"]}]`))
 	if err != nil || len(recs) != 1 || len(recs[0].Providers) != 1 || recs[0].Providers[0] != "table-v1" {
 		t.Fatalf("records %+v, error %v", recs, err)
+	}
+}
+
+func TestRenderAcceptsForestAndRejectsUnknownModes(t *testing.T) {
+	record := Record{
+		BlobSHA256:   strings.Repeat("ab", 32),
+		ConfigSHA256: strings.Repeat("cd", 32),
+		Modes:        certified.Fresh | certified.Recover | certified.Scan | certified.Incr | certified.Forest,
+	}
+	source, err := Render([]Record{record})
+	if err != nil || !strings.Contains(string(source), "Cert{Modes: 47,") {
+		t.Fatalf("forest certificate was not emitted: %v", err)
+	}
+
+	record.Modes |= certified.Forest << 1
+	if _, err := Render([]Record{record}); err == nil || !strings.Contains(err.Error(), "unknown mode bits") {
+		t.Fatalf("unknown mode was not rejected: %v", err)
 	}
 }

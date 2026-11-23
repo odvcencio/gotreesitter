@@ -12,6 +12,8 @@ package ccore
 // returns what it returns: whether a token was accepted, the token with its raw
 // symbol (keyword promotion is the core's), its spans and LookaheadEnd, and in
 // fail the position where a failed attempt began and where it ended. A
+// successful early builtin end sets Token.BuiltinEnd so symbol 0 is
+// distinguishable from skipped whitespace. A
 // provider reads the bytes of the source the parse was given. It must give the
 // same answer for the same request, whatever it was asked before.
 type ScanProvider interface {
