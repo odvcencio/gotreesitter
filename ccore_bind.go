@@ -2221,6 +2221,45 @@ func (t *Tree) ccoreLink() *ccore.Tree {
 	return nil
 }
 
+// ccoreDiffChangedRanges calls the port of ts_tree_get_changed_ranges
+// (C/tree.c:114) without materializing public node views.
+func ccoreDiffChangedRanges(oldTree, newTree *Tree) ([]Range, bool) {
+	old, next := oldTree.ccoreStateOf(), newTree.ccoreStateOf()
+	if old == nil || next == nil || old.tables == nil || old.tables != next.tables ||
+		old.broken || next.broken || old.edits != len(oldTree.edits) || next.edits != len(newTree.edits) {
+		return nil, false
+	}
+	ranges, ok := ccore.ChangedRanges(old.ct, next.ct, old.tables,
+		ccoreRangesOf(oldTree.includedRanges), ccoreRangesOf(newTree.includedRanges))
+	if len(ranges) == 0 {
+		return nil, ok
+	}
+	out := make([]Range, len(ranges))
+	for i, r := range ranges {
+		out[i] = Range{
+			StartByte: r.StartByte, EndByte: r.EndByte,
+			StartPoint: Point{Row: r.StartRow, Column: r.StartCol},
+			EndPoint: Point{Row: r.EndRow, Column: r.EndCol},
+		}
+	}
+	return out, true
+}
+
+func ccoreRangesOf(ranges []Range) []ccore.Range {
+	if len(ranges) == 0 {
+		return nil
+	}
+	out := make([]ccore.Range, len(ranges))
+	for i, r := range ranges {
+		out[i] = ccore.Range{
+			StartByte: r.StartByte, EndByte: r.EndByte,
+			StartRow: r.StartPoint.Row, StartCol: r.StartPoint.Column,
+			EndRow: r.EndPoint.Row, EndCol: r.EndPoint.Column,
+		}
+	}
+	return out
+}
+
 // ccoreRoot is the core root of the public tree after the edits carried so far
 // (seam 3, read side); ok is false when the tree has no usable core tree.
 func (t *Tree) ccoreRoot() (root ccore.Handle, ok bool) {
