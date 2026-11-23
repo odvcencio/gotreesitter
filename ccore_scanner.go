@@ -24,12 +24,11 @@ import (
 // ExternalScanner. The payload is created on the first Scan and destroyed by
 // Close.
 type ccoreExtScanner struct {
-	sc            ExternalScanner
-	payload       any
-	live          bool
-	el            ExternalLexer
-	rangeCursor   ccore.ScannerCursor
-	rangeFrontier externalReadFrontier
+	sc          ExternalScanner
+	payload     any
+	live        bool
+	el          ExternalLexer
+	rangeCursor ccore.ScannerCursor
 	// reg is the registration of the innermost scanner (scanmode.RegisterScanner);
 	// layers is the number of order adapters around it.
 	reg    scanmode.Registered
@@ -303,8 +302,7 @@ func (a *ccoreExtScanner) scanIncluded(src []byte, cursor ccore.ScannerCursor, p
 func (a *ccoreExtScanner) scanWithCursor(src []byte, pos int, row, col uint32, cursor *ccore.ScannerCursor, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool {
 	defer func() {
 		if cursor != nil {
-			a.el.readFrontier = nil
-			a.rangeFrontier = externalReadFrontier{}
+			a.el.rangeCursor = nil
 			a.rangeCursor = ccore.ScannerCursor{}
 		}
 		if r := recover(); r != nil { // a panic ends the parse: release the payload with the mode off
@@ -324,8 +322,7 @@ func (a *ccoreExtScanner) scanWithCursor(src []byte, pos int, row, col uint32, c
 	el := &a.el
 	el.reset(src, pos, row, col) // ts_lexer_start
 	if cursor != nil {
-		a.rangeFrontier.included = cursor
-		el.readFrontier = &a.rangeFrontier
+		el.rangeCursor = cursor
 		if pos == 0 && !el.atEOF() {
 			if el.Lookahead() == byteOrderMarkRune {
 				el.Advance(true)

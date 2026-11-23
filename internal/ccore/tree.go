@@ -26,7 +26,7 @@ type cell struct {
 	editing        bool          // an Edit is running on this cell (guarded by store.mu); a release then leaves the queueing of its entry to the Edit's commit
 	deferred       bool          // drop met a running Edit and did not queue the release of the root; Edit queues it at its commit (guarded by store.mu)
 	shortcut       *shortcutMemo // guarded by store.mu
-	includedRanges []Range       // immutable backing, guarded by store.mu
+	includedRanges *rangeArray   // immutable, guarded by store.mu
 }
 
 // Tree is a parse result: a root in a store. Readers of a published tree take
@@ -236,7 +236,10 @@ func (t *Tree) IncludedRanges() []Range {
 	c := t.c.store
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return slices.Clone(t.c.includedRanges)
+	if t.c.includedRanges == nil {
+		return nil
+	}
+	return slices.Clone([]Range(*t.c.includedRanges))
 }
 
 // Edit is C ts_tree_edit (lifetime.go, step 6). It copies the records on the edit
@@ -381,7 +384,7 @@ func (t *Tree) edit(e Edit, led *Ledger, counted, releasedMeanwhile *bool) {
 		oldEnd: Length{bytes: e.OldEndByte, row: e.OldEndRow, col: e.OldEndCol},
 		newEnd: Length{bytes: e.NewEndByte, row: e.NewEndRow, col: e.NewEndCol},
 	}
-	if len(included) > 0 {
+	if included != nil {
 		included = editIncludedRanges(included, span, led)
 	}
 	armed = true // from the first subtree allocation until publication, a failure poisons the store
@@ -400,7 +403,7 @@ func (t *Tree) edit(e Edit, led *Ledger, counted, releasedMeanwhile *bool) {
 // is deferred, so a failure inside leaves the mutex free; *committed is set last,
 // after everything is published, so a failure before that point is handled as a
 // failed edit (poisoned store, editing mark cleared) by the caller's defer.
-func (t *Tree) commitEdit(old, root Handle, ops []op, edit editRange, included []Range, releasedMeanwhile, committed *bool) {
+func (t *Tree) commitEdit(old, root Handle, ops []op, edit editRange, included *rangeArray, releasedMeanwhile, committed *bool) {
 	c, cl, s := t.c.store, t.c, &t.rd
 	c.mu.Lock()
 	defer c.mu.Unlock()

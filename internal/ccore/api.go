@@ -178,7 +178,9 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 		c.mu.Lock()
 		released := old.c.released.Load()
 		oldRoot = Handle(old.c.root.Load())
-		oldIncluded = old.c.includedRanges
+		if ranges := old.c.includedRanges; ranges != nil {
+			oldIncluded = *ranges
+		}
 		if p.includedRanges == nil && old.c.shortcut != nil {
 			oldShortcutBytes = int64(len(old.c.shortcut.src)) + sizeOf[shortcutMemo]()
 			if p.shortcutOn {
@@ -195,7 +197,7 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 		}
 		if len(oldIncluded) != 0 && p.led.Active() {
 			bytes, ok := sliceBytes[Range](len(oldIncluded))
-			if !ok || !p.led.Reserve(bytes) {
+			if !ok || !p.led.Reserve(sizeOf[rangeArray]()) || !p.led.Reserve(bytes) {
 				return nil, stopProgress
 			}
 		}
@@ -210,14 +212,18 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 			rangeArrayChangedEffective(oldIncluded, p.includedRanges, &p.includedDifferences)
 		}
 	}
-	var included []Range
+	var included *rangeArray
 	if len(p.includedRanges) > 0 {
-		var ok bool
-		included, ok = Make[Range](&p.led, len(p.includedRanges))
+		if !p.led.Reserve(sizeOf[rangeArray]()) {
+			return nil, stopProgress
+		}
+		ranges, ok := Make[Range](&p.led, len(p.includedRanges))
 		if !ok {
 			return nil, stopProgress
 		}
-		copy(included, p.includedRanges)
+		copy(ranges, p.includedRanges)
+		snapshot := rangeArray(ranges)
+		included = &snapshot
 	}
 	var nextMemo *shortcutMemo
 	if p.shortcutOn && p.includedRanges == nil {

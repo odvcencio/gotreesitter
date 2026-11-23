@@ -40,10 +40,6 @@ type Parser struct {
 	trail2     []Handle
 	scratch    []Handle
 
-	includedRanges          []Range // borrowed for one parse
-	includedDifferences     rangeArray
-	includedDifferenceIndex int
-
 	// recovery scratch (recover.go)
 	recSlices []stackSlice
 	reduceSet []reduceAction
@@ -94,6 +90,10 @@ type Parser struct {
 	opCount                                                        int    // C self->operation_count
 	ledBegun                                                       bool   // Parse began the request's account before the drain
 	led                                                            Ledger // request account; its pages are the store's
+
+	includedRanges          []Range // borrowed for one parse
+	includedDifferences     rangeArray
+	includedDifferenceIndex int
 }
 
 // NewParser returns a parser for the language described by c, or an error

@@ -244,17 +244,21 @@ func includedLexTransition(st *LexDFAState, ascii [][128]int32, state int32, ch 
 
 // editIncludedRanges applies C get_changed_ranges.c:106 to each boundary.
 // The old backing is shared by Tree.Copy and may still be read by a parse.
-func editIncludedRanges(ranges []Range, edit editRange, led *Ledger) []Range {
+func editIncludedRanges(snapshot *rangeArray, edit editRange, led *Ledger) *rangeArray {
+	ranges := *snapshot
 	if led != nil && led.Active() {
 		bytes, ok := sliceBytes[Range](len(ranges))
 		if !ok {
 			panic(ledgerStop{reason: reservationInvalid})
 		}
+		if reason := led.reserveClassified(sizeOf[rangeArray]()); reason != reservationOK {
+			panic(ledgerStop{reason: reason})
+		}
 		if reason := led.reserveClassified(bytes); reason != reservationOK {
 			panic(ledgerStop{reason: reason})
 		}
 	}
-	var edited []Range
+	var edited rangeArray
 	for i, r := range ranges {
 		start := editIncludedPosition(NewLength(r.StartByte, r.StartRow, r.StartCol), edit)
 		end := NewLength(r.EndByte, r.EndRow, r.EndCol)
@@ -267,6 +271,9 @@ func editIncludedRanges(ranges []Range, edit editRange, led *Ledger) []Range {
 			if led == nil {
 				led = &unlimited
 			}
+			if reason := led.reserveClassified(sizeOf[rangeArray]()); reason != reservationOK {
+				panic(ledgerStop{reason: reason})
+			}
 			edited = mk[Range](led, len(ranges))
 			copy(edited[:i], ranges[:i])
 		}
@@ -275,9 +282,9 @@ func editIncludedRanges(ranges []Range, edit editRange, led *Ledger) []Range {
 		}
 	}
 	if edited == nil {
-		return ranges
+		return snapshot
 	}
-	return edited
+	return &edited
 }
 
 func editIncludedPosition(position Length, e editRange) Length {

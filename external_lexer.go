@@ -54,13 +54,13 @@ type ExternalLexer struct {
 	// lookaheadEndByte records the largest lexer frontier observed while this
 	// scanner attempt ran. The token source carries it across scanner retries.
 	lookaheadEndByte uint32
-	// A scan owns this observer. Value-copy rollback must not erase reads.
-	// Ranged scans also use it to cache the read position.
+	// A scan owns these observers. Value-copy rollback must not erase reads or
+	// lose the shared cursor used to navigate the included ranges.
 	readFrontier *externalReadFrontier
+	rangeCursor  *ccore.ScannerCursor
 }
 
 type externalReadFrontier struct {
-	included  *ccore.ScannerCursor // cache for the active ranged ccore scan
 	lookahead uint32
 	examined  uint32
 	// Forward byte dependencies cannot certify source reads before a scan.
@@ -404,11 +404,17 @@ func (l *ExternalLexer) lookaheadEndByteAtCursor() uint32 {
 var recordReadFrontierObserverForTest func(pos int)
 
 func (l *ExternalLexer) recordReadFrontier() {
+	if l.readFrontier != nil || recordReadFrontierObserverForTest != nil {
+		l.updateReadFrontier()
+	}
+}
+
+func (l *ExternalLexer) updateReadFrontier() {
 	if recordReadFrontierObserverForTest != nil {
 		recordReadFrontierObserverForTest(l.pos)
 	}
 	rf := l.readFrontier
-	if rf == nil || rf.included != nil {
+	if rf == nil {
 		return
 	}
 	pos := l.pos
@@ -591,10 +597,7 @@ func (l *ExternalLexer) atRangeStart() bool {
 }
 
 func (l *ExternalLexer) includedCursor() *ccore.ScannerCursor {
-	if l.readFrontier != nil {
-		return l.readFrontier.included
-	}
-	return nil
+	return l.rangeCursor
 }
 
 func (l *ExternalLexer) includedPosition() ccore.Length {
