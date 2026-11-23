@@ -973,6 +973,10 @@ func TestLegacyReuseLookaheadOverflowAndKeywordProvenance(t *testing.T) {
 		a.allocNode()
 	}
 	n := newLeafNodeInArena(a, 1, true, 0, 3, Point{}, Point{Column: 3})
+	// A pooled slab can have a shorter retained sidecar. The lexer can
+	// record a receipt there before sealing grows it to match the slab.
+	slab := &a.nodeSlabs[0]
+	slab.reuseLookahead = make([]uint32, slab.used)
 	tok := Token{}
 	tok.setLexFlag(tokenFlagKeyword, true)
 	noteLegacyReuseLeaf(n, tok)
