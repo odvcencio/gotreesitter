@@ -158,9 +158,7 @@ func (p *queryParser) parsePatternRoot(pat *Pattern, depth int, parentSymbolHint
 	switch ch := p.input[p.pos]; {
 	case isIdentStart(ch):
 		return p.parseIdentifierPatternRoot(pat, depth)
-	case ch == '"':
-		return p.parseStringPatternRoot(pat, depth)
-	case ch == '(' || ch == '[':
+	case ch == '(' || ch == '[' || ch == '"':
 		return p.parseGroupedPatternRoot(pat, depth, parentSymbolHint)
 	default:
 		return -1, fmt.Errorf("query: expected node type after '(' at position %d: query: expected identifier at position %d", p.pos, p.pos)
@@ -181,18 +179,6 @@ func (p *queryParser) parseIdentifierPatternRoot(pat *Pattern, depth int) (int, 
 		step.isNamed = true
 	}
 	pat.steps = append(pat.steps, step)
-	return 0, nil
-}
-
-func (p *queryParser) parseStringPatternRoot(pat *Pattern, depth int) (int, error) {
-	text, err := p.readString()
-	if err != nil {
-		return -1, err
-	}
-	pat.steps = append(pat.steps, QueryStep{
-		depth:     depth,
-		textMatch: text,
-	})
 	return 0, nil
 }
 
