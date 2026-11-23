@@ -16,15 +16,19 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 )
 
-// The mode bits. The root package uses the same numbers (internal/ccore/certified).
+// The generator accepts the same mode bits as the runtime.
 const (
-	Fresh   uint8 = 1 << iota // a parse without an old tree
-	Recover                   // error recovery
-	Scan                      // an external scanner
-	Incr                      // a parse with an old tree
-	Ranges                    // included ranges
+	Fresh      = certified.Fresh
+	Recover    = certified.Recover
+	Scan       = certified.Scan
+	Incr       = certified.Incr
+	Ranges     = certified.Ranges
+	Forest     = certified.Forest
+	knownModes = Fresh | Recover | Scan | Incr | Ranges | Forest
 )
 
 // Record is one certificate: a blob, the modes it is certified for, and the
@@ -107,7 +111,7 @@ func Render(recs []Record) ([]byte, error) {
 		if r.Modes&(Fresh|Recover) != Fresh|Recover {
 			return nil, fmt.Errorf("certgen: blob %s lacks the fresh and recover modes", r.BlobSHA256)
 		}
-		if r.Modes>>5 != 0 {
+		if r.Modes&^knownModes != 0 {
 			return nil, fmt.Errorf("certgen: blob %s has unknown mode bits %#x", r.BlobSHA256, r.Modes)
 		}
 		for _, id := range r.Providers {

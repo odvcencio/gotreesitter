@@ -59,6 +59,13 @@ type ExtScanner interface {
 	Close()
 }
 
+// RangedExtScanner accepts a cursor already placed in the included ranges.
+// The source and cursor are borrowed for the duration of the call.
+type RangedExtScanner interface {
+	ExtScanner
+	ScanIncluded(src []byte, cursor ScannerCursor, prev []byte, valid []bool, buf []byte, out *ExtScan) bool
+}
+
 // heapExternalStateChange is C's has_external_scanner_state_change (heap flag).
 const heapExternalStateChange uint16 = 1 << 10
 
@@ -307,12 +314,21 @@ func (p *Parser) lexExternal(version int, parseState uint16, mode LexMode, cur L
 	prev := p.extState(last)
 	res := &e.res
 	*res = ExtScan{}
-	scanPos, scanRow, scanCol := int(cur.bytes), cur.row, cur.col
-	if scanPos == 0 && len(p.src) >= 3 && p.src[0] == 0xEF && p.src[1] == 0xBB && p.src[2] == 0xBF {
-		// C/lexer.c:438-441 ts_lexer_start skips U+FEFF at byte 0 before the scanner runs.
-		scanPos, scanCol = 3, scanCol+3
+	scanStart := cur
+	valid := rows[mode.ExternalLexState]
+	var found bool
+	if p.includedRanges == nil {
+		scanPos, scanRow, scanCol := int(cur.bytes), cur.row, cur.col
+		if scanPos == 0 && len(p.src) >= 3 && p.src[0] == 0xEF && p.src[1] == 0xBB && p.src[2] == 0xBF {
+			// C/lexer.c:438-441 ts_lexer_start skips U+FEFF at byte 0 before the scanner runs.
+			scanPos, scanCol = 3, scanCol+3
+		}
+		found = p.scanner.Scan(p.src, scanPos, scanRow, scanCol, prev, valid, e.buf, res)
+	} else {
+		cursor := ScannerCursor{newIncludedCursor(p.src, p.includedRanges, cur)}
+		scanStart = cursor.Position()
+		found = p.scanner.(RangedExtScanner).ScanIncluded(p.src, cursor, prev, valid, e.buf, res)
 	}
-	found := p.scanner.Scan(p.src, scanPos, scanRow, scanCol, prev, rows[mode.ExternalLexState], e.buf, res)
 	*calledGetColumn = *calledGetColumn || res.DidGetColumn
 	if res.LookaheadEnd > *lookaheadEnd { // ts_lexer_finish
 		*lookaheadEnd = res.LookaheadEnd
@@ -335,7 +351,7 @@ func (p *Parser) lexExternal(version int, parseState uint16, mode LexMode, cur L
 	state := e.buf[:n]
 	changed := !bytes.Equal(prev, state)
 	// Ignore empty external tokens (C/parser.c:557-583).
-	if tok.EndByte <= cur.bytes && !changed {
+	if tok.EndByte <= scanStart.bytes && !changed {
 		next := p.nextState(parseState, tok.Symbol)
 		tokenIsExtra := next == parseState
 		if errorMode || !p.hasAdvancedSinceError(version) || tokenIsExtra {

@@ -24,10 +24,11 @@ import (
 // ExternalScanner. The payload is created on the first Scan and destroyed by
 // Close.
 type ccoreExtScanner struct {
-	sc      ExternalScanner
-	payload any
-	live    bool
-	el      ExternalLexer
+	sc          ExternalScanner
+	payload     any
+	live        bool
+	el          ExternalLexer
+	rangeCursor ccore.ScannerCursor
 	// reg is the registration of the innermost scanner (scanmode.RegisterScanner);
 	// layers is the number of order adapters around it.
 	reg    scanmode.Registered
@@ -289,15 +290,29 @@ func newCcoreExtScanner(sc ExternalScanner) (a *ccoreExtScanner, err error) {
 // scan runs C's deserialize, scan and serialize in that order
 // (ts_parser__external_scanner_deserialize, _scan, _serialize).
 func (a *ccoreExtScanner) scan(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool {
-	if a.failed != "" { // a failed mode reset ended this hook: the scanner is not called again
-		panic(a.failed)
-	}
+	return a.scanWithCursor(src, pos, row, col, nil, prev, valid, buf, out)
+}
+
+func (a *ccoreExtScanner) scanIncluded(src []byte, cursor ccore.ScannerCursor, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool {
+	a.rangeCursor = cursor
+	at := cursor.Position()
+	return a.scanWithCursor(src, int(at.Bytes()), at.Row(), at.Col(), &a.rangeCursor, prev, valid, buf, out)
+}
+
+func (a *ccoreExtScanner) scanWithCursor(src []byte, pos int, row, col uint32, cursor *ccore.ScannerCursor, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool {
 	defer func() {
+		if cursor != nil {
+			a.el.rangeCursor = nil
+			a.rangeCursor = ccore.ScannerCursor{}
+		}
 		if r := recover(); r != nil { // a panic ends the parse: release the payload with the mode off
 			a.close()
 			panic(r)
 		}
 	}()
+	if a.failed != "" { // a failed mode reset ended this hook: the scanner is not called again
+		panic(a.failed)
+	}
 	if !a.live { // ts_parser__external_scanner_create
 		a.payload, a.live = a.sc.Create(), true
 		if err := ccoreEnter(a.payload, a.reg, a.layers); err != nil {
@@ -306,6 +321,15 @@ func (a *ccoreExtScanner) scan(src []byte, pos int, row, col uint32, prev []byte
 	}
 	el := &a.el
 	el.reset(src, pos, row, col) // ts_lexer_start
+	if cursor != nil {
+		el.rangeCursor = cursor
+		if pos == 0 && !el.atEOF() {
+			if el.Lookahead() == byteOrderMarkRune {
+				el.Advance(true)
+			}
+			el.columnData, el.columnDataValid = 0, true
+		}
+	}
 	a.sc.Deserialize(a.payload, prev)
 	found := a.sc.Scan(a.payload, el, valid)
 	out.DidGetColumn = el.didGetColumn
@@ -349,5 +373,5 @@ func (a *ccoreExtScanner) close() {
 
 // hook returns the ccore.ExtScanner for this scanner.
 func (a *ccoreExtScanner) hook() ccore.ExtScanner {
-	return bind.NewFuncScanner(a.scan, a.close)
+	return bind.NewRangedFuncScanner(a.scan, a.scanIncluded, a.close)
 }

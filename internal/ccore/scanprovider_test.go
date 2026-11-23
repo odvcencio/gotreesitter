@@ -168,3 +168,19 @@ func TestScanProviderBindingEnds(t *testing.T) {
 		t.Fatalf("the provider was asked by a parse that bound none: %d then %d", calls, prov.Calls())
 	}
 }
+
+func TestScanProviderIncludedRangeRequiresSupport(t *testing.T) {
+	g := loadGoldens(t)[0]
+	p, err := ccore.NewParser(ccore.Config{Tables: g.Tables})
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &recordingScan{inner: ccore.NewTableScan(g.Tables, g.Src)}
+	tr, stop := p.ParseWithIncludedScan(g.Src, nil, []ccore.Range{{EndByte: uint32(len(g.Src))}}, provider)
+	if tr != nil || stop != "scan provider does not support included ranges" || len(provider.log) != 0 {
+		if tr != nil {
+			tr.Release()
+		}
+		t.Fatalf("unsupported provider: stop=%q, scans=%d", stop, len(provider.log))
+	}
+}

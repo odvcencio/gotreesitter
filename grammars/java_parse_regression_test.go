@@ -860,3 +860,126 @@ func TestJavaParseShiftExpressionAfterCompactAngleSplitter(t *testing.T) {
 		t.Fatalf("expected Java shift expression to parse without syntax errors, got: %s", root.SExpr(lang))
 	}
 }
+
+func TestJavaTokenSourceKeepsRelationalShiftOperator(t *testing.T) {
+	for _, operator := range []string{">>", ">>>"} {
+		t.Run(operator, func(t *testing.T) {
+			lang := JavaLanguage()
+			input := []byte("class Main { void f() { boolean x = a < b " + operator + " c; var y = foo(); } }")
+			parser := gotreesitter.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(false)
+			lexer, err := NewJavaTokenSource(input, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tree, err := parser.ParseWithTokenSourceStrict(input, lexer)
+			if err != nil || tree == nil {
+				t.Fatalf("parse failed: %v", err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			expr := findFirstNamedDescendant(root, lang, "binary_expression")
+			if root.HasError() || expr == nil {
+				t.Fatalf("comparison with a shift did not parse: %s", root.SExpr(lang))
+			}
+			lt := expr.ChildByFieldName("operator", lang)
+			right := expr.ChildByFieldName("right", lang)
+			if lt == nil || lt.Text(input) != "<" || right == nil || right.Type(lang) != "binary_expression" {
+				t.Fatalf("expected relational expression with a shift on the right: %s", expr.SExpr(lang))
+			}
+			shift := right.ChildByFieldName("operator", lang)
+			if shift == nil || shift.Text(input) != operator {
+				t.Fatalf("shift operator %q missing from %s", operator, right.SExpr(lang))
+			}
+		})
+	}
+}
+
+func TestJavaTokenSourceClosesGenericBeforeRelationalOperator(t *testing.T) {
+	for _, rhs := range []string{"A<B>", "pkg.A<@Mark B>", "A<B<C>>"} {
+		t.Run(rhs, func(t *testing.T) {
+			lang := JavaLanguage()
+			input := []byte("class Main { void f() { boolean x = o instanceof " + rhs + ">y; } }")
+			parser := gotreesitter.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(false)
+			lexer, err := NewJavaTokenSource(input, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tree, err := parser.ParseWithTokenSourceStrict(input, lexer)
+			if err != nil || tree == nil {
+				t.Fatalf("parse failed: %v", err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			expr := findFirstNamedDescendant(root, lang, "binary_expression")
+			if root.HasError() || expr == nil {
+				t.Fatalf("generic followed by a comparison did not parse: %s", root.SExpr(lang))
+			}
+			operator := expr.ChildByFieldName("operator", lang)
+			left := expr.ChildByFieldName("left", lang)
+			if operator == nil || operator.Text(input) != ">" || left == nil || left.Type(lang) != "instanceof_expression" {
+				t.Fatalf("generic closer consumed the comparison: %s", expr.SExpr(lang))
+			}
+		})
+	}
+}
+
+func TestJavaTokenSourceClosesAnnotatedNestedGeneric(t *testing.T) {
+	src := []byte("class Main { void f() { Object x = new A<B<@Mark(v=1) C<D>>>(arg); } }")
+	lang := JavaLanguage()
+	parser := gotreesitter.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	lexer, err := NewJavaTokenSource(src, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, err := parser.ParseWithTokenSourceStrict(src, lexer)
+	if err != nil || tree == nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	creation := findFirstNamedDescendant(root, lang, "object_creation_expression")
+	if root.HasError() || creation == nil {
+		t.Fatalf("annotated generic did not parse: %s", root.SExpr(lang))
+	}
+	objectType := creation.ChildByFieldName("type", lang)
+	if objectType == nil || objectType.Text(src) != "A<B<@Mark(v=1) C<D>>>" {
+		t.Fatalf("wrong object creation type: %s", creation.SExpr(lang))
+	}
+}
+
+func TestJavaTokenSourcePreservesComparisonAfterGenericAndShiftAssignment(t *testing.T) {
+	lang := JavaLanguage()
+	for _, tc := range []struct{ statement, kind, operator string }{
+		{"boolean y = o instanceof A<B>>=v;", "binary_expression", ">="},
+		{"boolean y = o instanceof A<B<C>>>=v;", "binary_expression", ">="},
+		{"v >>= 1;", "assignment_expression", ">>="},
+		{"v >>>= 1;", "assignment_expression", ">>>="},
+	} {
+		t.Run(tc.statement, func(t *testing.T) {
+			input := []byte("class A { void f() { " + tc.statement + " } }")
+			p := gotreesitter.NewParser(lang)
+			p.SetAdmissionCandidateRoute(false)
+			s, err := NewJavaTokenSource(input, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tree, err := p.ParseWithTokenSourceStrict(input, s)
+			if err != nil || tree == nil {
+				t.Fatalf("parse: %v", err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			n := findFirstNamedDescendant(root, lang, tc.kind)
+			if root.HasError() || n == nil {
+				t.Fatalf("expected %s: %s", tc.kind, root.SExpr(lang))
+			}
+			op := n.ChildByFieldName("operator", lang)
+			if op == nil || op.Text(input) != tc.operator {
+				t.Fatalf("expected operator %q: %s", tc.operator, n.SExpr(lang))
+			}
+		})
+	}
+}

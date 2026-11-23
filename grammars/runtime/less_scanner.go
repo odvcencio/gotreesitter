@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the less grammar. This is the external
@@ -54,6 +55,14 @@ var lessExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(lessExternalScannerSpec)
+	scanmode.RegisterScanner(LessExternalScanner{}, (*scanmode.Flag)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(LessExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(LessExternalScanner), right.(LessExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // LessExternalScanner handles the CSS descendant combinator for Less.
@@ -90,7 +99,7 @@ func (s LessExternalScanner) symbolTable() *[lessTokenCount]gotreesitter.Symbol 
 	return &s.symbols
 }
 
-func (LessExternalScanner) Create() any                           { return nil }
+func (LessExternalScanner) Create() any                           { return &scanmode.Flag{} }
 func (LessExternalScanner) Destroy(payload any)                   {}
 func (LessExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (LessExternalScanner) Deserialize(payload any, buf []byte)   {}
@@ -103,6 +112,9 @@ func (LessExternalScanner) ExternalScannerIsStateless() bool  { return true }
 func (LessExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
 func (sc LessExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+	if scanmode.Of(payload) {
+		return sc.scanC(lexer)
+	}
 	syms := sc.symbolTable()
 
 	if !lessValid(validSymbols, lessTokDescendantOp) {
@@ -141,6 +153,32 @@ func (sc LessExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 		}
 	}
 	return false
+}
+
+// scanC follows tree-sitter-less src/scanner.c:14-35. The scanner ignores
+// the valid-symbol mask and accepts a descendant before a colon directly.
+// The reference's C locale recognizes only ASCII whitespace and alphanumerics.
+func (sc LessExternalScanner) scanC(lexer *gotreesitter.ExternalLexer) bool {
+	if !isLessCSpace(lexer.Lookahead()) {
+		return false
+	}
+	for isLessCSpace(lexer.Lookahead()) {
+		lexer.Advance(true)
+	}
+	ch := lexer.Lookahead()
+	switch ch {
+	case '#', '.', '[', ':', '-':
+	default:
+		if !(ch >= '0' && ch <= '9' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z') {
+			return false
+		}
+	}
+	lexer.SetResultSymbol(sc.symbolTable()[lessTokDescendantOp])
+	return true
+}
+
+func isLessCSpace(ch rune) bool {
+	return ch == ' ' || ch >= '\t' && ch <= '\r'
 }
 
 func isLessSpace(ch rune) bool {

@@ -722,7 +722,7 @@ type DiagnosticParserCoreThreeProofCensusTotals struct { Elections uint64 Scalar
 type DiagnosticParserCoreVersionLexerRequest struct { ElectionIndex int HeaderCreationSeq uint64 State StateID Token Token InternalDFAToken bool ScannerBefore DiagnosticParserCoreScannerCheckpoint ScannerAfter DiagnosticParserCoreScannerCheckpoint }
 type ErrorTreeIncrementalReuseExternalScanner interface { ExternalScanner SupportsIncrementalReuseFromErrorTree() bool }
 type ExpressionKindRule = syntaxfacts.ExpressionKindRule
-type ExternalLexer struct { source []byte startPos int pos int endPos int startPoint Point point Point endPoint Point endMarked bool columnDataValid bool columnData uint32 didGetColumn bool advancedContent bool resultSymbol Symbol hasResult bool lookaheadEndByte uint32 readFrontier *externalReadFrontier }
+type ExternalLexer struct { source []byte startPos int pos int endPos int startPoint Point point Point endPoint Point columnData uint32 lookaheadEndByte uint32 resultSymbol Symbol endMarked bool columnDataValid bool didGetColumn bool advancedContent bool hasResult bool readFrontier *externalReadFrontier rangeCursor *ccore.ScannerCursor }
 type ExternalScanner interface { Create() any Destroy(payload any) Serialize(payload any, buf []byte) int Deserialize(payload any, buf []byte) Scan(payload any, lexer *ExternalLexer, validSymbols []bool) bool }
 type ExternalScannerCheckpointIdentity struct { Scanner []byte Grammar []byte }
 type ExternalScannerCheckpointIdentityProvider interface { CheckpointedExternalScanner CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) }

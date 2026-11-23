@@ -20,3 +20,26 @@ func TestSourceCursorSkipsEscapedNewlineExtras(t *testing.T) {
 		t.Fatalf("column = %d, want %d", got, want)
 	}
 }
+
+func TestSourceCursorRuneUsesByteColumns(t *testing.T) {
+	cur := newSourceCursor([]byte("x\u2014\u00e9\n\U0001f41f\xff"))
+	want := []struct {
+		offset int
+		row    uint32
+		column uint32
+	}{
+		{1, 0, 1},
+		{4, 0, 4},
+		{6, 0, 6},
+		{7, 1, 0},
+		{11, 1, 4},
+		{12, 1, 5},
+	}
+	for i, next := range want {
+		cur.advanceRune()
+		if cur.offset != next.offset || cur.row != next.row || cur.col != next.column {
+			t.Fatalf("advance %d: offset/row/column = %d/%d/%d, want %d/%d/%d",
+				i+1, cur.offset, cur.row, cur.col, next.offset, next.row, next.column)
+		}
+	}
+}

@@ -1793,6 +1793,7 @@ func resetSnippetParser(parser *Parser) {
 	parser.fullGSSHint = 0
 	parser.incrementalGSSHint = 0
 	parser.included = nil
+	parser.setCcoreIncludedRanges(nil)
 	parser.logger = nil
 	parser.glrTrace = false
 	parser.ambiguityProfile = nil

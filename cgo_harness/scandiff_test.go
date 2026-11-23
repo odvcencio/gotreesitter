@@ -112,15 +112,15 @@ const (
 	catMask            // a mask that is neither a table row nor all true
 	catMidChar         // an offset inside a character (only an included range could start a scan there)
 	catDamaged         // a saved state that was truncated or made up
-	catRange           // an included range set on the C side (the core cannot be given one)
+	catRange           // an included range on both scanner cursors
 	nCats
 )
 
 var sdCatNames = []string{"ordinary", "mask", "midchar", "damaged", "range"}
 
 // sdDiagnostic reports whether a category is a diagnostic: its differences are counted and reported but are
-// outside the gate. Damaged saved states are made up (no scanner wrote them) and genuine range calls are
-// asymmetric probes (the Go lexer has no included ranges); neither is a call of the core.
+// outside the ordinary gate. Damaged saved states are made up (no scanner wrote them).
+// The separate ranged campaign checks the range observations using both scanner cursors.
 func sdDiagnostic(cat int) bool { return cat == catDamaged || cat == catRange }
 
 const sdMaxState = 1024 // TREE_SITTER_SERIALIZATION_BUFFER_SIZE; the C parser asserts it (parser.c:409)
@@ -255,18 +255,22 @@ func (s *goSide) call(src *sdSource, off0 int, row, col uint32, mask []bool, sta
 	}()
 	var out ccore.ExtScan
 	off := off0
-	// The core starts the scan after a byte order mark at byte 0, as C's ts_lexer_start
-	// does (internal/ccore/scanner.go); do the same here.
-	if off == 0 && len(src.data) >= 3 && src.data[0] == 0xEF && src.data[1] == 0xBB && src.data[2] == 0xBF {
-		off, col = 3, col+3
+	var found bool
+	if rg == nil || sdMut("ranges") {
+		// The ordinary core scanner starts after an initial BOM. The range
+		// adapter performs its own lexer start, including the BOM advance.
+		if off == 0 && len(src.data) >= 3 && src.data[0] == 0xEF && src.data[1] == 0xBB && src.data[2] == 0xBF {
+			off, col = 3, col+3
+		}
+		found = s.sc.Scan(src.data, off, row, col, state, mask, s.buf, &out)
+	} else {
+		sr, sc := src.point(off0)
+		er, ec := src.point(rg.End)
+		span := ccore.Range{StartByte: uint32(off0), EndByte: uint32(rg.End),
+			StartRow: sr, StartCol: sc, EndRow: er, EndCol: ec}
+		cursor := ccore.NewScannerCursorForDifferentialProbe(src.data, span, ccore.NewLength(uint32(off), row, col))
+		found = s.sc.(ccore.RangedExtScanner).ScanIncluded(src.data, cursor, state, mask, s.buf, &out)
 	}
-	data := src.data
-	if rg != nil && !sdMut("ranges") && rg.End < len(data) {
-		// The core has no included ranges: the end of a range is the end of the input for the scanner, so the
-		// Go side gets the source cut there. The start of a range needs nothing (the scan starts at off).
-		data = data[:rg.End]
-	}
-	found := s.sc.Scan(data, off, row, col, state, mask, s.buf, &out)
 	rec.Found = found
 	rec.DidGetCol = out.DidGetColumn
 	rec.LookEnd = out.LookaheadEnd

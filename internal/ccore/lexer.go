@@ -31,10 +31,25 @@ func (p *Parser) scan(lexState uint32, pos int, row, col uint32, out *Token) boo
 	return scanDFA(p.t.LexStates, p.t.LexAscii, p.src, lexState, pos, row, col, out, &p.fail)
 }
 
+func (p *Parser) scanIncluded(lexState uint32, pos int, row, col uint32, out *Token) (bool, bool) {
+	cursor := newIncludedCursor(p.src, p.includedRanges, NewLength(uint32(pos), row, col))
+	if p.scanProv != nil {
+		return p.scanProv.(RangedScanProvider).ScanIncluded(lexState, ScannerCursor{cursor}, out, &p.fail)
+	}
+	return scanIncludedDFA(p.t.LexStates, p.t.LexAscii, cursor, lexState, out, &p.fail)
+}
+
 // C/parser.c:505 ts_parser__lex: external scan, internal scan, error-mode
 // retry, error skip, keyword promotion and leaf construction.
 func (p *Parser) lex(version int, parseState uint16) (Handle, bool) {
 	p.lexCalls++
+	if p.forestElection != nil {
+		return p.forestLex(version, parseState)
+	}
+	return p.nativeLex(version, parseState)
+}
+
+func (p *Parser) nativeLex(version int, parseState uint16) (Handle, bool) {
 	if int(parseState) >= len(p.t.LexModes) {
 		p.stop = "needs recovery: no lex mode"
 		return 0, false
@@ -66,7 +81,25 @@ retry:
 		p.log("lex_internal state:%d, row:%d, column:%d", mode.LexState, start.row, start.col)
 	}
 	for !foundExternal {
-		lexed := p.scan(mode.Index, pos, row, col, tok)
+		var lexed bool
+		if p.includedRanges == nil {
+			lexed = p.scan(mode.Index, pos, row, col, tok)
+		} else {
+			var includedEnd bool
+			lexed, includedEnd = p.scanIncluded(mode.Index, pos, row, col, tok)
+			if includedEnd {
+				break
+			}
+		}
+		if !lexed && errorMode && p.includedRanges != nil {
+			cursor := newIncludedCursor(p.src, p.includedRanges, NewLength(uint32(pos), row, col))
+			if cursor.eof() {
+				end := cursor.pos
+				*tok = Token{StartByte: end.bytes, EndByte: end.bytes, StartRow: end.row, EndRow: end.row,
+					StartCol: end.col, EndCol: end.col, LookaheadEnd: cursor.frontier()}
+				break
+			}
+		}
 		if !lexed && errorMode && pos >= len(p.src) {
 			// HEURISTIC. In C the error-state lex function accepts the end token at
 			// the end of input, so the error skip below never starts there. A blob
@@ -79,7 +112,7 @@ retry:
 			lexed = true
 			*tok = Token{}
 		}
-		if lexed && pos >= len(p.src) {
+		if lexed && p.includedRanges == nil && pos >= len(p.src) {
 			// C/lexer.c:251-263: the walk ran at the end of input; if it accepted no
 			// token, the end token is empty and the lookahead end is one byte past.
 			if tok.Symbol == 0 {
@@ -139,7 +172,14 @@ retry:
 	if !foundExternal && sym == p.t.KeywordCapture && sym != 0 && len(p.t.KeywordLexStates) != 0 {
 		kt := &p.kwTok
 		*kt = Token{}
-		if scanDFA(p.t.KeywordLexStates, p.t.KeywordLexAscii, p.src, 0, int(tok.StartByte), tok.StartRow, tok.StartCol, kt, &p.kwFail) && kt.Symbol != 0 {
+		var keyword bool
+		if p.includedRanges == nil {
+			keyword = scanDFA(p.t.KeywordLexStates, p.t.KeywordLexAscii, p.src, 0, int(tok.StartByte), tok.StartRow, tok.StartCol, kt, &p.kwFail)
+		} else {
+			cursor := newIncludedCursor(p.src, p.includedRanges, tokStart)
+			keyword, _ = scanIncludedDFA(p.t.KeywordLexStates, p.t.KeywordLexAscii, cursor, 0, kt, &p.kwFail)
+		}
+		if keyword && kt.Symbol != 0 {
 			isKeyword = true
 			if kt.EndByte == tok.EndByte && (p.hasActions(parseState, kt.Symbol) || p.isReserved(parseState, kt.Symbol)) {
 				sym = kt.Symbol
@@ -198,16 +238,10 @@ func (p *Parser) lexErrorSkip(version int, parseState uint16, start Length, mode
 	// The failed scans' lookahead ends are already in lookaheadEnd (C/parser.c:601).
 	for {
 		if cur.bytes == errEnd.bytes {
-			if int(cur.bytes) >= len(p.src) {
+			var ok bool
+			cur, ok = p.advanceErrorRune(cur)
+			if !ok {
 				break
-			}
-			r, size := utf8.DecodeRune(p.src[cur.bytes:])
-			cur.bytes += uint32(size)
-			if r == '\n' {
-				cur.row++
-				cur.col = 0
-			} else {
-				cur.col += uint32(size)
 			}
 		}
 		errEnd = cur
@@ -241,6 +275,29 @@ func (p *Parser) lexErrorSkip(version int, parseState uint16, start Length, mode
 	return p.newErrorLeaf(padding, size, lookahead, parseState)
 }
 
+func (p *Parser) advanceErrorRune(at Length) (Length, bool) {
+	if p.includedRanges != nil {
+		cursor := newIncludedCursor(p.src, p.includedRanges, at)
+		if cursor.eof() {
+			return at, false
+		}
+		cursor.advance(cursor.lookahead())
+		return cursor.pos, true
+	}
+	if int(at.bytes) >= len(p.src) {
+		return at, false
+	}
+	r, size := utf8.DecodeRune(p.src[at.bytes:])
+	at.bytes += uint32(size)
+	if r == '\n' {
+		at.row++
+		at.col = 0
+	} else {
+		at.col += uint32(size)
+	}
+	return at, true
+}
+
 // scanFrom runs the lexer from a position as the clean path's lex does
 // (whitespace skips, end of input); it reports whether a token was found,
 // and on failure the position where the failed scan stopped.
@@ -249,10 +306,20 @@ func (p *Parser) scanFrom(mode LexMode, at Length) (bool, Length, uint32) {
 	tok := &p.skipTok
 	*tok = Token{}
 	for {
-		if pos >= len(p.src) {
-			return true, Length{}, uint32(pos) + 1
+		var matched bool
+		if p.includedRanges == nil {
+			if pos >= len(p.src) {
+				return true, Length{}, uint32(pos) + 1
+			}
+			matched = p.scan(mode.Index, pos, row, col, tok)
+		} else {
+			var includedEnd bool
+			matched, includedEnd = p.scanIncluded(mode.Index, pos, row, col, tok)
+			if includedEnd {
+				return true, Length{}, tok.LookaheadEnd
+			}
 		}
-		if !p.scan(mode.Index, pos, row, col, tok) {
+		if !matched {
 			return false, p.fail[1], tok.LookaheadEnd
 		}
 		if tok.Symbol == 0 && !tok.BuiltinEnd {
