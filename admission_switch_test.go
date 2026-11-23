@@ -6095,7 +6095,8 @@ func TestCcoreShortcutPolicyKeepsFirstForestEditNative(t *testing.T) {
 			cert := base
 			cert.Shortcut = test.policy
 			certified.Blobs[blob] = cert
-			parser := gts.NewParser(lang)
+			// Other tests may have cached the miss before this temporary certificate.
+			parser := ccoreRouteParser(lang)
 			old, ok := parser.ParseForestExperimental(src)
 			if old != nil {
 				defer old.Release()
