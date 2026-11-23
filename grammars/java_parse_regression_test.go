@@ -949,3 +949,37 @@ func TestJavaTokenSourceClosesAnnotatedNestedGeneric(t *testing.T) {
 		t.Fatalf("wrong object creation type: %s", creation.SExpr(lang))
 	}
 }
+
+func TestJavaTokenSourcePreservesComparisonAfterGenericAndShiftAssignment(t *testing.T) {
+	lang := JavaLanguage()
+	for _, tc := range []struct{ statement, kind, operator string }{
+		{"boolean y = o instanceof A<B>>=v;", "binary_expression", ">="},
+		{"boolean y = o instanceof A<B<C>>>=v;", "binary_expression", ">="},
+		{"v >>= 1;", "assignment_expression", ">>="},
+		{"v >>>= 1;", "assignment_expression", ">>>="},
+	} {
+		t.Run(tc.statement, func(t *testing.T) {
+			input := []byte("class A { void f() { " + tc.statement + " } }")
+			p := gotreesitter.NewParser(lang)
+			p.SetAdmissionCandidateRoute(false)
+			s, err := NewJavaTokenSource(input, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tree, err := p.ParseWithTokenSourceStrict(input, s)
+			if err != nil || tree == nil {
+				t.Fatalf("parse: %v", err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			n := findFirstNamedDescendant(root, lang, tc.kind)
+			if root.HasError() || n == nil {
+				t.Fatalf("expected %s: %s", tc.kind, root.SExpr(lang))
+			}
+			op := n.ChildByFieldName("operator", lang)
+			if op == nil || op.Text(input) != tc.operator {
+				t.Fatalf("expected operator %q: %s", tc.operator, n.SExpr(lang))
+			}
+		})
+	}
+}

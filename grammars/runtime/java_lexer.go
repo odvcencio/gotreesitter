@@ -886,6 +886,11 @@ func (ts *JavaTokenSource) numberToken() gotreesitter.Token {
 }
 
 func (ts *JavaTokenSource) literalToken() (gotreesitter.Token, bool) {
+	if ts.cur.peekByte() == '>' {
+		if tok, ok := ts.modeTerminatedCloseAngle(); ok {
+			return tok, true
+		}
+	}
 	sym, n := ts.matchLiteral()
 	if sym == 0 {
 		return gotreesitter.Token{}, false
@@ -917,17 +922,73 @@ func isJavaCompactCloseAngleLiteral(lit []byte) bool {
 	return true
 }
 
-// lexCompactCloseAngle checks the grammar lexer for the primary parser state.
-func (ts *JavaTokenSource) lexCompactCloseAngle(start, width int) gotreesitter.Token {
+// A single > wins as soon as the exact primary DFA cannot take the
+// following > or =. At that point no later byte can extend this token.
+func (ts *JavaTokenSource) modeTerminatedCloseAngle() (gotreesitter.Token, bool) {
+	start := ts.cur.offset
+	state, ok := ts.compactCloseLexMode()
+	if !ok {
+		return gotreesitter.Token{}, false
+	}
+	st := &ts.lang.LexStates[state]
+	dest, skip := javaLexTransition(st, '>')
+	if skip || dest < 0 || dest >= len(ts.lang.LexStates) {
+		return gotreesitter.Token{}, false
+	}
+	after := &ts.lang.LexStates[dest]
+	gt := ts.literalSymbols[">"]
+	if gt == 0 || after.Skip || after.AcceptToken != gt {
+		return gotreesitter.Token{}, false
+	}
+	if start+1 >= len(ts.src) {
+		return gotreesitter.Token{}, false
+	}
+	second := ts.src[start+1]
+	if second != '>' && second != '=' {
+		return gotreesitter.Token{}, false
+	}
+	next, _ := javaLexTransition(after, rune(second))
+	if next >= 0 {
+		return gotreesitter.Token{}, false
+	}
+	point := ts.cur.point()
+	ts.cur.advanceByte()
+	return makeToken(gt, ts.src, start, ts.cur.offset, point, ts.cur.point()), true
+}
+
+// Match the ordered character transitions and non-skipping default used by Lexer.
+func javaLexTransition(st *gotreesitter.LexState, r rune) (int, bool) {
+	for _, tr := range st.Transitions {
+		if r >= tr.Lo && r <= tr.Hi {
+			if tr.NextState >= 0 {
+				return tr.NextState, tr.Skip
+			}
+			break
+		}
+	}
+	return st.Default, false
+}
+
+func (ts *JavaTokenSource) compactCloseLexMode() (uint32, bool) {
 	modes := ts.lang.LexModes
 	if ts.state == 0 || int(ts.state) >= len(modes) {
-		return gotreesitter.Token{}
+		return 0, false
 	}
 	mode := modes[ts.state]
 	lexState := mode.LexStateIndex()
 	afterWhitespace := mode.AfterWhitespaceLexStateIndex()
 	if uint64(lexState) >= uint64(len(ts.lang.LexStates)) ||
 		(afterWhitespace != 0 && afterWhitespace != lexState) {
+		return 0, false
+	}
+
+	return lexState, true
+}
+
+// lexCompactCloseAngle checks the grammar lexer for the primary parser state.
+func (ts *JavaTokenSource) lexCompactCloseAngle(start, width int) gotreesitter.Token {
+	lexState, ok := ts.compactCloseLexMode()
+	if !ok {
 		return gotreesitter.Token{}
 	}
 
