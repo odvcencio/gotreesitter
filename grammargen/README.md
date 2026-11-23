@@ -128,13 +128,6 @@ retries) on ordinary inputs as small as `if err != nil { foo() }`. Keep Go on
 the plain LALR path (no `-lr-split`) unless that interaction is specifically
 investigated and fixed.
 
-Generate the Go ccore candidate from the same DSL with the internal
-line-terminator lexer:
-
-```sh
-go run ./cmd/grammargen emit go-core -bin go-core.bin
-```
-
 Generate the YAML ccore candidate from the owned DSL:
 
 ```sh

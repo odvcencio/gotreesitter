@@ -49,7 +49,6 @@ var builtinGrammars = map[string]func() *grammargen.Grammar{
 	"calc":               grammargen.CalcGrammar,
 	"glr":                grammargen.GLRGrammar,
 	"go":                 grammargen.GoGrammar,
-	"go-core":            grammargen.GoCoreGrammar,
 	"javascript":         grammargen.JavaScriptGrammar,
 	"js":                 grammargen.JSGrammar,
 	"jsx":                grammargen.JSXGrammar,

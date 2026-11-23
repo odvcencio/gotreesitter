@@ -546,9 +546,6 @@ func ruleCanMatchNonEmpty(r *Rule) bool {
 }
 
 func isLineBreakOnlyRule(r *Rule) bool {
-	if r != nil && r.Kind == RuleRepeat1 && len(r.Children) == 1 {
-		return isLineBreakOnlyRule(r.Children[0])
-	}
 	values, ok := finiteLineBreakStrings(r)
 	if !ok || len(values) == 0 {
 		return false
