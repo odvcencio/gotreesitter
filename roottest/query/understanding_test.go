@@ -192,3 +192,47 @@ func hasHeritage(refs []gotreesitter.HeritageRef, name, parent string) bool {
 	}
 	return false
 }
+
+func TestHeritageExpressionRanges(t *testing.T) {
+	type base struct{ kind, text, nodeType string }
+	typed := "abstract class Base<T> extends /* before */ Base<T> implements pkg.I<A, B>, /* between */ J {}\ninterface K extends pkg.I<A, B>, J {}"
+	typedWant := []base{{"extends", "Base<T>", "identifier"}, {"implements", "pkg.I<A, B>", "generic_type"}, {"implements", "J", "type_identifier"}, {"extends", "pkg.I<A, B>", "generic_type"}, {"extends", "J", "type_identifier"}}
+	for _, tc := range []struct {
+		file, src string
+		want      []base
+	}{
+		{"a.js", "class Box extends factory(Box, {x: 1}) {}", []base{{"extends", "factory(Box, {x: 1})", "call_expression"}}},
+		{"a.ts", typed, typedWant}, {"a.tsx", typed, typedWant},
+		{"a.ts", "class C extends mixin(B) implements I {}", []base{{"extends", "mixin(B)", "call_expression"}, {"implements", "I", "type_identifier"}}},
+		{"a.py", "class C(C,\r\n  A[X, Y], # note\r\n  make(B), *bases, metaclass=M, **options): pass\n", []base{{"base", "C", "identifier"}, {"base", "A[X, Y]", "subscript"}, {"base", "make(B)", "call"}, {"base", "*bases", "list_splat"}}},
+	} {
+		t.Run(tc.file, func(t *testing.T) {
+			tree := parseUnderstandingTree(t, tc.file, []byte(tc.src))
+			defer tree.Release()
+			got := gotreesitter.ExtractHeritage(tree)
+			p, err := gotreesitter.NewFactProgram(tree.Language(), gotreesitter.FactHeritage)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if facts := p.Extract(tree).Heritage; !slices.Equal(facts, got) {
+				t.Fatalf("compiled = %+v, direct = %+v", facts, got)
+			}
+			if len(got) != len(tc.want) {
+				t.Fatalf("heritage = %+v", got)
+			}
+			// Match the actual expression, even when the declaration has the same spelling.
+			offset := strings.IndexAny(tc.src, "(")
+			if i := strings.Index(tc.src, "extends"); i >= 0 {
+				offset = i
+			}
+			for i, w := range tc.want {
+				r := got[i]
+				at := strings.Index(tc.src[offset:], w.text) + offset
+				if r.Kind != w.kind || r.Parent != w.text || r.ParentNodeType != w.nodeType || int(r.ParentStartByte) != at || int(r.ParentEndByte) != at+len(w.text) || r.Name == "" || r.ParentStartByte < r.StartByte || r.ParentEndByte > r.EndByte {
+					t.Fatalf("heritage[%d] = %+v, want %+v at %d", i, r, w, at)
+				}
+				offset = int(r.ParentEndByte)
+			}
+		})
+	}
+}
