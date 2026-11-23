@@ -1,5 +1,5 @@
 {
-  "binding_patch_sha256": "cfda7b9a5b4257257bcba54c74b66373ea1d144ed58d126e472588d80b244c1e",
+  "binding_patch_sha256": "fd3510a2a42f31e0988eaafa6c7353b130b7c40ae082b4f9081d42bc561664c0",
   "binding_repository": "https://github.com/tree-sitter/go-tree-sitter.git",
   "files": {
     "LICENSE": "0eea8dc45e89deeb03c7799bbbc7b4688f365fb274562f4540ecfebdea82e727",
@@ -105,7 +105,7 @@
     "subtree_counters.go": "0a04d41a914129f3483300d11a81f45c7f6f3525d25826220123023c7e0e6557",
     "tree.go": "d8d2085106c3d94016c69ea781c649e2c626dc79fe4298c8122e27e087f3bd5e",
     "tree_cursor.go": "ecdcc095ba98b3078e11ab945b1cc5158ba6fe0c1620fd866f706194bb6c2978",
-    "tree_sitter.go": "1f735ac9a4a86e3902a88e33b863ec38d0ef1244dd63ef9765bc9d8dd24f9993"
+    "tree_sitter.go": "2c48597b65c2c3d759202151c2aa89d066570c7c5ddc0fe2275015a17abf2b79"
   },
   "pins": {
     "BindingCommit": "adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3",

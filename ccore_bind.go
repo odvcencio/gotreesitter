@@ -2500,6 +2500,8 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	rt.MemoryBudgetBytes = lim.budget
 	rt.MaxStacksSeen = cp.MaxVersions()
 	rt.TokensConsumed = uint64(cp.Tokens())
+	rt.MultiStackTokens = uint64(cp.MultiTokens())
+	rt.SingleStackTokens = rt.TokensConsumed - rt.MultiStackTokens
 	if cp.ScannedBuiltinEnd() {
 		rt.Truncated = rt.RootEndByte < rt.ExpectedEOFByte
 		if rt.Truncated && rt.StopReason == ParseStopAccepted {

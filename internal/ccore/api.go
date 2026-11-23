@@ -564,6 +564,9 @@ func (p *Parser) MaxVersions() int { return p.maxVersions }
 // Tokens is the number of tokens the last parse lexed.
 func (p *Parser) Tokens() int { return p.tokens }
 
+// MultiTokens counts lexed tokens with more than one live version.
+func (p *Parser) MultiTokens() int { return p.multiTokens }
+
 // ArenaUse returns the page bytes the store holds and the bytes reachable from t.
 func (p *Parser) ArenaUse(t *Tree) (used, reachable int) {
 	if t.c.released.Load() {
