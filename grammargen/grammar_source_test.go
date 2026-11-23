@@ -22,6 +22,7 @@ func TestExtendGrammarCopiesImportMetadata(t *testing.T) {
 	base.Precedences = [][]PrecEntry{
 		{{Name: "call"}, {IsSymbol: true, Name: "program"}},
 	}
+	base.EffectiveProductionMetadata = true
 	base.ExternalLexerOnly = true
 	base.ExplicitLexerEOF = true
 	base.AllExternalTokensInRecovery = true
@@ -54,7 +55,7 @@ func TestExtendGrammarCopiesImportMetadata(t *testing.T) {
 	if extended.Name != "extended" {
 		t.Fatalf("extended.Name = %q, want extended", extended.Name)
 	}
-	if !extended.ExternalLexerOnly || !extended.ExplicitLexerEOF || !extended.CCompatibleParseActions || !extended.EnableLRSplitting || !extended.BinaryRepeatMode {
+	if !extended.EffectiveProductionMetadata || !extended.ExternalLexerOnly || !extended.ExplicitLexerEOF || !extended.CCompatibleParseActions || !extended.EnableLRSplitting || !extended.BinaryRepeatMode {
 		t.Fatalf("extension did not inherit generator mode flags")
 	}
 	if !extended.AllExternalTokensInRecovery {
@@ -136,6 +137,7 @@ func TestEmitGrammarGoIncludesImportMetadata(t *testing.T) {
 	g.Precedences = [][]PrecEntry{
 		{{Name: "call"}, {IsSymbol: true, Name: "program"}},
 	}
+	g.EffectiveProductionMetadata = true
 	g.ExternalLexerOnly = true
 	g.ExplicitLexerEOF = true
 	g.CCompatibleParseActions = true
@@ -168,6 +170,7 @@ func TestEmitGrammarGoIncludesImportMetadata(t *testing.T) {
 		"g.ReservedWordSets = []ReservedWordSet{",
 		"g.Precedences = [][]PrecEntry{",
 		"{IsSymbol: true, Name: \"program\"}",
+		"g.EffectiveProductionMetadata = true",
 		"g.ExternalLexerOnly = true",
 		"g.ExplicitLexerEOF = true",
 		"g.CCompatibleParseActions = true",

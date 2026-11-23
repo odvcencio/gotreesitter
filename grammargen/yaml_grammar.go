@@ -3188,6 +3188,7 @@ func YAMLCoreGrammar() *Grammar {
 	// The YAML scanner uses the all-valid mask for recovery, including
 	// _err_rec to stop treating a failed scan as an EOF token.
 	g.ExternalLexerOnly = true
+	g.EffectiveProductionMetadata = true
 	g.AllExternalTokensInRecovery = true
 	// Recovery can place these nodes directly under ERROR, without the
 	// parent production that would apply their public alias.

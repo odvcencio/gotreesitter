@@ -1278,6 +1278,9 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 	}
 	endPhase(endFields)
 
+	if ng.effectiveMetadata {
+		ng.collectCompletedProductionOrder(lrCtx)
+	}
 	lrCtx.releaseScratch()
 	prov = nil
 	lrCtx = nil

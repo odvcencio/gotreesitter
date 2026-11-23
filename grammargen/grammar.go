@@ -72,6 +72,7 @@ type Grammar struct {
 	ReservedWordSets                           []ReservedWordSet
 	Supertypes                                 []string
 	Tests                                      []TestCase    // embedded test cases
+	EffectiveProductionMetadata                bool          // Intern effective aliases and inherited fields by first completed LR item.
 	ExternalLexerOnly                          bool          // the external scanner owns tokens and whitespace, leaving unconditional builtin end
 	ExplicitLexerEOF                           bool          // encode C-style EOF transitions and treat a bare NUL terminal as a byte
 	CCompatibleParseActions                    bool          // order shifts last and honor precedence in derived keyword conflicts
@@ -340,6 +341,7 @@ func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Gram
 		ReservedWordSets:                   cloneReservedWordSets(base.ReservedWordSets),
 		Supertypes:                         make([]string, len(base.Supertypes)),
 		Tests:                              make([]TestCase, len(base.Tests)),
+		EffectiveProductionMetadata:        base.EffectiveProductionMetadata,
 		ExternalLexerOnly:                  base.ExternalLexerOnly,
 		ExplicitLexerEOF:                   base.ExplicitLexerEOF,
 		CCompatibleParseActions:            base.CCompatibleParseActions,

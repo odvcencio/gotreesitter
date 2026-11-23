@@ -83,6 +83,11 @@ type TerminalPattern struct {
 
 // NormalizedGrammar is the output of the normalize step.
 type NormalizedGrammar struct {
+	effectiveMetadata        bool
+	rawSymbolVisible         []bool
+	completedProductionOrder []int
+	effectiveInfos           []effectiveProductionInfo
+
 	GrammarName   string
 	Symbols       []SymbolInfo
 	Productions   []Production
@@ -306,6 +311,7 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		GrammarName:             g.Name,
 		cCompatibleParseActions: g.CCompatibleParseActions,
 		externalLexerOnly:       g.ExternalLexerOnly,
+		effectiveMetadata:       g.EffectiveProductionMetadata,
 	}
 
 	// Shallow-clone g so later phases (e.g. liftInlineTokens) that write
@@ -715,6 +721,11 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 				occurrences[id] == aliasedOccurrences[id] {
 				deferredAliases[symbol.Name] = true
 			}
+		}
+	}
+	if ng.effectiveMetadata {
+		for _, s := range st.symbols {
+			ng.rawSymbolVisible = append(ng.rawSymbolVisible, s.Visible)
 		}
 	}
 	aliasRenames, displays := promoteDefaultAliases(st.symbols, productions, extraSymbols, deferredAliases)

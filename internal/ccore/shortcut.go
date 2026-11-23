@@ -1,6 +1,9 @@
 package ccore
 
-import "bytes"
+import (
+	"bytes"
+	"slices"
+)
 
 // shortcutMemo owns the root before the first edit and a snapshot of its text.
 // The cell transfers its root ownership to base when it publishes that edit.
@@ -69,6 +72,32 @@ func (p *Parser) shortcutSameLeaf(a, b Handle) bool {
 		bytes.Equal(p.extState(a), p.extState(b))
 }
 
+// externalOnlyEndLexer recognizes the scanner-owned lexical layout emitted by
+// grammargen: the only internal token is unconditional builtin end.
+func (t *Tables) externalOnlyEndLexer() bool {
+	if len(t.ExternalSymbols) == 0 || uint64(t.TokenCount) != uint64(len(t.ExternalSymbols))+1 ||
+		len(t.LexStates) != 1 || len(t.KeywordLexStates) != 0 {
+		return false
+	}
+	s := t.LexStates[0]
+	return s.AcceptEnd && s.AcceptToken == 0 && !s.AcceptEOF && !s.Skip &&
+		s.Default == -1 && s.EOF == -1 && len(s.Trans) == 0
+}
+
+// Reopening a marked ancestor can scan its leading token in the ancestor's
+// entry state, even when that token precedes the changed bytes.
+func (p *Parser) shortcutExternalPrefixDiffers(entry, first uint16) bool {
+	if entry == 0 || entry == stateNone || entry == first || int(entry) >= len(p.t.LexModes) || int(first) >= len(p.t.LexModes) {
+		return false
+	}
+	current, previous := p.t.LexModes[entry].ExternalLexState, p.t.LexModes[first].ExternalLexState
+	if current == 0 || current == previous {
+		return false
+	}
+	rows := p.extRows()
+	return int(current) >= len(rows) || int(previous) >= len(rows) || !slices.Equal(rows[current], rows[previous])
+}
+
 // tryShortcut replays C/parser.c:505 ts_parser__lex for each leaf that the
 // edit marked as changed. old is the edited tree: C/subtree.c:634
 // ts_subtree_edit set has_changes on the leaves whose text or lookahead the
@@ -96,6 +125,7 @@ func (p *Parser) tryShortcut(src []byte, old Handle) bool {
 	p.cacheTok, p.cacheAt = 0, 0
 	p.extReset(false)
 	defer p.extFinish()
+	externalOnly := p.t.externalOnlyEndLexer()
 	var frames []shortcutFrame
 	frames = push(&p.led, frames, shortcutFrame{h: old, b: m.base})
 	var lastExt Handle
@@ -110,6 +140,10 @@ func (p *Parser) tryShortcut(src []byte, old Handle) bool {
 				}
 				frames = frames[:len(frames)-1]
 				continue
+			}
+			if externalOnly && p.childCount(f.b) != 0 && p.hasExternalTokens(f.b) &&
+				p.shortcutExternalPrefixDiffers(p.parseState(f.b), p.leafParseState(f.b)) {
+				return p.shortcutDecline("leaf-state-or-error")
 			}
 			if p.childCount(f.h) != p.childCount(f.b) {
 				return p.shortcutDecline("no-memo") // old is not the memo's tree with one edit

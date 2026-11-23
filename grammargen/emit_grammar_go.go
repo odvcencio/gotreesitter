@@ -129,6 +129,9 @@ func EmitGrammarGo(g *Grammar, pkgName, funcName string) ([]byte, error) {
 		fmt.Fprintf(&buf, "\t}\n\n")
 	}
 
+	if g.EffectiveProductionMetadata {
+		fmt.Fprintln(&buf, "\tg.EffectiveProductionMetadata = true")
+	}
 	if g.ExternalLexerOnly {
 		fmt.Fprintln(&buf, "\tg.ExternalLexerOnly = true")
 	}
