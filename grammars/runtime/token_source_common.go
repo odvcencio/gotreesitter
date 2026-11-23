@@ -63,7 +63,7 @@ func (c *sourceCursor) advanceRune() {
 		c.col = 0
 		return
 	}
-	c.col++
+	c.col += uint32(size)
 }
 
 func (c *sourceCursor) skipWhitespace() {
