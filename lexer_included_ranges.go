@@ -311,7 +311,7 @@ func (l *Lexer) scanIncluded(startState uint32, startPos int, startRow, startCol
 		}
 		st := &l.states[int(curState)]
 
-		if st.AcceptToken > 0 || st.Skip || (st.AcceptEOF && scanCursor.rangeIdx >= len(l.includedRanges)) {
+		if st.AcceptToken > 0 || st.Skip || (st.AcceptEOF && scanCursor.rangeIdx >= len(l.includedRanges)) || l.language.LexerStateAcceptsEndBeforeEOF(int(curState)) {
 			isImmediate := st.AcceptToken > 0 && int(st.AcceptToken) < len(l.immediateTokens) && l.immediateTokens[st.AcceptToken]
 			skippedWhitespace := tokenStart.pos > startPos
 			zeroWidthVisible := st.AcceptToken > 0 && scanCursor.pos == tokenStart.pos && !l.allowsZeroWidthToken(st.AcceptToken)
