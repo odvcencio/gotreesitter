@@ -35,6 +35,13 @@ func (p *Parser) scan(lexState uint32, pos int, row, col uint32, out *Token) boo
 // retry, error skip, keyword promotion and leaf construction.
 func (p *Parser) lex(version int, parseState uint16) (Handle, bool) {
 	p.lexCalls++
+	if p.forestElection != nil {
+		return p.forestLex(version, parseState)
+	}
+	return p.nativeLex(version, parseState)
+}
+
+func (p *Parser) nativeLex(version int, parseState uint16) (Handle, bool) {
 	if int(parseState) >= len(p.t.LexModes) {
 		p.stop = "needs recovery: no lex mode"
 		return 0, false

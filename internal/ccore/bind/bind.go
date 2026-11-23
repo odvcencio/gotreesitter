@@ -14,6 +14,7 @@ package bind
 import (
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/odvcencio/gotreesitter/internal/ccore"
@@ -21,6 +22,8 @@ import (
 
 // Adapter is what the root package registers.
 type Adapter struct {
+	CompactRecords func(tree any, w io.Writer) (hash, rows uint64)
+	ForestCounters func() (accepted, declined, abstained uint64)
 	// Config returns the core configuration of a *Language (passed as any), or
 	// an error that says why the core cannot serve it.
 	Config func(lang any) (ccore.Config, error)
@@ -155,6 +158,24 @@ func RouteLimits(lang any, sourceLen int, softOff bool) (budget, ceiling int64, 
 	}
 	budget, ceiling, hooked = a.RouteLimits(lang, sourceLen, softOff)
 	return budget, ceiling, hooked, nil
+}
+
+// CompactRecords inspects the compact store behind a public tree.
+func CompactRecords(tree any, w io.Writer) (hash, rows uint64) {
+	a, err := registered()
+	if err != nil || a.CompactRecords == nil {
+		return 0, 0
+	}
+	return a.CompactRecords(tree, w)
+}
+
+// ForestCounters reads accepted, declined and unsupported native forest attempts.
+func ForestCounters() (accepted, declined, abstained uint64) {
+	a, err := registered()
+	if err != nil || a.ForestCounters == nil {
+		return 0, 0, 0
+	}
+	return a.ForestCounters()
 }
 
 // RouteCounters reads the route's counters (see Adapter.RouteCounters).

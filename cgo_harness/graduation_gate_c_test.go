@@ -790,7 +790,7 @@ func TestGraduationIncremental(t *testing.T) {
 				edits++
 				if incr {
 					ch, ccount, rc := corecords.Hash(cTree, "")
-					gh, gn := core.RecordsHash("")
+					gh, gn := bind.CompactRecords(next, nil)
 					recordSteps++
 					if rc == 0 && ccount > 0 && gn > 0 && ch == gh && ccount == gn {
 						recordEqual++
