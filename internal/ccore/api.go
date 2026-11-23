@@ -8,12 +8,53 @@ import (
 	"encoding/hex"
 	"io"
 	"runtime"
+	"slices"
 )
 
 // Parse parses src from scratch into a new store (C ts_parser_parse with no
 // old tree). The returned string is empty on success, or the reason the parse
 // stopped; a parse that stopped returns no tree.
 func (p *Parser) Parse(src []byte) (*Tree, string) { return p.ParseWith(src, nil) }
+
+// ParseIncluded parses selected source ranges from scratch.
+func (p *Parser) ParseIncluded(src []byte, ranges []Range) (*Tree, string) {
+	return p.ParseWithIncluded(src, nil, ranges)
+}
+
+// ParseWithIncluded applies ranges to a fresh or incremental parse. Ranges must
+// be sorted and non-overlapping. The old tree already reflects all source edits.
+// A nil or empty list includes the entire source, even when old used ranges.
+func (p *Parser) ParseWithIncluded(src []byte, old *Tree, ranges []Range) (*Tree, string) {
+	return p.ParseWithIncludedScan(src, old, ranges, nil)
+}
+
+// ParseWithIncludedScan is ParseWithIncluded with an optional main lexer.
+// A provider must support selected ranges when the list is nonempty.
+func (p *Parser) ParseWithIncludedScan(src []byte, old *Tree, ranges []Range, provider ScanProvider) (*Tree, string) {
+	if len(ranges) == 0 {
+		return p.ParseWithScan(src, old, provider)
+	}
+	if provider != nil {
+		if _, ok := provider.(RangedScanProvider); !ok {
+			return nil, "scan provider does not support included ranges"
+		}
+	}
+	if p.scanner != nil {
+		if _, ok := p.scanner.(RangedExtScanner); !ok {
+			return nil, "external scanner does not support included ranges"
+		}
+	}
+	var previousEnd uint32
+	for _, r := range ranges {
+		if r.StartByte < previousEnd || r.EndByte < r.StartByte {
+			return nil, "invalid included ranges"
+		}
+		previousEnd = r.EndByte
+	}
+	p.includedRanges = ranges
+	defer func() { p.includedRanges = nil }()
+	return p.ParseWithScan(src, old, provider)
+}
 
 // ParseWith parses src, reusing the edited old tree when old is not nil (C
 // ts_parser_parse with an old tree). An incremental parse appends to the
@@ -35,6 +76,7 @@ func (p *Parser) ParseWith(src []byte, old *Tree) (rt *Tree, rstop string) {
 // cleared when the call returns.
 func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tree, rstop string) {
 	p.scanProv = prov
+	p.scannedBuiltinEnd = false
 	defer func() { p.scanProv = nil }()
 	p.shortcutTaken, p.shortcutWhy = false, ""
 	p.shortcutMemo = shortcutMemo{}
@@ -127,6 +169,7 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 	}
 	c.fire("parse-start")
 	var oldRoot Handle
+	var oldIncluded []Range
 	var oldShortcutBytes int64
 	if old != nil {
 		// The released flag, the root and the page-table headers are captured
@@ -136,7 +179,10 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 		c.mu.Lock()
 		released := old.c.released.Load()
 		oldRoot = Handle(old.c.root.Load())
-		if old.c.shortcut != nil {
+		if ranges := old.c.includedRanges; ranges != nil {
+			oldIncluded = *ranges
+		}
+		if p.includedRanges == nil && old.c.shortcut != nil {
 			oldShortcutBytes = int64(len(old.c.shortcut.src)) + sizeOf[shortcutMemo]()
 			if p.shortcutOn {
 				p.shortcutMemo = *old.c.shortcut
@@ -150,9 +196,38 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 		if oldShortcutBytes != 0 && p.led.Active() && !p.led.Reserve(oldShortcutBytes) {
 			return nil, stopProgress
 		}
+		if len(oldIncluded) != 0 && p.led.Active() {
+			bytes, ok := sliceBytes[Range](len(oldIncluded))
+			if !ok || !p.led.Reserve(sizeOf[rangeArray]()) || !p.led.Reserve(bytes) {
+				return nil, stopProgress
+			}
+		}
+		if !slices.Equal(oldIncluded, p.includedRanges) {
+			// At most one output span for each pair of the two lists'
+			// endpoints. Include one extra range for C's implicit full input.
+			differences, ok := MakeCap[Range](&p.led, len(oldIncluded)+len(p.includedRanges)+1)
+			if !ok {
+				return nil, stopProgress
+			}
+			p.includedDifferences = differences
+			rangeArrayChangedEffective(oldIncluded, p.includedRanges, &p.includedDifferences)
+		}
+	}
+	var included *rangeArray
+	if len(p.includedRanges) > 0 {
+		if !p.led.Reserve(sizeOf[rangeArray]()) {
+			return nil, stopProgress
+		}
+		ranges, ok := Make[Range](&p.led, len(p.includedRanges))
+		if !ok {
+			return nil, stopProgress
+		}
+		copy(ranges, p.includedRanges)
+		snapshot := rangeArray(ranges)
+		included = &snapshot
 	}
 	var nextMemo *shortcutMemo
-	if p.shortcutOn {
+	if p.shortcutOn && p.includedRanges == nil {
 		if p.led.Active() && !p.led.Reserve(sizeOf[shortcutMemo]()) {
 			return nil, stopProgress
 		}
@@ -177,6 +252,7 @@ func (p *Parser) ParseWithScan(src []byte, old *Tree, prov ScanProvider) (rt *Tr
 	}
 	t := &Tree{c: c.newCell(p.finished), rd: p.Store}
 	t.c.shortcut = nextMemo
+	t.c.includedRanges = included
 	t.rd.fresh, t.rd.logging, t.rd.led = false, false, nil
 	t.rd.owner = t.c
 	published = true
@@ -305,6 +381,8 @@ func (p *Parser) endParse(published bool) {
 // store alive).
 func (p *Parser) clearHandles() {
 	p.shortcutMemo = shortcutMemo{}
+	p.includedDifferences = nil
+	p.includedDifferenceIndex = 0
 	p.fresh, p.logging = false, false
 	p.finished = 0
 	p.cacheTok, p.cacheAt, p.ext.cacheLast = 0, 0, 0
@@ -452,6 +530,10 @@ func (p *Parser) ArenaDigest(t *Tree) string {
 	v.hashArena(h)
 	return hex.EncodeToString(h.Sum(nil))
 }
+
+// ScannedBuiltinEnd reports whether the last byte-source parse read a token
+// from a state that unconditionally accepts builtin end.
+func (p *Parser) ScannedBuiltinEnd() bool { return p.scannedBuiltinEnd }
 
 // RootEnd is the end byte of t.
 func (p *Parser) RootEnd(t *Tree) uint32 {

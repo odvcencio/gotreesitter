@@ -3181,3 +3181,33 @@ func YAMLGrammar() *Grammar {
 
 	return g
 }
+
+// YAMLCoreGrammar builds a YAML candidate for ccore from the owned DSL.
+func YAMLCoreGrammar() *Grammar {
+	g := YAMLGrammar()
+	// The YAML scanner uses the all-valid mask for recovery, including
+	// _err_rec to stop treating a failed scan as an EOF token.
+	g.ExternalLexerOnly = true
+	g.AllExternalTokensInRecovery = true
+	// Recovery can place these nodes directly under ERROR, without the
+	// parent production that would apply their public alias.
+	// Their visibility also contributes to the recovery stack's progress count.
+	g.DefaultAliasDisplays = []string{
+		"_b_sgl_pln_blk_val", "_r_sgl_pln_blk_val", "_br_sgl_pln_blk_val",
+		"_r_blk_imp_itm", "_br_blk_imp_itm", "_b_blk_imp_itm",
+		"_r_acr", "_br_acr", "_b_acr",
+		"_r_blk_seq_spc_val", "_br_blk_seq_spc_val", "_b_blk_seq_spc_val",
+	}
+	// Preserve reductions that affect the scanner's viable symbols or the
+	// distinction between a child and its enclosing production.
+	g.PreserveHiddenChoicePassthrough = []string{
+		"_bgn_imp_doc", "_r_blk_map_itm", "_br_blk_map_itm", "_b_blk_map_itm",
+		"_blk_exp_itm_tal", "_doc_w_bgn_w_end", "_doc_wo_bgn_w_end",
+		"_doc_wo_bgn_wo_end", "_sgl_flw_ann_par_tal",
+	}
+	// A sequence item has its own alias. Binary repeats keep balancing
+	// from moving a repeat subtree into that item's alias slot.
+	g.BinaryRepeatMode = true
+	g.ReuseRepeatAuxForParents = append([]string(nil), g.RuleOrder...)
+	return g
+}

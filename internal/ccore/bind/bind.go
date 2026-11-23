@@ -14,6 +14,7 @@ package bind
 import (
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/odvcencio/gotreesitter/internal/ccore"
@@ -21,6 +22,8 @@ import (
 
 // Adapter is what the root package registers.
 type Adapter struct {
+	CompactRecords func(tree any, w io.Writer) (hash, rows uint64)
+	ForestCounters func() (accepted, declined, abstained uint64)
 	// Config returns the core configuration of a *Language (passed as any), or
 	// an error that says why the core cannot serve it.
 	Config func(lang any) (ccore.Config, error)
@@ -157,6 +160,24 @@ func RouteLimits(lang any, sourceLen int, softOff bool) (budget, ceiling int64, 
 	return budget, ceiling, hooked, nil
 }
 
+// CompactRecords inspects the compact store behind a public tree.
+func CompactRecords(tree any, w io.Writer) (hash, rows uint64) {
+	a, err := registered()
+	if err != nil || a.CompactRecords == nil {
+		return 0, 0
+	}
+	return a.CompactRecords(tree, w)
+}
+
+// ForestCounters reads accepted, declined and unsupported native forest attempts.
+func ForestCounters() (accepted, declined, abstained uint64) {
+	a, err := registered()
+	if err != nil || a.ForestCounters == nil {
+		return 0, 0, 0
+	}
+	return a.ForestCounters()
+}
+
 // RouteCounters reads the route's counters (see Adapter.RouteCounters).
 func RouteCounters() (declines map[string]int64, servedFresh, servedIncr int64) {
 	a, err := registered()
@@ -215,11 +236,30 @@ type funcScanner struct {
 }
 
 type funcScannerState struct {
-	scan  func(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool
-	close func()
+	scan         func(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool
+	scanIncluded func(src []byte, cursor ccore.ScannerCursor, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool
+	close        func()
 }
 
 func (f funcScanner) Scan(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool {
 	return f.state.scan(src, pos, row, col, prev, valid, buf, out)
 }
 func (f funcScanner) Close() { f.state.close() }
+
+// NewRangedFuncScanner constructs a scanner with an included-range hook.
+func NewRangedFuncScanner(
+	scan func(src []byte, pos int, row, col uint32, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool,
+	scanIncluded func(src []byte, cursor ccore.ScannerCursor, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool,
+	close func(),
+) ccore.RangedExtScanner {
+	// Keep function fields behind the state pointer so each hook has a
+	// comparable identity, including when it is held as an ExtScanner.
+	state := &funcScannerState{scan: scan, scanIncluded: scanIncluded, close: close}
+	return rangedFuncScanner{funcScanner{state: state}}
+}
+
+type rangedFuncScanner struct{ funcScanner }
+
+func (f rangedFuncScanner) ScanIncluded(src []byte, cursor ccore.ScannerCursor, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool {
+	return f.state.scanIncluded(src, cursor, prev, valid, buf, out)
+}

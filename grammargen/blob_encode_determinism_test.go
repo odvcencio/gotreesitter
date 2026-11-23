@@ -182,7 +182,10 @@ func TestEncodeLanguageBlobByteIdenticalWhenLargeStateGotosEmpty(t *testing.T) {
 			// LargeStateGotos determinism fix this test is pinning, so wrap
 			// the pre-fix core payload the same way before comparing: the
 			// core gzip+gob bytes underneath must still be byte-identical.
-			want, err := gotreesitter.WrapLanguageBlobVersionHeader(corePayload, gotreesitter.BlobRuntimeVersion, gotreesitter.DefaultBlobGeneratorVersion)
+			// These fixtures use the original blob format and must still
+			// advertise version 1 even when the runtime implements more.
+			const ordinaryBlobMinRuntimeVersion = 1
+			want, err := gotreesitter.WrapLanguageBlobVersionHeader(corePayload, ordinaryBlobMinRuntimeVersion, gotreesitter.DefaultBlobGeneratorVersion)
 			if err != nil {
 				t.Fatalf("WrapLanguageBlobVersionHeader: %v", err)
 			}

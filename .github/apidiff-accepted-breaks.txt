@@ -59,3 +59,4 @@
 - VMRequireStateEq: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
 - VMRequireValid: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
 - VMSetState: removed	P09	no replacement; write a Go gotreesitter.ExternalScanner instead
+- BlobRuntimeVersion: value changed from 1 to 2	#1743	v2 is required only by blobs with unconditional builtin-end lexer states; ordinary blobs still require runtime version 1.

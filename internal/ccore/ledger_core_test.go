@@ -2,6 +2,7 @@ package ccore_test
 
 import (
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -278,5 +279,40 @@ func TestLimitedRequestOnAReusedParserStartsFromTheResetBase(t *testing.T) {
 	reused, reset := base(false), base(true)
 	if reused != reset {
 		t.Fatalf("a reused parser starts its account at %d bytes, a reset one at %d: stale headers were counted", reused, reset)
+	}
+}
+
+func TestIncludedRangeEditRefusalPreservesSnapshot(t *testing.T) {
+	g := loadGoldens(t)[0]
+	p, err := ccore.NewParser(ccore.Config{Tables: g.Tables})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ranges := make([]ccore.Range, ccore.LedgerGranularity/int(ccore.ElemBytes[ccore.Range]())+2)
+	ranges[0] = ccore.Range{EndByte: 1, EndCol: 1}
+	for i := 1; i < len(ranges); i++ {
+		ranges[i] = ccore.Range{StartByte: 1, StartCol: 1, EndByte: 1, EndCol: 1}
+	}
+	tree, stop := p.ParseIncluded([]byte("1"), ranges)
+	if tree == nil || stop != "" {
+		t.Fatalf("ranged parse stopped: %q", stop)
+	}
+	defer tree.Release()
+	want := p.Digest(tree)
+	base := int64(tree.PageBytes())
+	var led ccore.Ledger
+	led.SetPoll(func(total int64, _ bool) bool { return total <= base+int64(len(ranges))*ccore.ElemBytes[ccore.Range]() })
+	if !led.Begin(base) {
+		t.Fatal("ledger refused before the edit")
+	}
+	if tree.EditWithin(ccore.Edit{NewEndByte: 1, NewEndCol: 1}, &led) {
+		t.Fatal("edit exceeded the range snapshot allowance")
+	}
+	if tree.StoreFailure() != "" || p.Digest(tree) != want {
+		t.Fatal("refused range snapshot altered or poisoned the tree")
+	}
+	got := tree.IncludedRanges()
+	if !slices.Equal(got, ranges) {
+		t.Fatal("refused range snapshot changed the included ranges")
 	}
 }

@@ -99,6 +99,27 @@ func pipeReduceLHSIsRowBoundary(ng *NormalizedGrammar, actionList []lrAction) bo
 	return false
 }
 
+// externalOnlyNoLookahead reports whether the state can finish a nonterminal
+// extra without reading another token. Ordinary reductions still need to read
+// the built-in end token, even when the external scanner owns every other token.
+func externalOnlyNoLookahead(productions []Production, actions map[int][]lrAction) bool {
+	eof := actions[0]
+	if len(eof) == 0 {
+		return false
+	}
+	for symbol, cell := range actions {
+		if symbol != 0 && len(cell) != 0 {
+			return false
+		}
+	}
+	for _, action := range eof {
+		if action.kind != lrReduce || !productions[action.prodIdx].IsExtra {
+			return false
+		}
+	}
+	return true
+}
+
 // assemble populates a gotreesitter.Language from the normalized grammar,
 // LR parse tables, and lex DFA states.
 func assemble(
@@ -159,7 +180,11 @@ func assemble(
 		if modeIdx < len(lexModeOffsets) {
 			offset = lexModeOffsets[modeIdx]
 		}
-		lang.LexModes[i].SetLexStateIndex(uint32(offset))
+		if ng.externalLexerOnly && externalOnlyNoLookahead(ng.Productions, tables.ActionTable[i]) {
+			lang.LexModes[i].SetLexStateIndex(^uint32(0))
+		} else {
+			lang.LexModes[i].SetLexStateIndex(uint32(offset))
+		}
 	}
 	for _, entry := range afterWSModes {
 		if entry.stateIdx < len(lang.LexModes) && entry.modeIdx < len(lexModeOffsets) {
@@ -232,7 +257,9 @@ func assemble(
 		}
 	}
 
-	gotreesitter.RepairNoLookaheadLexModes(lang)
+	if !ng.externalLexerOnly {
+		gotreesitter.RepairNoLookaheadLexModes(lang)
+	}
 
 	// Immediate tokens — populate bitmask so the runtime lexer can reject
 	// immediate token matches when whitespace was consumed before them.
@@ -276,6 +303,15 @@ func assemble(
 	// Supertype map.
 	if err := buildSupertypeMap(lang, ng, aliasSymMap); err != nil {
 		return nil, err
+	}
+
+	// A recovered child can be attached directly to ERROR, skipping the
+	// original parent's alias slot. Keep the internal LR symbol ID and
+	// materialize its default display on that path.
+	for sym, alias := range ng.defaultAliasDisplays {
+		lang.SymbolNames[sym] = alias.name
+		meta := &lang.SymbolMetadata[sym]
+		meta.Name, meta.Visible, meta.Named = alias.name, true, alias.named
 	}
 
 	stampABI15LanguageVersionIfNeeded(lang)
@@ -1189,6 +1225,13 @@ func buildExternalLexStates(lang *gotreesitter.Language, tables *LRTables, ng *N
 		// External extras are valid in every state.
 		for extIdx := range extraExtSet {
 			row[extIdx] = true
+			anyValid = true
+		}
+
+		if state == 0 && ng.AllExternalTokensInRecovery {
+			for extIdx := range row {
+				row[extIdx] = true
+			}
 			anyValid = true
 		}
 

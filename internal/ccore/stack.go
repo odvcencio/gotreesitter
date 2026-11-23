@@ -24,8 +24,9 @@ const (
 	headActive uint8 = iota
 	headPaused
 	headHalted
-	headDominated    // retire at the next ordinary condensation
-	headAwaitingSkip // lookaheadWhenPaused holds an inline skip until the next sibling lex
+	headDominated     // retire at the next ordinary condensation
+	headForestShifted // a compact forest version waiting for the next token epoch
+	headAwaitingSkip  // lookaheadWhenPaused holds an inline skip until the next sibling lex
 )
 
 type stackHead struct { // C StackHead
@@ -197,6 +198,9 @@ func (p *Parser) addLink(self int32, link stackLink) { // C/stack.c stack_node_a
 	}
 	node := &p.nodes[self]
 	if node.linkCount == maxLinkCount {
+		if p.forestElection != nil {
+			p.forestElection.Stop = "forest_unproved_link_cap"
+		}
 		return
 	}
 	p.nodeRetain(link.node)
@@ -337,6 +341,9 @@ func (p *Parser) iter(version int, mode int, goal uint32) []stackSlice {
 					next = &p.iters[i]
 				} else {
 					if len(p.iters) >= maxIteratorCount {
+						if p.forestElection != nil {
+							p.forestElection.Stop = "forest_unproved_iterator_cap"
+						}
 						continue
 					}
 					link = p.nodes[node].links[j]
@@ -408,6 +415,11 @@ func (p *Parser) renumber(v1, v2 int) { // C/stack.c ts_stack_renumber_version
 func (p *Parser) canMerge(v1, v2 int) bool { // C/stack.c ts_stack_can_merge
 	h1, h2 := &p.heads[v1], &p.heads[v2]
 	n1, n2 := &p.nodes[h1.node], &p.nodes[h2.node]
+	if e := p.forestElection; e != nil && (h1.status == headForestShifted || h2.status == headForestShifted) &&
+		(h1.status == headActive || h1.status == headForestShifted) && (h2.status == headActive || h2.status == headForestShifted) &&
+		n1.state == n2.state && n1.position.bytes == n2.position.bytes && n1.errorCost == n2.errorCost && p.extStateEq(h1.lastExternal, h2.lastExternal) {
+		e.diverged = true
+	}
 	return h1.status == headActive && h2.status == headActive && n1.state == n2.state &&
 		n1.position.bytes == n2.position.bytes && n1.errorCost == n2.errorCost &&
 		p.extStateEq(h1.lastExternal, h2.lastExternal)

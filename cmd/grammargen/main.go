@@ -62,6 +62,7 @@ var builtinGrammars = map[string]func() *grammargen.Grammar{
 	"kotlin":             grammargen.KotlinGrammar,
 	"swift":              grammargen.SwiftGrammar,
 	"yaml":               grammargen.YAMLGrammar,
+	"yaml-core":          grammargen.YAMLCoreGrammar,
 	"swift-abi-mangling": grammargen.SwiftABIManglingGrammar,
 	"lean":               grammargen.LeanGrammar,
 }

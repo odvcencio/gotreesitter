@@ -368,11 +368,14 @@ func throughTypeParameter[T any](lang *Language) {
 // capabilityQuestions (questions_test.go) names the recorder method that
 // answers each question and tests it.
 //
+// The native forest transport stops before obtaining a DFA token source when
+// the stateless interface is absent or answers false.
+//
 // A probe in a file that is not listed may read that difference during a full
 // parse. Check how the new code treats an absent interface, then add the file.
 var mirroredProbes = map[string][]string{
 	"CheckpointIdentity":                   {"external_scanner_checkpoint_capability.go"},
-	"ExternalScannerIsStateless":           {"admission_switch.go", "external_scanner_quiescence.go", "glr.go", "incremental.go", "parser.go", "parser_dfa_token_source.go", "parser_recover_c.go", "parsercore_phase0_per_version_lexer_state.go", "token_invariant_dependency.go", "token_invariant_lexical_proof.go"},
+	"ExternalScannerIsStateless":           {"admission_switch.go", "ccore_bind.go", "external_scanner_quiescence.go", "glr.go", "incremental.go", "parser.go", "parser_dfa_token_source.go", "parser_recover_c.go", "parsercore_phase0_per_version_lexer_state.go", "token_invariant_dependency.go", "token_invariant_lexical_proof.go"},
 	"PreservesStateOnScanFailure":          {"parser_dfa_token_source.go"},
 	"RetainsStateOnScanFailure":            {"parser_dfa_token_source.go"},
 	"SupportsCheckpointedNonLeafReuse":     {"external_scanner_checkpoints.go"},
