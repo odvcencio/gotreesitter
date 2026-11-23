@@ -3,6 +3,7 @@
 package cgoharness
 
 import (
+	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -32,10 +33,15 @@ import (
 // scannersBoundForComparisonWithC lists the languages whose scanner this file registered.
 var scannersBoundForComparisonWithC []string
 
-func init() { registerScannersBoundForComparisonWithC() }
+func init() { registerScannersBoundForComparisonWithC(os.Getenv("GRAD_LANG")) }
 
-func registerScannersBoundForComparisonWithC() {
+func registerScannersBoundForComparisonWithC(language string) {
 	for _, e := range grammars.AllLanguages() {
+		// The graduation gate runs one language per process. Leave the other
+		// grammar blobs unloaded so their tables do not count toward its RSS.
+		if language != "" && e.Name != language {
+			continue
+		}
 		sc := e.Language().ExternalScanner
 		if sc == nil {
 			continue
