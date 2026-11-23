@@ -477,6 +477,20 @@ func (l *ExternalLexer) computeColumnData() {
 	if lineStart > end {
 		lineStart = end
 	}
+	// Replaying the line as C does reaches the end of the current rune
+	// if the original cursor fell between its bytes.
+	if end > lineStart && end < len(l.source) && !utf8.RuneStart(l.source[end]) {
+		start := end - 1
+		lower := max(lineStart, end-utf8.UTFMax+1)
+		for start > lower && !utf8.RuneStart(l.source[start]) {
+			start--
+		}
+		_, width := utf8.DecodeRune(l.source[start:])
+		if boundary := start + width; boundary > end {
+			l.point.Column += uint32(boundary - end)
+			l.pos, end = boundary, boundary
+		}
+	}
 	segment := l.source[lineStart:end]
 	if lineStart == 0 && hasBOMPrefix(segment) {
 		segment = segment[3:]

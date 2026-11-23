@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // External token indexes for the D grammar, in the same order as
@@ -65,6 +66,15 @@ var dExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(dExternalScannerSpec)
+	// Qualified against the pinned C scanner. Only the core enters scanner mode.
+	scanmode.RegisterScanner(DExternalScanner{}, (*scanmode.Flag)(nil), true, func(value any) (any, []byte, bool) {
+		scanner := value.(DExternalScanner)
+		scanner.externalToToken = append([]int(nil), scanner.externalToToken...)
+		return scanner, scannerKey(scanner.symbols[:], scanner.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(DExternalScanner), right.(DExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // DExternalScanner handles external tokens for the D grammar.
@@ -85,7 +95,7 @@ func (DExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) 
 	return s
 }
 
-func (DExternalScanner) Create() any                           { return nil }
+func (DExternalScanner) Create() any                           { return &scanmode.Flag{} }
 func (DExternalScanner) Destroy(payload any)                   {}
 func (DExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (DExternalScanner) Deserialize(payload any, buf []byte)   {}
@@ -131,6 +141,7 @@ func (s DExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 	symbols := s.symbolTable()
 
 	c := lexer.Lookahead()
+	faithful := scanmode.Of(payload)
 	startOfLine := lexer.Column() == 0
 
 	// After-EOF token: consume all remaining input.
@@ -144,7 +155,7 @@ func (s DExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 	}
 
 	// Skip whitespace.
-	for (unicode.IsSpace(c) || dIsEOL(c)) && c != 0 {
+	for dIsScannerSpace(c, faithful) && c != 0 {
 		if dIsEOL(c) {
 			startOfLine = true
 		}
@@ -154,7 +165,7 @@ func (s DExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 
 	// Directive: # at start of line.
 	if c == '#' && startOfLine {
-		return dMatchDirective(lexer, validSymbols, symbols)
+		return dMatchDirective(lexer, validSymbols, symbols, faithful)
 	}
 
 	if lexer.Lookahead() == 0 { // EOF after whitespace
@@ -163,12 +174,12 @@ func (s DExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 
 	// Number literals.
 	if c == '.' || (c >= '0' && c <= '9') {
-		return dMatchNumber(lexer, validSymbols, symbols)
+		return dMatchNumber(lexer, validSymbols, symbols, faithful)
 	}
 
 	// !in and !is operators.
 	if c == '!' {
-		return dMatchNotInIs(lexer, validSymbols, symbols)
+		return dMatchNotInIs(lexer, validSymbols, symbols, faithful)
 	}
 
 	// Delimited string: q"..."
@@ -183,7 +194,15 @@ func dIsEOL(c rune) bool {
 	return c == '\n' || c == '\r' || c == 0x2028 || c == 0x2029
 }
 
-func dMatchDirective(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTokenCount]gotreesitter.Symbol) bool {
+// tree-sitter-d src/scanner.c:515-522 uses C-locale whitespace.
+func dIsScannerSpace(c rune, faithful bool) bool {
+	if !faithful {
+		return unicode.IsSpace(c) || dIsEOL(c)
+	}
+	return c == ' ' || c >= '\t' && c <= '\r' || dIsEOL(c)
+}
+
+func dMatchDirective(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTokenCount]gotreesitter.Symbol, faithful bool) bool {
 	if !dValid(valid, dTokDirective) {
 		return false
 	}
@@ -194,7 +213,7 @@ func dMatchDirective(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[
 		return false
 	}
 	// Skip spaces (not newlines)
-	for (unicode.IsSpace(c) || dIsEOL(c)) && c != 0 {
+	for dIsScannerSpace(c, faithful) && c != 0 {
 		if dIsEOL(c) {
 			return false
 		}
@@ -213,8 +232,17 @@ func dMatchDirective(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[
 	return true
 }
 
-func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTokenCount]gotreesitter.Symbol) bool {
-	c := lexer.Lookahead()
+// tree-sitter-d src/scanner.c:380-391 distinguishes a decoder error from
+// a decoded replacement character when choosing a numeric suffix.
+func dNumberLookahead(lexer *gotreesitter.ExternalLexer, faithful bool) rune {
+	if faithful {
+		return rune(scanmode.CLookahead(lexer))
+	}
+	return lexer.Lookahead()
+}
+
+func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTokenCount]gotreesitter.Symbol, faithful bool) bool {
+	c := dNumberLookahead(lexer, faithful)
 	isHex := false
 	isBin := false
 	hasDot := false
@@ -223,14 +251,14 @@ func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTo
 
 	if c == '.' {
 		lexer.Advance(false)
-		c = lexer.Lookahead()
+		c = dNumberLookahead(lexer, faithful)
 		if c < '0' || c > '9' {
 			return false
 		}
 		hasDot = true
 	} else if c == '0' {
 		lexer.Advance(false)
-		c = lexer.Lookahead()
+		c = dNumberLookahead(lexer, faithful)
 		switch c {
 		case 'b', 'B':
 			isBin = true
@@ -248,8 +276,8 @@ func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTo
 	}
 
 	done := false
-	for lexer.Lookahead() != 0 && !done {
-		c = lexer.Lookahead()
+	for dNumberLookahead(lexer, faithful) != 0 && !done {
+		c = dNumberLookahead(lexer, faithful)
 		if c > 0x7f || unicode.IsSpace(c) || c == ';' {
 			break
 		}
@@ -275,7 +303,7 @@ func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTo
 			}
 			lexer.MarkEnd()
 			lexer.Advance(false)
-			c = lexer.Lookahead()
+			c = dNumberLookahead(lexer, faithful)
 			if (c >= '0' && c <= '9') || (isHex && dIsXDigit(c)) {
 				hasDot = true
 				continue
@@ -303,7 +331,7 @@ func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTo
 				return false
 			}
 			lexer.Advance(false)
-			c = lexer.Lookahead()
+			c = dNumberLookahead(lexer, faithful)
 			if c == '+' || c == '-' {
 				lexer.Advance(false)
 			}
@@ -319,10 +347,10 @@ func dMatchNumber(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTo
 	if !hasDigit {
 		return false
 	}
-	return dMatchNumberSuffix(lexer, valid, hasDot || inExp, symbols)
+	return dMatchNumberSuffix(lexer, valid, hasDot || inExp, symbols, faithful)
 }
 
-func dMatchNumberSuffix(lexer *gotreesitter.ExternalLexer, valid []bool, isFloat bool, symbols *[dTokenCount]gotreesitter.Symbol) bool {
+func dMatchNumberSuffix(lexer *gotreesitter.ExternalLexer, valid []bool, isFloat bool, symbols *[dTokenCount]gotreesitter.Symbol, faithful bool) bool {
 	seenL := false
 	seenI := false
 	seenU := false
@@ -330,8 +358,8 @@ func dMatchNumberSuffix(lexer *gotreesitter.ExternalLexer, valid []bool, isFloat
 	tok := 0 // 0=unset, dTokIntLiteral or dTokFloatLiteral
 	done := false
 
-	for lexer.Lookahead() != 0 && !done {
-		c := lexer.Lookahead()
+	for dNumberLookahead(lexer, faithful) != 0 && !done {
+		c := dNumberLookahead(lexer, faithful)
 		switch c {
 		case 'u', 'U':
 			if seenU || seenI || seenF || isFloat {
@@ -364,7 +392,7 @@ func dMatchNumberSuffix(lexer *gotreesitter.ExternalLexer, valid []bool, isFloat
 		}
 	}
 
-	c := lexer.Lookahead()
+	c := dNumberLookahead(lexer, faithful)
 	if dIsAlphaNum(c) || (c > 0x7f && !dIsEOL(c)) {
 		return false
 	}
@@ -384,7 +412,9 @@ func dMatchNumberSuffix(lexer *gotreesitter.ExternalLexer, valid []bool, isFloat
 	return false
 }
 
-func dMatchNotInIs(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTokenCount]gotreesitter.Symbol) bool {
+// tree-sitter-d src/scanner.c:432-473 checks the selected token before
+// consuming its last letter and uses the C-locale word boundary.
+func dMatchNotInIs(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dTokenCount]gotreesitter.Symbol, faithful bool) bool {
 	if !dValid(valid, dTokNotIn) && !dValid(valid, dTokNotIs) {
 		return false
 	}
@@ -392,7 +422,7 @@ func dMatchNotInIs(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dT
 	lexer.Advance(false)
 	// Skip whitespace
 	for c := lexer.Lookahead(); c != 0; c = lexer.Lookahead() {
-		if !unicode.IsSpace(c) && !dIsEOL(c) {
+		if !dIsScannerSpace(c, faithful) {
 			break
 		}
 		lexer.Advance(false)
@@ -411,10 +441,13 @@ func dMatchNotInIs(lexer *gotreesitter.ExternalLexer, valid []bool, symbols *[dT
 	default:
 		return false
 	}
+	if faithful && !dValid(valid, token) {
+		return false
+	}
 	lexer.Advance(false)
 	// Must not be followed by alphanumeric
 	c := lexer.Lookahead()
-	if dIsAlphaNum(c) || c == '_' || (c > 0x7f && !dIsEOL(c)) {
+	if dIsAlphaNum(c) || !faithful && c == '_' || (c > 0x7f && !dIsEOL(c)) {
 		return false
 	}
 	if !dValid(valid, token) {
