@@ -159,7 +159,9 @@ func (sc CobolExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 
 	// LINE_PREFIX_COMMENT: columns 1-6 (0-5)
 	if cobolValid(validSymbols, cobolTokLinePrefixComment) && lexer.Column() <= 5 {
-		for lexer.Column() <= 5 && lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' {
+		// Pinned C scanner.c:108-113 looks for column six across line
+		// breaks. Stop at EOF so a partial final prefix can still finish.
+		for lexer.Column() <= 5 && lexer.Lookahead() != 0 {
 			lexer.Advance(true)
 		}
 		lexer.MarkEnd()
