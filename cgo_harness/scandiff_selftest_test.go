@@ -92,6 +92,7 @@ type fakeScan struct {
 	count     int
 	calls     []int
 	srcLens   []int
+	rangeEnds []uint32
 	diverge   bool // diverge at offset 2
 	divergeAt int  // diverge when this is the nth call on the payload (0: never)
 	pan       bool
@@ -118,6 +119,15 @@ func (f *fakeScan) Scan(src []byte, pos int, row, col uint32, prev []byte, valid
 	out.Token = ccore.Token{Symbol: 1, StartByte: uint32(pos), EndByte: end}
 	return true
 }
+func (f *fakeScan) ScanIncluded(src []byte, cursor ccore.ScannerCursor, prev []byte, valid []bool, buf []byte, out *ccore.ExtScan) bool {
+	at := cursor.Position()
+	for !cursor.EOF() {
+		cursor.Advance()
+	}
+	f.rangeEnds = append(f.rangeEnds, cursor.Position().Bytes())
+	return f.Scan(src, int(at.Bytes()), at.Row(), at.Col(), prev, valid, buf, out)
+}
+
 func (f *fakeScan) Close() { f.count = 0 }
 
 func mkGoSide(f *fakeScan) *goSide { return &goSide{sc: f, buf: make([]byte, sdMaxState)} }
@@ -472,13 +482,16 @@ func TestScandiffSelfRangeCalls(t *testing.T) {
 	if !early || !mid {
 		t.Fatalf("want ranges that end before the end of the source (%v) and that start inside a character (%v)", early, mid)
 	}
-	// the Go side gets the source cut at the end of the range
+	// The range scanner sees the original source with a constrained cursor.
 	src := newSdSource(1, "s", []byte("abcdef"))
 	gs := mkGoSide(fs)
-	fs.srcLens = nil
+	fs.srcLens, fs.calls, fs.rangeEnds = nil, nil, nil
 	gs.call(src, 1, 0, 1, nil, nil, &sdRange{End: 4})
-	if len(fs.srcLens) != 1 || fs.srcLens[0] != 4 {
-		t.Fatalf("the Go scan must see the source cut at the range end, saw %v", fs.srcLens)
+	if len(fs.srcLens) != 1 || fs.srcLens[0] != len(src.data) {
+		t.Fatalf("range scanner source lengths: %v", fs.srcLens)
+	}
+	if len(fs.calls) != 1 || fs.calls[0] != 1 || len(fs.rangeEnds) != 1 || fs.rangeEnds[0] != 4 {
+		t.Fatalf("range scanner starts=%v ends=%v, want [1]/[4]", fs.calls, fs.rangeEnds)
 	}
 }
 

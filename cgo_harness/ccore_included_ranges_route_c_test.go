@@ -143,8 +143,8 @@ func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Lang
 	}
 	defer old.Release()
 	assertLockedCTreeExact(t, "ranged fresh", old, lang, cOld)
-	expectedEOF := uint32(after[len(after)-1][1])
-	if rt := old.ParseRuntime(); rt.ExpectedEOFByte != expectedEOF || rt.RootEndByte != expectedEOF {
+	initialEOF := uint32(before[len(before)-1][1])
+	if rt := old.ParseRuntime(); rt.ExpectedEOFByte != initialEOF || rt.RootEndByte != initialEOF {
 		t.Fatalf("fresh range extent: %+v", rt)
 	}
 
@@ -165,6 +165,7 @@ func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Lang
 	if fresh2-fresh1 != 1 || incr2-incr1 != 1 {
 		t.Fatalf("ccore served fresh=%d incremental=%d, want 1 each", fresh2-fresh1, incr2-incr1)
 	}
+	expectedEOF := uint32(after[len(after)-1][1])
 	if rt := next.ParseRuntime(); !rt.IncrementalOldTreeReuseRoute || rt.ExpectedEOFByte != expectedEOF {
 		t.Fatalf("incremental range attribution: %+v", rt)
 	}
