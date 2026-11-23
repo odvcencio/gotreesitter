@@ -116,6 +116,7 @@ var (
 //     real, already-documented ambiguity (see the c_sharp golden fixture
 //     purpose string), not a dead pattern, and is left exactly as shipped.
 var inferredTagsQueryOverrides = map[string]string{
+	"less": "(call_expression name: (function_name) @name) @reference.call",
 	// Cap’n Proto uses distinct direct names for its declarations. Its
 	// type_definition leaf has no children and cannot match the inferred rule.
 	"capnp": strings.Join([]string{
