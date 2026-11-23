@@ -57,3 +57,15 @@ func TestScannerHookCannotBeOverwritten(t *testing.T) {
 		t.Fatal("callback was replaced")
 	}
 }
+
+func TestRangedScannerHooksHaveDistinctIdentities(t *testing.T) {
+	scan := func([]byte, int, uint32, uint32, []byte, []bool, []byte, *ccore.ExtScan) bool { return false }
+	scanIncluded := func([]byte, ccore.ScannerCursor, []byte, []bool, []byte, *ccore.ExtScan) bool { return true }
+	close := func() {}
+
+	first := bind.NewRangedFuncScanner(scan, scanIncluded, close)
+	second := bind.NewRangedFuncScanner(scan, scanIncluded, close)
+	if !reflect.ValueOf(first).Comparable() || !reflect.ValueOf(second).Comparable() || first == second {
+		t.Fatal("independent ranged scanner hooks must have distinct, comparable identities")
+	}
+}

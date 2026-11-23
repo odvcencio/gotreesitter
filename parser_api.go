@@ -1419,6 +1419,7 @@ func (p *Parser) SetIncludedRanges(ranges []Range) {
 		return
 	}
 	p.included = normalizeIncludedRanges(ranges)
+	p.setCcoreIncludedRanges(p.included)
 }
 
 // SetIncludedUTF16Ranges configures parser include ranges from UTF-16

@@ -40,6 +40,7 @@ type Parser struct {
 	trailing       []Handle
 	trail2         []Handle
 	scratch        []Handle
+
 	// recovery scratch (recover.go)
 	recSlices []stackSlice
 	reduceSet []reduceAction
@@ -91,6 +92,10 @@ type Parser struct {
 	opCount                                                        int    // C self->operation_count
 	ledBegun                                                       bool   // Parse began the request's account before the drain
 	led                                                            Ledger // request account; its pages are the store's
+
+	includedRanges          []Range // borrowed for one parse
+	includedDifferences     rangeArray
+	includedDifferenceIndex int
 }
 
 // NewParser returns a parser for the language described by c, or an error
@@ -845,7 +850,7 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 	}
 	p.src = src
 	attemptTokens, attemptCalls := 0, 0
-	if old != 0 && p.shortcutOn {
+	if old != 0 && p.shortcutOn && p.includedRanges == nil {
 		p.stop = ""
 		// A taken shortcut returns before the resets below, so the counters it
 		// does not set itself start at zero here.
@@ -882,6 +887,9 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 		p.rnReset(old)
 		if p.logf != nil {
 			p.log("parse_after_edit")
+			for _, r := range p.includedDifferences {
+				p.log("different_included_range %d - %d", r.StartByte, r.EndByte)
+			}
 		}
 	} else {
 		p.rnClear()
@@ -928,6 +936,10 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 				p.removeVersion(len(p.heads) - 1)
 			}
 			break
+		}
+		for p.includedDifferenceIndex < len(p.includedDifferences) &&
+			p.includedDifferences[p.includedDifferenceIndex].EndByte <= position {
+			p.includedDifferenceIndex++
 		}
 		if versionCount == 0 {
 			break
@@ -1007,6 +1019,7 @@ func (p *Parser) bufferBytes() int {
 		n += cap(b) * hs
 	}
 	n += (cap(p.trailing) + cap(p.trail2) + cap(p.scratch) + cap(p.compressTmp)) * hs
+	n += cap(p.includedDifferences) * int(unsafe.Sizeof(Range{}))
 	n += cap(p.seen) * hs
 	n += cap(p.reachBits) * int(unsafe.Sizeof(uint64(0))) // the mark bits of findMultiBits
 	n += cap(p.reduceSet)*int(unsafe.Sizeof(reduceAction{})) + cap(p.rn)*int(unsafe.Sizeof(reusableEntry{}))

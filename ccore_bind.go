@@ -728,7 +728,18 @@ func (p *Parser) ccoreEligibleWithGrant(kind ccoreSource, granted sched.Mode) bo
 	if kind == ccoreSourceStream {
 		modes = sched.TokenSource
 	}
-	return sched.Supports(sched.Request{Modes: (modes | p.schedImpliedModes(modes, nil)) &^ granted})
+	modes |= p.schedImpliedModes(modes, nil)
+	if kind == ccoreSourceDFA || kind == ccoreSourceProvider {
+		// Both the built-in DFA and the qualified table provider can read
+		// selected ranges. Admission checks the blob's range grant.
+		modes &^= sched.IncludedRanges
+		if len(p.included) != 0 {
+			// Automatic forest dispatch declines selected ranges. The ordinary
+			// core path still checks the matching range certificate.
+			modes &^= sched.ForestRoute
+		}
+	}
+	return sched.Supports(sched.Request{Modes: modes &^ granted})
 }
 
 // A forest grant authorizes native service for reparses of a compact-backed
@@ -909,7 +920,7 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	}
 	a.sha = sha
 	switch {
-	case len(p.included) > 0: // the core does not apply included ranges
+	case len(p.included) > 0 && len(p.ccoreIncludedRanges()) != len(p.included):
 		return a, ccoreDeclIncludedRanges, false
 	case p.hasActiveParseObservability() || p.compactCertificationTelemetry:
 		return a, ccoreDeclObserver, false
@@ -986,6 +997,9 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	}
 	if have&need != need {
 		return a, ccoreDeclModeMissing, false
+	}
+	if len(p.included) > 0 && have&ccoreModeRanges == 0 {
+		return a, ccoreDeclIncludedRanges, false
 	}
 	a.modes = have
 	a.binding = st.token
@@ -2363,7 +2377,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		tableScan = ccore.NewTableScan(st.base, source)
 		scan = tableScan
 	}
-	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan, adm.forestElection)
+	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan, p.ccoreIncludedRanges(), adm.forestElection)
 	if adm.forestElection != nil && stop != "" {
 		adm.forestElection.Stop = stop
 	}
@@ -2396,6 +2410,16 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	// conversion reserves its own arrays in the same ledger, on top of the core's.
 	var end ccoreConvEnd
 	converting = true
+	var included []Range
+	if len(p.included) > 0 {
+		var ok bool
+		included, ok = ccore.Make[Range](cp.Ledger(), len(p.included))
+		if !ok {
+			ccoreStopDecline(stopped)
+			return nil, false, false
+		}
+		copy(included, p.included)
+	}
 	var built *Tree
 	var tooDeep bool
 	if ccoreViewsOn.Load() {
@@ -2416,6 +2440,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		return nil, false, false
 	}
 	retained = true
+	built.includedRanges = included
 	if cp.ShortcutTaken() {
 		ccoreShortcutReparses.Add(1)
 	}
@@ -2426,6 +2451,9 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	rt.StopReason = ParseStopAccepted
 	rt.SourceLen = uint32(len(source))
 	rt.ExpectedEOFByte = uint32(len(source))
+	if n := len(included); n != 0 {
+		rt.ExpectedEOFByte = included[n-1].EndByte
+	}
 	if root := built.root; root != nil {
 		rt.RootEndByte = root.endByte
 	}
@@ -2528,9 +2556,11 @@ func (p *Parser) ccoreFirstFresh(source []byte) (*Tree, bool) {
 }
 
 // ccoreParseCore parses with an optional old core tree.
-func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore.ScanProvider, forest *ccore.ForestElection) (ct *ccore.Tree, stop string, resultErr bool) {
+func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore.ScanProvider, included []ccore.Range, forest *ccore.ForestElection) (ct *ccore.Tree, stop string, resultErr bool) {
 	if forest != nil {
 		ct, stop = cp.ParseFreshForest(source, forest)
+	} else if len(included) != 0 {
+		ct, stop = cp.ParseWithIncludedScan(source, old, included, scan)
 	} else {
 		ct, stop = cp.ParseWithScan(source, old, scan)
 	}
@@ -2680,6 +2710,9 @@ func (p *Parser) ccoreOldFor(adm ccoreAdmission, old *Tree, source []byte) (*cco
 	if old == nil || old.released {
 		return nil, ccoreIncrReleased
 	}
+	if len(old.includedRanges) > 0 && adm.modes&ccoreModeRanges == 0 {
+		return nil, ccoreIncrNotCertified
+	}
 	st := old.ccoreStateOf()
 	if st == nil || st.ct == nil {
 		return nil, ccoreIncrForeign
@@ -2706,6 +2739,31 @@ func (p *Parser) ccoreOldFor(adm ccoreAdmission, old *Tree, source []byte) (*cco
 		return nil, ccoreIncrOldHasError
 	}
 	return st.ct, -1
+}
+
+// setCcoreIncludedRanges translates the normalized ranges at configuration
+// time. A parse can borrow them without allocating an adapter slice.
+func (p *Parser) setCcoreIncludedRanges(ranges []Range) {
+	if len(ranges) == 0 {
+		if cold := p.forestDeclineMemo; cold != nil {
+			cold.ccoreIncluded = nil
+		}
+		return
+	}
+	out := make([]ccore.Range, len(ranges))
+	for i, r := range ranges {
+		out[i] = ccore.Range{StartByte: r.StartByte, EndByte: r.EndByte,
+			StartRow: r.StartPoint.Row, StartCol: r.StartPoint.Column,
+			EndRow: r.EndPoint.Row, EndCol: r.EndPoint.Column}
+	}
+	p.ensureParserColdState().ccoreIncluded = out
+}
+
+func (p *Parser) ccoreIncludedRanges() []ccore.Range {
+	if len(p.included) != 0 && p.forestDeclineMemo != nil {
+		return p.forestDeclineMemo.ccoreIncluded
+	}
+	return nil
 }
 
 // ccoreEditOf is a public edit as the core's edit.
@@ -3376,6 +3434,7 @@ func (v *ccoreViews) copyTree(t *Tree) *Tree {
 		dependsOnColumnPropagated:         t.dependsOnColumnPropagated,
 	}
 	*out.parseRuntime = *t.rawParseRuntime()
+	out.setIncludedRanges(t.includedRanges)
 	if len(t.edits) > 0 {
 		out.edits = make([]InputEdit, len(t.edits))
 		copy(out.edits, t.edits)
@@ -4160,6 +4219,10 @@ func sameSourceBytes(a, b []byte) bool {
 
 func (p *Parser) runCoreForestTransport(source []byte, automatic bool) (*Tree, *ccore.ForestElection) {
 	e := &ccore.ForestElection{WorkLimit: forestWorklistVisitCap, ReduceLimit: forestReduceVisitCap}
+	if len(p.included) != 0 {
+		e.Stop = "admission"
+		return nil, e
+	}
 	adm, _, ok := p.ccoreAdmitQuiet()
 	if !ok || adm.modes&certified.Forest == 0 || !p.ccoreEligibleWithGrant(ccoreSourceDFA, sched.ForestRoute) {
 		e.Stop = "admission"
