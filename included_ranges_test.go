@@ -425,3 +425,32 @@ func TestParserSetIncludedRangesRoundTrip(t *testing.T) {
 		t.Fatalf("IncludedRanges not sorted: got %v", got)
 	}
 }
+
+func TestParserSetIncludedRangesRepeated(t *testing.T) {
+	p := NewParser(buildArithmeticLanguage())
+	ranges := []Range{
+		{StartByte: 2, EndByte: 4, StartPoint: Point{Column: 2}, EndPoint: Point{Column: 4}},
+		{StartByte: 8, EndByte: 9, StartPoint: Point{Row: 1, Column: 3}, EndPoint: Point{Row: 1, Column: 4}},
+	}
+	p.SetIncludedRanges(ranges)
+	if allocations := testing.AllocsPerRun(100, func() { p.SetIncludedRanges(ranges) }); allocations != 0 {
+		t.Errorf("setting identical included ranges allocated %.1f objects", allocations)
+	}
+
+	previous := p.IncludedRanges()
+	ranges[0].StartPoint.Column++
+	if got := p.IncludedRanges()[0]; got != previous[0] {
+		t.Fatalf("config changed after caller mutated input: got %+v, want %+v", got, previous[0])
+	}
+	p.SetIncludedRanges(ranges)
+	if got := p.IncludedRanges()[0]; got != ranges[0] {
+		t.Fatalf("equal byte offsets hid an updated point: got %+v, want %+v", got, ranges[0])
+	}
+	if core := p.ccoreIncludedRanges(); len(core) != len(ranges) || core[0].StartCol != ranges[0].StartPoint.Column {
+		t.Fatalf("core range metadata did not update: %+v", core)
+	}
+	p.SetIncludedRanges(nil)
+	if len(p.IncludedRanges()) != 0 || len(p.ccoreIncludedRanges()) != 0 {
+		t.Fatal("clearing ranges left configured ranges behind")
+	}
+}
