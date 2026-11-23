@@ -212,7 +212,11 @@ func assemble(
 	// which is critical for large grammars: Markdown has 50k+ productions but only
 	// ~14 unique alias patterns. Without compaction, the parse action group map
 	// grows beyond uint16 capacity (65535), corrupting the parse table.
-	compactProductionIDs(ng)
+	if ng.effectiveMetadata {
+		ng.internEffectiveProductionMetadata()
+	} else {
+		compactProductionIDs(ng)
+	}
 
 	// Build parse actions array, parse table, and small parse table.
 	// This remaps state IDs (adding error recovery state 0) and
@@ -297,6 +301,9 @@ func assemble(
 	// tree-sitter C's ts_non_terminal_alias_map; must run after
 	// buildAliasSequences so alias target symbols already exist in the table
 	// and resolve to the same IDs used in AliasSequences).
+	if ng.effectiveMetadata {
+		ng.applyEffectiveDisplays(lang)
+	}
 	aliasSymMap := buildAliasSequences(lang, ng)
 	buildNonTerminalAliasMap(lang, ng, aliasSymMap)
 
@@ -1058,6 +1065,9 @@ func productionSignatureKey(prod Production) string {
 
 // buildFieldMaps constructs FieldMapSlices and FieldMapEntries.
 func buildFieldMaps(lang *gotreesitter.Language, ng *NormalizedGrammar) error {
+	if ng.effectiveMetadata {
+		return ng.emitEffectiveFields(lang)
+	}
 	if len(ng.FieldNames) <= 1 {
 		return nil // no fields
 	}
