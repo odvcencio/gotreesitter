@@ -34,6 +34,15 @@ parser := gotreesitter.NewParser(lang)
 parser.SetAdmissionCandidateRoute(false) // applies from the next parse
 ```
 
+If you change engines between parses, the first parse on the new engine starts
+fresh. Later parses on that engine can reuse trees it produced.
+
+For editor invalidation, edit the old tree before reparsing. Use
+DiffChangedRanges(oldTree, newTree) for syntax changes. Include
+oldTree.ChangedRanges() when query predicates read source text, since a
+text edit can preserve the syntax tree shape. Node pointers are scoped to
+their tree.
+
 See [CHANGELOG.md](CHANGELOG.md) for every certified grammar, upgrade notes and
 fixes, `testdata/ccore_certificates.json` for the exact grammar blobs, and
 [docs/v1-design.md](docs/v1-design.md) for engine requirements and validation
