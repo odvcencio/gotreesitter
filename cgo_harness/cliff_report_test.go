@@ -24,6 +24,7 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -67,6 +68,10 @@ type cliffRoute struct {
 }
 
 type cliffC struct {
+	PrimaryProcess          benchfixtures.CliffFrontier `json:"primary_process_frontier"`
+	LexedTokens             uint64                      `json:"lexed_tokens"`
+	MultiVersionLexedTokens uint64                      `json:"multi_version_lexed_tokens"`
+
 	Frontier    benchfixtures.CliffFrontier `json:"frontier"`
 	HasError    bool                        `json:"has_error"`
 	RootEnd     uint32                      `json:"root_end"`
@@ -94,6 +99,7 @@ type cliffReport struct {
 	Event           string       `json:"event,omitempty"`
 	OnDefaultBranch *bool        `json:"on_default_branch,omitempty"`
 	COracleCommit   string       `json:"c_oracle_commit"`
+	TokenSource     string       `json:"token_source,omitempty"`
 	Seeds           int          `json:"seeds"`
 	MaxRSSKiB       int64        `json:"max_rss_kib"`
 	C               cliffC       `json:"c"`
@@ -102,9 +108,10 @@ type cliffReport struct {
 
 // TestCliffReport is the report-only cliff detector of the performance gate in docs/v1-design.md.
 // Run one fixture per process in the locked C-oracle Docker harness.
+// Set GTS_CLIFF_TOKEN_SOURCE=registered to measure the grammar's registered source.
 func TestCliffReport(t *testing.T) {
 	if os.Getenv("GTS_ADMISSION_CANDIDATE") != "1" {
-		t.Fatal("set GTS_ADMISSION_CANDIDATE=1 for the compact route")
+		t.Fatal("set GTS_ADMISSION_CANDIDATE=1 for the candidate route")
 	}
 	selected := os.Getenv("GTS_CLIFF_LANGUAGE")
 	if selected == "" {
@@ -132,7 +139,11 @@ func TestCliffReport(t *testing.T) {
 		}
 		source := loadCliffInput(t, fixture)
 		goEntry := grammars.DetectLanguageByName(fixture.Grammar)
-		if goEntry == nil || goEntry.Language() == nil {
+		if goEntry == nil {
+			t.Fatalf("Go grammar %q unavailable", fixture.Grammar)
+		}
+		goLanguage := goEntry.Language()
+		if goLanguage == nil {
 			t.Fatalf("Go grammar %q unavailable", fixture.Grammar)
 		}
 		cLanguage, err := COracleLanguage(fixture.Grammar)
@@ -143,8 +154,21 @@ func TestCliffReport(t *testing.T) {
 		row := cliffReport{Fixture: fixture.Name, Grammar: fixture.Grammar, SourceKind: string(fixture.Kind), Source: fixture.Source,
 			SHA256: fixture.SHA256, Bytes: len(source), Revision: os.Getenv("GTS_CLIFF_REVISION"), Event: os.Getenv("GTS_CLIFF_EVENT"),
 			OnDefaultBranch: onDefaultBranch, COracleCommit: COracleRuntimeCommit, Seeds: seeds, C: c}
+		parse := func(parser *gts.Parser) (*gts.Tree, error) { return parser.Parse(source) }
+		switch row.TokenSource = os.Getenv("GTS_CLIFF_TOKEN_SOURCE"); row.TokenSource {
+		case "":
+		case "registered":
+			if goEntry.TokenSourceFactory == nil {
+				t.Fatalf("%s has no registered token source", fixture.Grammar)
+			}
+			parse = func(parser *gts.Parser) (*gts.Tree, error) {
+				return parser.ParseWithTokenSource(source, goEntry.TokenSourceFactory(source, goLanguage))
+			}
+		default:
+			t.Fatalf("unknown GTS_CLIFF_TOKEN_SOURCE %q", row.TokenSource)
+		}
 		for _, candidate := range []bool{false, true} {
-			route := measureCliffGo(t, goEntry.Language(), source, candidate)
+			route := measureCliffGo(t, goLanguage, parse, candidate)
 			route.Failures = benchfixtures.CliffFailures(route.Frontier, c.Frontier)
 			row.Routes = append(row.Routes, route)
 		}
@@ -155,7 +179,7 @@ func TestCliffReport(t *testing.T) {
 				row.Routes[index].MatchesLegacy = row.Routes[index].TreeSHA256 == legacyDigest
 			}
 		}
-		measureCliffTiming(t, &row, goEntry.Language(), cLanguage, source, seeds)
+		measureCliffTiming(t, &row, goLanguage, cLanguage, source, parse, seeds)
 		var usage syscall.Rusage
 		if err := syscall.Getrusage(syscall.RUSAGE_SELF, &usage); err != nil {
 			t.Fatal(err)
@@ -179,6 +203,34 @@ func TestCliffReport(t *testing.T) {
 		return
 	}
 	t.Fatalf("unknown GTS_CLIFF_LANGUAGE %q", selected)
+}
+
+// Exercise the checked-in JSON certificate with the real report entry point.
+func TestCliffReportMeasuresCertifiedJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "report.json")
+	t.Setenv("GTS_ADMISSION_CANDIDATE", "1")
+	t.Setenv("GTS_CLIFF_LANGUAGE", "json_sample")
+	t.Setenv("GTS_CLIFF_TOKEN_SOURCE", "")
+	t.Setenv("GTS_CLIFF_SEEDS", "1")
+	t.Setenv("GTS_CLIFF_REPORT_PATH", path)
+
+	TestCliffReport(t)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var report cliffReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Routes) != 2 || report.Routes[0].TreeSource != "legacy" || report.Routes[1].TreeSource != "ccore" {
+		t.Fatalf("JSON report did not compare legacy and ccore: %+v", report.Routes)
+	}
+	route := report.Routes[1]
+	if !route.Accepted || !route.MatchesC || !route.Frontier.Measured || route.Tokens == 0 || route.NSPerOp <= 0 {
+		t.Fatalf("incomplete ccore report: %+v", route)
+	}
 }
 
 func loadCliffSource(t *testing.T, fixture cliffFixture) []byte {
@@ -213,27 +265,45 @@ func measureCliffC(t *testing.T, language *sitter.Language, source []byte) cliff
 	if err := parser.SetLanguage(language); err != nil {
 		t.Fatal(err)
 	}
-	var max, total, multi uint64
+	var max, primary, multiPrimary, lexed, multiLexed uint64
+	var invalid bool
 	parser.SetLogger(func(kind sitter.LogType, line string) {
-		if kind != sitter.LogTypeParse || !strings.HasPrefix(line, "process version:") {
+		if kind != sitter.LogTypeParse {
+			return
+		}
+		if strings.HasPrefix(line, "lexed_lookahead sym:") {
+			width := parser.LogStackVersionCount()
+			if width == 0 {
+				invalid = true
+				return
+			}
+			lexed++
+			if width > 1 {
+				multiLexed++
+			}
+			return
+		}
+		if !strings.HasPrefix(line, "process version:") {
 			return
 		}
 		_, suffix, ok := strings.Cut(line, "version_count:")
 		if !ok {
+			invalid = true
 			return
 		}
 		field, _, _ := strings.Cut(suffix, ",")
 		count, err := strconv.ParseUint(field, 10, 64)
-		if err != nil {
+		if err != nil || count == 0 {
+			invalid = true
 			return
 		}
 		if count > max {
 			max = count
 		}
 		if strings.HasPrefix(line, "process version:0,") {
-			total++
+			primary++
 			if count > 1 {
-				multi++
+				multiPrimary++
 			}
 		}
 	})
@@ -242,30 +312,48 @@ func measureCliffC(t *testing.T, language *sitter.Language, source []byte) cliff
 		t.Fatal("C oracle returned no root")
 	}
 	root := tree.RootNode()
-	if total == 0 || max == 0 {
-		t.Fatal("locked C parse logger did not report live versions")
+	defer tree.Close()
+	if invalid || primary == 0 || max == 0 || lexed == 0 {
+		t.Fatalf("incomplete C fresh frontier: invalid=%t primary=%d max=%d tokens=%d", invalid, primary, max, lexed)
 	}
 	inspection, err := canonicalCTreeInspection(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	row := cliffC{Frontier: benchfixtures.CliffFrontier{MaxLive: max, Measured: total > 0}, HasError: root.HasError(), RootEnd: uint32(root.EndByte()), TreeSHA256: inspection.SHA256}
-	if total > 0 {
-		row.Frontier.MultiShare = float64(multi) / float64(total)
+	row := cliffC{
+		Frontier:       benchfixtures.CliffFrontier{MaxLive: max, Measured: true, MultiShare: float64(multiLexed) / float64(lexed)},
+		PrimaryProcess: benchfixtures.CliffFrontier{MaxLive: max, Measured: true, MultiShare: float64(multiPrimary) / float64(primary)},
+		LexedTokens:    lexed, MultiVersionLexedTokens: multiLexed,
+		HasError: root.HasError(), RootEnd: uint32(root.EndByte()), TreeSHA256: inspection.SHA256,
 	}
-	tree.Close()
 	return row
 }
 
-func measureCliffGo(t *testing.T, language *gts.Language, source []byte, candidate bool) cliffRoute {
+func measureCliffGo(t *testing.T, language *gts.Language, parse func(*gts.Parser) (*gts.Tree, error), candidate bool) cliffRoute {
 	t.Helper()
 	parser := gts.NewParser(language)
 	parser.SetAdmissionCandidateRoute(candidate)
-	parser.SetCompactCertificationTelemetry(candidate)
-	gts.ResetAdmissionCandidateCounters()
-	tree, err := parser.Parse(source)
-	if err != nil || tree == nil || tree.RootNode() == nil {
-		t.Fatalf("Go route candidate=%t returned no root: %v", candidate, err)
+	run := func() *gts.Tree {
+		tree, err := parse(parser)
+		if err != nil || tree == nil || tree.RootNode() == nil {
+			t.Fatalf("Go route candidate=%t returned no root: %v", candidate, err)
+		}
+		return tree
+	}
+	_, freshBefore, _ := bind.RouteCounters()
+	tree := run()
+	_, freshAfter, _ := bind.RouteCounters()
+	coreServed := freshAfter - freshBefore
+	if coreServed != 0 && (!candidate || coreServed != 1) {
+		t.Fatalf("candidate=%t routed %d fresh ccore parses, want at most one on the candidate route", candidate, coreServed)
+	}
+	if candidate && coreServed == 0 {
+		// Compact telemetry would prevent ccore admission. Collect it only
+		// after the unobserved request chose the compact candidate.
+		tree.Release()
+		parser.SetCompactCertificationTelemetry(true)
+		gts.ResetAdmissionCandidateCounters()
+		tree = run()
 	}
 	defer tree.Release()
 	runtime := tree.ParseRuntime()
@@ -277,7 +365,7 @@ func measureCliffGo(t *testing.T, language *gts.Language, source []byte, candida
 	row := cliffRoute{Route: "legacy", TreeSource: "legacy", Accepted: runtime.StopReason == gts.ParseStopAccepted,
 		Stop: runtime.StopReason, HasError: root.HasError(), RootEnd: root.EndByte(), TreeSHA256: inspection.SHA256,
 		Tokens: runtime.TokensConsumed, NewNodes: uint64(runtime.NodesAllocated), Forest: runtime.ForestFastPath}
-	if candidate {
+	if candidate && coreServed == 0 {
 		row.Route = "compact"
 		row.TreeSource = "compact"
 		routed, fallbacks := gts.AdmissionCandidateCounters()
@@ -301,7 +389,17 @@ func measureCliffGo(t *testing.T, language *gts.Language, source []byte, candida
 			row.Frontier.MultiShare = float64(runtime.CompactMultiHeaderTokens) / float64(row.Tokens)
 		}
 	} else {
-		row.Frontier = benchfixtures.CliffFrontier{MaxLive: uint64(runtime.MaxStacksSeen), Measured: !runtime.ForestFastPath}
+		if coreServed == 1 {
+			row.Route, row.TreeSource = "ccore", "ccore"
+			if runtime.MaxStacksSeen == 0 || row.Tokens == 0 {
+				t.Fatal("ccore route omitted its frontier counters")
+			}
+			if runtime.SingleStackTokens+runtime.MultiStackTokens != row.Tokens {
+				t.Fatalf("ccore frontier counts do not cover %d tokens: %d single, %d multi",
+					row.Tokens, runtime.SingleStackTokens, runtime.MultiStackTokens)
+			}
+		}
+		row.Frontier = benchfixtures.CliffFrontier{MaxLive: uint64(runtime.MaxStacksSeen), Measured: coreServed == 1 || !runtime.ForestFastPath}
 		if row.Tokens > 0 {
 			row.Frontier.MultiShare = float64(runtime.MultiStackTokens) / float64(row.Tokens)
 		}
@@ -309,7 +407,7 @@ func measureCliffGo(t *testing.T, language *gts.Language, source []byte, candida
 	return row
 }
 
-func measureCliffTiming(t *testing.T, row *cliffReport, goLanguage *gts.Language, cLanguage *sitter.Language, source []byte, seeds int) {
+func measureCliffTiming(t *testing.T, row *cliffReport, goLanguage *gts.Language, cLanguage *sitter.Language, source []byte, parse func(*gts.Parser) (*gts.Tree, error), seeds int) {
 	t.Helper()
 	goParsers := [2]*gts.Parser{gts.NewParser(goLanguage), gts.NewParser(goLanguage)}
 	goParsers[0].SetAdmissionCandidateRoute(false)
@@ -319,8 +417,11 @@ func measureCliffTiming(t *testing.T, row *cliffReport, goLanguage *gts.Language
 	if err := cParser.SetLanguage(cLanguage); err != nil {
 		t.Fatal(err)
 	}
+	_, freshBefore, _ := bind.RouteCounters()
+	var goCalls [2]int64
 	goParse := func(index int) {
-		tree, err := goParsers[index].Parse(source)
+		goCalls[index]++
+		tree, err := parse(goParsers[index])
 		if err != nil || tree == nil {
 			t.Fatalf("timed Go parse: %v", err)
 		}
@@ -364,6 +465,14 @@ func measureCliffTiming(t *testing.T, row *cliffReport, goLanguage *gts.Language
 			}
 		}
 	}
+	_, freshAfter, _ := bind.RouteCounters()
+	var expectedCore int64
+	if row.Routes[1].TreeSource == "ccore" {
+		expectedCore = goCalls[1]
+	}
+	if freshAfter-freshBefore != expectedCore {
+		t.Fatalf("measured %d fresh ccore parses, want %d for the reported route", freshAfter-freshBefore, expectedCore)
+	}
 	for index := range samples {
 		sort.Slice(samples[index], func(a, b int) bool { return samples[index][a] < samples[index][b] })
 	}
@@ -372,5 +481,28 @@ func measureCliffTiming(t *testing.T, row *cliffReport, goLanguage *gts.Language
 	row.C.NSPerOp = samples[2][len(samples[2])/2]
 	for index := range row.Routes {
 		row.Routes[index].GoC = float64(row.Routes[index].NSPerOp) / float64(row.C.NSPerOp)
+	}
+}
+func TestCliffCSuccessfulLexFrontier(t *testing.T) {
+	ruby := []byte("message = <<~TEXT\n  hello #{name}\nTEXT\nputs message\n")
+	cs, _, err := benchfixtures.GeneratedSource("c_sharp", 32<<10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name         string
+		src          []byte
+		total, multi uint64
+	}{{"c_sharp", cs, 10700, 382}, {"ruby", ruby, 15, 0}} {
+		t.Run(tc.name, func(t *testing.T) {
+			language, err := ParityCLanguage(tc.name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			row := measureCliffC(t, language, tc.src)
+			if row.HasError || row.RootEnd != uint32(len(tc.src)) || !row.Frontier.Measured || row.LexedTokens != tc.total || row.MultiVersionLexedTokens != tc.multi || row.PrimaryProcess.MultiShare != 0 {
+				t.Fatalf("C fresh frontier: %+v", row)
+			}
+		})
 	}
 }
