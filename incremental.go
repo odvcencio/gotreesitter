@@ -1796,7 +1796,9 @@ func (a *nodeArena) prepareLegacyReuseDependencies() {
 			if !a.canAllocateLegacyReuseDependency(cost) {
 				return
 			}
-			*words = make([]uint32, len(nodes))
+			next := make([]uint32, len(nodes))
+			copy(next, *words)
+			*words = next
 			a.allocatedBytes += cost
 		}
 		for i := 0; i < min(used, len(nodes)); i++ {
