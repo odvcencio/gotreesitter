@@ -84,3 +84,37 @@ func TestRenderAcceptsForestAndRejectsUnknownModes(t *testing.T) {
 		t.Fatalf("unknown mode was not rejected: %v", err)
 	}
 }
+
+func TestRenderValidatesShortcutPolicy(t *testing.T) {
+	record := Record{
+		BlobSHA256:   strings.Repeat("a8", 32),
+		ConfigSHA256: strings.Repeat("bc", 32),
+		Modes:        Fresh | Recover | Incr,
+	}
+	for _, tc := range []struct {
+		policy, emitted string
+	}{
+		{"", ""},
+		{"ordinary", "Shortcut: ShortcutOrdinary"},
+		{"token-stable", "Shortcut: ShortcutTokenStable"},
+	} {
+		record.Shortcut = tc.policy
+		source, err := Render([]Record{record})
+		if err != nil {
+			t.Fatalf("%q: %v", tc.policy, err)
+		}
+		if tc.emitted == "" && strings.Contains(string(source), "Shortcut:") ||
+			tc.emitted != "" && !strings.Contains(string(source), tc.emitted) {
+			t.Fatalf("%q: unexpected generated certificate: %s", tc.policy, source)
+		}
+	}
+	record.Shortcut = "invalid"
+	if _, err := Render([]Record{record}); err == nil || !strings.Contains(err.Error(), "unknown shortcut policy") {
+		t.Fatalf("unknown shortcut policy accepted: %v", err)
+	}
+	record.Shortcut = "token-stable"
+	record.Modes &^= Incr
+	if _, err := Render([]Record{record}); err == nil || !strings.Contains(err.Error(), "without incremental certification") {
+		t.Fatalf("shortcut policy without incremental certification accepted: %v", err)
+	}
+}

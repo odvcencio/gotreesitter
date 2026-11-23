@@ -34,6 +34,9 @@ const (
 // Record is one certificate: a blob, the modes it is certified for, and the
 // digest of the evidence (free text: for example the name of the equality run).
 type Record struct {
+	// Shortcut describes which incremental reuse route this record covers.
+	// An omitted value uses the historical policy for the record's modes.
+	Shortcut   string `json:",omitempty"`
 	BlobSHA256 string // 64 hex characters
 	Modes      uint8
 	Digest     string // free text, written into a comment
@@ -139,6 +142,18 @@ func Render(recs []Record) ([]byte, error) {
 			fmt.Fprintf(&b, "0x%02x", c)
 		}
 		b.WriteString("}")
+		if r.Shortcut != "" && r.Modes&Incr == 0 {
+			return nil, fmt.Errorf("certgen: blob %s has a shortcut policy without incremental certification", r.BlobSHA256)
+		}
+		switch r.Shortcut {
+		case "":
+		case "ordinary":
+			b.WriteString(", Shortcut: ShortcutOrdinary")
+		case "token-stable":
+			b.WriteString(", Shortcut: ShortcutTokenStable")
+		default:
+			return nil, fmt.Errorf("certgen: blob %s has unknown shortcut policy %q", r.BlobSHA256, r.Shortcut)
+		}
 		if len(r.Checked) > 0 {
 			ck := append([]string(nil), r.Checked...)
 			sort.Strings(ck)
