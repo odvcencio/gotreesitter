@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 // YamlExternalScanner is a direct port of tree-sitter-yaml's C external
@@ -452,6 +453,7 @@ type yamlState struct {
 
 // yamlEnv holds transient per-Scan state.
 type yamlEnv struct {
+	cFaithful    bool
 	lexer        *gotreesitter.ExternalLexer
 	validSymbols []bool
 	st           *yamlState
@@ -470,8 +472,11 @@ type yamlEnv struct {
 
 // yamlPayload is stored as the scanner payload.
 type yamlPayload struct {
-	state yamlState
+	state     yamlState
+	cFaithful bool
 }
+
+func (p *yamlPayload) SetCFaithful(on bool) { p.cFaithful = on }
 
 // ---------------------------------------------------------------------------
 // Section 3: ExternalScanner interface
@@ -646,6 +651,7 @@ func (s YamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 		lexer:        lexer,
 		validSymbols: validSymbols,
 		st:           &p.state,
+		cFaithful:    p.cFaithful,
 		symMap:       syms[:],
 	}
 	return env.scan()
@@ -743,7 +749,13 @@ func (e *yamlEnv) prtInd() int16 {
 // constructs another environment and cannot inherit a rune from the old scan.
 func (e *yamlEnv) lka() int32 {
 	if !e.lookaheadValid {
-		e.lookahead = int32(e.lexer.Lookahead())
+		if e.cFaithful {
+			// The pinned C lexer leaves TS_DECODE_ERROR in lookahead
+			// for malformed UTF-8 (src/lexer.c:133-143).
+			e.lookahead = scanmode.CLookahead(e.lexer)
+		} else {
+			e.lookahead = int32(e.lexer.Lookahead())
+		}
 		e.lookaheadValid = true
 	}
 	return e.lookahead
@@ -2445,7 +2457,15 @@ func (e *yamlEnv) scan() bool {
 		return false
 	}
 
-	return !vs[yTokErrRec]
+	if vs[yTokErrRec] {
+		return false
+	}
+	if e.cFaithful {
+		// tree-sitter-yaml a1c4812a src/scanner.c:1388 returns true without
+		// setting result_symbol. The C runtime maps that zero to external _eof.
+		e.lexer.SetResultSymbol(e.symMap[yTokEndOfFile])
+	}
+	return true
 }
 
 // mayUpdImpCol is the MAY_UPD_IMP_COL macro.

@@ -25,46 +25,49 @@ type Parser struct {
 	reachBits                                 []uint64 // scratch of findMultiBits: one mark bit per record slot
 	preBalance                                func()   // tests only: runs before the balance step
 	Store
-	nodeTables *NodeTables
-	t          *Tables
-	scanner    ExtScanner
-	src        []byte
-	scanProv   ScanProvider // bound for the length of one parse (api.go ParseWithScan); nil walks the automaton
-	nodes      []stackNode
-	free       []int32
-	heads      []stackHead
-	slices     []stackSlice
-	iters      []stackIter
-	bufs       [][]Handle
-	trailing   []Handle
-	trail2     []Handle
-	scratch    []Handle
+	nodeTables     *NodeTables
+	t              *Tables
+	scanner        ExtScanner
+	src            []byte
+	forestElection *ForestElection
+	scanProv       ScanProvider // bound for the length of one parse (api.go ParseWithScan); nil walks the automaton
+	nodes          []stackNode
+	free           []int32
+	heads          []stackHead
+	slices         []stackSlice
+	iters          []stackIter
+	bufs           [][]Handle
+	trailing       []Handle
+	trail2         []Handle
+	scratch        []Handle
+
 	// recovery scratch (recover.go)
 	recSlices []stackSlice
 	reduceSet []reduceAction
 	// incremental parsing (reuse.go, edit.go)
-	rn           []reusableEntry
-	rnLastExt    Handle // C ReusableNode.last_external_token
-	reuseActive  bool
-	reusedNodes  int
-	reusedBytes  uint64
-	largestReuse uint32
-	finished     Handle
-	ops          int // steps of the parse loop in this parse (stop hook)
-	stopAt       int
-	stopPanics   bool
-	cacheTok     Handle
-	cacheAt      uint32
-	accepts      int
-	logf         func(string)
-	stop         string
-	ext          scannerState // external scanner side (scanner.go)
-	forceRows    bool
-	fail         [2]Length // where the last failed main scan began and ended
-	kwFail       [2]Length // the same for a keyword scan (not read)
-	lexTok       Token     // scratch tokens
-	kwTok        Token
-	skipTok      Token
+	rn                []reusableEntry
+	rnLastExt         Handle // C ReusableNode.last_external_token
+	reuseActive       bool
+	reusedNodes       int
+	reusedBytes       uint64
+	largestReuse      uint32
+	finished          Handle
+	ops               int // steps of the parse loop in this parse (stop hook)
+	stopAt            int
+	stopPanics        bool
+	cacheTok          Handle
+	cacheAt           uint32
+	accepts           int
+	logf              func(string)
+	stop              string
+	ext               scannerState // external scanner side (scanner.go)
+	forceRows         bool
+	fail              [2]Length // where the last failed main scan began and ended
+	kwFail            [2]Length // the same for a keyword scan (not read)
+	lexTok            Token     // scratch tokens
+	kwTok             Token
+	skipTok           Token
+	scannedBuiltinEnd bool
 
 	// NormNames makes digest records compare node names with backslashes
 	// removed (a test switch for grammars whose Go table spells a name with
@@ -89,6 +92,10 @@ type Parser struct {
 	opCount                                                        int    // C self->operation_count
 	ledBegun                                                       bool   // Parse began the request's account before the drain
 	led                                                            Ledger // request account; its pages are the store's
+
+	includedRanges          []Range // borrowed for one parse
+	includedDifferences     rangeArray
+	includedDifferenceIndex int
 }
 
 // NewParser returns a parser for the language described by c, or an error
@@ -236,6 +243,9 @@ func (p *Parser) reduce(version int, sym Symbol, count uint32, dynPrec int32, pr
 		slice := pop[i]
 		sliceVersion := slice.version - removed
 		if sliceVersion > maxVersionCount+maxVersionOverflow+halted {
+			if p.forestElection != nil {
+				p.forestElection.Stop = "forest_unproved_reduce_cap"
+			}
 			p.removeVersion(sliceVersion)
 			p.putBuf(slice.subtrees)
 			removed++
@@ -352,6 +362,9 @@ func (p *Parser) wouldRejectReduction(version, sliceVersion int, sym Symbol, nex
 		}
 		rh := p.heads[j]
 		resident := &p.nodes[rh.node]
+		if e := p.forestElection; e != nil && rh.status == headForestShifted && resident.state == next && resident.position.bytes == uint32(end) && resident.errorCost == 0 {
+			e.diverged = true
+		}
 		if rh.status != headActive || resident.state != next || resident.position.bytes != uint32(end) || resident.errorCost != 0 {
 			continue
 		}
@@ -429,6 +442,15 @@ func (p *Parser) accept(version int, lookahead Handle) {
 
 // C/parser.c:1598 ts_parser__advance.
 func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool {
+	n := &p.nodes[p.heads[version].node]
+	// The version count at the "process version" event, as C logs it
+	// at C/parser.c:2180-2186, counted with logging off too.
+	if len(p.heads) > p.maxProcessed {
+		p.maxProcessed = len(p.heads)
+	}
+	if p.logf != nil {
+		p.log("process version:%d, version_count:%d, state:%d, row:%d, col:%d", version, len(p.heads), n.state, n.position.row, n.position.col)
+	}
 	if p.ops++; p.stopAt > 0 && p.ops >= p.stopAt {
 		if p.stopPanics {
 			panic("ccore: stop hook")
@@ -449,11 +471,17 @@ func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool
 	var entry actionEntry
 	lastExternal := p.heads[version].lastExternal
 	var lookahead Handle
-	didReuse := true
+	if e := p.forestElection; e != nil && !e.diverged {
+		var cacheEntry actionEntry
+		if p.cachedToken(state, position, lastExternal, &cacheEntry) != 0 {
+			e.diverged = true
+		}
+	}
+	didReuse := p.forestElection == nil
 	if allowReuse && p.reuseActive {
 		lookahead = p.reuseNode(version, &state, position, lastExternal, &entry)
 	}
-	if lookahead == 0 {
+	if lookahead == 0 && p.forestElection == nil {
 		didReuse = false
 		lookahead = p.cachedToken(state, position, lastExternal, &entry)
 		if lookahead&1 == 0 && lookahead != 0 {
@@ -489,13 +517,44 @@ func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool
 				p.resolveDeferredSkip(lookahead, entry)
 			}
 		}
+		tableAmbiguous := len(entry.actions) > 1
+		selectedForestAction := false
+		if e := p.forestElection; e != nil && len(entry.actions) > 1 {
+			index := e.Resolve(state, len(entry.actions))
+			if index == -2 {
+				e.Stop = "forest_conflict_policy"
+				p.stop = e.Stop
+				return false
+			}
+			if index >= 0 {
+				if !e.diverged {
+					for j, a := range entry.actions {
+						ignored := a.Type == ActionShift && a.Repetition
+						if (j == index) == ignored {
+							e.diverged = true
+							break
+						}
+					}
+				}
+				entry.actions = entry.actions[index : index+1]
+				selectedForestAction = true
+			}
+		}
+		if p.forestElection != nil && !p.forestVisit(state, entry.actions) {
+			return false
+		}
 		didReduce := false
 		lastReduction := -1
 		for _, action := range entry.actions {
 			switch action.Type {
 			case ActionShift:
-				if action.Repetition {
+				if action.Repetition && !selectedForestAction {
 					continue
+				}
+				if e := p.forestElection; e != nil && !e.CanShift(p.nodes[p.heads[version].node].position.bytes) {
+					e.diverged = true
+					p.heads[version].status = headHalted
+					return true
 				}
 				var next uint16
 				if action.Extra {
@@ -515,6 +574,9 @@ func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool
 				}
 				p.shifts++
 				p.shift(version, next, lookahead, action.Extra)
+				if p.forestElection != nil {
+					p.heads[version].status = headForestShifted
+				}
 				if didReuse {
 					p.rnAdvance()
 				}
@@ -524,7 +586,7 @@ func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool
 					p.log("reduce sym:%s, child_count:%d", p.symName(action.Symbol), action.ChildCount)
 				}
 				p.reductions++
-				rv := p.reduce(version, action.Symbol, uint32(action.ChildCount), int32(action.DynamicPrecedence), action.ProductionID, len(entry.actions) > 1, lookahead == 0)
+				rv := p.reduce(version, action.Symbol, uint32(action.ChildCount), int32(action.DynamicPrecedence), action.ProductionID, tableAmbiguous, lookahead == 0)
 				didReduce = true
 				if rv >= 0 {
 					lastReduction = rv
@@ -536,6 +598,11 @@ func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool
 				p.accept(version, lookahead)
 				return true
 			case ActionRecover:
+				if p.forestElection != nil {
+					p.forestElection.diverged = true
+					p.heads[version].status = headHalted
+					return true
+				}
 				if p.childCount(lookahead) > 0 {
 					lookahead = p.breakdownLookahead(lookahead, 0)
 				}
@@ -557,6 +624,17 @@ func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool
 			continue
 		}
 		if didReduce {
+			p.heads[version].status = headHalted
+			return true
+		}
+		if e := p.forestElection; e != nil {
+			if !e.diverged {
+				if p.canDiscardNumericPause(version, state, lookahead) {
+					e.dominatedPauses++
+				} else {
+					e.diverged = true
+				}
+			}
 			p.heads[version].status = headHalted
 			return true
 		}
@@ -699,6 +777,9 @@ func (p *Parser) condense() uint32 {
 		}
 	}
 	for len(p.heads) > maxVersionCount {
+		if p.forestElection != nil {
+			p.forestElection.Stop = "forest_unproved_version_cap"
+		}
 		p.removeVersion(maxVersionCount)
 		made = true
 	}
@@ -769,7 +850,7 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 	}
 	p.src = src
 	attemptTokens, attemptCalls := 0, 0
-	if old != 0 && p.shortcutOn {
+	if old != 0 && p.shortcutOn && p.includedRanges == nil {
 		p.stop = ""
 		// A taken shortcut returns before the resets below, so the counters it
 		// does not set itself start at zero here.
@@ -806,12 +887,21 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 		p.rnReset(old)
 		if p.logf != nil {
 			p.log("parse_after_edit")
+			for _, r := range p.includedDifferences {
+				p.log("different_included_range %d - %d", r.StartByte, r.EndByte)
+			}
 		}
 	} else {
 		p.rnClear()
 		if p.logf != nil {
 			p.log("new_parse")
 		}
+	}
+	if p.forestElection != nil {
+		if stop := p.forestEpochs(); stop != "" {
+			return stop
+		}
+		return p.finishVersions()
 	}
 	var position, lastPosition uint32
 	versionCount := 0
@@ -825,15 +915,6 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 				p.maxVersions = versionCount
 			}
 			for p.heads[version].status == headActive {
-				n := &p.nodes[p.heads[version].node]
-				// The version count at the "process version" event, as C logs it
-				// at C/parser.c:2180-2186, counted with logging off too.
-				if len(p.heads) > p.maxProcessed {
-					p.maxProcessed = len(p.heads)
-				}
-				if p.logf != nil {
-					p.log("process version:%d, version_count:%d, state:%d, row:%d, col:%d", version, len(p.heads), n.state, n.position.row, n.position.col)
-				}
 				if !p.advance(version, versionCount == 1, lastPosition) {
 					return p.stop
 				}
@@ -856,10 +937,18 @@ func (p *Parser) parseWith(src []byte, old Handle) (stop string) {
 			}
 			break
 		}
+		for p.includedDifferenceIndex < len(p.includedDifferences) &&
+			p.includedDifferences[p.includedDifferenceIndex].EndByte <= position {
+			p.includedDifferenceIndex++
+		}
 		if versionCount == 0 {
 			break
 		}
 	}
+	return p.finishVersions()
+}
+
+func (p *Parser) finishVersions() string {
 	if p.finished == 0 {
 		return "no finished tree"
 	}
@@ -930,6 +1019,7 @@ func (p *Parser) bufferBytes() int {
 		n += cap(b) * hs
 	}
 	n += (cap(p.trailing) + cap(p.trail2) + cap(p.scratch) + cap(p.compressTmp)) * hs
+	n += cap(p.includedDifferences) * int(unsafe.Sizeof(Range{}))
 	n += cap(p.seen) * hs
 	n += cap(p.reachBits) * int(unsafe.Sizeof(uint64(0))) // the mark bits of findMultiBits
 	n += cap(p.reduceSet)*int(unsafe.Sizeof(reduceAction{})) + cap(p.rn)*int(unsafe.Sizeof(reusableEntry{}))

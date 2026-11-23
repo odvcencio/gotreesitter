@@ -12,10 +12,20 @@ package ccore
 // returns what it returns: whether a token was accepted, the token with its raw
 // symbol (keyword promotion is the core's), its spans and LookaheadEnd, and in
 // fail the position where a failed attempt began and where it ended. A
+// successful early builtin end sets Token.BuiltinEnd so symbol 0 is
+// distinguishable from skipped whitespace. A
 // provider reads the bytes of the source the parse was given. It must give the
 // same answer for the same request, whatever it was asked before.
 type ScanProvider interface {
 	Scan(lexState uint32, pos int, row, col uint32, out *Token, fail *[2]Length) bool
+}
+
+// RangedScanProvider is a scan provider that can read selected input ranges.
+// The cursor is already positioned in a range. AtEnd distinguishes a physical
+// end token from a skipped run, both of which can use symbol zero.
+type RangedScanProvider interface {
+	ScanProvider
+	ScanIncluded(lexState uint32, cursor ScannerCursor, out *Token, fail *[2]Length) (accepted, atEnd bool)
 }
 
 // TableScanID names the table-backed provider.
@@ -47,4 +57,10 @@ func (s *TableScan) Calls() int { return s.calls }
 func (s *TableScan) Scan(lexState uint32, pos int, row, col uint32, out *Token, fail *[2]Length) bool {
 	s.calls++
 	return scanDFA(s.states, s.ascii, s.src, lexState, pos, row, col, out, fail)
+}
+
+// ScanIncluded implements RangedScanProvider.
+func (s *TableScan) ScanIncluded(lexState uint32, cursor ScannerCursor, out *Token, fail *[2]Length) (bool, bool) {
+	s.calls++
+	return scanIncludedDFA(s.states, s.ascii, cursor.includedCursor, lexState, out, fail)
 }
