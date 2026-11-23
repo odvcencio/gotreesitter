@@ -18,6 +18,7 @@ const (
 	Scan                      // an external scanner
 	Incr                      // a parse with an old tree
 	Ranges                    // included ranges
+	Forest                    // fresh native forest epochs
 )
 
 // Cert is one certificate of the generated list (gen.go).
