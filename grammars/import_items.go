@@ -4,16 +4,17 @@ import gts "github.com/odvcencio/gotreesitter"
 
 // ImportItem describes one written item in an import or re-export statement.
 // Range spans the item. NameRange spans the original name (or '*') and is
-// empty for an implicit default. BindingRange spans the local name or the
-// exported alias of a re-export. Wildcards without an alias have no binding.
+// empty when no imported name is written. BindingRange spans the local name
+// or the exported alias of a re-export. Wildcards without an alias have no binding.
 type ImportItem struct {
 	Kind                           string // "module", "named", "default", "namespace", or "wildcard"
 	Range, NameRange, BindingRange gts.Range
 	TypeOnly                       bool
 }
 
-// ImportItems returns the items of a Python or ECMAScript statement in source
-// order. Bare side-effect imports and local exports have no import items.
+// ImportItems returns Python and ECMAScript import and re-export items in source
+// order. TypeScript import-equals with require binds the whole module ("module").
+// Bare side-effect imports, local exports and internal aliases have no import items.
 // All ranges address the original source, including repeated names and aliases.
 func ImportItems(statement *gts.Node, lang *gts.Language) []ImportItem {
 	if statement == nil || lang == nil {
@@ -30,6 +31,17 @@ func ImportItems(statement *gts.Node, lang *gts.Language) []ImportItem {
 		case "import_statement", "export_statement":
 			if statement.ChildByFieldName("source", lang) != nil {
 				return ecmaImportItems(statement, lang)
+			}
+			if clause := importToken(statement, lang, "import_require_clause"); clause != nil {
+				binding := importToken(clause, lang, "identifier")
+				source := clause.ChildByFieldName("source", lang)
+				if binding == nil || binding.IsMissing() || source == nil || source.IsMissing() {
+					return nil
+				}
+				return []ImportItem{{
+					Kind: "module", Range: clause.Range(), BindingRange: binding.Range(),
+					TypeOnly: importToken(statement, lang, "type") != nil,
+				}}
 			}
 		}
 	}
