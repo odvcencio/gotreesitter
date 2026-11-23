@@ -21,12 +21,22 @@ const (
 	Forest                    // fresh native forest epochs
 )
 
+// ShortcutPolicy controls the token-stable incremental shortcut.
+type ShortcutPolicy uint8
+
+const (
+	ShortcutDefault     ShortcutPolicy = iota // the historical policy for this set of modes
+	ShortcutOrdinary                          // use ordinary native incremental reuse
+	ShortcutTokenStable                       // the certificate covers the token-stable shortcut
+)
+
 // Cert is one certificate of the generated list (gen.go).
 type Cert struct {
-	Modes   uint8    // bits of Fresh, Recover, Scan, Incr, Ranges
-	Scanner string   // %T of the external scanner the blob was checked with ("" for none)
-	Checked []string // root-only fields compared with pinned C
-	Config  [32]byte // the effective-configuration hash of the blob's loaded language
+	Shortcut ShortcutPolicy
+	Modes    uint8    // bits of Fresh, Recover, Scan, Incr, Ranges
+	Scanner  string   // %T of the external scanner the blob was checked with ("" for none)
+	Checked  []string // root-only fields compared with pinned C
+	Config   [32]byte // the effective-configuration hash of the blob's loaded language
 	// Providers lists the scan providers whose answers were compared with pinned C
 	// for this blob, by identity. Empty means none.
 	Providers []string

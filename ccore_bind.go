@@ -848,6 +848,7 @@ func nowNanos() int64 { return time.Now().UnixNano() }
 // ccoreAdmission is the answer of ccoreAdmitProvider: the language state, the blob hash
 // and the modes the blob is certified for.
 type ccoreAdmission struct {
+	shortcut        certified.ShortcutPolicy
 	automaticForest bool
 	forestElection  *ccore.ForestElection
 	st              *ccoreLanguageTables
@@ -968,6 +969,7 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 		default:
 			have = cert.Modes
 			a.providers = cert.Providers
+			a.shortcut = cert.Shortcut
 		}
 	}
 	if tcert != nil {
@@ -2375,10 +2377,12 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		}
 	}()
 	cp.SetReduceCheck(ccoreTestReduceCheck.Load())
-	// The forest grant certifies ordinary incremental node reuse. Its public
-	// record gate compares the returned tree with C across same-length edits.
-	shortcutQualified := adm.modes&certified.Incr != 0 && adm.modes&certified.Forest == 0
-	cp.SetShortcut(adm.forestElection == nil && ccoreViewsOn.Load() && shortcutQualified && !ccoreTestShortcutOff.Load())
+	// An explicit certificate can cover shortcut reuse independently of
+	// the fresh forest route. Historical certificates retain their route.
+	shortcutQualified := adm.modes&certified.Incr != 0 &&
+		(adm.shortcut == certified.ShortcutTokenStable ||
+			adm.shortcut == certified.ShortcutDefault && adm.forestElection == nil && adm.modes&certified.Forest == 0)
+	cp.SetShortcut(ccoreViewsOn.Load() && shortcutQualified && !ccoreTestShortcutOff.Load())
 	if h := ccoreTestParserHook.Load(); h != nil {
 		(*h)(cp, true)
 	}

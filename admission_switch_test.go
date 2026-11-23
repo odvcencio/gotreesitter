@@ -6049,3 +6049,85 @@ func TestCoreScanTokenSourceIncludedRanges(t *testing.T) {
 		})
 	}
 }
+
+func TestCcoreShortcutPolicyKeepsFirstForestEditNative(t *testing.T) {
+	defer gts.CcoreTestViewsOn(true, false)()
+	lang := grammars.DetectLanguageByName("nix").Language()
+	blob, ok := lang.GrammarBlobSHA256()
+	if !ok {
+		t.Fatal("Nix has no embedded grammar identity")
+	}
+	config, err := bind.ConfigHash(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous, present := certified.Blobs[blob]
+	t.Cleanup(func() {
+		if present {
+			certified.Blobs[blob] = previous
+		} else {
+			delete(certified.Blobs, blob)
+		}
+	})
+	base := certified.Cert{
+		Modes:   certified.Fresh | certified.Recover | certified.Scan | certified.Incr | certified.Forest,
+		Scanner: fmt.Sprintf("%T", lang.ExternalScanner),
+		Config:  config,
+		Checked: []string{"ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState"},
+	}
+	shortcutReparses := func() int64 {
+		_, _, counters := gts.CcoreTestViewCounters()
+		return counters["shortcut_reparses"]
+	}
+	src := []byte("{ a = 42; }")
+	const at = 7
+	edited, edit := ccoreReplace(src, at, '3')
+	for _, test := range []struct {
+		name      string
+		policy    certified.ShortcutPolicy
+		shortcuts int64
+	}{
+		{"historical forest policy", certified.ShortcutDefault, 0},
+		{"explicit ordinary policy", certified.ShortcutOrdinary, 0},
+		{"explicit token-stable policy", certified.ShortcutTokenStable, 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cert := base
+			cert.Shortcut = test.policy
+			certified.Blobs[blob] = cert
+			// Other tests may have cached the miss before this temporary certificate.
+			parser := ccoreRouteParser(lang)
+			old, ok := parser.ParseForestExperimental(src)
+			if old != nil {
+				defer old.Release()
+			}
+			if !ok || old == nil || !old.UsedForestFastPath() || !gts.CcoreTestFromCore(old) {
+				t.Fatal("fresh input did not produce a native forest tree")
+			}
+			old.Edit(edit)
+			_, _, previousIncremental := bind.RouteCounters()
+			previousShortcuts := shortcutReparses()
+			updated, err := parser.ParseIncremental(edited, old)
+			if updated != nil && updated != old {
+				defer updated.Release()
+			}
+			_, _, incremental := bind.RouteCounters()
+			if err != nil || updated == nil || !gts.CcoreTestFromCore(updated) || incremental-previousIncremental != 1 {
+				t.Fatalf("first edit did not reuse native forest backing: %v", err)
+			}
+			if got := shortcutReparses() - previousShortcuts; got != test.shortcuts {
+				t.Fatalf("first edit used %d shortcuts, want %d", got, test.shortcuts)
+			}
+			fresh, err := parser.ParseStrict(edited)
+			if err != nil || fresh == nil {
+				t.Fatalf("fresh edit control: %v", err)
+			}
+			defer fresh.Release()
+			hash, count := bind.CompactRecords(updated, nil)
+			freshHash, freshCount := bind.CompactRecords(fresh, nil)
+			if count == 0 || count != freshCount || hash != freshHash {
+				t.Fatalf("first edit raw records: got %x/%d, want %x/%d", hash, count, freshHash, freshCount)
+			}
+		})
+	}
+}
