@@ -3,10 +3,11 @@ package gotreesitter
 import (
 	"errors"
 	"fmt"
-	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
+	"slices"
 	"time"
 	"unsafe"
 
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	"github.com/odvcencio/gotreesitter/internal/sched"
 )
 
@@ -1415,7 +1416,7 @@ func (p *Parser) CancellationFlag() *uint32 {
 // SetIncludedRanges configures parser include ranges.
 // Tokens outside these ranges are skipped.
 func (p *Parser) SetIncludedRanges(ranges []Range) {
-	if p == nil {
+	if p == nil || slices.Equal(p.included, ranges) {
 		return
 	}
 	p.included = normalizeIncludedRanges(ranges)
