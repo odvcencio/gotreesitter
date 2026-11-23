@@ -72,7 +72,7 @@ func init() {
 }
 
 // COBOL comment entry keywords (case-insensitive prefixes).
-var cobolCommentEntryKeywords = []string{
+var cobolCommentEntryKeywords = [...]string{
 	"author",
 	"installlation",
 	"date-written",
@@ -271,7 +271,7 @@ func cobolStartsWithKeyword(lexer *gotreesitter.ExternalLexer) bool {
 		pos     int
 		active  bool
 	}
-	trackers := make([]tracker, len(cobolCommentEntryKeywords))
+	var trackers [len(cobolCommentEntryKeywords)]tracker
 	for i, kw := range cobolCommentEntryKeywords {
 		trackers[i] = tracker{keyword: kw, pos: 0, active: true}
 	}
