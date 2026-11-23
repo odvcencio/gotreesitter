@@ -893,6 +893,10 @@ func (ts *JavaTokenSource) literalToken() (gotreesitter.Token, bool) {
 	start := ts.cur.offset
 	startPt := ts.cur.point()
 	if n >= 2 && start+n <= len(ts.src) && isJavaCompactCloseAngleLiteral(ts.src[start:start+n]) {
+		if tok := ts.lexCompactCloseAngle(start, n); tok.Symbol != 0 {
+			ts.cur.advanceBytes(int(tok.EndByte))
+			return makeToken(tok.Symbol, ts.src, start, ts.cur.offset, startPt, ts.cur.point()), true
+		}
 		if tok, ok := ts.compactCloseAngleToken(start, startPt, sym); ok {
 			return tok, true
 		}
@@ -911,6 +915,30 @@ func isJavaCompactCloseAngleLiteral(lit []byte) bool {
 		}
 	}
 	return true
+}
+
+// lexCompactCloseAngle checks the grammar lexer for the primary parser state.
+func (ts *JavaTokenSource) lexCompactCloseAngle(start, width int) gotreesitter.Token {
+	modes := ts.lang.LexModes
+	if ts.state == 0 || int(ts.state) >= len(modes) {
+		return gotreesitter.Token{}
+	}
+	mode := modes[ts.state]
+	lexState := mode.LexStateIndex()
+	afterWhitespace := mode.AfterWhitespaceLexStateIndex()
+	if uint64(lexState) >= uint64(len(ts.lang.LexStates)) ||
+		(afterWhitespace != 0 && afterWhitespace != lexState) {
+		return gotreesitter.Token{}
+	}
+
+	run := ts.src[start : start+width]
+	lexer := gotreesitter.NewLexer(ts.lang.LexStates, run)
+	tok := lexer.Next(lexState)
+	if tok.Symbol == 0 || tok.StartByte != 0 || tok.EndByte == 0 ||
+		ts.literalSymbols[string(run[:tok.EndByte])] != tok.Symbol {
+		return gotreesitter.Token{}
+	}
+	return tok
 }
 
 func (ts *JavaTokenSource) compactCloseAngleToken(start int, startPt gotreesitter.Point, compactSym gotreesitter.Symbol) (gotreesitter.Token, bool) {
