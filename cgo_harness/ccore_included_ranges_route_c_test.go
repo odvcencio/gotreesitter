@@ -74,8 +74,10 @@ func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Lang
 		return ranges
 	}
 
+	previousDefault := g.AdmissionCandidateRouteDefault()
+	g.SetAdmissionCandidateRouteDefault(true)
+	t.Cleanup(func() { g.SetAdmissionCandidateRouteDefault(previousDefault) })
 	parser := g.NewParser(lang)
-	parser.SetAdmissionCandidateRoute(true)
 	parse := func() (*g.Tree, error) {
 		if factory != nil {
 			return parser.ParseWithTokenSourceFactory(src, factory)

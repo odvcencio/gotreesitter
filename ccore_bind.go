@@ -716,6 +716,11 @@ func (p *Parser) ccoreEligibleFor(kind ccoreSource) bool {
 		// Both the built-in DFA and the qualified table provider can read
 		// selected ranges. Admission checks the blob's range grant.
 		modes &^= sched.IncludedRanges
+		if len(p.included) != 0 {
+			// Automatic forest dispatch declines selected ranges. The ordinary
+			// core path still checks the matching range certificate.
+			modes &^= sched.ForestRoute
+		}
 	}
 	return sched.Supports(sched.Request{Modes: modes})
 }
