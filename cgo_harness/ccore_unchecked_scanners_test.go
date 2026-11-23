@@ -20,9 +20,8 @@ import (
 // the core with C for many more languages (go, bash, rust, html, ...). For those it
 // needs a scanner hook even though the scanner's port has no checked mode. This
 // file, which exists only in the harness test binary, registers every shipped
-// external scanner type that production code has not registered, with no mode:
-// scanmode.RegisterScanner(<scanner>, <payload>, false). Nothing here says that the
-// port equals its C scanner; the comparison tests are what test that.
+// external scanner type that production code has not registered. The
+// comparison tests determine how closely each registered port matches C.
 //
 // Order: the registry freezes at the first binding. This initializer runs when the
 // test binary starts, before any test binds, and after the production registrations
@@ -50,7 +49,10 @@ func registerScannersBoundForComparisonWithC() {
 		// the key. That gives no isolation from the caller's value and tells two
 		// configurations of one type apart by nothing; the comparison with C does
 		// not need either.
-		scanmode.RegisterScanner(sc, payload, false, func(v any) (any, []byte, bool) {
+		// The generated YAML gate compares the port in the same scanner mode
+		// used by the C oracle, including the serialized payload.
+		needsMode := e.Name == "yaml"
+		scanmode.RegisterScanner(sc, payload, needsMode, func(v any) (any, []byte, bool) {
 			return v, []byte(reflect.TypeOf(v).String()), true
 		})
 		scannersBoundForComparisonWithC = append(scannersBoundForComparisonWithC, e.Name)
