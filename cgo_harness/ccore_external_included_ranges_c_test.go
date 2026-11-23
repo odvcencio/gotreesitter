@@ -224,3 +224,85 @@ func TestCcoreIncrementalIncludedRangesExternalScannersMatchPinnedC(t *testing.T
 		})
 	}
 }
+
+func TestLegacyTSXDeferredSelectedEOF(t *testing.T) {
+	lang, oracle := ccoreLanguages(t, "tsx")
+	cp := sitter.NewParser()
+	defer cp.Close()
+	if err := cp.SetLanguage(oracle); err != nil {
+		t.Fatal(err)
+	}
+
+	const prefix = "const outsideBefore = false;\n"
+	const one = "const left = <a />;\n"
+	const gap = "const hidden = false;\n"
+	const two = "const right = <b />;\n"
+	const suffix = "const outsideAfter = false;\n"
+	source := []byte(prefix + one + gap + two + suffix)
+	twoStart := len(prefix + one + gap)
+	twoEnd := twoStart + len(two)
+	at := strings.Index(string(source), "right")
+	point, endPoint := gradPoint(source, at), gradPoint(source, at+1)
+	edit := g.InputEdit{
+		StartByte: uint32(at), OldEndByte: uint32(at + 1), NewEndByte: uint32(at + 1),
+		StartPoint: point, OldEndPoint: endPoint, NewEndPoint: endPoint,
+	}
+	nextSource := append([]byte(nil), source...)
+	nextSource[at] = 's'
+
+	for _, test := range []struct {
+		name string
+		end  int
+	}{
+		{"included-newline", twoEnd},
+		{"excluded-newline", twoEnd - 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			parser := g.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(false)
+			ranges := []g.Range{
+				{StartByte: uint32(len(prefix)), EndByte: uint32(len(prefix + one)), StartPoint: gradPoint(source, len(prefix)), EndPoint: gradPoint(source, len(prefix+one))},
+				{StartByte: uint32(twoStart), EndByte: uint32(test.end), StartPoint: gradPoint(source, twoStart), EndPoint: gradPoint(source, test.end)},
+			}
+			parser.SetIncludedRanges(ranges)
+			_, cRanges := coreAndCIncludedRanges(source, [][2]int{{len(prefix), len(prefix + one)}, {twoStart, test.end}})
+			if err := cp.SetIncludedRanges(cRanges); err != nil {
+				t.Fatal(err)
+			}
+
+			old, err := parser.ParseStrict(source)
+			if err != nil || old == nil {
+				t.Fatalf("fresh parse: %v", err)
+			}
+			defer old.Release()
+			oldC := cp.Parse(source, nil)
+			if oldC == nil {
+				t.Fatal("pinned C returned no fresh tree")
+			}
+			defer oldC.Close()
+			assertLockedCTreeExact(t, "fresh bounded root", old, lang, oldC)
+			if got := old.ParseRuntime().RootEndByte; got != uint32(test.end) {
+				t.Fatalf("fresh diagnostic root end = %d, want %d", got, test.end)
+			}
+
+			old.Edit(edit)
+			oldC.Edit(gradSitterEdit(edit))
+			next, err := parser.ParseIncrementalStrict(nextSource, old)
+			if err != nil || next == nil {
+				t.Fatalf("incremental parse: %v", err)
+			}
+			if next != old {
+				defer next.Release()
+			}
+			nextC := cp.Parse(nextSource, oldC)
+			if nextC == nil {
+				t.Fatal("pinned C returned no incremental tree")
+			}
+			defer nextC.Close()
+			assertLockedCTreeExact(t, "incremental bounded root", next, lang, nextC)
+			if got := next.ParseRuntime().RootEndByte; got != uint32(test.end) {
+				t.Fatalf("incremental diagnostic root end = %d, want %d", got, test.end)
+			}
+		})
+	}
+}
