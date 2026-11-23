@@ -2,7 +2,7 @@ package ccore
 
 // Node reuse from an old tree: C/reusable_node.h, C/parser.c ts_parser__reuse_node,
 // ts_parser__breakdown_top_of_stack, ts_parser__breakdown_lookahead,
-// ts_parser__has_included_range_difference (a hook: no included ranges), and
+// ts_parser__has_included_range_difference, and
 // C/stack.c ts_stack_pop_pending.
 
 type reusableEntry struct { // C reusable_node.h StackEntry
@@ -155,8 +155,14 @@ func (p *Parser) reuseNode(version int, state *uint16, position uint32, lastExte
 				reason = "is_fragile"
 			}
 		}
-		if reason == "" && p.hasIncludedRangeDifference(byteOffset, endByteOffset) {
-			reason = "contains_different_included_range"
+		if reason == "" && p.includedDifferenceIndex < len(p.includedDifferences) {
+			end := endByteOffset
+			if sym != 0 {
+				end += p.lookaheadBytes(result)
+			}
+			if p.includedDifferences.intersects(p.includedDifferenceIndex, byteOffset, end) {
+				reason = "contains_different_included_range"
+			}
 		}
 		if reason != "" {
 			if p.logf != nil {
@@ -190,10 +196,6 @@ func (p *Parser) reuseNode(version int, state *uint16, position uint32, lastExte
 	}
 	return 0
 }
-
-// hasIncludedRangeDifference is the hook for C/parser.c:740; there are no
-// included ranges in scope, so the difference list is empty.
-func (p *Parser) hasIncludedRangeDifference(start, end uint32) bool { return false }
 
 // C/parser.c:224 ts_parser__breakdown_lookahead.
 func (p *Parser) breakdownLookahead(lookahead Handle, state uint16) Handle {

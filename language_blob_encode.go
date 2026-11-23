@@ -6,6 +6,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"reflect"
+
+	"github.com/odvcencio/gotreesitter/internal/lexrun"
 )
 
 // DefaultBlobGeneratorVersion is the generator identity EncodeLanguageBlob
@@ -30,8 +32,9 @@ func EncodeLanguageBlob(lang *Language) ([]byte, error) {
 // the versioned fail-closed GTSBLOB envelope understood by LoadLanguage.
 //
 // The result is then wrapped in a version header (see
-// language_blob_version_header.go) recording BlobRuntimeVersion as the
-// blob's MinRuntimeVersion and generatorVersion as its generator identity.
+// language_blob_version_header.go) recording the generator identity and
+// the minimum runtime version required by the blob. The optional
+// lexer end extension requires version 2. Other blobs keep version 1.
 // LoadLanguage rejects a blob whose MinRuntimeVersion is newer than this
 // runtime's BlobRuntimeVersion, and exposes the header's contents (or its
 // absence, for every blob written before this header existed) via
@@ -81,7 +84,28 @@ func EncodeLanguageBlobWithGenerator(lang *Language, generatorVersion string) ([
 		result = enveloped
 	}
 
-	headered, err := WrapLanguageBlobVersionHeader(result, BlobRuntimeVersion, generatorVersion)
+	minVersion := baseBlobRuntimeVersion
+	var endStates []uint32
+	if lang != nil {
+		for i, marked := range lang.lexerEndStates {
+			if !marked {
+				continue
+			}
+			if i >= len(lang.LexStates) {
+				return nil, fmt.Errorf("encode language blob: lexer end state %d outside LexStates", i)
+			}
+			state := &lang.LexStates[i]
+			if state.AcceptToken != 0 || state.Skip || state.AcceptEOF {
+				return nil, fmt.Errorf("encode language blob: lexer end state %d already has an acceptance", i)
+			}
+			endStates = append(endStates, uint32(i))
+		}
+	}
+	if len(endStates) != 0 {
+		result = lexrun.WrapBuiltinEndStates(result, endStates)
+		minVersion = lexrun.BuiltinEndBlobRuntimeVersion
+	}
+	headered, err := WrapLanguageBlobVersionHeader(result, minVersion, generatorVersion)
 	if err != nil {
 		return nil, fmt.Errorf("finalize language blob: %w", err)
 	}

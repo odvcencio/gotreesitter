@@ -5,6 +5,12 @@ import (
 	"strconv"
 )
 
+// yamlReferenceScannerRows confines the reference numbering contract to
+// the authored YAML grammar with its external-only lexer.
+func yamlReferenceScannerRows(ng *NormalizedGrammar) bool {
+	return ng != nil && ng.externalLexerOnly && ng.GrammarName == "yaml"
+}
+
 // buildCompactStateCoreKeys records the C-compatible core of each completed
 // parser state. It does not change construction or conflict resolution.
 func buildCompactStateCoreKeys(ng *NormalizedGrammar, states []lrItemSet) []string {
@@ -135,6 +141,21 @@ func compactInheritedFieldCarriers(ng *NormalizedGrammar) []bool {
 				continue
 			}
 			for child, symbol := range production.RHS {
+				if yamlReferenceScannerRows(ng) {
+					visible := false
+					for _, alias := range production.Aliases {
+						if alias.ChildIndex == child {
+							visible = true
+							break
+						}
+					}
+					if _, ok := ng.defaultAliasDisplays[symbol]; ok {
+						visible = true
+					}
+					if visible {
+						continue
+					}
+				}
 				if isHiddenNonterminal(symbol) && carriers[symbol] && !hasFieldAt(production, child) {
 					carriers[production.LHS] = true
 					changed = true

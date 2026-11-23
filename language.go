@@ -6,6 +6,7 @@
 package gotreesitter
 
 import (
+	"fmt"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -72,6 +73,34 @@ type LexState struct {
 	Default        int    // default next state (-1 if none)
 	EOF            int    // state on EOF (-1 if none)
 	Transitions    []LexTransition
+}
+
+// LexerStateAcceptsEndBeforeEOF reports whether a main lexer state accepts
+// builtin end unconditionally.
+func (l *Language) LexerStateAcceptsEndBeforeEOF(index int) bool {
+	return l != nil && uint(index) < uint(len(l.lexerEndStates)) && l.lexerEndStates[index]
+}
+
+// SetLexerEndStates sets unconditional builtin end acceptance for the given
+// main lexer states. Call it before the language is used to parse.
+func (l *Language) SetLexerEndStates(indices []uint32) error {
+	if len(indices) == 0 {
+		l.lexerEndStates = nil
+		return nil
+	}
+	marked := make([]bool, len(l.LexStates))
+	for _, index := range indices {
+		if uint64(index) >= uint64(len(l.LexStates)) {
+			return fmt.Errorf("lexer end state %d outside LexStates", index)
+		}
+		state := &l.LexStates[index]
+		if state.AcceptToken != 0 || state.Skip || state.AcceptEOF || marked[index] {
+			return fmt.Errorf("lexer end state %d already has an acceptance", index)
+		}
+		marked[index] = true
+	}
+	l.lexerEndStates = marked
+	return nil
 }
 
 // LexTransition maps a character range to a next state.
@@ -707,6 +736,8 @@ type Language struct {
 	// find) on the blob that produced this Language. See BlobInfo and
 	// LanguageBlobInfo in language_blob_version_header.go.
 	blobInfo LanguageBlobInfo
+	// Versioned lexer metadata, kept outside LexState and the gob payload.
+	lexerEndStates []bool
 	// ImmediateTokens is a bitmask of symbol IDs that are token.immediate() tokens.
 	// When the lexer matches one of these after consuming whitespace, the match
 	// should be rejected — immediate tokens must match at the original position.
@@ -1416,6 +1447,7 @@ func (l *Language) Size() int64 {
 	size += languageStateIDMapSize(l.LargeStateGotos)
 	size += languageReduceChainHintsSize(l.ReduceChainHints)
 	size += languageLexStatesSize(l.LexStates)
+	size += languageSliceSize(l.lexerEndStates)
 	size += languageLexStatesSize(l.KeywordLexStates)
 	size += languageSliceSize(l.LexModes)
 	size += languageSliceSize(l.FieldMapSlices)

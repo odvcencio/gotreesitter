@@ -351,6 +351,21 @@ func TestInferredTagsQueryCoverage(t *testing.T) {
 	}
 }
 
+func TestInferredLessTagsQueryUsesFunctionName(t *testing.T) {
+	entry := DetectLanguageByName("less")
+	if entry == nil {
+		t.Fatal("expected Less language entry")
+	}
+	tagger, err := gotreesitter.NewTagger(entry.Language(), ResolveTagsQuery(*entry))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tags := tagger.Tag([]byte(".example { color: darken(#fff, 10%); }"))
+	if len(tags) != 1 || tags[0].Kind != "reference.call" || tags[0].Name != "darken" {
+		t.Fatalf("expected a call reference to darken, got %+v", tags)
+	}
+}
+
 func TestInferredGoTagsQuerySkipsReturnTypes(t *testing.T) {
 	entry := DetectLanguageByName("go")
 	if entry == nil {

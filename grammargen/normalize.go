@@ -104,7 +104,10 @@ type NormalizedGrammar struct {
 	ReservedWordSets [][]int
 
 	// External scanner support (populated when Grammar.Externals is set).
-	ExternalSymbols []int // external token index → symbol ID
+	defaultAliasDisplays        map[int]aliasSymbolKey
+	AllExternalTokensInRecovery bool
+	ExternalSymbols             []int // external token index → symbol ID
+	externalLexerOnly           bool
 
 	ExactPrefixStates int
 
@@ -117,6 +120,7 @@ type NormalizedGrammar struct {
 
 	PreserveKeywordIdentifierConflicts         bool
 	DerivedKeywordIdentifierConflicts          bool
+	cCompatibleParseActions                    bool
 	PreferExpressionOperatorIdentifierReduces  bool
 	PreferParenthesizedCallDoBlockReduces      bool
 	PreferRemoteCallOperatorReduces            bool
@@ -298,6 +302,12 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		return nil, fmt.Errorf("grammar has no rules")
 	}
 
+	ng := &NormalizedGrammar{
+		GrammarName:             g.Name,
+		cCompatibleParseActions: g.CCompatibleParseActions,
+		externalLexerOnly:       g.ExternalLexerOnly,
+	}
+
 	// Shallow-clone g so later phases (e.g. liftInlineTokens) that write
 	// back into g.Rules don't mutate the caller's Grammar.
 	gCopy := *g
@@ -326,7 +336,6 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 	}
 	st.choiceLiftThreshold = g.ChoiceLiftThreshold
 	st.gRules = g.Rules
-	ng := &NormalizedGrammar{GrammarName: g.Name}
 
 	// Phase 1: Collect all string literals and register terminal symbols.
 	// Walk all rules to find string literals (anonymous terminals).
@@ -677,8 +686,58 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		}
 	}
 
-	aliasRenames := promoteDefaultAliases(st.symbols, productions, extraSymbols)
+	deferredAliases := stringSetFromSlice(g.DefaultAliasDisplays)
+	if yamlReferenceScannerRows(ng) {
+		// Promote shared node aliases only when every occurrence of a hidden
+		// nonterminal uses the same public display.
+		occurrences := make([]int, len(st.symbols))
+		aliasedOccurrences := make([]int, len(st.symbols))
+		aliasNames := make([]string, len(st.symbols))
+		for _, production := range productions {
+			for _, symbol := range production.RHS {
+				occurrences[symbol]++
+			}
+			for _, alias := range production.Aliases {
+				if !alias.Named || !yamlNodeAlias(alias.Name) {
+					continue
+				}
+				symbol := production.RHS[alias.ChildIndex]
+				if aliasNames[symbol] == "" {
+					aliasNames[symbol] = alias.Name
+				}
+				if aliasNames[symbol] == alias.Name {
+					aliasedOccurrences[symbol]++
+				}
+			}
+		}
+		for id, symbol := range st.symbols {
+			if id >= tokenCount && !symbol.Visible && occurrences[id] != 0 &&
+				occurrences[id] == aliasedOccurrences[id] {
+				deferredAliases[symbol.Name] = true
+			}
+		}
+	}
+	aliasRenames, displays := promoteDefaultAliases(st.symbols, productions, extraSymbols, deferredAliases)
+	if len(displays) != len(deferredAliases) {
+		return nil, fmt.Errorf("default alias displays require hidden nonterminals with the same alias in every occurrence: %v", g.DefaultAliasDisplays)
+	}
+	ng.defaultAliasDisplays = displays
 	canonicalizeAliasedExternalSymbols(st.symbols, productions, externalSymbols)
+	if yamlReferenceScannerRows(ng) {
+		defaults := make(map[int]aliasSymbolKey)
+		for _, id := range externalSymbols {
+			symbol := st.symbols[id]
+			if symbol.Visible {
+				defaults[id] = aliasSymbolKey{name: symbol.Name, named: symbol.Named}
+			}
+		}
+		for id, alias := range displays {
+			if alias.name == "anchor" || yamlNodeAlias(alias.name) {
+				defaults[id] = alias
+			}
+		}
+		clearRedundantYAMLPositionAliases(productions, defaults)
+	}
 
 	ng.Symbols = st.symbols
 	ng.Productions = productions
@@ -694,6 +753,7 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 	ng.KeywordEntries = keywordEntries
 	ng.ReservedWordSets = reservedWordSets
 	ng.ExternalSymbols = externalSymbols
+	ng.AllExternalTokensInRecovery = g.AllExternalTokensInRecovery
 	ng.ExactPrefixStates = g.ExactPrefixStates
 	// promoteDefaultAliases may have renamed hidden symbols (e.g.
 	// `_setext_heading1` → `setext_heading`). g.Precedences is keyed by the
@@ -719,6 +779,62 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 	_ = tokenCount
 
 	return ng, nil
+}
+
+func yamlNodeAlias(name string) bool {
+	switch name {
+	case "flow_node", "block_node", "document", "block_sequence_item":
+		return true
+	}
+	return false
+}
+
+func clearRedundantYAMLPositionAliases(productions []Production, defaults map[int]aliasSymbolKey) {
+	for _, production := range productions {
+		for child, id := range production.RHS {
+			defaultAlias, found := defaults[id]
+			if !found {
+				continue
+			}
+			matches := false
+			for _, alias := range production.Aliases {
+				if alias.ChildIndex == child && alias.Name == defaultAlias.name && alias.Named == defaultAlias.named {
+					matches = true
+					break
+				}
+			}
+			if !matches {
+				delete(defaults, id)
+			}
+		}
+	}
+	// Keep a positional alias if a sibling alternative still needs it.
+	type aliasSlot struct {
+		lhs, child int
+		alias      aliasSymbolKey
+	}
+	used := make(map[aliasSlot]bool)
+	for _, production := range productions {
+		for _, alias := range production.Aliases {
+			key := aliasSymbolKey{name: alias.Name, named: alias.Named}
+			if defaults[production.RHS[alias.ChildIndex]] != key {
+				used[aliasSlot{production.LHS, alias.ChildIndex, key}] = true
+			}
+		}
+	}
+	for index := range productions {
+		production := &productions[index]
+		kept := production.Aliases[:0]
+		for _, alias := range production.Aliases {
+			key := aliasSymbolKey{name: alias.Name, named: alias.Named}
+			if defaults[production.RHS[alias.ChildIndex]] == key &&
+				!used[aliasSlot{production.LHS, alias.ChildIndex, key}] {
+				continue
+			}
+			kept = append(kept, alias)
+		}
+		production.Aliases = kept
+	}
 }
 
 func stringSetFromSlice(values []string) map[string]bool {
@@ -809,10 +925,10 @@ func unwrapReservedWordRule(rule *Rule) *Rule {
 }
 
 // promoteDefaultAliases promotes hidden symbols that always appear with the
-// same alias to be visible under the alias name. Returns a map from the
-// original symbol name to the new (alias) name, so callers can rewrite
-// downstream name-keyed tables (e.g. g.Precedences) to track the rename.
-func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extraSymbols []int) map[string]string {
+// same alias to be visible under the alias name. The first result tracks
+// renames for name-keyed grammar tables. Deferred aliases only change a
+// symbol's display after LR tables and positional aliases are assembled.
+func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extraSymbols []int, deferred map[string]bool) (map[string]string, map[int]aliasSymbolKey) {
 	type aliasKey struct {
 		name  string
 		named bool
@@ -828,7 +944,7 @@ func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extra
 	}
 
 	if len(symbols) == 0 || len(productions) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	statuses := make([]symbolStatus, len(symbols))
@@ -932,8 +1048,18 @@ func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extra
 
 	defaultAliases := make(map[int]aliasKey)
 	var renamed map[string]string
+	var displays map[int]aliasSymbolKey
 	for symID, best := range bestPerSym {
 		newName := best.key.name
+		if deferred[symbols[symID].Name] {
+			if !symbols[symID].Visible && len(statuses[symID].aliases) == 1 {
+				if displays == nil {
+					displays = make(map[int]aliasSymbolKey)
+				}
+				displays[symID] = aliasSymbolKey{name: newName, named: best.key.named}
+			}
+			continue
+		}
 		// Skip the rename when the alias target either (a) already names a
 		// different visible nonterminal, or (b) is wanted by another hidden
 		// symbol that we'd promote in this same pass. Either case would
@@ -964,7 +1090,7 @@ func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extra
 	}
 
 	if len(defaultAliases) == 0 {
-		return renamed
+		return renamed, displays
 	}
 
 	for i := range productions {
@@ -989,7 +1115,7 @@ func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extra
 		}
 		productions[i].Aliases = append([]AliasInfo(nil), filtered...)
 	}
-	return renamed
+	return renamed, displays
 }
 
 func canonicalizeAliasedExternalSymbols(symbols []SymbolInfo, productions []Production, externalSymbols []int) {
@@ -4572,12 +4698,14 @@ func flattenHiddenChoiceAlts(g *Grammar, generatedHiddenRules map[string]bool) *
 	out.PreferRemoteCallOperatorReduces = g.PreferRemoteCallOperatorReduces
 	out.PreferStabClauseLeftArrowReduces = g.PreferStabClauseLeftArrowReduces
 	out.PreferPreciseExternalLexStates = g.PreferPreciseExternalLexStates
+	out.AllExternalTokensInRecovery = g.AllExternalTokensInRecovery
 	out.CompactParseStates = g.CompactParseStates
 	out.ExactPrefixStates = g.ExactPrefixStates
 	out.ChoiceLiftThreshold = g.ChoiceLiftThreshold
 	out.SuppressEquivalentExternalReduceLookaheads = g.SuppressEquivalentExternalReduceLookaheads
 	out.ExternalReduceFollowLookaheads = append(out.ExternalReduceFollowLookaheads, g.ExternalReduceFollowLookaheads...)
 	out.PriorityInlinePatterns = append(out.PriorityInlinePatterns, g.PriorityInlinePatterns...)
+	out.DefaultAliasDisplays = append(out.DefaultAliasDisplays, g.DefaultAliasDisplays...)
 	out.PreserveHiddenChoicePassthrough = append(out.PreserveHiddenChoicePassthrough, g.PreserveHiddenChoicePassthrough...)
 	return out
 }
@@ -5377,12 +5505,19 @@ func expandInlineRules(g *Grammar) *Grammar {
 	out.PreferRemoteCallOperatorReduces = g.PreferRemoteCallOperatorReduces
 	out.PreferStabClauseLeftArrowReduces = g.PreferStabClauseLeftArrowReduces
 	out.PreferPreciseExternalLexStates = g.PreferPreciseExternalLexStates
+	out.AllExternalTokensInRecovery = g.AllExternalTokensInRecovery
 	out.CompactParseStates = g.CompactParseStates
 	out.ExactPrefixStates = g.ExactPrefixStates
 	out.ChoiceLiftThreshold = g.ChoiceLiftThreshold
 	out.SuppressEquivalentExternalReduceLookaheads = g.SuppressEquivalentExternalReduceLookaheads
 	out.ExternalReduceFollowLookaheads = append(out.ExternalReduceFollowLookaheads, g.ExternalReduceFollowLookaheads...)
 	out.PriorityInlinePatterns = append(out.PriorityInlinePatterns, g.PriorityInlinePatterns...)
+	for _, name := range g.DefaultAliasDisplays {
+		if renamed, ok := hiddenRenames[name]; ok {
+			name = renamed
+		}
+		out.DefaultAliasDisplays = append(out.DefaultAliasDisplays, name)
+	}
 	for _, name := range g.PreserveHiddenChoicePassthrough {
 		if renamed, ok := hiddenRenames[name]; ok {
 			out.PreserveHiddenChoicePassthrough = append(out.PreserveHiddenChoicePassthrough, renamed)

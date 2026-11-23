@@ -3,6 +3,7 @@ package grammargen
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -43,9 +44,14 @@ func buildLexDFA(ctx context.Context, patterns []TerminalPattern, extraSymbols [
 		modeOffsets[mi] = len(allStates)
 		// Filter patterns to only those valid in this mode.
 		var modePatterns []TerminalPattern
+		var nulSymbols []gotreesitter.Symbol
 		modeExtraSet := make(map[int]bool)
 		for _, p := range patterns {
 			if mode.validSymbols[p.SymbolID] {
+				if mode.explicitEOF && isBareNUL(p.Rule) {
+					nulSymbols = append(nulSymbols, gotreesitter.Symbol(p.SymbolID))
+					p.Rule = Pat(`\x00`)
+				}
 				modePatterns = append(modePatterns, p)
 				if extraSet[p.SymbolID] {
 					modeExtraSet[p.SymbolID] = true
@@ -115,6 +121,19 @@ func buildLexDFA(ctx context.Context, patterns []TerminalPattern, extraSymbols [
 
 		// Convert to LexState format.
 		lexStates := convertDFAToLexStates(dfa, mode.skipWhitespace)
+		if mode.acceptEnd {
+			lexStates[0].EOF = len(lexStates)
+			lexStates = append(lexStates, gotreesitter.LexState{AcceptEOF: true, Default: -1, EOF: -1})
+		} else if len(nulSymbols) != 0 {
+			// A bare NUL arm sees lookahead zero at physical EOF as well
+			// as on a literal NUL byte. An explicit end arm takes priority.
+			for _, edge := range lexStates[0].Transitions {
+				if edge.Lo == 0 && slices.Contains(nulSymbols, lexStates[edge.NextState].AcceptToken) {
+					lexStates[0].EOF = edge.NextState
+					break
+				}
+			}
+		}
 
 		// Offset all transition targets and skip-loop targets to account
 		// for concatenation with previous modes' states.
@@ -160,11 +179,17 @@ func buildLexDFA(ctx context.Context, patterns []TerminalPattern, extraSymbols [
 	return allStates, modeOffsets, nil
 }
 
+func isBareNUL(rule *Rule) bool {
+	return rule != nil && rule.Kind == RuleString && rule.Value == "\x00"
+}
+
 // lexModeSpec describes what a lex mode should recognize.
 type lexModeSpec struct {
 	validSymbols     map[int]bool // terminal symbol IDs valid in this mode
 	preferredSymbols map[int]bool // symbols directly valid in this mode; win same-span DFA ties
-	skipWhitespace   bool         // whether to add skip transitions for whitespace
+	explicitEOF      bool
+	acceptEnd        bool
+	skipWhitespace   bool // whether to add skip transitions for whitespace
 }
 
 // errorRecoveryLexMode retains the initial mode's pattern tokens and adds
@@ -173,7 +198,12 @@ type lexModeSpec struct {
 // as string content that could swallow the rest of the input. This is a
 // separate mode; widening normal modes would change valid contextual lexing.
 func errorRecoveryLexMode(initial lexModeSpec, terminals []TerminalPattern) lexModeSpec {
-	mode := lexModeSpec{validSymbols: make(map[int]bool), skipWhitespace: initial.skipWhitespace}
+	mode := lexModeSpec{
+		validSymbols:   make(map[int]bool),
+		skipWhitespace: initial.skipWhitespace,
+		explicitEOF:    initial.explicitEOF,
+		acceptEnd:      initial.explicitEOF,
+	}
 	for sym := range initial.validSymbols {
 		mode.validSymbols[sym] = true
 	}
@@ -1405,6 +1435,7 @@ func computeLexModes(
 		suppressAfterWhitespaceSyms,
 		patternTerminals,
 		zeroWidthTerminals,
+		false,
 	)
 	return modes, stateToMode, afterWSModeMap
 }
@@ -1427,6 +1458,7 @@ func computeLexModesWithContext(
 	suppressAfterWhitespaceSyms map[int]bool,
 	patternTerminals map[int]bool, // symbols whose rule is NOT a pure fixed string (regex/pattern-shaped terminals); may be nil
 	zeroWidthTerminals map[int]bool, // symbols whose rule can match the empty string (see zeroWidthTerminalSymSet); may be nil
+	explicitEOF bool,
 ) ([]lexModeSpec, []int, []afterWSModeEntry, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -1635,7 +1667,8 @@ func computeLexModesWithContext(
 			}
 		}
 
-		key := buildModeKey(validSyms, preferredSyms, skipWS)
+		acceptEnd := explicitEOF && actionLookup(state, 0)
+		key := buildModeKey(validSyms, preferredSyms, skipWS, acceptEnd)
 
 		if modeIdx, ok := modeMap[key]; ok {
 			stateToMode[state] = modeIdx
@@ -1646,6 +1679,8 @@ func computeLexModesWithContext(
 				validSymbols:     validSyms,
 				preferredSymbols: preferredSyms,
 				skipWhitespace:   skipWS,
+				explicitEOF:      explicitEOF,
+				acceptEnd:        acceptEnd,
 			})
 			stateToMode[state] = modeIdx
 		}
@@ -1680,7 +1715,7 @@ func computeLexModesWithContext(
 							awsPreferredSyms[sym] = true
 						}
 					}
-					awsKey := buildModeKey(awsSyms, awsPreferredSyms, skipWS)
+					awsKey := buildModeKey(awsSyms, awsPreferredSyms, skipWS, acceptEnd)
 					if awsModeIdx, ok := modeMap[awsKey]; ok {
 						afterWSModeMap = append(afterWSModeMap, afterWSModeEntry{state, awsModeIdx})
 					} else {
@@ -1690,6 +1725,8 @@ func computeLexModesWithContext(
 							validSymbols:     awsSyms,
 							preferredSymbols: awsPreferredSyms,
 							skipWhitespace:   skipWS,
+							explicitEOF:      explicitEOF,
+							acceptEnd:        acceptEnd,
 						})
 						afterWSModeMap = append(afterWSModeMap, afterWSModeEntry{state, awsModeIdx})
 					}
@@ -1730,7 +1767,7 @@ func countImmediate(syms map[int]bool, imm map[int]bool) int {
 	return n
 }
 
-func buildModeKey(syms, preferred map[int]bool, skip bool) string {
+func buildModeKey(syms, preferred map[int]bool, skip, acceptEnd bool) string {
 	sorted := make([]int, 0, len(syms))
 	for s := range syms {
 		sorted = append(sorted, s)
@@ -1761,6 +1798,9 @@ func buildModeKey(syms, preferred map[int]bool, skip bool) string {
 	}
 	if skip {
 		buf[len(buf)-1] = 1
+	}
+	if acceptEnd {
+		buf[len(buf)-1] |= 2
 	}
 	return string(buf)
 }

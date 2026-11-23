@@ -4633,6 +4633,7 @@ func (t *Tree) Copy() *Tree {
 		dependsOnColumnPropagated: t.dependsOnColumnPropagated,
 	}
 	*out.parseRuntime = *t.rawParseRuntime()
+	out.setIncludedRanges(t.includedRanges)
 	if len(t.edits) > 0 {
 		out.edits = make([]InputEdit, len(t.edits))
 		copy(out.edits, t.edits)
@@ -6473,10 +6474,16 @@ func shiftPointAfterEdit(p Point, edit InputEdit, rowDelta int64) Point {
 // edited (via Tree.Edit) to match the new tree's source positions before
 // reparsing.
 //
-// This is equivalent to C tree-sitter's ts_tree_get_changed_ranges().
+// Trees backed by the same ccore tables use the C tree-sitter changed-ranges
+// algorithm. Other tree pairs use a comparison of their public nodes. The
+// ranges describe syntax changes. Use Tree.ChangedRanges on the edited old
+// tree if you also need the source ranges of text edits.
 func DiffChangedRanges(oldTree, newTree *Tree) []Range {
 	if oldTree == nil || newTree == nil {
 		return nil
+	}
+	if ranges, ok := ccoreDiffChangedRanges(oldTree, newTree); ok {
+		return ranges
 	}
 	oldRoot := oldTree.RootNode()
 	newRoot := newTree.RootNode()

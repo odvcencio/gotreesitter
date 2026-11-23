@@ -10,6 +10,8 @@ package cgoharness
 //
 // Switches (environment):
 //   SCANDIFF_LANG     grammar name (required)
+//   SCANDIFF_GENERATED_YAML_BLOB  use this generated YAML grammar with the existing scanner and row checks
+//   YAML_GENERATED_TEST_SHA  required SHA-256 of that file when the generated fixture is enabled
 //   SCANDIFF_REQUIRE  1: a missing SCANDIFF_LANG fails instead of skipping (the wrapper sets it)
 //   SCANDIFF_SEED     seed (default 1); the run is deterministic for a seed, with or without SCANDIFF_OUT
 //   SCANDIFF_CALLS    call budget (default 20000; must be above 0)
@@ -49,9 +51,43 @@ import (
 
 	g "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/cgo_harness/internal/scandiff"
+	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 )
+
+// sdGeneratedYAML returns nil only when no generated fixture was requested.
+func sdGeneratedYAML(t *testing.T, lang string) *g.Language {
+	t.Helper()
+	path, enabled := os.LookupEnv("SCANDIFF_GENERATED_YAML_BLOB")
+	if !enabled {
+		return nil
+	}
+	if lang != "yaml" {
+		t.Fatalf("SCANDIFF_GENERATED_YAML_BLOB requires SCANDIFF_LANG=yaml, got %q", lang)
+	}
+	want, err := hex.DecodeString(os.Getenv("YAML_GENERATED_TEST_SHA"))
+	if err != nil || len(want) != sha256.Size {
+		t.Fatal("generated YAML fixture requires a 64-digit YAML_GENERATED_TEST_SHA")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read generated YAML fixture: %v", err)
+	}
+	sum := sha256.Sum256(data)
+	if !bytes.Equal(sum[:], want) {
+		t.Fatalf("generated YAML fixture digest mismatch: got %x want %x", sum, want)
+	}
+	gl, err := g.LoadLanguage(data)
+	if err != nil {
+		t.Fatalf("load generated YAML fixture: %v", err)
+	}
+	if !grammars.AdaptScannerForLanguage("yaml", gl) {
+		t.Fatal("could not bind YAML scanner to generated fixture")
+	}
+	fmt.Printf("SCANDIFF_GENERATED_YAML sha256=%x states=%d external_rows=%d\n", sum, gl.StateCount, len(gl.ExternalLexStates))
+	return gl
+}
 
 var sdKinds = []string{"found", "symbol", "start", "end", "point", "lookahead", "column", "state", "gopanic", "overflow"}
 
@@ -76,15 +112,15 @@ const (
 	catMask            // a mask that is neither a table row nor all true
 	catMidChar         // an offset inside a character (only an included range could start a scan there)
 	catDamaged         // a saved state that was truncated or made up
-	catRange           // an included range set on the C side (the core cannot be given one)
+	catRange           // an included range on both scanner cursors
 	nCats
 )
 
 var sdCatNames = []string{"ordinary", "mask", "midchar", "damaged", "range"}
 
 // sdDiagnostic reports whether a category is a diagnostic: its differences are counted and reported but are
-// outside the gate. Damaged saved states are made up (no scanner wrote them) and genuine range calls are
-// asymmetric probes (the Go lexer has no included ranges); neither is a call of the core.
+// outside the ordinary gate. Damaged saved states are made up (no scanner wrote them).
+// The separate ranged campaign checks the range observations using both scanner cursors.
 func sdDiagnostic(cat int) bool { return cat == catDamaged || cat == catRange }
 
 const sdMaxState = 1024 // TREE_SITTER_SERIALIZATION_BUFFER_SIZE; the C parser asserts it (parser.c:409)
@@ -219,18 +255,22 @@ func (s *goSide) call(src *sdSource, off0 int, row, col uint32, mask []bool, sta
 	}()
 	var out ccore.ExtScan
 	off := off0
-	// The core starts the scan after a byte order mark at byte 0, as C's ts_lexer_start
-	// does (internal/ccore/scanner.go); do the same here.
-	if off == 0 && len(src.data) >= 3 && src.data[0] == 0xEF && src.data[1] == 0xBB && src.data[2] == 0xBF {
-		off, col = 3, col+3
+	var found bool
+	if rg == nil || sdMut("ranges") {
+		// The ordinary core scanner starts after an initial BOM. The range
+		// adapter performs its own lexer start, including the BOM advance.
+		if off == 0 && len(src.data) >= 3 && src.data[0] == 0xEF && src.data[1] == 0xBB && src.data[2] == 0xBF {
+			off, col = 3, col+3
+		}
+		found = s.sc.Scan(src.data, off, row, col, state, mask, s.buf, &out)
+	} else {
+		sr, sc := src.point(off0)
+		er, ec := src.point(rg.End)
+		span := ccore.Range{StartByte: uint32(off0), EndByte: uint32(rg.End),
+			StartRow: sr, StartCol: sc, EndRow: er, EndCol: ec}
+		cursor := ccore.NewScannerCursorForDifferentialProbe(src.data, span, ccore.NewLength(uint32(off), row, col))
+		found = s.sc.(ccore.RangedExtScanner).ScanIncluded(src.data, cursor, state, mask, s.buf, &out)
 	}
-	data := src.data
-	if rg != nil && !sdMut("ranges") && rg.End < len(data) {
-		// The core has no included ranges: the end of a range is the end of the input for the scanner, so the
-		// Go side gets the source cut there. The start of a range needs nothing (the scan starts at off).
-		data = data[:rg.End]
-	}
-	found := s.sc.Scan(data, off, row, col, state, mask, s.buf, &out)
 	rec.Found = found
 	rec.DidGetCol = out.DidGetColumn
 	rec.LookEnd = out.LookaheadEnd
@@ -1499,7 +1539,7 @@ func TestScannerDiff(t *testing.T) {
 	if budget <= 0 || batch <= 0 {
 		t.Fatalf("SCANDIFF_CALLS (%d) and SCANDIFF_BATCH (%d) must be above 0", budget, batch)
 	}
-	gl, cl := ccoreLanguages(t, lang)
+	gl, cl := ccoreLanguagesWithFixture(t, lang, sdGeneratedYAML(t, lang))
 	scannerType := fmt.Sprintf("%T", gl.ExternalScanner)
 	goLang := gl
 	if n := sdEnvInt("SCANDIFF_ADAPT", 0); n > 0 {

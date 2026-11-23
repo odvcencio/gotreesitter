@@ -45,6 +45,10 @@ type Parser struct {
 	// have produced, matching tree-sitter C on bash for/while/case scripts.
 	forceCleanRetryPass           bool
 	retryStructuralTopLevelResync bool
+	// admissionCandidateRoute is the per-Parser override for the Phase-3
+	// dual-route admission switch (see admission_switch.go). The zero value
+	// follows the process-wide default.
+	admissionCandidateRoute       admissionRouteMode
 	compatibilityBorrowedArenas   []*nodeArena
 	fullArenaHint                 uint32
 	pendingFullArenaHint          uint32
@@ -59,10 +63,6 @@ type Parser struct {
 	collapsedChildOccurrenceSet   map[uint32]struct{}
 	unaryWrapperFlatteningSet     map[unaryWrapperFlatteningKey]Symbol
 
-	// admissionCandidateRoute is the per-Parser override for the Phase-3
-	// dual-route admission switch (see admission_switch.go). The zero value
-	// follows the process-wide default.
-	admissionCandidateRoute admissionRouteMode
 	// admissionCandidateRunner owns the compact runtime during a request.
 	// Diagnostics may pin it between requests. The concrete type is absent
 	// from gts_no_parsercorephase0 builds, so this slot is typed as any.
@@ -1793,6 +1793,7 @@ func resetSnippetParser(parser *Parser) {
 	parser.fullGSSHint = 0
 	parser.incrementalGSSHint = 0
 	parser.included = nil
+	parser.setCcoreIncludedRanges(nil)
 	parser.logger = nil
 	parser.glrTrace = false
 	parser.ambiguityProfile = nil

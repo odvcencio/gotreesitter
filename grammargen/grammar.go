@@ -72,6 +72,10 @@ type Grammar struct {
 	ReservedWordSets                           []ReservedWordSet
 	Supertypes                                 []string
 	Tests                                      []TestCase    // embedded test cases
+	ExternalLexerOnly                          bool          // the external scanner owns tokens and whitespace, leaving unconditional builtin end
+	ExplicitLexerEOF                           bool          // encode C-style EOF transitions and treat a bare NUL terminal as a byte
+	CCompatibleParseActions                    bool          // order shifts last and honor precedence in derived keyword conflicts
+	AllExternalTokensInRecovery                bool          // enable every external scanner token in the error lexer state
 	SeparateErrorLexMode                       bool          // emit an error-state lexer with non-initial fixed terminals
 	RecoveryLookaheadTokens                    []string      // additional terminals allowed by reduce-follow and missing-token lookahead analysis
 	EnableLRSplitting                          bool          // opt-in: attempt LR(1) state splitting for merge pathology
@@ -91,6 +95,7 @@ type Grammar struct {
 	SuppressEquivalentExternalReduceLookaheads bool          // suppress external scanner validity for duplicate reduce-only lookaheads
 	ExternalReduceFollowLookaheads             []string      // external token names that may be valid after reducing in the current state
 	PriorityInlinePatterns                     []string      // anonymous pattern terminals that should win same-length ties against named tokens
+	DefaultAliasDisplays                       []string      // hidden rule names whose single alias remains visible on recovery nodes
 	PreserveHiddenChoicePassthrough            []string      // hidden choice rules whose single-symbol reductions must not be flattened away
 	WantsForest                                bool          // opt this grammar's assembled Language into the GSS-forest GLR fast path (see gotreesitter.Language.WantsForest)
 }
@@ -335,6 +340,10 @@ func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Gram
 		ReservedWordSets:                   cloneReservedWordSets(base.ReservedWordSets),
 		Supertypes:                         make([]string, len(base.Supertypes)),
 		Tests:                              make([]TestCase, len(base.Tests)),
+		ExternalLexerOnly:                  base.ExternalLexerOnly,
+		ExplicitLexerEOF:                   base.ExplicitLexerEOF,
+		CCompatibleParseActions:            base.CCompatibleParseActions,
+		AllExternalTokensInRecovery:        base.AllExternalTokensInRecovery,
 		SeparateErrorLexMode:               base.SeparateErrorLexMode,
 		RecoveryLookaheadTokens:            append([]string(nil), base.RecoveryLookaheadTokens...),
 		EnableLRSplitting:                  base.EnableLRSplitting,
@@ -354,6 +363,7 @@ func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Gram
 		SuppressEquivalentExternalReduceLookaheads: base.SuppressEquivalentExternalReduceLookaheads,
 		ExternalReduceFollowLookaheads:             append([]string(nil), base.ExternalReduceFollowLookaheads...),
 		PriorityInlinePatterns:                     append([]string(nil), base.PriorityInlinePatterns...),
+		DefaultAliasDisplays:                       append([]string(nil), base.DefaultAliasDisplays...),
 		PreserveHiddenChoicePassthrough:            append([]string(nil), base.PreserveHiddenChoicePassthrough...),
 		WantsForest:                                base.WantsForest,
 	}

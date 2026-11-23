@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"unicode/utf8"
 
+	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/scanmode"
 	"github.com/odvcencio/gotreesitter/internal/scannerspan"
 )
@@ -25,15 +26,23 @@ type ExternalLexer struct {
 	startPoint Point
 	point      Point
 	endPoint   Point
-	endMarked  bool
 
 	// columnData caches the number of code points seen since the start of
 	// the current line, matching C tree-sitter's column_data cache. It is
 	// invalid after any positional jump (reset, clearSource) and gets
 	// recomputed lazily the next time Column() runs. Advance, AdvanceSpaces,
 	// and AdvanceUntilNewline keep it up to date in place when it is valid.
+	columnData uint32
+
+	// lookaheadEndByte records the largest lexer frontier observed while this
+	// scanner attempt ran. The token source carries it across scanner retries.
+	lookaheadEndByte uint32
+	resultSymbol     Symbol
+
+	// Group the flags so the scanner cursor fits in the padding of the old
+	// layout. The legacy DFA token source embeds two external lexers.
+	endMarked       bool
 	columnDataValid bool
-	columnData      uint32
 
 	// didGetColumn records that this scan attempt read Column at least
 	// once. It mirrors C tree-sitter's Lexer.did_get_column (lexer.h:34),
@@ -47,14 +56,12 @@ type ExternalLexer struct {
 	// Advance(true) calls move startPos past that mark.
 	advancedContent bool
 
-	resultSymbol Symbol
-	hasResult    bool
+	hasResult bool
 
-	// lookaheadEndByte records the largest lexer frontier observed while this
-	// scanner attempt ran. The token source carries it across scanner retries.
-	lookaheadEndByte uint32
-	// A scan owns this observer. Value-copy rollback must not erase reads.
+	// A scan owns these observers. Value-copy rollback must not erase reads or
+	// lose the shared cursor used to navigate the included ranges.
 	readFrontier *externalReadFrontier
+	rangeCursor  *ccore.ScannerCursor
 }
 
 type externalReadFrontier struct {
@@ -101,7 +108,7 @@ func newExternalLexer(source []byte, pos int, row, col uint32) *ExternalLexer {
 // Lookahead returns the current rune or 0 at EOF.
 func (l *ExternalLexer) Lookahead() rune {
 	l.recordReadFrontier()
-	if l.pos >= len(l.source) {
+	if l.atEOF() {
 		return 0
 	}
 	b := l.source[l.pos]
@@ -144,6 +151,10 @@ func (l *ExternalLexer) Previous() rune {
 // Advance consumes one rune. When skip is true, consumed bytes are excluded
 // from the token span (scanner whitespace skipping behavior).
 func (l *ExternalLexer) Advance(skip bool) {
+	if cursor := l.includedCursor(); cursor != nil {
+		l.advanceIncluded(cursor, skip)
+		return
+	}
 	if l.pos >= len(l.source) {
 		l.recordReadFrontier()
 		return
@@ -192,6 +203,13 @@ func (l *ExternalLexer) AdvanceSpaces(skip bool) int {
 	if l == nil {
 		return 0
 	}
+	if cursor := l.includedCursor(); cursor != nil {
+		var n int
+		for l.Lookahead() == ' ' {
+			n += l.advanceIncluded(cursor, skip)
+		}
+		return n
+	}
 	l.recordReadFrontier()
 	if l.pos >= len(l.source) || l.source[l.pos] != ' ' {
 		return 0
@@ -222,6 +240,13 @@ func (l *ExternalLexer) AdvanceSpaces(skip bool) int {
 func (l *ExternalLexer) AdvanceUntilNewline(skip bool) int {
 	if l == nil {
 		return 0
+	}
+	if cursor := l.includedCursor(); cursor != nil {
+		var n int
+		for !l.atEOF() && l.Lookahead() != '\n' {
+			n += l.advanceIncluded(cursor, skip)
+		}
+		return n
 	}
 	l.recordReadFrontier()
 	if l.pos >= len(l.source) || l.source[l.pos] == '\n' {
@@ -257,6 +282,19 @@ func (l *ExternalLexer) AdvanceLineContent(skip bool) (int, int, rune) {
 	if l == nil {
 		return 0, 0, 0
 	}
+	if cursor := l.includedCursor(); cursor != nil {
+		var n, count int
+		var last rune
+		for {
+			ch := l.cLookahead()
+			if ch <= 0 || ch == '\r' || ch == '\n' {
+				return n, count, last
+			}
+			n += l.advanceIncluded(cursor, skip)
+			count++
+			last = rune(ch)
+		}
+	}
 	if l.pos >= len(l.source) {
 		l.recordReadFrontier()
 		return 0, 0, 0
@@ -291,8 +329,10 @@ func (l *ExternalLexer) AdvanceLineContent(skip bool) (int, int, rune) {
 
 // MarkEnd marks the current scanner position as the token end.
 func (l *ExternalLexer) MarkEnd() {
-	l.endPos = l.pos
-	l.endPoint = l.point
+	l.endPos, l.endPoint = l.pos, l.point
+	if l.includedCursor() != nil {
+		l.endPos, l.endPoint = l.tokenEnd()
+	}
 	l.endMarked = true
 }
 
@@ -316,7 +356,7 @@ func (l *ExternalLexer) lookaheadEndByteAtCursor() uint32 {
 	frontier := uint64(pos) + 1
 	// Only a non-ASCII lead byte can be an invalid sequence; skip the decode
 	// for the ASCII case.
-	if pos < len(l.source) && l.source[pos] >= utf8.RuneSelf {
+	if pos < len(l.source) && l.source[pos] >= utf8.RuneSelf && !l.atEOF() {
 		r, size := utf8.DecodeRune(l.source[pos:])
 		if r == utf8.RuneError && size == 1 {
 			frontier += 4
@@ -368,6 +408,12 @@ func (l *ExternalLexer) lookaheadEndByteAtCursor() uint32 {
 var recordReadFrontierObserverForTest func(pos int)
 
 func (l *ExternalLexer) recordReadFrontier() {
+	if l.readFrontier != nil || recordReadFrontierObserverForTest != nil {
+		l.updateReadFrontier()
+	}
+}
+
+func (l *ExternalLexer) updateReadFrontier() {
 	if recordReadFrontierObserverForTest != nil {
 		recordReadFrontierObserverForTest(l.pos)
 	}
@@ -416,6 +462,10 @@ func (l *ExternalLexer) Column() uint32 {
 // in ts_lexer__get_column: back up to the line start, then count code
 // points up to the goal byte.
 func (l *ExternalLexer) computeColumnData() {
+	if cursor := l.includedCursor(); cursor != nil {
+		l.computeIncludedColumn(cursor)
+		return
+	}
 	lineStart := l.pos - int(l.point.Column)
 	if lineStart < 0 {
 		lineStart = 0
@@ -481,8 +531,7 @@ func (l *ExternalLexer) token() (Token, bool) {
 		// when a successful external scan never marked an end explicitly.
 		// That means skip-only scans default to the cursor after skipped
 		// whitespace, not back at the scan start.
-		endPos = l.pos
-		endPoint = l.point
+		endPos, endPoint = l.tokenEnd()
 	}
 	// When endPos < startPos the scanner marked a position before skip
 	// advanced startPos past it.  This yields a zero-width token at the
@@ -511,7 +560,7 @@ func (l *ExternalLexer) token() (Token, bool) {
 	}
 	return Token{
 		Symbol:                l.resultSymbol,
-		Text:                  bytesToStringNoCopy(l.source[l.startPos:endPos]),
+		Text:                  bytesToStringNoCopy(l.source[min(l.startPos, len(l.source)):min(endPos, len(l.source))]),
 		StartByte:             uint32(l.startPos),
 		EndByte:               uint32(endPos),
 		StartPoint:            l.startPoint,
@@ -521,9 +570,15 @@ func (l *ExternalLexer) token() (Token, bool) {
 	}, true
 }
 
-// atEOF reports whether the cursor is at the end of the source. It records no
+// atEOF reports whether the cursor is at the end of the selected input. It records no
 // read, as C's lexer->eof(lexer) reads no character.
-func (l *ExternalLexer) atEOF() bool { return l.pos >= len(l.source) }
+func (l *ExternalLexer) atEOF() bool {
+	if l.pos >= len(l.source) {
+		return true
+	}
+	cursor := l.includedCursor()
+	return cursor != nil && cursor.AtSelectedEnd(uint32(l.pos))
+}
 
 // cLookahead is the lookahead as C sees it: -1 (TS_DECODE_ERROR) for a byte that
 // is not valid UTF-8, where Lookahead returns U+FFFD.
@@ -537,9 +592,76 @@ func (l *ExternalLexer) cLookahead() int32 {
 	return int32(r)
 }
 
-// atRangeStart is C's is_at_included_range_start for a parse over the whole
-// source: the single range starts at byte 0, and there is none for an empty source.
-func (l *ExternalLexer) atRangeStart() bool { return l.pos == 0 && !l.atEOF() }
+// atRangeStart is C's is_at_included_range_start scanner callback.
+func (l *ExternalLexer) atRangeStart() bool {
+	if cursor := l.includedCursor(); cursor != nil {
+		return cursor.At(l.includedPosition()).AtRangeStart()
+	}
+	return l.pos == 0 && !l.atEOF()
+}
+
+func (l *ExternalLexer) includedCursor() *ccore.ScannerCursor {
+	return l.rangeCursor
+}
+
+func (l *ExternalLexer) includedPosition() ccore.Length {
+	return ccore.NewLength(uint32(l.pos), l.point.Row, l.point.Column)
+}
+
+func (l *ExternalLexer) moveToIncludedPosition(position ccore.Length) {
+	l.pos = int(position.Bytes())
+	l.point = Point{Row: position.Row(), Column: position.Col()}
+}
+
+func (l *ExternalLexer) advanceIncluded(start *ccore.ScannerCursor, skip bool) int {
+	cursor := start.At(l.includedPosition())
+	r, width := cursor.Advance()
+	if width == 0 {
+		return 0
+	}
+	isBOM := l.pos == 0 && r == byteOrderMarkRune
+	// A scanner can restore a value copy of ExternalLexer. The next use
+	// locates its saved position independently of this cached cursor.
+	*start = cursor
+	l.moveToIncludedPosition(cursor.Position())
+	if r == '\n' {
+		l.columnData, l.columnDataValid = 0, true
+	} else if l.columnDataValid && !isBOM {
+		l.columnData++
+	}
+	if skip {
+		l.startPos, l.startPoint = l.pos, l.point
+	} else {
+		l.advancedContent = true
+	}
+	return int(width)
+}
+
+func (l *ExternalLexer) tokenEnd() (int, Point) {
+	if start := l.includedCursor(); start != nil && !l.atEOF() {
+		end := start.At(l.includedPosition()).MarkEnd()
+		return int(end.Bytes()), Point{Row: end.Row(), Column: end.Col()}
+	}
+	return l.pos, l.point
+}
+
+func (l *ExternalLexer) computeIncludedColumn(start *ccore.ScannerCursor) {
+	goal := uint32(l.pos)
+	lineStart := max(l.pos-int(l.point.Column), 0)
+	cursor := start.At(ccore.NewLength(uint32(lineStart), l.point.Row, 0))
+	l.columnData, l.columnDataValid = 0, true
+	for !cursor.EOF() && cursor.Position().Bytes() < goal {
+		at := cursor.Position()
+		r, _ := cursor.Advance()
+		if r == '\n' {
+			l.columnData = 0
+		} else if at.Bytes() != 0 || r != byteOrderMarkRune {
+			l.columnData++
+		}
+	}
+	*start = cursor
+	l.moveToIncludedPosition(cursor.Position())
+}
 
 func init() {
 	scanmode.SetProbes(
