@@ -26,15 +26,23 @@ type ExternalLexer struct {
 	startPoint Point
 	point      Point
 	endPoint   Point
-	endMarked  bool
 
 	// columnData caches the number of code points seen since the start of
 	// the current line, matching C tree-sitter's column_data cache. It is
 	// invalid after any positional jump (reset, clearSource) and gets
 	// recomputed lazily the next time Column() runs. Advance, AdvanceSpaces,
 	// and AdvanceUntilNewline keep it up to date in place when it is valid.
+	columnData uint32
+
+	// lookaheadEndByte records the largest lexer frontier observed while this
+	// scanner attempt ran. The token source carries it across scanner retries.
+	lookaheadEndByte uint32
+	resultSymbol     Symbol
+
+	// Group the flags so the scanner cursor fits in the padding of the old
+	// layout. The legacy DFA token source embeds two external lexers.
+	endMarked       bool
 	columnDataValid bool
-	columnData      uint32
 
 	// didGetColumn records that this scan attempt read Column at least
 	// once. It mirrors C tree-sitter's Lexer.did_get_column (lexer.h:34),
@@ -48,12 +56,8 @@ type ExternalLexer struct {
 	// Advance(true) calls move startPos past that mark.
 	advancedContent bool
 
-	resultSymbol Symbol
-	hasResult    bool
+	hasResult bool
 
-	// lookaheadEndByte records the largest lexer frontier observed while this
-	// scanner attempt ran. The token source carries it across scanner retries.
-	lookaheadEndByte uint32
 	// A scan owns these observers. Value-copy rollback must not erase reads or
 	// lose the shared cursor used to navigate the included ranges.
 	readFrontier *externalReadFrontier
