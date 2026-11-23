@@ -5958,3 +5958,94 @@ func TestCoreScanCAndCppWithoutAGrantAreUnchanged(t *testing.T) {
 		})
 	}
 }
+
+func TestCoreScanTokenSourceIncludedRanges(t *testing.T) {
+	lang := ccoreRouteLang(t, "json")
+	src := []byte("xx[1, 2, 3]yy")
+	at := func(start, end uint32) gts.Range {
+		return gts.Range{StartByte: start, EndByte: end,
+			StartPoint: gts.Point{Column: start}, EndPoint: gts.Point{Column: end}}
+	}
+	before := []gts.Range{at(2, 11)}
+	after := []gts.Range{at(2, 7), at(10, 11)}
+	checked := []string{"ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState"}
+
+	t.Run("granted", func(t *testing.T) {
+		defer gts.CcoreTestCertifyProviders(ccoreModesIncr|certified.Ranges, []string{ccore.TableScanID}, checked...)()
+		fp := ccoreRouteParser(lang)
+		fp.SetIncludedRanges(after)
+		want, err := fp.Parse(src)
+		if err != nil || want == nil {
+			t.Fatalf("built-in ranged parse: %v", err)
+		}
+		defer want.Release()
+		for _, call := range scanCalls() {
+			t.Run(call.name, func(t *testing.T) {
+				p := ccoreRouteParser(lang)
+				var old *gts.Tree
+				if call.incr {
+					initial := before
+					if call.same {
+						initial = after
+					}
+					p.SetIncludedRanges(initial)
+					var err error
+					old, err = p.Parse(src)
+					if err != nil || old == nil {
+						t.Fatalf("initial ranged parse: %v", err)
+					}
+					defer old.Release()
+				}
+				p.SetIncludedRanges(after)
+				rig := &scanRig{lang: lang, variant: "trusted"}
+				gts.CcoreTestReset()
+				got, err := call.run(p, rig, src, old)
+				if err != nil || got == nil {
+					t.Fatalf("provider parse: %v", err)
+				}
+				defer got.Release()
+				_, fresh := gts.CcoreTestCounters()
+				_, incr := gts.CcoreTestIncr()
+				scans := gts.CcoreTestProviderScans()
+				if len(rig.probes) != 1 || rig.probes[0].closed != 1 || rig.nexts() != 0 {
+					t.Fatalf("provider call used the fallback or failed to close it once: %+v", rig)
+				}
+				switch {
+				case call.same && (fresh != 0 || incr != 0 || scans != 0),
+					call.incr && !call.same && (fresh != 0 || incr != 1 || scans == 0),
+					!call.incr && (fresh != 1 || incr != 0 || scans == 0):
+					t.Fatalf("fresh=%d incremental=%d provider scans=%d", fresh, incr, scans)
+				}
+				if got.ParseRuntime().ExpectedEOFByte != 11 || ccoreWalkDigest(got, lang) != ccoreWalkDigest(want, lang) {
+					t.Fatal("provider tree differs from the built-in ranged DFA")
+				}
+			})
+		}
+	})
+
+	for _, control := range []struct {
+		name    string
+		variant string
+		modes   uint8
+		grants  []string
+	}{
+		{"missing range grant", "trusted", ccoreModesIncr, []string{ccore.TableScanID}},
+		{"missing provider grant", "trusted", ccoreModesIncr | certified.Ranges, nil},
+		{"ordinary source", "stream", ccoreModesIncr | certified.Ranges, []string{ccore.TableScanID}},
+	} {
+		t.Run(control.name, func(t *testing.T) {
+			defer gts.CcoreTestCertifyProviders(control.modes, control.grants, checked...)()
+			p := ccoreRouteParser(lang)
+			p.SetIncludedRanges(after)
+			rig := &scanRig{lang: lang, variant: control.variant}
+			gts.CcoreTestReset()
+			got, _ := p.ParseWithTokenSource(src, rig.source(src))
+			if got != nil {
+				defer got.Release()
+			}
+			if served, scans := coreScanJavaCounts(); rig.nexts() == 0 || served != 0 || scans != 0 || rig.probes[0].closed != 1 {
+				t.Fatalf("nexts=%d closed=%d served=%d provider scans=%d", rig.nexts(), rig.probes[0].closed, served, scans)
+			}
+		})
+	}
+}

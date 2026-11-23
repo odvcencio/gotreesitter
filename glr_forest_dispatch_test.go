@@ -7,6 +7,7 @@ import (
 
 	gts "github.com/odvcencio/gotreesitter"
 	grm "github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 )
 
 func explicitForestLanguage(t *testing.T, lang *gts.Language) *gts.Language {
@@ -440,7 +441,9 @@ func TestForestDispatchPromotesJavaScript(t *testing.T) {
 	defer prod.Release()
 
 	gts.SetGLRForestEnabled(true)
+	_, before, _ := bind.RouteCounters()
 	tree, err := gts.NewParser(lang).Parse(src)
+	_, after, _ := bind.RouteCounters()
 	if err != nil {
 		t.Fatalf("forest dispatch parse: %v", err)
 	}
@@ -455,7 +458,7 @@ func TestForestDispatchPromotesJavaScript(t *testing.T) {
 		t.Fatalf("JavaScript forest root end byte = %d, want %d", got, want)
 	}
 	rt := tree.ParseRuntime()
-	if rt.StopReason != gts.ParseStopAccepted || !rt.ForestFastPath || !rt.LastTokenWasEOF || rt.TokensConsumed != 0 {
+	if rt.StopReason != gts.ParseStopAccepted || !rt.ForestFastPath || !rt.LastTokenWasEOF || (after == before && rt.TokensConsumed != 0) || (after > before && (rt.TokensConsumed == 0 || rt.MaxStacksSeen == 0)) {
 		t.Fatalf("JavaScript did not use forest accepted runtime: %s", rt.Summary())
 	}
 }

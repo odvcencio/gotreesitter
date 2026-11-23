@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"io"
 	"reflect"
 	"slices"
 	"sort"
@@ -104,7 +105,7 @@ var (
 )
 
 // ccoreLexStates converts the root's lex states once per language.
-func ccoreLexStates(in []LexState) []ccore.LexDFAState {
+func ccoreLexStates(in []LexState, endStates []bool) []ccore.LexDFAState {
 	out := make([]ccore.LexDFAState, len(in))
 	for i := range in {
 		st := &in[i]
@@ -112,6 +113,7 @@ func ccoreLexStates(in []LexState) []ccore.LexDFAState {
 			AcceptToken: ccore.Symbol(st.AcceptToken), AcceptPriority: st.AcceptPriority,
 			Skip: st.Skip, AcceptEOF: st.AcceptEOF, Default: int32(st.Default), EOF: int32(st.EOF),
 		}
+		o.AcceptEnd = i < len(endStates) && endStates[i]
 		if len(st.Transitions) != 0 {
 			o.Trans = make([]ccore.LexTrans, len(st.Transitions))
 			for j, tr := range st.Transitions {
@@ -140,10 +142,10 @@ func buildCcoreTables(lang *Language) *ccore.Tables {
 		MaxReservedWordSetSize: lang.MaxReservedWordSetSize,
 		ExternalLexStates:      lang.ExternalLexStates,
 	}
-	t.LexStates = ccoreLexStates(lang.LexStates)
+	t.LexStates = ccoreLexStates(lang.LexStates, lang.lexerEndStates)
 	t.LexAscii = lang.LexAsciiTable()
 	if len(lang.KeywordLexStates) != 0 {
-		t.KeywordLexStates = ccoreLexStates(lang.KeywordLexStates)
+		t.KeywordLexStates = ccoreLexStates(lang.KeywordLexStates, nil)
 		t.KeywordLexAscii = lang.KeywordLexAsciiTable()
 	}
 	if len(p.smallLookup) > 0 {
@@ -311,7 +313,7 @@ func ccoreBindCheckTables(lang any) (checked, differ int, err error) {
 
 func init() {
 	ccoreViewsOn.Store(true)
-	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables, RouteCounters: ccoreRouteCounters, IncrFallbacks: ccoreRouteIncrFallbacks, RouteNanos: ccoreRouteNanos, RouteLimits: ccoreRouteLimits, RootOnlyFields: ccoreBindRootOnlyFields, ViewsOn: ccoreSetViewsOn, ViewCounters: ccoreViewCounters})
+	bind.Register(bind.Adapter{Config: ccoreBindConfig, ConfigHash: ccoreBindConfigHash, CheckTables: ccoreBindCheckTables, RouteCounters: ccoreRouteCounters, ForestCounters: ccoreForestRouteCounters, CompactRecords: ccoreCompactRecords, IncrFallbacks: ccoreRouteIncrFallbacks, RouteNanos: ccoreRouteNanos, RouteLimits: ccoreRouteLimits, RootOnlyFields: ccoreBindRootOnlyFields, ViewsOn: ccoreSetViewsOn, ViewCounters: ccoreViewCounters})
 }
 
 type cfgW struct {
@@ -433,6 +435,16 @@ func ccoreConfigHashWithTables(l *Language, t *ccore.Tables) ([32]byte, error) {
 				w.u(uint64(int64(t.NextState)))
 				w.b(t.Skip)
 			}
+		}
+	}
+	var endStates bool
+	for i, st := range t.LexStates {
+		if st.AcceptEnd {
+			if !endStates {
+				w.tag("builtin-end")
+				endStates = true
+			}
+			w.u(uint64(i))
 		}
 	}
 	w.tag("fields")
@@ -704,6 +716,11 @@ func (p *Parser) ccoreEligible(usingProductionDFA bool) bool {
 // core does not need the requirement discharged by anything but the
 // qualification.
 func (p *Parser) ccoreEligibleFor(kind ccoreSource) bool {
+	return p.ccoreEligibleWithGrant(kind, 0)
+}
+
+// The forest binding discharges only the forest mode after checking its blob grant.
+func (p *Parser) ccoreEligibleWithGrant(kind ccoreSource, granted sched.Mode) bool {
 	if p == nil || p.admissionRouteSuppressed > 0 || !p.ccoreRouteEnabled() {
 		return false
 	}
@@ -711,7 +728,31 @@ func (p *Parser) ccoreEligibleFor(kind ccoreSource) bool {
 	if kind == ccoreSourceStream {
 		modes = sched.TokenSource
 	}
-	return sched.Supports(sched.Request{Modes: modes | p.schedImpliedModes(modes, nil)})
+	modes |= p.schedImpliedModes(modes, nil)
+	if kind == ccoreSourceDFA || kind == ccoreSourceProvider {
+		// Both the built-in DFA and the qualified table provider can read
+		// selected ranges. Admission checks the blob's range grant.
+		modes &^= sched.IncludedRanges
+		if len(p.included) != 0 {
+			// Automatic forest dispatch declines selected ranges. The ordinary
+			// core path still checks the matching range certificate.
+			modes &^= sched.ForestRoute
+		}
+	}
+	return sched.Supports(sched.Request{Modes: modes &^ granted})
+}
+
+// A forest grant authorizes native service for reparses of a compact-backed
+// tree. The ordinary old-tree check still decides if its records can be reused.
+func (p *Parser) ccoreEligibleForReparse(kind ccoreSource, old *Tree) bool {
+	if p.ccoreEligibleFor(kind) {
+		return true
+	}
+	if kind != ccoreSourceDFA || old == nil || old.ccoreStateOf() == nil || !p.ccoreEligibleWithGrant(kind, sched.ForestRoute) {
+		return false
+	}
+	adm, _, ok := p.ccoreAdmitQuiet()
+	return ok && adm.modes&(certified.Forest|certified.Incr) == (certified.Forest|certified.Incr)
 }
 
 // Decline reasons. Each is counted in ccoreDeclines.
@@ -807,10 +848,12 @@ func nowNanos() int64 { return time.Now().UnixNano() }
 // ccoreAdmission is the answer of ccoreAdmitProvider: the language state, the blob hash
 // and the modes the blob is certified for.
 type ccoreAdmission struct {
-	st      *ccoreLanguageTables
-	sha     [32]byte
-	modes   uint8
-	binding *ccoreBinding // the identity of the binding this request qualified with
+	automaticForest bool
+	forestElection  *ccore.ForestElection
+	st              *ccoreLanguageTables
+	sha             [32]byte
+	modes           uint8
+	binding         *ccoreBinding // the identity of the binding this request qualified with
 	// providers are the scan providers the blob's certificates grant, by identity;
 	// provider is the one this request asks the core to use ("" for the core's own walk).
 	providers []string
@@ -877,7 +920,7 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	}
 	a.sha = sha
 	switch {
-	case len(p.included) > 0: // the core does not apply included ranges
+	case len(p.included) > 0 && len(p.ccoreIncludedRanges()) != len(p.included):
 		return a, ccoreDeclIncludedRanges, false
 	case p.hasActiveParseObservability() || p.compactCertificationTelemetry:
 		return a, ccoreDeclObserver, false
@@ -954,6 +997,9 @@ func (p *Parser) ccoreAdmitQuiet() (ccoreAdmission, int, bool) {
 	}
 	if have&need != need {
 		return a, ccoreDeclModeMissing, false
+	}
+	if len(p.included) > 0 && have&ccoreModeRanges == 0 {
+		return a, ccoreDeclIncludedRanges, false
 	}
 	a.modes = have
 	a.binding = st.token
@@ -1566,18 +1612,20 @@ func ccoreNextParseState(t *ccore.Tables, n *Node) StateID {
 // accessor inherits the previous child's field. The last two are recorded only
 // for the nodes where they differ from the stored ids, in extras.
 type ccoreArenaState struct {
-	tables      *ccore.Tables
-	binding     *ccoreBinding // the identity of the binding the tree was parsed with (not the state, so a tree does not keep a parser pool alive)
-	extras      map[*Node]*ccoreNodeExtra
-	ct          *ccore.Tree
-	edits       int
-	curLen      int64
-	budget      int64
-	broken      bool
-	incremental bool
-	viewOrigin  bool
-	reusedNodes int
-	reusedBytes uint64
+	forestOrdinaryCompatible bool
+	forestElection           bool
+	tables                   *ccore.Tables
+	binding                  *ccoreBinding // the identity of the binding the tree was parsed with (not the state, so a tree does not keep a parser pool alive)
+	extras                   map[*Node]*ccoreNodeExtra
+	ct                       *ccore.Tree
+	edits                    int
+	curLen                   int64
+	budget                   int64
+	broken                   bool
+	incremental              bool
+	viewOrigin               bool
+	reusedNodes              int
+	reusedBytes              uint64
 }
 
 // ccoreNodeExtra is the field answers of one parent that differ from its stored ids.
@@ -1601,7 +1649,7 @@ func (a *ccoreArenaState) forCopy() *ccoreArenaState {
 	if a == nil {
 		return nil
 	}
-	return &ccoreArenaState{tables: a.tables, binding: a.binding}
+	return &ccoreArenaState{tables: a.tables, binding: a.binding, forestElection: a.forestElection, forestOrdinaryCompatible: a.forestOrdinaryCompatible}
 }
 
 func (a *ccoreArenaState) cloneExtra(dst *Node, from *ccoreArenaState, src *Node) {
@@ -2327,11 +2375,17 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		}
 	}()
 	cp.SetReduceCheck(ccoreTestReduceCheck.Load())
-	cp.SetShortcut(ccoreViewsOn.Load() && adm.modes&certified.Incr != 0 && !ccoreTestShortcutOff.Load())
+	// The forest grant certifies ordinary incremental node reuse. Its public
+	// record gate compares the returned tree with C across same-length edits.
+	shortcutQualified := adm.modes&certified.Incr != 0 && adm.modes&certified.Forest == 0
+	cp.SetShortcut(adm.forestElection == nil && ccoreViewsOn.Load() && shortcutQualified && !ccoreTestShortcutOff.Load())
 	if h := ccoreTestParserHook.Load(); h != nil {
 		(*h)(cp, true)
 	}
 	lim := p.ccoreLimitsFor(len(source))
+	if adm.automaticForest {
+		lim.budget = automaticForestMemoryBudget(p, lim.budget)
+	}
 	if lim.active() {
 		restoreHeap := p.enterRuntimeMemoryBudget(lim.budget, len(source)) // the hard ceiling's heap-growth backstop
 		defer restoreHeap.restore()
@@ -2362,7 +2416,10 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		tableScan = ccore.NewTableScan(st.base, source)
 		scan = tableScan
 	}
-	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan)
+	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan, p.ccoreIncludedRanges(), adm.forestElection)
+	if adm.forestElection != nil && stop != "" {
+		adm.forestElection.Stop = stop
+	}
 	if tableScan != nil {
 		ccoreProviderScans.Add(int64(tableScan.Calls()))
 	}
@@ -2377,7 +2434,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	if stop != "" || ct == nil || ct.Root() == 0 {
 		if stopped != ParseStopNone {
 			ccoreStopDecline(stopped)
-		} else {
+		} else if !ccoreHandledForestDeadEnd(adm.forestElection) {
 			ccoreDecline(ccoreDeclCoreStop)
 		}
 		return nil, false, false
@@ -2392,6 +2449,16 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	// conversion reserves its own arrays in the same ledger, on top of the core's.
 	var end ccoreConvEnd
 	converting = true
+	var included []Range
+	if len(p.included) > 0 {
+		var ok bool
+		included, ok = ccore.Make[Range](cp.Ledger(), len(p.included))
+		if !ok {
+			ccoreStopDecline(stopped)
+			return nil, false, false
+		}
+		copy(included, p.included)
+	}
 	var built *Tree
 	var tooDeep bool
 	if ccoreViewsOn.Load() {
@@ -2412,6 +2479,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		return nil, false, false
 	}
 	retained = true
+	built.includedRanges = included
 	if cp.ShortcutTaken() {
 		ccoreShortcutReparses.Add(1)
 	}
@@ -2422,6 +2490,9 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	rt.StopReason = ParseStopAccepted
 	rt.SourceLen = uint32(len(source))
 	rt.ExpectedEOFByte = uint32(len(source))
+	if n := len(included); n != 0 {
+		rt.ExpectedEOFByte = included[n-1].EndByte
+	}
 	if root := built.root; root != nil {
 		rt.RootEndByte = root.endByte
 	}
@@ -2429,6 +2500,13 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 	rt.MemoryBudgetBytes = lim.budget
 	rt.MaxStacksSeen = cp.MaxVersions()
 	rt.TokensConsumed = uint64(cp.Tokens())
+	if cp.ScannedBuiltinEnd() {
+		rt.Truncated = rt.RootEndByte < rt.ExpectedEOFByte
+		if rt.Truncated && rt.StopReason == ParseStopAccepted {
+			rt.StopReason = ParseStopAcceptedPrefix
+		}
+		markTruncatedTreeHasError(*rt, built.root)
+	}
 	return built, true, false
 }
 
@@ -2492,7 +2570,7 @@ func (p *Parser) ccoreUnchangedTreeAllowedFor(oldTree *Tree, kind ccoreSource) b
 	if ccoreUnset() {
 		return st == nil
 	}
-	if !p.ccoreEligibleFor(kind) { // a request with an ordinary caller token source is the present engine's
+	if !p.ccoreEligibleForReparse(kind, oldTree) { // a request with an ordinary caller token source is the present engine's
 		return st == nil
 	}
 	adm, _, ok := p.ccoreAdmitQuiet()
@@ -2517,8 +2595,14 @@ func (p *Parser) ccoreFirstFresh(source []byte) (*Tree, bool) {
 }
 
 // ccoreParseCore parses with an optional old core tree.
-func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore.ScanProvider) (ct *ccore.Tree, stop string, resultErr bool) {
-	ct, stop = cp.ParseWithScan(source, old, scan)
+func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore.ScanProvider, included []ccore.Range, forest *ccore.ForestElection) (ct *ccore.Tree, stop string, resultErr bool) {
+	if forest != nil {
+		ct, stop = cp.ParseFreshForest(source, forest)
+	} else if len(included) != 0 {
+		ct, stop = cp.ParseWithIncludedScan(source, old, included, scan)
+	} else {
+		ct, stop = cp.ParseWithScan(source, old, scan)
+	}
 	if stop != "" || ct == nil || ct.Root() == 0 {
 		return ct, stop, false
 	}
@@ -2665,11 +2749,16 @@ func (p *Parser) ccoreOldFor(adm ccoreAdmission, old *Tree, source []byte) (*cco
 	if old == nil || old.released {
 		return nil, ccoreIncrReleased
 	}
+	if len(old.includedRanges) > 0 && adm.modes&ccoreModeRanges == 0 {
+		return nil, ccoreIncrNotCertified
+	}
 	st := old.ccoreStateOf()
 	if st == nil || st.ct == nil {
 		return nil, ccoreIncrForeign
 	}
 	switch {
+	case st.forestElection && (!st.forestOrdinaryCompatible || adm.provider != ""):
+		return nil, ccoreIncrNotCertified
 	case old.language != p.language:
 		return nil, ccoreIncrOtherLanguage
 	case st.binding != adm.binding || st.tables != adm.st.base:
@@ -2689,6 +2778,31 @@ func (p *Parser) ccoreOldFor(adm ccoreAdmission, old *Tree, source []byte) (*cco
 		return nil, ccoreIncrOldHasError
 	}
 	return st.ct, -1
+}
+
+// setCcoreIncludedRanges translates the normalized ranges at configuration
+// time. A parse can borrow them without allocating an adapter slice.
+func (p *Parser) setCcoreIncludedRanges(ranges []Range) {
+	if len(ranges) == 0 {
+		if cold := p.forestDeclineMemo; cold != nil {
+			cold.ccoreIncluded = nil
+		}
+		return
+	}
+	out := make([]ccore.Range, len(ranges))
+	for i, r := range ranges {
+		out[i] = ccore.Range{StartByte: r.StartByte, EndByte: r.EndByte,
+			StartRow: r.StartPoint.Row, StartCol: r.StartPoint.Column,
+			EndRow: r.EndPoint.Row, EndCol: r.EndPoint.Column}
+	}
+	p.ensureParserColdState().ccoreIncluded = out
+}
+
+func (p *Parser) ccoreIncludedRanges() []ccore.Range {
+	if len(p.included) != 0 && p.forestDeclineMemo != nil {
+		return p.forestDeclineMemo.ccoreIncluded
+	}
+	return nil
 }
 
 // ccoreEditOf is a public edit as the core's edit.
@@ -2757,7 +2871,7 @@ func (p *Parser) ccoreReparseProvider(source []byte, old *Tree, provider string)
 	if provider != "" {
 		kind = ccoreSourceProvider
 	}
-	if ccoreUnset() || !p.ccoreEligibleFor(kind) {
+	if ccoreUnset() || !p.ccoreEligibleForReparse(kind, old) {
 		return nil, false
 	}
 	defer func() { // admission and old-tree tests are inside the recovery boundary
@@ -2776,6 +2890,12 @@ func (p *Parser) ccoreReparseProvider(source []byte, old *Tree, provider string)
 	if oldCT != nil {
 		tree, ok, redo := p.ccoreRun(adm, source, oldCT)
 		if ok {
+			if old.ccoreStateOf().forestOrdinaryCompatible {
+				rt := tree.ensureParseRuntime()
+				rt.CompactIncrementalReuseRoute = true
+				rt.CompactIncrementalReusedSubtrees = uint64(tree.ccoreStateOf().reusedNodes)
+				rt.CompactIncrementalReusedBytes = tree.ccoreStateOf().reusedBytes
+			}
 			ccoreServedIncr.Add(1)
 			return tree, true
 		}
@@ -3353,6 +3473,7 @@ func (v *ccoreViews) copyTree(t *Tree) *Tree {
 		dependsOnColumnPropagated:         t.dependsOnColumnPropagated,
 	}
 	*out.parseRuntime = *t.rawParseRuntime()
+	out.setIncludedRanges(t.includedRanges)
 	if len(t.edits) > 0 {
 		out.edits = make([]InputEdit, len(t.edits))
 		copy(out.edits, t.edits)
@@ -4133,4 +4254,158 @@ func sameSourceBytes(a, b []byte) bool {
 		return false
 	}
 	return len(a) == 0 || &a[0] == &b[0]
+}
+
+func (p *Parser) runCoreForestTransport(source []byte, automatic bool) (*Tree, *ccore.ForestElection) {
+	e := &ccore.ForestElection{WorkLimit: forestWorklistVisitCap, ReduceLimit: forestReduceVisitCap}
+	if len(p.included) != 0 {
+		e.Stop = "admission"
+		return nil, e
+	}
+	adm, _, ok := p.ccoreAdmitQuiet()
+	if !ok || adm.modes&certified.Forest == 0 || !p.ccoreEligibleWithGrant(ccoreSourceDFA, sched.ForestRoute) {
+		e.Stop = "admission"
+		return nil, e
+	}
+	if sc := p.language.ExternalScanner; sc != nil {
+		stateless, ok := sc.(interface{ ExternalScannerIsStateless() bool })
+		if !ok || !stateless.ExternalScannerIsStateless() {
+			e.Stop = "scanner_not_stateless"
+			return nil, e
+		}
+	}
+	ts := p.acquireParserDFATokenSource(source)
+	if ts == nil {
+		e.Stop = "token_source"
+		return nil, e
+	}
+	defer ts.Close()
+	var ordered []StateID
+	var current Token
+	e.CanShift = func(offset uint32) bool { return p.guardRealShiftGap(source, &glrStack{byteOffset: offset}, current) }
+	e.Next = func(states []uint16) (ccore.Token, bool, bool, bool) {
+		ordered = ordered[:0]
+		for _, state := range states {
+			ordered = append(ordered, StateID(state))
+		}
+		ts.SetGLRStates(ordered[:])
+		ts.SetParserState(ordered[len(ordered)-1])
+		t := ts.Next()
+		current = t
+		if t.Missing {
+			e.Stop = "forest_unsupported_missing_token"
+		}
+		return ccore.Token{Symbol: ccore.Symbol(t.Symbol), StartByte: t.StartByte, EndByte: t.EndByte, StartRow: t.StartPoint.Row, StartCol: t.StartPoint.Column, EndRow: t.EndPoint.Row, EndCol: t.EndPoint.Column, LookaheadEnd: t.lexerLookaheadEndByte}, t.ExternalScannerToken, t.isKeyword(), t.NoLookahead
+	}
+	e.Resolve = func(state uint16, n int) int {
+		all := p.actionsForParseState(StateID(state), current.Symbol, p.language.ParseActions)
+		if len(all) != n {
+			return -2
+		}
+		actions := p.forestResolveConflict(StateID(state), current, all)
+		if len(actions) > 1 {
+			if folded, ok := p.cRepetitionSkipForestConflictChoice(false, actions); ok {
+				actions = p.forestSingletonActions(folded)
+			}
+		}
+		if len(actions) == len(all) {
+			return -1
+		}
+		if len(actions) == 1 {
+			for i, a := range all {
+				if a == actions[0] {
+					return i
+				}
+			}
+		}
+		return -2
+	}
+	adm.forestElection = e
+	adm.automaticForest = automatic
+	tree, _, _ := p.ccoreRun(adm, source, nil)
+	e.Next = nil
+	e.CanShift = nil
+	e.Resolve = nil
+	if tree == nil && e.Stop == "" {
+		e.Stop = "core_binding_declined"
+	}
+	if tree != nil {
+		// Only the numeric incremental route has independently validated the forest
+		// record contract. Legacy subtree reuse still needs its own checkpoints.
+		tree.incrementalReuseDisabled = true
+		tree.ccoreStateOf().forestElection = true
+		tree.ccoreStateOf().forestOrdinaryCompatible = e.OrdinaryCompatible()
+	}
+	return tree, e
+}
+
+var transportAccepted, transportDeclined, transportAbstained atomic.Uint64
+
+func ccoreForestRouteCounters() (uint64, uint64, uint64) {
+	return transportAccepted.Load(), transportDeclined.Load(), transportAbstained.Load()
+}
+
+// A non-EOF dead end is a complete strict-forest answer. The automatic route
+// may then use compact recovery. Resource failures and unhandled stops keep
+// their normal route decline counters.
+func ccoreHandledForestDeadEnd(e *ccore.ForestElection) bool {
+	return e != nil && e.Stop == "dead_end" && e.Token.Symbol != 0
+}
+
+// Both public routes use the same native forest result. Only the automatic
+// parse may ask the compact recovery parser to complete a semantic decline.
+func (p *Parser) serveCoreForestTransport(source []byte, automatic bool) (*Tree, bool) {
+	if p == nil || p.language == nil || !p.ccoreRouteEnabled() || glrForestRecover.Load() || languageWantsForestRecover(p.language.Name) {
+		return nil, false
+	}
+	tree, event := p.runCoreForestTransport(source, automatic)
+	if tree != nil {
+		root := tree.RootNode()
+		if root == nil || root.HasError() || root.EndByte() < uint32(len(bytes.TrimRight(source, " \t\r\n"))) {
+			tree.Release()
+			transportAbstained.Add(1)
+			return nil, false
+		}
+		tree.forestFastPath = true
+		rt := tree.ensureParseRuntime()
+		rt.ForestFastPath = true
+		rt.LastTokenWasEOF = true
+		rt.LastTokenEndByte = uint32(len(source))
+		rt.LastTokenSymbol = 0
+		p.recordForestDecline("", Token{}, nil)
+		ccoreServedFresh.Add(1)
+		transportAccepted.Add(1)
+		return tree, true
+	}
+	if !ccoreHandledForestDeadEnd(event) {
+		if event.Stop != "admission" {
+			transportAbstained.Add(1)
+		}
+		return nil, false
+	}
+	states := make([]StateID, len(event.States))
+	for i, state := range event.States {
+		states[i] = StateID(state)
+	}
+	p.recordForestDecline(event.Stop, Token{Symbol: Symbol(event.Token.Symbol), StartByte: event.Token.StartByte}, states)
+	transportDeclined.Add(1)
+	if !automatic {
+		return nil, true
+	}
+	recovered, ok := p.ccoreFullParse(source)
+	return recovered, ok
+}
+
+// ccoreCompactRecords exposes the stored records to the internal equality harness.
+func ccoreCompactRecords(value any, w io.Writer) (hash, rows uint64) {
+	t, ok := value.(*Tree)
+	if !ok || t == nil || t.ccoreLink() == nil {
+		return 0, 0
+	}
+	cp, err := bind.New(t.language)
+	if err != nil {
+		return 0, 0
+	}
+	defer cp.FinishScanner()
+	return cp.Records(t.ccoreLink(), w)
 }

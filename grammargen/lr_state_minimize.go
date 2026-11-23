@@ -12,20 +12,27 @@ func minimizeParseStates(tables *LRTables, ng *NormalizedGrammar) int {
 		return 0
 	}
 
-	strictGroups := parserStateGroups(tables, nil)
-	for {
-		next := parserStateGroups(tables, strictGroups)
-		if lenGroupSet(next) == lenGroupSet(strictGroups) {
+	before := tables.StateCount
+	referenceRows := yamlReferenceScannerRows(ng) && len(tables.CompactCoreKeys) == tables.StateCount
+	var groups []parserStateGroup
+	if referenceRows {
+		groups = partitionScannerStates(tables, ng)
+	} else {
+		strictGroups := parserStateGroups(tables, nil)
+		for {
+			next := parserStateGroups(tables, strictGroups)
+			if lenGroupSet(next) == lenGroupSet(strictGroups) {
+				strictGroups = next
+				break
+			}
 			strictGroups = next
-			break
 		}
-		strictGroups = next
-	}
 
-	groups := initialStateGroups(tables, strictGroups)
-	groups = mergeCompatibleStateGroups(groups, strictGroups, ng)
-	if len(groups) == tables.StateCount {
-		return 0
+		groups = initialStateGroups(tables, strictGroups)
+		groups = mergeCompatibleStateGroups(groups, strictGroups, ng)
+		if len(groups) == tables.StateCount {
+			return 0
+		}
 	}
 
 	startGroup := -1
@@ -44,6 +51,43 @@ func minimizeParseStates(tables *LRTables, ng *NormalizedGrammar) int {
 		groups[0], groups[startGroup] = groups[startGroup], groups[0]
 	}
 
+	if referenceRows {
+		// Elide transparent unit reductions before ordering states. External
+		// scanner row numbers are assigned on first use in this order.
+		applyRetainedGroups(tables, groups)
+		redirectTransparentUnitReductions(tables, ng)
+		pruneUnreferencedParseStates(tables)
+
+		// The error state is assembled separately. Include its leading slot
+		// in the permutation to preserve the reference's treatment of ties.
+		widths := make([]int, tables.StateCount+1)
+		for state := 0; state < tables.StateCount; state++ {
+			actions := tables.ActionTable[state]
+			width := len(tables.GotoTable[state]) + len(actions)
+			for _, extra := range ng.ExtraSymbols {
+				if extra < ng.TokenCount() && len(actions[extra]) == 0 {
+					width++
+				}
+			}
+			widths[state+1] = width
+		}
+		order := parserStateWidthOrder(widths)
+		groups = make([]parserStateGroup, tables.StateCount)
+		for index, id := range order[1:] {
+			state := id - 1
+			groups[index] = parserStateGroup{
+				states:  []int{state},
+				actions: tables.ActionTable[state],
+				gotos:   tables.GotoTable[state],
+			}
+		}
+	}
+
+	applyRetainedGroups(tables, groups)
+	return before - len(groups)
+}
+
+func applyRetainedGroups(tables *LRTables, groups []parserStateGroup) {
 	stateGroups := make([]int, tables.StateCount)
 	for groupIndex, group := range groups {
 		for _, state := range group.states {
@@ -57,12 +101,10 @@ func minimizeParseStates(tables *LRTables, ng *NormalizedGrammar) int {
 		actions[groupIndex] = remapStateActions(group.actions, stateGroups)
 		gotos[groupIndex] = remapStateGotos(group.gotos, stateGroups)
 	}
-	merged := tables.StateCount - len(groups)
 	tables.ActionTable = actions
 	tables.GotoTable = gotos
 	tables.StateCount = len(groups)
 	tables.CompactCoreKeys = nil
-	return merged
 }
 
 type parserStateGroup struct {
@@ -157,6 +199,17 @@ func stateGroupsCompatible(left, right *parserStateGroup, strictGroups []int, ng
 		}
 	}
 
+	// A subset merge can introduce external lookaheads even when only one
+	// side has new terminals. Preserve the scanner context in both directions.
+	if ng.externalLexerOnly {
+		for _, external := range ng.ExternalSymbols {
+			_, validLeft := left.actions[external]
+			_, validRight := right.actions[external]
+			if validLeft != validRight {
+				return false
+			}
+		}
+	}
 	for symbol, actions := range left.actions {
 		if other, ok := right.actions[symbol]; ok && !sameActionLists(actions, other, strictGroups) {
 			return false
