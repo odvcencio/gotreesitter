@@ -55,10 +55,7 @@ func registerScannersBoundForComparisonWithC(language string) {
 		// the key. That gives no isolation from the caller's value and tells two
 		// configurations of one type apart by nothing; the comparison with C does
 		// not need either.
-		// The generated YAML gate compares the port in the same scanner mode
-		// used by the C oracle, including the serialized payload.
-		needsMode := e.Name == "yaml"
-		scanmode.RegisterScanner(sc, payload, needsMode, func(v any) (any, []byte, bool) {
+		scanmode.RegisterScanner(sc, payload, false, func(v any) (any, []byte, bool) {
 			return v, []byte(reflect.TypeOf(v).String()), true
 		})
 		scannersBoundForComparisonWithC = append(scannersBoundForComparisonWithC, e.Name)
@@ -71,7 +68,7 @@ func registerScannersBoundForComparisonWithC(language string) {
 // bound for comparison with C by the initializer above and are not checked against C.
 func TestCcoreEveryLanguageBindsInTheHarness(t *testing.T) {
 	entries := grammars.AllLanguages()
-	checked := map[string]bool{"python": true, "javascript": true, "typescript": true, "tsx": true, "css": true, "scss": true, "less": true, "racket": true, "mojo": true, "starlark": true, "teal": true, "templ": true, "hcl": true, "bash": true, "html": true, "rust": true, "toml": true, "move": true, "yuck": true, "beancount": true, "kdl": true, "haxe": true, "dhall": true, "cooklang": true, "gn": true, "elixir": true, "jsdoc": true, "nix": true, "tablegen": true, "nushell": true, "godot_resource": true, "julia": true, "ron": true, "lua": true, "fennel": true, "dart": true, "dockerfile": true, "erlang": true, "kotlin": true, "r": true, "nim": true, "markdown_inline": true, "gitcommit": true, "powershell": true, "luau": true, "odin": true, "fish": true, "tcl": true, "liquid": true, "janet": true, "pkl": true, "editorconfig": true, "dtd": true, "org": true, "ocaml": true, "comment": true, "cue": true, "kconfig": true, "xml": true, "fortran": true, "markdown": true, "cpp": true, "sql": true, "c_sharp": true, "php": true}
+	checked := map[string]bool{"python": true, "javascript": true, "typescript": true, "tsx": true, "css": true, "scss": true, "less": true, "racket": true, "mojo": true, "starlark": true, "teal": true, "templ": true, "hcl": true, "bash": true, "html": true, "rust": true, "toml": true, "move": true, "yuck": true, "beancount": true, "kdl": true, "haxe": true, "dhall": true, "cooklang": true, "gn": true, "elixir": true, "jsdoc": true, "nix": true, "tablegen": true, "nushell": true, "godot_resource": true, "julia": true, "ron": true, "lua": true, "fennel": true, "dart": true, "dockerfile": true, "erlang": true, "kotlin": true, "r": true, "nim": true, "markdown_inline": true, "gitcommit": true, "powershell": true, "luau": true, "odin": true, "fish": true, "tcl": true, "liquid": true, "janet": true, "pkl": true, "editorconfig": true, "dtd": true, "org": true, "ocaml": true, "comment": true, "cue": true, "kconfig": true, "xml": true, "fortran": true, "markdown": true, "cpp": true, "sql": true, "c_sharp": true, "php": true, "yaml": true}
 	bound := 0
 	for _, e := range entries {
 		if _, err := bind.New(e.Language()); err != nil {

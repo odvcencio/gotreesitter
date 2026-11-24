@@ -402,6 +402,23 @@ var yamlExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(yamlExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff, 200,000 calls
+	// per run, hostile states off and truncated) with the C-faithful mode on.
+	// A Language holds the bound *YamlExternalScanner (ExternalScannerForLanguage),
+	// so the pointer type is the one the core serves.
+	scanmode.RegisterScanner((*YamlExternalScanner)(nil), (*yamlPayload)(nil), true, func(v any) (any, []byte, bool) {
+		s := v.(*YamlExternalScanner)
+		private := &YamlExternalScanner{}
+		if s.binding != nil {
+			binding := *s.binding
+			binding.externalToToken = append([]int(nil), s.binding.externalToToken...)
+			private.binding = &binding
+		}
+		return private, scannerKey(private.symbolTable()[:], private.externalToToken()), true
+	}, func(left, right any) bool {
+		a, b := left.(*YamlExternalScanner), right.(*YamlExternalScanner)
+		return scannerConfigEqual(a.symbolTable()[:], b.symbolTable()[:], a.externalToToken(), b.externalToToken())
+	})
 }
 
 // Indentation types.
@@ -565,6 +582,14 @@ func (s YamlExternalScanner) symbolTable() *[yTokCount]gotreesitter.Symbol {
 		return &yamlDefaultSymTable
 	}
 	return &s.binding.symbols
+}
+
+// externalToToken returns the bound external-to-token map, nil before binding.
+func (s YamlExternalScanner) externalToToken() []int {
+	if s.binding == nil {
+		return nil
+	}
+	return s.binding.externalToToken
 }
 
 func (YamlExternalScanner) Create() any {
