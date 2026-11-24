@@ -77,6 +77,11 @@ func testCompactR4StructuralLockedC(t *testing.T, name string, requireCompact bo
 	lang := entry.Language()
 	p := gts.NewParser(lang)
 	p.SetAdmissionCandidateRoute(true)
+	if requireCompact {
+		// The witness pins the compact route. A certified grammar's candidate
+		// requests go to the certified core; the telemetry keeps this one compact.
+		p.SetCompactCertificationTelemetry(true)
+	}
 	beforeRouted, beforeFallback := gts.AdmissionCandidateCounters()
 	var tree *gts.Tree
 	if grammars.EvaluateParseSupport(*entry, lang).Backend == grammars.ParseBackendTokenSource && entry.TokenSourceFactory != nil {

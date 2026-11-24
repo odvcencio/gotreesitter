@@ -269,13 +269,14 @@ func TestCompactRecoveryJavaScriptInsertionRegression(t *testing.T) {
 		freshDigest.SHA256, incrementalDigest.SHA256, profile.TokensConsumed, profile.NewNodesAllocated, profile.ReusedSubtrees, profile.ReusedBytes)
 }
 
-// TestCompactRecoveryYAMLRecoverEOFIncrementalCOracle compares the certified
-// recover_eof tree and proves that its uncertified scanner fails closed.
+// TestCompactRecoveryYAMLRecoverEOFIncrementalCOracle: the shipped YAML tables
+// (the yaml-core recipe) carry no compact recover_eof grant; the candidate route
+// is the certified core. Its fresh "[\n" and its incremental reparse to "[]\n"
+// equal pinned C's fresh and incremental trees.
 func TestCompactRecoveryYAMLRecoverEOFIncrementalCOracle(t *testing.T) {
-	gotreesitter.ResetAdmissionCandidateCounters()
 	goLanguage := grammars.YamlLanguage()
-	if !goLanguage.CompactRecoverEOFCertified {
-		t.Fatal("YAML recover_eof is not certified")
+	if goLanguage.CompactRecoverEOFCertified {
+		t.Fatal("the yaml-core tables carry a compact recover_eof grant")
 	}
 	cLanguage, err := ParityCLanguage("yaml")
 	if err != nil {
@@ -305,17 +306,12 @@ func TestCompactRecoveryYAMLRecoverEOFIncrementalCOracle(t *testing.T) {
 
 	goParser := gotreesitter.NewParser(goLanguage)
 	goParser.SetAdmissionCandidateRoute(true)
-	initialRoutedBefore, initialFallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	goInitial, err := goParser.Parse(source)
 	if err != nil {
-		t.Fatalf("YAML compact initial parse: %v", err)
+		t.Fatalf("YAML initial parse: %v", err)
 	}
 	t.Cleanup(goInitial.Release)
-	initialRoutedAfter, initialFallbackAfter := gotreesitter.AdmissionCandidateCounters()
-	if initialRoutedAfter-initialRoutedBefore != 1 || initialFallbackAfter-initialFallbackBefore != 0 {
-		t.Fatalf("YAML initial route counters=%d/%d, want 1/0; reason=%q", initialRoutedAfter-initialRoutedBefore, initialFallbackAfter-initialFallbackBefore, gotreesitter.AdmissionCandidateLastFallbackReason())
-	}
-	compactRecoveryAssertCParity(t, "YAML compact initial", goInitial.RootNode(), goLanguage, cInitial)
+	compactRecoveryAssertCParity(t, "YAML initial", goInitial.RootNode(), goLanguage, cInitial)
 
 	cFresh := cParser.Parse(edited, nil)
 	if cFresh == nil || cFresh.RootNode() == nil {
@@ -347,34 +343,15 @@ func TestCompactRecoveryYAMLRecoverEOFIncrementalCOracle(t *testing.T) {
 	}
 
 	goInitial.Edit(edit)
-	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
-	goIncremental, profile, err := goParser.ParseIncrementalProfiled(edited, goInitial)
+	goIncremental, _, err := goParser.ParseIncrementalProfiled(edited, goInitial)
 	if err != nil {
 		t.Fatalf("YAML Go incremental parse: %v", err)
 	}
 	if goIncremental != goInitial {
 		t.Cleanup(goIncremental.Release)
 	}
-	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
-	if routedAfter != routedBefore || fallbackAfter != fallbackBefore {
-		t.Fatalf("YAML incremental parse changed admission counters: before=%d/%d after=%d/%d", routedBefore, fallbackBefore, routedAfter, fallbackAfter)
-	}
-	if profile.ReuseUnsupportedReason == "old tree carried a compact recover_eof EOF runtime" {
-		t.Fatalf("YAML recover_eof reported the obsolete permanent bar: %+v", profile)
-	}
-	if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" ||
-		profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
-		t.Fatalf("YAML recover_eof did not fail closed for the uncertified scanner: %+v", profile)
-	}
 	compactRecoveryAssertCParity(t, "YAML incremental versus fresh C", goIncremental.RootNode(), goLanguage, cFresh)
 	compactRecoveryAssertCParity(t, "YAML incremental versus incremental C", goIncremental.RootNode(), goLanguage, cIncremental)
-	finalRuntime := goIncremental.ParseRuntime()
-	if finalRuntime.StopReason != gotreesitter.ParseStopAccepted || finalRuntime.Truncated ||
-		!finalRuntime.LastTokenWasEOF || finalRuntime.LastTokenEndByte != uint32(len(edited)) ||
-		finalRuntime.ExpectedEOFByte != uint32(len(edited)) || finalRuntime.RootEndByte != uint32(len(edited)) ||
-		finalRuntime.RootEndByte != goIncremental.RootNode().EndByte() {
-		t.Fatalf("YAML recover_eof fallback runtime=%+v, want fresh EOF at %d", finalRuntime, len(edited))
-	}
 }
 
 type compactRecoveryErrorSummary struct {
