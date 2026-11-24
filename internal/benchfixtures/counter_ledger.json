@@ -12815,7 +12815,7 @@
       "route": "default",
       "full": {
         "tokens": 106,
-        "new_nodes": 304,
+        "new_nodes": 1,
         "max_live_versions": 1,
         "multi_version_token_share_ppm": 0,
         "reused_bytes": 0,
@@ -12831,11 +12831,11 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 106,
-            "new_nodes": 306,
+            "tokens": 3,
+            "new_nodes": 1,
             "max_live_versions": 1,
             "multi_version_token_share_ppm": 0,
-            "reused_bytes": 0,
+            "reused_bytes": 1843,
             "block_splices": 0,
             "stop_reason": "accepted",
             "root_end": 1999,

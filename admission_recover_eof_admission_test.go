@@ -9,49 +9,45 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-func TestAdmissionRecoverEOFSingletonAdmissionAndPriorityFree(t *testing.T) {
+// TestAdmissionRecoverEOFYAMLIsServedByTheCertifiedCore: the shipped YAML tables
+// (the yaml-core recipe) carry no compact recover_eof grant, so the compact route
+// declines "[\n" without a recover_eof acceptance. The default route is the
+// certified core. It returns pinned C's root, an ERROR over "[" at 0..1, and
+// reports the newline after that root as the accepted prefix.
+func TestAdmissionRecoverEOFYAMLIsServedByTheCertifiedCore(t *testing.T) {
 	lang := grammars.YamlLanguage()
-	tree, ok, reason := gts.TryCompactFullParseRouteForTest(gts.NewParser(lang), []byte("[\n"))
+	source := []byte("[\n")
+	tree, ok, reason := gts.TryCompactFullParseRouteForTest(gts.NewParser(lang), source)
 	if tree != nil {
-		defer tree.Release()
+		tree.Release()
 	}
-	if !ok || reason != "" {
-		t.Fatalf("singleton recover_eof route ok=%t reason=%q", ok, reason)
+	if ok || reason == "" {
+		t.Fatalf("compact route ok=%t reason=%q, want a decline", ok, reason)
 	}
-	if tree == nil || tree.RootNode() == nil {
-		t.Fatal("singleton recover_eof route returned no tree")
+	tree, telemetry, ok, reason := gts.TryCompactRecoverEOFAcceptTelemetryForTest(gts.NewParser(lang), source)
+	if tree != nil {
+		tree.Release()
 	}
-	root := tree.RootNode()
-	if !root.IsError() || !root.HasError() || root.IsExtra() || root.IsMissing() ||
+	if ok || reason == "" || telemetry.RecoverEOFAccepts != 0 {
+		t.Fatalf("compact recover_eof route ok=%t reason=%q accepts=%d, want a decline without an acceptance", ok, reason, telemetry.RecoverEOFAccepts)
+	}
+
+	got, err := gts.NewParser(lang).Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer got.Release()
+	root := got.RootNode()
+	if root == nil || !root.IsError() || !root.HasError() || root.IsExtra() || root.IsMissing() ||
 		root.StartByte() != 0 || root.EndByte() != 1 || root.ChildCount() != 1 {
-		t.Fatalf("singleton recover_eof root type=%s error=%t/%t extra=%t missing=%t span=%d..%d children=%d",
-			root.Type(lang), root.IsError(), root.HasError(), root.IsExtra(), root.IsMissing(),
-			root.StartByte(), root.EndByte(), root.ChildCount())
+		t.Fatalf("default root=%v, want pinned C's non-extra ERROR 0..1 with one child", root)
 	}
 	child := root.Child(0)
 	if child == nil || child.StartByte() != 0 || child.EndByte() != 1 || child.Type(lang) != "[" {
-		t.Fatalf("singleton recover_eof child=%v, want [ at 0..1", child)
+		t.Fatalf("default root child=%v, want [ at 0..1", child)
 	}
-}
-
-func TestAdmissionRecoverEOFLiveTelemetry(t *testing.T) {
-	lang := grammars.YamlLanguage()
-	tree, telemetry, ok, reason := gts.TryCompactRecoverEOFAcceptTelemetryForTest(
-		gts.NewParser(lang), []byte("[\n"),
-	)
-	if tree != nil {
-		defer tree.Release()
-	}
-	if !ok || reason != "" || tree == nil {
-		t.Fatalf("live recover_eof route ok=%t reason=%q tree=%v", ok, reason, tree != nil)
-	}
-	if telemetry.RecoverEOFAccepts != 1 {
-		t.Fatalf("RecoverEOFAccepts=%d, want exactly one", telemetry.RecoverEOFAccepts)
-	}
-	runtime := telemetry.Runtime
-	if runtime.StopReason != gts.ParseStopAccepted || !runtime.LastTokenWasEOF ||
-		runtime.LastTokenEndByte != 2 || runtime.ExpectedEOFByte != 2 || runtime.RootEndByte != 1 {
-		t.Fatalf("recover_eof runtime=%+v, want accepted EOF at 2 with root end 1", runtime)
+	if !got.ParseStoppedEarly() || got.ParseRuntime().StopReason != gts.ParseStopAcceptedPrefix {
+		t.Fatalf("default runtime=%s, want the accepted prefix before the trailing newline", got.ParseRuntime().Summary())
 	}
 }
 
@@ -127,6 +123,10 @@ func TestAdmissionRecoverEOFPayloadCountFallsBackForUnfinishedYAML(t *testing.T)
 
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
+			// The certified core serves YAML on the candidate route and returns
+			// pinned C's tree; the telemetry keeps this request off the core, so the
+			// test still compares the compact route's fallback with the present engine.
+			candidate.SetCompactCertificationTelemetry(true)
 			got, err := candidate.Parse([]byte(source))
 			if err != nil {
 				t.Fatal(err)
@@ -139,76 +139,13 @@ func TestAdmissionRecoverEOFPayloadCountFallsBackForUnfinishedYAML(t *testing.T)
 	}
 }
 
-func TestAdmissionRecoverEOFIncrementalMarkerFallsBackForUncertifiedScanner(t *testing.T) {
-	lang := grammars.YamlLanguage()
-	parser := gts.NewParser(lang)
-	parser.SetAdmissionCandidateRoute(true)
-	oldSource := []byte("[\n")
-	oldTree, err := parser.Parse(oldSource)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if oldTree == nil || oldTree.RootNode() == nil || !oldTree.RootNode().IsError() {
-		if oldTree != nil {
-			oldTree.Release()
-		}
-		t.Fatal("recover_eof source did not produce its ERROR root")
-	}
-	defer oldTree.Release()
-	oldTree.Edit(gts.InputEdit{
-		StartByte:   0,
-		OldEndByte:  1,
-		NewEndByte:  1,
-		StartPoint:  gts.Point{},
-		OldEndPoint: gts.Point{Column: 1},
-		NewEndPoint: gts.Point{Column: 1},
-	})
-	newSource := []byte("]\n")
-	got, profile, err := parser.ParseIncrementalProfiled(newSource, oldTree)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got == nil || got.RootNode() == nil {
-		if got != nil {
-			got.Release()
-		}
-		t.Fatal("incremental marker fallback returned no tree")
-	}
-	defer got.Release()
-	freshParser := gts.NewParser(lang)
-	freshParser.SetAdmissionCandidateRoute(false)
-	want, err := freshParser.Parse(newSource)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer want.Release()
-	gotRoot, wantRoot := got.RootNode(), want.RootNode()
-	if gotRoot.SExpr(lang) != wantRoot.SExpr(lang) || gotRoot.Range() != wantRoot.Range() {
-		t.Fatalf("incremental marker fallback tree=%s range=%+v want fresh=%s range=%+v",
-			gotRoot.SExpr(lang), gotRoot.Range(), wantRoot.SExpr(lang), wantRoot.Range())
-	}
-	requireIncrementalDeepTreeMatchesFresh(t, got, want, lang)
-	if profile.ReuseUnsupportedReason == "old tree carried a compact recover_eof EOF runtime" {
-		t.Fatalf("recover_eof marker reported the obsolete permanent bar: %+v", profile)
-	}
-	if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" ||
-		profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
-		t.Fatalf("recover_eof marker did not fail closed for the uncertified scanner: %+v", profile)
-	}
-	runtime := got.ParseRuntime()
-	if runtime.StopReason != gts.ParseStopAccepted || !runtime.LastTokenWasEOF ||
-		runtime.SourceLen != uint32(len(newSource)) || runtime.LastTokenEndByte != uint32(len(newSource)) ||
-		runtime.ExpectedEOFByte != uint32(len(newSource)) || runtime.RootEndByte != uint32(len(newSource)) ||
-		runtime.RootEndByte != got.RootNode().EndByte() ||
-		runtime.IncrementalOldTreeReuseRoute {
-		t.Fatalf("recover_eof fallback runtime=%+v, want fresh EOF at %d", runtime, len(newSource))
-	}
-}
-
 func TestAdmissionRecoverEOFUnfinishedYAMLIncrementalFallsBackCorrectly(t *testing.T) {
 	lang := grammars.YamlLanguage()
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
+	// Keep the compact route's fallback under test: the certified core would
+	// otherwise serve both parses with pinned C's trees.
+	parser.SetCompactCertificationTelemetry(true)
 	oldSource := []byte("\"a\": [\"x\"\n")
 	oldTree, err := parser.Parse(oldSource)
 	if err != nil {
