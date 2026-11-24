@@ -21,7 +21,7 @@ has two tiers. The scope job `exhaustive_parity_scope` decides the tier once
   as passed. A job skipped for any other reason fails the gate as before.
 - **Releases** require a successful heavy-tier manual run on the candidate
   commit: `release.yml` selects it by its run name, and `cmd/releasegate`
-  reports the fact `ci_heavy_tier` that `policy/release.arb` requires. The
+  reports the fact `ci_heavy_tier` that `.github/policy/release.arb` requires. The
   nightly run does not count, because `v1_edit_sessions` and `editor_latency`
   run on manual runs only.
 - **Nightly failures** open or update one issue, `ci-nightly: heavy tier failed
