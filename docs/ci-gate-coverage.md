@@ -8,17 +8,33 @@ has two tiers. The scope job `exhaustive_parity_scope` decides the tier once
 (its output `tier`), and each run name starts with `ci [tier: light]` or
 `ci [tier: heavy]`.
 
-- **Light tier.** Every pull request, draft or ready, and every push to `main`.
-  A manual run with `-f tier=light` also runs it.
+- **Light tier.** Every pull request, draft or ready, and every push to `main`
+  or `fix/top50-parity-burndown`. A manual run with `-f tier=light` also runs
+  it. It runs the root suite without the race detector (`draft-correctness`)
+  and, in three shards, the tests of every other package without the race
+  detector (`packages_no_race`, which takes the `race_packages` lanes through
+  `go run ./cmd/citestplan -lane <name>` plus the stable `grammargen` subset).
+  Marking a draft ready starts no new run: drafts and ready PRs run the same
+  tier.
 - **Heavy tier.** The nightly run (03:17 UTC), a manual run
   (`gh workflow run ci.yml --ref <branch> -f tier=heavy`; heavy is the default),
   and a pull request with the label `ci:full`. Adding the label starts a heavy
-  run. A heavy run also runs every light job.
+  run. A heavy run runs every light job except `packages_no_race`, whose tests
+  `race_packages` and `grammargen_stable` run with `-race`.
+- **Path-scoped jobs, both tiers.** `ccore-equality-cgo` runs in a light run
+  when the change touches the certified core or its inputs; the scope step
+  lists the paths, and `cmd/citestplan` checks that the list covers every file
+  under `internal/ccore/` and every package that `ccore_bind.go` and
+  `ccore_scanner.go` import. `parity-cgo-exhaustive` runs whenever the scope
+  sets `run_exhaustive`: on every nightly and manual run, and on a pull request
+  (light or heavy) that touches parser-result, C-recovery, or C-oracle files.
 - **Docs-only pull requests** still skip every code job; `build` passes after
   the scope job's file and whitespace checks.
 - **The required check** stays `build`. It requires every job that the tier
   expects. A job that the tier leaves out must be skipped, and that skip counts
   as passed. A job skipped for any other reason fails the gate as before.
+- **Manual runs** each have a concurrency group of their own, so a light manual
+  run cannot cancel the heavy manual run that a release needs.
 - **Releases** require a successful heavy-tier manual run on the candidate
   commit: `release.yml` selects it by its run name, and `cmd/releasegate`
   reports the fact `ci_heavy_tier` that `.github/policy/release.arb` requires. The
@@ -27,22 +43,23 @@ has two tiers. The scope job `exhaustive_parity_scope` decides the tier once
 - **Nightly failures** open or update one issue, `ci-nightly: heavy tier failed
   on main` (job `nightly_failure_issue`, script
   `.github/scripts/ci_nightly_issue.py`). The next nightly run whose `build`
-  passes closes it.
+  passes closes it; a cancelled nightly run changes nothing.
 - **Other workflows.** `cliff-report.yml` measures a pull request only when it
-  has the label `ci:full`, and still runs nightly and on manual runs (10.6
-  minutes on a ready pull request on 24 November 2026). `grammar-receipts.yml`
-  stays on pull requests: it is limited to the changed grammars (at most 8) or
-  a 3-grammar smoke set (1.9 job-minutes on the same pull request).
-  `repository-hygiene.yml` runs on every pull request. `cross-platform-smoke.yml`
-  and `perf-scan-gate.yml` never ran on pull requests.
+  has the label `ci:full`, keeps one run per pull request, and still runs
+  nightly and on manual runs (10.6 minutes on a ready pull request on 24
+  November 2026). `grammar-receipts.yml` stays on pull requests: it is limited
+  to the changed grammars (at most 8) or a 3-grammar smoke set (1.9 job-minutes
+  on the same pull request). `repository-hygiene.yml` runs on every pull
+  request. `cross-platform-smoke.yml` and `perf-scan-gate.yml` never ran on pull
+  requests.
 
-In the table, PR means any pull request, push means a push to `main`, manual
-run means `workflow_dispatch` (heavy unless `tier: light`), and nightly means
-the schedule. Every job except the scope job and `build` also needs code CI
-(`run_code_ci`), which a docs-only pull request turns off.
-`cmd/citestplan/tiers_test.go` holds the same tier list and fails when a job has
-no tier, when a heavy job lacks the tier test, or when `build` does not bind a
-job's result.
+In the table, PR means any pull request, push means a push to `main` or
+`fix/top50-parity-burndown`, manual run means `workflow_dispatch` (heavy unless
+`tier: light`), and nightly means the schedule. Every job except the scope job
+and `build` also needs code CI (`run_code_ci`), which a docs-only pull request
+turns off. `cmd/citestplan/tiers_test.go` holds the same tier list and fails
+when a job has no tier, when a heavy or light-only job lacks its tier test, or
+when `build` does not bind a job's result.
 
 | Job id | Tier | Events | In `build` | Other conditions |
 |---|---|---|---|---|
@@ -63,7 +80,9 @@ job's result.
 | `apidiff` | light | PR, push, manual run, nightly | yes |  |
 | `pr_commit_buildability` | light | PR | yes |  |
 | `parity-cgo` | light | PR, push, manual run, nightly | yes |  |
+| `packages_no_race` | light only | PR, push, light manual run | yes | a heavy run skips it: race jobs cover the same tests |
 | `ccore-equality-cgo` | heavy; light when scoped | every event | yes | light tier: the change touches the certified core |
+| `parity-cgo-exhaustive` | both (scoped) | PR, manual run, nightly | yes | the scope sets `run_exhaustive`: always on nightly and manual runs, path-scoped on a PR, never on a push |
 | `race_root_shards` | heavy | PR with `ci:full`, manual run, nightly | through `race_root` |  |
 | `root_race_plan` | heavy | PR with `ci:full`, manual run, nightly | through `race_root` |  |
 | `race_root_isolated` | heavy | PR with `ci:full`, manual run, nightly | through `race_root` |  |
@@ -79,7 +98,6 @@ job's result.
 | `compact-t3-oracle-cgo` | heavy | PR with `ci:full`, manual run, nightly | yes |  |
 | `merge-event-census-cgo` | heavy | PR with `ci:full`, manual run, nightly | yes |  |
 | `grammar-lock-stamp-receipts-cgo` | heavy | PR with `ci:full`, manual run, nightly | yes |  |
-| `parity-cgo-exhaustive` | heavy | PR with `ci:full`, manual run, nightly | yes | the scope sets `run_exhaustive` |
 | `perf-regression` | heavy | PR with `ci:full` | no |  |
 | `nightly_failure_issue` | reporting | nightly, after `build` | no | never changes the verdict |
 

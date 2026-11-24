@@ -81,17 +81,18 @@ Report a parser bug with the parser report issue form, with a minimal input.
 
 Every pull request, draft or ready, runs the light tier of
 `.github/workflows/ci.yml`. It builds, vets, and checks the layout and API, runs
-the root test suite without the race detector and the focused tests, checks the
-counter ledger, and compares a smoke set with pinned C (`parity-cgo`). A change
-to the certified core (`internal/ccore/`, `ccore_bind.go`,
-`testdata/ccore_certificates.json`, or `grammars/grammar_blobs/`) also runs
-`ccore-equality-cgo`. The required check `build` passes when every job of the
-tier passes.
+the root test suite and the tests of every other package without the race
+detector, runs the focused tests, checks the counter ledger, and compares a
+smoke set with pinned C (`parity-cgo`). A change to the certified core or its
+inputs (for example `internal/ccore/`, `ccore_bind.go`, `cgo_harness/`, or
+`grammars/grammar_blobs/`) also runs `ccore-equality-cgo`, and a change to the
+parser-result or C-recovery files also runs the exhaustive comparison with
+pinned C. The required check `build` passes when every job of the tier passes.
 
 The heavy tier adds the race detector, the other comparisons with pinned C, the
 editor-latency timing gate, and the WebAssembly builds. To run it on a pull
-request, ask a maintainer to add the label `ci:full`, or start it on your
-branch:
+request, ask a maintainer to add the label `ci:full`. A maintainer can also
+start it on a branch of this repository:
 
 ```sh
 gh workflow run ci.yml --ref <branch> -f tier=heavy
