@@ -329,7 +329,7 @@ var dispatcherTranscriptState struct {
 // records this process has recorded so far, keyed by dispatcher arm/subpass
 // ID (the same "dispatch.<name>" / "dispatch.<name>.<subpass>" IDs the
 // records themselves carry as Arm, matching
-// testdata/result_compat_ownership_v1.json's entry IDs). It is safe to call
+// internal/compat/result_compat_ownership_v1.json's entry IDs). It is safe to call
 // whether or not GTS_DISPATCHER_TRANSCRIPT is set: the map is empty when the
 // transcript never ran.
 func dispatcherTranscriptSummary() map[string]uint64 {

@@ -89,9 +89,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          arbiter check policy/release.arb
-          arbiter fmt --check policy/release.arb policy/release.test.arb
-          arbiter test policy/release.test.arb
+          arbiter check .github/policy/release.arb
+          arbiter fmt --check .github/policy/release.arb .github/policy/release.test.arb
+          arbiter test .github/policy/release.test.arb
 
       - id: facts
         name: Collect main and hosted check facts
@@ -125,16 +125,21 @@ jobs:
             exit 1
           fi
 
+          # A release needs a heavy-tier manual run: ci.yml names it
+          # "ci [tier: heavy] ...". The nightly heavy run does not qualify,
+          # because v1_edit_sessions and editor_latency run on manual runs only.
           jq --arg sha "$CANDIDATE_SHA" \
             '[.workflow_runs[] | select(
               .head_sha == $sha
               and .status == "completed"
               and .event == "workflow_dispatch"
+              and ((.display_title // "") | startswith("ci [tier: heavy] "))
             )] | sort_by([.run_number, .run_attempt]) | last' \
             "$response" > "$RUNNER_TEMP/ci-run.json"
 
           ci_run_id=""
           ci_run_url=""
+          ci_run_name=""
           ci_event=""
           ci_sha=""
           ci_conclusion=""
@@ -142,6 +147,8 @@ jobs:
           if jq -e '. != null' "$RUNNER_TEMP/ci-run.json" >/dev/null; then
             ci_run_id="$(jq -r '.id | tostring' "$RUNNER_TEMP/ci-run.json")"
             ci_run_url="$(jq -r '.html_url // ""' "$RUNNER_TEMP/ci-run.json")"
+            # One line: the name becomes a step output.
+            ci_run_name="$(jq -r '.display_title // "" | gsub("[\\r\\n]"; " ")' "$RUNNER_TEMP/ci-run.json")"
             ci_event="$(jq -r '.event // ""' "$RUNNER_TEMP/ci-run.json")"
             ci_sha="$(jq -r '.head_sha // ""' "$RUNNER_TEMP/ci-run.json")"
             ci_conclusion="$(jq -r '.conclusion // ""' "$RUNNER_TEMP/ci-run.json")"
@@ -153,6 +160,7 @@ jobs:
             echo "latest_tag=$latest_tag"
             echo "ci_run_id=$ci_run_id"
             echo "ci_run_url=$ci_run_url"
+            echo "ci_run_name=$ci_run_name"
             echo "ci_event=$ci_event"
             echo "ci_sha=$ci_sha"
             echo "ci_conclusion=$ci_conclusion"
@@ -203,6 +211,9 @@ jobs:
 
       - name: Validate release evidence
         shell: bash
+        env:
+          # The run name holds a branch name: pass it as data, not as script text.
+          CI_RUN_NAME: ${{ steps.facts.outputs.ci_run_name }}
         run: |
           set -euo pipefail
           output="$RUNNER_TEMP/releasegate-verify"
@@ -216,6 +227,7 @@ jobs:
             -latest-tag "${{ steps.facts.outputs.latest_tag }}" \
             -ci-run-id "${{ steps.facts.outputs.ci_run_id }}" \
             -ci-run-url "${{ steps.facts.outputs.ci_run_url }}" \
+            -ci-run-name "$CI_RUN_NAME" \
             -ci-event "${{ steps.facts.outputs.ci_event }}" \
             -ci-sha "${{ steps.facts.outputs.ci_sha }}" \
             -ci-conclusion "${{ steps.facts.outputs.ci_conclusion }}" \
@@ -230,7 +242,7 @@ jobs:
         run: |
           set -euo pipefail
           output="$RUNNER_TEMP/releasegate-verify"
-          arbiter strategy policy/release.arb \
+          arbiter strategy .github/policy/release.arb \
             --name ReleasePublication \
             --data "$(jq --compact-output . "$output/policy-facts.json")" \
             > "$output/policy-decision.json"
@@ -326,16 +338,21 @@ jobs:
             exit 1
           fi
 
+          # A release needs a heavy-tier manual run: ci.yml names it
+          # "ci [tier: heavy] ...". The nightly heavy run does not qualify,
+          # because v1_edit_sessions and editor_latency run on manual runs only.
           jq --arg sha "$CANDIDATE_SHA" \
             '[.workflow_runs[] | select(
               .head_sha == $sha
               and .status == "completed"
               and .event == "workflow_dispatch"
+              and ((.display_title // "") | startswith("ci [tier: heavy] "))
             )] | sort_by([.run_number, .run_attempt]) | last' \
             "$response" > "$RUNNER_TEMP/ci-run.json"
 
           ci_run_id=""
           ci_run_url=""
+          ci_run_name=""
           ci_event=""
           ci_sha=""
           ci_conclusion=""
@@ -343,6 +360,8 @@ jobs:
           if jq -e '. != null' "$RUNNER_TEMP/ci-run.json" >/dev/null; then
             ci_run_id="$(jq -r '.id | tostring' "$RUNNER_TEMP/ci-run.json")"
             ci_run_url="$(jq -r '.html_url // ""' "$RUNNER_TEMP/ci-run.json")"
+            # One line: the name becomes a step output.
+            ci_run_name="$(jq -r '.display_title // "" | gsub("[\\r\\n]"; " ")' "$RUNNER_TEMP/ci-run.json")"
             ci_event="$(jq -r '.event // ""' "$RUNNER_TEMP/ci-run.json")"
             ci_sha="$(jq -r '.head_sha // ""' "$RUNNER_TEMP/ci-run.json")"
             ci_conclusion="$(jq -r '.conclusion // ""' "$RUNNER_TEMP/ci-run.json")"
@@ -354,6 +373,7 @@ jobs:
             echo "latest_tag=$latest_tag"
             echo "ci_run_id=$ci_run_id"
             echo "ci_run_url=$ci_run_url"
+            echo "ci_run_name=$ci_run_name"
             echo "ci_event=$ci_event"
             echo "ci_sha=$ci_sha"
             echo "ci_conclusion=$ci_conclusion"
@@ -401,6 +421,9 @@ jobs:
 
       - name: Revalidate release evidence
         shell: bash
+        env:
+          # The run name holds a branch name: pass it as data, not as script text.
+          CI_RUN_NAME: ${{ steps.facts.outputs.ci_run_name }}
         run: |
           set -euo pipefail
           output="$RUNNER_TEMP/releasegate-publish"
@@ -414,6 +437,7 @@ jobs:
             -latest-tag "${{ steps.facts.outputs.latest_tag }}" \
             -ci-run-id "${{ steps.facts.outputs.ci_run_id }}" \
             -ci-run-url "${{ steps.facts.outputs.ci_run_url }}" \
+            -ci-run-name "$CI_RUN_NAME" \
             -ci-event "${{ steps.facts.outputs.ci_event }}" \
             -ci-sha "${{ steps.facts.outputs.ci_sha }}" \
             -ci-conclusion "${{ steps.facts.outputs.ci_conclusion }}" \
@@ -428,7 +452,7 @@ jobs:
         run: |
           set -euo pipefail
           output="$RUNNER_TEMP/releasegate-publish"
-          arbiter strategy policy/release.arb \
+          arbiter strategy .github/policy/release.arb \
             --name ReleasePublication \
             --data "$(jq --compact-output . "$output/policy-facts.json")" \
             > "$output/policy-decision.json"

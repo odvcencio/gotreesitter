@@ -1375,16 +1375,19 @@ func (q *Query) isPatternDisabled(patternIndex int) bool {
 	return disabled
 }
 
-// SetValues returns the values of a #set! directive with the given key
-// for a match's pattern, or nil if not present. This is used by
-// InjectionParser to read injection.language metadata.
+// SetValues returns the values of the #set! directive with the given key for a
+// match's pattern, or nil if not present. When a pattern sets the same key more
+// than once, the last directive wins, as in highlight priorities and in
+// tree-sitter's JavaScript binding. This is used by InjectionParser to read
+// injection.language metadata.
 func (m QueryMatch) SetValues(q *Query, key string) []string {
 	if q == nil || m.PatternIndex < 0 || m.PatternIndex >= len(q.patterns) {
 		return nil
 	}
-	for _, pred := range q.patterns[m.PatternIndex].predicates {
-		if pred.kind == predicateSet && pred.literal == key {
-			return pred.values
+	preds := q.patterns[m.PatternIndex].predicates
+	for i := len(preds) - 1; i >= 0; i-- {
+		if preds[i].kind == predicateSet && preds[i].literal == key {
+			return preds[i].values
 		}
 	}
 	return nil

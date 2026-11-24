@@ -120,7 +120,7 @@ Agents working with gotreesitter should use the [using-gotreesitter](https://git
 | Build tags and environment variables | [docs/build-tags.md](docs/build-tags.md) |
 | Supported languages, query feature matrix, adding a language | [docs/languages.md](docs/languages.md) |
 | Building, testing, and sending a pull request | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Benchmarks and methodology | [BENCH.md](BENCH.md) |
+| Benchmarks and methodology | [docs/benchmarks.md](docs/benchmarks.md) |
 | Engine requirements and validation | [docs/v1-design.md](docs/v1-design.md) |
 | Docs site and playground | <https://gotreesitter.m31labs.dev>, <https://gotreesitter.m31labs.dev/playground> |
 | Root package file map and ownership | [docs/repository-map.md](docs/repository-map.md) |

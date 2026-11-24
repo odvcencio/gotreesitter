@@ -1143,22 +1143,61 @@ func parityGitOutput(repoDir string, args ...string) (string, error) {
 	return "", fmt.Errorf("git %s: %s", strings.Join(gitArgs, " "), msg)
 }
 
+// parityCloneRetryPause is the wait before the one extra clone attempt.
+var parityCloneRetryPause = 2 * time.Second
+
+// clonePinnedRepo clones repoURL into dest. A clone that fails part-way leaves
+// a non-empty dest, which would make every later clone into it fail with
+// "already exists and is not an empty directory", so dest is removed after each
+// failed attempt. A failed clone is tried once more after a short pause.
 func clonePinnedRepo(repoURL, commit, dest string) error {
-	if err := runCommandRetry("", 4, "git", "clone", "--depth=1", repoURL, dest); err != nil {
-		// Fallback to a full clone if shallow clone repeatedly fails with a
-		// transient GitHub transport error.
-		if retryableCommandError(err) {
-			if fullErr := runCommandRetry("", 2, "git", "clone", repoURL, dest); fullErr == nil {
-				goto checkout
-			} else {
-				return fullErr
-			}
-		}
+	err := clonePinnedRepoOnce(repoURL, dest)
+	if err != nil {
+		time.Sleep(parityCloneRetryPause)
+		err = clonePinnedRepoOnce(repoURL, dest)
+	}
+	if err != nil {
 		return err
 	}
-
-checkout:
 	return clonePinnedCheckout(commit, dest)
+}
+
+func clonePinnedRepoOnce(repoURL, dest string) error {
+	err := runCloneRetry(dest, 4, "clone", "--depth=1", repoURL, dest)
+	if err != nil && retryableCommandError(err) {
+		// Fall back to a full clone if shallow clone repeatedly fails with a
+		// transient GitHub transport error.
+		err = runCloneRetry(dest, 2, "clone", repoURL, dest)
+	}
+	return err
+}
+
+// runCloneRetry runs git with args like runCommandRetry and removes dest after
+// every failed attempt.
+func runCloneRetry(dest string, attempts int, args ...string) error {
+	if attempts < 1 {
+		attempts = 1
+	}
+	var lastErr error
+	for i := 0; i < attempts; i++ {
+		err := runCommand("", "git", args...)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if rmErr := os.RemoveAll(dest); rmErr != nil {
+			return fmt.Errorf("%w (and removing %s failed: %v)", err, dest, rmErr)
+		}
+		if !retryableCommandError(err) || i == attempts-1 {
+			break
+		}
+		delay := time.Duration(i+1) * time.Second
+		if delay > 5*time.Second {
+			delay = 5 * time.Second
+		}
+		time.Sleep(delay)
+	}
+	return lastErr
 }
 
 func clonePinnedCheckout(commit, dest string) error {

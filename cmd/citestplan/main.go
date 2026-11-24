@@ -1,4 +1,10 @@
 // Command citestplan checks host race-build test packages against the CI workflow.
+//
+// CI has two tiers. The light tier (every pull request and push) skips the race
+// lanes; the heavy tier (the nightly run, a manual run, a pull request labeled
+// ci:full, and the run that a release requires) runs them. The plan requires
+// every host race-build test package to have a race lane, and every race lane
+// job to run in every heavy-tier run.
 package main
 
 import (
@@ -30,6 +36,7 @@ type lane struct {
 }
 
 type job struct {
+	If       string `yaml:"if"`
 	Strategy struct {
 		Matrix struct {
 			Include []lane `yaml:"include"`
@@ -114,7 +121,7 @@ func run(path, selectedLane string, out io.Writer) error {
 	for _, name := range names {
 		fmt.Fprintf(out, "%s: %d test packages\n", name, len(plan[name]))
 	}
-	fmt.Fprintln(out, "Host race-build test packages have declared execution lanes.")
+	fmt.Fprintln(out, "Host race-build test packages have declared execution lanes; every heavy-tier run runs them.")
 	return nil
 }
 
@@ -135,10 +142,28 @@ func decodePackages(r io.Reader) ([]packageInfo, error) {
 	}
 }
 
+// heavyTierTerms are condition terms that could skip a race lane in a
+// heavy-tier run: a light-tier test, an event test, or a draft test.
+var heavyTierTerms = []string{"tier == 'light'", "tier != 'heavy'", "github.event", "draft"}
+
+// checkHeavyTier rejects a race lane job whose condition could skip it in a
+// heavy-tier run. A lane may skip the light tier.
+func checkHeavyTier(name string, j job) error {
+	for _, term := range heavyTierTerms {
+		if strings.Contains(j.If, term) {
+			return fmt.Errorf("race lane job %s can skip a heavy-tier run: its condition tests %q", name, term)
+		}
+	}
+	return nil
+}
+
 func buildPlan(module string, packages []packageInfo, wf workflow) (map[string][]string, error) {
 	lanes := wf.Jobs["race_packages"].Strategy.Matrix.Include
 	if len(lanes) == 0 {
 		return nil, errors.New("race_packages has no execution lanes")
+	}
+	if err := checkHeavyTier("race_packages", wf.Jobs["race_packages"]); err != nil {
+		return nil, err
 	}
 	plan := make(map[string][]string)
 	filters := make(map[string]*regexp.Regexp)
@@ -177,6 +202,9 @@ func buildPlan(module string, packages []packageInfo, wf workflow) (map[string][
 			}
 			if !found {
 				return nil, fmt.Errorf("dedicated job %s does not execute %s", owner.job, p.ImportPath)
+			}
+			if err := checkHeavyTier(owner.job, wf.Jobs[owner.job]); err != nil {
+				return nil, err
 			}
 			continue
 		}

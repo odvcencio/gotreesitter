@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestReleaseFactsRecordLosAngelesWeekdayAcrossUTCBoundary(t *testing.T) {
@@ -138,12 +140,13 @@ func TestCompletionAgeFactsPreserveBoundary(t *testing.T) {
 func TestHostedCheckFactsAreIndependent(t *testing.T) {
 	input := plannedInput(t, time.Date(2026, 7, 31, 2, 0, 0, 0, time.UTC))
 	input.CIEvent = "push"
+	input.CIRunName = "ci [tier: light] push main"
 	input.CISHA = ""
 	input.CIConclusion = "failure"
 	input.CICompletedAt = input.Now.Add(time.Hour).Format(time.RFC3339)
 	result := collect(t, input)
 	facts := result.PolicyFacts.Evidence
-	if facts.CIExactCandidate || facts.CIFullDispatch || facts.CISuccessful || facts.CICompletionNotFuture {
+	if facts.CIExactCandidate || facts.CIFullDispatch || facts.CIHeavyTier || facts.CISuccessful || facts.CICompletionNotFuture {
 		t.Fatalf("unexpected hosted check facts: %+v", facts)
 	}
 }
@@ -160,12 +163,74 @@ func TestHostedCheckFullDispatchFactRequiresManualEvent(t *testing.T) {
 	}
 }
 
+// A release needs a heavy-tier run: the run name that ci.yml gives it states
+// the tier. A light-tier manual run, a name without a tier, or a tier that only
+// appears later in the name (a pull request title, for example) does not count.
+func TestHostedCheckHeavyTierFactRequiresHeavyRunName(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		want bool
+	}{
+		{"ci [tier: heavy] workflow_dispatch main", true},
+		{"ci [tier: light] workflow_dispatch main", false},
+		{"ci", false},
+		{"", false},
+		{"ci [tier: heavy]", false},
+		{"ci [tier: light] #12 ci [tier: heavy] spoof", false},
+		{"CI [tier: heavy] workflow_dispatch main", false},
+	} {
+		input := plannedInput(t, time.Date(2026, 7, 31, 2, 0, 0, 0, time.UTC))
+		input.CIRunName = tc.name
+		result := collect(t, input)
+		if got := result.PolicyFacts.Evidence.CIHeavyTier; got != tc.want {
+			t.Errorf("run name %q: heavy tier = %t, want %t", tc.name, got, tc.want)
+		}
+		if tc.want && result.CIRun.Tier != "heavy" {
+			t.Errorf("run name %q: evidence tier = %q", tc.name, result.CIRun.Tier)
+		}
+	}
+}
+
+// The release workflow selects runs by the prefix that ci.yml's run name
+// starts with; the two files must agree, or no run ever qualifies.
+func TestReleaseWorkflowSelectsTheCIRunNamePrefix(t *testing.T) {
+	ci, err := os.ReadFile("../../.github/workflows/ci.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		RunName string `yaml:"run-name"`
+	}
+	if err := yaml.Unmarshal(ci, &workflow); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(workflow.RunName, "ci [tier: ${{ ") || !strings.Contains(workflow.RunName, "&& 'heavy' || 'light' }}] ") {
+		t.Fatalf("ci.yml run-name must start with \"ci [tier: <heavy or light>] \": %q", workflow.RunName)
+	}
+	if got := ciRunTier("ci [tier: heavy] workflow_dispatch main"); got != "heavy" {
+		t.Fatalf("validator reads tier %q", got)
+	}
+	release, err := os.ReadFile("../../.github/workflows/release.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(release)
+	if got := strings.Count(text, `startswith("ci [tier: heavy] ")`); got != 2 {
+		t.Fatalf("release.yml must select heavy-tier runs in verify and in publish; found %d selections", got)
+	}
+	if got := strings.Count(text, `-ci-run-name "$CI_RUN_NAME"`); got != 2 {
+		t.Fatalf("release.yml must pass the run name to the validator through the environment twice; found %d", got)
+	}
+}
+
 func TestSummaryIncludesExactHostedRunIdentity(t *testing.T) {
 	input := plannedInput(t, time.Date(2026, 7, 31, 2, 0, 0, 0, time.UTC))
 	summary := collect(t, input).Summary
 	for _, expected := range []string{
 		input.CIRunID,
 		input.CIRunURL,
+		input.CIRunName,
+		"Hosted CI tier: `heavy`",
 		input.CIEvent,
 		input.CISHA,
 		input.CIConclusion,
@@ -338,7 +403,7 @@ func TestWriteResultEmitsDeterministicPolicyFactsAndCIRun(t *testing.T) {
 	if err := json.Unmarshal(content, &decoded); err != nil {
 		t.Fatalf("decode policy facts: %v", err)
 	}
-	if decoded.Release.Kind != "planned-minor" || !decoded.Evidence.CIExactCandidate || !decoded.Evidence.CIFullDispatch {
+	if decoded.Release.Kind != "planned-minor" || !decoded.Evidence.CIExactCandidate || !decoded.Evidence.CIFullDispatch || !decoded.Evidence.CIHeavyTier {
 		t.Fatalf("decoded policy facts = %+v", decoded)
 	}
 	content, err = os.ReadFile(filepath.Join(directory, "ci-run.json"))
@@ -374,6 +439,7 @@ func plannedInput(t *testing.T, now time.Time) validationInput {
 		LatestTag:          "v0.47.0",
 		CIRunID:            "29892922471",
 		CIRunURL:           "https://github.com/odvcencio/gotreesitter/actions/runs/29892922471",
+		CIRunName:          "ci [tier: heavy] workflow_dispatch main",
 		CIEvent:            "workflow_dispatch",
 		CISHA:              strings.Repeat("a", 40),
 		CIConclusion:       "success",
@@ -401,6 +467,7 @@ func urgentInput(t *testing.T, now time.Time) validationInput {
 		LatestTag:          "v0.47.0",
 		CIRunID:            "29892922471",
 		CIRunURL:           "https://github.com/odvcencio/gotreesitter/actions/runs/29892922471",
+		CIRunName:          "ci [tier: heavy] workflow_dispatch main",
 		CIEvent:            "workflow_dispatch",
 		CISHA:              strings.Repeat("b", 40),
 		CIConclusion:       "success",

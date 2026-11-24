@@ -5,6 +5,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	"github.com/odvcencio/gotreesitter/internal/ccore/certified/certifiedtest"
+	"runtime"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -822,6 +823,21 @@ func CcoreTestDrainPool(l *Language) {
 	for st.pool.Get() != nil {
 	}
 	ccore.DropPooledPages()
+}
+
+// CcoreTestEmptyPool empties the language's pool of core parsers for every P
+// (a processor of the Go scheduler), then the page pool, so that the next
+// request leases a new parser with no buffers. CcoreTestDrainPool cannot
+// promise that: the parser pool is a sync.Pool, whose Get takes from the
+// shared queues of other Ps but not from their private slots, so a parser that
+// another P keeps survives the drain, and a request that later runs on that P
+// leases it with the buffers of an earlier parse. A collection moves the pool
+// to its victim cache and the next one drops the victim cache, so two
+// collections empty every slot.
+func CcoreTestEmptyPool(l *Language) {
+	runtime.GC()
+	runtime.GC()
+	CcoreTestDrainPool(l)
 }
 func CcoreTestPooledRecords(l *Language) int {
 	st := ccoreTestState(l)

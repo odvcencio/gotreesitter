@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -143,4 +144,48 @@ func runPinnedTestGit(t *testing.T, repoDir string, args ...string) string {
 		t.Fatalf("git %s: %v\n%s", strings.Join(gitArgs, " "), err, out)
 	}
 	return string(out)
+}
+
+// TestClonePinnedRepoRemovesPartialCloneAndRetries makes the first git clone
+// fail after it leaves files in the destination, as a dropped connection does.
+func TestClonePinnedRepoRemovesPartialCloneAndRetries(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a shell script as the fake git")
+	}
+	old := parityCloneRetryPause
+	parityCloneRetryPause = 0
+	t.Cleanup(func() { parityCloneRetryPause = old })
+
+	binDir := t.TempDir()
+	count := filepath.Join(binDir, "count")
+	script := `#!/bin/sh
+dest=""
+for a in "$@"; do dest="$a"; done
+n=$(cat "` + count + `" 2>/dev/null || echo 0)
+n=$((n+1))
+echo $n > "` + count + `"
+if [ -d "$dest" ] && [ -n "$(ls -A "$dest")" ]; then
+  echo "fatal: destination path '$dest' already exists and is not an empty directory." >&2
+  exit 128
+fi
+mkdir -p "$dest"
+echo partial > "$dest/partial"
+if [ "$n" -eq 1 ]; then
+  echo "fatal: early EOF" >&2
+  exit 128
+fi
+rm "$dest/partial"
+`
+	if err := os.WriteFile(filepath.Join(binDir, "git"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	dest := filepath.Join(t.TempDir(), "repo")
+	if err := clonePinnedRepo("https://example.invalid/x.git", "", dest); err != nil {
+		t.Fatalf("clone after one failed attempt: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "partial")); !os.IsNotExist(err) {
+		t.Fatalf("partial file stat error=%v, want the failed clone removed", err)
+	}
 }
