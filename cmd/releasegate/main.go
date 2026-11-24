@@ -18,6 +18,10 @@ var (
 	releaseVersionPattern       = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 	shaPattern                  = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	signedSporeReceiptIDPattern = regexp.MustCompile(`^hypha-receipt:([0-9]{4}-[0-9]{2}-[0-9]{2}):([a-z0-9][a-z0-9-]*)$`)
+	// ci.yml names each run "ci [tier: light|heavy] ...". A release needs the
+	// heavy tier: the light tier, which pull requests run, skips the race,
+	// cgo, timing and wasm gates.
+	ciRunNameTierPattern = regexp.MustCompile(`^ci \[tier: (light|heavy)\] `)
 )
 
 type releaseVersion struct {
@@ -36,6 +40,7 @@ type validationInput struct {
 	LatestTag          string
 	CIRunID            string
 	CIRunURL           string
+	CIRunName          string
 	CIEvent            string
 	CISHA              string
 	CIConclusion       string
@@ -60,6 +65,7 @@ type evidencePolicyFacts struct {
 	MainExactCandidate      bool `json:"main_exact_candidate"`
 	CIExactCandidate        bool `json:"ci_exact_candidate"`
 	CIFullDispatch          bool `json:"ci_full_dispatch"`
+	CIHeavyTier             bool `json:"ci_heavy_tier"`
 	CISuccessful            bool `json:"ci_successful"`
 	CICompletionNotFuture   bool `json:"ci_completion_not_future"`
 	TagAbsent               bool `json:"tag_absent"`
@@ -81,6 +87,8 @@ type policyFacts struct {
 type ciRunEvidence struct {
 	RunID       string `json:"run_id"`
 	URL         string `json:"url"`
+	RunName     string `json:"run_name"`
+	Tier        string `json:"tier"`
 	Event       string `json:"event"`
 	SHA         string `json:"sha"`
 	Conclusion  string `json:"conclusion"`
@@ -108,6 +116,7 @@ func main() {
 	flag.StringVar(&input.LatestTag, "latest-tag", "", "latest stable tag")
 	flag.StringVar(&input.CIRunID, "ci-run-id", "", "hosted check run identifier")
 	flag.StringVar(&input.CIRunURL, "ci-run-url", "", "hosted check run URL")
+	flag.StringVar(&input.CIRunName, "ci-run-name", "", "hosted check run name, which carries the CI tier")
 	flag.StringVar(&input.CIEvent, "ci-event", "", "hosted check run event")
 	flag.StringVar(&input.CISHA, "ci-sha", "", "hosted check commit")
 	flag.StringVar(&input.CIConclusion, "ci-conclusion", "", "hosted check conclusion")
@@ -192,6 +201,7 @@ func collectReleaseEvidence(input validationInput) (validationResult, error) {
 			MainExactCandidate:      input.MainExactCandidate,
 			CIExactCandidate:        input.CISHA == input.CandidateSHA,
 			CIFullDispatch:          input.CIEvent == "workflow_dispatch",
+			CIHeavyTier:             ciRunTier(input.CIRunName) == "heavy",
 			CISuccessful:            input.CIConclusion == "success",
 			CICompletionNotFuture:   completionErr == nil && !now.Before(completedAt),
 			TagAbsent:               input.TagAbsent,
@@ -214,12 +224,24 @@ func collectReleaseEvidence(input validationInput) (validationResult, error) {
 		CIRun: ciRunEvidence{
 			RunID:       input.CIRunID,
 			URL:         input.CIRunURL,
+			RunName:     input.CIRunName,
+			Tier:        ciRunTier(input.CIRunName),
 			Event:       input.CIEvent,
 			SHA:         input.CISHA,
 			Conclusion:  input.CIConclusion,
 			CompletedAt: input.CICompletedAt,
 		},
 	}, nil
+}
+
+// ciRunTier returns the tier that a ci.yml run name states, or "" when the
+// name states none.
+func ciRunTier(runName string) string {
+	match := ciRunNameTierPattern.FindStringSubmatch(runName)
+	if match == nil {
+		return ""
+	}
+	return match[1]
 }
 
 func classifyVersionIncrement(version, latest releaseVersion) string {
@@ -301,6 +323,8 @@ func buildSummary(
 	fmt.Fprintf(&summary, "- Release time: `%s`\n", localNow.Format(time.RFC3339))
 	fmt.Fprintf(&summary, "- Hosted CI run ID: `%s`\n", input.CIRunID)
 	fmt.Fprintf(&summary, "- Hosted CI run URL: `%s`\n", input.CIRunURL)
+	fmt.Fprintf(&summary, "- Hosted CI run name: `%s`\n", input.CIRunName)
+	fmt.Fprintf(&summary, "- Hosted CI tier: `%s`\n", ciRunTier(input.CIRunName))
 	fmt.Fprintf(&summary, "- Hosted CI event: `%s`\n", input.CIEvent)
 	fmt.Fprintf(&summary, "- Hosted CI commit: `%s`\n", input.CISHA)
 	fmt.Fprintf(&summary, "- Hosted CI conclusion: `%s`\n", input.CIConclusion)
