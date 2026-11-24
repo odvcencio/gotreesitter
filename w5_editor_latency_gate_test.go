@@ -1521,11 +1521,12 @@ func ccoreViewsMadeNow() int64 { _, made, _ := gts.CcoreTestViewCounters(); retu
 
 func ccoreConversionsNow() int64 {
 	_, _, conv := gts.CcoreTestViewCounters()
+	// Only the reasons listed next to ccoreViewConversions in ccore_bind.go are
+	// whole-tree conversions. Root-only edits, shortcut reparses, sparse edits,
+	// refreshed headers, and sparse stops are other counters in the same map.
 	var n int64
-	for k, v := range conv {
-		if k != "root_only_edits" && k != "shortcut_reparses" {
-			n += v
-		}
+	for _, k := range []string{"tree_edit_with_views", "node_edit", "adopt", "offset_root", "test", "other"} {
+		n += conv[k]
 	}
 	return n
 }
