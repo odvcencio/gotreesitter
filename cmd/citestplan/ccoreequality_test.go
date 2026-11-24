@@ -164,8 +164,9 @@ func TestCcoreEqualityGateCannotBeSoftened(t *testing.T) {
 }
 
 // ccoreEqualityJobIf is the condition of the equality job: it runs when the
-// scope job says code CI runs.
-const ccoreEqualityJobIf = "needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'"
+// scope job says code CI runs, in every heavy-tier run, and in a light-tier
+// run whose change touches the certified core.
+const ccoreEqualityJobIf = "needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (needs.exhaustive_parity_scope.outputs.tier == 'heavy' || needs.exhaustive_parity_scope.outputs.run_ccore_equality == 'true')"
 
 // ccoreEqualityRun is the run block of the equality step with its line
 // continuations and runs of spaces collapsed.

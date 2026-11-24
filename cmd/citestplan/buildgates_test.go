@@ -79,16 +79,17 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	build := wf.Jobs["build"]
 	step := buildGateStep(t, wf)
 	base := map[string]string{
-		"IS_DRAFT": "false", "IS_PULL_REQUEST": "true",
-		"IS_MANUAL_RUN": "false",
-		"RUN_CODE_CI":   "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
-		"RUN_EDITOR_LATENCY": "true",
+		"IS_PULL_REQUEST": "true", "IS_MANUAL_RUN": "false",
+		"RUN_CODE_CI": "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
+		"RUN_EDITOR_LATENCY": "true", "TIER": "heavy", "RUN_CCORE_EQUALITY": "true",
 	}
 	for key := range step.Env {
 		if strings.HasSuffix(key, "_RESULT") {
 			base[key] = "success"
 		}
 	}
+	// A heavy run skips the light-only package tests.
+	base["PACKAGES_NO_RACE_RESULT"] = "skipped"
 	run := func(overrides map[string]string) ([]byte, error) {
 		cmd := exec.Command("bash", "-c", step.Run)
 		cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
@@ -100,6 +101,7 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 		}
 		return cmd.CombinedOutput()
 	}
+	// The heavy tier requires every gate below.
 	if out, err := run(nil); err != nil {
 		t.Fatalf("successful code gates rejected: %v\n%s", err, out)
 	}
@@ -145,8 +147,9 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 	}
 }
 
-// The scope rule may skip editor_latency, but the gate must then see exactly
-// "skipped"; a skip that the rule did not request still blocks the build.
+// In the heavy tier the scope rule may skip editor_latency, but the gate must
+// then see exactly "skipped"; a skip that the rule did not request still
+// blocks the build. TestBuildGateTiers covers the light tier.
 func TestBuildGateEditorLatencyScope(t *testing.T) {
 	wf := readGateWorkflow(t)
 	step := buildGateStep(t, wf)
@@ -167,16 +170,17 @@ func TestBuildGateEditorLatencyScope(t *testing.T) {
 	}
 	run := func(event, value, result string) ([]byte, error) {
 		env := map[string]string{
-			"IS_DRAFT": "false", "IS_PULL_REQUEST": fmt.Sprint(event == "pull_request"),
-			"IS_MANUAL_RUN": fmt.Sprint(event == "workflow_dispatch"),
-			"RUN_CODE_CI":   "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
-			"RUN_EDITOR_LATENCY": value,
+			"IS_PULL_REQUEST": fmt.Sprint(event == "pull_request"),
+			"IS_MANUAL_RUN":   fmt.Sprint(event == "workflow_dispatch"),
+			"RUN_CODE_CI":     "true", "EXHAUSTIVE_PARITY_SCOPE": "false",
+			"RUN_EDITOR_LATENCY": value, "TIER": "heavy", "RUN_CCORE_EQUALITY": "true",
 		}
 		for key := range step.Env {
 			if strings.HasSuffix(key, "_RESULT") {
 				env[key] = "success"
 			}
 		}
+		env["PACKAGES_NO_RACE_RESULT"] = "skipped"
 		env["EDITOR_LATENCY_RESULT"] = result
 		cmd := exec.Command("bash", "-c", step.Run)
 		cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
