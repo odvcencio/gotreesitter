@@ -47,6 +47,9 @@ type Parser struct {
 	// incremental parsing (reuse.go, edit.go)
 	rn                []reusableEntry
 	rnLastExt         Handle // C ReusableNode.last_external_token
+	reuseCheck        bool   // tests: cross-check the external-token shortcut (SetReuseCheck)
+	reuseChecked      int
+	reuseDiffered     int
 	reuseActive       bool
 	reusedNodes       int
 	reusedBytes       uint64

@@ -918,9 +918,12 @@ func (p *Parser) compress(tree Handle, count uint32, stack *[]Handle) {
 		p.summarize(child)
 		// C summarizes tree here as well. Every tree but the outermost is the
 		// first child of the tree popped next, which summarizes it again after
-		// its new last child. summarize recomputes each field from the children
-		// and only adds flags, which that child can only gain, so the second
-		// call alone gives the same record. Skip the first.
+		// its last child. summarizeKids resets every field except
+		// fragile_left, fragile_right and parse_state, which it only sets.
+		// Between the two calls, tree's child list is the same, its first
+		// child is final, and its last child keeps every fragile flag it had.
+		// The first call sets nothing the second does not, so only the
+		// outermost tree is summarized here.
 		if len(*stack) == initial {
 			p.summarize(tree)
 		}

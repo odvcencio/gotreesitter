@@ -27,19 +27,43 @@ func (p *Parser) rnByteOffset() uint32 {
 	return ^uint32(0)
 }
 
+// SetReuseCheck switches the cross-check of the reuse cursor's external-token
+// shortcut (rnAdvanceAfterShift) on or off for this parser. Set it before
+// parsing; it is off in normal use. While it is on, each use of the shortcut
+// also walks the node and counts a difference (ReuseCheckStats).
+func (p *Parser) SetReuseCheck(on bool) { p.reuseCheck = on }
+
+// ReuseCheckStats returns, since the parser was made, the number of uses of the
+// external-token shortcut that the cross-check compared and the number that
+// differed from the walk.
+func (p *Parser) ReuseCheckStats() (checked, differed int) {
+	return p.reuseChecked, p.reuseDiffered
+}
+
 func (p *Parser) rnAdvance() { p.rnAdvanceAfterShift(0, 0) } // reusable_node_advance
 
 // rnAdvanceAfterShift is rnAdvance after version shifted the handle shifted.
-// When that is the reusable node itself and the node is internal, the shift
-// pushed it unchanged and extShift has just stored its last external token
-// (C/parser.c:914) in the head, so the walk down the node is not repeated. A
-// leaf can be shifted as an extra copy; it keeps the walk, which is one step.
+// When that handle is the reusable node itself and the node is internal, the
+// head already holds the last external token that this advance needs, so the
+// walk down the node is not repeated. Two facts make the head's value equal:
+// shift copies only leaves (to set extra), so it pushed this node unchanged;
+// and extShift stored lastExternalToken(pushed) in the head under the same
+// guard as here, p.ext.active && hasExternalTokens(pushed) (ts_parser__shift,
+// cgo_harness/internal/coracle/src/parser.c:918). Leaves are excluded because
+// a copied leaf has a different handle than the one C keeps here, not
+// because of cost.
 func (p *Parser) rnAdvanceAfterShift(version int, shifted Handle) {
 	last := p.rn[len(p.rn)-1]
 	byteOffset := last.byteOffset + p.totalSize(last.tree).bytes
 	if p.hasExternalTokens(last.tree) {
 		if p.ext.active && last.tree == shifted && p.childCount(shifted) > 0 {
 			p.rnLastExt = p.heads[version].lastExternal
+			if p.reuseCheck {
+				p.reuseChecked++
+				if p.rnLastExt != p.lastExternalToken(last.tree) {
+					p.reuseDiffered++
+				}
+			}
 		} else {
 			p.rnLastExt = p.lastExternalToken(last.tree)
 		}
