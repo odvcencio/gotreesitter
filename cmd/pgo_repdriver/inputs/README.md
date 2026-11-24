@@ -1,6 +1,6 @@
 # PGO input provenance
 
-`production-v1.pgo` is the previous `pgo/default.pgo`, collected with
+`production-v1.pgo` is the previous `cmd/parity_report/default.pgo`, collected with
 `cmd/pgo_repdriver` over the lock-pinned Go, C#, Bash, Python, and CMake
 corpora. Its SHA-256 is
 `b55eb63bf103b1c53f7ff7defa3a7d77f40408924a641a5045a622e3b3dafcb3`

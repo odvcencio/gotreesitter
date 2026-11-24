@@ -4,7 +4,7 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 production="$script_dir/inputs/production-v1.pgo"
 selected="$script_dir/inputs/selected-clean-error-v1.pgo"
-output=${1:-"$script_dir/default.pgo"}
+output=${1:-"$script_dir/../parity_report/default.pgo"}
 go_cmd=${GO:-go}
 
 production_sha=b55eb63bf103b1c53f7ff7defa3a7d77f40408924a641a5045a622e3b3dafcb3
