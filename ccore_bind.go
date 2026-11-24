@@ -748,7 +748,16 @@ func (p *Parser) ccoreEligibleForReparse(kind ccoreSource, old *Tree) bool {
 	if p.ccoreEligibleFor(kind) {
 		return true
 	}
-	if kind != ccoreSourceDFA || old == nil || old.ccoreStateOf() == nil || !p.ccoreEligibleWithGrant(kind, sched.ForestRoute) {
+	return kind == ccoreSourceDFA && old != nil && old.ccoreStateOf() != nil && p.ccoreForestGrantsOrdinary()
+}
+
+// ccoreForestGrantsOrdinary reports whether the blob's certificate carries both
+// the Forest and the Incr modes, so that the forest-default route of a DFA request
+// may run on the ordinary core. Reparses use it, and so does the default fresh
+// parse: an ordinary fresh tree is one a later edit can reuse, while a forest
+// election that is not ordinary-compatible is refused for reuse.
+func (p *Parser) ccoreForestGrantsOrdinary() bool {
+	if !p.ccoreEligibleWithGrant(ccoreSourceDFA, sched.ForestRoute) {
 		return false
 	}
 	adm, _, ok := p.ccoreAdmitQuiet()
@@ -2604,8 +2613,11 @@ func (p *Parser) ccoreUnchangedTreeAllowedFor(oldTree *Tree, kind ccoreSource) b
 // ccoreFirstFresh is the first statement of a fresh parse: when the candidate
 // route would be asked and the core admits the request, the core serves it before
 // any shortcut of the present engine. A decline falls back to the existing route.
+// A certificate with the Forest and Incr modes grants the forest-default route
+// to the ordinary core here; ParseForestExperimental does not come here and keeps
+// the forest election.
 func (p *Parser) ccoreFirstFresh(source []byte) (*Tree, bool) {
-	if ccoreUnset() || p.ccoreSuppressed() || p.recoveryInitialOnly || !p.ccoreEligible(true) {
+	if ccoreUnset() || p.ccoreSuppressed() || p.recoveryInitialOnly || !(p.ccoreEligible(true) || p.ccoreForestGrantsOrdinary()) {
 		return nil, false
 	}
 	tree, ok := p.ccoreFullParse(source)

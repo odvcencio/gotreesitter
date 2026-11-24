@@ -457,10 +457,100 @@ func TestForestDispatchPromotesJavaScript(t *testing.T) {
 	if got, want := tree.RootNode().EndByte(), uint32(len(src)); got != want {
 		t.Fatalf("JavaScript forest root end byte = %d, want %d", got, want)
 	}
+	// A certificate with the Forest and Incr modes serves the default fresh parse
+	// on the ordinary core; without one the forest fast path serves it.
 	rt := tree.ParseRuntime()
-	if rt.StopReason != gts.ParseStopAccepted || !rt.ForestFastPath || !rt.LastTokenWasEOF || (after == before && rt.TokensConsumed != 0) || (after > before && (rt.TokensConsumed == 0 || rt.MaxStacksSeen == 0)) {
-		t.Fatalf("JavaScript did not use forest accepted runtime: %s", rt.Summary())
+	if rt.StopReason != gts.ParseStopAccepted ||
+		(after == before && (!rt.ForestFastPath || !rt.LastTokenWasEOF || rt.TokensConsumed != 0)) ||
+		(after > before && (rt.ForestFastPath || rt.TokensConsumed == 0 || rt.MaxStacksSeen == 0)) {
+		t.Fatalf("JavaScript default route runtime: core served %d, %s", after-before, rt.Summary())
 	}
+
+	// The explicit forest entry point keeps the forest election.
+	forest, ok := gts.NewParser(lang).ParseForestExperimental(src)
+	if !ok || forest == nil {
+		t.Fatal("JavaScript explicit forest parse declined")
+	}
+	defer forest.Release()
+	if got, want := forest.RootNode().SExpr(lang), prod.RootNode().SExpr(lang); got != want {
+		t.Fatalf("JavaScript explicit forest parse diverged\n got: %s\nwant: %s", got, want)
+	}
+	if got, want := forest.RootNode().EndByte(), uint32(len(src)); got != want {
+		t.Fatalf("JavaScript explicit forest root end byte = %d, want %d", got, want)
+	}
+	if frt := forest.ParseRuntime(); frt.StopReason != gts.ParseStopAccepted || !frt.ForestFastPath || !frt.LastTokenWasEOF || !forest.UsedForestFastPath() {
+		t.Fatalf("JavaScript explicit forest parse did not use forest accepted runtime: %s", frt.Summary())
+	}
+}
+
+// A certified forest-default grammar's default fresh parse runs on the ordinary
+// core, so the first edit reuses its tree. A forest-elected fresh tree whose
+// election is not ordinary-compatible is refused for reuse (incr_not_certified),
+// and the first edit would reparse the whole file.
+func TestForestDefaultFreshParseFirstEditReuses(t *testing.T) {
+	gts.SetGLRForestEnabled(true)
+	defer gts.SetGLRForestEnabled(true)
+
+	lang := grm.JavascriptLanguage()
+	if !gts.LanguageWantsForest(lang) {
+		t.Fatal("JavaScript is not forest-default; the test needs a forest-default grammar")
+	}
+	for _, src := range []string{"function f() {}\n", "class A { m() {} }\n", "f = function () {}\n"} {
+		t.Run(strings.Fields(src)[0], func(t *testing.T) {
+			p := gts.NewParser(lang)
+			_, freshBefore, _ := bind.RouteCounters()
+			tree, err := p.Parse([]byte(src))
+			_, freshAfter, _ := bind.RouteCounters()
+			if err != nil || tree == nil {
+				t.Fatalf("fresh parse: %v", err)
+			}
+			defer tree.Release()
+			if freshAfter-freshBefore != 1 || tree.UsedForestFastPath() {
+				t.Errorf("fresh parse of %q: core served %d fresh parses, forest fast path %t; want 1 and false",
+					src, freshAfter-freshBefore, tree.UsedForestFastPath())
+			}
+			if tree.RootNode() == nil || tree.RootNode().HasError() {
+				t.Fatalf("fresh parse of %q has an error root", src)
+			}
+
+			// A one-byte edit: insert a newline at the end.
+			n := uint32(len(src))
+			next := []byte(src + "\n")
+			at := gts.Point{Row: 1}
+			tree.Edit(gts.InputEdit{StartByte: n, OldEndByte: n, NewEndByte: n + 1,
+				StartPoint: at, OldEndPoint: at, NewEndPoint: gts.Point{Row: 2}})
+			fallbacksBefore := bind.IncrFallbacks()
+			_, freshBefore, incrBefore := bind.RouteCounters()
+			edited, profile, err := p.ParseIncrementalProfiled(next, tree)
+			_, freshAfter, incrAfter := bind.RouteCounters()
+			fallbacksAfter := bind.IncrFallbacks()
+			if err != nil || edited == nil {
+				t.Fatalf("reparse: %v", err)
+			}
+			if edited != tree {
+				defer edited.Release()
+			}
+			notCertified := fallbacksAfter["incr_not_certified"] - fallbacksBefore["incr_not_certified"]
+			if incrAfter-incrBefore != 1 || freshAfter != freshBefore || notCertified != 0 ||
+				profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
+				t.Fatalf("first edit of %q: served incremental %d, fresh %d, incr_not_certified %d, reused %d subtrees and %d bytes; want 1, 0, 0 and reuse above 0",
+					src, incrAfter-incrBefore, freshAfter-freshBefore, notCertified, profile.ReusedSubtrees, profile.ReusedBytes)
+			}
+			if got, want := edited.RootNode().SExpr(lang), forestDefaultFreshSExpr(t, lang, next); got != want {
+				t.Fatalf("first edit of %q differs from a fresh parse\n got: %s\nwant: %s", src, got, want)
+			}
+		})
+	}
+}
+
+func forestDefaultFreshSExpr(t *testing.T, lang *gts.Language, src []byte) string {
+	t.Helper()
+	tree, err := gts.NewParser(lang).Parse(src)
+	if err != nil || tree == nil {
+		t.Fatalf("fresh parse: %v", err)
+	}
+	defer tree.Release()
+	return tree.RootNode().SExpr(lang)
 }
 
 func TestForestDispatchPromotesCSharp(t *testing.T) {
