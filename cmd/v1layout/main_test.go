@@ -163,3 +163,25 @@ func TestAdapterFilesBudgetAndTags(t *testing.T) {
 		t.Errorf("budget %d, want 617 plus %d existing adapter files = %d", rootBudget, exist, 617+exist)
 	}
 }
+
+func TestCheckFuzzSeedsKeepsCorpusWithMovedTest(t *testing.T) {
+	src := []byte("package x\n\nfunc FuzzA(f *testing.F) {}\nfunc FuzzB(f *testing.F) {}\nfunc TestC(t *testing.T) {}\n")
+	base := func(name string) []string {
+		if name == "FuzzA" {
+			return []string{"0356fb4b2b12b429", "b6ad4e543dd49c7e"}
+		}
+		return nil // FuzzB had no seed files
+	}
+	moved := func(name string) []string { return base(name) }
+	if err := checkFuzzSeeds(src, base, moved); err != nil {
+		t.Fatalf("corpus moved with the test: %v", err)
+	}
+	left := func(string) []string { return nil }
+	if err := checkFuzzSeeds(src, base, left); err == nil || !strings.Contains(err.Error(), "FuzzA") {
+		t.Fatalf("corpus left behind: got %v, want an error naming FuzzA", err)
+	}
+	partial := func(string) []string { return []string{"0356fb4b2b12b429"} }
+	if err := checkFuzzSeeds(src, base, partial); err == nil {
+		t.Fatal("partial corpus: want an error")
+	}
+}

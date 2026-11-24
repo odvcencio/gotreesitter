@@ -5,6 +5,7 @@ package admission_test
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -21,7 +22,7 @@ import (
 // decodes the same committed JSON with a local, minimal struct instead. The
 // v2 manifest adds a top-level "denominator" object this struct does not
 // declare; json.Unmarshal (no DisallowUnknownFields here) ignores it.
-var compactT3RouteEqualityWitnessManifestPath = repoRootPath("cgo_harness", "testdata", "compact_t3_oracle_witnesses_v2.json")
+const compactT3RouteEqualityWitnessManifestPath = "cgo_harness/testdata/compact_t3_oracle_witnesses_v2.json"
 
 type routeEqualityWitnessManifest struct {
 	Witnesses []routeEqualityWitness `json:"witnesses"`
@@ -43,7 +44,7 @@ type routeEqualityWitness struct {
 // v7 tranche B2) can reuse it from a *testing.F during corpus setup.
 func loadRouteEqualityWitnesses(t testing.TB) map[string]routeEqualityWitness {
 	t.Helper()
-	raw, err := os.ReadFile(compactT3RouteEqualityWitnessManifestPath)
+	raw, err := os.ReadFile(repoRootPath(filepath.FromSlash(compactT3RouteEqualityWitnessManifestPath)))
 	if err != nil {
 		t.Fatalf("read witness manifest: %v", err)
 	}

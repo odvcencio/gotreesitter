@@ -178,7 +178,7 @@ jobs:
         # covers both production and test code. ./grammars/, ./cmd/... and
         # the roottest packages that received root test files are clean
         # under the same checks and stay in the gate.
-        run: staticcheck -checks 'SA4000,SA4003,SA5011,SA4006,SA4009,SA1019' . ./internal/... ./grammargen/ ./grammars/ ./cmd/... ./roottest/bench ./roottest/parse
+        run: staticcheck -checks 'SA4000,SA4003,SA5011,SA4006,SA4009,SA1019' . ./internal/... ./grammargen/ ./grammars/ ./cmd/... ./roottest/admission ./roottest/bench ./roottest/parse
 
       - name: Test Compile
         run: go test ./... -run '^$' -count=1
