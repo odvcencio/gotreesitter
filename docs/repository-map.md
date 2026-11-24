@@ -195,7 +195,7 @@ fresh-tree verification.
 | `taproot/`, `grep/` | Higher-level consumers and helper packages |
 | `roottest/` | Root-package black-box test packages (`bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package. A root test file moves here when it uses only the exported API, needs no hook from `export_test.go`, and is not named by a CI step that runs the root package. Files that read the root's `testdata/` or source files use a `../../` path |
 | `parser_result_test/` | Black-box tests (`package parserresult_test`) for the result-compatibility tier; kept separate from the root package so census and dispatcher tests cannot depend on unexported internals |
-| `cmd/parity_report/default.pgo` | Current profile-guided optimization (PGO) input. CI uses `-pgo=cmd/parity_report/default.pgo`. Its generator, inputs, and notes are in `cmd/pgo_repdriver/`. |
+| `cmd/parity_report/parity_report.pgo` | Current profile-guided optimization (PGO) input. CI uses `-pgo=cmd/parity_report/parity_report.pgo`. Its generator, inputs, and notes are in `cmd/pgo_repdriver/`. |
 | `.github/policy/` | The release policy (`release.arb`, `release.test.arb`) that `.github/workflows/release.yml` runs directly by path |
 | `wasm/` | Browser runtimes and grammargen WebAssembly targets |
 | `scripts/` | Bounded host-side maintenance helpers; heavy correctness work stays in Docker or CI |

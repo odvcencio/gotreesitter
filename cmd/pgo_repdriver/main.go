@@ -7,7 +7,7 @@
 // grammar's quirks.
 //
 // The profile collected by this command is the production-corpus input to the
-// checked-in cmd/parity_report/default.pgo composite. See cmd/pgo_repdriver/README.md for the composition
+// checked-in cmd/parity_report/parity_report.pgo composite. See cmd/pgo_repdriver/README.md for the composition
 // recipe and where the result is wired into the build. From the repo root:
 //
 //	cd cgo_harness && go run ./cmd/build_real_corpus -out corpus_real -langs go,c_sharp,bash,python,cmake && cd ..
@@ -197,7 +197,7 @@ func runDigest(corpusRoot string) error {
 func main() {
 	mode := flag.String("mode", "profile", "profile | digest")
 	corpusRoot := flag.String("corpus", "", "path to cgo_harness/corpus_real (auto-detected if empty)")
-	cpuProfile := flag.String("cpuprofile", "default.pgo", "output path for the CPU profile (profile mode); this driver supplies the production input to cmd/parity_report/default.pgo")
+	cpuProfile := flag.String("cpuprofile", "default.pgo", "output path for the CPU profile (profile mode); this driver supplies the production input to cmd/parity_report/parity_report.pgo")
 	iterations := flag.Int("iterations", 400, "number of full-corpus passes to profile (profile mode)")
 	flag.Parse()
 

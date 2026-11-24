@@ -1028,7 +1028,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Run Parity Report (External Blob Mode)
-        # -pgo=cmd/parity_report/default.pgo: parity_report parses every registered
+        # -pgo=cmd/parity_report/parity_report.pgo: parity_report parses every registered
         # grammar's smoke sample on every PR, the closest thing this repo
         # has to a representative production parsing binary run in its own
         # CI. See cmd/pgo_repdriver/README.md for the profile's provenance, regeneration
@@ -1036,7 +1036,7 @@ jobs:
         # optimization; it does not change parity_report's output.
         run: |
           GOTREESITTER_GRAMMAR_BLOB_DIR=grammars/grammar_blobs \
-          go run -pgo=cmd/parity_report/default.pgo -tags grammar_blobs_external ./cmd/parity_report > parity.log
+          go run -pgo=cmd/parity_report/parity_report.pgo -tags grammar_blobs_external ./cmd/parity_report > parity.log
 
       - name: Upload Parity Log
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
