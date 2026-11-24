@@ -99,14 +99,14 @@ func executeQueryWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Que
 				}
 				pattern := &q.patterns[patternIndex]
 				budget := newQueryMatchBudget(defaultQueryMatchWorkBudget)
-				var captureSets [][]C
+				var captureSets []queryCompletion[N, C]
 				if pattern.steps[0].quantifier == queryQuantifierZeroOrMore || pattern.steps[0].quantifier == queryQuantifierOneOrMore {
 					captureSets = matchPatternPostorderAllWithReader(q, pattern, node, item.parent, item.childIdx, lang, source, budget, reader)
 				} else {
 					captureSets = matchPatternAllWithReader(q, pattern, node, lang, source, budget, reader)
 				}
-				for _, captures := range captureSets {
-					dst = append(dst, queryReaderMatch[C]{PatternIndex: patternIndex, Captures: captures})
+				for _, completion := range captureSets {
+					dst = append(dst, queryReaderMatch[C]{PatternIndex: patternIndex, Captures: completion.captures})
 				}
 			}
 			continue
@@ -125,9 +125,8 @@ func executeQueryWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Que
 				continue
 			}
 			pattern := &q.patterns[patternIndex]
-			captures := matchPatternAllWithReader(q, pattern, node, lang, source, newQueryMatchBudget(defaultQueryMatchWorkBudget), reader)
-			for _, set := range captures {
-				dst = append(dst, queryReaderMatch[C]{PatternIndex: patternIndex, Captures: set})
+			for _, completion := range matchPatternAllWithReader(q, pattern, node, lang, source, newQueryMatchBudget(defaultQueryMatchWorkBudget), reader) {
+				dst = append(dst, queryReaderMatch[C]{PatternIndex: patternIndex, Captures: completion.captures})
 			}
 		}
 	}

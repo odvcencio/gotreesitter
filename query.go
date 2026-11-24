@@ -983,7 +983,7 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 				}
 			}
 			budget := newQueryMatchBudget(c.workBudget)
-			var captureSets [][]QueryCapture
+			var captureSets []queryCompletion[*Node, QueryCapture]
 			if c.currentNodePost {
 				if pat.steps[0].quantifier == queryQuantifierZeroOrMore || pat.steps[0].quantifier == queryQuantifierOneOrMore {
 					captureSets = q.matchPatternPostorderAll(&pat, c.currentNode, c.currentParent, c.currentChildIdx, c.lang, c.source, budget)
@@ -1001,14 +1001,14 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 			}
 			first := QueryMatch{
 				PatternIndex: pi,
-				Captures:     captureSets[0],
+				Captures:     captureSets[0].captures,
 			}
 			if len(captureSets) > 1 {
 				c.pendingMatches = make([]QueryMatch, len(captureSets)-1)
 				for i := 1; i < len(captureSets); i++ {
 					c.pendingMatches[i-1] = QueryMatch{
 						PatternIndex: pi,
-						Captures:     captureSets[i],
+						Captures:     captureSets[i].captures,
 					}
 				}
 			}

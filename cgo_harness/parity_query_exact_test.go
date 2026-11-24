@@ -181,6 +181,90 @@ func TestParityQueryExactKeywordStringPatterns(t *testing.T) {
 
 }
 
+// A structured alternation arm returns every child match. The gap showed in
+// the graduation query item for these grammars. The Vue quote-led group case
+// lives in TestParityQueryQuoteLedSiblings.
+func TestParityQueryExactAlternationResults(t *testing.T) {
+	cases := []exactQueryCase{
+		{
+			name:   "sql_structured_arm_every_parameter",
+			lang:   "sql",
+			source: "CREATE FUNCTION xpath_list(text,text,text) RETURNS text\n",
+			query: `([
+  (create_function_statement (type (identifier) @type.builtin))
+  (create_function_statement (create_function_parameters (create_function_parameter (type (identifier) @type.builtin))))
+] (#match? @type.builtin "^(text)$"))`,
+		},
+		{
+			name:   "julia_structured_arm_every_curly_child",
+			lang:   "julia",
+			source: "f(x) where {A,B}\n",
+			query:  `(where_expression [(curly_expression (_) @type) (_) @type] .)`,
+		},
+		{
+			name:   "thrift_structured_arm_keeps_tag_in_every_result",
+			lang:   "thrift",
+			source: "namespace go foo.bar\n",
+			query: `(namespace_declaration
+  (namespace_scope) @tag
+  [(namespace) @namespace (_ (identifier) @namespace)])`,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			assertExactQueryParity(t, tc)
+		})
+	}
+}
+
+// The C cursor returns matches in the order they finish: on the node where
+// the last step matched, captured or not, and after any steps that follow an
+// alternation. Matches with equal captures are one match.
+func TestParityQueryExactMatchOrder(t *testing.T) {
+	const nested = `[[1,"x",true],false,false]`
+	cases := []exactQueryCase{
+		{
+			name:   "uncaptured_terminal_decides_order",
+			lang:   "json",
+			source: `[1,"x",true]`,
+			query:  `[(array (number) @n (true)) (array (string) @s)]`,
+		},
+		{
+			name:   "arms_interleave_at_suffix",
+			lang:   "json",
+			source: nested,
+			query:  `(array [(array (number) @n (true)) (array (string) @s)] (false) @tail)`,
+		},
+		{
+			name:   "uncaptured_suffix_gives_one_match_per_arm",
+			lang:   "json",
+			source: nested,
+			query:  `(array [(array (number) @n (true)) (array (string) @s)] (false))`,
+		},
+		{
+			name:   "finish_node_orders_plain_pattern",
+			lang:   "json",
+			source: `[1,2,"x","y"]`,
+			query:  `(array (number) @a (string) @b)`,
+		},
+		{
+			name:   "uncaptured_choices_give_one_match",
+			lang:   "json",
+			source: `[1,2,"x"]`,
+			query:  `(array (number) (string) @b)`,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			assertExactQueryParity(t, tc)
+		})
+	}
+}
+
 func TestParityQueryPointRangeEmptyNodeBoundaries(t *testing.T) {
 	const (
 		langName = "typescript"
