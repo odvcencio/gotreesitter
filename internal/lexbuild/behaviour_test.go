@@ -12,6 +12,13 @@ import (
 
 var refGrammars = []string{"json", "regex", "ini"}
 
+// recordGrammars are the grammars of TestLexbuildRecordEqualsC: refGrammars
+// and go. TestLexbuildBehaviourEqualsC leaves go out: it builds with
+// BuildUnmerged from the parse states' token sets, without the replacement of
+// keywords by the word token that BuildLexTables makes, so for a grammar with
+// keywords its lexer differs from C's by construction.
+var recordGrammars = append(append([]string(nil), refGrammars...), "go")
+
 // literalPoints reads the integer and character literals of the lex
 // functions of a parser.c, each with its neighbours: the code points where a
 // C lex state can change its answer.

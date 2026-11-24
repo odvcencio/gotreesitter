@@ -87,6 +87,23 @@ type ExtractedGrammar struct {
 	// The parser.c extractor leaves this false unless a generic certification
 	// source is added by callers.
 	CRecoveryCostCompetitionEnabledByDefault bool
+
+	// PrimaryStateIDs is ts_primary_state_ids; nil when the file has none.
+	// BuildLanguage does not read it.
+	PrimaryStateIDs []int
+	// SymbolMap is ts_symbol_map (every symbol and alias to its public
+	// symbol); nil when the file has none. BuildLanguage does not read it.
+	SymbolMap []int
+
+	// strict is set by ExtractGrammarStrict. readerGaps lists the data that
+	// extraction skipped or could not read; ExtractGrammar ignores the list.
+	strict     bool
+	readerGaps []string
+}
+
+// gap records data that extraction skipped or could not read.
+func (g *ExtractedGrammar) gap(format string, args ...any) {
+	g.readerGaps = append(g.readerGaps, fmt.Sprintf(format, args...))
 }
 
 // FieldMapEntry mirrors gotreesitter.FieldMapEntry for code generation.
@@ -159,10 +176,44 @@ type LexTransitionEntry struct {
 // ExtractGrammar parses a tree-sitter parser.c source and extracts all
 // structured data tables from it.
 func ExtractGrammar(source string) (*ExtractedGrammar, error) {
-	g := &ExtractedGrammar{}
+	return extractGrammar(source, false)
+}
+
+// ExtractGrammarStrict is ExtractGrammar for a reference reader: it fails when
+// extraction skipped an action, a cell, a name or an entry, or when an array
+// that the counts require is missing, because a comparison with missing data
+// proves nothing. It reads an end-of-non-terminal-extra state's lex mode
+// ((TSStateId)(-1)) as -1, where ExtractGrammar reads 0. ExtractGrammar is
+// unchanged.
+func ExtractGrammarStrict(source string) (*ExtractedGrammar, error) {
+	g, err := extractGrammar(source, true)
+	if err != nil {
+		return nil, err
+	}
+	if n := len(g.readerGaps); n > 0 {
+		show := g.readerGaps
+		if n > 10 {
+			show = show[:10]
+		}
+		return nil, fmt.Errorf("strict extraction: %d gaps: %s", n, strings.Join(show, "; "))
+	}
+	return g, nil
+}
+
+// strictConstants are the #define lines every parser.c of ABI 14 or later has.
+var strictConstants = []string{"LANGUAGE_VERSION", "STATE_COUNT", "LARGE_STATE_COUNT", "SYMBOL_COUNT", "ALIAS_COUNT",
+	"TOKEN_COUNT", "EXTERNAL_TOKEN_COUNT", "FIELD_COUNT", "MAX_ALIAS_SEQUENCE_LENGTH", "PRODUCTION_ID_COUNT"}
+
+func extractGrammar(source string, strict bool) (*ExtractedGrammar, error) {
+	g := &ExtractedGrammar{strict: strict}
 
 	if err := extractConstants(source, g); err != nil {
 		return nil, fmt.Errorf("constants: %w", err)
+	}
+	for _, name := range strictConstants {
+		if !regexp.MustCompile(`(?m)^#define\s+` + name + `\s+\d+\s*$`).MatchString(source) {
+			g.gap("#define %s missing", name)
+		}
 	}
 
 	// Extract the C enum so we can resolve symbolic names in tables.
@@ -185,12 +236,15 @@ func ExtractGrammar(source string) (*ExtractedGrammar, error) {
 	if err := extractFieldNames(source, g); err != nil {
 		// Not fatal — some grammars have no fields.
 		g.FieldNames = nil
+		g.gap("ts_field_names: %v", err)
 	}
 
 	if strings.Contains(source, "ts_field_map_slices") || strings.Contains(source, "ts_field_map") {
 		if err := extractFieldMaps(source, g); err != nil {
 			// Some parser generators omit or rename field-map data.
 		}
+	} else if g.FieldCount > 0 {
+		g.gap("FIELD_COUNT %d and no field map", g.FieldCount)
 	}
 
 	if err := extractParseTable(source, g); err != nil {
@@ -199,6 +253,9 @@ func ExtractGrammar(source string) (*ExtractedGrammar, error) {
 
 	if err := extractSmallParseTable(source, g); err != nil {
 		// Not fatal — only present when LARGE_STATE_COUNT < STATE_COUNT.
+		if g.LargeStateCount < g.StateCount {
+			g.gap("small parse table: %v", err)
+		}
 	}
 
 	if err := extractParseActions(source, g); err != nil {
@@ -227,15 +284,18 @@ func ExtractGrammar(source string) (*ExtractedGrammar, error) {
 	if g.ExternalTokenCount > 0 {
 		if err := extractExternalSymbols(source, g); err != nil {
 			// Not fatal: grammars without external scanners will omit this.
+			g.gap("external symbols: %v", err)
 		}
 		if err := extractExternalLexStates(source, g); err != nil {
 			// Not fatal: some grammars omit the table and fall back to action probing.
+			g.gap("external lex states: %v", err)
 		}
 	}
 
 	// ABI 15 optional arrays — non-fatal if absent.
 	if err := extractReservedWords(source, g); err != nil {
 		// Not fatal: ABI < 15 grammars won't have reserved words.
+		g.gap("reserved words: %v", err)
 	}
 	if err := extractSupertypes(source, g); err != nil {
 		return nil, fmt.Errorf("supertypes: %w", err)
@@ -243,8 +303,86 @@ func ExtractGrammar(source string) (*ExtractedGrammar, error) {
 	if err := extractLanguageMetadata(source, g); err != nil {
 		// Not fatal: ABI < 15 grammars won't have metadata.
 	}
+	if g.LanguageVersion >= 15 && !regexp.MustCompile(`\.metadata\s*=\s*\{`).MatchString(source) {
+		g.gap("ABI %d and no language metadata", g.LanguageVersion)
+	}
+
+	// Read for reference comparisons only; BuildLanguage does not use them.
+	if err := extractPrimaryStateIDs(source, g); err != nil {
+		g.gap("primary state ids: %v", err)
+	}
+	if err := extractSymbolMap(source, g); err != nil {
+		g.gap("symbol map: %v", err)
+	}
 
 	return g, nil
+}
+
+// extractPrimaryStateIDs parses ts_primary_state_ids[STATE_COUNT]. Every
+// state must have exactly one entry.
+func extractPrimaryStateIDs(source string, g *ExtractedGrammar) error {
+	body, err := findArrayBody(source, "ts_primary_state_ids")
+	if err != nil {
+		return err
+	}
+	ids, err := parseDesignatedInts(body, g.StateCount, g.enumValues)
+	if err != nil {
+		return err
+	}
+	g.PrimaryStateIDs = ids
+	return nil
+}
+
+// extractSymbolMap parses ts_symbol_map[SYMBOL_COUNT + ALIAS_COUNT]. Every
+// symbol and alias must have exactly one entry.
+func extractSymbolMap(source string, g *ExtractedGrammar) error {
+	body, err := findArrayBody(source, "ts_symbol_map")
+	if err != nil {
+		return err
+	}
+	m, err := parseDesignatedInts(body, g.SymbolCount+g.AliasCount, g.enumValues)
+	if err != nil {
+		return err
+	}
+	g.SymbolMap = m
+	return nil
+}
+
+var reDesignatedInt = regexp.MustCompile(`\[(\w+)\]\s*=\s*(\w+)\s*,?`)
+
+func clipText(s string, n int) string {
+	if len(s) > n {
+		return s[:n] + "..."
+	}
+	return s
+}
+
+// parseDesignatedInts reads "[index] = value," entries, each index and value a
+// number or a C enum name, and requires every index below count exactly once.
+func parseDesignatedInts(body string, count int, enums map[string]int) ([]int, error) {
+	out := make([]int, count)
+	seen := make([]bool, count)
+	body = stripCComments(body)
+	if rest := strings.TrimSpace(reDesignatedInt.ReplaceAllString(body, "")); rest != "" {
+		return nil, fmt.Errorf("unread text %q", clipText(rest, 80))
+	}
+	for _, m := range reDesignatedInt.FindAllStringSubmatch(body, -1) {
+		i, okIndex := resolveIndexedName(m[1], enums)
+		v, okValue := resolveIndexedName(m[2], enums)
+		if !okIndex || !okValue {
+			return nil, fmt.Errorf("unresolved entry [%s] = %s", m[1], m[2])
+		}
+		if i < 0 || i >= count || seen[i] {
+			return nil, fmt.Errorf("index %d out of range %d or repeated", i, count)
+		}
+		out[i], seen[i] = v, true
+	}
+	for i, ok := range seen {
+		if !ok {
+			return nil, fmt.Errorf("no entry for index %d of %d", i, count)
+		}
+	}
+	return out, nil
 }
 
 // extractFieldMaps parses ts_field_map_slices[] and ts_field_map[] arrays.
@@ -257,12 +395,16 @@ func extractFieldMaps(source string, g *ExtractedGrammar) error {
 	slices, err := extractFieldMapSlices(source, g)
 	if err == nil {
 		g.FieldMapSlices = slices
+	} else if g.FieldCount > 0 {
+		g.gap("field map slices: %v", err)
 	}
 
 	// Entry metadata.
 	entries, err := extractFieldMapEntries(source, g)
 	if err == nil {
 		g.FieldMapEntries = entries
+	} else if g.FieldCount > 0 {
+		g.gap("field map entries: %v", err)
 	}
 
 	return nil
@@ -415,6 +557,15 @@ func extractSymbolNames(source string, g *ExtractedGrammar) error {
 	if err != nil {
 		return err
 	}
+	// parseIndexedStringArray places an index it cannot resolve by position.
+	for _, m := range regexp.MustCompile(`\[(\w+)\]\s*=\s*"`).FindAllStringSubmatch(body, -1) {
+		if _, ok := resolveIndexedName(m[1], g.enumValues); !ok {
+			g.gap("ts_symbol_names: unresolved index %s", m[1])
+		}
+	}
+	if len(names) != g.SymbolCount+g.AliasCount {
+		g.gap("ts_symbol_names: %d names for %d symbols and %d aliases", len(names), g.SymbolCount, g.AliasCount)
+	}
 	if len(names) < g.SymbolCount {
 		padded := make([]string, g.SymbolCount)
 		copy(padded, names)
@@ -465,6 +616,7 @@ func extractSymbolMetadata(source string, g *ExtractedGrammar) error {
 
 		idx, ok := resolveIndexedName(name, g.enumValues)
 		if !ok || idx < 0 {
+			g.gap("ts_symbol_metadata: unresolved index %s", name)
 			continue
 		}
 		if idx > maxIdx {
@@ -579,6 +731,9 @@ func extractParseTable(source string, g *ExtractedGrammar) error {
 		// omit a dense ts_parse_table.
 		if strings.Contains(err.Error(), "not found") {
 			g.ParseTable = nil
+			if g.LargeStateCount > 0 {
+				g.gap("LARGE_STATE_COUNT %d and no ts_parse_table", g.LargeStateCount)
+			}
 			return nil
 		}
 		return err
@@ -647,6 +802,7 @@ func extractParseTable(source string, g *ExtractedGrammar) error {
 		}
 
 		if stateIdx >= denseStateCount {
+			g.gap("ts_parse_table: state %s outside %d dense states", name, denseStateCount)
 			continue
 		}
 
@@ -678,14 +834,24 @@ func extractParseTable(source string, g *ExtractedGrammar) error {
 		for _, im := range innerMatches {
 			symIdx, ok := g.resolveSymbol(im[1])
 			if !ok {
+				g.gap("ts_parse_table state %d: unresolved symbol %s", stateIdx, im[1])
 				continue
 			}
 			val, err := strconv.Atoi(im[2])
 			if err != nil {
+				g.gap("ts_parse_table state %d: value %s", stateIdx, im[2])
 				continue
 			}
 			if symIdx < g.SymbolCount {
 				table[stateIdx][symIdx] = uint16(val)
+			} else {
+				g.gap("ts_parse_table state %d: symbol %d outside %d symbols", stateIdx, symIdx, g.SymbolCount)
+			}
+		}
+		if g.strict {
+			// Every assignment of the row must be one the patterns above read.
+			if n := len(regexp.MustCompile(`\[\w+\]\s*=`).FindAllString(stateBody, -1)); n != len(innerMatches) {
+				g.gap("ts_parse_table state %d: %d assignments, %d read", stateIdx, n, len(innerMatches))
 			}
 		}
 	}
@@ -717,7 +883,11 @@ func extractSmallParseTable(source string, g *ExtractedGrammar) error {
 		return err
 	}
 
-	g.SmallParseTable = parseSmallParseTableValues(body, g.enumValues)
+	var unknown []string
+	g.SmallParseTable, unknown = parseSmallParseTableValuesChecked(body, g.enumValues)
+	for _, name := range unknown {
+		g.gap("ts_small_parse_table: unread %s", name)
+	}
 
 	// Map from state to offset.
 	mapBody, err := findArrayBody(source, "ts_small_parse_table_map")
@@ -733,6 +903,14 @@ func extractSmallParseTable(source string, g *ExtractedGrammar) error {
 // table body, resolving ACTIONS(N), STATE(N) macros and symbolic enum names.
 // The result is a flat uint16 array matching the compiled C format.
 func parseSmallParseTableValues(body string, enums map[string]int) []uint16 {
+	values, _ := parseSmallParseTableValuesChecked(body, enums)
+	return values
+}
+
+// parseSmallParseTableValuesChecked is parseSmallParseTableValues that also
+// returns the names it skipped because the enum does not define them.
+func parseSmallParseTableValuesChecked(body string, enums map[string]int) ([]uint16, []string) {
+	var unknown []string
 	// Match tokens: numbers, ACTIONS(N), STATE(N), or symbolic names.
 	// We need to extract them in order, skipping array indices like [0] =.
 	tokenRe := regexp.MustCompile(
@@ -754,6 +932,9 @@ func parseSmallParseTableValues(body string, enums map[string]int) []uint16 {
 		if m[1] != "" {
 			// Array index like [0] = ... — skip entirely.
 			// The index is NOT part of the flat data.
+			if n, err := strconv.Atoi(m[1]); err != nil || n != len(result) {
+				unknown = append(unknown, fmt.Sprintf("[%s] at offset %d", m[1], len(result)))
+			}
 			continue
 		}
 		if m[2] != "" {
@@ -773,6 +954,8 @@ func parseSmallParseTableValues(body string, enums map[string]int) []uint16 {
 			if enums != nil {
 				if v, ok := enums[name]; ok {
 					result = append(result, uint16(v))
+				} else {
+					unknown = append(unknown, name)
 				}
 				// If not found in enums, skip (it's a C keyword or type name)
 			}
@@ -786,7 +969,7 @@ func parseSmallParseTableValues(body string, enums map[string]int) []uint16 {
 			}
 		}
 	}
-	return result
+	return result, unknown
 }
 
 // extractFieldMapSlices parses ts_field_map_slices[].
@@ -1197,6 +1380,7 @@ func extractParseActions(source string, g *ExtractedGrammar) error {
 		if hm := headerRe.FindStringSubmatch(line); hm != nil {
 			// Flush previous group.
 			if currentGroup != nil {
+				checkActionCount(g, currentGroup)
 				groups = append(groups, *currentGroup)
 			}
 			// Capture the C array index if present.
@@ -1263,6 +1447,7 @@ func extractParseActions(source string, g *ExtractedGrammar) error {
 			reduceArgs := line[idx[2]:idx[3]]
 			action, err := parseReduceActionArgs(reduceArgs, g)
 			if err != nil {
+				g.gap("ts_parse_actions [%d]: REDUCE(%s): %v", currentGroup.Index, reduceArgs, err)
 				continue
 			}
 			matches = append(matches, actionMatch{
@@ -1296,11 +1481,20 @@ func extractParseActions(source string, g *ExtractedGrammar) error {
 
 	// Flush last group.
 	if currentGroup != nil {
+		checkActionCount(g, currentGroup)
 		groups = append(groups, *currentGroup)
 	}
 
 	g.ParseActions = groups
 	return nil
+}
+
+// checkActionCount records a gap when a group holds fewer or more actions than
+// its header's count: an action macro the reader does not know was skipped.
+func checkActionCount(g *ExtractedGrammar, group *ActionGroup) {
+	if len(group.Actions) != group.Count {
+		g.gap("ts_parse_actions [%d]: header count %d, %d actions read", group.Index, group.Count, len(group.Actions))
+	}
 }
 
 func extractConflictPolicies(g *ExtractedGrammar) []ExtractedConflictPolicy {
@@ -1453,6 +1647,7 @@ func extractAliasSequences(source string, g *ExtractedGrammar) error {
 		name := body[loc[2]:loc[3]]
 		production, ok := resolveIndexedName(name, g.enumValues)
 		if !ok || production < 0 || production >= g.ProductionIDCount {
+			g.gap("ts_alias_sequences: production %s", name)
 			continue
 		}
 
@@ -1483,10 +1678,12 @@ func extractAliasSequences(source string, g *ExtractedGrammar) error {
 		for _, m := range matches {
 			childIdx, ok := resolveIndexedName(m[1], g.enumValues)
 			if !ok || childIdx < 0 || childIdx >= g.MaxAliasSeqLength {
+				g.gap("ts_alias_sequences production %d: child %s", entry.production, m[1])
 				continue
 			}
 			aliasSym, ok := resolveIndexedName(m[2], g.enumValues)
 			if !ok || aliasSym <= 0 {
+				g.gap("ts_alias_sequences production %d: alias %s", entry.production, m[2])
 				continue
 			}
 			seqs[entry.production][childIdx] = uint16(aliasSym)
@@ -1589,7 +1786,10 @@ func parseReduceActionArgs(args string, g *ExtractedGrammar) (ExtractedAction, e
 	}
 
 	symStr := strings.TrimSpace(fields[0])
-	sym, _ := g.resolveSymbol(symStr)
+	sym, ok := g.resolveSymbol(symStr)
+	if !ok {
+		g.gap("REDUCE: unresolved symbol %s", symStr)
+	}
 	childCount, err := strconv.Atoi(strings.TrimSpace(fields[1]))
 	if err != nil {
 		return ExtractedAction{}, fmt.Errorf("reduce child count: %w", err)
@@ -1613,6 +1813,7 @@ func parseReduceActionArgs(args string, g *ExtractedGrammar) (ExtractedAction, e
 			value = strings.TrimSpace(value)
 			n, err := strconv.Atoi(value)
 			if err != nil {
+				g.gap("REDUCE: argument %s", extra)
 				continue
 			}
 			switch key {
@@ -1620,12 +1821,16 @@ func parseReduceActionArgs(args string, g *ExtractedGrammar) (ExtractedAction, e
 				action.Precedence = n
 			case "production_id":
 				action.ProductionID = n
+			default:
+				g.gap("REDUCE: argument %s", extra)
 			}
 			continue
 		}
 
 		if n, err := strconv.Atoi(extra); err == nil {
 			numericExtras = append(numericExtras, n)
+		} else {
+			g.gap("REDUCE: argument %s", extra)
 		}
 	}
 
@@ -1635,6 +1840,9 @@ func parseReduceActionArgs(args string, g *ExtractedGrammar) (ExtractedAction, e
 	}
 	if len(numericExtras) > 1 {
 		action.ProductionID = numericExtras[1]
+	}
+	if len(numericExtras) > 2 {
+		g.gap("REDUCE: %d positional arguments after the child count", len(numericExtras))
 	}
 
 	return action, nil
@@ -1650,6 +1858,7 @@ func parseReduceNamedArgs(fields []string, g *ExtractedGrammar) (ExtractedAction
 		field = strings.TrimSpace(field)
 		key, value, ok := strings.Cut(field, "=")
 		if !ok {
+			g.gap("REDUCE: argument %s", field)
 			continue
 		}
 		key = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(key), "."))
@@ -1657,7 +1866,10 @@ func parseReduceNamedArgs(fields []string, g *ExtractedGrammar) (ExtractedAction
 
 		switch key {
 		case "symbol":
-			sym, _ := g.resolveSymbol(value)
+			sym, ok := g.resolveSymbol(value)
+			if !ok {
+				g.gap("REDUCE: unresolved symbol %s", value)
+			}
 			action.Symbol = sym
 			hasSymbol = true
 		case "child_count":
@@ -1670,15 +1882,19 @@ func parseReduceNamedArgs(fields []string, g *ExtractedGrammar) (ExtractedAction
 		case "dynamic_precedence", "precedence", "prec":
 			n, err := strconv.Atoi(value)
 			if err != nil {
+				g.gap("REDUCE: argument %s", field)
 				continue
 			}
 			action.Precedence = n
 		case "production_id":
 			n, err := strconv.Atoi(value)
 			if err != nil {
+				g.gap("REDUCE: argument %s", field)
 				continue
 			}
 			action.ProductionID = n
+		default:
+			g.gap("REDUCE: argument %s", field)
 		}
 	}
 
@@ -1730,15 +1946,26 @@ func extractLexModes(source string, g *ExtractedGrammar) error {
 	extLexRe := regexp.MustCompile(`\.external_lex_state\s*=\s*(\d+)`)
 	rwSetRe := regexp.MustCompile(`\.reserved_word_set_id\s*=\s*(\d+)`)
 
+	seen := make([]bool, g.StateCount)
 	for _, m := range matches {
 		idx, err := strconv.Atoi(m[1])
 		if err != nil || idx >= g.StateCount {
+			g.gap("ts_lex_modes: state %s outside %d states", m[1], g.StateCount)
 			continue
 		}
+		seen[idx] = true
 		fields := m[2]
 		entry := LexModeEntry{}
 		if lm := lexStateRe.FindStringSubmatch(fields); lm != nil {
 			entry.LexState, _ = strconv.Atoi(lm[1])
+		} else if strings.Contains(fields, "(TSStateId)(-1)") {
+			// An end-of-non-terminal-extra state lexes nothing
+			// (render.rs: add_lex_modes). Only the strict reader says so.
+			if g.strict {
+				entry.LexState = -1
+			}
+		} else {
+			g.gap("ts_lex_modes: state %d has no lex state: %q", idx, fields)
 		}
 		if em := extLexRe.FindStringSubmatch(fields); em != nil {
 			entry.ExternalLexState, _ = strconv.Atoi(em[1])
@@ -1747,6 +1974,11 @@ func extractLexModes(source string, g *ExtractedGrammar) error {
 			entry.ReservedWordSetID, _ = strconv.Atoi(rw[1])
 		}
 		modes[idx] = entry
+	}
+	for i, ok := range seen {
+		if !ok {
+			g.gap("ts_lex_modes: no entry for state %d", i)
+		}
 	}
 
 	g.LexModes = modes
@@ -1779,6 +2011,7 @@ func extractLexStates(source string, g *ExtractedGrammar) error {
 	dfa, err := ExtractLexDFA(source)
 	if err != nil {
 		if errors.Is(err, ErrNoLexFunction) {
+			g.gap("no ts_lex function")
 			return nil
 		}
 		return err
@@ -1987,6 +2220,7 @@ func extractSupertypes(source string, g *ExtractedGrammar) error {
 	symBody, err := findArrayBody(source, "ts_supertype_symbols")
 	if err != nil {
 		// Not present — skip.
+		g.gap("SUPERTYPE_COUNT %d and no ts_supertype_symbols", g.SupertypeCount)
 		return nil
 	}
 	g.SupertypeSymbols = parseIndexedSymbolArray(symBody, g.SupertypeCount, g.enumValues)
@@ -1995,6 +2229,7 @@ func extractSupertypes(source string, g *ExtractedGrammar) error {
 	sliceBody, err := findArrayBody(source, "ts_supertype_map_slices")
 	if err != nil {
 		// Slices not present — leave nil.
+		g.gap("SUPERTYPE_COUNT %d and no ts_supertype_map_slices", g.SupertypeCount)
 		return nil
 	}
 
@@ -2039,6 +2274,7 @@ func extractSupertypes(source string, g *ExtractedGrammar) error {
 	entryBody, err := findArrayBody(source, "ts_supertype_map_entries")
 	if err != nil {
 		// Entries not present — leave nil.
+		g.gap("SUPERTYPE_COUNT %d and no ts_supertype_map_entries", g.SupertypeCount)
 		return nil
 	}
 
@@ -2956,6 +3192,11 @@ func extractExternalSymbols(source string, g *ExtractedGrammar) error {
 		return err
 	}
 	g.ExternalSymbols = parseIndexedSymbolArray(body, g.ExternalTokenCount, g.enumValues)
+	for i, sym := range g.ExternalSymbols {
+		if sym == 0 {
+			g.gap("ts_external_scanner_symbol_map: no symbol for external token %d", i)
+		}
+	}
 	return nil
 }
 
@@ -2991,6 +3232,7 @@ func extractExternalLexStates(source string, g *ExtractedGrammar) error {
 		rowName := body[loc[2]:loc[3]]
 		rowIdx, ok := resolveIndexedName(rowName, g.enumValues)
 		if !ok || rowIdx < 0 || rowIdx >= rowCount {
+			g.gap("ts_external_scanner_states: row %s", rowName)
 			continue
 		}
 
@@ -3019,6 +3261,7 @@ func extractExternalLexStates(source string, g *ExtractedGrammar) error {
 		for _, m := range entries {
 			colIdx, ok := resolveIndexedName(m[1], g.enumValues)
 			if !ok || colIdx < 0 || colIdx >= g.ExternalTokenCount {
+				g.gap("ts_external_scanner_states row %d: column %s", rowIdx, m[1])
 				continue
 			}
 			table[rowIdx][colIdx] = true

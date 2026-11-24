@@ -1,0 +1,140 @@
+package ref
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	gts "github.com/odvcencio/gotreesitter"
+)
+
+// The committed reference of tree-sitter-json; cgo_harness writes it
+// (TestTablebuildReferenceDigests with TABLEBUILD_UPDATE=1).
+func jsonDigests(t *testing.T) *DigestFile {
+	t.Helper()
+	f, err := ReadDigestFile(filepath.Join("..", "testdata", "json", "digests.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+// pinnedSections returns the digests of the pinned parser.c that a Language
+// decoded from a ts2go blob can be compared with.
+func pinnedSections(f *DigestFile) map[string][]string {
+	src := f.Sections
+	if len(f.Pinned) > 0 {
+		src = f.Pinned
+	}
+	out := map[string][]string{}
+	for s, d := range src {
+		if _, omitted := BlobOmits[s]; !omitted && !InputSections(s) && !strings.HasPrefix(s, "L6 ") {
+			out[s] = d
+		}
+	}
+	for s, d := range f.Sections {
+		if strings.HasPrefix(s, "L6 ") {
+			out[s] = d
+		}
+	}
+	return out
+}
+
+func loadJSONBlob(t *testing.T) *gts.Language {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "grammars", "grammar_blobs", "json.bin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lang, err := gts.LoadLanguage(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return lang
+}
+
+func TestJSONGrammarEqualsDigests(t *testing.T) {
+	f := jsonDigests(t)
+	b, err := os.ReadFile(filepath.Join("..", "testdata", "json", "grammar.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines, err := GrammarRecords(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string][]string{}
+	for s, d := range f.Sections {
+		if strings.HasPrefix(s, "L0 ") {
+			want[s] = d
+		}
+	}
+	if len(want) == 0 {
+		t.Fatal("digests.json has no L0 sections")
+	}
+	if d := CompareDigests(lines, want); d != nil {
+		t.Fatalf("testdata/json/grammar.json differs from the reference:\n%s", d)
+	}
+}
+
+// jsonBlobEndState is the main lex state of the shipped json.bin that lacks
+// the end-token accept of the pinned parser.c: the blob was last written on
+// 19 Sep 2026, before ts2go kept that accept (see RestoreEndAccept).
+const jsonBlobEndState = 21
+
+// TestJSONBlobEqualsPinnedDigests is the comparer's self-test in the pure-Go
+// tier. The shipped json.bin differs from JSON's pinned parser.c in exactly
+// one record, the known missing end accept; with that field restored it gives
+// the digests of the pinned parser.c in every section a blob can hold, and one
+// changed cell makes the comparison fail on that cell.
+func TestJSONBlobEqualsPinnedDigests(t *testing.T) {
+	f := jsonDigests(t)
+	want := pinnedSections(f)
+	lang := loadJSONBlob(t)
+	port, err := LanguageRecords(lang, NoExtra, "L4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := CompareDigests(port, want)
+	if d == nil || d.Section != "L5 lex" || d.Index != jsonBlobEndState || !strings.Contains(d.Port, "\tend=false\t") {
+		t.Fatalf("json.bin: want the known difference at L5 lex %d first, got:\n%v", jsonBlobEndState, d)
+	}
+	if err := RestoreEndAccept(lang, jsonBlobEndState); err != nil {
+		t.Fatal(err)
+	}
+	if port, err = LanguageRecords(lang, NoExtra, "L4"); err != nil {
+		t.Fatal(err)
+	}
+	if d := CompareDigests(port, want); d != nil {
+		t.Fatalf("json.bin differs from the pinned parser.c beyond the known end accept:\n%s", d)
+	}
+	t.Logf("%d records in %d sections equal; not compared: %v", len(port), len(want), BlobOmits)
+
+	state, field, before, after, err := ChangeOneCell(lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, err := LanguageRecords(lang, NoExtra, "L4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d = CompareDigests(changed, want)
+	if d == nil {
+		t.Fatalf("a changed cell (state %d: %s to %s) was not found", state, before, after)
+	}
+	if d.Section != "L4 state" || d.Index != state {
+		t.Fatalf("the changed cell (state %d) was not named:\n%s", state, d)
+	}
+	// The unchanged blob's line of that record has the reference digest, so
+	// it is the reference line: the field comparison names the cell.
+	orig := Sections(port)[d.Section][d.Index]
+	if Digest(orig) != d.RefDigest {
+		t.Fatalf("unchanged line has digest %s, reference %s", Digest(orig), d.RefDigest)
+	}
+	k, got, was := firstField(d.Port, orig)
+	if k != field || got != after || was != before {
+		t.Fatalf("field %d %q (was %q), want field %d %q (was %q)", k, got, was, field, after, before)
+	}
+	t.Logf("one changed cell is named:\n%s\n  field %d: port %q, reference %q", d, k, got, was)
+}
