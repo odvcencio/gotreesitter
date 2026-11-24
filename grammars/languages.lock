@@ -189,7 +189,7 @@ hyprlang https://github.com/tree-sitter-grammars/tree-sitter-hyprlang 22723f25f3
 pem https://github.com/ObserverOfTime/tree-sitter-pem e525b177a229b1154fd81bc0691f943028d9e685 src .pem
 crystal https://github.com/keidax/tree-sitter-crystal 51ad1411de9414b4600227553bb70953c352a627 src .cr
 elisp https://github.com/Wilfred/tree-sitter-elisp 29b4e49275f4a947ce17c8533bc20a1f97768c70 src .el
-fsharp https://github.com/ionide/tree-sitter-fsharp 5141851c278a99958469eb1736c7afc4ec738e47 fsharp/src .fs,.fsi,.fsx
+fsharp https://github.com/ionide/tree-sitter-fsharp b576ecf7ced09c0cd74a39618694512dcfc6c110 fsharp/src .fs,.fsi,.fsx
 haxe https://github.com/vantreeseba/tree-sitter-haxe f2a2394d9ca7a6099f78d8b0d178530e7c9a8e26 src .hx
 teal https://github.com/euclidianAce/tree-sitter-teal 05d276e737055e6f77a21335b7573c9d3c091e2f src .tl
 forth https://github.com/AlexanderBrevig/tree-sitter-forth 360ef13f8c609ec6d2e80782af69958b84e36cd0 src .fs,.fth,.4th

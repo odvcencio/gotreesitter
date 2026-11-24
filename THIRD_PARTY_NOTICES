@@ -2375,9 +2375,9 @@ fortran -- https://github.com/stadelmanma/tree-sitter-fortran @ 2880b7aab4fb
     copyright line. No copyright statement is asserted here; the repository owner (stadelmanma) is
     recorded for reference only, not as a confirmed copyright holder.
 
-fsharp -- https://github.com/ionide/tree-sitter-fsharp @ 5141851c278a
+fsharp -- https://github.com/ionide/tree-sitter-fsharp @ b576ecf7ced0
   Copyright (c) 2023 Nikolaj Sidorenco
-  License file: https://github.com/ionide/tree-sitter-fsharp/blob/5141851c278a99958469eb1736c7afc4ec738e47/LICENSE
+  License file: https://github.com/ionide/tree-sitter-fsharp/blob/b576ecf7ced09c0cd74a39618694512dcfc6c110/LICENSE
 
 gdscript -- https://github.com/PrestonKnopp/tree-sitter-gdscript @ 89e66b6bdc00
   Copyright (c) 2016 Max Brunsfeld
