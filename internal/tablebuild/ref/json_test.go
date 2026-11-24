@@ -9,16 +9,18 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 )
 
-// The committed reference of tree-sitter-json; cgo_harness writes it
-// (TestTablebuildReferenceDigests with TABLEBUILD_UPDATE=1).
-func jsonDigests(t *testing.T) *DigestFile {
+// committedDigests reads the committed reference of a grammar; cgo_harness
+// writes it (TestTablebuildReferenceDigests with TABLEBUILD_UPDATE=1).
+func committedDigests(t *testing.T, grammar string) *DigestFile {
 	t.Helper()
-	f, err := ReadDigestFile(filepath.Join("..", "testdata", "json", "digests.json"))
+	f, _, err := ReadDigestDir(filepath.Join("..", "testdata", grammar))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return f
 }
+
+func jsonDigests(t *testing.T) *DigestFile { return committedDigests(t, "json") }
 
 // pinnedSections returns the digests of the pinned parser.c that a Language
 // decoded from a ts2go blob can be compared with.
@@ -54,27 +56,39 @@ func loadJSONBlob(t *testing.T) *gts.Language {
 	return lang
 }
 
-func TestJSONGrammarEqualsDigests(t *testing.T) {
-	f := jsonDigests(t)
-	b, err := os.ReadFile(filepath.Join("..", "testdata", "json", "grammar.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	lines, err := GrammarRecords(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := map[string][]string{}
-	for s, d := range f.Sections {
-		if strings.HasPrefix(s, "L0 ") {
-			want[s] = d
-		}
-	}
-	if len(want) == 0 {
-		t.Fatal("digests.json has no L0 sections")
-	}
-	if d := CompareDigests(lines, want); d != nil {
-		t.Fatalf("testdata/json/grammar.json differs from the reference:\n%s", d)
+// TestGrammarJSONEqualsDigests: each committed grammar.json gives the L0
+// digests of the committed reference, so the pure-Go tier reads the input the
+// reference was built from.
+func TestGrammarJSONEqualsDigests(t *testing.T) {
+	for _, grammar := range []string{"json", "go"} {
+		t.Run(grammar, func(t *testing.T) {
+			f := committedDigests(t, grammar)
+			b, err := os.ReadFile(filepath.Join("..", "testdata", grammar, "grammar.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			lines, err := GrammarRecords(b)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := map[string][]string{}
+			for s, d := range f.Sections {
+				if strings.HasPrefix(s, "L0 ") {
+					want[s] = d
+				}
+			}
+			if len(want) == 0 {
+				t.Fatal("the reference has no L0 sections")
+			}
+			if d := CompareDigests(lines, want); d != nil {
+				t.Fatalf("testdata/%s/grammar.json differs from the reference:\n%s", grammar, d)
+			}
+			n := 0
+			for _, d := range f.Sections {
+				n += len(d)
+			}
+			t.Logf("%s: %d L0 records equal; the reference holds %d records in %d sections (eligible %v)", grammar, len(lines), n, len(f.Sections), f.Eligible)
+		})
 	}
 }
 

@@ -157,8 +157,17 @@ func TestTablebuildReferenceDigests(t *testing.T) {
 				if err := os.MkdirAll(testdata, 0o755); err != nil {
 					t.Fatal(err)
 				}
+				digestName, digestBytes, err := f.Encode()
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, stale := range []string{ref.DigestName, ref.DigestGzName} {
+					if err := os.Remove(filepath.Join(testdata, stale)); err != nil && !os.IsNotExist(err) {
+						t.Fatal(err)
+					}
+				}
 				write := map[string][]byte{
-					"digests.json": out,
+					digestName:     digestBytes,
 					"grammar.json": tablebuildRead(t, filepath.Join(dir, "src", "grammar.json")),
 					"LICENSE":      tablebuildRead(t, filepath.Join(dir, "LICENSE")),
 				}
@@ -167,10 +176,12 @@ func TestTablebuildReferenceDigests(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
-				t.Logf("wrote %s", testdata)
+				t.Logf("wrote %s: %s %d bytes", testdata, digestName, len(digestBytes))
 				return
 			}
-			committed, err := os.ReadFile(filepath.Join(testdata, "digests.json"))
+			// The uncompressed text is compared, so a different gzip build
+			// cannot fail the test.
+			c, committed, err := ref.ReadDigestDir(testdata)
 			if os.IsNotExist(err) {
 				t.Logf("%s has no committed digests", name)
 				return
@@ -181,14 +192,10 @@ func TestTablebuildReferenceDigests(t *testing.T) {
 			if bytes.Equal(committed, out) {
 				return
 			}
-			c, err := ref.ReadDigestFile(filepath.Join(testdata, "digests.json"))
-			if err != nil {
-				t.Fatal(err)
-			}
 			if d := ref.CompareDigests(gen, c.Sections); d != nil {
 				t.Fatalf("committed digests differ from the reference (reference side shown as port):\n%s", d)
 			}
-			t.Fatalf("committed digests.json differs from the reference outside the generator sections (header or pinned sections); rerun with TABLEBUILD_UPDATE=1 and review")
+			t.Fatalf("committed digests differ from the reference outside the generator sections (header or pinned sections); rerun with TABLEBUILD_UPDATE=1 and review")
 		})
 	}
 }

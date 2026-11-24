@@ -2,6 +2,7 @@ package ref
 
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -126,18 +127,33 @@ func TestDigestFileRoundTrip(t *testing.T) {
 	lines := []string{line("L4", "state", "0", "1=A1[S1]"), line("L0", "name", `"t"`)}
 	f := &DigestFile{Grammar: "t", Commit: "c", Generator: "g", Eligible: true, Sources: map[string]string{"parser.c": "x"}, Sections: SectionDigests(lines)}
 	b := f.Marshal()
-	path := t.TempDir() + "/digests.json"
-	if err := os.WriteFile(path, b, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	back, err := ReadDigestFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(back, f) {
-		t.Fatalf("round trip:\n%s\n%+v", b, back)
-	}
-	if string(back.Marshal()) != string(b) {
+	if string(f.Marshal()) != string(b) {
 		t.Fatal("Marshal is not stable")
+	}
+	for _, size := range []int{1, 20000} {
+		// size records give a small file (plain) and a large one (gzip).
+		var many []string
+		for i := 0; i < size; i++ {
+			many = append(many, line("L3", "state", itoa(i), "1=A1[S1]"))
+		}
+		f.Sections = SectionDigests(append(append([]string(nil), lines...), many...))
+		name, data, err := f.Encode()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := len(f.Marshal()) > GzipAbove; (name == DigestGzName) != want {
+			t.Fatalf("%d records: wrote %s for %d bytes of text", size, name, len(f.Marshal()))
+		}
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		back, text, err := ReadDigestDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(back, f) || string(text) != string(f.Marshal()) {
+			t.Fatalf("%d records: round trip through %s differs", size, name)
+		}
 	}
 }

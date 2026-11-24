@@ -2,11 +2,14 @@ package ref
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -122,15 +125,63 @@ func (f *DigestFile) Marshal() []byte {
 	return b.Bytes()
 }
 
-// ReadDigestFile reads a committed digest file.
-func ReadDigestFile(path string) (*DigestFile, error) {
-	b, err := os.ReadFile(path)
+// GzipAbove is the size above which a digest file is stored gzip-compressed
+// (DigestGzName); a smaller one stays plain (DigestName), so that its changes
+// read as text in a diff.
+const GzipAbove = 100000
+
+// The names of a digest file in a grammar's testdata folder.
+const (
+	DigestName   = "digests.json"
+	DigestGzName = "digests.json.gz"
+)
+
+// Encode returns the file name and the bytes to commit: the Marshal text, or
+// its gzip compression when the text is over GzipAbove bytes. The gzip header
+// holds no name and no time.
+func (f *DigestFile) Encode() (string, []byte, error) {
+	text := f.Marshal()
+	if len(text) <= GzipAbove {
+		return DigestName, text, nil
+	}
+	var b bytes.Buffer
+	zw, err := gzip.NewWriterLevel(&b, gzip.BestCompression)
 	if err != nil {
-		return nil, err
+		return "", nil, err
+	}
+	if _, err := zw.Write(text); err != nil {
+		return "", nil, err
+	}
+	if err := zw.Close(); err != nil {
+		return "", nil, err
+	}
+	return DigestGzName, b.Bytes(), nil
+}
+
+// ReadDigestDir reads the digest file of a grammar's testdata folder, the
+// compressed form first. It returns the file and its uncompressed text.
+func ReadDigestDir(dir string) (*DigestFile, []byte, error) {
+	path := filepath.Join(dir, DigestGzName)
+	b, err := os.ReadFile(path)
+	if err == nil {
+		zr, err := gzip.NewReader(bytes.NewReader(b))
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", path, err)
+		}
+		if b, err = io.ReadAll(zr); err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", path, err)
+		}
+	} else if os.IsNotExist(err) {
+		path = filepath.Join(dir, DigestName)
+		if b, err = os.ReadFile(path); err != nil {
+			return nil, nil, err
+		}
+	} else {
+		return nil, nil, err
 	}
 	var f DigestFile
 	if err := json.Unmarshal(b, &f); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, nil, fmt.Errorf("%s: %w", path, err)
 	}
-	return &f, nil
+	return &f, b, nil
 }
