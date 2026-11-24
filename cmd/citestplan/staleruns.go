@@ -311,7 +311,10 @@ type runPatternRef struct {
 	root bool
 }
 
-var rootTestCommandRe = regexp.MustCompile(`\bgo\s+test\s+\.\s+`)
+// rootTestCommandRe matches "go test" aimed at the root package. Flags, flag
+// values, and quoted tag lists may sit between "test" and the "." package, as in
+// `go test -tags gts_parsercorephase0 . -run ...`.
+var rootTestCommandRe = regexp.MustCompile(`\bgo\s+test\s+(?:-\S+\s+|'[^']*'\s+|"[^"]*"\s+|[^-.\s]\S*\s+)*\.\s+`)
 
 func findRunPatternRefs(script string) []runPatternRef {
 	var refs []runPatternRef

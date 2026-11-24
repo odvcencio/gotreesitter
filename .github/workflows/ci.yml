@@ -635,6 +635,10 @@ jobs:
           TestStatefulScannerCompactLeafReauthentication
           TestTokenInvariantLookaheadLongestMatch
           TestTokenInvariantLookaheadGoControl
+          TestTokenInvariantPythonNumericControls
+          TestTokenInvariantPythonNumericControlsCore
+          TestTokenInvariantTypeScriptNumericControls
+          TestTokenInvariantTypeScriptNumericControlsCore
           TestTokenInvariantLookaheadGoFloatControl
           TestTokenInvariantDependencyCaptureAndLifecycle
           TestTokenInvariantDependencyCaptureDeclinesIncompleteHistory
@@ -1287,7 +1291,7 @@ jobs:
           fi
           bash scripts/run_editor_latency_gate.sh \
             --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency" \
-            --languages "$W5_LANGUAGE" "${w5_options[@]}"
+            --languages "$W5_LANGUAGE" ${w5_options[@]+"${w5_options[@]}"}
 
       - name: Publish W5 job summary
         if: always()

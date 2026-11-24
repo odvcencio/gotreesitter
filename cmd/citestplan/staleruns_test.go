@@ -266,6 +266,37 @@ func TestAuditWorkflowRootSelectorRequiresRootDefinition(t *testing.T) {
 	}
 }
 
+func TestAuditWorkflowTaggedRootSelectorRequiresRootDefinition(t *testing.T) {
+	for _, command := range []string{
+		"go test -tags gts_parsercorephase0 . -run '^TestMoved$'",
+		"GOMAXPROCS=1 go test -tags 'gts_parsercorephase0 gts_derivation_set_census' . -run '^TestMoved$' -count=1",
+		"go test -count=1 -tags gts_parsercorephase0 . -run '^TestMoved$'",
+		"go test -tags gts_parsercorephase0 . \\\n            -run '^TestMoved$'",
+	} {
+		data := []byte("jobs:\n  check:\n    steps:\n      - run: |\n          " + command + "\n")
+		defined := map[string]bool{"TestMoved": true}
+		findings, checked, err := auditWorkflowFileScoped("ci.yml", data, defined, []string{"TestMoved"}, map[string]bool{"TestRoot": true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if checked != 1 || len(findings) != 1 || findings[0].Name != "TestMoved" {
+			t.Fatalf("%q: tagged root selector passed silently: checked=%d findings=%+v", command, checked, findings)
+		}
+	}
+}
+
+func TestRootTestCommandReIgnoresOtherPackages(t *testing.T) {
+	for _, command := range []string{
+		"go test -tags gts_parsercorephase0 ./internal/parsercorephase0 -run '^TestX$'",
+		"go test ./grammars -run '^TestX$'",
+		"go test -tags x ./... -run '^TestX$'",
+	} {
+		if rootTestCommandRe.MatchString(command) {
+			t.Fatalf("%q matched as a root-package command", command)
+		}
+	}
+}
+
 func TestAuditWorkflowContinuedRootSelectorRequiresRootDefinition(t *testing.T) {
 	data := []byte("jobs:\n  check:\n    steps:\n      - run: |\n          GOWORK=off go test . \\\n            -run '^TestMoved$' \\\n            -count=1\n")
 	defined := map[string]bool{"TestMoved": true}
