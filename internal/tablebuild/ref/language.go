@@ -17,6 +17,21 @@ var L6Ignored = map[string]string{
 	"ExternalScanner": "a Go value the grammar registry attaches; not table data and not in a blob",
 }
 
+// l6Skipped holds the struct indices of the Language fields that L6Ignored
+// names, so the records skip a field by its index.
+var l6Skipped = func() map[int]bool {
+	t := reflect.TypeOf((*gts.Language)(nil)).Elem()
+	skipped := map[int]bool{}
+	for field := range L6Ignored {
+		sf, ok := t.FieldByName(field)
+		if !ok {
+			panic("ref: L6Ignored names no Language field " + field)
+		}
+		skipped[sf.Index[0]] = true
+	}
+	return skipped
+}()
+
 // languageRecords writes one L6 record per exported field of the Language, in
 // struct order: the field name and the digest of a canonical text of its
 // value (see writeValue).
@@ -26,10 +41,7 @@ func languageRecords(lang *gts.Language) []string {
 	var out []string
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if !f.IsExported() {
-			continue
-		}
-		if _, skip := L6Ignored[f.Name]; skip {
+		if !f.IsExported() || l6Skipped[i] {
 			continue
 		}
 		h := sha256.New()
