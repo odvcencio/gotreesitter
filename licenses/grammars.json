@@ -948,13 +948,13 @@
     {
       "name": "fsharp",
       "repo": "https://github.com/ionide/tree-sitter-fsharp",
-      "ref": "5141851c278a99958469eb1736c7afc4ec738e47",
+      "ref": "b576ecf7ced09c0cd74a39618694512dcfc6c110",
       "spdx": "MIT",
       "license_name": "MIT License",
       "copyright_holders": [
         "Copyright (c) 2023 Nikolaj Sidorenco"
       ],
-      "license_file_url": "https://github.com/ionide/tree-sitter-fsharp/blob/5141851c278a99958469eb1736c7afc4ec738e47/LICENSE",
+      "license_file_url": "https://github.com/ionide/tree-sitter-fsharp/blob/b576ecf7ced09c0cd74a39618694512dcfc6c110/LICENSE",
       "method": "github_license_api",
       "copyleft": false
     },
