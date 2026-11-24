@@ -1,0 +1,57 @@
+# Layer L1 digests: record key, tab, first 8 bytes of SHA-256 of the record line (key, tab, value).
+# Written by TestL1 with -l1.update from the pinned parser.c and node-types.json.
+# LANGUAGE_VERSION 14
+field_names	9bd6459912e81e60
+node ","/anon	60cb867deb5b14bd
+node ":"/anon	ea21f2397fc8f8d6
+node "["/anon	904b87a7bc764181
+node "\""/anon	45d11b808d66bb24
+node "]"/anon	daf2870e83219fdb
+node "_value"/named	e32c462592d2b9d5
+node "_value"/named subtypes	1bbce04dfd4d9a61
+node "array"/named	f1eb9e409fa6db35
+node "array"/named children	abcb82191390ca78
+node "comment"/named	ca057a3d6a51b62e
+node "document"/named	1d277122ed2c3d57
+node "document"/named children	b9ccdb9eee6526a9
+node "escape_sequence"/named	00826eca22b34f63
+node "false"/named	b1cc2c486b66d1fb
+node "null"/named	6976466d92beea26
+node "number"/named	b6587591a0955ae8
+node "object"/named	222faca71504c0d0
+node "object"/named children	d4103999410ca5ed
+node "pair"/named	963cbe526f25a8c6
+node "pair"/named field key	f8e29486e26963e3
+node "pair"/named field value	5489d01702d0c9ee
+node "string"/named	e50343eb012cc2f8
+node "string"/named children	1ef04d6d4cd10234
+node "string_content"/named	45dc3eb087f38cf8
+node "true"/named	3a1b3a9a2a59d1d7
+node "{"/anon	5d155769e131f9a7
+node "}"/anon	462118a67e927f15
+production_info	33162b66284f7593
+production_info	d6df5970eab33bf7
+symbol anon_sym_COLON	f2ed3603c0ec5b87
+symbol anon_sym_COMMA	d9fb60e94777f047
+symbol anon_sym_DQUOTE	5269e2bf919ce4fe
+symbol anon_sym_LBRACE	51eb1a592746e9cc
+symbol anon_sym_LBRACK	464c4abebc649ebd
+symbol anon_sym_RBRACE	d4bcce57062f5865
+symbol anon_sym_RBRACK	8a318e407ed25110
+symbol aux_sym__string_content	e649a394d1e2f6a5
+symbol aux_sym_array_repeat1	0fd0090d570cdf00
+symbol aux_sym_document_repeat1	d432317a49d47f4e
+symbol aux_sym_object_repeat1	79f0a60c96780b73
+symbol sym__value	33db8300931f6c14
+symbol sym_array	4b4a2d1b23717c21
+symbol sym_comment	8a51ec3dd66ecb9d
+symbol sym_document	581630b12aba4019
+symbol sym_escape_sequence	a43b14ad2c56dcae
+symbol sym_false	4d84f200ccdce312
+symbol sym_null	a9ee0027dd068227
+symbol sym_number	fde7e82d16333b70
+symbol sym_object	066bc4d3bb5ee353
+symbol sym_pair	58fedf054e4f9652
+symbol sym_string	12366281bd17e040
+symbol sym_string_content	e0aeaf8e655f1521
+symbol sym_true	a00701eec2e2e818

@@ -1,0 +1,684 @@
+# Layer L1 digests: record key, tab, first 8 bytes of SHA-256 of the record line (key, tab, value).
+# Written by TestL1 with -l1.update from the pinned parser.c and node-types.json.
+# LANGUAGE_VERSION 15
+alias alias_sym_field_identifier	7bf4f9682358ae03
+alias alias_sym_label_name	547d71e2ed6c4f04
+alias alias_sym_package_identifier	bcd3c0886b5f1082
+alias alias_sym_type_constraint	55578f23d8f6cad6
+alias alias_sym_type_identifier	80fc70e5f1a8ff78
+alias_map sym_type_elem	28ebce190960793d
+field_names	dc12eba92a4a15a0
+node "!"/anon	bd9aad3f9177298a
+node "!="/anon	cf198a8036fb18f7
+node "%"/anon	81266cd0e791ce73
+node "%="/anon	ef9da664f25c09a7
+node "&"/anon	67c7667597e67169
+node "&&"/anon	be4c0aef5d251b18
+node "&="/anon	358baa832bfcc83a
+node "&^"/anon	b78bad984cdb2116
+node "&^="/anon	fe8ce72b81de52e1
+node "("/anon	fa4e0c504e37358a
+node ")"/anon	0c7b35a39895cc3b
+node "*"/anon	ab28fdf913fabbe8
+node "*="/anon	081179777f4b9eb1
+node "+"/anon	e477c42b925f8cb3
+node "++"/anon	159d70ddd307d925
+node "+="/anon	906507cf9fef71c9
+node ","/anon	60cb867deb5b14bd
+node "-"/anon	921e9c0ae6678f82
+node "--"/anon	5bd2fa58c2af62ed
+node "-="/anon	77a057b0c2a2fb6a
+node "."/anon	3eb0efb8f38b2b46
+node "..."/anon	11f30ea55470bf66
+node "/"/anon	f0c786e769094f75
+node "/="/anon	92e8740a0bc74459
+node ":"/anon	ea21f2397fc8f8d6
+node ":="/anon	fbdca770c7d7336a
+node ";"/anon	053d4533d88e3860
+node "<"/anon	5d8e2b508e1043a1
+node "<-"/anon	f53d3cf6cc18eb74
+node "<<"/anon	e909f56407e35b90
+node "<<="/anon	a6bc14fb2ff97f84
+node "<="/anon	349408e644c64341
+node "="/anon	9726d66bb87f3622
+node "=="/anon	9b5b46fbf5c56858
+node ">"/anon	1923a45c2af64fd7
+node ">="/anon	f838d974b88f52bd
+node ">>"/anon	6d9733086ec5fe8c
+node ">>="/anon	ac1183ace07c06bc
+node "["/anon	904b87a7bc764181
+node "\""/anon	45d11b808d66bb24
+node "\x00"/anon	65468235716afe03
+node "]"/anon	daf2870e83219fdb
+node "^"/anon	d1a49606f9f207a3
+node "^="/anon	e57e0a2eff6f9e2b
+node "_expression"/named	5cf269117317330e
+node "_expression"/named subtypes	131d870b10cf7ed0
+node "_simple_statement"/named	346103a4766d4763
+node "_simple_statement"/named subtypes	0e4482b652158929
+node "_simple_type"/named	4a81cb2aedcc3dd6
+node "_simple_type"/named subtypes	7debeb5fe2c4e79d
+node "_statement"/named	4ef6af24e6fb2a39
+node "_statement"/named subtypes	3a1c2eff5db06a84
+node "_type"/named	1f7fc4ea7d360533
+node "_type"/named subtypes	371849067735cb2f
+node "`"/anon	1035aeb52caa125e
+node "argument_list"/named	8835b38359580781
+node "argument_list"/named children	7db0105f11bc0026
+node "array_type"/named	f8c4df4a6c5ba5f0
+node "array_type"/named field element	a7bb2c2a8631a355
+node "array_type"/named field length	dbf95cd005816626
+node "assignment_statement"/named	321add79614394a3
+node "assignment_statement"/named field left	8e85f32e7522d4a2
+node "assignment_statement"/named field operator	d8c48dbac4991431
+node "assignment_statement"/named field right	05b7412baa67752e
+node "binary_expression"/named	228d8edc9bcb7385
+node "binary_expression"/named field left	422559a71ae95ac8
+node "binary_expression"/named field operator	768d593d758d6747
+node "binary_expression"/named field right	ed8db914f23eac58
+node "blank_identifier"/named	50165d6e51128fe4
+node "block"/named	f40e47fd20f4663c
+node "block"/named children	43b527a984cec348
+node "break"/anon	9ad1e3f2ac0b82c7
+node "break_statement"/named	12931cc6ebb8c56a
+node "break_statement"/named children	a7e1c70e86ba4084
+node "call_expression"/named	ada9e9c7400f67ca
+node "call_expression"/named field arguments	d16a5d683bd3c838
+node "call_expression"/named field function	0628c2436c1bdd75
+node "call_expression"/named field type_arguments	8089c2494ef4b2af
+node "case"/anon	33a75849992a379a
+node "chan"/anon	f61a6816eb4c403d
+node "channel_type"/named	5ede8ed28b4744d2
+node "channel_type"/named field value	902961e9765a0d60
+node "comment"/named	ca057a3d6a51b62e
+node "communication_case"/named	05f71ca84c64cfb9
+node "communication_case"/named children	f351d9498d0913e5
+node "communication_case"/named field communication	be6e264fd8b748ea
+node "composite_literal"/named	264ddf02bb11a5fc
+node "composite_literal"/named field body	e526800ec92b3c56
+node "composite_literal"/named field type	9d9d9e82b5f35cea
+node "const"/anon	f584742bfa936ccd
+node "const_declaration"/named	6a051f6e3244a755
+node "const_declaration"/named children	90ba83043d88ab11
+node "const_spec"/named	a60f103e99b75e9c
+node "const_spec"/named field name	d29780d584e6a547
+node "const_spec"/named field type	5d447d6dd2d4c7bf
+node "const_spec"/named field value	10fe0d4a81df9aad
+node "continue"/anon	37f3e0db4ee30b0c
+node "continue_statement"/named	0ea0e73f574ba34b
+node "continue_statement"/named children	cba7b85fad45d9a6
+node "dec_statement"/named	d4ec5abc101b6c04
+node "dec_statement"/named children	65eeaa698a21b0c6
+node "default"/anon	c22096569d11c09b
+node "default_case"/named	c9a34d9ee3384482
+node "default_case"/named children	286b1e1bff6c59a2
+node "defer"/anon	4a7f3ad6bc777d56
+node "defer_statement"/named	ac0d24a61377bb38
+node "defer_statement"/named children	5357c31802e026e0
+node "dot"/named	e8fcd10b71dd8ad1
+node "else"/anon	874d8f098874cbb3
+node "empty_statement"/named	ec9bbe04a96b3d0f
+node "escape_sequence"/named	00826eca22b34f63
+node "expression_case"/named	5540fd44db95e4c7
+node "expression_case"/named children	26d29bf5dd3e7cb3
+node "expression_case"/named field value	d3f3f5094bde9fec
+node "expression_list"/named	53b993bbe51e6e8e
+node "expression_list"/named children	3b0b222929c5537f
+node "expression_statement"/named	91aed81bfb085458
+node "expression_statement"/named children	95efc24ea0f6110b
+node "expression_switch_statement"/named	f4462bc598a1d4a5
+node "expression_switch_statement"/named children	e76e811696cba5e0
+node "expression_switch_statement"/named field initializer	0800c9841ba0169a
+node "expression_switch_statement"/named field value	299353dfc4367f10
+node "fallthrough"/anon	24491c71cc3aa57f
+node "fallthrough_statement"/named	70c8f25966178864
+node "false"/named	b1cc2c486b66d1fb
+node "field_declaration"/named	49562c74b59f2665
+node "field_declaration"/named field name	84d8298a13ce9a7e
+node "field_declaration"/named field tag	9b57486936b0f16b
+node "field_declaration"/named field type	dc39139c650b31a0
+node "field_declaration_list"/named	9af1689d5f3bf219
+node "field_declaration_list"/named children	cb530a4b43c4a015
+node "field_identifier"/named	6fd15fdf5fe9b349
+node "float_literal"/named	4b98e3d5a16846b6
+node "for"/anon	93490a60bb4be737
+node "for_clause"/named	923dca6a9530977f
+node "for_clause"/named field condition	b26dfa516e05ce45
+node "for_clause"/named field initializer	f300b62ee8f0e6ec
+node "for_clause"/named field update	25d8e310a7a546f5
+node "for_statement"/named	45f37ea47013219c
+node "for_statement"/named children	8b6bfd51d449b7b2
+node "for_statement"/named field body	0c691923cd290dcd
+node "func"/anon	77585fdd73849735
+node "func_literal"/named	e7a9deed49b6aff6
+node "func_literal"/named field body	548d19d3d3236795
+node "func_literal"/named field parameters	691d6d28d3a15dfd
+node "func_literal"/named field result	4f4846768711ab3c
+node "function_declaration"/named	7f021dbebb71ce7e
+node "function_declaration"/named field body	ff9c535377a7ff63
+node "function_declaration"/named field name	f26c4658d8e230d6
+node "function_declaration"/named field parameters	f994185119cfdcc3
+node "function_declaration"/named field result	6f6cb36186fcb44b
+node "function_declaration"/named field type_parameters	ca2ec4a19cb17ee8
+node "function_type"/named	382164a8f0e1b59c
+node "function_type"/named field parameters	855e0d9ab3240cdc
+node "function_type"/named field result	c29cdec8461a3892
+node "generic_type"/named	5039f19f9d5a6714
+node "generic_type"/named field type	3ef8d2cc023d0d84
+node "generic_type"/named field type_arguments	8b2068b2f78e82a9
+node "go"/anon	1b39e395c129c96a
+node "go_statement"/named	8fcd80afbc0d0332
+node "go_statement"/named children	e0c4e34ee97492da
+node "goto"/anon	eca04b3b168ca1f0
+node "goto_statement"/named	5facf112d50ed2f1
+node "goto_statement"/named children	9309f3ed34df8eba
+node "identifier"/named	d4127a7d7ed0b441
+node "if"/anon	c1545a03321f7cb0
+node "if_statement"/named	82b6a8dbb0a35ece
+node "if_statement"/named field alternative	419e473098a59427
+node "if_statement"/named field condition	457a0d47de8602c7
+node "if_statement"/named field consequence	0adab3b230b9addd
+node "if_statement"/named field initializer	46d39b627cdd304f
+node "imaginary_literal"/named	bbd1c6d98762503f
+node "implicit_length_array_type"/named	92bd90aca6581fe5
+node "implicit_length_array_type"/named field element	88cced50ff6d0690
+node "import"/anon	8617c200b45a623d
+node "import_declaration"/named	5fbcc0cf8ef6d2d7
+node "import_declaration"/named children	ad11d21a57a982a4
+node "import_spec"/named	fca77c99a3e85190
+node "import_spec"/named field name	02415c4c6dfdb241
+node "import_spec"/named field path	37f74c742e530626
+node "import_spec_list"/named	6dfc2a730f73a10e
+node "import_spec_list"/named children	40049395858bb8a1
+node "inc_statement"/named	46fb4dcf957f37ab
+node "inc_statement"/named children	fa0475ac729ee9f5
+node "index_expression"/named	7e9741da51746516
+node "index_expression"/named field index	425940640670ac67
+node "index_expression"/named field operand	dfa50ecf4f31855a
+node "int_literal"/named	26b593206a690355
+node "interface"/anon	6bc53218bd438b30
+node "interface_type"/named	a4b99d0d7d7e1fa2
+node "interface_type"/named children	01e648a50b99e225
+node "interpreted_string_literal"/named	ec0b38f56de7746a
+node "interpreted_string_literal"/named children	d3cdcf77f515fde1
+node "interpreted_string_literal_content"/named	efbf396aa8dfda46
+node "iota"/named	9dc9d0b3e1629cf7
+node "keyed_element"/named	8de83ba7f3e1e102
+node "keyed_element"/named field key	ea751765402cd390
+node "keyed_element"/named field value	d3bf257e0dd08dfb
+node "label_name"/named	d7281a08069a2914
+node "labeled_statement"/named	6b0aba38b461a5ec
+node "labeled_statement"/named children	de54e6e4d4615159
+node "labeled_statement"/named field label	9307cf6fd5643eab
+node "literal_element"/named	e4283b28c42a3ce4
+node "literal_element"/named children	b60d973326743bac
+node "literal_value"/named	7aa4d0d0c6eeacd7
+node "literal_value"/named children	03169ab7ae59ad13
+node "map"/anon	040947ec1c7400f7
+node "map_type"/named	346fe992e16609c6
+node "map_type"/named field key	3010350981902940
+node "map_type"/named field value	93ccb313afb0bfb0
+node "method_declaration"/named	17f59022b9df9683
+node "method_declaration"/named field body	2bcd8dd33a99b0c1
+node "method_declaration"/named field name	9f5cd0386ff85a5c
+node "method_declaration"/named field parameters	a2035603963c88a6
+node "method_declaration"/named field receiver	56d4905b982292ab
+node "method_declaration"/named field result	bbe633890f825d42
+node "method_elem"/named	1e1b88ff8cff8118
+node "method_elem"/named field name	c9c94cee41fa5c2a
+node "method_elem"/named field parameters	dcb38f1cce8fd14c
+node "method_elem"/named field result	ca6220afe1c1a851
+node "negated_type"/named	08a907b6feb2baae
+node "negated_type"/named children	b4a6c46d211ae470
+node "nil"/named	d27c7d32d081f277
+node "package"/anon	4002c563670df115
+node "package_clause"/named	86adc6c9d0523598
+node "package_clause"/named children	95e1be97e8051152
+node "package_identifier"/named	b4a3b22e6d9d06ce
+node "parameter_declaration"/named	050add8ebaff4d72
+node "parameter_declaration"/named field name	627e3824dbdd8cee
+node "parameter_declaration"/named field type	9cf2db1d040535fe
+node "parameter_list"/named	0b118db3a5e2c16e
+node "parameter_list"/named children	8d5817e46abacd7b
+node "parenthesized_expression"/named	1ed800e77221f1bc
+node "parenthesized_expression"/named children	10eba72b6db82c58
+node "parenthesized_type"/named	71f1afcb8fb44847
+node "parenthesized_type"/named children	80b048a3922a96b3
+node "pointer_type"/named	123042a1c1a9b215
+node "pointer_type"/named children	098e56449dde7350
+node "qualified_type"/named	13d2b3897025b4b2
+node "qualified_type"/named field name	de28b2fd93dbb91c
+node "qualified_type"/named field package	48cfeaf76c6eebde
+node "range"/anon	bb6f1edca1e29054
+node "range_clause"/named	364ec8b0b25fd1d9
+node "range_clause"/named field left	fc8d48501f04eeb2
+node "range_clause"/named field right	0b7392eed55c33f6
+node "raw_string_literal"/named	4a98dad4b2b1cb59
+node "raw_string_literal"/named children	544d305255e46369
+node "raw_string_literal_content"/named	1926d91f526e6cfa
+node "receive_statement"/named	ef1103b0c566c364
+node "receive_statement"/named field left	ff65ccdf03bb17e7
+node "receive_statement"/named field right	f9a205c183466fde
+node "return"/anon	5883d17a65c6ad91
+node "return_statement"/named	98513f6b89e8493b
+node "return_statement"/named children	a9473ab40e089359
+node "rune_literal"/named	ce7c6a9187c1f5d5
+node "select"/anon	e58efccefe54cf84
+node "select_statement"/named	b99063feccb1a5c9
+node "select_statement"/named children	fe4724ebd651e511
+node "selector_expression"/named	822f70607463eca4
+node "selector_expression"/named field field	349d8451c0cd0170
+node "selector_expression"/named field operand	5275276f0ce7d8b9
+node "send_statement"/named	ce56a60905bf2b5a
+node "send_statement"/named field channel	d1d6b7c21aba73a8
+node "send_statement"/named field value	d57c9804db17a474
+node "short_var_declaration"/named	46e2e8f0d3ac89dd
+node "short_var_declaration"/named field left	f11668963adb6045
+node "short_var_declaration"/named field right	782c838917336070
+node "slice_expression"/named	b0bead3ed44c0877
+node "slice_expression"/named field capacity	8f2d565cbc576f37
+node "slice_expression"/named field end	e132e04ffede038d
+node "slice_expression"/named field operand	53191090d9377b04
+node "slice_expression"/named field start	a16898dc34fbc0b5
+node "slice_type"/named	86ef1ef72ee271d7
+node "slice_type"/named field element	22801f7b4a04a236
+node "source_file"/named	5d8708ebd5bbbfcc
+node "source_file"/named children	d0f1d111b57ea8a8
+node "statement_list"/named	5041ed7caa656b0d
+node "statement_list"/named children	baf04bd8a2255ba4
+node "struct"/anon	05bf71d40cee6896
+node "struct_type"/named	91935058e6086ed2
+node "struct_type"/named children	d380e743ff8fa246
+node "switch"/anon	b0582cbc7e40696a
+node "true"/named	3a1b3a9a2a59d1d7
+node "type"/anon	8159783d709b9f4d
+node "type_alias"/named	0b5394273e57deb0
+node "type_alias"/named field name	7cb976e57e132f22
+node "type_alias"/named field type	f21118f1e4419228
+node "type_alias"/named field type_parameters	86a1ccc27a600616
+node "type_arguments"/named	9d93dc758e43a336
+node "type_arguments"/named children	dd5aa4e3dac2f3d3
+node "type_assertion_expression"/named	237c59921a5cd632
+node "type_assertion_expression"/named field operand	17012c8f1449ed4f
+node "type_assertion_expression"/named field type	971b59646f57ef8b
+node "type_case"/named	ec03cca985cb2fde
+node "type_case"/named children	0c2f5a9e8d1adc2e
+node "type_case"/named field type	c88c560b6b9bf7c2
+node "type_constraint"/named	9d78baab3774bad4
+node "type_constraint"/named children	5c2c90a332392dd3
+node "type_conversion_expression"/named	6fded4fec4cc522f
+node "type_conversion_expression"/named field operand	a3f642da1cd08d8e
+node "type_conversion_expression"/named field type	0dbf7ef351deb9ef
+node "type_declaration"/named	e6fbfc4503f05224
+node "type_declaration"/named children	903aa7d130e3a9a4
+node "type_elem"/named	88946ea822e6dbc4
+node "type_elem"/named children	cafba7894efaaefc
+node "type_identifier"/named	e4446ea46ef398ec
+node "type_instantiation_expression"/named	a5af22987101dd15
+node "type_instantiation_expression"/named children	b1f156aee1a5d5f5
+node "type_instantiation_expression"/named field type	23aceab1f15373cb
+node "type_parameter_declaration"/named	6d9295b2416bf2e1
+node "type_parameter_declaration"/named field name	152960a70345cef7
+node "type_parameter_declaration"/named field type	8f4c219ce3e6c2f5
+node "type_parameter_list"/named	fd5bac2eee224e83
+node "type_parameter_list"/named children	142b646dab2382e4
+node "type_spec"/named	35930135e275faea
+node "type_spec"/named field name	937ec596d7925172
+node "type_spec"/named field type	bac7860398161b59
+node "type_spec"/named field type_parameters	b9733ff4f3a83c7a
+node "type_switch_statement"/named	6f0b3ceab9e39664
+node "type_switch_statement"/named children	aaf654b3c09fc997
+node "type_switch_statement"/named field alias	9d3c3016dde83cc3
+node "type_switch_statement"/named field initializer	1234b8a6aec866e0
+node "type_switch_statement"/named field value	864f4ede4b08b9cd
+node "unary_expression"/named	8e2787ca51bd2d11
+node "unary_expression"/named field operand	442e676c2acec515
+node "unary_expression"/named field operator	0da02f5bd0f0eadc
+node "var"/anon	44287c6b60bede14
+node "var_declaration"/named	52ee71f99ff15810
+node "var_declaration"/named children	be8f980c68d428d6
+node "var_spec"/named	98de28cafbe25850
+node "var_spec"/named field name	724caad89f69be18
+node "var_spec"/named field type	3a942765a5b90ba9
+node "var_spec"/named field value	5855903843452b6a
+node "var_spec_list"/named	7f75c17c3ccedd82
+node "var_spec_list"/named children	14818fac85e3512a
+node "variadic_argument"/named	8cfa785d20a5ed5a
+node "variadic_argument"/named children	ec6112300ee5bed8
+node "variadic_parameter_declaration"/named	aecd0f62bde9c044
+node "variadic_parameter_declaration"/named field name	0f3a2d9a1f7e7bcf
+node "variadic_parameter_declaration"/named field type	331e8c7281c8a8b0
+node "{"/anon	5d155769e131f9a7
+node "|"/anon	bf93de1b50b6423e
+node "|="/anon	8db972a7ab3b66ef
+node "||"/anon	28ca32de5ec5a0d0
+node "}"/anon	462118a67e927f15
+node "~"/anon	d3a1c6ac0ca78148
+production_info	0154c6bdae67c99d
+production_info	03f7222f794ff17d
+production_info	056f5ce01b77f6fb
+production_info	0570a95ffca80c07
+production_info	0587c52af262e42f
+production_info	06adc8ee12334641
+production_info	0e013c3285c1fd40
+production_info	0ea64f16f13fd3b8
+production_info	0f3dd17e9a397c48
+production_info	128e1ab6e00bf9a6
+production_info	12c7c492b6c5d9cb
+production_info	1417be60702146fd
+production_info	1c5370fabf5ed024
+production_info	1cc03d8325fb5916
+production_info	1f4a885744e1986e
+production_info	2050f3a30315311d
+production_info	215b2bc503c27403
+production_info	263f53fc6e10b87f
+production_info	285498afbb05b353
+production_info	2a4385f88f7a7159
+production_info	2bc6822254cd4188
+production_info	2c35ae576ed1e292
+production_info	2ce10425e0f3f03c
+production_info	31ec0e379ba00ef5
+production_info	33162b66284f7593
+production_info	38c3fb0485f6763a
+production_info	3fc28eb22a494573
+production_info	4268b6323f67782d
+production_info	45e4e3a35f4a7067
+production_info	4711154785f3c24c
+production_info	4aa82c8944e4609e
+production_info	4c75f7c64c498729
+production_info	4ca3e07bf4a7dad2
+production_info	4e4c0c00118ba9bb
+production_info	4f32a7f8e3f97d74
+production_info	51fdd7a4b33c3a16
+production_info	536db043ff03b074
+production_info	542cdfd28442a890
+production_info	54a1bd482cdab1b6
+production_info	55584082fc24752f
+production_info	5736aadaf2d2d4f7
+production_info	5d859cc1031dfd56
+production_info	5f9d9ebfd3c23df2
+production_info	601430f5500032d1
+production_info	6b848d9149106a15
+production_info	6bff950df5dc5070
+production_info	7740b16ad34a94f8
+production_info	7be6bf0f7453d761
+production_info	7f4442f6f5b9e4c4
+production_info	8055bef9fcdd8946
+production_info	80ff2c56c289414e
+production_info	8197ec98223c7676
+production_info	84d58db0d48bd0ee
+production_info	864e6b2fb0fd5e01
+production_info	8875b5cdf541878f
+production_info	895002a643afdd9a
+production_info	8b01306e0a4eccc2
+production_info	8d7ca298899eb63f
+production_info	8ea325fdef484cf5
+production_info	906d6c580c603b41
+production_info	9151da757e8134cb
+production_info	91806c86c14500db
+production_info	946a2de4ed804777
+production_info	95f6be413871635f
+production_info	98905ddfb1e924c5
+production_info	993b45c401aa033d
+production_info	9dc86f4a19331848
+production_info	9e429628ad3854b9
+production_info	9f63b6e42d04f800
+production_info	a717a3d8b5748586
+production_info	a9121254329c8e39
+production_info	aaebc076e54764e7
+production_info	ad81a9df8d2b79c3
+production_info	aea0a23f6f236ba8
+production_info	aeed49b96d6ac734
+production_info	af300f5a689add73
+production_info	b8a2c9a52f00e3a2
+production_info	bb45a0a3fbdcec6d
+production_info	bb60245c7f47fe42
+production_info	bc4dda899174f1e6
+production_info	bd01d7e619556c48
+production_info	be8ea86eabb12cbc
+production_info	bf61247164431a30
+production_info	c00cc9d2ece48915
+production_info	c0644fd57a89cc67
+production_info	c06d2290e957e6fe
+production_info	c4d92ea21d8d5ae1
+production_info	c5723767a85bea30
+production_info	cca8352e2fd35f85
+production_info	cdb48bb855ecec63
+production_info	ce440de6b3cde0e9
+production_info	d51de4cfe1ffb8f7
+production_info	d6df5970eab33bf7
+production_info	de669233d41c25e5
+production_info	e890d5a1548e4c3f
+production_info	e9cfed9c4b92821f
+production_info	eb85426b0b6042bc
+production_info	ecb92e84b7f62198
+production_info	ee88e86f5c735533
+production_info	f0a1d90b0129dc16
+production_info	f1404dda4d10e233
+production_info	f14559e8d1dd3d19
+production_info	f217f1e41d78e721
+production_info	f420746f3c11ba76
+production_info	f4a3f8ca7c1fa8ba
+production_info	f6d099707e10bf8c
+production_info	f7900eb1a3bead0b
+production_info	f98a6c52ed98802b
+production_info	fb450812e48f5af1
+production_info	fbd4330ca6211011
+production_info	fc34048750872ddf
+supertype sym__expression	20f9016f1e66e02f
+supertype sym__simple_statement	6a3a9c5838db43d2
+supertype sym__simple_type	7a1e4ebbcd661fcb
+supertype sym__statement	42e7847391e2a69e
+symbol anon_sym_AMP	9717652cf8d10767
+symbol anon_sym_AMP_AMP	112e3c033d6ddbbe
+symbol anon_sym_AMP_CARET	6c4e62fd90959064
+symbol anon_sym_AMP_CARET_EQ	a36f3cd3a8ce5f9c
+symbol anon_sym_AMP_EQ	f06f240f7bc33670
+symbol anon_sym_BANG	802f92b1c79e46b4
+symbol anon_sym_BANG_EQ	77dc21a8f9677767
+symbol anon_sym_BQUOTE	a15a8f75c3339990
+symbol anon_sym_CARET	0a01d1355300a440
+symbol anon_sym_CARET_EQ	27549af696453338
+symbol anon_sym_COLON	f2ed3603c0ec5b87
+symbol anon_sym_COLON_EQ	c9af48e5e0159f92
+symbol anon_sym_COMMA	d9fb60e94777f047
+symbol anon_sym_DASH	564e284edfacd632
+symbol anon_sym_DASH_DASH	cec6cf2c5ca1f454
+symbol anon_sym_DASH_EQ	8550466b74b7b521
+symbol anon_sym_DOT	70fde07db7b11312
+symbol anon_sym_DOT_DOT_DOT	72a708595659d334
+symbol anon_sym_DQUOTE	5269e2bf919ce4fe
+symbol anon_sym_DQUOTE2	cba67cd7e270a82c
+symbol anon_sym_EQ	ed3ea840df5aca91
+symbol anon_sym_EQ_EQ	ec84f671aa8f9422
+symbol anon_sym_GT	f5350a0fedf26f8c
+symbol anon_sym_GT_EQ	0482154883f7fcf2
+symbol anon_sym_GT_GT	ad8aa2065de50fb1
+symbol anon_sym_GT_GT_EQ	79562d0faa0bf907
+symbol anon_sym_LBRACE	51eb1a592746e9cc
+symbol anon_sym_LBRACK	464c4abebc649ebd
+symbol anon_sym_LPAREN	29e359af8aa21de7
+symbol anon_sym_LT	abf49026d0749990
+symbol anon_sym_LT_DASH	5d65ae1880c484bc
+symbol anon_sym_LT_EQ	ff65754c69a33f22
+symbol anon_sym_LT_LT	8d115b53856eabde
+symbol anon_sym_LT_LT_EQ	9c9a749440812783
+symbol anon_sym_NULL	137143cc1572e0cc
+symbol anon_sym_PERCENT	7c1e95b7d834f487
+symbol anon_sym_PERCENT_EQ	b40dd90c3f74cab9
+symbol anon_sym_PIPE	bc61f309fcc516dd
+symbol anon_sym_PIPE_EQ	43f4f00427f579f5
+symbol anon_sym_PIPE_PIPE	21301a45326f92b5
+symbol anon_sym_PLUS	986e2a1a83e1090d
+symbol anon_sym_PLUS_EQ	a6f54596a42f729d
+symbol anon_sym_PLUS_PLUS	1d78fb5dd431bc13
+symbol anon_sym_RBRACE	d4bcce57062f5865
+symbol anon_sym_RBRACK	8a318e407ed25110
+symbol anon_sym_RPAREN	18d466c2d2a4bb9a
+symbol anon_sym_SEMI	cb408b4261ae5302
+symbol anon_sym_SLASH	0592af652c9aff65
+symbol anon_sym_SLASH_EQ	e293caf7c89e6a39
+symbol anon_sym_STAR	ccb60b71ffbdcabe
+symbol anon_sym_STAR_EQ	4d3277fb98f95c91
+symbol anon_sym_TILDE	477e314e310a7f46
+symbol anon_sym_break	61a93130e3b66a51
+symbol anon_sym_case	9d64e4995948106e
+symbol anon_sym_chan	d6532aab44b7149b
+symbol anon_sym_const	7c3c9ce1f69e5fe2
+symbol anon_sym_continue	d7bca81ffb82a575
+symbol anon_sym_default	1a02dad342f2a11b
+symbol anon_sym_defer	9c72e9314b8a0c56
+symbol anon_sym_else	dafc0d70cf3c1820
+symbol anon_sym_fallthrough	c13cc7888fbfe606
+symbol anon_sym_for	a45973381cee17d0
+symbol anon_sym_func	8cab60177c826b0b
+symbol anon_sym_go	d4b058ee495bf53f
+symbol anon_sym_goto	35b41ed32a234007
+symbol anon_sym_if	57c4e5b506ea67b6
+symbol anon_sym_import	40a9ba3c205c25b5
+symbol anon_sym_interface	3ae4ff3f57b96a42
+symbol anon_sym_make	bb6ace1a21aaf18c
+symbol anon_sym_map	f36b5c9009036220
+symbol anon_sym_new	7d8898c5ef3a18b6
+symbol anon_sym_package	43c315c86a753191
+symbol anon_sym_range	4494a3222025e99b
+symbol anon_sym_return	4a40121934efc82c
+symbol anon_sym_select	8b139792430359b1
+symbol anon_sym_struct	cb11561a04e9c6b8
+symbol anon_sym_switch	7272b4960ebeb322
+symbol anon_sym_type	2837e0c662ba5788
+symbol anon_sym_var	b80dbef4df8c265a
+symbol aux_sym_argument_list_repeat1	a395dfba45b012d9
+symbol aux_sym_const_declaration_repeat1	7f5dc9db2a34db20
+symbol aux_sym_const_spec_repeat1	61785ed1001748f2
+symbol aux_sym_expression_list_repeat1	b4afe980b0f88599
+symbol aux_sym_expression_switch_statement_repeat1	a51c12a74bda611e
+symbol aux_sym_field_declaration_list_repeat1	277365fc78bc4e7c
+symbol aux_sym_field_declaration_repeat1	1b9e0864436f8e06
+symbol aux_sym_import_spec_list_repeat1	ece81df9d3a8622e
+symbol aux_sym_interface_type_repeat1	c6b2cec4cd82edff
+symbol aux_sym_interpreted_string_literal_repeat1	54b96617449e6991
+symbol aux_sym_interpreted_string_literal_token1	63fc66a8bbe2fb79
+symbol aux_sym_literal_value_repeat1	fea100f072a59601
+symbol aux_sym_parameter_list_repeat1	64c93fa40e7ce138
+symbol aux_sym_raw_string_literal_token1	db6889f3eb431405
+symbol aux_sym_select_statement_repeat1	3920865651ba6cd0
+symbol aux_sym_source_file_repeat1	b9f23bc21f18efb3
+symbol aux_sym_source_file_token1	492c0706fd2fb8bf
+symbol aux_sym_statement_list_repeat1	e84f1ad585e14772
+symbol aux_sym_type_arguments_repeat1	31e2f38d16703e3d
+symbol aux_sym_type_case_repeat1	eaf972c9dc66d657
+symbol aux_sym_type_declaration_repeat1	2ca8d8ae214bd5a7
+symbol aux_sym_type_elem_repeat1	8ccc123338cd02ef
+symbol aux_sym_type_parameter_list_repeat1	b9cc90ff510b2731
+symbol aux_sym_type_switch_statement_repeat1	c8d0d3c9d02bc7af
+symbol aux_sym_var_spec_list_repeat1	73ed580d68772ec8
+symbol aux_sym_var_spec_repeat1	c1c2b70e9fe9cef1
+symbol sym__declaration	65900cfc06617c67
+symbol sym__expression	0e6e9664c118cc5b
+symbol sym__simple_statement	5c6ec2739f530c89
+symbol sym__simple_type	1a52cff1e3627baf
+symbol sym__statement	0343787f79948949
+symbol sym__type_switch_header	bcd4cd0f4ea1034b
+symbol sym_argument_list	152da52679b865e1
+symbol sym_array_type	7ac6936a01486ec4
+symbol sym_assignment_statement	ac4117af6c1d271c
+symbol sym_binary_expression	e151272b87e1cfdb
+symbol sym_blank_identifier	7e592ad5ab33217d
+symbol sym_block	f7b64a79ed695f67
+symbol sym_break_statement	f03d9eb73c294195
+symbol sym_call_expression	b035cfbff55eabfa
+symbol sym_channel_type	3bf43039a32a92cb
+symbol sym_comment	8a51ec3dd66ecb9d
+symbol sym_communication_case	bb9ece6a21ebe536
+symbol sym_composite_literal	d63009616e06e557
+symbol sym_const_declaration	7a6ea626bd8f4cbd
+symbol sym_const_spec	661df78dbeb4d041
+symbol sym_continue_statement	1d2dfad7ed1e3541
+symbol sym_dec_statement	e8f0f11722d92443
+symbol sym_default_case	c471bdec4f5f8016
+symbol sym_defer_statement	8ae961fea629f3c5
+symbol sym_dot	60141ff0138f2753
+symbol sym_empty_labeled_statement	3ff1329cbfe2e33c
+symbol sym_empty_statement	7341d5ae8fd7b418
+symbol sym_escape_sequence	a43b14ad2c56dcae
+symbol sym_expression_case	3a6bd3ebf1ca7b11
+symbol sym_expression_list	e014022abce16739
+symbol sym_expression_statement	dbaa5c0db5c321b4
+symbol sym_expression_switch_statement	0b3b68e93ebf4027
+symbol sym_fallthrough_statement	0b049ad17c624694
+symbol sym_false	4d84f200ccdce312
+symbol sym_field_declaration	f92e855b06620f30
+symbol sym_field_declaration_list	49c5c044904a2d5a
+symbol sym_float_literal	95a1dddf061c86c4
+symbol sym_for_clause	28c392745b63a8f5
+symbol sym_for_statement	1f441f908c5abed1
+symbol sym_func_literal	68b8b073a08c5f98
+symbol sym_function_declaration	0c6c8b134a27b928
+symbol sym_function_type	b372b26e9e3905e6
+symbol sym_generic_type	3e7cc29ba759d50a
+symbol sym_go_statement	a1a956ba90f15f0e
+symbol sym_goto_statement	bc76193db9c8a05a
+symbol sym_identifier	45ae6abcdf1aaa3e
+symbol sym_if_statement	d25369631f2c0f0a
+symbol sym_imaginary_literal	7ac84f70568a2247
+symbol sym_implicit_length_array_type	5addc2cd6f50c5c7
+symbol sym_import_declaration	f2cd53cb4d39c212
+symbol sym_import_spec	c097baba19555ad7
+symbol sym_import_spec_list	998dac7f405dbdcc
+symbol sym_inc_statement	0a6f13e0190757e2
+symbol sym_index_expression	41666b2b5f814c78
+symbol sym_int_literal	e51bed006bd82aea
+symbol sym_interface_type	dae97494bc88ffd1
+symbol sym_interpreted_string_literal	622b2effd45706ce
+symbol sym_iota	b4ea1a36b08ec7f2
+symbol sym_keyed_element	5fdddd8d2ec6d3e4
+symbol sym_labeled_statement	9aa3f4f8295e177a
+symbol sym_literal_element	4aa08cec7b6c23bc
+symbol sym_literal_value	0d5333573f413d53
+symbol sym_map_type	4114383132965fee
+symbol sym_method_declaration	20cb120c705b403c
+symbol sym_method_elem	a2e7b71c92ae9fcc
+symbol sym_negated_type	773a263b4045e00c
+symbol sym_nil	c819ed98d907be90
+symbol sym_package_clause	36ea697aa0356884
+symbol sym_parameter_declaration	b15d002cfbd2fd85
+symbol sym_parameter_list	19a39dfa96edb86d
+symbol sym_parenthesized_expression	b5c95b534a84e8ff
+symbol sym_parenthesized_type	bd7cc6abbb334309
+symbol sym_pointer_type	6cb8f5ebeb548074
+symbol sym_qualified_type	20c580118696abed
+symbol sym_range_clause	45391a5d4205fe6b
+symbol sym_raw_string_literal	ca1e1aeb936cc649
+symbol sym_receive_statement	fb53c69e134c4371
+symbol sym_return_statement	81d463bddc975e3e
+symbol sym_rune_literal	9a11fc2ad4ebb8bf
+symbol sym_select_statement	931e87b9a43b4ab7
+symbol sym_selector_expression	1e14af7b7479b58c
+symbol sym_send_statement	ad8bb5b74d6f96a1
+symbol sym_short_var_declaration	93915b96372ba8e6
+symbol sym_slice_expression	de5d95e0913ba1d5
+symbol sym_slice_type	a3dab61a9ce667fa
+symbol sym_source_file	c623c6a0c7479d75
+symbol sym_special_argument_list	691984c9bac284de
+symbol sym_statement_list	f102e74600e1b71b
+symbol sym_struct_type	098fa4d303c9ea7a
+symbol sym_true	a00701eec2e2e818
+symbol sym_type_alias	05f31d5a2bb8f022
+symbol sym_type_arguments	261dd20ecd5b11fa
+symbol sym_type_assertion_expression	c9d7d1b48cd3c4ba
+symbol sym_type_case	d2a4bd51c0f8b646
+symbol sym_type_conversion_expression	cbecd459471a1004
+symbol sym_type_declaration	10838274ab45c6a8
+symbol sym_type_elem	7d06275532098210
+symbol sym_type_instantiation_expression	c9237cd147444fcd
+symbol sym_type_parameter_declaration	f0a2b87c1f2a13ed
+symbol sym_type_parameter_list	45b2d7e7744077e7
+symbol sym_type_spec	1cc7ca4995b7415a
+symbol sym_type_switch_statement	d05b6f473f485702
+symbol sym_unary_expression	8bb61ebd1698db9c
+symbol sym_var_declaration	013f3c989d8b8af2
+symbol sym_var_spec	d0a3753a07656555
+symbol sym_var_spec_list	fed20229392f7194
+symbol sym_variadic_argument	29e25164c4d379a1
+symbol sym_variadic_parameter_declaration	3371f9a27e808c45
