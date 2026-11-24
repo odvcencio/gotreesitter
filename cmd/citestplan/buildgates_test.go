@@ -88,6 +88,8 @@ func TestO1BuildAggregateRequiresGateResults(t *testing.T) {
 			base[key] = "success"
 		}
 	}
+	// A heavy run skips the light-only package tests.
+	base["PACKAGES_NO_RACE_RESULT"] = "skipped"
 	run := func(overrides map[string]string) ([]byte, error) {
 		cmd := exec.Command("bash", "-c", step.Run)
 		cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
@@ -178,6 +180,7 @@ func TestBuildGateEditorLatencyScope(t *testing.T) {
 				env[key] = "success"
 			}
 		}
+		env["PACKAGES_NO_RACE_RESULT"] = "skipped"
 		env["EDITOR_LATENCY_RESULT"] = result
 		cmd := exec.Command("bash", "-c", step.Run)
 		cmd.Env = []string{"PATH=" + os.Getenv("PATH")}

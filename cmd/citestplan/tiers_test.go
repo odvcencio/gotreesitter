@@ -16,14 +16,21 @@ import (
 // manual run, and for a pull request labeled ci:full.
 
 const heavyTerm = "needs.exhaustive_parity_scope.outputs.tier == 'heavy'"
+const lightTerm = "needs.exhaustive_parity_scope.outputs.tier == 'light'"
+
+// exhaustiveJobIf: parity-cgo-exhaustive runs in both tiers when the scope
+// sets run_exhaustive (path-scoped on a PR).
+const exhaustiveJobIf = "needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_exhaustive == 'true'"
 
 // ciJobTiers lists every job id in ci.yml with its tier. A job added without a
 // line here fails TestEveryCIJobHasATier.
 //
-//	light   runs in both tiers (its other conditions unchanged)
-//	heavy   runs only in the heavy tier
-//	scoped  heavy tier always, light tier when the change touches the core
-//	control the scope job, the build gate, and the nightly failure issue
+//	light      runs in both tiers (its other conditions unchanged)
+//	light-only runs only in the light tier (a heavy race job covers it)
+//	heavy      runs only in the heavy tier
+//	scoped     heavy tier always, light tier when the change touches the core
+//	exhaustive both tiers, when the scope sets run_exhaustive
+//	control    the scope job, the build gate, and the nightly failure issue
 var ciJobTiers = map[string]string{
 	"compile":                       "light",
 	"selected_store_admission":      "light",
@@ -41,6 +48,8 @@ var ciJobTiers = map[string]string{
 	"pr_commit_buildability":        "light",
 	"parity-cgo":                    "light",
 
+	"packages_no_race": "light-only",
+
 	"race_root_shards":                   "heavy",
 	"root_race_plan":                     "heavy",
 	"race_root_isolated":                 "heavy",
@@ -56,10 +65,10 @@ var ciJobTiers = map[string]string{
 	"compact-t3-oracle-cgo":              "heavy",
 	"merge-event-census-cgo":             "heavy",
 	"grammar-lock-stamp-receipts-cgo":    "heavy",
-	"parity-cgo-exhaustive":              "heavy",
 	"perf-regression":                    "heavy",
 
-	"ccore-equality-cgo": "scoped",
+	"ccore-equality-cgo":    "scoped",
+	"parity-cgo-exhaustive": "exhaustive",
 
 	"exhaustive_parity_scope": "control",
 	"build":                   "control",
@@ -85,7 +94,7 @@ func TestNightlyFailureIssueJob(t *testing.T) {
 	if job.Needs.Value != "build" {
 		t.Errorf("nightly_failure_issue must need build alone: %v", job.Needs.Value)
 	}
-	wantIf := "always() && github.event_name == 'schedule' && (needs.build.result == 'success' || needs.build.result == 'failure')"
+	wantIf := "${{ !cancelled() && github.event_name == 'schedule' && (needs.build.result == 'success' || needs.build.result == 'failure') }}"
 	if job.If != wantIf {
 		t.Errorf("nightly_failure_issue condition:\n got %s\nwant %s", job.If, wantIf)
 	}
@@ -229,6 +238,10 @@ func TestEveryCIJobHasATier(t *testing.T) {
 			if strings.Contains(cond, "outputs.tier") || strings.Contains(cond, "draft") {
 				t.Errorf("light job %s must not test the tier or a draft: %s", name, cond)
 			}
+		case "light-only":
+			if !strings.Contains(cond, "&& "+lightTerm) {
+				t.Errorf("light-only job %s must require %s: %s", name, lightTerm, cond)
+			}
 		case "heavy":
 			if !strings.Contains(cond, "&& "+heavyTerm) {
 				t.Errorf("heavy job %s must require %s: %s", name, heavyTerm, cond)
@@ -236,6 +249,10 @@ func TestEveryCIJobHasATier(t *testing.T) {
 		case "scoped":
 			if cond != ccoreEqualityJobIf {
 				t.Errorf("scoped job %s condition: %s", name, cond)
+			}
+		case "exhaustive":
+			if cond != exhaustiveJobIf {
+				t.Errorf("exhaustive job %s condition: %s", name, cond)
 			}
 		}
 		if tier == "control" || notInBuildNeeds[name] {
@@ -287,7 +304,16 @@ func TestBuildGateTiers(t *testing.T) {
 		}
 		for job, key := range keyOf {
 			e[key] = "success"
-			if tier == "light" && (ciJobTiers[job] == "heavy" || ciJobTiers[job] == "scoped") {
+			switch ciJobTiers[job] {
+			case "heavy", "scoped":
+				if tier == "light" {
+					e[key] = "skipped"
+				}
+			case "light-only":
+				if tier == "heavy" {
+					e[key] = "skipped"
+				}
+			case "exhaustive":
 				e[key] = "skipped"
 			}
 		}
@@ -324,17 +350,37 @@ func TestBuildGateTiers(t *testing.T) {
 	}
 	for _, job := range heavyOnly {
 		// v1_edit_sessions and editor_latency are read only for the events
-		// that run them; parity-cgo-exhaustive only when the scope asks.
-		event, extra := "pull_request", env{"EXHAUSTIVE_PARITY_SCOPE": "true"}
+		// that run them.
+		event := "pull_request"
 		if job == "v1_edit_sessions" {
 			event = "workflow_dispatch"
 		}
-		out, err := run("light", event, env{job: "success"}, extra)
+		out, err := run("light", event, env{job: "success"}, nil)
 		check("light: "+job+" ran", false, job+" finished with result=success but tier=light requires skipped", out, err)
-		out, err = run("light", event, env{job: "failure"}, extra)
+		out, err = run("light", event, env{job: "failure"}, nil)
 		check("light: "+job+" failed", false, job+" finished with result=failure but tier=light requires skipped", out, err)
-		out, err = run("heavy", event, env{job: "skipped"}, extra)
+		out, err = run("heavy", event, env{job: "skipped"}, nil)
 		check("heavy: "+job+" skipped", false, job+" finished with result=skipped", out, err)
+	}
+	// The light-only package tests: required in a light run, skipped in a heavy one.
+	for _, result := range []string{"skipped", "failure", "cancelled"} {
+		out, err := run("light", "pull_request", env{"packages_no_race": result}, nil)
+		check("light: packages_no_race "+result, false, "packages_no_race finished with result="+result, out, err)
+	}
+	out, err := run("heavy", "pull_request", env{"packages_no_race": "success"}, nil)
+	check("heavy: packages_no_race ran", false, "packages_no_race finished with result=success but tier=heavy requires skipped", out, err)
+	// The exhaustive sweep follows run_exhaustive in both tiers.
+	for _, tier := range []string{"light", "heavy"} {
+		out, err = run(tier, "pull_request", env{"parity-cgo-exhaustive": "success"}, env{"EXHAUSTIVE_PARITY_SCOPE": "true"})
+		check(tier+" exhaustive run", true, "", out, err)
+		for _, result := range []string{"skipped", "failure", "cancelled"} {
+			out, err = run(tier, "pull_request", env{"parity-cgo-exhaustive": result}, env{"EXHAUSTIVE_PARITY_SCOPE": "true"})
+			check(tier+" exhaustive "+result, false, "parity-cgo-exhaustive finished with result="+result, out, err)
+		}
+	}
+	for _, value := range []string{"", "maybe"} {
+		out, err = run("light", "pull_request", nil, env{"EXHAUSTIVE_PARITY_SCOPE": value})
+		check("run_exhaustive "+value, false, "emitted invalid run_exhaustive="+value, out, err)
 	}
 	for name, tier := range ciJobTiers {
 		if tier != "light" || notInBuildNeeds[name] {
@@ -350,7 +396,7 @@ func TestBuildGateTiers(t *testing.T) {
 		}
 	}
 	// The certified-core comparison in the light tier follows the scope output.
-	out, err := run("light", "pull_request", env{"ccore-equality-cgo": "success"}, env{"RUN_CCORE_EQUALITY": "true"})
+	out, err = run("light", "pull_request", env{"ccore-equality-cgo": "success"}, env{"RUN_CCORE_EQUALITY": "true"})
 	check("light ccore run", true, "", out, err)
 	out, err = run("light", "pull_request", env{"ccore-equality-cgo": "skipped"}, env{"RUN_CCORE_EQUALITY": "true"})
 	check("light ccore skipped", false, "ccore-equality-cgo finished with result=skipped", out, err)

@@ -2,9 +2,10 @@ name: ci
 
 # Two tiers keep pull request CI short: a green ready pull request started 92
 # jobs (469 job-minutes) before the split. The light tier runs for every pull
-# request, draft or ready, and every push. The heavy tier adds the race, cgo,
-# timing and wasm gates; it runs nightly, for a manual run (input tier, default
-# heavy), and for a pull request labeled ci:full. The run name
+# request, draft or ready, and every push (main and fix/top50-parity-burndown).
+# The heavy tier adds the race, cgo, timing and wasm gates; it runs nightly, for
+# a manual run (input tier, default heavy), and for a pull request labeled
+# ci:full. The run name
 # carries the tier so that the release gate can find a heavy run. The scope
 # job's TIER takes the same expression; cmd/citestplan checks that they match.
 run-name: >-
@@ -24,9 +25,11 @@ on:
   # The scope job below keeps docs-only PRs lightweight without suppressing the
   # required aggregate `build` context.
   # labeled: adding the ci:full label starts a heavy run. Any other label also
-  # restarts the run in its current tier, as a push does.
+  # restarts the run in its current tier, as a push does. ready_for_review is
+  # not a type: a draft and a ready PR run the same tier, so marking a draft
+  # ready would rerun the same jobs on the same commit.
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
     inputs:
       tier:
@@ -36,7 +39,7 @@ on:
         default: heavy
   # One nightly, off-peak UTC heavy-tier run. It includes the full 206-language
   # exhaustive CGo parity sweep (parity-cgo-exhaustive), which otherwise only
-  # runs on workflow_dispatch or a heavy-tier PR that touches a narrow
+  # runs on workflow_dispatch or a PR (either tier) that touches a narrow
   # parser-result, C-recovery, or C-oracle path filter.
   # exhaustive_parity_scope below turns run_exhaustive on for this event.
   # nightly_failure_issue reports a failed nightly run in one issue.
@@ -48,14 +51,18 @@ on:
 # cancels an in-flight nightly exhaustive run (and vice versa); two
 # overlapping scheduled runs still cancel each other, which is desired.
 #
-# cancel-in-progress stays true for pull_request runs, workflow_dispatch runs,
-# and pushes to any non-default branch, so superseded work still gets
-# cancelled quickly. It is false only for a push to the default branch: a
-# rapid run of pushes to main was cancelling every prior in-flight run before
-# it reported a verdict, so most commits on main never got a pass/fail result
-# at all. main pushes now queue and each one finishes with its own verdict.
+# Each manual run has a group of its own, so it cancels nothing and nothing
+# cancels it: a light manual run must not cancel the heavy manual run that a
+# release needs, and a manual run on main must not cancel a push run on main.
+#
+# cancel-in-progress stays true for pull_request runs and pushes to any
+# non-default branch, so superseded work still gets cancelled quickly. It is
+# false only for a push to the default branch: a rapid run of pushes to main
+# was cancelling every prior in-flight run before it reported a verdict, so
+# most commits on main never got a pass/fail result at all. main pushes now
+# queue and each one finishes with its own verdict.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly-exhaustive' || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly-exhaustive' || github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || github.ref }}
   cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 # VM runner services can share HOME and /tmp. Isolate their native Go
@@ -1033,7 +1040,7 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
-      - name: Draft PR Focused Tests
+      - name: Focused tests
         run: |
           go test . -run '^(TestLookupActionIndexSmallUsesDenseTokenRows|TestLookupActionIndexSmallUsesFullTokenRowsForOtherLanguages|TestLookupActionIndexSmallUsesFullSymbolRowsForGo|TestRawShapePropagatesThroughNoTreeAndCollapsedUnary|TestParseRuntimeReportsNoTreeNodeVolume|TestParseRuntimeReportsNoTreeCheckpointLeavesRemainNodes|TestParseNoTreeBenchmarkDropsRetainedExternalCheckpointCapacity|TestSetLexerErrorRunLexStateUsesCRecoveryGate|TestErrorCostCompetitionLanguageRequiresCapabilityByDefault)$' -count=1
 
@@ -1459,10 +1466,18 @@ jobs:
           run_exhaustive=false
           run_editor_latency=true
           # The heavy tier runs ccore-equality-cgo always; the light tier only
-          # when the change touches the certified core or the job's own files.
-          # An unknown change range runs it.
+          # when the change touches the certified core or the job's inputs.
+          # An unknown change range runs it. The list follows what
+          # ccore_bind.go and ccore_scanner.go import (internal/ccore,
+          # internal/coresource, internal/sched, internal/scanmode), the root
+          # files the core route uses, the grammar blobs and the scanner ports
+          # of the four compared languages (python, typescript, tsx; json has
+          # none), everything under cgo_harness/, the graduation gate script
+          # the job tests, and this workflow. cmd/citestplan fails when a file
+          # under internal/ccore/ or a direct import of ccore_bind.go or
+          # ccore_scanner.go is not matched.
           run_ccore_equality=true
-          ccore_pattern='^(internal/ccore/.*|ccore_bind\.go|testdata/ccore_certificates\.json|grammars/grammar_blobs/.*|cgo_harness/ccore_[^/]*|cgo_harness/docker/ccore_equality\.sh)$'
+          ccore_pattern='^(ccore_[^/]*\.go|tree\.go|cursor\.go|arena\.go|external_lexer\.go|parser_cold_state\.go|query_reader\.go|internal/(ccore|coresource|sched|scanmode)/.*|testdata/ccore_certificates\.json|grammars/grammar_blobs/.*|grammars/runtime/(python|typescript|tsx)_scanner[^/]*\.go|cgo_harness/.*|scripts/graduation_gate\.sh|\.github/workflows/ci\.yml)$'
           # The job's own folder: runner services can share /tmp.
           changed_files="$RUNNER_TEMP/changed-files.txt"
           reason_file="$RUNNER_TEMP/editor-latency-reason.txt"
@@ -1582,7 +1597,7 @@ jobs:
             {
               echo "### Heavy-tier jobs"
               echo
-              echo "Light tier: the race, cgo, timing, and wasm jobs (editor_latency and exhaustive CGo parity among them) run only in the heavy tier. Add the label ci:full, or run \`gh workflow run ci.yml --ref <branch> -f tier=heavy\`."
+              echo "Light tier: the race, cgo, timing, and wasm jobs (editor_latency among them) run only in the heavy tier; packages_no_race runs the non-root package tests without the race detector. A maintainer adds the label ci:full, or runs \`gh workflow run ci.yml --ref <branch> -f tier=heavy\`."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
           write_outputs
@@ -1599,6 +1614,7 @@ jobs:
       - grammargen_stable
       - draft_focused_tests
       - draft-correctness
+      - packages_no_race
       - parity_report
       - parity-cgo
       - perf_scan_budget
@@ -1699,6 +1715,7 @@ jobs:
           GRAMMARGEN_STABLE_RESULT: ${{ needs.grammargen_stable.result }}
           DRAFT_FOCUSED_RESULT: ${{ needs.draft_focused_tests.result }}
           DRAFT_CORRECTNESS_RESULT: ${{ needs.draft-correctness.result }}
+          PACKAGES_NO_RACE_RESULT: ${{ needs.packages_no_race.result }}
           PARITY_REPORT_RESULT: ${{ needs.parity_report.result }}
           PARITY_CGO_RESULT: ${{ needs.parity-cgo.result }}
           PERF_SCAN_BUDGET_RESULT: ${{ needs.perf_scan_budget.result }}
@@ -1756,6 +1773,10 @@ jobs:
             echo "::error::exhaustive_parity_scope emitted invalid run_ccore_equality=${RUN_CCORE_EQUALITY}"
             exit 1
           fi
+          if [ "$EXHAUSTIVE_PARITY_SCOPE" != "true" ] && [ "$EXHAUSTIVE_PARITY_SCOPE" != "false" ]; then
+            echo "::error::exhaustive_parity_scope emitted invalid run_exhaustive=${EXHAUSTIVE_PARITY_SCOPE}"
+            exit 1
+          fi
 
           # A job that the tier leaves out must be skipped, and that skip
           # counts as passed. Any other result means the job ran outside its
@@ -1771,6 +1792,15 @@ jobs:
           # Heavy-tier jobs: required in a heavy run, skipped in a light run.
           require_heavy() {
             if [ "$TIER" = "heavy" ]; then
+              require_success "$1" "$2"
+            else
+              require_tier_skip "$1" "$2"
+            fi
+          }
+          # Light-only jobs: required in a light run, skipped in a heavy run,
+          # where a race job covers the same tests.
+          require_light_only() {
+            if [ "$TIER" = "light" ]; then
               require_success "$1" "$2"
             else
               require_tier_skip "$1" "$2"
@@ -1792,6 +1822,7 @@ jobs:
           require_success "counter_ledger" "$COUNTER_LEDGER_RESULT"
           require_success "draft_focused_tests" "$DRAFT_FOCUSED_RESULT"
           require_success "draft-correctness" "$DRAFT_CORRECTNESS_RESULT"
+          require_light_only "packages_no_race" "$PACKAGES_NO_RACE_RESULT"
           if [ "$IS_PULL_REQUEST" = "true" ]; then
             require_success "pr_commit_buildability" "$PR_COMMIT_BUILDABILITY_RESULT"
           fi
@@ -1832,8 +1863,10 @@ jobs:
               failed=1
             fi
           fi
+          # Both tiers: the scope turns the exhaustive sweep on for every nightly
+          # and manual run and for a PR that touches its paths.
           if [ "$EXHAUSTIVE_PARITY_SCOPE" = "true" ]; then
-            require_heavy "parity-cgo-exhaustive" "$EXHAUSTIVE_PARITY_RESULT"
+            require_success "parity-cgo-exhaustive" "$EXHAUSTIVE_PARITY_RESULT"
           fi
 
           if [ "$failed" -ne 0 ]; then
@@ -1849,7 +1882,8 @@ jobs:
   # build gate passes closes it. It reports only; build stays the verdict.
   nightly_failure_issue:
     needs: build
-    if: always() && github.event_name == 'schedule' && (needs.build.result == 'success' || needs.build.result == 'failure')
+    # !cancelled(): a cancelled nightly run files nothing.
+    if: ${{ !cancelled() && github.event_name == 'schedule' && (needs.build.result == 'success' || needs.build.result == 'failure') }}
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
@@ -1908,20 +1942,89 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
-      - name: Draft Correctness Suite (root + grammars + roottest, no -race)
+      - name: Correctness suite (root + grammars + roottest, no -race)
         run: |
           # No -race: trades race detection for speed so this is cheap
           # enough to run on every push. The full -race suite runs in the
           # heavy tier (`race_root` / `race_packages`).
           #
-          # -timeout 25m: the root package alone contains two known
-          # C#-boundedness tests (TestCSharpDesignerStyleBlockStaysBounded,
-          # TestCSharpCJKPartialClassesStayBounded) that currently run
-          # ~130-150s each before hitting their internal parser-level
-          # timeout and failing. The non-draft race suite does not
-          # special-case them either, so mirror that behavior here and give
-          # the whole draft visibility run a generous budget.
+          # -timeout 25m: a generous budget. On two draft PRs (22 and 23
+          # November 2026) the root package took 353 s and 391 s, and the
+          # whole job 9 to 10 minutes.
           go test . ./grammars ./grammars/runtime ./roottest/bench ./roottest/parse -count=1 -timeout 25m
+
+  # Light tier only: the non-root package tests without the race detector, so
+  # that a light run tests every package. In the heavy tier race_packages and
+  # grammargen_stable run the same packages with -race, so a heavy run skips
+  # this job. Each shard takes race_packages lanes through
+  # `go run ./cmd/citestplan -lane <name>`; the pseudo-lane grammargen is the
+  # stable subset that grammargen_stable runs (the same -skip list). The lanes
+  # grammars-a-c, grammars-d-j, grammars-k-p, grammars-q-z, grammars-other and
+  # parse are in no shard: draft-correctness runs their packages (grammars,
+  # grammars/runtime, roottest/parse) in full. cmd/citestplan checks that each
+  # race lane is in exactly one shard or in that list. The shards are sized from
+  # the race job times of a ready PR on 24 November 2026: about 12 to 14
+  # race-minutes each, setup included.
+  packages_no_race:
+    name: packages_no_race (${{ matrix.shard }})
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'light'
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1
+            lanes: support parser-result recover grammarreceipt grammargen-support
+            go_version_file: go.mod
+          - shard: 2
+            lanes: cmd ccore ccore-bind ccore-bindtest ccore-bindall ccore-certgen
+            go_version_file: go.mod
+          # grammargen tests use cgo_harness's toolchain floor; see grammargen_stable.
+          - shard: 3
+            lanes: grammargen grammar-support query highlight wasm
+            go_version_file: cgo_harness/go.mod
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          cache: ${{ runner.environment != 'self-hosted' }}
+          go-version-file: ${{ matrix.go_version_file }}
+
+      - name: Package tests without the race detector (shard ${{ matrix.shard }})
+        env:
+          LANES: ${{ matrix.lanes }}
+          GRAMMARGEN_SKIP: '^(TestLexMinimizeParityAcrossGrammars|TestImportedKotlinSwiftGrammarConstructors|TestMarkdownGrammarCommonMarkParity|TestMarkdownFencedCodeBlockContentParity|TestShippedBlobsNonTerminalAliasMapInventory|TestKotlinGrammarExtendSmoke|TestSwiftGrammarExtendSmoke|TestSwiftGrammarBlobParity|TestGrammargenOwnedBlobsAreReproducible)$'
+        run: |
+          set -uo pipefail
+          # Every lane runs, and the step fails at the end if any lane failed.
+          failed=()
+          for lane in $LANES; do
+            echo "::group::lane ${lane}"
+            if [ "$lane" = grammargen ]; then
+              go test ./grammargen -count=1 -timeout 15m -skip "$GRAMMARGEN_SKIP" || failed+=("$lane")
+            elif pkgs="$(go run ./cmd/citestplan -lane "$lane")"; then
+              if [ -z "$pkgs" ]; then
+                echo "No packages for lane ${lane}"
+              else
+                # shellcheck disable=SC2086 # one word per package
+                go test $pkgs -count=1 -timeout 12m -p 1 || failed+=("$lane")
+              fi
+            else
+              failed+=("${lane} (no package list)")
+            fi
+            echo "::endgroup::"
+          done
+          if [ "${#failed[@]}" -ne 0 ]; then
+            echo "::error::lanes failed: ${failed[*]}"
+            exit 1
+          fi
 
   freshness:
     needs: exhaustive_parity_scope
@@ -2657,7 +2760,8 @@ jobs:
   # The script fails when a test it runs has no PASS line or no positive count
   # (its --self-test shows that, and the first step runs it).
   # The heavy tier runs this job always. The light tier runs it when the change
-  # touches the certified core or this job's own files (run_ccore_equality).
+  # touches the certified core or this job's inputs (run_ccore_equality; the
+  # scope step lists the paths).
   ccore-equality-cgo:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (needs.exhaustive_parity_scope.outputs.tier == 'heavy' || needs.exhaustive_parity_scope.outputs.run_ccore_equality == 'true')
@@ -2948,9 +3052,12 @@ jobs:
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'cgo treesitter_c_parity' -run '^TestHLSLNextLiveArmLockedCRoutes$' -count=1 -timeout=8m -v"
 
+  # Both tiers, when the scope sets run_exhaustive: every nightly and manual
+  # run, and a PR (light or heavy) that touches parser-result, C-recovery or
+  # C-oracle files. build requires it whenever run_exhaustive is true.
   parity-cgo-exhaustive:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy' && needs.exhaustive_parity_scope.outputs.run_exhaustive == 'true'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_exhaustive == 'true'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 120
     steps:

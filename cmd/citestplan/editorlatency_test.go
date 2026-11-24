@@ -249,6 +249,8 @@ func gateWorkflowEnv(step gateWorkflowStep, extra map[string]string) []string {
 			env[key] = "success"
 		}
 	}
+	// A heavy run skips the light-only package tests.
+	env["PACKAGES_NO_RACE_RESULT"] = "skipped"
 	for k, v := range extra {
 		env[k] = v
 	}
