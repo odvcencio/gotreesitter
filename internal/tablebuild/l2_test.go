@@ -5,12 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/odvcencio/gotreesitter/internal/lexbuild"
 	"github.com/odvcencio/gotreesitter/internal/tablebuild/ref"
 )
 
@@ -38,14 +36,15 @@ import (
 //     ts2go binary; without it the test runs go run ./cmd/ts2go), compares
 //     full lines and prints both sides of the first differing record.
 //
-// Numbering the symbols, aliases and fields of the records takes parts of
-// render.rs that a later stage ports in full (fn init, symbols_for_alias,
-// add_field_sequences, get_parse_action_list_id); until then this file uses
-// the test-side copies that layer L1 uses (l1port_test.go). The error state's
-// action list offsets need the reusable flag of each entry, which
-// mark_fragile_tokens sets after the merge; the merge does not change the
-// error state, so the flags are read from lexbuild's port of that function
-// on the raw error state.
+// The records are numbered by the port of render.rs (layout.go): the raw
+// table goes through the passes that BuildTables runs without merging, and
+// Render numbers it. The symbols, the production infos and the error state
+// are the same in the merged table of parser.c: the passes change neither
+// the symbols nor the production infos, the error state merges with no other
+// state and stays state 0, and render.rs gives the action lists of state 0
+// the first offsets. A grammar whose error state shifts (one with
+// non-terminal extras) would print the unmerged targets; the reference
+// prints the merged ones.
 
 const (
 	l2RefEnv   = "TABLEBUILD_REF"
@@ -56,8 +55,9 @@ var l2Grammars = []string{"json", "go"}
 
 // l2Build is the raw table build of one grammar and what L2 derives from it.
 type l2Build struct {
-	port *l1Port
-	raw  *RawTables
+	raw    *RawTables
+	tables *Tables
+	layout *Layout
 }
 
 func readTestdataGrammar(t testing.TB, name string) []byte {
@@ -90,111 +90,58 @@ func buildRaw(t testing.TB, grammarJSON []byte, order closureOrder) (*PreparedGr
 func newL2Build(t testing.TB, grammarJSON []byte) *l2Build {
 	t.Helper()
 	g, info, raw := buildRaw(t, grammarJSON, ascendingVariables)
-	p := &l1Port{g: g, info: info}
-	p.symbols = raw.Table.Symbols
-	// render.rs: fn init: assign_symbol_id for each symbol in order.
-	used := map[string]bool{}
-	p.ids = map[Symbol]string{}
-	for _, s := range p.symbols {
-		id := p.symbolID(s, used)
-		used[id] = true
-		p.ids[s] = id
+	tables, err := finishTables(g, raw, 0)
+	if err != nil {
+		t.Fatalf("tables: %v", err)
 	}
-	p.ids[lexbuild.EndOfNonTerminalExtraSym()] = p.ids[lexbuild.EndSym()]
-	p.computeSymbolMap()
-	for i := range raw.Table.ProductionInfos {
-		p.infos = append(p.infos, l1Info(&raw.Table.ProductionInfos[i]))
+	// The ABI version reaches neither the symbols, the production infos nor
+	// the error state.
+	layout, err := Render(tables.ParseTable, g, GetSupertypeSymbolMap(g.Syntax, g.DefaultAliases, info), ABIVersionMax)
+	if err != nil {
+		t.Fatalf("render: %v", err)
 	}
-	p.computeAliasIDs()
-	return &l2Build{port: p, raw: raw}
-}
-
-// l1Info converts a production info into the form of l1port_test.go: the
-// fields in the order of render.rs: fn add_field_sequences (stably sorted by
-// name; one name's locations in the order they were pushed).
-func l1Info(pi *ProductionInfo) productionInfo {
-	out := productionInfo{aliases: append([]Alias(nil), pi.AliasSequence...)}
-	for _, name := range pi.FieldNames() {
-		for _, loc := range pi.FieldMap[name] {
-			out.fields = append(out.fields, fieldLocation{name, int(loc.Index), loc.Inherited})
-		}
-	}
-	return out
+	return &l2Build{raw: raw, tables: tables, layout: layout}
 }
 
 func l2Line(fields ...string) string { return strings.Join(fields, "\t") }
 
 // records writes the port's L2 records.
 func (b *l2Build) records() []string {
-	p, table := b.port, b.raw.Table
-	symbolIndex := map[Symbol]int{}
-	for i, s := range p.symbols {
-		symbolIndex[s] = i
-	}
+	l := b.layout
 	var out []string
-	for i, s := range p.symbols {
-		name, _ := p.metadataForSymbol(s)
-		if a, ok := p.g.DefaultAliases.get(s); ok {
-			name = a.Value
-		}
+	for i, name := range l.SymbolNames {
 		out = append(out, l2Line("L2", "symbol", strconv.Itoa(i), strconv.Quote(name)))
 	}
-	for k, a := range p.uniqueAliases {
-		out = append(out, l2Line("L2", "symbol", strconv.Itoa(len(p.symbols)+k), strconv.Quote(a.Value)))
-	}
-	out = append(out, l2Line("L2", "max-alias-sequence-length", strconv.Itoa(table.MaxAliasedProductionLength)))
-
-	aliasID := func(a Alias) int {
-		if existing := p.symbolsForAlias(a); len(existing) > 0 {
-			return symbolIndex[p.symbolMap[existing[0]]]
-		}
-		for k, u := range p.uniqueAliases {
-			if aliasEq(u, a) {
-				return len(p.symbols) + k
-			}
-		}
-		panic(fmt.Sprintf("alias %q has no id", a.Value))
-	}
-	fieldNames := map[string]bool{}
-	for i := range table.ProductionInfos {
-		for name := range table.ProductionInfos[i].FieldMap {
-			fieldNames[name] = true
-		}
-	}
-	sortedFields := make([]string, 0, len(fieldNames))
-	for name := range fieldNames {
-		sortedFields = append(sortedFields, name)
-	}
-	sort.Strings(sortedFields)
-	fieldID := map[string]int{}
-	for i, name := range sortedFields {
-		fieldID[name] = i + 1
-	}
-	for id, info := range p.infos {
+	out = append(out, l2Line("L2", "max-alias-sequence-length", strconv.Itoa(l.MaxAliasSequenceLength)))
+	for id := 0; id < l.ProductionIDCount; id++ {
 		var aliases, fields []string
-		for _, a := range info.aliases {
-			if a.Set {
-				aliases = append(aliases, strconv.Itoa(aliasID(a)))
-			} else {
-				aliases = append(aliases, "0")
+		if id < len(l.AliasSequences) {
+			seq := l.AliasSequences[id]
+			n := len(seq)
+			for n > 0 && seq[n-1] == 0 {
+				n--
+			}
+			for _, a := range seq[:n] {
+				aliases = append(aliases, strconv.Itoa(int(a)))
 			}
 		}
-		for _, f := range info.fields {
-			s := fmt.Sprintf("%d:%d", fieldID[f.name], f.index)
-			if f.inherited {
-				s += "i"
+		if id < len(l.FieldMapSlices) {
+			sl := l.FieldMapSlices[id]
+			for _, e := range l.FieldMapEntries[sl[0] : sl[0]+sl[1]] {
+				f := fmt.Sprintf("%d:%d", e.FieldID, e.ChildIndex)
+				if e.Inherited {
+					f += "i"
+				}
+				fields = append(fields, f)
 			}
-			fields = append(fields, s)
 		}
 		out = append(out, l2Line("L2", "production", strconv.Itoa(id), "aliases="+strings.Join(aliases, " "), "fields="+strings.Join(fields, " ")))
 	}
-	return append(out, b.errorStateRecord(symbolIndex))
+	return append(out, b.errorStateRecord())
 }
 
-// actionText is the text of one action in internal/tablebuild/ref. Shift
-// targets are raw state ids: a grammar with non-terminal extras has shifts
-// in the error state, and their targets are renumbered by the merge.
-func actionText(a ParseAction) string {
+// renderedActionText is the text of one action in internal/tablebuild/ref.
+func renderedActionText(a RenderedAction) string {
 	switch a.Kind {
 	case ActionShift:
 		s := "S" + strconv.Itoa(int(a.State))
@@ -205,7 +152,7 @@ func actionText(a ParseAction) string {
 	case ActionShiftExtra:
 		return "S0x"
 	case ActionReduce:
-		return fmt.Sprintf("R?%d/%d/%d", a.ChildCount, a.DynamicPrecedence, a.ProductionID)
+		return fmt.Sprintf("R%d/%d/%d/%d", a.Symbol, a.ChildCount, a.DynamicPrecedence, a.ProductionID)
 	case ActionAccept:
 		return "A"
 	}
@@ -213,36 +160,24 @@ func actionText(a ParseAction) string {
 }
 
 // errorStateRecord is the "L2 error-state" record: the terminal cells of
-// state 0 in symbol id order, each with its action list offset. Offsets are
-// those of render.rs: fn add_parse_table, which visits state 0 first: offset
-// 0 is the empty list, and each new (actions, reusable) pair takes the next
-// offset, advancing by 1 plus its length.
-func (b *l2Build) errorStateRecord(symbolIndex map[Symbol]int) string {
-	state := &b.raw.Table.States[0]
-	var tokens lexbuild.TokenSet
-	for _, e := range state.TerminalEntries {
-		tokens.Insert(e.Symbol)
+// state 0 in symbol id order, each with its action list offset.
+func (b *l2Build) errorStateRecord() string {
+	l := b.layout
+	lists := map[uint32]ActionListEntry{}
+	for _, e := range l.ParseActions {
+		lists[e.Offset] = e
 	}
-	fragile := b.raw.Analysis.Fragile(&tokens)
-	entries := append([]TerminalEntry(nil), state.TerminalEntries...)
-	sort.Slice(entries, func(i, j int) bool { return symbolIndex[entries[i].Symbol] < symbolIndex[entries[j].Symbol] })
-	offsets := map[string]int{}
-	next := 1
 	f := []string{"L2", "error-state"}
-	for _, e := range entries {
-		reusable := e.Entry.Reusable && !(e.Symbol.IsTerminal() && fragile.Contains(e.Symbol))
+	for sym := 0; sym < l.TokenCount; sym++ {
+		off := l.ParseTable[0][sym]
+		if off == 0 {
+			continue
+		}
 		var acts []string
-		for _, a := range e.Entry.Actions {
-			acts = append(acts, actionText(a))
+		for _, a := range lists[uint32(off)].Actions {
+			acts = append(acts, renderedActionText(a))
 		}
-		key := fmt.Sprintf("%s|%v", strings.Join(acts, " "), reusable)
-		off, ok := offsets[key]
-		if !ok {
-			off = next
-			offsets[key] = off
-			next += 1 + len(e.Entry.Actions)
-		}
-		f = append(f, fmt.Sprintf("%d=A%d[%s]", symbolIndex[e.Symbol], off, strings.Join(acts, " ")))
+		f = append(f, fmt.Sprintf("%d=A%d[%s]", sym, off, strings.Join(acts, " ")))
 	}
 	return l2Line(f...)
 }
@@ -298,7 +233,7 @@ func logL2(t *testing.T, b *l2Build, port []string) {
 	t.Helper()
 	secs := ref.Sections(port)
 	t.Logf("raw states %d, production infos %d, symbols %d (+%d aliases), closure insertions %d; records: symbol %d, production %d, error-state %d",
-		len(b.raw.Table.States), len(b.raw.Table.ProductionInfos), len(b.port.symbols), len(b.port.uniqueAliases), b.raw.ClosureEntries,
+		b.tables.Stats.RawStates, b.layout.ProductionIDCount, b.layout.SymbolCount, b.layout.AliasCount, b.raw.ClosureEntries,
 		len(secs["L2 symbol"]), len(secs["L2 production"]), len(secs["L2 error-state"]))
 	var peaks []string
 	for _, bg := range allBudgets {
@@ -309,6 +244,14 @@ func logL2(t *testing.T, b *l2Build, port []string) {
 
 // l2Reference reads the records of <root>/<name>/parser.c through cmd/ts2go.
 func l2Reference(t *testing.T, root, name string, grammarJSON []byte) []string {
+	return layerReference(t, root, name, grammarJSON, "parser.c", "L4")
+}
+
+// layerReference reads the records of <root>/<name>/<file> through
+// cmd/ts2go, with -tablebuild-tables tables (L4 for parser.c, L3 for
+// parser-noopt.c), after checking that the reference set was built from the
+// grammar.json of testdata.
+func layerReference(t *testing.T, root, name string, grammarJSON []byte, file, tables string) []string {
 	t.Helper()
 	dir := filepath.Join(root, name)
 	refJSON, err := os.ReadFile(filepath.Join(dir, "src", "grammar.json"))
@@ -319,7 +262,7 @@ func l2Reference(t *testing.T, root, name string, grammarJSON []byte) []string {
 		t.Fatalf("testdata/%s/grammar.json differs from %s", name, filepath.Join(dir, "src", "grammar.json"))
 	}
 	out := filepath.Join(t.TempDir(), "records.txt")
-	args := []string{"-input", filepath.Join(dir, "parser.c"), "-name", name, "-tablebuild-records", out, "-tablebuild-tables", "L4"}
+	args := []string{"-input", filepath.Join(dir, file), "-name", name, "-tablebuild-records", out, "-tablebuild-tables", tables}
 	var cmd *exec.Cmd
 	if bin := os.Getenv(l2TS2GoEnv); bin != "" {
 		cmd = exec.Command(bin, args...)
