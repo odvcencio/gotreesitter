@@ -916,7 +916,14 @@ func (p *Parser) compress(tree Handle, count uint32, stack *[]Handle) {
 		grand := ck[len(ck)-1]
 		p.summarize(grand)
 		p.summarize(child)
-		p.summarize(tree)
+		// C summarizes tree here as well. Every tree but the outermost is the
+		// first child of the tree popped next, which summarizes it again after
+		// its new last child. summarize recomputes each field from the children
+		// and only adds flags, which that child can only gain, so the second
+		// call alone gives the same record. Skip the first.
+		if len(*stack) == initial {
+			p.summarize(tree)
+		}
 	}
 }
 

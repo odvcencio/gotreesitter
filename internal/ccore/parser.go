@@ -578,7 +578,7 @@ func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool
 					p.heads[version].status = headForestShifted
 				}
 				if didReuse {
-					p.rnAdvance()
+					p.rnAdvanceAfterShift(version, lookahead)
 				}
 				return true
 			case ActionReduce:

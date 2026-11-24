@@ -27,11 +27,22 @@ func (p *Parser) rnByteOffset() uint32 {
 	return ^uint32(0)
 }
 
-func (p *Parser) rnAdvance() { // reusable_node_advance
+func (p *Parser) rnAdvance() { p.rnAdvanceAfterShift(0, 0) } // reusable_node_advance
+
+// rnAdvanceAfterShift is rnAdvance after version shifted the handle shifted.
+// When that is the reusable node itself and the node is internal, the shift
+// pushed it unchanged and extShift has just stored its last external token
+// (C/parser.c:914) in the head, so the walk down the node is not repeated. A
+// leaf can be shifted as an extra copy; it keeps the walk, which is one step.
+func (p *Parser) rnAdvanceAfterShift(version int, shifted Handle) {
 	last := p.rn[len(p.rn)-1]
 	byteOffset := last.byteOffset + p.totalSize(last.tree).bytes
 	if p.hasExternalTokens(last.tree) {
-		p.rnLastExt = p.lastExternalToken(last.tree)
+		if p.ext.active && last.tree == shifted && p.childCount(shifted) > 0 {
+			p.rnLastExt = p.heads[version].lastExternal
+		} else {
+			p.rnLastExt = p.lastExternalToken(last.tree)
+		}
 	}
 	var tree Handle
 	var next uint32
