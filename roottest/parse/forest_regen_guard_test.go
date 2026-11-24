@@ -7,6 +7,7 @@ import (
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 )
 
 // forestRegenGuardCorpus generates N syntactically valid, repeated top-level
@@ -150,9 +151,31 @@ func TestForestRegenGuardRepeatedTopLevelItems(t *testing.T) {
 				src := gen(n)
 
 				routedParser := gotreesitter.NewParser(lang)
+				_, freshBefore, _ := bind.RouteCounters()
 				routedTree, err := routedParser.Parse(src)
+				_, freshAfter, _ := bind.RouteCounters()
 				if err != nil {
 					t.Fatalf("N=%d: Parse failed: %v", n, err)
+				}
+				if freshAfter-freshBefore == 1 && !routedTree.UsedForestFastPath() {
+					// A certificate with the Forest and Incr modes serves the default
+					// fresh parse on the ordinary core, so the forest route is the
+					// explicit entry point. The core records its live version count
+					// in MaxStacksSeen: 1 when no fork occurred.
+					forestTree, forestOK := gotreesitter.NewParser(lang).ParseForestExperimental(src)
+					forestRouted := forestOK && forestTree != nil && forestTree.UsedForestFastPath()
+					if forestTree != nil {
+						forestTree.Release()
+					}
+					maxStacks := routedTree.ParseRuntime().MaxStacksSeen
+					routedTree.Release()
+					if !forestRouted {
+						t.Fatalf("N=%d: the explicit forest entry point declined a trivial repeated-item corpus; a table regen regressed forest coverage", n)
+					}
+					if maxStacks > 1 {
+						t.Fatalf("N=%d: the core kept %d live versions, want 1 on this trivial repeated-item corpus (genuine multi-stack fork)", n, maxStacks)
+					}
+					continue
 				}
 				if !routedTree.UsedForestFastPath() {
 					diagParser := gotreesitter.NewParser(lang)
