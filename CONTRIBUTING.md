@@ -77,6 +77,33 @@ bash cgo_harness/docker/run_parity_in_docker.sh --label ci-ccore-json \
 
 Report a parser bug with the parser report issue form, with a minimal input.
 
+## What CI runs on a pull request
+
+Every pull request, draft or ready, runs the light tier of
+`.github/workflows/ci.yml`. It builds, vets, and checks the layout and API, runs
+the root test suite without the race detector and the focused tests, checks the
+counter ledger, and compares a smoke set with pinned C (`parity-cgo`). A change
+to the certified core (`internal/ccore/`, `ccore_bind.go`,
+`testdata/ccore_certificates.json`, or `grammars/grammar_blobs/`) also runs
+`ccore-equality-cgo`. The required check `build` passes when every job of the
+tier passes.
+
+The heavy tier adds the race detector, the other comparisons with pinned C, the
+editor-latency timing gate, and the WebAssembly builds. To run it on a pull
+request, ask a maintainer to add the label `ci:full`, or start it on your
+branch:
+
+```sh
+gh workflow run ci.yml --ref <branch> -f tier=heavy
+```
+
+The nightly run on `main` runs the heavy tier. A release requires a successful
+heavy-tier manual run on the release commit, which also runs the manual-only
+edit-session and editor-latency gates. A heavy-tier failure on `main` opens the
+issue `ci-nightly: heavy tier failed on main`.
+[docs/ci-gate-coverage.md](docs/ci-gate-coverage.md) lists every job with its
+tier.
+
 ## Evidence rule
 
 Back every claim with numbers in the pull request body: test output, parity

@@ -21,9 +21,12 @@ Keep release planning and campaign notes in the private
 2. Move the accumulated changelog entries from `Unreleased` into a dated
    version section. Update the comparison links and the README release status. Give the
    section the shape in "Release section template" below.
-3. Dispatch the full hosted `ci.yml` workflow for the exact commit on `main`.
-   Require its successful completion. Keep correctness, parity, race, and
-   performance evidence distinct.
+3. Dispatch the full hosted `ci.yml` workflow for the exact commit on `main`
+   in the heavy tier (the default):
+   `gh workflow run ci.yml --ref main -f tier=heavy`. Require its successful
+   completion. The release workflow accepts only a manual run whose name
+   starts with `ci [tier: heavy]`; a light-tier run or the nightly run does not
+   count. Keep correctness, parity, race, and performance evidence distinct.
 4. Complete the selected performance validation. Record its environment and
    randomized evidence with the release receipt.
 5. Dispatch the manual `release.yml` workflow from `main`. Supply the version,
@@ -65,8 +68,8 @@ These facts include:
 - the tag and release state;
 - the GitHub service result.
 
-The evidence artifacts record the CI run ID, URL, event, commit, conclusion,
-and completion time.
+The evidence artifacts record the CI run ID, URL, run name, tier, event,
+commit, conclusion, and completion time.
 
 ## Release section template
 
