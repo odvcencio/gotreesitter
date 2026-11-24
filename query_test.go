@@ -4037,6 +4037,7 @@ const (
 	arFalse
 	arOpenBracket
 	arCloseBracket
+	arNull
 )
 
 func alternationResultsLanguage() *Language {
@@ -4073,6 +4074,7 @@ func alternationResultsLanguage() *Language {
 		{"false", true},
 		{"[", false},
 		{"]", false},
+		{"null", true},
 	}
 	lang := &Language{Name: "test_alternation_results", FieldNames: []string{""}}
 	for _, n := range names {
@@ -4537,4 +4539,47 @@ func TestQueryEqualFirstCaptureStartLaterCaptureFirst(t *testing.T) {
 	calls := arTree(arBlock, arTree(arStatement, arLeaf(arCall, "f()")), arTree(arStatement, arLeaf(arCall, "h()")))
 	got = alternationResults(t, `(block [(statement) @s (statement (call_expression) @c)] (statement))`, calls)
 	requireAlternationResults(t, got, []string{`p0[c=f()@0]`, `p0[s=f()@0]`})
+}
+
+// [1,2,"x",null,"y"]: the skipped (true)? keeps a waiting state with the
+// match's captures, so every match is held until the array's last child,
+// also when the later (null)? matched. Guard case A02 shows the same shape.
+func TestQuerySkippedOptionalBeforeLastStepHoldsMatch(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`), arLeaf(arNull, "null"), arLeaf(arString, `"y"`))
+	want := []string{
+		`p0[a=1@2 b="x"@10]`,
+		`p0[a=1@2 b="y"@23]`,
+		`p0[a=2@6 b="x"@10]`,
+		`p0[a=2@6 b="y"@23]`,
+	}
+	for _, quantifier := range []string{"?", "*"} {
+		got := alternationResults(t, `(array (number) @a (string) @b (true)`+quantifier+` (null)?)`, tree)
+		requireAlternationResults(t, got, want)
+	}
+}
+
+// Three quantified steps in a row hold the match like one. Guard case M01.
+func TestQueryThreeQuantifiedStepsHoldMatch(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`), arLeaf(arNull, "null"), arLeaf(arString, `"y"`), arLeaf(arFalse, "false"))
+	got := alternationResults(t, `(array (number) @a (string) @b (true)? (null)? (false)?)`, tree)
+	requireAlternationResults(t, got, []string{
+		`p0[a=1@2 b="x"@10]`,
+		`p0[a=1@2 b="y"@23]`,
+		`p0[a=2@6 b="x"@10]`,
+		`p0[a=2@6 b="y"@23]`,
+	})
+}
+
+// A captured step after the quantified step ends the hold: the waiting state
+// then has fewer captures than the match, so C finishes each match on its
+// last node. Guard case B01.
+func TestQueryCapturedStepAfterOptionalEndsHold(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`), arLeaf(arString, `"y"`))
+	got := alternationResults(t, `(array (number) @a (true)? (string) @b)`, tree)
+	requireAlternationResults(t, got, []string{
+		`p0[a=1@2 b="x"@10]`,
+		`p0[a=2@6 b="x"@10]`,
+		`p0[a=1@2 b="y"@16]`,
+		`p0[a=2@6 b="y"@16]`,
+	})
 }

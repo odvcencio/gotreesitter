@@ -273,6 +273,27 @@ var matchOrderGuardCases = []matchOrderGuardCase{
 	{id: "Q03_star_run_then_other_arm", lang: "json", source: `["x",1,true]`,
 		query: `[(array (string) @s (number)* @n) (array (true) @t)]`},
 
+	// A quantified step that is not the last step also holds the match while
+	// no capture follows it; a captured step after it ends the hold.
+	{id: "A02_skipped_optional_before_matched_optional", lang: "json", source: `[1,2,"x",null,"y"]`,
+		query: `(document (array (number) @a (string) @b (true)? (null)?))`},
+	{id: "A02b_skipped_star_before_matched_optional", lang: "json", source: `[1,2,"x",null,"y"]`,
+		query: `(document (array (number) @a (string) @b (true)* (null)?))`},
+	{id: "A02c_skipped_optional_before_matched_optional_python", lang: "python", source: "f(a, b, 1, 2.0, 2)\n",
+		query: `(argument_list (identifier) @x (integer) @y (string)? (float)?)`},
+	{id: "A02d_skipped_optional_before_matched_optional_go", lang: "go", source: "package p\n\nfunc f(a, b int, c string, d int) {}\n",
+		query: `(parameter_list (parameter_declaration name: (identifier) @n) (parameter_declaration type: (type_identifier) @t) (comment)? (parameter_declaration)?)`},
+	{id: "M01_three_quantified_steps", lang: "json", source: `[1,2,"x",null,"y",false]`,
+		query: `(document (array (number) @a (string) @b (true)? (null)? (false)?))`},
+	{id: "B01_captured_step_after_optional", lang: "json", source: `[1,2,"x","y"]`,
+		query: `(document (array (number) @a (true)? (string) @b))`},
+	{id: "B02_captured_step_after_optional_python", lang: "python", source: "f(a, b, 1, 2)\n",
+		query: `(argument_list (identifier) @x (string)? (integer) @y)`},
+	// A match held until the cursor leaves a node finishes on the next node,
+	// in state order with that node's own matches.
+	{id: "E02_held_match_finishes_on_next_sibling", lang: "go", source: "package p\n\nfunc h() {\n\tx := f()+g()\n}\n",
+		query: `(binary_expression [(call_expression (argument_list) @a (identifier)?) "+" @op])`},
+
 	// Equal zero-width captures are two matches: C skips the duplicate check
 	// when the captures do not overlap.
 	{id: "Z01_zero_width_equal_captures_nested", lang: "python", source: "def f(:\n    return 1\n",

@@ -486,7 +486,7 @@ func (q *Query) matchChildStepsAll(
 
 	q.matchChildStepsRecursiveAll(
 		parent, children, namedPosByIndex, namedPos-1,
-		steps, childSteps, 0, 0, childStepPrevMatch{lastIdx: -1},
+		steps, childSteps, 0, 0, childStepPrevMatch{lastIdx: -1}, queryLevelHold{},
 		lang, source, predicates, captures, finish, budget, emit,
 	)
 }
@@ -501,6 +501,7 @@ func (q *Query) matchChildStepsRecursiveAll(
 	childPos int,
 	nextChildIdx int,
 	prev childStepPrevMatch,
+	hold queryLevelHold,
 	lang *Language,
 	source []byte,
 	predicates []QueryPredicate,
@@ -510,7 +511,7 @@ func (q *Query) matchChildStepsRecursiveAll(
 	emit func([]QueryCapture, queryFinish[*Node]),
 ) {
 	if childPos >= len(childSteps) {
-		emit(captures, finish)
+		emit(captures, queryHeldFinish(hold, parent, finish, prev.lastIdx, len(captures)))
 		return
 	}
 
@@ -570,14 +571,14 @@ func (q *Query) matchChildStepsRecursiveAll(
 				if count > 0 && !q.stepAnchorsSatisfied(step, namedPosByIndex, span, prev, parentLastNamedPos) {
 					return
 				}
-				if childPos == len(childSteps)-1 {
-					if deferred, ok := queryTrailingQuantifierFinish(parent, step, count, span, prev, namedPosByIndex); ok {
-						currentFinish = deferred
-					}
+				if count > 0 && currentFinish.kind == queryFinishAfterNode {
+					last := materializedQueryChild(parent, children, span.lastIdx)
+					currentFinish = queryFinishAfterChild(currentFinish, last, parent, span.lastIdx, len(children))
 				}
+				nextHold := hold.advance(step, count, span, prev, namedPosByIndex, len(current))
 				q.matchChildStepsRecursiveAll(
 					parent, children, namedPosByIndex, parentLastNamedPos,
-					steps, childSteps, childPos+1, nextIdx, advancePrevMatch(prev, step, namedPosByIndex, span),
+					steps, childSteps, childPos+1, nextIdx, advancePrevMatch(prev, step, namedPosByIndex, span), nextHold,
 					lang, source, predicates, current, currentFinish, budget, emitForCount,
 				)
 				return

@@ -279,7 +279,7 @@ const (
 	// queryFinishAtNode: on node, where the match's last step matched.
 	queryFinishAtNode queryFinishKind = iota
 	// queryFinishAtChild: on node's child number index, where the state that
-	// waits on a trailing quantifier is dropped.
+	// waits on a quantified step is dropped.
 	queryFinishAtChild
 	// queryFinishAfterNode: when the cursor leaves node.
 	queryFinishAfterNode
@@ -292,48 +292,109 @@ type queryFinish[N comparable] struct {
 	kind  queryFinishKind
 }
 
-// queryTrailingQuantifierFinish returns where the C cursor finishes a match
-// whose last child step under parent is a quantified step that matched count
-// children. It returns false when the match finishes on its last matched
-// node.
+// queryLevelHold tracks, within one child list, where the C cursor would
+// release a finished match that it holds for a quantified step.
 //
-// After a quantified step, C keeps a state that waits for one more match of
-// the step and has the same captures as the finished state. The finished
-// state is flagged (has_in_progress_alternatives) and finishes on the first
-// node where the waiting state is gone (ts_query_cursor__advance in
-// lib/src/query.c). The waiting state is dropped:
+// After a `?`, `*` or `+` step, C keeps a state that waits for one more match
+// of the step, with the captures the match had when it passed the step. If
+// the match adds no capture after that step, the finished match and the
+// waiting state have equal captures, so C flags the finished match
+// (has_in_progress_alternatives) and finishes it only once the waiting state
+// is dropped (ts_query_cursor__advance in lib/src/query.c). A capture added
+// later lets C finish the match at once. queryQuantifierDrop gives the drop
+// point; the hold keeps the latest one since the last capture.
+type queryLevelHold struct {
+	captures int             // capture count when the hold was last set
+	index    int32           // child index of the drop point
+	kind     queryFinishKind // queryFinishAtNode: no hold
+}
+
+// advance returns the hold after step matched count children and the match
+// had captures captures.
+func (h queryLevelHold) advance(step *QueryStep, count int, span childStepNamedSpan, prev childStepPrevMatch, namedPositions []int, captures int) queryLevelHold {
+	if h.kind != queryFinishAtNode && captures > h.captures {
+		h = queryLevelHold{}
+	}
+	index, after, ok := queryQuantifierDrop(step, count, span, prev, namedPositions)
+	if !ok {
+		return h
+	}
+	switch {
+	case h.kind == queryFinishAfterNode:
+	case after:
+		h.kind = queryFinishAfterNode
+	case h.kind == queryFinishAtNode || int32(index) > h.index:
+		h.kind, h.index = queryFinishAtChild, int32(index)
+	}
+	h.captures = captures
+	return h
+}
+
+// queryHeldFinish returns where the C cursor finishes a match that reached
+// the end of the child list under parent: on finish, or later at the held
+// drop point. lastIdx is the child index of the list's last matched child.
+func queryHeldFinish[N comparable](h queryLevelHold, parent N, finish queryFinish[N], lastIdx, captures int) queryFinish[N] {
+	switch {
+	case h.kind == queryFinishAtNode || captures != h.captures:
+		return finish
+	case h.kind == queryFinishAfterNode:
+		return queryFinish[N]{node: parent, kind: queryFinishAfterNode}
+	case int(h.index) > lastIdx:
+		return queryFinish[N]{node: parent, index: h.index, kind: queryFinishAtChild}
+	}
+	return finish
+}
+
+// queryQuantifierDrop returns where the C cursor drops the state that waits
+// for one more match of a quantified step, as a child index under the step's
+// parent, or after when the state lasts until the cursor leaves the parent.
+// It reports false when no waiting state remains.
 //
-//   - after a `*` or `+` run, on the next sibling, because it seeks an
-//     immediate match;
-//   - after a skipped `?` or `*` with a leading anchor, on the next named
-//     sibling;
-//   - after a skipped `?` or `*`, on the parent's last child;
-//   - otherwise, when the cursor leaves the parent.
+//   - After a `*` or `+` run, on the next sibling, because the waiting state
+//     seeks an immediate match.
+//   - After a skipped `?` or `*` with a leading anchor, on the next named
+//     sibling.
+//   - After a skipped `?` or `*`, on the parent's last child.
+//   - Otherwise when the cursor leaves the parent.
 //
 // A `?` that matched leaves no waiting state.
-func queryTrailingQuantifierFinish[N comparable](parent N, step *QueryStep, count int, span childStepNamedSpan, prev childStepPrevMatch, namedPositions []int) (queryFinish[N], bool) {
+func queryQuantifierDrop(step *QueryStep, count int, span childStepNamedSpan, prev childStepPrevMatch, namedPositions []int) (index int, after, ok bool) {
 	if step.quantifier == queryQuantifierOne || (step.quantifier == queryQuantifierZeroOrOne && count > 0) {
-		return queryFinish[N]{}, false
+		return 0, false, false
 	}
 	childCount := len(namedPositions)
 	if count > 0 {
 		if next := span.lastIdx + 1; next > 0 && next < childCount {
-			return queryFinish[N]{node: parent, index: int32(next), kind: queryFinishAtChild}, true
+			return next, false, true
 		}
-		return queryFinish[N]{node: parent, kind: queryFinishAfterNode}, true
+		return 0, true, true
 	}
 	from := prev.lastIdx + 1
 	if step.anchorBefore {
 		for i := from; i < childCount; i++ {
 			if prev.unnamedWildcard || namedPositions[i] >= 0 {
-				return queryFinish[N]{node: parent, index: int32(i), kind: queryFinishAtChild}, true
+				return i, false, true
 			}
 		}
 	}
 	if last := childCount - 1; last >= from {
-		return queryFinish[N]{node: parent, index: int32(last), kind: queryFinishAtChild}, true
+		return last, false, true
 	}
-	return queryFinish[N]{node: parent, kind: queryFinishAfterNode}, true
+	return 0, true, true
+}
+
+// queryFinishAfterChild turns a finish "when the cursor leaves child", where
+// child is parent's child number childIdx, into the point where the C cursor
+// next finishes held matches: on entering child's next sibling, or when it
+// leaves parent if child is the last child.
+func queryFinishAfterChild[N comparable](finish queryFinish[N], child, parent N, childIdx, childCount int) queryFinish[N] {
+	if finish.kind != queryFinishAfterNode || finish.node != child {
+		return finish
+	}
+	if childIdx+1 < childCount {
+		return queryFinish[N]{node: parent, index: int32(childIdx + 1), kind: queryFinishAtChild}
+	}
+	return queryFinish[N]{node: parent, kind: queryFinishAfterNode}
 }
 
 // queryOrderScratch holds the buffers orderQueryCompletions reuses across the
@@ -407,8 +468,8 @@ const querySameSpanWalkLimit = 64
 //
 //   - C returns a match when it finishes, in the order of a pre-order walk.
 //     A match finishes on the node where its last step matched, captured or
-//     not, or later when a trailing quantifier keeps a waiting state (see
-//     queryTrailingQuantifierFinish).
+//     not, or later while a quantified step with no capture after it keeps
+//     a waiting state (see queryLevelHold).
 //   - Matches that finish on the same node keep C's state order
 //     (ts_query_cursor__state_precedes): a match without captures first,
 //     then the earlier first capture. With equal first-capture starts, the
@@ -754,12 +815,12 @@ func matchChildStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](
 			namedPositions[i] = -1
 		}
 	}
-	matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, namedPosition-1, steps, childSteps, 0, 0, childStepPrevMatch{lastIdx: -1}, lang, source, predicates, captures, finish, budget, reader, emit)
+	matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, namedPosition-1, steps, childSteps, 0, 0, childStepPrevMatch{lastIdx: -1}, queryLevelHold{}, lang, source, predicates, captures, finish, budget, reader, emit)
 }
 
-func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, namedPositions []int, parentLastNamedPos int, steps []QueryStep, childSteps []queryChildStepInfo, childPos, nextChildIdx int, prev childStepPrevMatch, lang *Language, source []byte, predicates []QueryPredicate, captures []C, finish queryFinish[N], budget *queryMatchBudget, reader R, emit func([]C, queryFinish[N])) {
+func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, namedPositions []int, parentLastNamedPos int, steps []QueryStep, childSteps []queryChildStepInfo, childPos, nextChildIdx int, prev childStepPrevMatch, hold queryLevelHold, lang *Language, source []byte, predicates []QueryPredicate, captures []C, finish queryFinish[N], budget *queryMatchBudget, reader R, emit func([]C, queryFinish[N])) {
 	if childPos >= len(childSteps) {
-		emit(captures, finish)
+		emit(captures, queryHeldFinish(hold, parent, finish, prev.lastIdx, len(captures)))
 		return
 	}
 	cs := childSteps[childPos]
@@ -809,12 +870,13 @@ func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReade
 				if count > 0 && !q.stepAnchorsSatisfied(step, namedPositions, span, prev, parentLastNamedPos) {
 					return
 				}
-				if childPos == len(childSteps)-1 {
-					if deferred, ok := queryTrailingQuantifierFinish(parent, step, count, span, prev, namedPositions); ok {
-						currentFinish = deferred
+				if count > 0 && currentFinish.kind == queryFinishAfterNode {
+					if last, ok := reader.Child(parent, span.lastIdx); ok {
+						currentFinish = queryFinishAfterChild(currentFinish, last, parent, span.lastIdx, len(namedPositions))
 					}
 				}
-				matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, parentLastNamedPos, steps, childSteps, childPos+1, nextIdx, advancePrevMatch(prev, step, namedPositions, span), lang, source, predicates, current, currentFinish, budget, reader, emitForCount)
+				nextHold := hold.advance(step, count, span, prev, namedPositions, len(current))
+				matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, parentLastNamedPos, steps, childSteps, childPos+1, nextIdx, advancePrevMatch(prev, step, namedPositions, span), nextHold, lang, source, predicates, current, currentFinish, budget, reader, emitForCount)
 				return
 			}
 			remaining := count - chosen
