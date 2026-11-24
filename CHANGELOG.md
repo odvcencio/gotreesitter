@@ -7,6 +7,8 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+- `QueryMatch.SetValues` now returns the values of the last `#set!` directive for a key when a pattern sets it more than once (it returned the first). This agrees with highlight priorities and with tree-sitter's JavaScript binding.
+
 ## [0.58.0] - 2026-11-20
 
 ### Highlights
