@@ -8,10 +8,10 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
-// C++ has no production certificate. These inputs come from issues #1633 and
-// #1559. Each one is mis-parsed on the legacy route (an empty root, a wrong
-// shape, or a stop with no_stacks_alive). The core route with a scratch
-// certificate must equal pinned C on every one of them.
+// These inputs come from issues #1633 and #1559. Each one is mis-parsed on the
+// legacy route (an empty root, a wrong shape, or a stop with no_stacks_alive).
+// The core route, under the test's own certificate, must equal pinned C on
+// every one of them.
 func TestCcoreCppConstevalAndSkippedBytesMatchPinnedC(t *testing.T) {
 	defer ccoreRouteCertify(t)()
 	gl, cl := ccoreLanguages(t, "cpp")
