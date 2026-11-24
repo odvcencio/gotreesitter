@@ -63,6 +63,7 @@ var ciJobTiers = map[string]string{
 
 	"exhaustive_parity_scope": "control",
 	"build":                   "control",
+	"nightly_failure_issue":   "control",
 }
 
 // Jobs outside build.needs: the race sub-jobs (race_root aggregates them),
@@ -70,6 +71,74 @@ var ciJobTiers = map[string]string{
 var notInBuildNeeds = map[string]bool{
 	"race_root_shards": true, "root_race_plan": true, "race_root_isolated": true,
 	"oedit_latency_gate_full": true, "perf-regression": true, "build": true,
+	"nightly_failure_issue": true,
+}
+
+// The nightly failure issue: one job after build, on the schedule only, that
+// reports and cannot change the run's verdict.
+func TestNightlyFailureIssueJob(t *testing.T) {
+	wf := readGateWorkflow(t)
+	job, ok := wf.Jobs["nightly_failure_issue"]
+	if !ok {
+		t.Fatal("job nightly_failure_issue is missing")
+	}
+	if job.Needs.Value != "build" {
+		t.Errorf("nightly_failure_issue must need build alone: %v", job.Needs.Value)
+	}
+	wantIf := "always() && github.event_name == 'schedule' && (needs.build.result == 'success' || needs.build.result == 'failure')"
+	if job.If != wantIf {
+		t.Errorf("nightly_failure_issue condition:\n got %s\nwant %s", job.If, wantIf)
+	}
+	if job.Permissions["issues"] != "write" || job.Permissions["actions"] != "read" || len(job.Permissions) != 3 {
+		t.Errorf("nightly_failure_issue permissions: %v", job.Permissions)
+	}
+	if containsGate(wf.Jobs["build"].Needs, "nightly_failure_issue") {
+		t.Error("build must not wait for the issue reporter")
+	}
+	found := false
+	for _, step := range job.Steps {
+		if strings.Contains(step.Run, "python3 .github/scripts/ci_nightly_issue.py") {
+			found = true
+			if step.Env["BUILD_RESULT"] != "${{ needs.build.result }}" || !strings.Contains(step.Run, `--build-result "$BUILD_RESULT"`) {
+				t.Errorf("the issue step must pass the build result: %+v", step)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("nightly_failure_issue does not run ci_nightly_issue.py")
+	}
+	// The script's dry run: a failure opens the issue, a pass closes it.
+	dir := t.TempDir()
+	jobs := filepath.Join(dir, "jobs.json")
+	open := filepath.Join(dir, "open.json")
+	none := filepath.Join(dir, "none.json")
+	for path, body := range map[string]string{
+		jobs: `{"jobs":[{"name":"build","conclusion":"failure"},{"name":"race_root","conclusion":"failure"},{"name":"compile","conclusion":"success"}]}`,
+		open: `[{"number":7,"title":"ci-nightly: heavy tier failed on main"}]`,
+		none: `[{"number":8,"title":"ci-nightly: heavy tier failed on main (old)"}]`,
+	} {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct{ result, issues, want string }{
+		{"failure", none, "DRY gh issue create --repo o/r --title ci-nightly: heavy tier failed on main"},
+		{"failure", open, "DRY gh issue edit 7"},
+		{"success", open, "DRY gh issue close 7"},
+		{"success", none, "no open issue"},
+		{"cancelled", open, "no change"},
+	} {
+		cmd := exec.Command("python3", "-I", "../../.github/scripts/ci_nightly_issue.py", "--repo", "o/r", "--run-id", "9",
+			"--attempt", "1", "--sha", "abc", "--run-url", "https://example.invalid/runs/9", "--dry-run",
+			"--jobs-json", jobs, "--issues-json", tc.issues, "--build-result", tc.result)
+		out, err := cmd.CombinedOutput()
+		if err != nil || !strings.Contains(string(out), tc.want) {
+			t.Errorf("build=%s issues=%s: want %q: err=%v\n%s", tc.result, filepath.Base(tc.issues), tc.want, err, out)
+		}
+		if tc.result == "failure" && !strings.Contains(string(out), "build failed (2 jobs)") {
+			t.Errorf("failed job count: %s", out)
+		}
+	}
 }
 
 func readRawWorkflow(t *testing.T) map[string]any {

@@ -1841,6 +1841,42 @@ jobs:
 
           echo "Required build gate passed (tier ${TIER})"
 
+  # Pull requests run the light tier, so the nightly heavy run is where a
+  # heavy-only regression shows first. This job keeps one issue, "ci-nightly:
+  # heavy tier failed on main": a failed nightly build gate opens or updates it
+  # with the failed job names and the run link, and the next nightly run whose
+  # build gate passes closes it. It reports only; build stays the verdict.
+  nightly_failure_issue:
+    needs: build
+    if: always() && github.event_name == 'schedule' && (needs.build.result == 'success' || needs.build.result == 'failure')
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      # Needs python3 and gh on the runner (both ship on ubuntu-latest).
+      - name: Open, update, or close the nightly failure issue
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          python3 .github/scripts/ci_nightly_issue.py \
+            --repo "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" \
+            --sha "$GITHUB_SHA" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --build-result "$BUILD_RESULT"
+
   # Root correctness suite without the race detector (light tier, required).
   #
   # Background: this job began as draft-PR visibility. The race jobs skipped
