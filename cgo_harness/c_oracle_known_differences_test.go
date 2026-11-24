@@ -18,9 +18,9 @@ import "testing"
 // Issue 1545 tracks the Go repairs. A repair removes its entry here. Two other
 // places hold 0.27.1 differences: the known notes in
 // parity_query_semantics_test.go, and the highlight test, which skips a
-// language whose bundled query the C compiler rejects (fsharp and solidity
-// since 0.27.1). Apart from those, only the names below are skipped or
-// relaxed. Any other mismatch with the oracle still fails.
+// language whose bundled query the C compiler rejects (solidity since
+// 0.27.1). Apart from those, only the names below are skipped or relaxed. Any
+// other mismatch with the oracle still fails.
 const knownCOracleDifferencesIssue = "https://github.com/odvcencio/gotreesitter/issues/1545"
 
 var knownCOracleDifferences = map[string]string{

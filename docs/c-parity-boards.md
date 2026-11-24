@@ -64,7 +64,7 @@ Test: `cgo_harness/parity_highlight_test.go` (`TestParityHighlight`,
 `GTS_PARITY_MODE=exhaustive`). Capture-level comparison of every bundled
 highlight query.
 
-Count: 206 languages, 199 agree, 7 skipped, 0 tolerance entries. The
+Count: 206 languages, 200 agree, 6 skipped, 0 tolerance entries. The
 test skips a language when the C compiler rejects its bundled highlight
 query. C reports each error position as line:column in that query.
 
@@ -75,12 +75,11 @@ query. C reports each error position as line:column in that query.
 | mojo | `Invalid node type break` at 99:4 | 0.25.1 and 0.27.1 |
 | scala | `Invalid node type end` at 164:4 | 0.25.1 and 0.27.1 |
 | swift | `Invalid node type nil` at 117:2 | 0.25.1 and 0.27.1 |
-| fsharp | `Impossible pattern` at 352:3: `(long_identifier (identifier) @type.builtin)` under `(_type ...)` | 0.27.1 only |
 | solidity | `Invalid syntax` at 90:58: the trailing anchor in `(struct_expression type: ((expression(identifier)) @type .))` | 0.27.1 only |
 
-Go still compiles the fsharp and solidity queries. Under the 0.25.1 oracle
-only the first five rows are skipped; the other two skips come from the oracle
-change.
+Go still compiles the solidity query. Under the 0.25.1 oracle only the first
+five rows are skipped; the other skip comes from the oracle change. The fsharp
+query of tree-sitter-fsharp b576ecf7ced0 compiles under 0.27.1 and agrees.
 
 ## Supertype map
 
