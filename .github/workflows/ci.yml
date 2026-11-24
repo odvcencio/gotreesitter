@@ -635,6 +635,10 @@ jobs:
           TestStatefulScannerCompactLeafReauthentication
           TestTokenInvariantLookaheadLongestMatch
           TestTokenInvariantLookaheadGoControl
+          TestTokenInvariantPythonNumericControls
+          TestTokenInvariantPythonNumericControlsCore
+          TestTokenInvariantTypeScriptNumericControls
+          TestTokenInvariantTypeScriptNumericControlsCore
           TestTokenInvariantLookaheadGoFloatControl
           TestTokenInvariantDependencyCaptureAndLifecycle
           TestTokenInvariantDependencyCaptureDeclinesIncompleteHistory
