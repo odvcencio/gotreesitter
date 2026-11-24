@@ -107,13 +107,16 @@ func isNumbering(section string) bool {
 // that hold them are dropped.
 func (b *l3Build) numberingRecords(t testing.TB) []string {
 	t.Helper()
-	lang := *b.lang
+	lang, err := b.layout.Language(b.lang.Name)
+	if err != nil {
+		t.Fatalf("language: %v", err)
+	}
 	lang.LexModes = make([]gts.LexMode, lang.StateCount)
 	symbolMap := make([]int, len(b.layout.SymbolMap))
 	for i, s := range b.layout.SymbolMap {
 		symbolMap[i] = int(s)
 	}
-	lines, err := ref.LanguageRecords(&lang, ref.Extra{SymbolMap: symbolMap, MaxAliasSequenceLength: -1}, "L4")
+	lines, err := ref.LanguageRecords(lang, ref.Extra{SymbolMap: symbolMap, MaxAliasSequenceLength: -1}, "L4")
 	if err != nil {
 		t.Fatalf("records: %v", err)
 	}
