@@ -4002,6 +4002,12 @@ func BenchmarkQuantifiedRootMetadata(b *testing.B) {
 // structured alternation arm, and grouped sibling sequences led by a string).
 // Symbols of the language used by the alternation-result and quote-led-group
 // tests. Each shape reduces one real highlight pattern to a few nodes.
+//
+// The SQL, Julia, Thrift and Vue tests run on hand-built trees, so their
+// expected orders pin this repository's ordering rule, not C output. The
+// cgo_harness tests TestParityQueryExactAlternationResults,
+// TestParityQueryQuoteLedSiblings and TestParityQueryMatchOrderGuard compare
+// the real grammars with pinned C.
 const (
 	arIdentifier Symbol = iota + 1
 	arStatement
@@ -4389,13 +4395,14 @@ func TestAlternationStructuredArmSharesCallerBudget(t *testing.T) {
 	}
 }
 
-// The tests below hard-code the match order of the pinned C query cursor
-// (ts_query_cursor_next_match in lib/src/query.c). C finishes a match on the
-// node where its last step matched, captured or not, and returns matches in
-// that order. Matches that finish on the same node keep C's state order: the
-// earlier first capture comes first. Matches with equal captures are one
-// match. Each tree reduces a JSON document to the same shape; the comment on
-// each test gives that document.
+// The tests below hard-code the match order that the pinned C query cursor
+// (ts_query_cursor_next_match in lib/src/query.c) returns for the real
+// grammar shape each tree reduces; the comment on each test names that shape,
+// and TestParityQueryMatchOrderGuard in cgo_harness checks it against C. C
+// finishes a match on the node where its last step matched, captured or not,
+// or later while a trailing quantifier keeps a waiting state. Matches that
+// finish on the same node keep C's state order. Matches with equal captures
+// are one match unless the captures are zero-width.
 
 func arJSONArray(items ...arNode) arNode {
 	kids := []arNode{arLeaf(arOpenBracket, "[")}
@@ -4466,4 +4473,68 @@ func TestQueryUncapturedChoicesGiveOneMatch(t *testing.T) {
 	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`))
 	got := alternationResults(t, `(array (number) (string) @b)`, tree)
 	requireAlternationResults(t, got, []string{`p0[b="x"@10]`})
+}
+
+// [1,2,"x","y"] with a trailing (true)?: the state waiting on (true) keeps
+// every match open until the array's last child, so the matches come out by
+// first capture, as in guard case R03.
+func TestQueryTrailingOptionalOrdersByFirstCapture(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`), arLeaf(arString, `"y"`))
+	want := []string{
+		`p0[a=1@2 b="x"@10]`,
+		`p0[a=1@2 b="y"@16]`,
+		`p0[a=2@6 b="x"@10]`,
+		`p0[a=2@6 b="y"@16]`,
+	}
+	for _, quantifier := range []string{"?", "*"} {
+		got := alternationResults(t, `(array (number) @a (string) @b (true)`+quantifier+`)`, tree)
+		requireAlternationResults(t, got, want)
+	}
+}
+
+// [1,true]: the arm with a skipped (string)? finishes on the array's last
+// child, after the other arm finished on (true), as in guard case Q02.
+func TestQuerySkippedOptionalFinishesOnLastChild(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arTrue, "true"))
+	got := alternationResults(t, `[(array (number) @a (string)? @b) (array (true) @t)]`, tree)
+	requireAlternationResults(t, got, []string{`p0[t=true@6]`, `p0[a=1@2]`})
+}
+
+// Equal zero-width captures stay two matches: C skips the duplicate check
+// when the first capture starts at or after the last capture ends, as in
+// guard cases Z01 and Z02. A capture with width still merges.
+func TestQueryEqualZeroWidthCapturesStayTwoMatches(t *testing.T) {
+	zero := arJSONArray(arLeaf(arNumber, ""))
+	got := alternationResults(t, `[(number) @m (number) @m]`, zero)
+	requireAlternationResults(t, got, []string{`p0[m=@2]`, `p0[m=@2]`})
+
+	wide := arJSONArray(arLeaf(arNumber, "1"))
+	got = alternationResults(t, `[(number) @m (number) @m]`, wide)
+	requireAlternationResults(t, got, []string{`p0[m=1@2]`})
+}
+
+// A statement and the call it wraps share a span. C enters the statement
+// first, so the match that finishes on it comes first, as in guard case E01.
+func TestQueryEqualSpanFinishParentFirst(t *testing.T) {
+	tree := arTree(arBlock, arTree(arStatement, arLeaf(arCall, "f()")))
+	got := alternationResults(t, `(block [(statement (call_expression) @c) (statement) @s])`, tree)
+	requireAlternationResults(t, got, []string{`p0[s=f()@0]`, `p0[c=f()@0]`})
+}
+
+// With equal first-capture starts, the match whose first capture is later in
+// pre-order comes first: its state had no captures when the other captured,
+// so C sorted it first. Guard cases T01 and T02 show both shapes.
+func TestQueryEqualFirstCaptureStartLaterCaptureFirst(t *testing.T) {
+	// The identifier starts where its statement starts and ends earlier.
+	pair := func(name, value string) arNode {
+		return arTree(arStatement, arLeaf(arIdentifier, name), arLeaf(arNumber, value))
+	}
+	tree := arTree(arBlock, pair("a", "1"), pair("b", "2"))
+	got := alternationResults(t, `(block [(statement) @p (statement (identifier) @k)] (statement))`, tree)
+	requireAlternationResults(t, got, []string{`p0[k=a@0]`, `p0[p=a 1@0]`})
+
+	// The call has the same span as its statement.
+	calls := arTree(arBlock, arTree(arStatement, arLeaf(arCall, "f()")), arTree(arStatement, arLeaf(arCall, "h()")))
+	got = alternationResults(t, `(block [(statement) @s (statement (call_expression) @c)] (statement))`, calls)
+	requireAlternationResults(t, got, []string{`p0[c=f()@0]`, `p0[s=f()@0]`})
 }

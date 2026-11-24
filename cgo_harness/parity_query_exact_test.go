@@ -219,50 +219,141 @@ func TestParityQueryExactAlternationResults(t *testing.T) {
 	}
 }
 
-// The C cursor returns matches in the order they finish: on the node where
-// the last step matched, captured or not, and after any steps that follow an
-// alternation. Matches with equal captures are one match.
-func TestParityQueryExactMatchOrder(t *testing.T) {
-	const nested = `[[1,"x",true],false,false]`
-	cases := []exactQueryCase{
-		{
-			name:   "uncaptured_terminal_decides_order",
-			lang:   "json",
-			source: `[1,"x",true]`,
-			query:  `[(array (number) @n (true)) (array (string) @s)]`,
-		},
-		{
-			name:   "arms_interleave_at_suffix",
-			lang:   "json",
-			source: nested,
-			query:  `(array [(array (number) @n (true)) (array (string) @s)] (false) @tail)`,
-		},
-		{
-			name:   "uncaptured_suffix_gives_one_match_per_arm",
-			lang:   "json",
-			source: nested,
-			query:  `(array [(array (number) @n (true)) (array (string) @s)] (false))`,
-		},
-		{
-			name:   "finish_node_orders_plain_pattern",
-			lang:   "json",
-			source: `[1,2,"x","y"]`,
-			query:  `(array (number) @a (string) @b)`,
-		},
-		{
-			name:   "uncaptured_choices_give_one_match",
-			lang:   "json",
-			source: `[1,2,"x"]`,
-			query:  `(array (number) (string) @b)`,
-		},
-	}
+// matchOrderGuardCase is one query whose ordered matches must equal pinned
+// C. known names a divergence from C that this repository has not fixed yet:
+// the case is skipped while Go and C differ and fails once they agree, so the
+// note gets removed.
+type matchOrderGuardCase struct {
+	id     string
+	lang   string
+	source string
+	query  string
+	known  string
+}
 
-	for _, tc := range cases {
+// matchOrderGuardCases pin the order and count of query matches against
+// pinned C. The C cursor returns a match when it finishes: on the node where
+// its last step matched, captured or not, or later while a trailing
+// quantifier keeps a state waiting with the same captures. Matches that
+// finish together keep C's state order. Equal captures are one match unless
+// they are zero-width.
+var matchOrderGuardCases = []matchOrderGuardCase{
+	// The last step decides, captured or not.
+	{id: "O1_uncaptured_terminal_decides_order", lang: "json", source: `[1,"x",true]`,
+		query: `[(array (number) @n (true)) (array (string) @s)]`},
+	{id: "O2_arms_interleave_at_suffix", lang: "json", source: `[[1,"x",true],false,false]`,
+		query: `(array [(array (number) @n (true)) (array (string) @s)] (false) @tail)`},
+	{id: "O3_uncaptured_suffix_gives_one_match_per_arm", lang: "json", source: `[[1,"x",true],false,false]`,
+		query: `(array [(array (number) @n (true)) (array (string) @s)] (false))`},
+	{id: "O4_finish_node_orders_plain_pattern", lang: "json", source: `[1,2,"x","y"]`,
+		query: `(array (number) @a (string) @b)`},
+	{id: "O5_uncaptured_choices_give_one_match", lang: "json", source: `[1,2,"x"]`,
+		query: `(array (number) (string) @b)`},
+
+	// A trailing quantifier keeps a waiting state, so the matches finish
+	// together, in C's state order.
+	{id: "R01_trailing_optional", lang: "json", source: `[1,2,"x","y"]`,
+		query: `(document (array (number) @a (string) @b (true)?))`},
+	{id: "R02_trailing_star", lang: "json", source: `[1,2,"x","y"]`,
+		query: `(document (array (number) @a (string) @b (true)*))`},
+	{id: "R03_trailing_optional_inner_root", lang: "json", source: `[1,2,"x","y"]`,
+		query: `(array (number) @a (string) @b (true)?)`},
+	{id: "R04_trailing_optional_after_alternation", lang: "json", source: `[1,"x",true,true]`,
+		query: `(document (array [(number) @n (string) @s] (true) @t (null)?))`},
+	{id: "R09_trailing_optional_wildcards", lang: "json", source: `[1,2,3]`,
+		query: `(document (array (_) @x (_) @y (false)?))`},
+	{id: "P14_trailing_optional_python", lang: "python", source: "f(a, b, 1, 2)\n",
+		query: `(argument_list (identifier) @x (integer) @y (string)?)`},
+	{id: "G04_trailing_optional_go", lang: "go", source: "package p\n\nfunc f(a, b int, c, d string) {}\n",
+		query: `(parameter_list (parameter_declaration name: (_) @n) (parameter_declaration name: (_) @m) (comment)?)`},
+	{id: "Q01_plus_run_ends_on_next_sibling", lang: "json", source: `[1,"x"]`,
+		query: `[(array (number)+ @n) (array (string) @s)]`},
+	{id: "Q02_skipped_optional_waits_for_last_child", lang: "json", source: `[1,true]`,
+		query: `[(array (number) @a (string)? @b) (array (true) @t)]`},
+	{id: "Q03_star_run_then_other_arm", lang: "json", source: `["x",1,true]`,
+		query: `[(array (string) @s (number)* @n) (array (true) @t)]`},
+
+	// Equal zero-width captures are two matches: C skips the duplicate check
+	// when the captures do not overlap.
+	{id: "Z01_zero_width_equal_captures_nested", lang: "python", source: "def f(:\n    return 1\n",
+		query: `(parameters [(MISSING ")") @m (MISSING) @m])`},
+	{id: "Z02_zero_width_equal_captures_root", lang: "python", source: "def f(:\n    return 1\n",
+		query: `[(MISSING ")") @m (MISSING) @m]`},
+
+	// Ties: a node finishes before a node inside it with the same span, and
+	// with equal first-capture starts the later first capture comes first.
+	{id: "E01_equal_span_finish_parent_first", lang: "go", source: "package p\n\nfunc g() {\n\tf()\n}\n",
+		query: `(_ [(expression_statement (call_expression) @c) (expression_statement) @s])`},
+	{id: "T01_equal_first_start_inner_capture_first", lang: "json", source: `{"a":1,"b":2}`,
+		query: `(object [(pair) @p (pair key: (string) @k)] (pair))`},
+	{id: "T02_equal_first_span_inner_capture_first", lang: "go", source: "package p\n\nfunc g() {\n\tf()\n\th()\n}\n",
+		query: `(_ [(expression_statement) @s (expression_statement (call_expression) @c)] (expression_statement))`},
+	{id: "T03_equal_first_start_three_arms", lang: "json", source: `{"a":1,"b":2}`,
+		query: `(object [(pair) @p (pair key: (string) @k) (pair key: (string (string_content) @sc))] (pair))`},
+
+	// Not fixed: these need C's cursor state model.
+	{id: "K01_order_across_roots", lang: "json", source: `[[1],2]`,
+		query: `(array (number) @n)`,
+		known: "C keeps one list of in-progress states across root nodes and returns matches in walk order; Go matches one root node at a time"},
+	{id: "K02_longest_match_subset_drop", lang: "json", source: `[1,"x"]`,
+		query: `[(array (number) @x (string) @y) (array (string) @y)]`,
+		known: "C drops a finished match whose captures are a subset of another match at the same step; Go does not"},
+}
+
+// TestParityQueryMatchOrderGuard compares the ordered matches of each guard
+// case with pinned C.
+func TestParityQueryMatchOrderGuard(t *testing.T) {
+	for _, tc := range matchOrderGuardCases {
 		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			assertExactQueryParity(t, tc)
+		t.Run(tc.id, func(t *testing.T) {
+			eq := exactQueryCase{name: tc.id, lang: tc.lang, source: tc.source, query: tc.query}
+			if tc.known == "" {
+				assertExactQueryParity(t, eq)
+				return
+			}
+			goMatches, cMatches := exactQueryMatchesGoAndC(t, eq)
+			if reflect.DeepEqual(goMatches, cMatches) {
+				t.Fatalf("Go and C agree; remove the known divergence note %q", tc.known)
+			}
+			t.Skipf("known divergence (%s)\nGo:\n%s\nC:\n%s", tc.known, formatExactQueryMatches(goMatches), formatExactQueryMatches(cMatches))
 		})
 	}
+}
+
+// exactQueryMatchesGoAndC parses source with both parsers and returns the
+// ordered matches of query from each. It fails the test when the trees
+// differ, because then the queries do not compare like with like.
+func exactQueryMatchesGoAndC(t *testing.T, tc exactQueryCase) ([]exactQueryMatch, []exactQueryMatch) {
+	t.Helper()
+	src := []byte(tc.source)
+	goTree, goLang, err := parseWithGo(parityCase{name: tc.lang, source: tc.source}, src, nil)
+	if err != nil {
+		t.Fatalf("Go parse error: %v", err)
+	}
+	defer releaseGoTree(goTree)
+	cLang, err := ParityCLanguage(tc.lang)
+	if err != nil {
+		if skipReason := parityReferenceSkipReason(err); skipReason != "" {
+			t.Skipf("skip C reference parser: %s", skipReason)
+		}
+		t.Fatalf("load C parser: %v", err)
+	}
+	cParser := sitter.NewParser()
+	defer cParser.Close()
+	if err := cParser.SetLanguage(cLang); err != nil {
+		t.Fatalf("C SetLanguage: %v", err)
+	}
+	cTree := cParser.Parse(src, nil)
+	if cTree == nil || cTree.RootNode() == nil {
+		t.Fatal("C parser returned nil tree")
+	}
+	defer cTree.Close()
+	var structuralErrs []string
+	compareNodes(goTree.RootNode(), goLang, cTree.RootNode(), "root", &structuralErrs)
+	if len(structuralErrs) > 0 {
+		t.Fatalf("trees differ before the query runs:\n%s", firstLines(structuralErrs, 12))
+	}
+	return collectGoExactQueryMatches(t, goLang, goTree, tc.query, src), collectCExactQueryMatches(t, cLang, cTree, tc.query, src)
 }
 
 func TestParityQueryPointRangeEmptyNodeBoundaries(t *testing.T) {

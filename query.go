@@ -340,6 +340,10 @@ type QueryCursor struct {
 
 	workBudget int
 
+	// orderScratch holds the buffers that order the matches of one pattern
+	// at one node; it is reused across nodes.
+	orderScratch queryOrderScratch[*Node, QueryCapture]
+
 	hasMaxStartDepth bool
 	maxStartDepth    uint32
 
@@ -983,15 +987,15 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 				}
 			}
 			budget := newQueryMatchBudget(c.workBudget)
-			var captureSets []queryCompletion[*Node, QueryCapture]
+			var captureSets [][]QueryCapture
 			if c.currentNodePost {
 				if pat.steps[0].quantifier == queryQuantifierZeroOrMore || pat.steps[0].quantifier == queryQuantifierOneOrMore {
 					captureSets = q.matchPatternPostorderAll(&pat, c.currentNode, c.currentParent, c.currentChildIdx, c.lang, c.source, budget)
 				} else {
-					captureSets = q.matchPatternAll(&pat, c.currentNode, c.lang, c.source, budget)
+					captureSets = q.matchPatternAll(&pat, c.currentNode, c.lang, c.source, budget, &c.orderScratch)
 				}
 			} else {
-				captureSets = q.matchPatternAll(&pat, c.currentNode, c.lang, c.source, budget)
+				captureSets = q.matchPatternAll(&pat, c.currentNode, c.lang, c.source, budget, &c.orderScratch)
 			}
 			if budget.tripped() {
 				c.didExceedMatchLim = true
@@ -1001,14 +1005,14 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 			}
 			first := QueryMatch{
 				PatternIndex: pi,
-				Captures:     captureSets[0].captures,
+				Captures:     captureSets[0],
 			}
 			if len(captureSets) > 1 {
 				c.pendingMatches = make([]QueryMatch, len(captureSets)-1)
 				for i := 1; i < len(captureSets); i++ {
 					c.pendingMatches[i-1] = QueryMatch{
 						PatternIndex: pi,
-						Captures:     captureSets[i].captures,
+						Captures:     captureSets[i],
 					}
 				}
 			}

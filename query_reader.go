@@ -81,6 +81,7 @@ func executeQueryWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Que
 	if q.rootCandidatesBySymbol == nil && q.rootFallbackCandidates == nil {
 		q.buildRootPatternIndex()
 	}
+	var scratch queryOrderScratch[N, C]
 	worklist = append(worklist, queryReaderWorkItem[N]{node: root, childIdx: -1})
 	for len(worklist) > 0 {
 		last := len(worklist) - 1
@@ -99,14 +100,14 @@ func executeQueryWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Que
 				}
 				pattern := &q.patterns[patternIndex]
 				budget := newQueryMatchBudget(defaultQueryMatchWorkBudget)
-				var captureSets []queryCompletion[N, C]
+				var captureSets [][]C
 				if pattern.steps[0].quantifier == queryQuantifierZeroOrMore || pattern.steps[0].quantifier == queryQuantifierOneOrMore {
 					captureSets = matchPatternPostorderAllWithReader(q, pattern, node, item.parent, item.childIdx, lang, source, budget, reader)
 				} else {
-					captureSets = matchPatternAllWithReader(q, pattern, node, lang, source, budget, reader)
+					captureSets = matchPatternAllWithReader(q, pattern, node, lang, source, budget, &scratch, reader)
 				}
-				for _, completion := range captureSets {
-					dst = append(dst, queryReaderMatch[C]{PatternIndex: patternIndex, Captures: completion.captures})
+				for _, captures := range captureSets {
+					dst = append(dst, queryReaderMatch[C]{PatternIndex: patternIndex, Captures: captures})
 				}
 			}
 			continue
@@ -125,8 +126,9 @@ func executeQueryWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Que
 				continue
 			}
 			pattern := &q.patterns[patternIndex]
-			for _, completion := range matchPatternAllWithReader(q, pattern, node, lang, source, newQueryMatchBudget(defaultQueryMatchWorkBudget), reader) {
-				dst = append(dst, queryReaderMatch[C]{PatternIndex: patternIndex, Captures: completion.captures})
+			captures := matchPatternAllWithReader(q, pattern, node, lang, source, newQueryMatchBudget(defaultQueryMatchWorkBudget), &scratch, reader)
+			for _, set := range captures {
+				dst = append(dst, queryReaderMatch[C]{PatternIndex: patternIndex, Captures: set})
 			}
 		}
 	}

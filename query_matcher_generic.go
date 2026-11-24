@@ -46,15 +46,16 @@ func filterDisabledCapturesWithReader[N comparable, C any, R queryNodeReader[N, 
 }
 
 // matchPatternAllWithReader returns the matches of pat rooted at node, in the
-// order the C query cursor returns them (see orderQueryCompletions).
-func matchPatternAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, pat *Pattern, node N, lang *Language, source []byte, budget *queryMatchBudget, reader R) []queryCompletion[N, C] {
+// order the C query cursor returns them (see orderQueryCompletions). scratch
+// must not be nil; it holds the finish points while the matches collect.
+func matchPatternAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, pat *Pattern, node N, lang *Language, source []byte, budget *queryMatchBudget, scratch *queryOrderScratch[N, C], reader R) [][]C {
 	if len(pat.steps) == 0 || reader.IsNil(node) {
 		return nil
 	}
 	if pat.steps[0].quantifier == queryQuantifierZeroOrMore {
 		if matchesPredicatesWithReader(q, pat.predicates, []C(nil), lang, source, reader) {
 			captures := applyDirectivesWithReader(q, pat.predicates, []C(nil), source, reader)
-			return []queryCompletion[N, C]{{captures: cloneQueryCapturesWithReader(captures), finish: node}}
+			return [][]C{cloneQueryCapturesWithReader(captures)}
 		}
 		return nil
 	}
@@ -62,19 +63,21 @@ func matchPatternAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *
 		return nil
 	}
 
-	var done []queryCompletion[N, C]
-	matchStepsAllWithReader(q, pat.steps, 0, node, *new(N), -1, lang, source, pat.predicates, nil, budget, reader, func(captures []C, finish N) {
+	scratch.finishes = scratch.finishes[:0]
+	var matches [][]C
+	matchStepsAllWithReader(q, pat.steps, 0, node, *new(N), -1, lang, source, pat.predicates, nil, budget, reader, func(captures []C, finish queryFinish[N]) {
 		if !matchesPredicatesWithReader(q, pat.predicates, captures, lang, source, reader) {
 			return
 		}
 		captures = applyDirectivesWithReader(q, pat.predicates, captures, source, reader)
 		captures = filterDisabledCapturesWithReader(q, captures, reader)
-		done = append(done, queryCompletion[N, C]{captures: cloneQueryCapturesWithReader(captures), finish: finish})
+		queryNoteFinish(scratch, len(matches), captures, finish, reader)
+		matches = append(matches, cloneQueryCapturesWithReader(captures))
 	})
-	return orderQueryCompletions(done, reader)
+	return orderQueryCompletions(matches, scratch, reader)
 }
 
-func matchPatternPostorderAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, pat *Pattern, node, parent N, childIdx int, lang *Language, source []byte, budget *queryMatchBudget, reader R) []queryCompletion[N, C] {
+func matchPatternPostorderAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, pat *Pattern, node, parent N, childIdx int, lang *Language, source []byte, budget *queryMatchBudget, reader R) [][]C {
 	if len(pat.steps) == 0 || reader.IsNil(node) {
 		return nil
 	}
@@ -123,12 +126,12 @@ func matchPatternPostorderAllWithReader[N comparable, C any, R queryNodeReader[N
 		}
 	}
 
-	var matches []queryCompletion[N, C]
+	var matches [][]C
 	for _, captures := range partials {
 		if matchesPredicatesWithReader(q, pat.predicates, captures, lang, source, reader) {
 			captures = applyDirectivesWithReader(q, pat.predicates, captures, source, reader)
 			captures = filterDisabledCapturesWithReader(q, captures, reader)
-			matches = append(matches, queryCompletion[N, C]{captures: cloneQueryCapturesWithReader(captures), finish: node})
+			matches = append(matches, cloneQueryCapturesWithReader(captures))
 		}
 	}
 	return matches
@@ -174,19 +177,19 @@ func queryAdjacentSiblingWithReader[N comparable, C any, R queryNodeReader[N, C]
 
 func matchPatternOnceAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, pat *Pattern, node, parent N, childIdx int, lang *Language, source []byte, captures []C, budget *queryMatchBudget, reader R) [][]C {
 	var matches [][]C
-	matchStepsAllWithReader(q, pat.steps, 0, node, parent, childIdx, lang, source, pat.predicates, captures, budget, reader, func(next []C, _ N) {
+	matchStepsAllWithReader(q, pat.steps, 0, node, parent, childIdx, lang, source, pat.predicates, captures, budget, reader, func(next []C, _ queryFinish[N]) {
 		matches = append(matches, cloneQueryCapturesWithReader(next))
 	})
 	return matches
 }
 
-func matchStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, steps []QueryStep, stepIdx int, node, parent N, childIdx int, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func(captures []C, finish N)) {
+func matchStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, steps []QueryStep, stepIdx int, node, parent N, childIdx int, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func(captures []C, finish queryFinish[N])) {
 	if stepIdx >= len(steps) || reader.IsNil(node) {
 		return
 	}
 	step := &steps[stepIdx]
 	if len(step.alternatives) > 0 {
-		matchAlternationStepAllWithReader(q, step, node, parent, childIdx, lang, source, predicates, captures, budget, reader, func(next []C, finish N) {
+		matchAlternationStepAllWithReader(q, step, node, parent, childIdx, lang, source, predicates, captures, budget, reader, func(next []C, finish queryFinish[N]) {
 			matchStepChildrenAllWithReader(q, steps, stepIdx, node, lang, source, predicates, next, finish, budget, reader, emit)
 		})
 		return
@@ -200,14 +203,14 @@ func matchStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Qu
 		appendCaptureIDsWithReader(q, step.captureIDs, node, &next, reader)
 	}
 	if predicatesStillViableWithReader(q, predicates, next, source, reader) {
-		matchStepChildrenAllWithReader(q, steps, stepIdx, node, lang, source, predicates, next, node, budget, reader, emit)
+		matchStepChildrenAllWithReader(q, steps, stepIdx, node, lang, source, predicates, next, queryFinish[N]{node: node}, budget, reader, emit)
 	}
 }
 
 // matchStepChildrenAllWithReader matches the child steps of steps[stepIdx]
-// under node. finish is the node where the latest step matched so far; emit
-// receives the node where the latest step of each completion matched.
-func matchStepChildrenAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, steps []QueryStep, stepIdx int, node N, lang *Language, source []byte, predicates []QueryPredicate, captures []C, finish N, budget *queryMatchBudget, reader R, emit func([]C, N)) {
+// under node. finish is where the C cursor would finish the match so far;
+// emit receives it for each completion.
+func matchStepChildrenAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, steps []QueryStep, stepIdx int, node N, lang *Language, source []byte, predicates []QueryPredicate, captures []C, finish queryFinish[N], budget *queryMatchBudget, reader R, emit func([]C, queryFinish[N])) {
 	step := &steps[stepIdx]
 	childStart := stepIdx + 1
 	if childStart >= len(steps) || steps[childStart].depth <= step.depth {
@@ -225,7 +228,7 @@ func matchStepChildrenAllWithReader[N comparable, C any, R queryNodeReader[N, C]
 	matchChildStepsAllWithReader(q, node, steps, childSteps, lang, source, predicates, captures, finish, budget, reader, emit)
 }
 
-func matchAlternationStepAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, step *QueryStep, node, parent N, childIdx int, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func([]C, N)) {
+func matchAlternationStepAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, step *QueryStep, node, parent N, childIdx int, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func([]C, queryFinish[N])) {
 	hasStepCaptures := len(step.captureIDs) > 0
 	nodeNamed := reader.IsNamed(node)
 	nodeSymbol := lang.PublicSymbolForNamedness(reader.Symbol(node), nodeNamed)
@@ -246,7 +249,7 @@ func matchAlternationStepAllWithReader[N comparable, C any, R queryNodeReader[N,
 			// make it escape and put the caller's closure on the heap for
 			// every alternation step, structured or not.
 			var arm []queryCompletion[N, C]
-			matchAlternationStructuredBranchWithReader(q, step, alt, node, lang, source, predicates, captures, budget, hasStepCaptures, reader, func(next []C, finish N) {
+			matchAlternationStructuredBranchWithReader(q, step, alt, node, lang, source, predicates, captures, budget, hasStepCaptures, reader, func(next []C, finish queryFinish[N]) {
 				arm = append(arm, queryCompletion[N, C]{captures: next, finish: finish})
 			})
 			for _, c := range arm {
@@ -256,105 +259,287 @@ func matchAlternationStepAllWithReader[N comparable, C any, R queryNodeReader[N,
 		}
 		next := cloneQueryCapturesWithReader(captures)
 		if matchAlternationSimpleBranchWithReader(q, step, alt, node, predicates, source, &next, hasStepCaptures, reader) {
-			emit(next, node)
+			emit(next, queryFinish[N]{node: node})
 		}
 	}
 }
 
 // queryCompletion is one finished match of a pattern at one root node: its
-// captures and the node where its last step matched, captured or not.
+// captures and where the C query cursor finishes it.
 type queryCompletion[N comparable, C any] struct {
 	captures []C
-	finish   N
+	finish   queryFinish[N]
+}
+
+// queryFinishKind says where the C query cursor finishes a match relative to
+// queryFinish.node.
+type queryFinishKind uint8
+
+const (
+	// queryFinishAtNode: on node, where the match's last step matched.
+	queryFinishAtNode queryFinishKind = iota
+	// queryFinishAtChild: on node's child number index, where the state that
+	// waits on a trailing quantifier is dropped.
+	queryFinishAtChild
+	// queryFinishAfterNode: when the cursor leaves node.
+	queryFinishAfterNode
+)
+
+// queryFinish records where the C query cursor finishes a match.
+type queryFinish[N comparable] struct {
+	node  N
+	index int32
+	kind  queryFinishKind
+}
+
+// queryTrailingQuantifierFinish returns where the C cursor finishes a match
+// whose last child step under parent is a quantified step that matched count
+// children. It returns false when the match finishes on its last matched
+// node.
+//
+// After a quantified step, C keeps a state that waits for one more match of
+// the step and has the same captures as the finished state. The finished
+// state is flagged (has_in_progress_alternatives) and finishes on the first
+// node where the waiting state is gone (ts_query_cursor__advance in
+// lib/src/query.c). The waiting state is dropped:
+//
+//   - after a `*` or `+` run, on the next sibling, because it seeks an
+//     immediate match;
+//   - after a skipped `?` or `*` with a leading anchor, on the next named
+//     sibling;
+//   - after a skipped `?` or `*`, on the parent's last child;
+//   - otherwise, when the cursor leaves the parent.
+//
+// A `?` that matched leaves no waiting state.
+func queryTrailingQuantifierFinish[N comparable](parent N, step *QueryStep, count int, span childStepNamedSpan, prev childStepPrevMatch, namedPositions []int) (queryFinish[N], bool) {
+	if step.quantifier == queryQuantifierOne || (step.quantifier == queryQuantifierZeroOrOne && count > 0) {
+		return queryFinish[N]{}, false
+	}
+	childCount := len(namedPositions)
+	if count > 0 {
+		if next := span.lastIdx + 1; next > 0 && next < childCount {
+			return queryFinish[N]{node: parent, index: int32(next), kind: queryFinishAtChild}, true
+		}
+		return queryFinish[N]{node: parent, kind: queryFinishAfterNode}, true
+	}
+	from := prev.lastIdx + 1
+	if step.anchorBefore {
+		for i := from; i < childCount; i++ {
+			if prev.unnamedWildcard || namedPositions[i] >= 0 {
+				return queryFinish[N]{node: parent, index: int32(i), kind: queryFinishAtChild}, true
+			}
+		}
+	}
+	if last := childCount - 1; last >= from {
+		return queryFinish[N]{node: parent, index: int32(last), kind: queryFinishAtChild}, true
+	}
+	return queryFinish[N]{node: parent, kind: queryFinishAfterNode}, true
+}
+
+// queryOrderScratch holds the buffers orderQueryCompletions reuses across the
+// pattern roots of one query execution.
+type queryOrderScratch[N comparable, C any] struct {
+	// finishes lists, in match order, the matches that do not finish on the
+	// node of their last capture. Most matches do, so most patterns store
+	// nothing here.
+	finishes []queryIndexedFinish[N]
+	keys     []queryCompletionKey[N, C]
+	byHash   map[uint64]int
+}
+
+// queryIndexedFinish says where match number match finishes.
+type queryIndexedFinish[N comparable] struct {
+	match  int
+	finish queryFinish[N]
+}
+
+// queryNoteFinish records where the match about to be added as match number
+// index finishes, unless that is the node of its last capture.
+func queryNoteFinish[N comparable, C any, R queryNodeReader[N, C]](scratch *queryOrderScratch[N, C], index int, captures []C, finish queryFinish[N], reader R) {
+	if finish.kind == queryFinishAtNode && len(captures) > 0 && reader.CaptureNode(captures[len(captures)-1]) == finish.node {
+		return
+	}
+	scratch.finishes = append(scratch.finishes, queryIndexedFinish[N]{match: index, finish: finish})
+}
+
+// queryFinishAt returns where matches[i] finishes. next indexes the first
+// entry of finishes at or after match i; queryFinishAt advances it past i, so
+// callers visit the matches in order.
+func queryFinishAt[N comparable, C any, R queryNodeReader[N, C]](matches [][]C, i int, finishes []queryIndexedFinish[N], next *int, reader R) queryFinish[N] {
+	if *next < len(finishes) && finishes[*next].match == i {
+		f := finishes[*next].finish
+		*next++
+		return f
+	}
+	captures := matches[i]
+	return queryFinish[N]{node: reader.CaptureNode(captures[len(captures)-1])}
 }
 
 // queryCompletionKey carries the sort keys of one completion.
 type queryCompletionKey[N comparable, C any] struct {
-	queryCompletion[N, C]
+	captures    []C
+	finishNode  N
+	first       N
 	hash        uint64
 	sameHash    int // index of the previous key with this hash, or -1
 	finishStart uint32
 	finishEnd   uint32
 	firstStart  uint32
+	firstEnd    uint32
+	afterNode   bool
 	hasCaptures bool
+	mergeable   bool
 }
 
 // queryCompletionSmallSet is the size up to which equal-capture detection
-// scans the hashes instead of building a map.
+// scans the hashes instead of using a map.
 const queryCompletionSmallSet = 8
+
+// querySameSpanWalkLimit bounds the walk through same-span descendants.
+const querySameSpanWalkLimit = 64
 
 // orderQueryCompletions puts the completions of one pattern at one root node
 // in the order the pinned C query cursor returns them
 // (ts_query_cursor__advance and ts_query_cursor_next_match in
-// lib/src/query.c), reusing done's storage. done lists the completions in
-// enumeration order.
+// lib/src/query.c), reusing matches' storage. matches lists the completions
+// in enumeration order, and scratch.finishes says where the matches that do
+// not finish on their last capture finish.
 //
-//   - C finishes a match on the node where its last step matched, captured or
-//     not, and returns matches in the order a pre-order walk finishes them.
+//   - C returns a match when it finishes, in the order of a pre-order walk.
+//     A match finishes on the node where its last step matched, captured or
+//     not, or later when a trailing quantifier keeps a waiting state (see
+//     queryTrailingQuantifierFinish).
 //   - Matches that finish on the same node keep C's state order
 //     (ts_query_cursor__state_precedes): a match without captures first,
-//     then the earlier first capture, then the order the states split, which
-//     is the enumeration order.
+//     then the earlier first capture. With equal first-capture starts, the
+//     state that captured later had no captures when the other captured, so
+//     it sorted first: the first capture later in pre-order comes first.
+//     Then the order the states split, which is the enumeration order.
 //   - C keeps one state for equal captures: the longest-match pass drops the
-//     later state, and the kept state finishes when the later one would.
+//     later state, and the kept state finishes when the later one would. C
+//     skips that check when the first capture starts at or after the last
+//     capture ends, so equal zero-width captures stay two matches.
 //
 // Equal captures are found through a hash of each capture list, so the work
-// is linear in len(done) plus one sort.
-func orderQueryCompletions[N comparable, C any, R queryNodeReader[N, C]](done []queryCompletion[N, C], reader R) []queryCompletion[N, C] {
-	if len(done) < 2 {
-		return done
+// is linear in len(matches) plus one sort. When matches are already in
+// order and no two can be equal, no buffer is used.
+func orderQueryCompletions[N comparable, C any, R queryNodeReader[N, C]](matches [][]C, scratch *queryOrderScratch[N, C], reader R) [][]C {
+	finishes := scratch.finishes
+	if len(matches) < 2 || queryCompletionsOrdered(matches, finishes, reader) {
+		return matches
 	}
-	keys := make([]queryCompletionKey[N, C], 0, len(done))
 	var byHash map[uint64]int
-	if len(done) > queryCompletionSmallSet {
-		byHash = make(map[uint64]int, len(done))
-	}
-	for _, c := range done {
-		h := hashQueryCaptures(c.captures, reader)
-		head := -1
-		if byHash != nil {
-			if k, ok := byHash[h]; ok {
-				head = k
-			}
+	if len(matches) > queryCompletionSmallSet {
+		if scratch.byHash == nil {
+			scratch.byHash = make(map[uint64]int, len(matches))
 		} else {
-			for k := len(keys) - 1; k >= 0; k-- {
-				if keys[k].hash == h {
-					head = k
-					break
+			clear(scratch.byHash)
+		}
+		byHash = scratch.byHash
+	}
+	keys := scratch.keys[:0]
+	next := 0
+	for i, captures := range matches {
+		k := newQueryCompletionKey(captures, queryFinishAt(matches, i, finishes, &next, reader), reader)
+		if k.mergeable {
+			k.hash = hashQueryCaptures(captures, reader)
+			head := -1
+			if byHash != nil {
+				if i, ok := byHash[k.hash]; ok {
+					head = i
+				}
+			} else {
+				for i := len(keys) - 1; i >= 0; i-- {
+					if keys[i].mergeable && keys[i].hash == k.hash {
+						head = i
+						break
+					}
 				}
 			}
-		}
-		if k := equalQueryCompletion(keys, head, c.captures, reader); k >= 0 {
-			if compareQueryNodes(c.finish, keys[k].finish, reader) > 0 {
-				keys[k].finish = c.finish
+			if j := equalQueryCompletion(keys, head, captures, reader); j >= 0 {
+				if compareQueryFinishKeys(k, keys[j], reader) > 0 {
+					keys[j].finishNode = k.finishNode
+					keys[j].finishStart = k.finishStart
+					keys[j].finishEnd = k.finishEnd
+					keys[j].afterNode = k.afterNode
+				}
+				continue
 			}
-			continue
+			k.sameHash = head
+			if byHash != nil {
+				byHash[k.hash] = len(keys)
+			}
 		}
-		if byHash != nil {
-			byHash[h] = len(keys)
-		}
-		keys = append(keys, queryCompletionKey[N, C]{queryCompletion: c, hash: h, sameHash: head})
+		keys = append(keys, k)
 	}
+	slices.SortStableFunc(keys, func(a, b queryCompletionKey[N, C]) int {
+		return compareQueryCompletionKeys(a, b, reader)
+	})
+	matches = matches[:len(keys)]
 	for i := range keys {
-		k := &keys[i]
-		k.finishStart = reader.StartByte(k.finish)
-		k.finishEnd = reader.EndByte(k.finish)
-		if len(k.captures) > 0 {
-			k.hasCaptures = true
-			k.firstStart = reader.StartByte(reader.CaptureNode(k.captures[0]))
-		}
+		matches[i] = keys[i].captures
 	}
-	slices.SortStableFunc(keys, compareQueryCompletionKeys[N, C])
-	done = done[:len(keys)]
-	for i := range keys {
-		done[i] = keys[i].queryCompletion
-	}
-	return done
+	clear(keys)
+	scratch.keys = keys[:0]
+	return matches
 }
 
-// equalQueryCompletion follows the chain of keys that share a hash,
-// starting at head, and returns the index of one whose captures equal
-// captures, or -1.
+// queryCompletionsOrdered reports whether done is already in C's order with
+// no two completions that could be one match. Equal capture lists share
+// their last capture, so strictly increasing last captures rule that out.
+func queryCompletionsOrdered[N comparable, C any, R queryNodeReader[N, C]](matches [][]C, finishes []queryIndexedFinish[N], reader R) bool {
+	next := 0
+	prev := newQueryCompletionKey(matches[0], queryFinishAt(matches, 0, finishes, &next, reader), reader)
+	if !prev.hasCaptures {
+		return false
+	}
+	prevLast := reader.CaptureNode(prev.captures[len(prev.captures)-1])
+	for i := 1; i < len(matches); i++ {
+		cur := newQueryCompletionKey(matches[i], queryFinishAt(matches, i, finishes, &next, reader), reader)
+		if !cur.hasCaptures || compareQueryCompletionKeys(prev, cur, reader) > 0 {
+			return false
+		}
+		curLast := reader.CaptureNode(cur.captures[len(cur.captures)-1])
+		if compareQueryNodes(prevLast, curLast, reader) >= 0 {
+			return false
+		}
+		prev, prevLast = cur, curLast
+	}
+	return true
+}
+
+func newQueryCompletionKey[N comparable, C any, R queryNodeReader[N, C]](captures []C, finish queryFinish[N], reader R) queryCompletionKey[N, C] {
+	k := queryCompletionKey[N, C]{captures: captures, sameHash: -1, mergeable: true}
+	node := finish.node
+	switch finish.kind {
+	case queryFinishAtChild:
+		if child, ok := reader.Child(node, int(finish.index)); ok {
+			node = child
+		} else {
+			k.afterNode = true
+		}
+	case queryFinishAfterNode:
+		k.afterNode = true
+	}
+	k.finishNode = node
+	if k.afterNode {
+		end := reader.EndByte(node)
+		k.finishStart, k.finishEnd = end, end
+	} else {
+		k.finishStart, k.finishEnd = reader.StartByte(node), reader.EndByte(node)
+	}
+	if n := len(captures); n > 0 {
+		k.hasCaptures = true
+		k.first = reader.CaptureNode(captures[0])
+		k.firstStart, k.firstEnd = reader.StartByte(k.first), reader.EndByte(k.first)
+		k.mergeable = k.firstStart < reader.EndByte(reader.CaptureNode(captures[n-1]))
+	}
+	return k
+}
+
+// equalQueryCompletion follows the chain of keys that share a hash, starting
+// at head, and returns the index of one whose captures equal captures, or
+// -1.
 func equalQueryCompletion[N comparable, C any, R queryNodeReader[N, C]](keys []queryCompletionKey[N, C], head int, captures []C, reader R) int {
 	for k := head; k >= 0; k = keys[k].sameHash {
 		if equalQueryCaptures(keys[k].captures, captures, reader) {
@@ -364,12 +549,9 @@ func equalQueryCompletion[N comparable, C any, R queryNodeReader[N, C]](keys []q
 	return -1
 }
 
-func compareQueryCompletionKeys[N comparable, C any](a, b queryCompletionKey[N, C]) int {
-	if a.finishStart != b.finishStart {
-		return cmp.Compare(a.finishStart, b.finishStart)
-	}
-	if a.finishEnd != b.finishEnd {
-		return cmp.Compare(b.finishEnd, a.finishEnd)
+func compareQueryCompletionKeys[N comparable, C any, R queryNodeReader[N, C]](a, b queryCompletionKey[N, C], reader R) int {
+	if c := compareQueryFinishKeys(a, b, reader); c != 0 {
+		return c
 	}
 	if a.hasCaptures != b.hasCaptures {
 		if !a.hasCaptures {
@@ -377,13 +559,57 @@ func compareQueryCompletionKeys[N comparable, C any](a, b queryCompletionKey[N, 
 		}
 		return 1
 	}
-	return cmp.Compare(a.firstStart, b.firstStart)
+	if !a.hasCaptures || a.first == b.first {
+		return 0
+	}
+	if a.firstStart != b.firstStart {
+		return cmp.Compare(a.firstStart, b.firstStart)
+	}
+	// Equal starts: the first capture later in pre-order comes first.
+	if a.firstEnd != b.firstEnd {
+		return cmp.Compare(a.firstEnd, b.firstEnd)
+	}
+	if querySameSpanDescendant(a.first, b.first, reader) {
+		return 1
+	}
+	if querySameSpanDescendant(b.first, a.first, reader) {
+		return -1
+	}
+	return 0
+}
+
+// compareQueryFinishKeys orders two finish points as the C cursor meets
+// them: a node before the nodes inside it, and leaving a node after every
+// node that ends where it ends.
+func compareQueryFinishKeys[N comparable, C any, R queryNodeReader[N, C]](a, b queryCompletionKey[N, C], reader R) int {
+	if a.finishStart != b.finishStart {
+		return cmp.Compare(a.finishStart, b.finishStart)
+	}
+	if a.finishEnd != b.finishEnd {
+		return cmp.Compare(b.finishEnd, a.finishEnd)
+	}
+	if a.afterNode != b.afterNode {
+		if b.afterNode {
+			return -1
+		}
+		return 1
+	}
+	if a.afterNode || a.finishNode == b.finishNode {
+		return 0
+	}
+	if querySameSpanDescendant(a.finishNode, b.finishNode, reader) {
+		return -1
+	}
+	if querySameSpanDescendant(b.finishNode, a.finishNode, reader) {
+		return 1
+	}
+	return 0
 }
 
 // compareQueryNodes orders two nodes as a pre-order walk meets them: the
-// earlier start first, and an enclosing node before a node inside it
-// (ts_query_cursor__compare_nodes). Distinct nodes with one span compare
-// equal.
+// earlier start first, and an enclosing node before a node inside it, also
+// when both have one span (ts_query_cursor__compare_nodes compares spans
+// only).
 func compareQueryNodes[N comparable, C any, R queryNodeReader[N, C]](a, b N, reader R) int {
 	if a == b {
 		return 0
@@ -391,7 +617,47 @@ func compareQueryNodes[N comparable, C any, R queryNodeReader[N, C]](a, b N, rea
 	if as, bs := reader.StartByte(a), reader.StartByte(b); as != bs {
 		return cmp.Compare(as, bs)
 	}
-	return cmp.Compare(reader.EndByte(b), reader.EndByte(a))
+	if ae, be := reader.EndByte(a), reader.EndByte(b); ae != be {
+		return cmp.Compare(be, ae)
+	}
+	if querySameSpanDescendant(a, b, reader) {
+		return -1
+	}
+	if querySameSpanDescendant(b, a, reader) {
+		return 1
+	}
+	return 0
+}
+
+// querySameSpanDescendant reports whether node lies inside ancestor with the
+// same span, so a pre-order walk enters ancestor first. It walks down
+// through children with that span and does not build parent links.
+func querySameSpanDescendant[N comparable, C any, R queryNodeReader[N, C]](ancestor, node N, reader R) bool {
+	start, end := reader.StartByte(ancestor), reader.EndByte(ancestor)
+	if reader.StartByte(node) != start || reader.EndByte(node) != end {
+		return false
+	}
+	for depth := 0; depth < querySameSpanWalkLimit; depth++ {
+		var next N
+		found := false
+		for i, n := 0, reader.ChildCount(ancestor); i < n; i++ {
+			child, ok := reader.Child(ancestor, i)
+			if !ok {
+				continue
+			}
+			if child == node {
+				return true
+			}
+			if !found && reader.StartByte(child) == start && reader.EndByte(child) == end {
+				next, found = child, true
+			}
+		}
+		if !found {
+			return false
+		}
+		ancestor = next
+	}
+	return false
 }
 
 // equalQueryCaptures reports whether two capture lists name the same nodes
@@ -432,9 +698,9 @@ func hashQueryCaptures[N comparable, C any, R queryNodeReader[N, C]](captures []
 
 // matchAlternationStructuredBranchWithReader delivers every completion of a
 // structured arm to emit, each carrying the captures made before the
-// alternation and the node where the arm's last step matched. The arm shares
+// alternation and where the C cursor would finish it. The arm shares
 // the caller's work budget.
-func matchAlternationStructuredBranchWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, step *QueryStep, alt *alternativeSymbol, node N, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, hasStepCaptures bool, reader R, emit func([]C, N)) {
+func matchAlternationStructuredBranchWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, step *QueryStep, alt *alternativeSymbol, node N, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, hasStepCaptures bool, reader R, emit func([]C, queryFinish[N])) {
 	base := cloneQueryCapturesWithReader(captures)
 	if hasStepCaptures {
 		appendCaptureIDsWithReader(q, step.captureIDs, node, &base, reader)
@@ -442,7 +708,7 @@ func matchAlternationStructuredBranchWithReader[N comparable, C any, R queryNode
 			return
 		}
 	}
-	matchStepsAllWithReader(q, alt.steps, 0, node, *new(N), -1, lang, source, predicates, base, budget, reader, func(next []C, finish N) {
+	matchStepsAllWithReader(q, alt.steps, 0, node, *new(N), -1, lang, source, predicates, base, budget, reader, func(next []C, finish queryFinish[N]) {
 		if len(alt.predicates) == 0 || matchesPredicatesWithReader(q, alt.predicates, next, lang, source, reader) {
 			emit(cloneQueryCapturesWithReader(next), finish)
 		}
@@ -469,7 +735,7 @@ func matchAlternationSimpleBranchWithReader[N comparable, C any, R queryNodeRead
 	return true
 }
 
-func matchChildStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, steps []QueryStep, childSteps []queryChildStepInfo, lang *Language, source []byte, predicates []QueryPredicate, captures []C, finish N, budget *queryMatchBudget, reader R, emit func([]C, N)) {
+func matchChildStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, steps []QueryStep, childSteps []queryChildStepInfo, lang *Language, source []byte, predicates []QueryPredicate, captures []C, finish queryFinish[N], budget *queryMatchBudget, reader R, emit func([]C, queryFinish[N])) {
 	childCount := reader.ChildCount(parent)
 	var inline [64]int
 	var namedPositions []int
@@ -491,7 +757,7 @@ func matchChildStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](
 	matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, namedPosition-1, steps, childSteps, 0, 0, childStepPrevMatch{lastIdx: -1}, lang, source, predicates, captures, finish, budget, reader, emit)
 }
 
-func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, namedPositions []int, parentLastNamedPos int, steps []QueryStep, childSteps []queryChildStepInfo, childPos, nextChildIdx int, prev childStepPrevMatch, lang *Language, source []byte, predicates []QueryPredicate, captures []C, finish N, budget *queryMatchBudget, reader R, emit func([]C, N)) {
+func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, namedPositions []int, parentLastNamedPos int, steps []QueryStep, childSteps []queryChildStepInfo, childPos, nextChildIdx int, prev childStepPrevMatch, lang *Language, source []byte, predicates []QueryPredicate, captures []C, finish queryFinish[N], budget *queryMatchBudget, reader R, emit func([]C, queryFinish[N])) {
 	if childPos >= len(childSteps) {
 		emit(captures, finish)
 		return
@@ -532,16 +798,21 @@ func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReade
 		emittedForCount := false
 		emitForCount := emit
 		if step.quantifier != queryQuantifierOne {
-			emitForCount = func(next []C, nextFinish N) { emittedForCount = true; emit(next, nextFinish) }
+			emitForCount = func(next []C, nextFinish queryFinish[N]) { emittedForCount = true; emit(next, nextFinish) }
 		}
-		var combinations func(int, int, int, childStepNamedSpan, []C, N)
-		combinations = func(candidatePos, chosen, nextIdx int, span childStepNamedSpan, current []C, currentFinish N) {
+		var combinations func(int, int, int, childStepNamedSpan, []C, queryFinish[N])
+		combinations = func(candidatePos, chosen, nextIdx int, span childStepNamedSpan, current []C, currentFinish queryFinish[N]) {
 			if !budget.charge() {
 				return
 			}
 			if chosen == count {
 				if count > 0 && !q.stepAnchorsSatisfied(step, namedPositions, span, prev, parentLastNamedPos) {
 					return
+				}
+				if childPos == len(childSteps)-1 {
+					if deferred, ok := queryTrailingQuantifierFinish(parent, step, count, span, prev, namedPositions); ok {
+						currentFinish = deferred
+					}
 				}
 				matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, parentLastNamedPos, steps, childSteps, childPos+1, nextIdx, advancePrevMatch(prev, step, namedPositions, span), lang, source, predicates, current, currentFinish, budget, reader, emitForCount)
 				return
@@ -556,7 +827,7 @@ func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReade
 				}
 				nextIdxForChoice := maxInt(nextIdx, childIdx+1)
 				spanForChoice := span.withChild(childIdx, namedPositions[childIdx])
-				matchStepsAllWithReader(q, steps, cs.stepIdx, child, parent, childIdx, lang, source, predicates, current, budget, reader, func(next []C, nextFinish N) {
+				matchStepsAllWithReader(q, steps, cs.stepIdx, child, parent, childIdx, lang, source, predicates, current, budget, reader, func(next []C, nextFinish queryFinish[N]) {
 					combinations(i+1, chosen+1, nextIdxForChoice, spanForChoice, next, nextFinish)
 				})
 			}
