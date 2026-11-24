@@ -1,6 +1,6 @@
 //go:build gts_parsercorephase0 && !gts_no_parsercorephase0
 
-package parse_test
+package gotreesitter_test
 
 import (
 	"strings"

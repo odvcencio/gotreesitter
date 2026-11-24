@@ -580,6 +580,8 @@ token_invariant_external_rollback_test.go
 token_invariant_lexical_proof.go
 token_invariant_lexical_proof_test.go
 token_invariant_lookahead_go_test.go
+token_invariant_lookahead_python_test.go
+token_invariant_lookahead_typescript_test.go
 token_invariant_typescript_text_test.go
 transient_children.go
 transient_children_test.go

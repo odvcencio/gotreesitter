@@ -26,6 +26,7 @@ var lanesCoveredByCorrectness = map[string]string{
 	"grammars-q-z":   "/grammars($|/runtime$)",
 	"grammars-other": "/grammars($|/runtime$)",
 	"parse":          "/roottest/parse$",
+	"admission":      "/roottest/admission$",
 }
 
 // A light run tests every non-root package: each race_packages lane runs in
@@ -69,7 +70,7 @@ func TestPackagesNoRaceCoversEveryRaceLane(t *testing.T) {
 			if seen[lane.Name] != 0 {
 				t.Errorf("lane %s is covered by draft-correctness and must not run in a shard too", lane.Name)
 			}
-			if lane.PackageFilter != filter || lane.TestFilter == "" && lane.Name != "parse" {
+			if lane.PackageFilter != filter || lane.TestFilter == "" && lane.Name != "parse" && lane.Name != "admission" {
 				// The grammars lanes only split one package set by test name.
 				t.Errorf("lane %s changed (filter %q, test filter %q): recheck its coverage by draft-correctness", lane.Name, lane.PackageFilter, lane.TestFilter)
 			}
@@ -103,8 +104,8 @@ func TestPackagesNoRaceCoversEveryRaceLane(t *testing.T) {
 			correctness = step.Run
 		}
 	}
-	if !regexp.MustCompile(`(?m)^go test \. \./grammars \./grammars/runtime \./roottest/bench \./roottest/parse -count=1 `).MatchString(correctness) {
-		t.Fatalf("draft-correctness must run ./grammars ./grammars/runtime ./roottest/parse in full:\n%s", correctness)
+	if !regexp.MustCompile(`(?m)^go test \. \./grammars \./grammars/runtime \./roottest/admission \./roottest/bench \./roottest/parse -count=1 `).MatchString(correctness) {
+		t.Fatalf("draft-correctness must run ./grammars ./grammars/runtime ./roottest/admission ./roottest/parse in full:\n%s", correctness)
 	}
 
 	var stableSkip, step gateWorkflowStep

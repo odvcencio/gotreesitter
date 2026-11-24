@@ -147,7 +147,7 @@ jobs:
         run: go build -tags gts_no_parsercorephase0 ./...
 
       - name: Test emergency parser routing
-        run: go test . -tags gts_no_parsercorephase0 -run '^TestAdmissionSwitchDefaultBuildFallsBackLoudly$' -count=1
+        run: go test ./roottest/admission -tags gts_no_parsercorephase0 -run '^TestAdmissionSwitchDefaultBuildFallsBackLoudly$' -count=1
 
       - name: Build without copyleft-licensed grammars
         # gotreesitter_no_copyleft excludes caddy, disassembly, jq, and nim
@@ -272,7 +272,14 @@ jobs:
           GTS_COMPAT_TAIL_ELISION_EXHAUSTIVE=1 \
           GOMAXPROCS=1 \
           go test -tags gts_parsercorephase0 . \
-            -run '^(TestAdmissionCandidateScorecard206|TestAdmissionSwitchRoutePrecedenceRatchet|TestAdmissionCandidateYAMLZeroWidthDepth|TestAdmissionCandidateRepresentativeDepthRatchet|TestAdmissionCompactTreeCarriesIncrementalReuseProof|TestCompactJavaScriptRecoveryIncrementalReuse|TestDiagnosticParserCoreClassifiedBoundaryAndReductionPlanShape|TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite|TestCompatTailElisionEquivalenceSmokeExhaustive)$' \
+            -run '^(TestAdmissionCandidateScorecard206|TestAdmissionSwitchRoutePrecedenceRatchet|TestAdmissionCompactTreeCarriesIncrementalReuseProof|TestDiagnosticParserCoreClassifiedBoundaryAndReductionPlanShape|TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite|TestCompatTailElisionEquivalenceSmokeExhaustive)$' \
+            -count=1 -timeout 10m
+          GTS_ADMISSION_SCORECARD=1 \
+          GTS_ADMISSION_SCORECARD_RATCHET=1 \
+          GTS_COMPAT_TAIL_ELISION_EXHAUSTIVE=1 \
+          GOMAXPROCS=1 \
+          go test -tags gts_parsercorephase0 ./roottest/admission \
+            -run '^(TestAdmissionCandidateYAMLZeroWidthDepth|TestAdmissionCandidateRepresentativeDepthRatchet|TestCompactJavaScriptRecoveryIncrementalReuse)$' \
             -count=1 -timeout 10m
 
   phase0_tagged_suite:
@@ -349,11 +356,6 @@ jobs:
           TestAdmissionSwitchParseRoutesCandidateWhenOn
           TestAdmissionSwitchRecoveryDoesNotLeakCompactTree
           TestArenaBreakdownAccountsForNodeViewBytes
-          TestB4bV2OptInDeciderDifferentialCanonicalFixtures
-          TestB4bV2OptInDeciderDifferentialCertifiedLanguages
-          TestB4bV2OptInDeciderDifferentialErlangProbes
-          TestB4bV2OptInDeciderDifferentialKotlinWitnessNowClean
-          TestB4bV2OptInDeciderDifferentialSmokeCorpus
           TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk
           TestCompactJavaScriptErrorModeKeywordCaptureRequiresArtifact
           TestCompactJavaScriptErrorModeKeywordCaptureSelectsAbsorbLineage
@@ -362,7 +364,6 @@ jobs:
           TestCompactJavaScriptTrailingRecoveryRetirementRequiresArtifact
           TestCompactMaterializedFragileBitReachesPublicNode
           TestCompactMaterializedTreeBarsIncrementalReuse
-          TestCompactRouteSwiftShiftComparisonGapIsNotATilingDefect
           TestCompactSchedulerDeclinesContextualCloseAngleDeferralWithDistinctDetail
           TestD2SpanUnlockedDisableOptionMatchesLegacyBehavior
           TestD2SpanUnlockedRaggedRelexDeclineDetailCarriesWiderTokenSpan
@@ -491,7 +492,6 @@ jobs:
           TestDiagnosticParserCoreSelectedLineageProofAllocations
           TestDiagnosticParserCoreSelectedStoreQueryMissingDeclines
           TestDiagnosticParserCoreSelectedStoreQueryTraversalAllocations
-          TestDiagnosticParserCoreSummaryAcceptsExactQueryCompile
           TestDiagnosticParserCoreSummaryConflictFailureRollsBack
           TestDiagnosticParserCoreSummaryFailurePublishesNothing
           TestDiagnosticParserCoreUpdatedReductionAdoptsActiveSibling
@@ -660,12 +660,11 @@ jobs:
           TestStage3RecoveryCondenseUsesScannerCheckpointInsteadOfSnapshotPointer
           TestStage3RecoveryMetadataSurvivesLexerStateUpdates
           TestStatefulScannerCompactLeafReauthentication
-          TestTokenInvariantLookaheadLongestMatch
-          TestTokenInvariantLookaheadGoControl
           TestTokenInvariantPythonNumericControls
           TestTokenInvariantPythonNumericControlsCore
           TestTokenInvariantTypeScriptNumericControls
           TestTokenInvariantTypeScriptNumericControlsCore
+          TestTokenInvariantLookaheadGoControl
           TestTokenInvariantLookaheadGoFloatControl
           TestTokenInvariantDependencyCaptureAndLifecycle
           TestTokenInvariantDependencyCaptureDeclinesIncompleteHistory
@@ -675,8 +674,22 @@ jobs:
           TestTokenInvariantExternalObserverPoolOwnership
           TestTokenInvariantDeferredBudgetDoesNotPublishHistory
           '
+          # These tests live in roottest/admission and roottest/parse.
+          moved_tests='
+          TestCompactNestedReuse.*
+          TestB4bV2OptInDeciderDifferentialCanonicalFixtures
+          TestB4bV2OptInDeciderDifferentialCertifiedLanguages
+          TestB4bV2OptInDeciderDifferentialErlangProbes
+          TestB4bV2OptInDeciderDifferentialKotlinWitnessNowClean
+          TestB4bV2OptInDeciderDifferentialSmokeCorpus
+          TestCompactRouteSwiftShiftComparisonGapIsNotATilingDefect
+          TestDiagnosticParserCoreSummaryAcceptsExactQueryCompile
+          TestTokenInvariantLookaheadLongestMatch
+          '
           pattern="^($(printf '%s' "$tests" | tr -s '[:space:]' '\n' | sed '/^$/d' | paste -sd'|'))\$"
+          moved_pattern="^($(printf '%s' "$moved_tests" | tr -s '[:space:]' '\n' | sed '/^$/d' | paste -sd'|'))\$"
           GOMAXPROCS=1 go test -tags gts_parsercorephase0 . -run "$pattern" -count=1 -timeout 3m
+          GOMAXPROCS=1 go test -tags gts_parsercorephase0 ./roottest/admission ./roottest/parse -run "$moved_pattern" -count=1 -timeout 3m
 
   admission_route_equality_fuzz:
     needs: exhaustive_parity_scope
@@ -702,14 +715,14 @@ jobs:
         # fixed inputs directly, so it alone covers this regression.
         run: |
           set -euo pipefail
-          GOMAXPROCS=1 go test . -run '^FuzzAdmissionRouteEquality$' -count=1 -v
+          GOMAXPROCS=1 go test ./roottest/admission -run '^FuzzAdmissionRouteEquality$' -count=1 -v
 
       - name: Route-equality bounded live fuzzing, 45s (advisory)
         # Keep this non-blocking until clean-cache, per-language soaks bound
         # the workload and reproduce or retire the reported Haskell residual.
         run: |
           set +e
-          GOMAXPROCS=1 go test . -run '^$' -fuzz '^FuzzAdmissionRouteEquality$' -fuzztime=45s
+          GOMAXPROCS=1 go test ./roottest/admission -run '^$' -fuzz '^FuzzAdmissionRouteEquality$' -fuzztime=45s
           status=$?
           set -e
 
@@ -718,7 +731,7 @@ jobs:
             {
               echo "### Admission Route-Equality Live Fuzzing"
               echo
-              echo "\`go test . -run '^\$' -fuzz FuzzAdmissionRouteEquality -fuzztime=45s\` exited with status \`${status}\`."
+              echo "\`go test ./roottest/admission -run '^\$' -fuzz FuzzAdmissionRouteEquality -fuzztime=45s\` exited with status \`${status}\`."
               echo
               echo "This step is informational until clean-cache, per-language promotion soaks complete."
             } >> "$GITHUB_STEP_SUMMARY"
@@ -876,6 +889,9 @@ jobs:
             test_filter: ''
           - name: parse
             package_filter: '/roottest/parse$'
+            test_filter: ''
+          - name: admission
+            package_filter: '/roottest/admission$'
             test_filter: ''
           - name: wasm
             package_filter: '/wasm/runtime$'
@@ -1951,7 +1967,7 @@ jobs:
           # -timeout 25m: a generous budget. On two draft PRs (22 and 23
           # November 2026) the root package took 353 s and 391 s, and the
           # whole job 9 to 10 minutes.
-          go test . ./grammars ./grammars/runtime ./roottest/bench ./roottest/parse -count=1 -timeout 25m
+          go test . ./grammars ./grammars/runtime ./roottest/admission ./roottest/bench ./roottest/parse -count=1 -timeout 25m
 
   # Light tier only: the non-root package tests without the race detector, so
   # that a light run tests every package. In the heavy tier race_packages and
@@ -1959,9 +1975,9 @@ jobs:
   # this job. Each shard takes race_packages lanes through
   # `go run ./cmd/citestplan -lane <name>`; the pseudo-lane grammargen is the
   # stable subset that grammargen_stable runs (the same -skip list). The lanes
-  # grammars-a-c, grammars-d-j, grammars-k-p, grammars-q-z, grammars-other and
-  # parse are in no shard: draft-correctness runs their packages (grammars,
-  # grammars/runtime, roottest/parse) in full. cmd/citestplan checks that each
+  # grammars-a-c, grammars-d-j, grammars-k-p, grammars-q-z, grammars-other,
+  # parse and admission are in no shard: draft-correctness runs their packages
+  # (grammars, grammars/runtime, roottest/admission, roottest/parse) in full. cmd/citestplan checks that each
   # race lane is in exactly one shard or in that list. The shards are sized from
   # the race job times of a ready PR on 24 November 2026: about 12 to 14
   # race-minutes each, setup included.
