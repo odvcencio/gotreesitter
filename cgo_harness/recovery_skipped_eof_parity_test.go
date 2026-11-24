@@ -20,10 +20,7 @@ func TestRecoverySkippedEOFMatchesLockedC(t *testing.T) {
 		sources []witness
 	}{
 		{"awk", []witness{{text: "\\"}, {text: "\\\n"}, {text: "\\\r\n"}}},
-		{"fsharp", []witness{
-			{"|", &DumpV1Divergence{Path: "/file/ERROR[0]", Category: "shape", GoValue: "children=0", CValue: "children=1"}},
-			{text: "|>"},
-		}},
+		{"fsharp", []witness{{text: "|"}, {text: "|>"}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			language := grammars.DetectLanguageByName(test.name).Language()
@@ -84,8 +81,9 @@ func TestRecoverySkippedEOFMatchesLockedC(t *testing.T) {
 	}
 }
 
-// F# reaches EOF with C's root span and error verdict. The remaining
-// recovered-child difference for a lone bar stays pinned exactly.
+// A witness with a known divergence pins it exactly; a witness without one
+// requires the whole tree to equal C. F# reaches EOF with C's root span,
+// error verdict and recovered children since tree-sitter-fsharp b576ecf7ced0.
 func sameRecoveryEOFDeviation(got, want *DumpV1Divergence) bool {
 	if got == nil || want == nil {
 		return got == want
