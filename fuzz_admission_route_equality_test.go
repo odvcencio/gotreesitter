@@ -257,7 +257,7 @@ func exerciseAdmissionRouteEquality(t *testing.T, lp admissionRouteEqualityLangu
 
 // seedAdmissionRouteEqualityCorpus commits the B2 seed corpus: the 20-witness
 // B0/B1 adjudication manifest (minus the two documented open swift
-// residuals), the four canonical Go BENCH.md fixtures (trimmed below
+// residuals), the four canonical Go docs/benchmarks.md fixtures (trimmed below
 // routeEqualityFuzzMaxInputBytes, the fuzzer's own latency cap, when
 // needed), one smoke snippet per curated language, and an empty-source edge
 // case. languages supplies the language-selector byte for each language
@@ -279,7 +279,7 @@ func seedAdmissionRouteEqualityCorpus(f *testing.F, languages []admissionRouteEq
 		f.Add([]byte(grammars.ParseSmokeSample(name)), langIndex[name])
 	}
 
-	// The four canonical Go full-parse fixtures (BENCH.md / internal/
+	// The four canonical Go full-parse fixtures (docs/benchmarks.md / internal/
 	// benchfixtures), heads trimmed to routeEqualityFuzzMaxInputBytes: only
 	// rewrite.go (5,116 bytes) already fits; query_compile.go (20,168),
 	// language.go (41,387), and grammargen_lr.go (235,626) all need a

@@ -174,7 +174,7 @@ fresh-tree verification.
 
 | Prefix | Owns |
 | --- | --- |
-| `benchmark*` | In-package benchmarks (see [BENCH.md](../BENCH.md) for the canonical results) |
+| `benchmark*` | In-package benchmarks (see [benchmarks.md](benchmarks.md) for the canonical results) |
 | `fuzz_*` | Fuzz targets (`go test -fuzz`). The parser and scanner-grammar fuzz targets are in `roottest/parse` |
 | `race_*` | Race-lane build-tag stubs |
 | `perf_*` | Perf-counter and perf-metrics instrumentation |

@@ -20,5 +20,5 @@ gate.
 This file tracks the grammargen lane only: the code generator's
 output against the shipped reference blob. It is not a statement of
 shipping-grammar parity quality against the upstream tree-sitter
-oracle. For that claim, see [BENCH.md](../../BENCH.md) and the
+oracle. For that claim, see [docs/benchmarks.md](../../docs/benchmarks.md) and the
 C-oracle parity suites under `cgo_harness/`.
