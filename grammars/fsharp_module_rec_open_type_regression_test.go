@@ -22,8 +22,11 @@ func parseFSharpRegression(t *testing.T, source string) (*gotreesitter.Tree, *go
 	}
 	t.Cleanup(tree.Release)
 	root := tree.RootNode()
-	if root == nil || root.HasError() || tree.ParseStopReason() != gotreesitter.ParseStopAccepted {
-		t.Fatalf("parse %q: root %v stop %s: %s", source, root, tree.ParseStopReason(), root.SExpr(language))
+	if root == nil {
+		t.Fatalf("parse %q: no root, stop %s", source, tree.ParseStopReason())
+	}
+	if root.HasError() || tree.ParseStopReason() != gotreesitter.ParseStopAccepted {
+		t.Fatalf("parse %q: has error %v, stop %s: %s", source, root.HasError(), tree.ParseStopReason(), root.SExpr(language))
 	}
 	return tree, language
 }
