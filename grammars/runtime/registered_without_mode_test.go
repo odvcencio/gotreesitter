@@ -65,6 +65,7 @@ func TestScannersRegisteredWithoutAModeBindThroughTheCore(t *testing.T) {
 		{"kconfig", KconfigExternalScanner{}},
 		{"xml", XMLExternalScanner{}},
 		{"fortran", FortranExternalScanner{}},
+		{"fsharp", FsharpExternalScanner{}},
 		{"markdown", MarkdownExternalScanner{}},
 		{"c_sharp", CSharpExternalScanner{}},
 	}, extraRegisteredWithoutModeCases...) {

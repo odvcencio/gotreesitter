@@ -169,6 +169,16 @@ var fsExternalScannerSpec = ExternalScannerSpec{
 
 func init() {
 	RegisterExternalScannerSpec(fsExternalScannerSpec)
+	// Checked against the pinned C scanner (cgo_harness scandiff: hostile states off,
+	// truncated real states and all hostile states, 0 differing calls); no mode.
+	scanmode.RegisterScanner(FsharpExternalScanner{}, (*fsState)(nil), false, func(v any) (any, []byte, bool) {
+		s := v.(FsharpExternalScanner)
+		s.externalToToken = append([]int(nil), s.externalToToken...)
+		return s, scannerKey(s.symbols[:], s.externalToToken), true
+	}, func(left, right any) bool {
+		a, b := left.(FsharpExternalScanner), right.(FsharpExternalScanner)
+		return scannerConfigEqual(a.symbols[:], b.symbols[:], a.externalToToken, b.externalToToken)
+	})
 }
 
 // fsState is C's Scanner (scanner.h:45-50). indents and parenIndents always
