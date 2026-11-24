@@ -9,6 +9,7 @@ test "planned minor passes immediately after exact hosted CI" {
         evidence.main_exact_candidate: true
         evidence.ci_exact_candidate: true
         evidence.ci_full_dispatch: true
+        evidence.ci_heavy_tier: true
         evidence.ci_successful: true
         evidence.ci_completion_not_future: true
         evidence.tag_absent: true
@@ -35,6 +36,7 @@ test "urgent patch passes outside Thursday without a minimum soak" {
         evidence.main_exact_candidate: true
         evidence.ci_exact_candidate: true
         evidence.ci_full_dispatch: true
+        evidence.ci_heavy_tier: true
         evidence.ci_successful: true
         evidence.ci_completion_not_future: true
         evidence.tag_absent: true
@@ -61,6 +63,7 @@ test "planned minor passes outside Thursday" {
         evidence.main_exact_candidate: true
         evidence.ci_exact_candidate: true
         evidence.ci_full_dispatch: true
+        evidence.ci_heavy_tier: true
         evidence.ci_successful: true
         evidence.ci_completion_not_future: true
         evidence.tag_absent: true
@@ -87,6 +90,7 @@ test "planned minor passes before 48 hours" {
         evidence.main_exact_candidate: true
         evidence.ci_exact_candidate: true
         evidence.ci_full_dispatch: true
+        evidence.ci_heavy_tier: true
         evidence.ci_successful: true
         evidence.ci_completion_not_future: true
         evidence.tag_absent: true
@@ -113,6 +117,7 @@ test "urgent patch fails without both exception reasons" {
         evidence.main_exact_candidate: true
         evidence.ci_exact_candidate: true
         evidence.ci_full_dispatch: true
+        evidence.ci_heavy_tier: true
         evidence.ci_successful: true
         evidence.ci_completion_not_future: true
         evidence.tag_absent: true
@@ -139,6 +144,7 @@ test "planned route fails with a patch increment" {
         evidence.main_exact_candidate: true
         evidence.ci_exact_candidate: true
         evidence.ci_full_dispatch: true
+        evidence.ci_heavy_tier: true
         evidence.ci_successful: true
         evidence.ci_completion_not_future: true
         evidence.tag_absent: true
@@ -165,6 +171,7 @@ test "failed hosted checks select the deny fallback" {
         evidence.main_exact_candidate: true
         evidence.ci_exact_candidate: true
         evidence.ci_full_dispatch: true
+        evidence.ci_heavy_tier: true
         evidence.ci_successful: false
         evidence.ci_completion_not_future: true
         evidence.tag_absent: true
@@ -191,6 +198,7 @@ test "incoherent documents select the deny fallback" {
         evidence.main_exact_candidate: true
         evidence.ci_exact_candidate: true
         evidence.ci_full_dispatch: true
+        evidence.ci_heavy_tier: true
         evidence.ci_successful: true
         evidence.ci_completion_not_future: true
         evidence.tag_absent: true
@@ -217,6 +225,7 @@ test "mutable GitHub conflicts select the deny fallback" {
         evidence.main_exact_candidate: false
         evidence.ci_exact_candidate: true
         evidence.ci_full_dispatch: true
+        evidence.ci_heavy_tier: true
         evidence.ci_successful: true
         evidence.ci_completion_not_future: true
         evidence.tag_absent: false
@@ -243,6 +252,34 @@ test "push CI event selects the deny fallback" {
         evidence.main_exact_candidate: true
         evidence.ci_exact_candidate: true
         evidence.ci_full_dispatch: false
+        evidence.ci_heavy_tier: false
+        evidence.ci_successful: true
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: true
+        evidence.release_absent: true
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: true
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Deny { action: "deny" }
+}
+
+test "light-tier manual CI run selects the deny fallback" {
+    given {
+        release.kind: "planned-minor"
+        release.version_increment: "next-minor"
+        release.los_angeles_thursday: false
+        release.soak_seconds: 0
+        release.incident_present: false
+        release.delay_rationale_present: false
+        evidence.main_exact_candidate: true
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: true
+        evidence.ci_heavy_tier: false
         evidence.ci_successful: true
         evidence.ci_completion_not_future: true
         evidence.tag_absent: true

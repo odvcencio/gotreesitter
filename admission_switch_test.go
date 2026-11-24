@@ -3004,7 +3004,7 @@ func TestCcoreReclamationIsCountedAgainstTheRequestBudget(t *testing.T) {
 	scenario := func(budget int64, releaseAt int) (totals []int64, declines map[string]int64, c *gts.Tree, fresh *gts.Tree) {
 		p := ccoreRouteParser(lang)
 		p.SetMemoryBudgetBytes(1 << 40)
-		gts.CcoreTestDrainPool(lang)
+		gts.CcoreTestEmptyPool(lang)
 		gts.DrainArenaPools()
 		gts.CcoreTestReset()
 		var err error
@@ -3019,6 +3019,12 @@ func TestCcoreReclamationIsCountedAgainstTheRequestBudget(t *testing.T) {
 			t.Fatalf("setup: the large replacement was not served by the core: %v", err)
 		}
 		b.Edit(e2)
+		// The buffers of the core parser that the request leases are part of the first
+		// check's total. Which pooled parser it gets depends on the scheduler processor
+		// (P) that the goroutine runs on: the one that parsed B, the one that parsed only
+		// A (about 2 MB smaller), or a new one. An empty pool gives every scenario a new
+		// parser, so the totals that the budgets below come from are the same each time.
+		gts.CcoreTestEmptyPool(lang)
 		p.SetMemoryBudgetBytes(budget)
 		stop := gts.CcoreTestPollProbe(func(total int64, sample bool, converting bool) {
 			totals = append(totals, total)
@@ -3074,6 +3080,10 @@ func TestCcoreReclamationIsCountedAgainstTheRequestBudget(t *testing.T) {
 	totals2, decl, c1, f1 := scenario(budget, 1)
 	defer c1.Release()
 	defer f1.Release()
+	// The budget sits between the start and the drain only if the request starts where the measured one did.
+	if len(totals2) == 0 || totals2[0] != first {
+		t.Fatalf("limit checks %v with a budget of %d: the request started at a different total than the measured request (%d)", totals2, budget, first)
+	}
 	if decl["stop_memory_budget"] != 1 {
 		t.Fatalf("budget %d (the request starts at %d, the drain brings it to %d): declines %v; want one stop_memory_budget", budget, first, afterDrain, decl)
 	}
@@ -3117,6 +3127,10 @@ func TestCcoreReclamationIsCountedAgainstTheRequestBudget(t *testing.T) {
 	defer f3.Release()
 	if decl2["stop_memory_budget"] != 1 || gts.CcoreTestFromCore(c3) {
 		t.Fatalf("budget %d (the parse ends at %d, the exit drain brings it to %d): declines %v, core tree %t; want one stop_memory_budget and the present engine's tree", budget2, totals3[last-1], totals3[last], decl2, gts.CcoreTestFromCore(c3))
+	}
+	// The request ends at the check after the exit drain, not before it.
+	if len(totals4) != last+1 || totals4[last] <= budget2 {
+		t.Fatalf("limit checks %v with a budget of %d; want the request to end at check %d, the one after the exit drain (%v with no limit)", totals4, budget2, last+1, totals3)
 	}
 	if ccoreSExpr(c3, lang) != ccoreSExpr(f3, lang) {
 		t.Fatal("the result of the reparse declined at the exit differs from a fresh parse by the present engine")
@@ -6127,6 +6141,53 @@ func TestCcoreShortcutPolicyKeepsFirstForestEditNative(t *testing.T) {
 			freshHash, freshCount := bind.CompactRecords(fresh, nil)
 			if count == 0 || count != freshCount || hash != freshHash {
 				t.Fatalf("first edit raw records: got %x/%d, want %x/%d", hash, count, freshHash, freshCount)
+			}
+		})
+	}
+}
+
+// C++ has no production certificate. With a scratch certificate the core route
+// keeps the whole `if consteval` input, as pinned C does (issue #1633).
+// cgo_harness/ccore_cpp_consteval_c_test.go checks the same inputs against C.
+func TestCcoreCppConstevalKeepsLaterDefinitions(t *testing.T) {
+	defer ccoreCertifyAll()()
+	lang := ccoreRouteLang(t, "cpp")
+	const ce = "constexpr int ce(int x) {\n    if consteval {\n        return 1;\n    } else {\n        return x;\n    }\n}\n"
+	for _, c := range []struct {
+		name, src, want string
+	}{
+		{"if_consteval", "void f() { if consteval { } }",
+			"(translation_unit (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement (ERROR) (consteval_block_declaration (compound_statement)))))"},
+		{"if_not_consteval", "void f() { if !consteval { } }",
+			"(translation_unit (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement (ERROR) (consteval_block_declaration (compound_statement)))))"},
+		{"bracket_then_bar", "[c]|",
+			"(translation_unit (ERROR (structured_binding_declarator (identifier))))"},
+		{"definitions_after_consteval", "void before() {}\n" + ce + "void after1() { f(); }\nvoid after2() {}\n",
+			"(translation_unit (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement)) (function_definition (type_qualifier) (primitive_type) (function_declarator (identifier) (parameter_list (parameter_declaration (primitive_type) (identifier)))) (compound_statement (ERROR (consteval_block_declaration (compound_statement (return_statement (number_literal)))) (compound_literal_expression (type_identifier) (initializer_list (identifier) (ERROR (identifier))))))) (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement (expression_statement (call_expression (identifier) (argument_list))))) (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement)))"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			gts.CcoreTestReset()
+			p := ccoreRouteParser(lang)
+			tree, err := p.Parse([]byte(c.src))
+			if err != nil || tree == nil {
+				t.Fatalf("Parse: %v", err)
+			}
+			defer tree.Release()
+			if !gts.CcoreTestFromCore(tree) {
+				decl, _ := gts.CcoreTestCounters()
+				t.Fatalf("the core did not serve the parse; declines %v", decl)
+			}
+			if got := tree.ParseStopReason(); got != gts.ParseStopAccepted {
+				t.Fatalf("stop reason %v, want accepted", got)
+			}
+			if end := tree.RootNode().EndByte(); int(end) != len(c.src) {
+				t.Fatalf("root ends at %d of %d", end, len(c.src))
+			}
+			if !tree.RootNode().HasError() {
+				t.Fatal("HasError is false; the grammar has no rule for this input and C reports an error")
+			}
+			if got := ccoreSExpr(tree, lang); got != c.want {
+				t.Fatalf("tree\n got %s\nwant %s", got, c.want)
 			}
 		})
 	}

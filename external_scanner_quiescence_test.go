@@ -152,3 +152,13 @@ func TestCanReuseNodeAdmitsStatelessScanner(t *testing.T) {
 		t.Fatal("proven stateless boundary returned a non-zero checkpoint")
 	}
 }
+
+func TestIncrementalReuseUnsupportedReasonNamesCertifiedCoreTree(t *testing.T) {
+	if got := incrementalReuseUnsupportedReasonForTree(&Tree{incrementalReuseDisabled: true}); got != forestIncrementalReuseUnsupportedReason {
+		t.Fatalf("forest tree reason = %q, want %q", got, forestIncrementalReuseUnsupportedReason)
+	}
+	core := &Tree{incrementalReuseDisabled: true, arena: &nodeArena{ccore: &ccoreArenaState{}}}
+	if got := incrementalReuseUnsupportedReasonForTree(core); got != ccoreIncrementalReuseUnsupportedReason {
+		t.Fatalf("certified core tree reason = %q, want %q", got, ccoreIncrementalReuseUnsupportedReason)
+	}
+}

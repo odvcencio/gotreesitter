@@ -24,11 +24,11 @@ import (
 // entry fails that ratchet test, so shipping the two out of sync is not
 // possible; updating both keeps this computed set correct automatically.
 //
-//go:embed testdata/result_compat_ownership_v1.json
+//go:embed internal/compat/result_compat_ownership_v1.json
 var resultCompatOwnershipRegistryForElision []byte
 
 // resultCompatElisionRegistryEntry decodes only the fields the eligibility
-// computation needs from testdata/result_compat_ownership_v1.json. It is
+// computation needs from internal/compat/result_compat_ownership_v1.json. It is
 // deliberately narrower than compat_ownership_test.go's full
 // resultCompatOwnershipEntry: this reads the shipped registry at runtime, so
 // it must tolerate the file's full schema without decoding (or requiring)

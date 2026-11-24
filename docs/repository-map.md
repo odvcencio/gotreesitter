@@ -128,7 +128,7 @@ fresh-tree verification.
 
 | Prefix | Owns |
 | --- | --- |
-| `parser_result*` | The C-faithful post-parse compatibility tier; see [docs/compat-tier.md](compat-tier.md) and the machine-checked registry at `testdata/result_compat_ownership_v1.json` |
+| `parser_result*` | The C-faithful post-parse compatibility tier; see [docs/compat-tier.md](compat-tier.md) and the machine-checked registry at `internal/compat/result_compat_ownership_v1.json` |
 | `compat_ownership*` | Tests that check the compat-tier ownership registry and its provenance |
 
 ### Query, highlight, tags, and understanding
@@ -174,7 +174,7 @@ fresh-tree verification.
 
 | Prefix | Owns |
 | --- | --- |
-| `benchmark*` | In-package benchmarks (see [BENCH.md](../BENCH.md) for the canonical results) |
+| `benchmark*` | In-package benchmarks (see [benchmarks.md](benchmarks.md) for the canonical results) |
 | `fuzz_*` | Fuzz targets (`go test -fuzz`). The parser and scanner-grammar fuzz targets are in `roottest/parse` |
 | `race_*` | Race-lane build-tag stubs |
 | `perf_*` | Perf-counter and perf-metrics instrumentation |
@@ -195,8 +195,8 @@ fresh-tree verification.
 | `taproot/`, `grep/` | Higher-level consumers and helper packages |
 | `roottest/` | Root-package black-box test packages (`bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package. A root test file moves here when it uses only the exported API, needs no hook from `export_test.go`, and is not named by a CI step that runs the root package. Files that read the root's `testdata/` or source files use a `../../` path |
 | `parser_result_test/` | Black-box tests (`package parserresult_test`) for the result-compatibility tier; kept separate from the root package so census and dispatcher tests cannot depend on unexported internals |
-| `pgo/` | Current profile-guided optimization (PGO) input: `default.pgo`. CI uses `-pgo=pgo/default.pgo`. |
-| `policy/` | The release policy (`release.arb`, `release.test.arb`) that `.github/workflows/release.yml` runs directly by path |
+| `cmd/parity_report/parity_report.pgo` | Current profile-guided optimization (PGO) input. CI uses `-pgo=cmd/parity_report/parity_report.pgo`. Its generator, inputs, and notes are in `cmd/pgo_repdriver/`. |
+| `.github/policy/` | The release policy (`release.arb`, `release.test.arb`) that `.github/workflows/release.yml` runs directly by path |
 | `wasm/` | Browser runtimes and grammargen WebAssembly targets |
 | `scripts/` | Bounded host-side maintenance helpers; heavy correctness work stays in Docker or CI |
 | `testdata/` | Checked-in regression fixtures and ratchet manifests |

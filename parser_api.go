@@ -205,6 +205,7 @@ func finalizeDeferredReturnedTreeTruncation(tree *Tree, _ []byte) {
 
 const (
 	forestIncrementalReuseUnsupportedReason            = "old tree was built by GSS forest fast path"
+	ccoreIncrementalReuseUnsupportedReason             = "old tree was built by the certified core and is reparsed fresh by the legacy engine"
 	compactIncrementalReuseUnsupportedReason           = "old tree was compact-materialized without a scanner-quiescence proof"
 	checkpointedScannerPrefixFrontierUnsupportedReason = "external_scanner_prefix_frontier_unproven"
 )
@@ -246,6 +247,9 @@ const (
 )
 
 func incrementalReuseUnsupportedReasonForTree(oldTree *Tree) string {
+	if oldTree.ccoreStateOf() != nil {
+		return ccoreIncrementalReuseUnsupportedReason
+	}
 	if oldTree != nil && oldTree.compactMaterialized {
 		switch oldTree.incrementalReuseUnsupportedClause {
 		case compactIncrementalReuseClauseReplay:

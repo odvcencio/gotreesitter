@@ -35,7 +35,7 @@ COPY --from=node-runtime /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
-# tree-sitter-cli stays on 0.24.7. Neither cgo_harness/README.md nor BENCH.md
+# tree-sitter-cli stays on 0.24.7. Neither cgo_harness/README.md nor docs/benchmarks.md
 # binds this version to the C runtime oracle (the independently pinned
 # runtime in parity_c_loader_cgo.go covers parity, not the grammar-generation
 # CLI). parity_c_loader_cgo.go already

@@ -11,7 +11,7 @@ import (
 )
 
 // TestResultCompatibilityElisionSetMatchesRegistry independently re-reads
-// testdata/result_compat_ownership_v1.json (compat_ownership_test.go already
+// internal/compat/result_compat_ownership_v1.json (compat_ownership_test.go already
 // proves this file matches runLanguageResultCompatibility's switch and
 // isCobolLanguage's predicate byte-for-byte) and computes the ineligible
 // language set by the schema's plain reading, then checks
@@ -21,7 +21,7 @@ import (
 // THIS package's own JSON consumption, not against registry/switch drift
 // (compat_ownership_test.go's job).
 func TestResultCompatibilityElisionSetMatchesRegistry(t *testing.T) {
-	raw, err := os.ReadFile("testdata/result_compat_ownership_v1.json")
+	raw, err := os.ReadFile("internal/compat/result_compat_ownership_v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

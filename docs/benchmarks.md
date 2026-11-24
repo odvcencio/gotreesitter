@@ -2,8 +2,8 @@
 
 This is the single authoritative page for gotreesitter performance claims.
 Every number here is pinned to a release receipt in
-[CHANGELOG.md](CHANGELOG.md) or derived from the ratcheted fleet ledger in
-[`cgo_harness/perf_scan`](cgo_harness/perf_scan/), or sealed in the
+[CHANGELOG.md](../CHANGELOG.md) or derived from the ratcheted fleet ledger in
+[`cgo_harness/perf_scan`](../cgo_harness/perf_scan/), or sealed in the
 editor-latency CI artifacts. Anything not
 on this page is not a claim.
 
@@ -79,10 +79,10 @@ drift, a correctness failure, and a counter-gate failure also block the job.
 The job emits `METRIC:` lines, a GitHub summary, and retained evidence.
 
 The surface follows the first eight languages in
-[`grammars/update_tier1_top50.txt`](grammars/update_tier1_top50.txt): TypeScript,
+[`grammars/update_tier1_top50.txt`](../grammars/update_tier1_top50.txt): TypeScript,
 TSX, JavaScript, Python, Java, C#, PHP, and Bash. Go and PowerShell are included
 as supplemental controls for the reported regressions. The
-[manifest](cgo_harness/editor_latency/fixtures.json) pins whole human-authored
+[manifest](../cgo_harness/editor_latency/fixtures.json) pins whole human-authored
 files, immutable upstream commits, hashes, and every edit. Each file receives
 a one-byte replacement and undo, a 100-byte comment insertion and deletion,
 and a 17-keystroke EOF append. Typing starts after a complete comment prefix
@@ -103,7 +103,7 @@ complete session; the receipt normalizes it per edit. It times `Tree.Edit`,
 reparse, and previous-tree release. Fresh Go resets and C snapshot restoration
 are excluded. C allocation numbers cover the Go binding, including the tiny
 typing snapshot clone, rather than native allocation. See the
-[protocol and reproduction command](cgo_harness/editor_latency/README.md).
+[protocol and reproduction command](../cgo_harness/editor_latency/README.md).
 
 Each run uploads its evidence as a CI artifact: timings, counters, oracle
 fingerprints, environment details, METRIC lines, and a SHA-256 seal. The corpus
@@ -222,7 +222,7 @@ Earlier receipts are in [BENCH.md at `6b6d4934`](https://github.com/odvcencio/go
 
 ## Go-vs-C fleet scoreboard (full parse, real corpora)
 
-Source of truth: [`cgo_harness/perf_scan/perf_ratio_budgets.json`](cgo_harness/perf_scan/perf_ratio_budgets.json).
+Source of truth: [`cgo_harness/perf_scan/perf_ratio_budgets.json`](../cgo_harness/perf_scan/perf_ratio_budgets.json).
 It covers 204 of 206 languages. D and F# remain held out pending memory analysis.
 The budget's `known_budget_class_gaps` field names each gap.
 
@@ -320,7 +320,7 @@ GOMAXPROCS=1 go test . -run '^$' \
 ```
 
 Correctness and performance are gated separately. For Go-vs-C real-corpus
-timing, see [`cgo_harness/perf_scan`](cgo_harness/perf_scan/README.md); its
+timing, see [`cgo_harness/perf_scan`](../cgo_harness/perf_scan/README.md); its
 ratchet records caveats, timeouts, and resource gaps instead of
 extrapolating from this generated-Go microbenchmark.
 

@@ -1,5 +1,17 @@
 name: ci
 
+# Two tiers keep pull request CI short: a green ready pull request started 92
+# jobs (469 job-minutes) before the split. The light tier runs for every pull
+# request, draft or ready, and every push (main and fix/top50-parity-burndown).
+# The heavy tier adds the race, cgo, timing and wasm gates; it runs nightly, for
+# a manual run (input tier, default heavy), and for a pull request labeled
+# ci:full. The run name
+# carries the tier so that the release gate can find a heavy run. The scope
+# job's TIER takes the same expression; cmd/citestplan checks that they match.
+run-name: >-
+  ci [tier: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier != 'light') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:full'))) && 'heavy' || 'light' }}]
+  ${{ github.event_name == 'pull_request' && format('#{0} {1}', github.event.pull_request.number, github.event.pull_request.title) || format('{0} {1}', github.event_name, github.ref_name) }}
+
 on:
   push:
     branches: [main, fix/top50-parity-burndown]
@@ -12,14 +24,25 @@ on:
   # remains pending.
   # The scope job below keeps docs-only PRs lightweight without suppressing the
   # required aggregate `build` context.
+  # labeled: adding the ci:full label starts a heavy run. Any other label also
+  # restarts the run in its current tier, as a push does. ready_for_review is
+  # not a type: a draft and a ready PR run the same tier, so marking a draft
+  # ready would rerun the same jobs on the same commit.
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
-  # One nightly, off-peak UTC run of the full 206-language exhaustive CGo
-  # parity sweep (parity-cgo-exhaustive), which otherwise only runs on
-  # workflow_dispatch or a PR that touches a narrow parser-result, C-recovery,
-  # or C-oracle path filter. exhaustive_parity_scope below turns run_exhaustive
-  # on for this event.
+    inputs:
+      tier:
+        description: 'CI tier: heavy runs every gate; light runs the pull request set'
+        type: choice
+        options: [heavy, light]
+        default: heavy
+  # One nightly, off-peak UTC heavy-tier run. It includes the full 206-language
+  # exhaustive CGo parity sweep (parity-cgo-exhaustive), which otherwise only
+  # runs on workflow_dispatch or a PR (either tier) that touches a narrow
+  # parser-result, C-recovery, or C-oracle path filter.
+  # exhaustive_parity_scope below turns run_exhaustive on for this event.
+  # nightly_failure_issue reports a failed nightly run in one issue.
   schedule:
     - cron: '17 3 * * *'
 
@@ -28,14 +51,18 @@ on:
 # cancels an in-flight nightly exhaustive run (and vice versa); two
 # overlapping scheduled runs still cancel each other, which is desired.
 #
-# cancel-in-progress stays true for pull_request runs, workflow_dispatch runs,
-# and pushes to any non-default branch, so superseded work still gets
-# cancelled quickly. It is false only for a push to the default branch: a
-# rapid run of pushes to main was cancelling every prior in-flight run before
-# it reported a verdict, so most commits on main never got a pass/fail result
-# at all. main pushes now queue and each one finishes with its own verdict.
+# Each manual run has a group of its own, so it cancels nothing and nothing
+# cancels it: a light manual run must not cancel the heavy manual run that a
+# release needs, and a manual run on main must not cancel a push run on main.
+#
+# cancel-in-progress stays true for pull_request runs and pushes to any
+# non-default branch, so superseded work still gets cancelled quickly. It is
+# false only for a push to the default branch: a rapid run of pushes to main
+# was cancelling every prior in-flight run before it reported a verdict, so
+# most commits on main never got a pass/fail result at all. main pushes now
+# queue and each one finishes with its own verdict.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly-exhaustive' || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly-exhaustive' || github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || github.ref }}
   cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 # VM runner services can share HOME and /tmp. Isolate their native Go
@@ -635,6 +662,10 @@ jobs:
           TestStatefulScannerCompactLeafReauthentication
           TestTokenInvariantLookaheadLongestMatch
           TestTokenInvariantLookaheadGoControl
+          TestTokenInvariantPythonNumericControls
+          TestTokenInvariantPythonNumericControlsCore
+          TestTokenInvariantTypeScriptNumericControls
+          TestTokenInvariantTypeScriptNumericControlsCore
           TestTokenInvariantLookaheadGoFloatControl
           TestTokenInvariantDependencyCaptureAndLifecycle
           TestTokenInvariantDependencyCaptureDeclinesIncompleteHistory
@@ -695,7 +726,7 @@ jobs:
 
   race_root_shards:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 20
     strategy:
@@ -724,7 +755,7 @@ jobs:
 
   root_race_plan:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     outputs:
       isolated: ${{ steps.plan.outputs.isolated }}
@@ -743,7 +774,7 @@ jobs:
     needs:
       - exhaustive_parity_scope
       - root_race_plan
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 20
     strategy:
@@ -776,7 +807,7 @@ jobs:
       - exhaustive_parity_scope
       - race_root_shards
       - race_root_isolated
-    if: always() && needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    if: always() && needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
@@ -797,7 +828,7 @@ jobs:
 
   race_packages:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
@@ -948,7 +979,7 @@ jobs:
   # the first five skips) did not finish in a clean 30-minute run.
   grammargen_stable:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 18
     steps:
@@ -989,9 +1020,12 @@ jobs:
           go test ./grammargen -race -count=1 -timeout 15m \
             -skip '^(TestLexMinimizeParityAcrossGrammars|TestImportedKotlinSwiftGrammarConstructors|TestMarkdownGrammarCommonMarkParity|TestMarkdownFencedCodeBlockContentParity|TestShippedBlobsNonTerminalAliasMapInventory|TestKotlinGrammarExtendSmoke|TestSwiftGrammarExtendSmoke|TestSwiftGrammarBlobParity|TestGrammargenOwnedBlobsAreReproducible)$'
 
+  # Light tier: every code run, draft or not. The job id keeps its old name
+  # because tooling may refer to it; the display name no longer says draft.
   draft_focused_tests:
+    name: focused_tests
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft == true
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
@@ -1006,7 +1040,7 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
-      - name: Draft PR Focused Tests
+      - name: Focused tests
         run: |
           go test . -run '^(TestLookupActionIndexSmallUsesDenseTokenRows|TestLookupActionIndexSmallUsesFullTokenRowsForOtherLanguages|TestLookupActionIndexSmallUsesFullSymbolRowsForGo|TestRawShapePropagatesThroughNoTreeAndCollapsedUnary|TestParseRuntimeReportsNoTreeNodeVolume|TestParseRuntimeReportsNoTreeCheckpointLeavesRemainNodes|TestParseNoTreeBenchmarkDropsRetainedExternalCheckpointCapacity|TestSetLexerErrorRunLexStateUsesCRecoveryGate|TestErrorCostCompetitionLanguageRequiresCapabilityByDefault)$' -count=1
 
@@ -1028,15 +1062,15 @@ jobs:
           go-version-file: go.mod
 
       - name: Run Parity Report (External Blob Mode)
-        # -pgo=pgo/default.pgo: parity_report parses every registered
+        # -pgo=cmd/parity_report/parity_report.pgo: parity_report parses every registered
         # grammar's smoke sample on every PR, the closest thing this repo
         # has to a representative production parsing binary run in its own
-        # CI. See pgo/README.md for the profile's provenance, regeneration
+        # CI. See cmd/pgo_repdriver/README.md for the profile's provenance, regeneration
         # recipe, and scoped current receipts. PGO is a codegen-only
         # optimization; it does not change parity_report's output.
         run: |
           GOTREESITTER_GRAMMAR_BLOB_DIR=grammars/grammar_blobs \
-          go run -pgo=pgo/default.pgo -tags grammar_blobs_external ./cmd/parity_report > parity.log
+          go run -pgo=cmd/parity_report/parity_report.pgo -tags grammar_blobs_external ./cmd/parity_report > parity.log
 
       - name: Upload Parity Log
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -1071,9 +1105,10 @@ jobs:
 
   # Check the certified default against forced legacy, including a deliberate
   # refusal. Keep the compact route smoke test for the earlier engine.
+  # Heavy tier.
   admission_route_performance_sanity:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 12
     steps:
@@ -1146,12 +1181,12 @@ jobs:
   # edit class and position. The normal root suite in race_root_shards covers
   # the ~20KB and ~137KB tiers; GTS_W5_SLOW_TIER adds the ~1MB tier here.
   # This job also runs the JavaScript-family transient-error edit gate at all
-  # three sizes. It is manual (workflow_dispatch only) and not part of
-  # the required `build` gate so the slow tier remains available on demand
+  # three sizes. It is manual (heavy-tier workflow_dispatch only) and not part
+  # of the required `build` gate so the slow tier remains available on demand
   # without adding its wall time to every PR.
   oedit_latency_gate_full:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'workflow_dispatch'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy' && github.event_name == 'workflow_dispatch'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
@@ -1174,8 +1209,10 @@ jobs:
             -count=1 -v -timeout 8m
 
   # W5 times immutable real files against the exact PR base on this runner.
-  # It is part of build: cancellation, missing evidence, and a >5% edit-cell
-  # regression all block a code PR. The old generated-fixture W5 tests above
+  # Heavy tier: a PR labeled ci:full and a heavy manual run (the nightly run has
+  # no PR base, so it skips this job). In a heavy run it is part of build:
+  # cancellation, missing evidence, and a >5% edit-cell regression all block a
+  # code PR. The old generated-fixture W5 tests above
   # remain separate correctness/counter gates.
   # One job per language, in parallel, each with the full protocol (correctness,
   # counter gate, 20 paired seeds). The build gate reads needs.editor_latency.result,
@@ -1193,7 +1230,7 @@ jobs:
       matrix:
         language: [typescript, tsx, javascript, python, java, c_sharp, php, bash, go, powershell]
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy' && needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
     # The gate holds a machine-wide lock (/tmp/gotreesitter-editor-latency.lock).
     # On a machine that hosts several runner services the language jobs run one
@@ -1287,7 +1324,7 @@ jobs:
           fi
           bash scripts/run_editor_latency_gate.sh \
             --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency" \
-            --languages "$W5_LANGUAGE" "${w5_options[@]}"
+            --languages "$W5_LANGUAGE" ${w5_options[@]+"${w5_options[@]}"}
 
       - name: Publish W5 job summary
         if: always()
@@ -1321,9 +1358,10 @@ jobs:
           GOWORK=off go test ./cmd/perfcounterledger -count=1
           GOMAXPROCS=1 GOWORK=off go run ./cmd/perfcounterledger
 
+  # Heavy tier, manual runs only (its condition before the tiers).
   v1_edit_sessions:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'workflow_dispatch'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy' && github.event_name == 'workflow_dispatch'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 45
     steps:
@@ -1390,6 +1428,8 @@ jobs:
       run_code_ci: ${{ steps.scope.outputs.run_code_ci }}
       run_exhaustive: ${{ steps.scope.outputs.run_exhaustive }}
       run_editor_latency: ${{ steps.scope.outputs.run_editor_latency }}
+      tier: ${{ steps.scope.outputs.tier }}
+      run_ccore_equality: ${{ steps.scope.outputs.run_ccore_equality }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -1400,21 +1440,82 @@ jobs:
         run: bash .github/scripts/prepare_runner.sh
 
       - id: scope
-        name: Detect CI and exhaustive parity scope
+        name: Detect CI tier and scope
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          # The one tier decision; the run name uses the same expression. The
+          # label comes from the event payload, not from an API call.
+          TIER: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier != 'light') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:full'))) && 'heavy' || 'light' }}
         run: |
           set -euo pipefail
+
+          tier="${TIER:-}"
+          if [ "$tier" != light ] && [ "$tier" != heavy ]; then
+            echo "::error::invalid tier=${tier}"
+            exit 1
+          fi
+          {
+            echo "### CI tier"
+            echo
+            echo "tier=${tier} (event ${EVENT_NAME}). A pull request runs the heavy tier when it has the label ci:full."
+          } >> "$GITHUB_STEP_SUMMARY"
 
           run_code_ci=true
           run_exhaustive=false
           run_editor_latency=true
+          # The heavy tier runs ccore-equality-cgo always; the light tier only
+          # when the change touches the certified core or the job's inputs.
+          # An unknown change range runs it. The list follows what
+          # ccore_bind.go and ccore_scanner.go import (internal/ccore,
+          # internal/coresource, internal/sched, internal/scanmode), the root
+          # files the core route uses, the grammar blobs and the scanner ports
+          # of the four compared languages (python, typescript, tsx; json has
+          # none), everything under cgo_harness/, the graduation gate script
+          # the job tests, and this workflow. cmd/citestplan fails when a file
+          # under internal/ccore/ or a direct import of ccore_bind.go or
+          # ccore_scanner.go is not matched.
+          run_ccore_equality=true
+          ccore_pattern='^(ccore_[^/]*\.go|tree\.go|cursor\.go|arena\.go|external_lexer\.go|parser_cold_state\.go|query_reader\.go|internal/(ccore|coresource|sched|scanmode)/.*|testdata/ccore_certificates\.json|grammars/grammar_blobs/.*|grammars/runtime/(python|typescript|tsx)_scanner[^/]*\.go|cgo_harness/.*|scripts/graduation_gate\.sh|\.github/workflows/ci\.yml)$'
           # The job's own folder: runner services can share /tmp.
           changed_files="$RUNNER_TEMP/changed-files.txt"
           reason_file="$RUNNER_TEMP/editor-latency-reason.txt"
+          write_outputs() {
+            {
+              echo "run_code_ci=${run_code_ci}"
+              echo "run_exhaustive=${run_exhaustive}"
+              echo "run_editor_latency=${run_editor_latency}"
+              echo "tier=${tier}"
+              echo "run_ccore_equality=${run_ccore_equality}"
+            } >> "$GITHUB_OUTPUT"
+          }
+          ccore_scope() {
+            if [ "$tier" = heavy ]; then
+              return
+            fi
+            if grep -Eq "$ccore_pattern" "$changed_files"; then
+              run_ccore_equality=true
+            else
+              run_ccore_equality=false
+            fi
+            {
+              echo "### ccore-equality scope"
+              echo
+              echo "run_ccore_equality=${run_ccore_equality} (light tier: true only when the change touches the certified core)"
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
           if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$EVENT_NAME" = "schedule" ]; then
             run_exhaustive=true
+          elif [ "$EVENT_NAME" = "push" ]; then
+            # A push to a branch names its range in the payload. A new branch
+            # (an all-zero before) or a missing commit keeps the default (run).
+            if [[ "${PUSH_BEFORE:-}" =~ ^[0-9a-f]{40}$ ]] &&
+               [ "$PUSH_BEFORE" != 0000000000000000000000000000000000000000 ] &&
+               git cat-file -e "${PUSH_BEFORE}^{commit}" 2> /dev/null; then
+              git diff --name-only --no-renames "$PUSH_BEFORE" HEAD > "$changed_files"
+              ccore_scope
+            fi
           elif [ "$EVENT_NAME" = "pull_request" ]; then
             # --no-renames makes a code-to-docs rename expose both paths, so it
             # cannot accidentally take the lightweight docs-only route.
@@ -1444,9 +1545,7 @@ jobs:
                 echo
                 echo "Docs-only PR: full code CI is skipped after the changed-file and whitespace checks pass."
               } >> "$GITHUB_STEP_SUMMARY"
-              echo "run_code_ci=${run_code_ci}" >> "$GITHUB_OUTPUT"
-              echo "run_exhaustive=${run_exhaustive}" >> "$GITHUB_OUTPUT"
-              echo "run_editor_latency=${run_editor_latency}" >> "$GITHUB_OUTPUT"
+              write_outputs
               exit 0
             fi
 
@@ -1491,11 +1590,17 @@ jobs:
                 echo "No parser-result, C-recovery, C-oracle, or parity-degradation gate files changed; exhaustive CGo parity is skipped."
               } >> "$GITHUB_STEP_SUMMARY"
             fi
+            ccore_scope
           fi
 
-          echo "run_code_ci=${run_code_ci}" >> "$GITHUB_OUTPUT"
-          echo "run_exhaustive=${run_exhaustive}" >> "$GITHUB_OUTPUT"
-          echo "run_editor_latency=${run_editor_latency}" >> "$GITHUB_OUTPUT"
+          if [ "$tier" = light ]; then
+            {
+              echo "### Heavy-tier jobs"
+              echo
+              echo "Light tier: the race, cgo, timing, and wasm jobs (editor_latency among them) run only in the heavy tier; packages_no_race runs the non-root package tests without the race detector. A maintainer adds the label ci:full, or runs \`gh workflow run ci.yml --ref <branch> -f tier=heavy\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          write_outputs
 
   build:
     needs:
@@ -1508,6 +1613,8 @@ jobs:
       - race_packages
       - grammargen_stable
       - draft_focused_tests
+      - draft-correctness
+      - packages_no_race
       - parity_report
       - parity-cgo
       - perf_scan_budget
@@ -1556,7 +1663,7 @@ jobs:
       # below; when this step does not run, the gate does not read its output.
       - id: legs
         name: Check every editor-latency language job
-        if: always() && needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+        if: always() && needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy' && needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -1594,9 +1701,10 @@ jobs:
         if: always()
         env:
           EDITOR_LATENCY_LEGS_RESULT: ${{ steps.legs.outputs.result }}
-          IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true }}
           IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
           RUN_CODE_CI: ${{ needs.exhaustive_parity_scope.outputs.run_code_ci }}
+          TIER: ${{ needs.exhaustive_parity_scope.outputs.tier }}
+          RUN_CCORE_EQUALITY: ${{ needs.exhaustive_parity_scope.outputs.run_ccore_equality }}
           COMPILE_RESULT: ${{ needs.compile.result }}
           SELECTED_STORE_ADMISSION_RESULT: ${{ needs.selected_store_admission.result }}
           COMPACT_ADMISSION_RATCHET_RESULT: ${{ needs.compact_admission_ratchet.result }}
@@ -1606,6 +1714,8 @@ jobs:
           RACE_PACKAGES_RESULT: ${{ needs.race_packages.result }}
           GRAMMARGEN_STABLE_RESULT: ${{ needs.grammargen_stable.result }}
           DRAFT_FOCUSED_RESULT: ${{ needs.draft_focused_tests.result }}
+          DRAFT_CORRECTNESS_RESULT: ${{ needs.draft-correctness.result }}
+          PACKAGES_NO_RACE_RESULT: ${{ needs.packages_no_race.result }}
           PARITY_REPORT_RESULT: ${{ needs.parity_report.result }}
           PARITY_CGO_RESULT: ${{ needs.parity-cgo.result }}
           PERF_SCAN_BUDGET_RESULT: ${{ needs.perf_scan_budget.result }}
@@ -1655,7 +1765,49 @@ jobs:
             echo "::error::exhaustive_parity_scope emitted invalid run_code_ci=${RUN_CODE_CI}"
             exit 1
           fi
+          if [ "$TIER" != "light" ] && [ "$TIER" != "heavy" ]; then
+            echo "::error::exhaustive_parity_scope emitted invalid tier=${TIER}"
+            exit 1
+          fi
+          if [ "$RUN_CCORE_EQUALITY" != "true" ] && [ "$RUN_CCORE_EQUALITY" != "false" ]; then
+            echo "::error::exhaustive_parity_scope emitted invalid run_ccore_equality=${RUN_CCORE_EQUALITY}"
+            exit 1
+          fi
+          if [ "$EXHAUSTIVE_PARITY_SCOPE" != "true" ] && [ "$EXHAUSTIVE_PARITY_SCOPE" != "false" ]; then
+            echo "::error::exhaustive_parity_scope emitted invalid run_exhaustive=${EXHAUSTIVE_PARITY_SCOPE}"
+            exit 1
+          fi
 
+          # A job that the tier leaves out must be skipped, and that skip
+          # counts as passed. Any other result means the job ran outside its
+          # tier, which this gate treats as an error.
+          require_tier_skip() {
+            local name="$1"
+            local result="$2"
+            if [ "$result" != "skipped" ]; then
+              echo "::error::${name} finished with result=${result} but tier=${TIER} requires skipped"
+              failed=1
+            fi
+          }
+          # Heavy-tier jobs: required in a heavy run, skipped in a light run.
+          require_heavy() {
+            if [ "$TIER" = "heavy" ]; then
+              require_success "$1" "$2"
+            else
+              require_tier_skip "$1" "$2"
+            fi
+          }
+          # Light-only jobs: required in a light run, skipped in a heavy run,
+          # where a race job covers the same tests.
+          require_light_only() {
+            if [ "$TIER" = "light" ]; then
+              require_success "$1" "$2"
+            else
+              require_tier_skip "$1" "$2"
+            fi
+          }
+
+          # Light tier: every code run requires these.
           require_success "freshness" "$FRESHNESS_RESULT"
           require_success "compile" "$COMPILE_RESULT"
           require_success "selected_store_admission" "$SELECTED_STORE_ADMISSION_RESULT"
@@ -1665,25 +1817,40 @@ jobs:
           require_success "parity_report" "$PARITY_REPORT_RESULT"
           require_success "parity-cgo" "$PARITY_CGO_RESULT"
           require_success "perf_scan_budget" "$PERF_SCAN_BUDGET_RESULT"
-          require_success "admission_route_performance_sanity" "$ADMISSION_ROUTE_PERFORMANCE_SANITY_RESULT"
           require_success "glr_gss_demotion_scaling_gate" "$GLR_GSS_DEMOTION_SCALING_GATE_RESULT"
           require_success "apidiff" "$APIDIFF_RESULT"
           require_success "counter_ledger" "$COUNTER_LEDGER_RESULT"
-          if [ "$IS_MANUAL_RUN" = "true" ]; then
-            require_success "v1_edit_sessions" "$V1_EDIT_SESSIONS_RESULT"
-          fi
-          require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
-          require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
-          require_success "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"
-          require_success "ccore-equality-cgo" "$CCORE_EQUALITY_CGO_RESULT"
-          require_success "wasm_cross_build" "$WASM_CROSS_BUILD_RESULT"
-          require_success "wasm_tinygo_build" "$WASM_TINYGO_BUILD_RESULT"
-
+          require_success "draft_focused_tests" "$DRAFT_FOCUSED_RESULT"
+          require_success "draft-correctness" "$DRAFT_CORRECTNESS_RESULT"
+          require_light_only "packages_no_race" "$PACKAGES_NO_RACE_RESULT"
           if [ "$IS_PULL_REQUEST" = "true" ]; then
             require_success "pr_commit_buildability" "$PR_COMMIT_BUILDABILITY_RESULT"
           fi
+          # The light tier runs the certified-core comparison when the change
+          # touches the core; the heavy tier always runs it.
+          if [ "$TIER" = "heavy" ] || [ "$RUN_CCORE_EQUALITY" = "true" ]; then
+            require_success "ccore-equality-cgo" "$CCORE_EQUALITY_CGO_RESULT"
+          else
+            require_tier_skip "ccore-equality-cgo" "$CCORE_EQUALITY_CGO_RESULT"
+          fi
+
+          # Heavy tier.
+          require_heavy "admission_route_performance_sanity" "$ADMISSION_ROUTE_PERFORMANCE_SANITY_RESULT"
+          require_heavy "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
+          require_heavy "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
+          require_heavy "grammar-lock-stamp-receipts-cgo" "$GRAMMAR_LOCK_STAMP_RECEIPTS_CGO_RESULT"
+          require_heavy "wasm_cross_build" "$WASM_CROSS_BUILD_RESULT"
+          require_heavy "wasm_tinygo_build" "$WASM_TINYGO_BUILD_RESULT"
+          require_heavy "race_root" "$RACE_ROOT_RESULT"
+          require_heavy "race_packages" "$RACE_PACKAGES_RESULT"
+          require_heavy "grammargen_stable" "$GRAMMARGEN_STABLE_RESULT"
+          if [ "$IS_MANUAL_RUN" = "true" ]; then
+            require_heavy "v1_edit_sessions" "$V1_EDIT_SESSIONS_RESULT"
+          fi
           if [ "$IS_PULL_REQUEST" = "true" ] || [ "$IS_MANUAL_RUN" = "true" ]; then
-            if [ "$RUN_EDITOR_LATENCY" = "true" ]; then
+            if [ "$TIER" = "light" ]; then
+              require_tier_skip "editor_latency" "$EDITOR_LATENCY_RESULT"
+            elif [ "$RUN_EDITOR_LATENCY" = "true" ]; then
               require_success "editor_latency" "$EDITOR_LATENCY_RESULT"
               require_success "editor_latency language jobs" "${EDITOR_LATENCY_LEGS_RESULT:-missing}"
             elif [ "$RUN_EDITOR_LATENCY" = "false" ]; then
@@ -1696,15 +1863,8 @@ jobs:
               failed=1
             fi
           fi
-
-          if [ "$IS_DRAFT" = "true" ]; then
-            require_success "draft_focused_tests" "$DRAFT_FOCUSED_RESULT"
-          else
-            require_success "race_root" "$RACE_ROOT_RESULT"
-            require_success "race_packages" "$RACE_PACKAGES_RESULT"
-            require_success "grammargen_stable" "$GRAMMARGEN_STABLE_RESULT"
-          fi
-
+          # Both tiers: the scope turns the exhaustive sweep on for every nightly
+          # and manual run and for a PR that touches its paths.
           if [ "$EXHAUSTIVE_PARITY_SCOPE" = "true" ]; then
             require_success "parity-cgo-exhaustive" "$EXHAUSTIVE_PARITY_RESULT"
           fi
@@ -1713,39 +1873,60 @@ jobs:
             exit 1
           fi
 
-          echo "Required build gate passed"
+          echo "Required build gate passed (tier ${TIER})"
 
-  # Draft PR correctness visibility (NOT a required check).
+  # Pull requests run the light tier, so the nightly heavy run is where a
+  # heavy-only regression shows first. This job keeps one issue, "ci-nightly:
+  # heavy tier failed on main": a failed nightly build gate opens or updates it
+  # with the failed job names and the run link, and the next nightly run whose
+  # build gate passes closes it. It reports only; build stays the verdict.
+  nightly_failure_issue:
+    needs: build
+    # !cancelled(): a cancelled nightly run files nothing.
+    if: ${{ !cancelled() && github.event_name == 'schedule' && (needs.build.result == 'success' || needs.build.result == 'failure') }}
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_RUNNER_LABELS != '' && fromJSON(vars.GTS_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      # Needs python3 and gh on the runner (both ship on ubuntu-latest).
+      - name: Open, update, or close the nightly failure issue
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          python3 .github/scripts/ci_nightly_issue.py \
+            --repo "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" \
+            --sha "$GITHUB_SHA" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --build-result "$BUILD_RESULT"
+
+  # Root correctness suite without the race detector (light tier, required).
   #
-  # Background: the blocking `race_root` / `race_packages` jobs are
-  # intentionally skipped while a PR is a draft, so draft PRs only run the
-  # small hand-picked `draft_focused_tests` required-check input instead of
-  # the real race suite.
+  # Background: this job began as draft-PR visibility. The race jobs skipped
+  # drafts, and on the campaign PR #133 root-package RealParser Kotlin parity
+  # regressed from 40/40 to 22/40 unseen while the PR sat in draft. The job
+  # runs the root + grammars package suite (no -race, for speed/turnaround).
   #
-  # That blind spot let a real regression go unseen for weeks: on the
-  # codex/glr-parity-buckets campaign PR (#133), root-package RealParser
-  # Kotlin parity silently regressed from 40/40 to 22/40 while the PR sat in
-  # draft (now fixed) — root-package parity tests never ran on that PR at
-  # all, because the focused list didn't cover them and the full suite never
-  # ran while draft. The branch also separately accumulated ~25 root-package
-  # and ~21 grammars-package pre-existing failures that were never visible
-  # in CI for the same reason.
-  #
-  # This job closes that gap: it runs the root + grammars package suite (no
-  # -race, for speed/turnaround) on every draft PR push, so failures are
-  # SEEN as they land instead of discovered after the fact.
-  #
-  # It is intentionally NOT a required check yet (that's a repo
-  # branch-protection setting, not this file). With ~46 known pre-existing
-  # failures on the campaign branch today, requiring this job would make
-  # every draft PR permanently red and block all progress. Once the
-  # pre-existing failure count is driven to zero, promote this job to
-  # required to turn it into a ratchet.
+  # With the two tiers (24 November 2026) every code run takes this job, and the
+  # build gate requires it: in the light tier it is the root-package test gate
+  # in place of race_root, which runs in the heavy tier. The job id keeps its old
+  # name because tooling may refer to it; the display name no longer says draft.
   draft-correctness:
-    # Only meaningful for draft PRs: non-draft PRs already get the blocking
-    # race suite through `race_root` and `race_packages`.
+    name: correctness (no race)
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'pull_request' && github.event.pull_request.draft == true
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 30
     continue-on-error: false
@@ -1761,20 +1942,89 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
-      - name: Draft Correctness Suite (root + grammars + roottest, no -race)
+      - name: Correctness suite (root + grammars + roottest, no -race)
         run: |
           # No -race: trades race detection for speed so this is cheap
-          # enough to run on every draft push. The full -race suite still
-          # runs once the PR leaves draft (`race_root` / `race_packages`).
+          # enough to run on every push. The full -race suite runs in the
+          # heavy tier (`race_root` / `race_packages`).
           #
-          # -timeout 25m: the root package alone contains two known
-          # C#-boundedness tests (TestCSharpDesignerStyleBlockStaysBounded,
-          # TestCSharpCJKPartialClassesStayBounded) that currently run
-          # ~130-150s each before hitting their internal parser-level
-          # timeout and failing. The non-draft race suite does not
-          # special-case them either, so mirror that behavior here and give
-          # the whole draft visibility run a generous budget.
+          # -timeout 25m: a generous budget. On two draft PRs (22 and 23
+          # November 2026) the root package took 353 s and 391 s, and the
+          # whole job 9 to 10 minutes.
           go test . ./grammars ./grammars/runtime ./roottest/bench ./roottest/parse -count=1 -timeout 25m
+
+  # Light tier only: the non-root package tests without the race detector, so
+  # that a light run tests every package. In the heavy tier race_packages and
+  # grammargen_stable run the same packages with -race, so a heavy run skips
+  # this job. Each shard takes race_packages lanes through
+  # `go run ./cmd/citestplan -lane <name>`; the pseudo-lane grammargen is the
+  # stable subset that grammargen_stable runs (the same -skip list). The lanes
+  # grammars-a-c, grammars-d-j, grammars-k-p, grammars-q-z, grammars-other and
+  # parse are in no shard: draft-correctness runs their packages (grammars,
+  # grammars/runtime, roottest/parse) in full. cmd/citestplan checks that each
+  # race lane is in exactly one shard or in that list. The shards are sized from
+  # the race job times of a ready PR on 24 November 2026: about 12 to 14
+  # race-minutes each, setup included.
+  packages_no_race:
+    name: packages_no_race (${{ matrix.shard }})
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'light'
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1
+            lanes: support parser-result recover grammarreceipt grammargen-support
+            go_version_file: go.mod
+          - shard: 2
+            lanes: cmd ccore ccore-bind ccore-bindtest ccore-bindall ccore-certgen
+            go_version_file: go.mod
+          # grammargen tests use cgo_harness's toolchain floor; see grammargen_stable.
+          - shard: 3
+            lanes: grammargen grammar-support query highlight wasm
+            go_version_file: cgo_harness/go.mod
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          cache: ${{ runner.environment != 'self-hosted' }}
+          go-version-file: ${{ matrix.go_version_file }}
+
+      - name: Package tests without the race detector (shard ${{ matrix.shard }})
+        env:
+          LANES: ${{ matrix.lanes }}
+          GRAMMARGEN_SKIP: '^(TestLexMinimizeParityAcrossGrammars|TestImportedKotlinSwiftGrammarConstructors|TestMarkdownGrammarCommonMarkParity|TestMarkdownFencedCodeBlockContentParity|TestShippedBlobsNonTerminalAliasMapInventory|TestKotlinGrammarExtendSmoke|TestSwiftGrammarExtendSmoke|TestSwiftGrammarBlobParity|TestGrammargenOwnedBlobsAreReproducible)$'
+        run: |
+          set -uo pipefail
+          # Every lane runs, and the step fails at the end if any lane failed.
+          failed=()
+          for lane in $LANES; do
+            echo "::group::lane ${lane}"
+            if [ "$lane" = grammargen ]; then
+              go test ./grammargen -count=1 -timeout 15m -skip "$GRAMMARGEN_SKIP" || failed+=("$lane")
+            elif pkgs="$(go run ./cmd/citestplan -lane "$lane")"; then
+              if [ -z "$pkgs" ]; then
+                echo "No packages for lane ${lane}"
+              else
+                # shellcheck disable=SC2086 # one word per package
+                go test $pkgs -count=1 -timeout 12m -p 1 || failed+=("$lane")
+              fi
+            else
+              failed+=("${lane} (no package list)")
+            fi
+            echo "::endgroup::"
+          done
+          if [ "${#failed[@]}" -ne 0 ]; then
+            echo "::error::lanes failed: ${failed[*]}"
+            exit 1
+          fi
 
   freshness:
     needs: exhaustive_parity_scope
@@ -1887,7 +2137,7 @@ jobs:
   # an unverified README promise.
   wasm_cross_build:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 10
     # Cold cross-builds for both targets exceeded the shared 10-minute budget.
@@ -1932,7 +2182,7 @@ jobs:
   # budget leaves headroom until real CI history is available.
   wasm_tinygo_build:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 25
     env:
@@ -2071,6 +2321,8 @@ jobs:
   # unbounded number of commits. A PR with more commits than the cap should
   # squash into fewer commits, or merge with the "Squash and merge" strategy,
   # so a broken intermediate commit never lands on main's history at all.
+  # Light tier, pull requests only: a typical PR builds its commits in a few
+  # minutes (1.2 minutes on a ready PR on 24 November 2026).
   pr_commit_buildability:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'pull_request'
@@ -2149,7 +2401,7 @@ jobs:
 
   compact-t3-oracle-cgo:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:
@@ -2421,7 +2673,7 @@ jobs:
   # cc and git, which the harness image already carries.
   merge-event-census-cgo:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 40
     steps:
@@ -2465,7 +2717,7 @@ jobs:
   # parser behavior; docs/ci-gate-coverage.md records the evidence.
   grammar-lock-stamp-receipts-cgo:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:
@@ -2507,9 +2759,12 @@ jobs:
   # kill of the container) bounds the whole run, inside the job's 60 minutes.
   # The script fails when a test it runs has no PASS line or no positive count
   # (its --self-test shows that, and the first step runs it).
+  # The heavy tier runs this job always. The light tier runs it when the change
+  # touches the certified core or this job's inputs (run_ccore_equality; the
+  # scope step lists the paths).
   ccore-equality-cgo:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && (needs.exhaustive_parity_scope.outputs.tier == 'heavy' || needs.exhaustive_parity_scope.outputs.run_ccore_equality == 'true')
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 60
     strategy:
@@ -2797,6 +3052,9 @@ jobs:
             --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags 'cgo treesitter_c_parity' -run '^TestHLSLNextLiveArmLockedCRoutes$' -count=1 -timeout=8m -v"
 
+  # Both tiers, when the scope sets run_exhaustive: every nightly and manual
+  # run, and a PR (light or heavy) that touches parser-result, C-recovery or
+  # C-oracle files. build requires it whenever run_exhaustive is true.
   parity-cgo-exhaustive:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_exhaustive == 'true'
@@ -2883,9 +3141,12 @@ jobs:
             --timeout 30m \
             --run '^TestParityHighlight$|^TestParityHighlightAllGrammars$|^TestParityYAMLCorpus$|^TestParityYAMLCorpusStructural$|^TestParityYAMLCorpusSummary$'
 
+  # Heavy tier, pull requests only (a PR labeled ci:full). It times the head
+  # against the PR base, and a nightly or manual run has no PR base. It is
+  # advisory and outside the build gate.
   perf-regression:
     needs: exhaustive_parity_scope
-    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && github.event_name == 'pull_request'
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy' && github.event_name == 'pull_request'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:

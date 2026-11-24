@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	resultCompatOwnershipRegistryPath         = "testdata/result_compat_ownership_v1.json"
+	resultCompatOwnershipRegistryPath         = "internal/compat/result_compat_ownership_v1.json"
 	resultCompatDispatcherCensusEvidencePath  = "parser_result_test/dispatcher_census_test.go"
 	resultCompatCOracleEvidencePath           = "cgo_harness/parity_cgo_test.go"
 	resultCompatBaselineEvidenceScope         = "baseline_corpus_wide_only"

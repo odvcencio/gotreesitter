@@ -7,7 +7,7 @@ engine mechanism, a bounded pass reconciles the returned tree with the C
 oracle.
 
 This page is a readable guide. The mechanically checked source of truth is
-[`testdata/result_compat_ownership_v1.json`](../testdata/result_compat_ownership_v1.json).
+[`internal/compat/result_compat_ownership_v1.json`](../internal/compat/result_compat_ownership_v1.json).
 Do not update dispatcher coverage, ownership, or retirement state here
 without updating that registry.
 
