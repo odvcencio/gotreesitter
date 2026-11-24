@@ -148,5 +148,23 @@ func (f *FirstLastSets) First(s Symbol) *TokenSet { return f.fl.first[s] }
 // Last returns the LAST set of a terminal, external or non-terminal symbol.
 func (f *FirstLastSets) Last(s Symbol) *TokenSet { return f.fl.last[s] }
 
+// ReservedFirst returns the reserved word set id of item_set_builder.rs:
+// struct ParseItemSetBuilder (the field reserved_first_sets) for a symbol: 0
+// for a terminal or external symbol, and for a non-terminal the largest id at
+// a first step that the walk of FIRST reaches.
+func (f *FirstLastSets) ReservedFirst(s Symbol) uint16 { return f.fl.reserved[s] }
+
 // DoesConflict is token_conflicts.rs: fn TokenConflictMap::does_conflict.
 func (a *Analysis) DoesConflict(i, j int) bool { return a.conflicts.doesConflict(i, j) }
+
+// DoesMatchShorterOrLonger is token_conflicts.rs: fn
+// TokenConflictMap::does_match_shorter_or_longer.
+func (a *Analysis) DoesMatchShorterOrLonger(i, j int) bool {
+	return a.conflicts.doesMatchShorterOrLonger(i, j)
+}
+
+// DoesOverlap is token_conflicts.rs: fn TokenConflictMap::does_overlap.
+func (a *Analysis) DoesOverlap(i, j int) bool { return a.conflicts.doesOverlap(i, j) }
+
+// Coincident is coincident_tokens.rs: fn CoincidentTokenIndex::contains.
+func (a *Analysis) Coincident(x, y Symbol) bool { return a.coinc.containsPair(x, y) }
