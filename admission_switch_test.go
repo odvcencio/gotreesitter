@@ -5801,8 +5801,8 @@ func coreScanJavaCounts() (served, scans int64) {
 
 // Java's registered factory, with a test grant for its blob: LangEntry.Parse and
 // the incremental entry points are served by the core, the provider answers the
-// scans, and the tree is the one Parser.Parse gives. Without the grant the same
-// calls stay on the present engine and give the tree of the unwrapped Java source.
+// scans, and the tree is the one Parser.Parse gives. The production certificate
+// grants the same provider, and its tree equals the unwrapped Java source's.
 func TestCoreScanJavaRegisteredFactory(t *testing.T) {
 	entry := grammars.DetectLanguageByName("java")
 	if entry == nil || entry.TokenSourceFactory == nil {
@@ -5827,8 +5827,8 @@ func TestCoreScanJavaRegisteredFactory(t *testing.T) {
 	defer rawEdited.Release()
 
 	t.Run("granted", func(t *testing.T) {
-		// Java's blob is not in the generated list, so the parsers that the entry and the
-		// highlighter make need the process default for the candidate route.
+		// The test grant repeats the generated certificate's; the process default for the
+		// candidate route keeps this subtest independent of that list.
 		prev := gts.AdmissionCandidateRouteDefault()
 		gts.SetAdmissionCandidateRouteDefault(true)
 		defer gts.SetAdmissionCandidateRouteDefault(prev)
@@ -5891,19 +5891,22 @@ func TestCoreScanJavaRegisteredFactory(t *testing.T) {
 		}
 	})
 
-	t.Run("not_granted", func(t *testing.T) {
-		defer gts.CcoreTestCertify(ccoreModesIncr, checked...)()
+	// The generated list grants table-v1 to Java's blob, so the registered factory is
+	// served with no test certification. A record without the provider stays on the
+	// present engine: TestCoreScanCAndCppWithoutAGrantAreUnchanged covers that rule.
+	t.Run("production_certificate", func(t *testing.T) {
 		gts.CcoreTestReset()
 		tree, err := entry.Parse(src)
 		if err != nil || tree == nil {
 			t.Fatal(err)
 		}
 		defer tree.Release()
-		if served, scans := coreScanJavaCounts(); served != 0 || scans != 0 {
-			t.Fatalf("without the grant: core serves %d, provider scans %d, want none", served, scans)
+		if served, scans := coreScanJavaCounts(); served != 1 || scans == 0 {
+			decl, _ := gts.CcoreTestCounters()
+			t.Fatalf("production certificate: core serves %d, provider scans %d, want 1 and more than 0 (declines %v)", served, scans, decl)
 		}
 		if ccoreWalkDigest(tree, lang) != ccoreWalkDigest(raw, lang) {
-			t.Fatal("without the grant the tree differs from the unwrapped Java source's")
+			t.Fatal("the production route's tree differs from the unwrapped Java source's")
 		}
 	})
 }

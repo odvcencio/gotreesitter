@@ -43,6 +43,9 @@ func TestParseWithTokenSourceRetriesNodeLimitForJava(t *testing.T) {
 
 			lang := entry.Language()
 			parser := gotreesitter.NewParser(lang)
+			// The certified core serves Java by default and has no node-limit retry;
+			// this test checks the present engine's retry.
+			parser.SetAdmissionCandidateRoute(false)
 			tree, err := parser.ParseWithTokenSource(tc.src, entry.TokenSourceFactory(tc.src, lang))
 			if err != nil {
 				t.Fatalf("ParseWithTokenSource() error = %v", err)
