@@ -30,6 +30,25 @@
 // the order the search creates them, production infos in the order the
 // search first reduces them, and the used symbols.
 //
+// The passes after the search, without the merge of compatible states and
+// without the lex tables:
+//
+//	tables.rs: struct ActionListId, struct ActionListPool (intern_table,
+//	  canonicalize), ParseState::referenced_states,
+//	  update_nonterminal_references, remap_terminal_references (action_lists.go)
+//	build_tables/minimize_parse_table.rs: fn minimize_parse_table,
+//	  remove_unit_reductions (unit_reductions.go), remove_unused_states,
+//	  reorder_states_by_descending_size (reorder.go)
+//	build_tables.rs: fn build_tables after populate_used_symbols, fn
+//	  mark_fragile_tokens (build_tables.go)
+//	core::slice::sort::unstable (Rust standard library): the sort of
+//	  reorder_states_by_descending_size (width_order.go)
+//
+// and the numbering of render.rs (layout.go), with a conversion of its result
+// into a *gotreesitter.Language (language.go). BuildTables with OptLevel 0
+// and Render give the table that the generator writes with
+// --disable-optimizations.
+//
 // The subpackage ref reads the output of the unmodified generator (parser.c,
 // parser-noopt.c and the node types file) as canonical records per layer, and
 // names the first record where a build differs from it.
