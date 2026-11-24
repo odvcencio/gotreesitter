@@ -10,7 +10,7 @@ import (
 // TestHTMLNestedCustomTagReconstructionRetiredDispatchArm is the R2
 // retirement receipt for dispatch.html
 // (https://github.com/odvcencio/gotreesitter/blob/9c955f3d29b126973da657124438f7c0aeddce5b/docs/root-normalization-retirement.md,
-// testdata/result_compat_ownership_v1.json).
+// internal/compat/result_compat_ownership_v1.json).
 // normalizeHTMLRecoveredNestedCustomTags (parser_result_html.go, now
 // deleted) rebuilt a flat ERROR root of bare unclosed start_tag siblings
 // (produced when several custom elements were left open before a mismatched

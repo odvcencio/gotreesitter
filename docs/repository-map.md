@@ -128,7 +128,7 @@ fresh-tree verification.
 
 | Prefix | Owns |
 | --- | --- |
-| `parser_result*` | The C-faithful post-parse compatibility tier; see [docs/compat-tier.md](compat-tier.md) and the machine-checked registry at `testdata/result_compat_ownership_v1.json` |
+| `parser_result*` | The C-faithful post-parse compatibility tier; see [docs/compat-tier.md](compat-tier.md) and the machine-checked registry at `internal/compat/result_compat_ownership_v1.json` |
 | `compat_ownership*` | Tests that check the compat-tier ownership registry and its provenance |
 
 ### Query, highlight, tags, and understanding
