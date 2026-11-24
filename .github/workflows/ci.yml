@@ -1,9 +1,10 @@
 name: ci
 
-# Two tiers (owner instruction, 24 November 2026). The light tier runs for
-# every pull request, draft or ready, and every push. The heavy tier adds the
-# race, cgo, timing and wasm gates; it runs nightly, for a manual run (input
-# tier, default heavy), and for a pull request labeled ci:full. The run name
+# Two tiers keep pull request CI short: a green ready pull request started 92
+# jobs (469 job-minutes) before the split. The light tier runs for every pull
+# request, draft or ready, and every push. The heavy tier adds the race, cgo,
+# timing and wasm gates; it runs nightly, for a manual run (input tier, default
+# heavy), and for a pull request labeled ci:full. The run name
 # carries the tier so that the release gate can find a heavy run. The scope
 # job's TIER takes the same expression; cmd/citestplan checks that they match.
 run-name: >-

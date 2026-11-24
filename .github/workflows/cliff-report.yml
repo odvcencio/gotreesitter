@@ -1,8 +1,8 @@
 name: cliff-report
 
-# Heavy CI only (owner instruction, 24 November 2026): the measurement takes
-# about 11 minutes, so a pull request runs it only with the label ci:full, like
-# the heavy tier of ci.yml. The nightly run and manual runs measure as before.
+# Heavy CI only: the measurement takes about 11 minutes, so a pull request runs
+# it only with the label ci:full, like the heavy tier of ci.yml. The nightly run
+# and manual runs measure as before.
 on:
   pull_request:
     # labeled: adding ci:full starts the measurement.
