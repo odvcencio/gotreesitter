@@ -537,6 +537,25 @@ func TestSetValues(t *testing.T) {
 	}
 }
 
+func TestSetValuesLastDirectiveForKeyWins(t *testing.T) {
+	lang := buildContainerLanguage()
+	q, err := NewQuery(`(content) @cap (#set! injection.language "first") (#set! other "x") (#set! injection.language "second")`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree := mustParse(t, NewParser(lang), []byte("[hello]"))
+	matches := q.Execute(tree)
+	if len(matches) == 0 {
+		t.Fatal("expected at least 1 match")
+	}
+	if vals := matches[0].SetValues(q, "injection.language"); len(vals) != 1 || vals[0] != "second" {
+		t.Errorf("SetValues = %v, want [\"second\"]", vals)
+	}
+	if vals := matches[0].SetValues(q, "other"); len(vals) != 1 || vals[0] != "x" {
+		t.Errorf("SetValues(other) = %v, want [\"x\"]", vals)
+	}
+}
+
 // TestInjectionParserTimeoutBoundsInjectedParse verifies that
 // InjectionParser.SetTimeoutMicros bounds every injected parse, not just the
 // root parse. Before InjectionParser had a timeout API, a large injected
