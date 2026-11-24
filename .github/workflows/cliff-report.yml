@@ -21,6 +21,12 @@ on:
     - cron: '53 1 * * *'
   workflow_dispatch:
 
+# One run per pull request: a new push or label event cancels the PR's older
+# measurement. Scheduled and manual runs each get a group of their own.
+concurrency:
+  group: cliff-report-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
