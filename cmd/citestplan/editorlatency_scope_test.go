@@ -38,12 +38,14 @@ func TestEditorLatencyScopeStepRunsTheBaseRule(t *testing.T) {
 		baseHasRule bool
 		change      map[string]string
 		want        string
+		// The light tier runs ccore-equality-cgo only for a core change.
+		wantCcore string
 	}{
-		{"only the new core changes: skip", true, map[string]string{"internal/ccore/a.go": "package ccore // 2\n"}, "false"},
-		{"engine change with the rule rewritten to skip: run", true, map[string]string{"parser.go": "package p // 2\n", rulePath: "echo false\n"}, "true"},
-		{"the rule rewritten to skip beside a core change: run", true, map[string]string{"internal/ccore/a.go": "package ccore // 2\n", rulePath: "echo false\n"}, "true"},
-		{"the rule deleted beside a core change: run", true, map[string]string{"internal/ccore/a.go": "package ccore // 2\n", rulePath: ""}, "true"},
-		{"base without the rule: run", false, map[string]string{"internal/ccore/a.go": "package ccore // 2\n"}, "true"},
+		{"only the new core changes: skip", true, map[string]string{"internal/ccore/a.go": "package ccore // 2\n"}, "false", "true"},
+		{"engine change with the rule rewritten to skip: run", true, map[string]string{"parser.go": "package p // 2\n", rulePath: "echo false\n"}, "true", "false"},
+		{"the rule rewritten to skip beside a core change: run", true, map[string]string{"internal/ccore/a.go": "package ccore // 2\n", rulePath: "echo false\n"}, "true", "true"},
+		{"the rule deleted beside a core change: run", true, map[string]string{"internal/ccore/a.go": "package ccore // 2\n", rulePath: ""}, "true", "true"},
+		{"base without the rule: run", false, map[string]string{"internal/ccore/a.go": "package ccore // 2\n"}, "true", "true"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -94,7 +96,7 @@ func TestEditorLatencyScopeStepRunsTheBaseRule(t *testing.T) {
 			output := filepath.Join(dir, "output")
 			cmd := exec.Command("bash", "-c", scope.Run)
 			cmd.Dir = repo
-			cmd.Env = append(env, "EVENT_NAME=pull_request", "PR_BASE_SHA="+base, "RUNNER_TEMP="+dir,
+			cmd.Env = append(env, "EVENT_NAME=pull_request", "PR_BASE_SHA="+base, "RUNNER_TEMP="+dir, "TIER=light",
 				"GITHUB_OUTPUT="+output, "GITHUB_STEP_SUMMARY="+filepath.Join(dir, "summary"))
 			if out, err := cmd.CombinedOutput(); err != nil {
 				t.Fatalf("scope step: %v\n%s", err, out)
@@ -108,9 +110,9 @@ func TestEditorLatencyScopeStepRunsTheBaseRule(t *testing.T) {
 				key, value, _ := strings.Cut(line, "=")
 				got[key] = value
 			}
-			if got["run_code_ci"] != "true" || got["run_editor_latency"] != tc.want {
+			if got["run_code_ci"] != "true" || got["run_editor_latency"] != tc.want || got["tier"] != "light" || got["run_ccore_equality"] != tc.wantCcore {
 				summary, _ := os.ReadFile(filepath.Join(dir, "summary"))
-				t.Fatalf("outputs = %v, want run_code_ci=true run_editor_latency=%s\n%s", got, tc.want, summary)
+				t.Fatalf("outputs = %v, want run_code_ci=true run_editor_latency=%s tier=light run_ccore_equality=%s\n%s", got, tc.want, tc.wantCcore, summary)
 			}
 		})
 	}
@@ -142,8 +144,9 @@ func TestEditorLatencyScopeStepAvoidsSharedTmp(t *testing.T) {
 	}
 }
 
-// The job's own condition, pinned: three terms and the event test.
-const editorLatencyJobIf = "needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')"
+// The job's own condition, pinned: code CI, the heavy tier, the scope output
+// and the event test.
+const editorLatencyJobIf = "needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy' && needs.exhaustive_parity_scope.outputs.run_editor_latency == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')"
 
 // Edits that would drop a language from the gate, or let a failed language
 // pass, without changing the language list: a second matrix key (exclude or

@@ -3004,7 +3004,7 @@ func TestCcoreReclamationIsCountedAgainstTheRequestBudget(t *testing.T) {
 	scenario := func(budget int64, releaseAt int) (totals []int64, declines map[string]int64, c *gts.Tree, fresh *gts.Tree) {
 		p := ccoreRouteParser(lang)
 		p.SetMemoryBudgetBytes(1 << 40)
-		gts.CcoreTestDrainPool(lang)
+		gts.CcoreTestEmptyPool(lang)
 		gts.DrainArenaPools()
 		gts.CcoreTestReset()
 		var err error
@@ -3019,6 +3019,12 @@ func TestCcoreReclamationIsCountedAgainstTheRequestBudget(t *testing.T) {
 			t.Fatalf("setup: the large replacement was not served by the core: %v", err)
 		}
 		b.Edit(e2)
+		// The buffers of the core parser that the request leases are part of the first
+		// check's total. Which pooled parser it gets depends on the scheduler processor
+		// (P) that the goroutine runs on: the one that parsed B, the one that parsed only
+		// A (about 2 MB smaller), or a new one. An empty pool gives every scenario a new
+		// parser, so the totals that the budgets below come from are the same each time.
+		gts.CcoreTestEmptyPool(lang)
 		p.SetMemoryBudgetBytes(budget)
 		stop := gts.CcoreTestPollProbe(func(total int64, sample bool, converting bool) {
 			totals = append(totals, total)
@@ -3074,6 +3080,10 @@ func TestCcoreReclamationIsCountedAgainstTheRequestBudget(t *testing.T) {
 	totals2, decl, c1, f1 := scenario(budget, 1)
 	defer c1.Release()
 	defer f1.Release()
+	// The budget sits between the start and the drain only if the request starts where the measured one did.
+	if len(totals2) == 0 || totals2[0] != first {
+		t.Fatalf("limit checks %v with a budget of %d: the request started at a different total than the measured request (%d)", totals2, budget, first)
+	}
 	if decl["stop_memory_budget"] != 1 {
 		t.Fatalf("budget %d (the request starts at %d, the drain brings it to %d): declines %v; want one stop_memory_budget", budget, first, afterDrain, decl)
 	}
@@ -3117,6 +3127,10 @@ func TestCcoreReclamationIsCountedAgainstTheRequestBudget(t *testing.T) {
 	defer f3.Release()
 	if decl2["stop_memory_budget"] != 1 || gts.CcoreTestFromCore(c3) {
 		t.Fatalf("budget %d (the parse ends at %d, the exit drain brings it to %d): declines %v, core tree %t; want one stop_memory_budget and the present engine's tree", budget2, totals3[last-1], totals3[last], decl2, gts.CcoreTestFromCore(c3))
+	}
+	// The request ends at the check after the exit drain, not before it.
+	if len(totals4) != last+1 || totals4[last] <= budget2 {
+		t.Fatalf("limit checks %v with a budget of %d; want the request to end at check %d, the one after the exit drain (%v with no limit)", totals4, budget2, last+1, totals3)
 	}
 	if ccoreSExpr(c3, lang) != ccoreSExpr(f3, lang) {
 		t.Fatal("the result of the reparse declined at the exit differs from a fresh parse by the present engine")

@@ -106,6 +106,46 @@ func TestDedicatedPackagesRequireTheirCommands(t *testing.T) {
 	}
 }
 
+// A race lane may skip the light tier, but every heavy-tier run must run it.
+func TestRaceLanesRunInEveryHeavyTierRun(t *testing.T) {
+	const module = "example.org/parser"
+	packages := []packageInfo{{ImportPath: module + "/cmd/x"}, {ImportPath: module}}
+	for _, tc := range []struct {
+		job, cond string
+		pass      bool
+	}{
+		{"race_packages", "needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'", true},
+		{"race_root_shards", "needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'", true},
+		{"race_packages", "needs.exhaustive_parity_scope.outputs.tier == 'light'", false},
+		{"race_packages", "needs.exhaustive_parity_scope.outputs.tier != 'heavy'", false},
+		{"race_root_shards", "needs.exhaustive_parity_scope.outputs.tier == 'heavy' && github.event_name == 'pull_request'", false},
+		{"race_root_shards", "github.event.pull_request.draft == false", false},
+	} {
+		wf := testWorkflow(t)
+		j := wf.Jobs[tc.job]
+		j.If = tc.cond
+		wf.Jobs[tc.job] = j
+		_, err := buildPlan(module, packages, wf)
+		if (err == nil) != tc.pass {
+			t.Errorf("%s if %q: err=%v, want pass=%v", tc.job, tc.cond, err, tc.pass)
+		}
+	}
+	// The repository's own race lanes.
+	data, err := os.ReadFile("../../.github/workflows/ci.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wf workflow
+	if err := yaml.Unmarshal(data, &wf); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"race_packages", "race_root_shards", "race_root_isolated", "root_race_plan", "race_root", "grammargen_stable", "selected_store_admission"} {
+		if err := checkHeavyTier(name, wf.Jobs[name]); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
 func TestPlanRejectsMalformedLanes(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

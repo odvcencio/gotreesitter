@@ -240,14 +240,17 @@ func TestEditorLatencyApprovedReceiptsOnlyInGoLeg(t *testing.T) {
 
 func gateWorkflowEnv(step gateWorkflowStep, extra map[string]string) []string {
 	env := map[string]string{
-		"IS_DRAFT": "false", "IS_PULL_REQUEST": "true", "IS_MANUAL_RUN": "false",
+		"IS_PULL_REQUEST": "true", "IS_MANUAL_RUN": "false",
 		"RUN_CODE_CI": "true", "EXHAUSTIVE_PARITY_SCOPE": "false", "RUN_EDITOR_LATENCY": "true",
+		"TIER": "heavy", "RUN_CCORE_EQUALITY": "true",
 	}
 	for key := range step.Env {
 		if strings.HasSuffix(key, "_RESULT") {
 			env[key] = "success"
 		}
 	}
+	// A heavy run skips the light-only package tests.
+	env["PACKAGES_NO_RACE_RESULT"] = "skipped"
 	for k, v := range extra {
 		env[k] = v
 	}

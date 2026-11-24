@@ -9,6 +9,7 @@ strategy ReleasePublication returns ReleaseDecision {
         evidence.main_exact_candidate
         and evidence.ci_exact_candidate
         and evidence.ci_full_dispatch
+        and evidence.ci_heavy_tier
         and evidence.ci_successful
         and evidence.ci_completion_not_future
         and evidence.tag_absent
