@@ -1,6 +1,6 @@
 # PGO input provenance
 
-`production-v1.pgo` is the previous `pgo/default.pgo`, collected with
+`production-v1.pgo` is the default profile that `pgo/default.pgo` held before 2026-07-18, collected with
 `cmd/pgo_repdriver` over the lock-pinned Go, C#, Bash, Python, and CMake
 corpora. Its SHA-256 is
 `b55eb63bf103b1c53f7ff7defa3a7d77f40408924a641a5045a622e3b3dafcb3`
@@ -32,4 +32,4 @@ profile ran for approximately 15 seconds after its exact inputs were admitted
 as complete and in the requested clean/error class. Regenerating either input
 is a new training campaign: update this receipt, the hashes in
 `compose_default.sh`, and rerun both performance gates before changing
-`default.pgo`.
+`cmd/parity_report/parity_report.pgo`.

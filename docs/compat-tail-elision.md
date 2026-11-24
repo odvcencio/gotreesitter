@@ -37,7 +37,7 @@ reproduces `normalizeReturnedTreeForParse`'s own control flow exactly (see
 
 `result_compat_elision.go`'s `resultCompatibilityElisionEligible(lang)` is a
 computed set, not a maintained list. It embeds
-[`testdata/result_compat_ownership_v1.json`](../testdata/result_compat_ownership_v1.json)
+[`internal/compat/result_compat_ownership_v1.json`](../internal/compat/result_compat_ownership_v1.json)
 (`//go:embed`) and marks a language ineligible when the registry records a
 `"live"` `dispatcher_arm`, `dispatcher_predicate`, or `generic_pass` entry
 naming it (a live `generic_pass` naming `"*"` would mark every language
@@ -56,7 +56,7 @@ required at the elision call site.
 ## Eligible languages
 
 177 of the 206 registered languages are eligible: every language without a
-`"live"` entry in `testdata/result_compat_ownership_v1.json`. They take
+`"live"` entry in `internal/compat/result_compat_ownership_v1.json`. They take
 `finalizeCompactReturnedTreeForParse` whenever they take the compact route.
 The 29 **not** eligible languages are every language with a live dispatcher
 arm or the live cobol predicate: `ada`, `apex`, `authzed`, `awk`, `c`,

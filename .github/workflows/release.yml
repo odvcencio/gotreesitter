@@ -89,9 +89,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          arbiter check policy/release.arb
-          arbiter fmt --check policy/release.arb policy/release.test.arb
-          arbiter test policy/release.test.arb
+          arbiter check .github/policy/release.arb
+          arbiter fmt --check .github/policy/release.arb .github/policy/release.test.arb
+          arbiter test .github/policy/release.test.arb
 
       - id: facts
         name: Collect main and hosted check facts
@@ -230,7 +230,7 @@ jobs:
         run: |
           set -euo pipefail
           output="$RUNNER_TEMP/releasegate-verify"
-          arbiter strategy policy/release.arb \
+          arbiter strategy .github/policy/release.arb \
             --name ReleasePublication \
             --data "$(jq --compact-output . "$output/policy-facts.json")" \
             > "$output/policy-decision.json"
@@ -428,7 +428,7 @@ jobs:
         run: |
           set -euo pipefail
           output="$RUNNER_TEMP/releasegate-publish"
-          arbiter strategy policy/release.arb \
+          arbiter strategy .github/policy/release.arb \
             --name ReleasePublication \
             --data "$(jq --compact-output . "$output/policy-facts.json")" \
             > "$output/policy-decision.json"

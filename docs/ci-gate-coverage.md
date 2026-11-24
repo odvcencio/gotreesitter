@@ -597,7 +597,7 @@ docker buildx imagetools inspect node:22-bookworm --format '{{json .Manifest}}' 
 ```
 
 `tree-sitter-cli` stays pinned at `0.24.7`. Neither `cgo_harness/README.md`
-nor `BENCH.md` binds this CLI version to the C runtime oracle. Those
+nor `docs/benchmarks.md` binds this CLI version to the C runtime oracle. Those
 docs name the parity runtime only: `go-tree-sitter v0.25.0` sources
 (vendored in `cgo_harness/internal/coracle`) and upstream runtime `v0.27.1`
 (the oracle was `v0.25.1` before 2026-10-28). The ABI negotiation in `parity_c_loader_cgo.go` targets

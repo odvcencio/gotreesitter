@@ -1,7 +1,7 @@
 # Build-time PGO profile
 
-`default.pgo` is the checked-in profile for binaries that opt into Go
-profile-guided optimization with `-pgo=pgo/default.pgo`. It is a deterministic
+`../parity_report/parity_report.pgo` is the checked-in profile for binaries that opt into Go
+profile-guided optimization with `-pgo=cmd/parity_report/parity_report.pgo`. It is a deterministic
 composition of two immutable evidence inputs:
 
 - `inputs/production-v1.pgo` once: the established Go, C#, Bash, Python, and
@@ -12,7 +12,7 @@ composition of two immutable evidence inputs:
 
 The `1:2` notation is profile multiplicity, not normalized sample time. The
 component hashes and exact training inputs are recorded in
-[`inputs/README.md`](inputs/README.md). The resulting `default.pgo` SHA-256 is
+[`inputs/README.md`](inputs/README.md). The resulting `parity_report.pgo` SHA-256 is
 `1e5e9aea594f4fcbc3c0fb5d4064d2fb856b13b2faf0994f747520615eaa2ae2`.
 
 ## Measured scope
@@ -49,7 +49,7 @@ Use the Go 1.22.2 toolchain used for the receipt and run from the repository
 root:
 
 ```sh
-GO=/path/to/go1.22.2/bin/go ./pgo/compose_default.sh
+GO=/path/to/go1.22.2/bin/go ./cmd/pgo_repdriver/compose_default.sh
 ```
 
 The script:
@@ -62,8 +62,8 @@ The script:
 It may also write to a scratch destination:
 
 ```sh
-GO=/path/to/go1.22.2/bin/go ./pgo/compose_default.sh /tmp/default.pgo
-cmp /tmp/default.pgo pgo/default.pgo
+GO=/path/to/go1.22.2/bin/go ./cmd/pgo_repdriver/compose_default.sh /tmp/parity_report.pgo
+cmp /tmp/parity_report.pgo cmd/parity_report/parity_report.pgo
 ```
 
 Refreshing an input is a separate campaign, not a routine composition step.
@@ -75,7 +75,7 @@ cd cgo_harness
 go run ./cmd/build_real_corpus -out corpus_real -langs go,c_sharp,bash,python,cmake
 cd ..
 go run ./cmd/pgo_repdriver -mode=profile \
-  -cpuprofile=pgo/inputs/production-v1.pgo -iterations=1500
+  -cpuprofile=cmd/pgo_repdriver/inputs/production-v1.pgo -iterations=1500
 ```
 
 After refreshing either input, update its provenance and hash, compose a new
@@ -89,18 +89,20 @@ With `cgo_harness/corpus_real` available:
 
 ```sh
 go build -pgo=off -o /tmp/digest_nopgo ./cmd/pgo_repdriver
-go build -pgo=pgo/default.pgo -o /tmp/digest_pgo ./cmd/pgo_repdriver
+go build -pgo=cmd/parity_report/parity_report.pgo -o /tmp/digest_pgo ./cmd/pgo_repdriver
 diff <(/tmp/digest_nopgo -mode=digest) <(/tmp/digest_pgo -mode=digest)
 ```
 
 ## Where it is used
 
 - `cmd/parity_report`, invoked by CI against all registered grammars, is built
-  with `-pgo=pgo/default.pgo`.
+  with `-pgo=cmd/parity_report/parity_report.pgo`.
 - gotreesitter ships as a Go module, not a compiled application. Downstream
   consumers receive this optimization only when their own main package is
   built with `-pgo=<path>` pointing to this profile (or a consumer-specific
   profile). Go auto-discovery does not search imported module dependencies.
+- The profile is named `parity_report.pgo`, not `default.pgo`, so Go's default
+  `-pgo=auto` does not pick it up: it applies only where `-pgo=` names it.
 - Other repository commands are not automatically built with this profile.
-  Pass `-pgo=pgo/default.pgo` explicitly when a command's workload justifies
+  Pass `-pgo=cmd/parity_report/parity_report.pgo` explicitly when a command's workload justifies
   it.

@@ -141,7 +141,7 @@ func makeKDLRecoveryGarbageSource(nodeCount, garbageRepeats int) []byte {
 // BenchmarkKDLRecoveryGarbageSuffix exercises the C-recovery cost-competition
 // machinery end to end on a representative fleet-tail-class error-bearing
 // parse (see makeKDLRecoveryGarbageSource). This is the recovery-heavy
-// counterpart to the clean-parse canonical trio in BENCH.md: those
+// counterpart to the clean-parse canonical trio in docs/benchmarks.md: those
 // benchmarks never enter cHandleError, so they cannot see regressions or
 // wins in the recovery cost-competition path (cRecoverStrategy1Election,
 // cNodeErrorCost, cStackPrefixAgg, cHandleError, cCondenseAndResume in

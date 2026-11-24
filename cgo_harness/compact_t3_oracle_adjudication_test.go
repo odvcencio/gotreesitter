@@ -167,7 +167,7 @@ var compactT3RecoveryCertifiedWitnesses = map[string]bool{
 //     It also is not a new discovery: the retired dispatch.html arm already
 //     recorded "the pre-existing document-child divergence for the
 //     malformed witness" against this same C oracle
-//     (testdata/result_compat_ownership_v1.json, dispatch.html retirement
+//     (internal/compat/result_compat_ownership_v1.json, dispatch.html retirement
 //     condition). Per the stage S1 stop rule ("if any witness fails
 //     structural parity on the production route, stop; that is a production
 //     defect or a decision-0007 divergence to receipt, not a B3 work item"),

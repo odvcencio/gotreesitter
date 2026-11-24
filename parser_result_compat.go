@@ -283,7 +283,7 @@ func nativeRecoveredStructureHasIsolatedErrorReceipt(root *Node) bool {
 // --- R2 dispatcher-arm census (https://github.com/odvcencio/gotreesitter/blob/9c955f3d29b126973da657124438f7c0aeddce5b/docs/root-normalization-retirement.md) ---
 //
 // runLanguageResultCompatibility's switch is the per-language dispatcher arm
-// registry described in testdata/result_compat_ownership_v1.json
+// registry described in internal/compat/result_compat_ownership_v1.json
 // ("dispatcher_arms"). Most arms return nothing: whether a given call ever
 // actually rewrites the tree has never been measured in production, only
 // asserted by unit fixtures that construct the triggering shape by hand. R2
@@ -323,7 +323,7 @@ func dispatcherCensusEnabled() bool {
 // enabled and fn changed the fingerprint, it also records a transcript
 // effect record (see recordDispatcherArmTranscript). armID matches the
 // corresponding "dispatch.<name>" / "predicate.<name>" id in
-// testdata/result_compat_ownership_v1.json so both receipts trace directly
+// internal/compat/result_compat_ownership_v1.json so both receipts trace directly
 // back to the registry entry they measure.
 func dispatcherArmCensus(ctx resultCompatibilityContext, armID string, fn func()) {
 	census := dispatcherCensusEnabled()

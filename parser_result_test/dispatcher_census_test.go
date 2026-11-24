@@ -18,13 +18,13 @@ import (
 // of https://github.com/odvcencio/gotreesitter/blob/9c955f3d29b126973da657124438f7c0aeddce5b/docs/root-normalization-retirement.md for the per-language
 // result-normalization dispatcher (runLanguageResultCompatibility's switch in
 // parser_result_compat.go), which is registered as "dispatcher_arm" /
-// "dispatcher_predicate" entries in testdata/result_compat_ownership_v1.json.
+// "dispatcher_predicate" entries in internal/compat/result_compat_ownership_v1.json.
 //
 // Scanner-aware corpus tests use the production LangEntry loader and backend.
 // The external test package can attach scanners without a package cycle.
 
 // dispatcherOwnershipEntry mirrors the fields of
-// testdata/result_compat_ownership_v1.json's entries this census needs. It is
+// internal/compat/result_compat_ownership_v1.json's entries this census needs. It is
 // intentionally a minimal projection, not a full schema type, so this census
 // stays a read-only consumer of the mechanically checked registry.
 type dispatcherOwnershipEntry struct {
@@ -47,7 +47,7 @@ type dispatcherOwnershipRegistry struct {
 // this census, not a coverage failure.
 func dispatcherArmLanguages(t *testing.T) map[string]string {
 	t.Helper()
-	raw, readErr := os.ReadFile(filepath.Join("..", "testdata", "result_compat_ownership_v1.json"))
+	raw, readErr := os.ReadFile(filepath.Join("..", "internal", "compat", "result_compat_ownership_v1.json"))
 	if readErr != nil {
 		t.Fatalf("read result_compat_ownership_v1.json: %v", readErr)
 	}

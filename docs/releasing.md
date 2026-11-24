@@ -52,7 +52,7 @@ signed Hyphae receipt ID, not a `hypha://` URI. Use
 The workflow has no schedule. The Go evidence collector writes deterministic
 facts to `policy-facts.json`. It does not choose the release route.
 
-The `policy/release.arb` strategy is the authoritative publication decision.
+The `.github/policy/release.arb` strategy is the authoritative publication decision.
 It selects exactly one `Allow` or `Deny` outcome. The workflow installs Arbiter
 v1.9.0 from its digest-pinned release archive.
 
