@@ -122,6 +122,16 @@ func (CmakeExternalScanner) UsesExternalScannerCheckpoints() bool {
 func (CmakeExternalScanner) AllowsIncrementalReuseWithoutCheckpoint() bool {
 	return true
 }
+
+// SupportsLargeCheckpointReadDependencies certifies read history for edits to
+// documents of 512 KiB or more. The checkpoint holds the scanner's whole state
+// (bracket level and last token), and every source dependency, including a
+// failed scan, passes through the observed lexer operations. Reuse without a
+// checkpoint is also sound: only external tokens change the scanner state, a
+// node without a checkpoint contains no external token, and every CMake
+// external token gets a checkpoint.
+func (CmakeExternalScanner) SupportsLargeCheckpointReadDependencies() bool { return true }
+
 func (CmakeExternalScanner) PreservesStateOnScanFailure() bool {
 	return true
 }
