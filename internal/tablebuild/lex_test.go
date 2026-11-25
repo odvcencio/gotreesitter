@@ -87,7 +87,10 @@ const reservedGrammar = `{"name":"t","word":"identifier",
 // token that none of its terminal entries holds gets a lex state that lexes
 // that token, because build_lex_table chains the reserved words to the
 // terminal entries. Without the chain, parse state 5 gets a lex state with no
-// step on '!'.
+// step on '!'. The generator v0.27.1 writes, for this grammar with ABI 15,
+// ts_lex_modes {0, 0, 0, 0, 0, {1, reserved 1}, 0, 0}, 7 states in ts_lex
+// and 4 in ts_lex_keywords, and its lex state 1 steps on '!' to a state that
+// accepts anon_sym_BANG (read from its parser.c).
 func TestBuildLexTableReservedWords(t *testing.T) {
 	g, err := Prepare([]byte(reservedGrammar))
 	if err != nil {
@@ -137,6 +140,17 @@ func TestBuildLexTableReservedWords(t *testing.T) {
 	}
 	if checked == 0 {
 		t.Fatal("no parse state holds '!' only as a reserved word")
+	}
+	layout, err := RenderTables(tables, g, GetSupertypeSymbolMap(g.Syntax, g.DefaultAliases, info), 15)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []LexMode{{}, {}, {}, {}, {}, {LexState: 1, ReservedWordSetID: 1}, {}, {}}
+	if fmt.Sprint(layout.LexModes) != fmt.Sprint(want) {
+		t.Errorf("lex modes %v, want %v", layout.LexModes, want)
+	}
+	if len(layout.MainLex) != 7 || len(layout.KeywordLex) != 4 {
+		t.Errorf("lex states: main %d, keyword %d; want 7 and 4", len(layout.MainLex), len(layout.KeywordLex))
 	}
 	t.Logf("%d parse states hold '!' only as a reserved word; token sets %d, groups %d, lex states %d", checked, tables.Stats.LexTokenSets, tables.Stats.LexGroups, tables.Stats.MainLexStates)
 }

@@ -30,7 +30,7 @@
 // the order the search creates them, production infos in the order the
 // search first reduces them, and the used symbols.
 //
-// The passes after the search, without the lex tables:
+// The passes after the search:
 //
 //	tables.rs: struct ActionListId, struct ActionListPool (intern_table,
 //	  canonicalize), ParseState::referenced_states,
@@ -43,14 +43,26 @@
 //	dedup.rs: fn split_state_id_groups (merge.go)
 //	build_tables.rs: fn build_tables after populate_used_symbols, fn
 //	  mark_fragile_tokens (build_tables.go)
+//	build_tables/build_lex_table.rs: fn build_lex_table, the part that reads
+//	  the parse states; build_tables.rs: fn populate_external_lex_states
+//	  (lex.go)
 //	core::slice::sort::unstable (Rust standard library): the sort of
 //	  reorder_states_by_descending_size (width_order.go)
 //
-// and the numbering of render.rs (layout.go), with a conversion of its result
-// into a *gotreesitter.Language (language.go). BuildTables with
-// OptMergeStates and Render give the parse table of the generator's
-// parser.c; with OptLevel 0 they give the table that the generator writes
-// with --disable-optimizations.
+// internal/lexbuild ports the rest of the lex stage: merge_token_set and the
+// lex table builder, minimize_lex_table, sort_states, the large character
+// sets, and the overlap test that mark_fragile_tokens reads
+// (lexbuild.Analysis.Fragile). The generator chains the reserved words of a
+// parse state to its terminal entries before it merges token sets; lex.go
+// builds those sets, because the parse states live here.
+//
+// Then the numbering of render.rs (layout.go, and lex_layout.go for the lex
+// functions, the lex modes and the external scanner tables), with a
+// conversion of its result into a *gotreesitter.Language (language.go).
+// BuildTables with OptMergeStates and RenderTables give the tables of the
+// generator's parser.c; with OptLevel 0 they give the tables that the
+// generator writes with --disable-optimizations. Render numbers the parse
+// table alone.
 //
 // The subpackage ref reads the output of the unmodified generator (parser.c,
 // parser-noopt.c and the node types file) as canonical records per layer, and
@@ -83,8 +95,10 @@
 // compatible states compares the states of one core in pairs, so it is
 // quadratic in the states of one core, and it repeats its split until no
 // group splits; it counts the pairs it compares and the states and groups
-// each split visits. Each count returns a *lexbuild.SizeError before it
-// passes its limit:
+// each split visits. The marking of fragile tokens compares the valid
+// terminals of each state in pairs; it counts the square of their number
+// per state. Each count returns a *lexbuild.SizeError before it passes its
+// limit:
 //
 //	production steps built by inlining: 1,048,576
 //	production steps held while inlining one step of one production: 1,048,576
@@ -95,6 +109,7 @@
 //	item insertions by the closures of the parse states: 268,435,456
 //	distinct lookahead sets: 262,144
 //	state pairs compared and states visited while merging parse states: 268,435,456
+//	terminal pairs compared while marking fragile tokens: 1,073,741,824
 //
 // The limits were not measured over the bundled grammars. The first two equal
 // lexbuild's limit on the production steps that flattening keeps. On the
@@ -104,7 +119,11 @@
 // and 309 lookahead sets (TestL2 prints them); each limit of the search is
 // more than 50 times that grammar's value. Its merge counts 414,621 (TestL4
 // prints it), about 1/650 of the limit; each count costs at most one
-// comparison of two states' entries. At the limits the entries alone
-// take about 600 MB (about 72 bytes each); this is an estimate from the
-// type sizes, not a measurement.
+// comparison of two states' entries. The marking of fragile tokens counts
+// 750,424 (TestL5 prints it), about 1/1,400 of the limit. At the limits the
+// entries alone take about 600 MB (about 72 bytes each); this is an estimate
+// from the type sizes, not a measurement. The other passes of the lex stage
+// are linear in the parse states and their entries, or count their work
+// against the budgets of internal/lexbuild (the grouping of token sets, the
+// lex states, the rendering of lex states).
 package tablebuild
