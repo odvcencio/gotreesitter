@@ -1,0 +1,195 @@
+diff --git a/query_steps.go b/query_steps.go
+new file mode 100644
+index 000000000..defc997f6
+--- /dev/null
++++ b/query_steps.go
+@@ -0,0 +1,60 @@
++//go:build cgo
++
++package tree_sitter
++
++/*
++#include <stdint.h>
++#include <tree_sitter/api.h>
++uint32_t gts_query_table_size(const TSQuery *self, uint32_t table);
++uint32_t gts_query_table_row(const TSQuery *self, uint32_t table, uint32_t index, uint32_t *out);
++*/
++import "C"
++
++// QueryTable names one table of a compiled query that QueryTableRows reads.
++// The row layouts are documented beside gts_query_table_row in src/query.c.
++type QueryTable uint32
++
++// The tables of a compiled query, as query.c stores them.
++const (
++	QueryTableSteps         QueryTable = 0
++	QueryTablePatternMap    QueryTable = 1
++	QueryTablePatterns      QueryTable = 2
++	QueryTableStepOffsets   QueryTable = 3
++	QueryTableNegatedFields QueryTable = 4
++	QueryTableRepeatSymbols QueryTable = 5
++)
++
++// The flag bits in the last value of a step row.
++const (
++	QueryStepIsNamed                 = 1 << 0
++	QueryStepIsImmediate             = 1 << 1
++	QueryStepIsLastChild             = 1 << 2
++	QueryStepIsPassThrough           = 1 << 3
++	QueryStepIsDeadEnd               = 1 << 4
++	QueryStepIsInsideAlternation     = 1 << 5
++	QueryStepContainsCaptures        = 1 << 6
++	QueryStepRootPatternGuaranteed   = 1 << 7
++	QueryStepParentPatternGuaranteed = 1 << 8
++	QueryStepIsMissing               = 1 << 9
++	QueryStepAlternativeIsSkip       = 1 << 10
++)
++
++const queryTableRowWidth = 10
++
++// QueryTableRows returns every row of one table of the compiled query. Each
++// row holds the values that query.c stores, in the order that
++// gts_query_table_row writes them. It reads the query and changes nothing.
++func (q *Query) QueryTableRows(table QueryTable) [][]uint32 {
++	n := uint32(C.gts_query_table_size(q._inner, C.uint32_t(table)))
++	rows := make([][]uint32, 0, n)
++	var buf [queryTableRowWidth]C.uint32_t
++	for i := uint32(0); i < n; i++ {
++		width := uint32(C.gts_query_table_row(q._inner, C.uint32_t(table), C.uint32_t(i), &buf[0]))
++		row := make([]uint32, width)
++		for j := range row {
++			row[j] = uint32(buf[j])
++		}
++		rows = append(rows, row)
++	}
++	return rows
++}
+diff --git a/src/query.c b/src/query.c
+index 5f6e284d0..d930f38a0 100644
+--- a/src/query.c
++++ b/src/query.c
+@@ -4879,3 +4879,124 @@ void ts_query_cursor_set_max_start_depth(
+ }
+ 
+ #undef LOG
++
++/*
++ * Read-only access to a compiled query's tables, added by the harness patch
++ * query_steps.patch. A Go port of this file is compared with these tables
++ * record by record. Nothing below changes a query or a cursor.
++ *
++ * gts_query_table_size returns the number of rows in one table, and
++ * gts_query_table_row writes one row to `out` (at most GTS_QUERY_ROW_WIDTH
++ * values) and returns the number of values written, or 0 when the row does
++ * not exist. A row holds, in order:
++ *
++ * - steps: symbol, supertype_symbol, field, capture_ids[0..2], depth,
++ *   alternative_index, negated_field_list_id, and the flag bits below.
++ * - pattern map: step_index, pattern_index, is_rooted.
++ * - patterns: steps.offset, steps.length, start_byte, end_byte, is_non_local.
++ * - step offsets: byte_offset, step_index.
++ * - negated fields: one field id (lists end with 0; a step's
++ *   negated_field_list_id is the index of its list's first row).
++ * - repeat symbols: one symbol of repeat_symbols_with_rootless_patterns.
++ */
++#define GTS_QUERY_ROW_WIDTH 10
++
++enum {
++  GTS_QUERY_TABLE_STEPS = 0,
++  GTS_QUERY_TABLE_PATTERN_MAP = 1,
++  GTS_QUERY_TABLE_PATTERNS = 2,
++  GTS_QUERY_TABLE_STEP_OFFSETS = 3,
++  GTS_QUERY_TABLE_NEGATED_FIELDS = 4,
++  GTS_QUERY_TABLE_REPEAT_SYMBOLS = 5,
++};
++
++enum {
++  GTS_QUERY_STEP_IS_NAMED = 1u << 0,
++  GTS_QUERY_STEP_IS_IMMEDIATE = 1u << 1,
++  GTS_QUERY_STEP_IS_LAST_CHILD = 1u << 2,
++  GTS_QUERY_STEP_IS_PASS_THROUGH = 1u << 3,
++  GTS_QUERY_STEP_IS_DEAD_END = 1u << 4,
++  GTS_QUERY_STEP_IS_INSIDE_ALTERNATION = 1u << 5,
++  GTS_QUERY_STEP_CONTAINS_CAPTURES = 1u << 6,
++  GTS_QUERY_STEP_ROOT_PATTERN_GUARANTEED = 1u << 7,
++  GTS_QUERY_STEP_PARENT_PATTERN_GUARANTEED = 1u << 8,
++  GTS_QUERY_STEP_IS_MISSING = 1u << 9,
++  GTS_QUERY_STEP_ALTERNATIVE_IS_SKIP = 1u << 10,
++};
++
++uint32_t gts_query_table_size(const TSQuery *self, uint32_t table) {
++  switch (table) {
++    case GTS_QUERY_TABLE_STEPS: return self->steps.size;
++    case GTS_QUERY_TABLE_PATTERN_MAP: return self->pattern_map.size;
++    case GTS_QUERY_TABLE_PATTERNS: return self->patterns.size;
++    case GTS_QUERY_TABLE_STEP_OFFSETS: return self->step_offsets.size;
++    case GTS_QUERY_TABLE_NEGATED_FIELDS: return self->negated_fields.size;
++    case GTS_QUERY_TABLE_REPEAT_SYMBOLS: return self->repeat_symbols_with_rootless_patterns.size;
++    default: return 0;
++  }
++}
++
++uint32_t gts_query_table_row(
++  const TSQuery *self,
++  uint32_t table,
++  uint32_t index,
++  uint32_t *out
++) {
++  if (index >= gts_query_table_size(self, table)) return 0;
++  switch (table) {
++    case GTS_QUERY_TABLE_STEPS: {
++      const QueryStep *step = array_get(&self->steps, index);
++      uint32_t flags = 0;
++      if (step->is_named) flags |= GTS_QUERY_STEP_IS_NAMED;
++      if (step->is_immediate) flags |= GTS_QUERY_STEP_IS_IMMEDIATE;
++      if (step->is_last_child) flags |= GTS_QUERY_STEP_IS_LAST_CHILD;
++      if (step->is_pass_through) flags |= GTS_QUERY_STEP_IS_PASS_THROUGH;
++      if (step->is_dead_end) flags |= GTS_QUERY_STEP_IS_DEAD_END;
++      if (step->is_inside_alternation) flags |= GTS_QUERY_STEP_IS_INSIDE_ALTERNATION;
++      if (step->contains_captures) flags |= GTS_QUERY_STEP_CONTAINS_CAPTURES;
++      if (step->root_pattern_guaranteed) flags |= GTS_QUERY_STEP_ROOT_PATTERN_GUARANTEED;
++      if (step->parent_pattern_guaranteed) flags |= GTS_QUERY_STEP_PARENT_PATTERN_GUARANTEED;
++      if (step->is_missing) flags |= GTS_QUERY_STEP_IS_MISSING;
++      if (step->alternative_is_skip) flags |= GTS_QUERY_STEP_ALTERNATIVE_IS_SKIP;
++      out[0] = step->symbol;
++      out[1] = step->supertype_symbol;
++      out[2] = step->field;
++      for (unsigned i = 0; i < MAX_STEP_CAPTURE_COUNT; i++) out[3 + i] = step->capture_ids[i];
++      out[6] = step->depth;
++      out[7] = step->alternative_index;
++      out[8] = step->negated_field_list_id;
++      out[9] = flags;
++      return 10;
++    }
++    case GTS_QUERY_TABLE_PATTERN_MAP: {
++      const PatternEntry *entry = array_get(&self->pattern_map, index);
++      out[0] = entry->step_index;
++      out[1] = entry->pattern_index;
++      out[2] = entry->is_rooted;
++      return 3;
++    }
++    case GTS_QUERY_TABLE_PATTERNS: {
++      const QueryPattern *pattern = array_get(&self->patterns, index);
++      out[0] = pattern->steps.offset;
++      out[1] = pattern->steps.length;
++      out[2] = pattern->start_byte;
++      out[3] = pattern->end_byte;
++      out[4] = pattern->is_non_local;
++      return 5;
++    }
++    case GTS_QUERY_TABLE_STEP_OFFSETS: {
++      const StepOffset *offset = array_get(&self->step_offsets, index);
++      out[0] = offset->byte_offset;
++      out[1] = offset->step_index;
++      return 2;
++    }
++    case GTS_QUERY_TABLE_NEGATED_FIELDS:
++      out[0] = *array_get(&self->negated_fields, index);
++      return 1;
++    case GTS_QUERY_TABLE_REPEAT_SYMBOLS:
++      out[0] = *array_get(&self->repeat_symbols_with_rootless_patterns, index);
++      return 1;
++    default:
++      return 0;
++  }
++}
