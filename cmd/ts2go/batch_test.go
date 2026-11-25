@@ -98,6 +98,9 @@ func TestUpstreamGrammarPatchPaths(t *testing.T) {
 	if yaml := upstreamGrammarPatchPaths("yaml", dir); len(yaml) != 1 || yaml[0] != filepath.Join(dir, "patches", "tree-sitter-yaml-multiline-quoted-scalars.patch") {
 		t.Fatalf("yaml patch paths = %q", yaml)
 	}
+	if js := upstreamGrammarPatchPaths("javascript", dir); len(js) != 1 || js[0] != filepath.Join(dir, "patches", "tree-sitter-javascript-jsx-text-ampersand.patch") {
+		t.Fatalf("JavaScript patch paths = %q", js)
+	}
 	if got := upstreamGrammarPatchPaths("go", dir); len(got) != 0 {
 		t.Fatalf("go patch paths = %q, want empty", got)
 	}
