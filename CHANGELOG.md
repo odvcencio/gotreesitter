@@ -8,6 +8,7 @@ for tags and release notes while still in `0.x`.
 ## [Unreleased]
 
 - `QueryMatch.SetValues` now returns the values of the last `#set!` directive for a key when a pattern sets it more than once (it returned the first). This agrees with highlight priorities and with tree-sitter's JavaScript binding.
+- C now parses through `ccore` from the registry helpers too (`LangEntry.Parse`, `ParseContext`, `ParseStrict`, `grammars.ParseFile`, `ParseFilePooled`, the highlighter from `LangEntry.NewHighlighter`, and `ParseIncrementalWithTokenSource` with the registered factory), as it already did from `Parser.Parse`. These helpers attach a hand-written C token source, which kept them on the existing engine; the C certificate now lists the `table-v1` scan provider, so the core lexes with the grammar's own tables. Trees from these helpers can change where the existing engine differed from the C runtime, for example `void f() { x = ; y = 1 }`. A registry request that the core declines is now counted with its reason in the route counters.
 
 ## [0.58.0] - 2026-11-20
 
