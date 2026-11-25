@@ -340,14 +340,14 @@ def tsx_1689_approved_rows(fixtures, manifest_sha, base_revision, identities, fa
 # 20,000 bytes or more instead of 1,400 to 7,800, with one node built instead
 # of thousands. The exception is bound to the base commit and to the reviewed
 # head below.
-JAVA_1766_BASE = "b4a67bd616e0351d7e21e0bd7e0e4cbf44e9364a"
-JAVA_1766_REVIEWED = "273780a18cdcb3d34dc4e60a461733ff45646d99"
+JAVA_1766_BASE = "bb1dea7d64f5583c030fd437b8c6fac2bc3fc959"
+JAVA_1766_REVIEWED = "66d21e2c05038c3792f420674acb4aa7c1f29c57"
 JAVA_1766_EXCEPTION = "java-ccore-1766"
 JAVA_1766_FIXTURE = "9b9efbdd7e6c1dd5c505bf3dd9e93d4247948a95833eb6f7edf5bbe897f25140"
 JAVA_1766_MANIFEST = "110352e799c54aced0f169e3852d1f58d6ff7d33abf4412a4cc21842cdf7bd37"
 JAVA_1766_ORACLE = {
     "runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
-    "sources_manifest_sha256": "90c2db988b0437a870e820074bddf6e942ab76d204fbccd57c437b60f79d5b96",
+    "sources_manifest_sha256": "1e92cc72c49eddb75a66e6d78ca1d0811af5774f64c0019862919b45847b85de",
     "grammar_repo": "https://github.com/tree-sitter/tree-sitter-java",
     "grammar_commit": "e10607b45ff745f5f876bfa3e94fbcc6b44bdc11",
     "grammar_patch_identity": "none"
