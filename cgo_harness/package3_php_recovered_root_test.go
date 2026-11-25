@@ -77,9 +77,16 @@ func TestPackage3PHPRecoveredRootLockedC(t *testing.T) {
 	if diff := FirstDivergenceDumpV1(productionTree.RootNode(), baseLanguage, cRoot); diff != nil {
 		t.Fatalf("production PHP differs from locked C: %+v", *diff)
 	}
+	// The certified core serves the default route; its certificate promises
+	// pinned C's tree, so the deep digest equals C's as well.
+	if inspection, err := benchfixtures.InspectGoTree(productionTree.RootNode(), baseLanguage); err != nil || inspection.SHA256 != wantDigest {
+		t.Fatalf("production PHP digest=%s error=%v, want %s", inspection.SHA256, err, wantDigest)
+	}
 
-	// Arm this package's capabilities on a private language copy. The
-	// production profile stays unchanged until broader PHP certification.
+	// Arm this package's capabilities on a private language copy, and test
+	// the compact candidate with them. The copy keeps PHP's certified blob, so
+	// certification telemetry keeps the request off the core while the compact
+	// candidate stays eligible.
 	language := *baseLanguage
 	language.CompactStrategy2ErrorRegionCertified = true
 	language.CompactMissingTokenInsertionCertified = true
@@ -93,6 +100,7 @@ func TestPackage3PHPRecoveredRootLockedC(t *testing.T) {
 	gotreesitter.ResetAdmissionCandidateCounters()
 	parser := gotreesitter.NewParser(&language)
 	parser.SetAdmissionCandidateRoute(true)
+	parser.SetCompactCertificationTelemetry(true)
 	tree, err := parser.Parse([]byte(source))
 	if err != nil {
 		t.Fatal(err)
