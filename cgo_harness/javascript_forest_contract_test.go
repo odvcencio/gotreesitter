@@ -76,9 +76,12 @@ func TestJavaScriptForestContract(t *testing.T) {
 		source, _ := ccoreRouteSource(t, "javascript")
 		chain := gradChain(source)
 		step := chain[1]
-		original, err := gts.NewParser(lang).Parse(source)
-		if err != nil || original == nil || !original.UsedForestFastPath() {
-			t.Fatal("failed native default forest input")
+		// The default fresh parse runs on the ordinary core when the certificate
+		// carries the Forest and Incr modes; the explicit entry point keeps the
+		// forest election whose transfer this subtest checks.
+		original, ok := gts.NewParser(lang).ParseForestExperimental(source)
+		if !ok || original == nil || !original.UsedForestFastPath() {
+			t.Fatal("failed native explicit forest input")
 		}
 		copied := original.Copy()
 		original.Release()

@@ -394,6 +394,80 @@ def java_1766_approved_rows(fixtures, manifest_sha, base_revision, identities, f
     return approved
 
 
+# These rows were accepted on PR #1770's locked JavaScript fixture under the
+# project's rule for counter rows. Each row equals pinned C's count on the same
+# edit history.
+JAVASCRIPT_1770_BASE = "aa4e07b2d9df5bd2edfcdc4d325ab06d117fe3bd"
+JAVASCRIPT_1770_REVIEWED = "504e43c32a1e09908acbdb5351161d33dc04531c"
+JAVASCRIPT_1770_EXCEPTION = "javascript-ccore-1770"
+JAVASCRIPT_1770_FIXTURE = "c3ba587240b9a3bf529bf9f5b084dd8d210bb90e9627eaddc75d09bb36957ce9"
+JAVASCRIPT_1770_MANIFEST = "110352e799c54aced0f169e3852d1f58d6ff7d33abf4412a4cc21842cdf7bd37"
+JAVASCRIPT_1770_ORACLE = {
+    "runtime_commit": "10eb5ac119eec9cb4267a8e035066473983f5f3a",
+    "sources_manifest_sha256": "1e92cc72c49eddb75a66e6d78ca1d0811af5774f64c0019862919b45847b85de",
+    "grammar_repo": "https://github.com/tree-sitter/tree-sitter-javascript",
+    "grammar_commit": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
+    "grammar_patch_identity": "none",
+}
+JAVASCRIPT_1770_ROWS = frozenset((
+    ('one_byte', 0, 'tokens', 184, 273),
+    ('one_byte', 1, 'tokens', 184, 282),
+    ('hundred_byte', 0, 'tokens', 212, 283),
+    ('hundred_byte', 1, 'tokens', 211, 280),
+    ('typing', 0, 'tokens', 178, 287),
+    ('typing', 1, 'tokens', 178, 282),
+    ('typing', 2, 'tokens', 178, 248),
+    ('typing', 3, 'tokens', 178, 278),
+    ('typing', 4, 'tokens', 178, 248),
+    ('typing', 5, 'tokens', 178, 245),
+    ('typing', 6, 'tokens', 178, 230),
+    ('typing', 7, 'tokens', 178, 257),
+    ('typing', 8, 'tokens', 178, 237),
+    ('typing', 9, 'tokens', 178, 237),
+    ('typing', 10, 'tokens', 178, 227),
+    ('typing', 11, 'tokens', 178, 236),
+    ('typing', 12, 'tokens', 178, 226),
+    ('typing', 13, 'tokens', 178, 225),
+    ('typing', 14, 'tokens', 178, 220),
+    ('typing', 15, 'tokens', 178, 264),
+    ('typing', 16, 'tokens', 178, 244),
+))
+JAVASCRIPT_1770_SUCCESSOR_PATHS = frozenset((
+    ".github/workflows/ci.yml",
+    "scripts/editor_latency_gate.py",
+    "scripts/test_editor_latency_gate.py",
+))
+
+
+def validate_javascript_1770_exception(root, base_revision, head_revision):
+    require(base_revision == JAVASCRIPT_1770_BASE, "W5 JavaScript exception base mismatch")
+    require(git(root, "rev-parse", "HEAD") == head_revision, "W5 JavaScript exception checkout mismatch")
+    require(not subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--ignored"]),
+            "W5 JavaScript exception requires a clean checkout")
+    subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", JAVASCRIPT_1770_REVIEWED, head_revision], check=True)
+    diff = subprocess.check_output(["git", "-C", str(root), "diff", "--no-renames", "--name-only", "-z", JAVASCRIPT_1770_REVIEWED, head_revision])
+    require((set(diff.decode().split("\0")) - {""}) <= JAVASCRIPT_1770_SUCCESSOR_PATHS, "W5 JavaScript exception production inputs changed")
+    return JAVASCRIPT_1770_EXCEPTION
+
+
+def javascript_1770_approved_rows(fixtures, manifest_sha, base_revision, identities, failures):
+    require(base_revision == JAVASCRIPT_1770_BASE and manifest_sha == JAVASCRIPT_1770_MANIFEST and
+            len(fixtures) == 1 and fixtures[0]["language"] == "javascript" and fixtures[0]["sha256"] == JAVASCRIPT_1770_FIXTURE,
+            "W5 JavaScript exception fixture or base mismatch")
+    require(len(identities) == 1 and identities[0]["language"] == "javascript" and
+            all(identities[0][role].get(key) == value for role in ("base_oracle", "oracle")
+                for key, value in JAVASCRIPT_1770_ORACLE.items()), "W5 JavaScript exception oracle mismatch")
+    approved = []
+    observed = set()
+    for row in failures:
+        key = (row["workload"], row["step"], row["counter"], row["before"], row["after"])
+        if row["language"] == "javascript" and key in JAVASCRIPT_1770_ROWS:
+            approved.append(row)
+            observed.add(key)
+    require(observed == JAVASCRIPT_1770_ROWS and len(approved) == len(JAVASCRIPT_1770_ROWS), "W5 JavaScript approved rows changed")
+    return approved
+
+
 def validate_b7_undo_exception(root, base_revision, head_revision, decision_path):
     require(GO_1512_B7_OWNER_APPROVED, "W5 b7 exception has no owner approval")
     require(base_revision == GO_1512_B7_BASE, "W5 b7 exception base mismatch")
@@ -649,10 +723,12 @@ def compare_counters(out, manifest_path, base_revision, head_revision, exception
                             applied.append({"name":exception, "row":row})
                         else:
                             failures.append(row)
-    if exception in (PYTHON_1670_EXCEPTION, TYPESCRIPT_1675_EXCEPTION, TSX_1689_EXCEPTION, JAVA_1766_EXCEPTION):
+    if exception in (PYTHON_1670_EXCEPTION, TYPESCRIPT_1675_EXCEPTION, TSX_1689_EXCEPTION, JAVA_1766_EXCEPTION,
+                     JAVASCRIPT_1770_EXCEPTION):
         rows_for = {PYTHON_1670_EXCEPTION: python_1670_approved_rows, TYPESCRIPT_1675_EXCEPTION: typescript_1675_approved_rows,
                     TSX_1689_EXCEPTION: tsx_1689_approved_rows,
-                    JAVA_1766_EXCEPTION: java_1766_approved_rows}[exception]
+                    JAVA_1766_EXCEPTION: java_1766_approved_rows,
+                    JAVASCRIPT_1770_EXCEPTION: javascript_1770_approved_rows}[exception]
         approved = rows_for(fixtures, manifest_sha, base_revision, identities, failures)
         applied.extend({"name": exception, "row": row} for row in approved)
         failures = [row for row in failures if row not in approved]
@@ -1083,7 +1159,8 @@ def verify_private_oracle(directory, inputs, expected):
 
 
 def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receipt=None, languages=None, approved_python_1670=False,
-             approved_typescript_1675=False, approved_tsx_1689=False, approved_java_1766=False):
+             approved_typescript_1675=False, approved_tsx_1689=False, approved_java_1766=False,
+             approved_javascript_1770=False):
     root = root.resolve(); out = out.resolve()
     selected_fixtures(fixture_manifest(root / "cgo_harness/editor_latency/fixtures.json"), languages)  # reject unknown names before any work
     private_setting = os.environ.get("GTS_W5_PRIVATE_C_CACHE", "")
@@ -1094,7 +1171,8 @@ def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receip
     head_revision = git(root, "rev-parse", "HEAD")
     base_revision = git(root, "rev-parse", base_revision + "^{commit}")
     clean_revision(root, head_revision)
-    require(sum(bool(choice) for choice in (approved_receipt, approved_b7_receipt, approved_python_1670, approved_typescript_1675, approved_tsx_1689, approved_java_1766)) <= 1,
+    require(sum(bool(choice) for choice in (approved_receipt, approved_b7_receipt, approved_python_1670, approved_typescript_1675, approved_tsx_1689, approved_java_1766,
+                                            approved_javascript_1770)) <= 1,
             "multiple W5 exceptions are forbidden")
     if languages is not None and "go" not in languages:
         # The owner-approved Go exceptions belong to the Go run; this run neither needs nor uses them.
@@ -1113,6 +1191,9 @@ def campaign(root, base_revision, out, approved_receipt=None, approved_b7_receip
     if approved_java_1766:
         require(tuple(languages or ()) == ("java",), "W5 Java exception requires the Java-only run")
         exception = validate_java_1766_exception(root, base_revision, head_revision)
+    if approved_javascript_1770:
+        require(tuple(languages or ()) == ("javascript",), "W5 JavaScript exception requires the JavaScript-only run")
+        exception = validate_javascript_1770_exception(root, base_revision, head_revision)
     powershell_approval = select_powershell_approval(root, base_revision, head_revision) if private_setting and (languages is None or "powershell" in languages) else None
     check_work_exemptions_history(root, base_revision)
     require(not out.exists(), "campaign output already exists; do not overwrite receipts")
@@ -1284,6 +1365,7 @@ def main():
     run.add_argument("--approved-typescript-ccore-1675", action="store_true")
     run.add_argument("--approved-tsx-ccore-1689", action="store_true")
     run.add_argument("--approved-java-ccore-1766", action="store_true")
+    run.add_argument("--approved-javascript-ccore-1770", action="store_true")
     run.add_argument("--languages", help="comma-separated languages to run, in manifest order; default is all")
     compare = sub.add_parser("compare")
     compare.add_argument("--output", type=Path, required=True)
@@ -1301,7 +1383,8 @@ def main():
                          approved_python_1670=args.approved_python_ccore_1670,
                          approved_typescript_1675=args.approved_typescript_ccore_1675,
                          approved_tsx_1689=args.approved_tsx_ccore_1689,
-                         approved_java_1766=args.approved_java_ccore_1766)
+                         approved_java_1766=args.approved_java_ccore_1766,
+                         approved_javascript_1770=args.approved_javascript_ccore_1770)
         else:
             result = compare_timing(args.output, args.manifest, args.base, args.head, languages=languages)
             require(result["status"] == "passed", "one or more edit cells regressed by more than 5%")

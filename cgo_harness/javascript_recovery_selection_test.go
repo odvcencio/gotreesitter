@@ -32,6 +32,10 @@ func TestJavaScriptClosingParenRecoveryDeclinesLossyClosure(t *testing.T) {
 	source := []byte("const f = (a) => a + 1)&\nclass A { m() { return 1 } }\n\n")
 	parser := gts.NewParser(grammars.JavascriptLanguage())
 	parser.SetAdmissionCandidateRoute(true)
+	// The certified core serves JavaScript by default. This test is about the
+	// compact candidate's recovery decision, so certification telemetry keeps
+	// the request off the core while the compact candidate stays eligible.
+	parser.SetCompactCertificationTelemetry(true)
 	routedBefore, fallbackBefore := gts.AdmissionCandidateCounters()
 	tree, err := parser.Parse(source)
 	if err != nil || tree == nil {
@@ -49,6 +53,9 @@ func requireJavaScriptRecoverySelectionLockedC(t *testing.T, source []byte) {
 	language := grammars.JavascriptLanguage()
 	parser := gts.NewParser(language)
 	parser.SetAdmissionCandidateRoute(true)
+	// Keep the request on the compact candidate rather than the certified core,
+	// so this checks the compact candidate's recovery selection against C.
+	parser.SetCompactCertificationTelemetry(true)
 	routedBefore, fallbackBefore := gts.AdmissionCandidateCounters()
 	tree, err := parser.Parse(source)
 	if err != nil || tree == nil {

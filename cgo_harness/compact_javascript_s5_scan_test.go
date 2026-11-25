@@ -24,10 +24,15 @@ func TestCompactJavaScriptS5RecoveryMutationDifferential(t *testing.T) {
 	}
 	s3OnlyLanguage := *goLanguage
 	s3OnlyLanguage.CompactMissingTokenInsertionCertified = false
+	// The certified core serves JavaScript by default. This test measures the
+	// compact candidate's recovery coverage, so certification telemetry keeps
+	// both requests off the core while the compact candidate stays eligible.
 	fullParser := gotreesitter.NewParser(goLanguage)
 	fullParser.SetAdmissionCandidateRoute(true)
+	fullParser.SetCompactCertificationTelemetry(true)
 	s3OnlyParser := gotreesitter.NewParser(&s3OnlyLanguage)
 	s3OnlyParser.SetAdmissionCandidateRoute(true)
+	s3OnlyParser.SetCompactCertificationTelemetry(true)
 
 	parseRoute := func(parser *gotreesitter.Parser, source []byte) (*gotreesitter.Tree, bool) {
 		t.Helper()

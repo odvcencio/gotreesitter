@@ -31,6 +31,10 @@ func TestCompactJavaScriptRecoveryIncrementalReuse(t *testing.T) {
 	gts.ResetAdmissionCandidateCounters()
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
+	// The certified core serves JavaScript by default. This test is about the
+	// compact candidate's recovery tree, so certification telemetry keeps the
+	// request off the core while the compact candidate stays eligible.
+	parser.SetCompactCertificationTelemetry(true)
 	oldTree, err := parser.Parse(source)
 	if err != nil {
 		t.Fatalf("compact JavaScript parse: %v", err)
@@ -118,6 +122,8 @@ func TestCompactJavaScriptRecoveryIncrementalReuse(t *testing.T) {
 
 	freshParser := gts.NewParser(lang)
 	freshParser.SetAdmissionCandidateRoute(false)
+	// Its later candidate parse is the compact candidate's too.
+	freshParser.SetCompactCertificationTelemetry(true)
 	fresh, err := freshParser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh JavaScript production parse: %v", err)

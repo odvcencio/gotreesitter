@@ -105,7 +105,7 @@ var capabilities = [...]Capability{
 	{WorkLimits, "work_limits", false, "E-D4",
 		"Explicit ParseWorkLimits. Compact keeps separate work counters and must not spend work before a legacy limit trips."},
 	{ForestRoute, "forest_route", false, "E-D6",
-		"A language that defaults to the GSS-forest route, unless its parser forces the compact route, and ParseForestExperimental. The forest engine serves these requests."},
+		"A language that defaults to the GSS-forest route, unless its parser forces the compact route, and ParseForestExperimental. The forest engine serves these requests. The C-faithful core serves one scoped case: a built-in DFA request whose only open mode is this one, on a blob whose certificate carries both the Forest and the Incr modes. The core then serves the default fresh parse and its reparses; ParseForestExperimental stays on the forest engine."},
 	{Measurement, "measurement", false, "D-A3",
 		"The benchmark-only modes: no tree, no tree with external checkpoints, and no result compatibility. They measure legacy internals."},
 	{ScannerStateReuse, "scanner_state_reuse", false, "E-E1",
