@@ -18,6 +18,9 @@ type blobReproducibilityCase struct {
 	name     string
 	blobPath string
 	lrSplit  bool
+	// recipe, when set, names the cmd/grammargen builtin grammar that
+	// produces the shipped blob, when that name differs from name.
+	recipe string
 	// jsonPath, when set, builds the grammar by importing a resolved
 	// tree-sitter grammar.json from this path (relative to this package)
 	// instead of calling a cmd/grammargen builtin grammar function.
@@ -70,9 +73,13 @@ var blobReproducibilityCases = []blobReproducibilityCase{
 		lrSplit:  false,
 	},
 	{
+		// yaml.bin is the yaml-core recipe: the authored DSL with the
+		// settings that reproduce pinned tree-sitter-yaml's external
+		// scanner rows and production metadata (YAMLCoreGrammar).
 		name:     "yaml",
 		blobPath: "../grammars/grammar_blobs/yaml.bin",
 		lrSplit:  false,
+		recipe:   "yaml-core",
 	},
 }
 
@@ -158,9 +165,13 @@ func buildReproducibilityGrammar(tc blobReproducibilityCase) (*Grammar, string, 
 		grammar.EnableLRSplitting = tc.lrSplit
 		return grammar, fmt.Sprintf("go run ./cmd/grammargen -json grammargen/%s -bin %s", tc.jsonPath, tc.blobPath), nil
 	}
-	fn, ok := builtinGrammarByName(tc.name)
+	recipe := tc.name
+	if tc.recipe != "" {
+		recipe = tc.recipe
+	}
+	fn, ok := builtinGrammarByName(recipe)
 	if !ok {
-		return nil, "", fmt.Errorf("grammar %q has no cmd/grammargen builtin entry and no jsonPath; add one or add a skip reason", tc.name)
+		return nil, "", fmt.Errorf("grammar %q has no cmd/grammargen builtin entry and no jsonPath; add one or add a skip reason", recipe)
 	}
 	grammar := fn()
 	grammar.EnableLRSplitting = tc.lrSplit
@@ -168,7 +179,7 @@ func buildReproducibilityGrammar(tc blobReproducibilityCase) (*Grammar, string, 
 	if tc.lrSplit {
 		lrSplitFlag = "-lr-split "
 	}
-	return grammar, fmt.Sprintf("go run ./cmd/grammargen %s-bin %s %s", lrSplitFlag, tc.blobPath, tc.name), nil
+	return grammar, fmt.Sprintf("go run ./cmd/grammargen %s-bin %s %s", lrSplitFlag, tc.blobPath, recipe), nil
 }
 
 // builtinGrammarByName exposes the subset of cmd/grammargen's builtin
@@ -183,6 +194,8 @@ func builtinGrammarByName(name string) (func() *Grammar, bool) {
 		return SwiftGrammar, true
 	case "yaml":
 		return YAMLGrammar, true
+	case "yaml-core":
+		return YAMLCoreGrammar, true
 	default:
 		return nil, false
 	}

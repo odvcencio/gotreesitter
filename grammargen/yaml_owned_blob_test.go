@@ -63,13 +63,20 @@ func TestYAMLOwnedGrammarGeneratesCompactBlob(t *testing.T) {
 	// byte-for-byte from a freshly regenerated blob even when every decoded
 	// field is identical. See TestGrammargenOwnedBlobsAreReproducible's
 	// doc comment in blob_reproducibility_test.go for the confirmed repro.
+	//
+	// The shipped blob is the yaml-core recipe (YAMLCoreGrammar), which
+	// adds the pinned-C scanner-row and metadata settings to the same DSL.
 	shippedBytes, err := os.ReadFile(filepath.Join("..", "grammars", "grammar_blobs", "yaml.bin"))
 	if err != nil {
 		t.Fatalf("read shipped YAML blob: %v", err)
 	}
-	gotLang, err := decodeLanguageBlob(blob)
+	coreBlob, err := Generate(YAMLCoreGrammar())
 	if err != nil {
-		t.Fatalf("decode regenerated YAML blob: %v", err)
+		t.Fatalf("generate yaml-core grammar: %v", err)
+	}
+	gotLang, err := decodeLanguageBlob(coreBlob)
+	if err != nil {
+		t.Fatalf("decode regenerated yaml-core blob: %v", err)
 	}
 	// shippedBytes predates the hardening/fuzz-blob-safety version header;
 	// decodeLanguageBlob passes a headerless blob through its version-header
@@ -80,6 +87,6 @@ func TestYAMLOwnedGrammarGeneratesCompactBlob(t *testing.T) {
 		t.Fatalf("decode shipped YAML blob: %v", err)
 	}
 	if !reflect.DeepEqual(gotLang, wantLang) {
-		t.Fatal("shipped YAML blob does not match the compact generated blob (decoded Language differs)")
+		t.Fatal("shipped YAML blob does not match the yaml-core generated blob (decoded Language differs)")
 	}
 }

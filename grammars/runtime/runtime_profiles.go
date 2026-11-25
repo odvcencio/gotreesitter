@@ -147,37 +147,6 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			{internalName: "_interpreted_string_literal_token1", publicName: "interpreted_string_literal_content"},
 		},
 	},
-	// YAML's irreducible flow opener has one direct no-action EOF lineage whose
-	// C result is the recover_eof ERROR root. Keep this gate independent from
-	// S3, S4, and S5.
-	"yaml": {
-		blobSHA256: mustRuntimeProfileSHA256("9ac37a326be7a4f4297efa6e43ba00317c5959e7b4909c9262043d408f284b30"),
-		compactRecoverEOFArtifact: gotreesitter.CompactRecoverEOFArtifactReceipt{
-			BlobSHA256:        mustRuntimeProfileSHA256("9ac37a326be7a4f4297efa6e43ba00317c5959e7b4909c9262043d408f284b30"),
-			TerminalSymbol:    26,
-			EOFState:          189,
-			EOFByteOffset:     1,
-			Passes:            2,
-			Elections:         2,
-			ActionLookups:     2,
-			Dispatches:        1,
-			OrdinaryShifts:    1,
-			OrdinaryCohorts:   0,
-			ExtraShifts:       0,
-			ExtraCohorts:      0,
-			Reductions:        0,
-			Conflicts:         0,
-			ConflictActions:   0,
-			Forks:             0,
-			RepetitionFolds:   0,
-			RecoveryWork:      0,
-			NoActionDrops:     0,
-			ReductionPauses:   0,
-			Accepts:           0,
-			Canonicalizations: 1,
-			PeakHeaders:       1,
-		},
-	},
 	// Re-certified 2026-09-20 against grammars/grammar_blobs/erlang.bin
 	// SHA-256 aa63243bd946d324bfb335d84c162cbaf8cc9922feef71de17296a18186ecedf
 	// (WhatsApp/tree-sitter-erlang bump to 6ba4c762eb30). Both grants were

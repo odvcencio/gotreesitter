@@ -124,6 +124,9 @@ func TestYAMLEOFRecoverWrapUnfinishedMappingDeclinesCompact(t *testing.T) {
 	goLanguage := grammars.YamlLanguage()
 	goParser := gotreesitter.NewParser(goLanguage)
 	goParser.SetAdmissionCandidateRoute(true)
+	// The certified core serves YAML on the candidate route; the telemetry keeps
+	// this request on the compact route, whose decline this test pins.
+	goParser.SetCompactCertificationTelemetry(true)
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	goTree, err := goParser.Parse(source)
 	if err != nil {

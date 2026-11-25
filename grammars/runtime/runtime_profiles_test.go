@@ -77,54 +77,25 @@ func TestHTMLProfileCertifiesCompleteCompactRecovery(t *testing.T) {
 	}
 }
 
-func TestYAMLProfileCertifiesOnlyExactRecoverEOFArtifact(t *testing.T) {
+// TestYAMLArtifactHasNoCompactRecoverEOFGrant: the compact recover_eof grant was
+// bound to the earlier YAML tables (SHA-256 9ac37a32...). The shipped yaml.bin is
+// the yaml-core recipe, whose EOF lineage for "[\n" does not reach the compact
+// boundary that receipt described, so no profile attaches to it and the compact
+// route keeps no YAML recovery grant.
+func TestYAMLArtifactHasNoCompactRecoverEOFGrant(t *testing.T) {
 	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
 	lang := YamlLanguage()
-	if !lang.CompactRecoverEOFCertified {
-		t.Fatal("the YAML profile did not attach recover_eof certification")
-	}
-	wantArtifact := gotreesitter.CompactRecoverEOFArtifactReceipt{
-		BlobSHA256:        mustRuntimeProfileSHA256("9ac37a326be7a4f4297efa6e43ba00317c5959e7b4909c9262043d408f284b30"),
-		TerminalSymbol:    26,
-		EOFState:          189,
-		EOFByteOffset:     1,
-		Passes:            2,
-		Elections:         2,
-		ActionLookups:     2,
-		Dispatches:        1,
-		OrdinaryShifts:    1,
-		OrdinaryCohorts:   0,
-		ExtraShifts:       0,
-		ExtraCohorts:      0,
-		Reductions:        0,
-		Conflicts:         0,
-		ConflictActions:   0,
-		Forks:             0,
-		RepetitionFolds:   0,
-		RecoveryWork:      0,
-		NoActionDrops:     0,
-		ReductionPauses:   0,
-		Accepts:           0,
-		Canonicalizations: 1,
-		PeakHeaders:       1,
-	}
-	if lang.CompactRecoverEOFArtifactReceipt != wantArtifact {
-		t.Fatalf("YAML recover_eof artifact receipt=%+v, want %+v", lang.CompactRecoverEOFArtifactReceipt, wantArtifact)
+	if lang.CompactRecoverEOFCertified || lang.CompactRecoverEOFArtifactReceipt != (gotreesitter.CompactRecoverEOFArtifactReceipt{}) {
+		t.Fatalf("the shipped YAML artifact carries a compact recover_eof grant: %+v", lang.CompactRecoverEOFArtifactReceipt)
 	}
 	if lang.CompactStrategy2ErrorRegionCertified || lang.CompactStackSummaryRecoveryCertified ||
 		lang.CompactMissingTokenInsertionCertified {
-		t.Fatal("the YAML recover_eof profile enabled another recovery mechanism")
+		t.Fatal("the shipped YAML artifact carries a compact recovery grant")
 	}
-	stale := &gotreesitter.Language{}
-	if attachBuiltinLanguageRuntimeProfile("yaml", sha256.Sum256([]byte("stale yaml blob")), stale) ||
-		stale.CompactRecoverEOFCertified {
-		t.Fatal("a stale YAML blob received recover_eof certification")
-	}
-	exact := &gotreesitter.Language{}
 	blob := BlobByName("yaml")
-	if len(blob) == 0 || !attachBuiltinLanguageRuntimeProfile("yaml", sha256.Sum256(blob), exact) ||
-		!exact.CompactRecoverEOFCertified || exact.CompactRecoverEOFArtifactReceipt != wantArtifact {
-		t.Fatal("the exact YAML blob did not receive recover_eof certification")
+	exact := &gotreesitter.Language{}
+	if len(blob) == 0 || attachBuiltinLanguageRuntimeProfile("yaml", sha256.Sum256(blob), exact) || exact.CompactRecoverEOFCertified {
+		t.Fatal("a runtime profile attached to the shipped YAML blob")
 	}
 }
 
@@ -270,7 +241,9 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// The locked fresh set improves from 3/4 to 4/4 without counter changes.
 	// 60 adds TSX's exact-blob conflict-action priority grant (#1443),
 	// without enabling its broader packed-reduction transaction ordering.
-	if got, want := len(builtinLanguageRuntimeProfiles), 60; got != want {
+	// 59 removes the YAML recover_eof entry: it was bound to the earlier YAML
+	// tables, and the shipped yaml-core blob never matched it.
+	if got, want := len(builtinLanguageRuntimeProfiles), 59; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}

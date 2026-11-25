@@ -115,22 +115,25 @@ func yamlTreeContainsType(n *gotreesitter.Node, lang *gotreesitter.Language, typ
 // silently discard the colon, open collection, or subsequent fields.
 func TestYAMLIncompleteMappingKeepsRecoveredTokens(t *testing.T) {
 	lang := grammars.YamlLanguage()
+	// end is pinned C's root end. C's root for "name: [\n" stops before the
+	// trailing newline; the parse then reports the accepted prefix.
 	for _, tc := range []struct {
 		source string
 		leaves []string
+		end    int
 	}{
-		{"server: {ho", []string{"server", ":", "{", "ho"}},
-		{"regions: [east, we", []string{"regions", ":", "[", "east", ",", "we"}},
-		{"server: {tls: tr", []string{"server", ":", "{", "tls", "tr"}},
-		{"mode: \"pr", []string{"mode", ":", "\""}},
-		{"servers:\n- host: localhost\n- {ho", []string{"servers", ":", "-", "host", "localhost", "{", "ho"}},
-		{"enabled: true\r\nser", []string{"enabled", ":", "true", "ser"}},
-		{"name: [\n", []string{"name", ":", "["}},
-		{"enabled: true\nserver: [", []string{"enabled", ":", "true", "server", "["}},
-		{"- one\n- [", []string{"-", "one", "["}},
+		{"server: {ho", []string{"server", ":", "{", "ho"}, 11},
+		{"regions: [east, we", []string{"regions", ":", "[", "east", ",", "we"}, 18},
+		{"server: {tls: tr", []string{"server", ":", "{", "tls", "tr"}, 16},
+		{"mode: \"pr", []string{"mode", ":", "\""}, 9},
+		{"servers:\n- host: localhost\n- {ho", []string{"servers", ":", "-", "host", "localhost", "{", "ho"}, 32},
+		{"enabled: true\r\nser", []string{"enabled", ":", "true", "ser"}, 18},
+		{"name: [\n", []string{"name", ":", "["}, 7},
+		{"enabled: true\nserver: [", []string{"enabled", ":", "true", "server", "["}, 23},
+		{"- one\n- [", []string{"-", "one", "["}, 9},
 	} {
 		t.Run(tc.source, func(t *testing.T) {
-			tree, err := gotreesitter.NewParser(lang).ParseStrict([]byte(tc.source))
+			tree, err := gotreesitter.NewParser(lang).Parse([]byte(tc.source))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -139,8 +142,12 @@ func TestYAMLIncompleteMappingKeepsRecoveredTokens(t *testing.T) {
 			if !root.HasError() || !yamlTreeContainsType(root, lang, "ERROR") {
 				t.Fatalf("incomplete YAML lost its error: %s", root.SExpr(lang))
 			}
-			if root.StartByte() != 0 || int(root.EndByte()) != len(tc.source) {
-				t.Fatalf("root spans [%d,%d), want [0,%d)", root.StartByte(), root.EndByte(), len(tc.source))
+			if root.StartByte() != 0 || int(root.EndByte()) != tc.end {
+				t.Fatalf("root spans [%d,%d), want pinned C's [0,%d)", root.StartByte(), root.EndByte(), tc.end)
+			}
+			if stopped := tree.ParseStoppedEarly(); stopped != (tc.end < len(tc.source)) ||
+				(stopped && tree.ParseRuntime().StopReason != gotreesitter.ParseStopAcceptedPrefix) {
+				t.Fatalf("stopped early=%t (%s), want the accepted prefix only when C's root ends before the input", stopped, tree.ParseRuntime().Summary())
 			}
 			leaves := make(map[string]bool)
 			var visit func(*gotreesitter.Node)
@@ -265,6 +272,12 @@ func TestYAMLResultCompatibilityKeepsSyntaxErrors(t *testing.T) {
 func TestYAMLResultCompatibilityKeepsLexicalErrorBoundary(t *testing.T) {
 	lang := grammars.YamlLanguage()
 	const unclosedFlowQuote = "a: [1, 2\nb: \"oops\n"
+	// rootEnd is pinned C's root end for each input. C's root stops at the
+	// lexical error boundary, before the end of the input, and the parse reports
+	// the accepted prefix.
+	rootEnd := map[string]uint32{
+		"root: a\\\nb\\\nc\"\n": 13, "a: 1\nb\nc: 2\"": 11, "\n,": 0, "\n]": 0, "\"\n": 1, unclosedFlowQuote: 12,
+	}
 	for _, source := range []string{"root: a\\\nb\\\nc\"\n", "a: 1\nb\nc: 2\"", "\n,", "\n]", "\"\n", unclosedFlowQuote} {
 		t.Run(source, func(t *testing.T) {
 			tree, err := gotreesitter.NewParser(lang).Parse([]byte(source))
@@ -291,8 +304,11 @@ func TestYAMLResultCompatibilityKeepsLexicalErrorBoundary(t *testing.T) {
 			if source == unclosedFlowQuote && (first.StartByte() != 0 || yamlTreeContainsType(tree.RootNode(), lang, "block_mapping_pair")) {
 				t.Fatalf("lexical failure published a clean mapping prefix: %s", tree.RootNode().SExpr(lang))
 			}
-			if tree.ParseStoppedEarly() || tree.RootNode().EndByte() != uint32(len(source)) {
-				t.Fatalf("error root does not cover input: %s", tree.ParseRuntime().Summary())
+			if tree.RootNode().EndByte() != rootEnd[source] {
+				t.Fatalf("error root ends at %d, want pinned C's %d: %s", tree.RootNode().EndByte(), rootEnd[source], tree.ParseRuntime().Summary())
+			}
+			if !tree.ParseStoppedEarly() || tree.ParseRuntime().StopReason != gotreesitter.ParseStopAcceptedPrefix {
+				t.Fatalf("the gap after C's root is not reported as the accepted prefix: %s", tree.ParseRuntime().Summary())
 			}
 		})
 	}

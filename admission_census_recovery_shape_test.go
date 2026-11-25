@@ -52,8 +52,9 @@ type admissionCensusRecoveryShapeWitness struct {
 	source   string
 	// mechanism is the c-mechanism value the census must report.
 	mechanism string
-	// admitted marks the first live recover_eof witness. It now serves through
-	// the certified compact route, so it has no decline classification.
+	// admitted marks a witness that serves through the certified compact
+	// route, so it has no decline classification. No witness is admitted
+	// while no shipped artifact carries a compact recover_eof grant.
 	admitted bool
 	// candidates, when non-zero, additionally pins the reported
 	// missing-token candidate population. It is asserted only where the
@@ -90,7 +91,12 @@ func admissionCensusRecoveryShapeWitnesses() []admissionCensusRecoveryShapeWitne
 		// C ts_parser__recover recover_eof: the elected token is
 		// authenticated end-of-file and no earlier mechanism applies, so C
 		// wraps the remaining stack in one ERROR root.
-		{language: "yaml", source: "[\n", mechanism: "recover-eof-wrap", admitted: true},
+		//
+		// No shipped artifact carries a compact recover_eof grant now: the
+		// yaml-core tables replaced the one blob it was bound to, so the
+		// compact route declines this source and the census classifies the
+		// decline. The default route serves it through the certified core.
+		{language: "yaml", source: "[\n", mechanism: "recover-eof-wrap"},
 	}
 }
 
