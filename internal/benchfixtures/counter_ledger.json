@@ -1065,7 +1065,7 @@
       "fixture_sha256": "ccdf9a3671f4f291c653fce2ee409557cadddc893494c112ce49a1cf9c139917",
       "session_sha256": "b9cefc3950abd10a96cc068ecfc6f42c591268d5c67371c8bc6b1e2258f3eb73",
       "route": "candidate",
-      "decline_reason": "compact route error: parser-core phase zero: shared (450,365) live-link cap exceeded: 9 > 8"
+      "decline_reason": "compact route error: parser-core phase zero: shared (450,365) live-link cap exceeded: 9 \u003e 8"
     },
     {
       "language": "c",
@@ -2468,10 +2468,10 @@
       "session_sha256": "2dd45752a777c1a56ce741518661ced7a94be1bbaf09d6272939d85261809ffa",
       "route": "default",
       "full": {
-        "tokens": 354,
-        "new_nodes": 2111,
-        "max_live_versions": 6,
-        "multi_version_token_share_ppm": 548022,
+        "tokens": 620,
+        "new_nodes": 1,
+        "max_live_versions": 5,
+        "multi_version_token_share_ppm": 693548,
         "reused_bytes": 0,
         "block_splices": 0,
         "stop_reason": "accepted",
@@ -2485,12 +2485,12 @@
           "kind": "insert",
           "route": "default",
           "counters": {
-            "tokens": 628,
-            "new_nodes": 4272,
-            "max_live_versions": 19,
-            "multi_version_token_share_ppm": 593949,
+            "tokens": 627,
+            "new_nodes": 1,
+            "max_live_versions": 5,
+            "multi_version_token_share_ppm": 698564,
             "reused_bytes": 0,
-            "block_splices": 55,
+            "block_splices": 0,
             "stop_reason": "accepted",
             "root_end": 2048,
             "input_bytes": 2048,

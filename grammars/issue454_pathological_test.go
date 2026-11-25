@@ -94,6 +94,9 @@ func TestIssue454DartPoorReuseFallsBack(t *testing.T) {
 	for _, compact := range []bool{false, true} {
 		parser := gotreesitter.NewParser(DartLanguage())
 		parser.SetAdmissionCandidateRoute(compact)
+		// The certified core serves Dart by default; this test measures the
+		// present engine's reuse budget, so the request stays off the core.
+		parser.SetCompactCertificationTelemetry(true)
 		old, err := parser.Parse(source)
 		if err != nil {
 			t.Fatal(err)

@@ -150,6 +150,9 @@ func TestDartTopLevelSiblingsPoorYieldRetriesFresh(t *testing.T) {
 							}
 							parser := gts.NewParser(lang)
 							parser.SetAdmissionCandidateRoute(route.candidate)
+							// The certified core serves Dart by default; this test measures the
+							// present engine's reuse budget, so the request stays off the core.
+							parser.SetCompactCertificationTelemetry(true)
 							old, err := parser.Parse(source)
 							if err != nil {
 								t.Fatal(err)
