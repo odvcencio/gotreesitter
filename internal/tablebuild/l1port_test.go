@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/odvcencio/gotreesitter/internal/lexbuild"
 )
@@ -15,8 +14,9 @@ import (
 // identifiers, names, metadata, alias identifiers, the non-terminal alias map
 // and the supertype map), of build_parse_table.rs (fn get_production_id) and
 // of node_types.rs (fn generate_node_types, without the root and extra flags).
-// The table builder will port render.rs and build_parse_table.rs in full;
-// these copies exist so that L1 checks the prepared grammar alone.
+// layout.go ports render.rs's numbering (sanitize_identifier is shared with
+// it); these copies exist so that L1 checks the prepared grammar alone,
+// before any parse table exists.
 
 // l1Port is the prepared grammar of one grammar with what L1 derives from it.
 type l1Port struct {
@@ -230,13 +230,6 @@ func (p *l1Port) computeAliasIDs() {
 			}
 		}
 	}
-}
-
-func aliasLessByName(a, b Alias) bool {
-	if a.Value != b.Value {
-		return a.Value < b.Value
-	}
-	return !a.Named && b.Named
 }
 
 // productionInfo is tables.rs: struct ProductionInfo. fields are in the order
@@ -466,49 +459,6 @@ func (p *l1Port) supertypeMap() map[string][]string {
 		out[sid] = list
 	}
 	return out
-}
-
-// sanitizeIdentifier is render.rs: fn sanitize_identifier.
-func sanitizeIdentifier(name string) string {
-	var b strings.Builder
-	for _, c := range name {
-		if c < utf8.RuneSelf && (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_') {
-			b.WriteRune(c)
-			continue
-		}
-		var replacement string
-		switch {
-		case c == ' ' && len(name) == 1:
-			replacement = "SPACE"
-		case c == ' ':
-			continue
-		case c >= 0x80 && c <= 0xFFFF && c != 0xFEFF:
-			fmt.Fprintf(&b, "u%04x", c)
-			continue
-		case c >= 0x10000:
-			fmt.Fprintf(&b, "U%08x", c)
-			continue
-		default:
-			replacement = specialCharNames[c]
-		}
-		if s := b.String(); s != "" && !strings.HasSuffix(s, "_") {
-			b.WriteByte('_')
-		}
-		b.WriteString(replacement)
-	}
-	return b.String()
-}
-
-var specialCharNames = map[rune]string{
-	'~': "TILDE", '`': "BQUOTE", '!': "BANG", '@': "AT", '#': "POUND", '$': "DOLLAR", '%': "PERCENT",
-	'^': "CARET", '&': "AMP", '*': "STAR", '(': "LPAREN", ')': "RPAREN", '-': "DASH", '+': "PLUS",
-	'=': "EQ", '{': "LBRACE", '}': "RBRACE", '[': "LBRACK", ']': "RBRACK", '\\': "BSLASH", '|': "PIPE",
-	':': "COLON", ';': "SEMI", '"': "DQUOTE", '\'': "SQUOTE", '<': "LT", '>': "GT", ',': "COMMA",
-	'.': "DOT", '?': "QMARK", '/': "SLASH", '\n': "LF", '\r': "CR", '\t': "TAB", 0: "NULL",
-	1: "SOH", 2: "STX", 3: "ETX", 4: "EOT", 5: "ENQ", 6: "ACK", 7: "BEL", 8: "BS", 0x0b: "VTAB",
-	0x0c: "FF", 0x0e: "SO", 0x0f: "SI", 0x10: "DLE", 0x11: "DC1", 0x12: "DC2", 0x13: "DC3",
-	0x14: "DC4", 0x15: "NAK", 0x16: "SYN", 0x17: "ETB", 0x18: "CAN", 0x19: "EM", 0x1a: "SUB",
-	0x1b: "ESC", 0x1c: "FS", 0x1d: "GS", 0x1e: "RS", 0x1f: "US", 0x7f: "DEL", 0xFEFF: "BOM",
 }
 
 // nodeTypeRef is node_types.rs: struct NodeTypeRef.
