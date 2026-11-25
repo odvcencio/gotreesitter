@@ -17,5 +17,5 @@ import (
 var fishLexExact []byte
 
 func init() {
-	lexexact.Register(lexexact.MustHash("7e5d8f53b5fa907aae187b03b874e4d73b49276bdffba45b2cefa77eefd4ad82"), fishLexExact)
+	lexexact.Register(lexexact.MustHash("93a9397353ce2969adf5d9b3faa0565b8d0d14b2b943a38a6c358f21c7f80235"), fishLexExact)
 }
