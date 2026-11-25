@@ -48,6 +48,15 @@ import (
 
 const l5OutEnv = "TABLEBUILD_L5_OUT"
 
+// l5Grammars are the grammars of L5: those of L3 and L4, and the two
+// Markdown grammars, the first in the reference set with external tokens
+// (markdown: 48 external lex states; markdown_inline: 27). Their reference
+// sets are ABI 15.
+var l5Grammars = []struct {
+	name string
+	abi  int
+}{{"json", 14}, {"go", 15}, {"markdown", 15}, {"markdown_inline", 15}}
+
 // l5Build is the whole table build of one grammar.
 type l5Build struct {
 	tables *Tables
@@ -125,7 +134,7 @@ func l5Digests(t *testing.T, name string) map[string][]string {
 
 func TestL5(t *testing.T) {
 	refRoot := os.Getenv(l2RefEnv)
-	for _, gr := range l3Grammars {
+	for _, gr := range l5Grammars {
 		name := gr.name
 		t.Run(name, func(t *testing.T) {
 			grammarJSON := readTestdataGrammar(t, name)

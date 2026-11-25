@@ -120,7 +120,8 @@
 // more than 50 times that grammar's value. Its merge counts 414,621 (TestL4
 // prints it), about 1/650 of the limit; each count costs at most one
 // comparison of two states' entries. The marking of fragile tokens counts
-// 750,424 (TestL5 prints it), about 1/1,400 of the limit. At the limits the
+// 750,424 on that grammar and 1,767,054 on the largest count of the reference
+// set (markdown_inline; TestL5 prints them), about 1/600 of the limit. At the limits the
 // entries alone take about 600 MB (about 72 bytes each); this is an estimate
 // from the type sizes, not a measurement. The other passes of the lex stage
 // are linear in the parse states and their entries, or count their work
