@@ -400,12 +400,17 @@ func TestCompactT3JavaScriptRecoveryMutationDifferential(t *testing.T) {
 	if !goLanguage.CompactStrategy2ErrorRegionCertified || !goLanguage.CompactMissingTokenInsertionCertified {
 		t.Fatal("the exact JavaScript artifact lacks compact recovery certification")
 	}
+	// The certified core serves JavaScript by default. This test measures the
+	// compact candidate's recovery coverage, so certification telemetry keeps
+	// both requests off the core while the compact candidate stays eligible.
 	compactParser := gotreesitter.NewParser(goLanguage)
 	compactParser.SetAdmissionCandidateRoute(true)
+	compactParser.SetCompactCertificationTelemetry(true)
 	s3OnlyLanguage := *goLanguage
 	s3OnlyLanguage.CompactMissingTokenInsertionCertified = false
 	s3OnlyParser := gotreesitter.NewParser(&s3OnlyLanguage)
 	s3OnlyParser.SetAdmissionCandidateRoute(true)
+	s3OnlyParser.SetCompactCertificationTelemetry(true)
 
 	var cases, routed, fallback, s3OnlyRouted, missingExpanded, missingContracted int
 	check := func(witnessID, mutation string, source []byte) {
