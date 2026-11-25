@@ -321,7 +321,7 @@
         "compiler_path": "/usr/bin/cc",
         "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
         "grammar_compile_flags": "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I .",
-        "grammar_artifact_sha256": "6d1c0c8f24ea7131a49f3fe2ec22e27a3cbacbec20f853f09cba222275f25c70"
+        "grammar_artifact_sha256": "05fce34582b7035a556c38dbd977123b54b95075c6023943b99f4f3bbfa17f8f"
       },
       "expected": {
         "c_has_error": true,
@@ -348,7 +348,7 @@
         "compiler_path": "/usr/bin/cc",
         "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
         "grammar_compile_flags": "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I .",
-        "grammar_artifact_sha256": "6d1c0c8f24ea7131a49f3fe2ec22e27a3cbacbec20f853f09cba222275f25c70"
+        "grammar_artifact_sha256": "05fce34582b7035a556c38dbd977123b54b95075c6023943b99f4f3bbfa17f8f"
       },
       "expected": {
         "c_has_error": true,
@@ -375,7 +375,7 @@
         "compiler_path": "/usr/bin/cc",
         "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
         "grammar_compile_flags": "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I .",
-        "grammar_artifact_sha256": "6d1c0c8f24ea7131a49f3fe2ec22e27a3cbacbec20f853f09cba222275f25c70"
+        "grammar_artifact_sha256": "05fce34582b7035a556c38dbd977123b54b95075c6023943b99f4f3bbfa17f8f"
       },
       "expected": {
         "c_has_error": true,
@@ -402,7 +402,7 @@
         "compiler_path": "/usr/bin/cc",
         "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
         "grammar_compile_flags": "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I .",
-        "grammar_artifact_sha256": "6d1c0c8f24ea7131a49f3fe2ec22e27a3cbacbec20f853f09cba222275f25c70"
+        "grammar_artifact_sha256": "05fce34582b7035a556c38dbd977123b54b95075c6023943b99f4f3bbfa17f8f"
       },
       "expected": {
         "c_has_error": true,
@@ -429,7 +429,7 @@
         "compiler_path": "/usr/bin/cc",
         "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
         "grammar_compile_flags": "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I .",
-        "grammar_artifact_sha256": "6d1c0c8f24ea7131a49f3fe2ec22e27a3cbacbec20f853f09cba222275f25c70"
+        "grammar_artifact_sha256": "05fce34582b7035a556c38dbd977123b54b95075c6023943b99f4f3bbfa17f8f"
       },
       "expected": {
         "c_has_error": true,
@@ -456,7 +456,7 @@
         "compiler_path": "/usr/bin/cc",
         "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
         "grammar_compile_flags": "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I .",
-        "grammar_artifact_sha256": "6d1c0c8f24ea7131a49f3fe2ec22e27a3cbacbec20f853f09cba222275f25c70"
+        "grammar_artifact_sha256": "05fce34582b7035a556c38dbd977123b54b95075c6023943b99f4f3bbfa17f8f"
       },
       "expected": {
         "c_has_error": true,
@@ -483,7 +483,7 @@
         "compiler_path": "/usr/bin/cc",
         "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
         "grammar_compile_flags": "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I .",
-        "grammar_artifact_sha256": "6d1c0c8f24ea7131a49f3fe2ec22e27a3cbacbec20f853f09cba222275f25c70"
+        "grammar_artifact_sha256": "05fce34582b7035a556c38dbd977123b54b95075c6023943b99f4f3bbfa17f8f"
       },
       "expected": {
         "c_has_error": true,
@@ -510,7 +510,7 @@
         "compiler_path": "/usr/bin/cc",
         "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
         "grammar_compile_flags": "-std=c11 -fPIC -O2 -fno-strict-aliasing -fsigned-char -I .",
-        "grammar_artifact_sha256": "6d1c0c8f24ea7131a49f3fe2ec22e27a3cbacbec20f853f09cba222275f25c70"
+        "grammar_artifact_sha256": "05fce34582b7035a556c38dbd977123b54b95075c6023943b99f4f3bbfa17f8f"
       },
       "expected": {
         "c_has_error": true,

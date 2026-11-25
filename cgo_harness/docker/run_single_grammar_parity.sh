@@ -707,6 +707,17 @@ fi"
 
   local source_overlay_block=""
   case "$grammar" in
+    javascript)
+      # Scanner-only patch: parser.c stays as pinned, so nothing is regenerated.
+      source_overlay_block="
+javascript_repo=/tmp/grammar_parity/javascript
+javascript_patch=/workspace/grammars/patches/tree-sitter-javascript-jsx-text-ampersand.patch
+if ! git -C \"\$javascript_repo\" apply --reverse --check \"\$javascript_patch\" >/dev/null 2>&1; then
+  git -C \"\$javascript_repo\" apply --check \"\$javascript_patch\"
+  git -C \"\$javascript_repo\" apply \"\$javascript_patch\"
+fi
+"
+      ;;
     typescript|tsx)
       local scanner_patch_block=""
       if [[ "$grammar" == tsx ]]; then

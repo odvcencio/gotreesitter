@@ -4,8 +4,10 @@ package grammarruntime
 
 import (
 	"bytes"
-	"github.com/odvcencio/gotreesitter/internal/scanmode"
+	"strings"
 	"testing"
+
+	"github.com/odvcencio/gotreesitter/internal/scanmode"
 )
 
 func jsCFaithful(scanner JavaScriptExternalScanner) any {
@@ -102,20 +104,79 @@ func TestJavaScriptAutoSemicolonAtRangeStartLikeC(t *testing.T) {
 	}
 }
 
-// TestJavaScriptJsxTextEndsAtAmpersandLikeC: C ends JSX text before "&"
-// (src/scanner.c:291-329), so "&" alone is no token and " &" is text over " "
-// only. The default mode keeps a bare "&" as text.
-func TestJavaScriptJsxTextEndsAtAmpersandLikeC(t *testing.T) {
+// TestJavaScriptJsxTextKeepsLiteralAmpersandLikePatchedC: after
+// grammars/patches/tree-sitter-javascript-jsx-text-ampersand.patch the C scanner
+// keeps a bare "&" in JSX text (src/scanner.c:319-370), so "&" alone is text and
+// " &" is text over both bytes. The default mode agrees.
+func TestJavaScriptJsxTextKeepsLiteralAmpersandLikePatchedC(t *testing.T) {
 	scanner := JavaScriptExternalScanner{}
 	valid := make([]bool, jsTokenCount)
 	valid[jsTokJsxText] = true
 	sym := jsDefaultSymTable[jsTokJsxText]
-	if got := portScan(scanner, jsCFaithful(scanner), "&", valid); got.ok {
-		t.Errorf("C-faithful: \"&\" gave %+v, want no token", got)
-	}
-	portWantScan(t, "C-faithful \" &\"", portScan(scanner, jsCFaithful(scanner), " &", valid), true, sym, 1)
+	portWantScan(t, "C-faithful \"&\"", portScan(scanner, jsCFaithful(scanner), "&", valid), true, sym, 1)
+	portWantScan(t, "C-faithful \" &\"", portScan(scanner, jsCFaithful(scanner), " &", valid), true, sym, 2)
 	if got := portScan(scanner, scanner.Create(), "&", valid); !got.ok {
 		t.Errorf("default mode: a bare \"&\" is text, got %+v", got)
+	}
+}
+
+// TestJavaScriptCModeJSXCharacterReferenceBoundary pins the cursor of the patched
+// scan_jsx_text: the C lexer uses the marked token end for the span and the final
+// cursor for its read dependency. A leading reference is left to the internal
+// lexer even when the character after its semicolon would satisfy another
+// external rule (the patched dispatch returns at once, src/scanner.c:380-385).
+func TestJavaScriptCModeJSXCharacterReferenceBoundary(t *testing.T) {
+	scanner := JavaScriptExternalScanner{}
+	cases := []struct {
+		input       string
+		found       bool
+		end, cursor int
+	}{
+		{"A &amp;}", true, 2, 7},
+		{"&amp;}", false, 0, 5},
+		{"&amp;?x", false, 0, 5},
+		{"&amp;", false, 0, 5},
+		{"&#38;-->", false, 0, 5},
+		{"&#x26;?", false, 0, 6},
+		{"AT&T<", true, 4, 4},
+		{"A & B &amp;?", true, 6, 11},
+		{"A &amp B<", true, 8, 8},
+		{"&#x;{", true, 4, 4},
+		{"&#123456;{", true, 9, 9},
+		{"&#x1234567;{", true, 11, 11},
+		{"&" + strings.Repeat("a", 30) + ";?", false, 0, 32},
+		{"&" + strings.Repeat("a", 31) + ";<", true, 33, 33},
+	}
+	for _, tc := range cases {
+		for _, additional := range [][]int{nil, {jsTokAutoSemicolon, jsTokTernaryQmark}, {jsTokHtmlComment}} {
+			valid := jsMask(append([]int{jsTokJsxText}, additional...)...)
+			got := portScan(scanner, jsCFaithful(scanner), tc.input, valid)
+			portWantScan(t, tc.input, got, tc.found, jsDefaultSymTable[jsTokJsxText], uint32(tc.end))
+			if got.pos != tc.cursor || got.frontier != uint32(tc.cursor+1) {
+				t.Errorf("%q mask %v: cursor/frontier = %d/%d, want %d/%d", tc.input, additional, got.pos, got.frontier, tc.cursor, tc.cursor+1)
+			}
+		}
+	}
+	// Empty input: scan_jsx_text sees the end at once and returns false without
+	// advancing. With an automatic semicolon also valid, the dispatcher goes on to
+	// scan_automatic_semicolon, which accepts at the end of input.
+	for _, additional := range [][]int{nil, {jsTokHtmlComment}} {
+		got := portScan(scanner, jsCFaithful(scanner), "", jsMask(append([]int{jsTokJsxText}, additional...)...))
+		if got.ok || got.pos != 0 {
+			t.Errorf("empty input mask %v: got %+v, want no token and no advance", additional, got)
+		}
+	}
+	got := portScan(scanner, jsCFaithful(scanner), "", jsMask(jsTokJsxText, jsTokAutoSemicolon, jsTokTernaryQmark))
+	portWantScan(t, "empty input with automatic semicolon", got, true, jsDefaultSymTable[jsTokAutoSemicolon], 0)
+	if got.pos != 0 {
+		t.Errorf("empty input with automatic semicolon advanced to %d", got.pos)
+	}
+	// Neither mask reaches the JSX scan, even when the source begins with '&'.
+	for _, enabled := range [][]int{{jsTokTernaryQmark}, {jsTokJsxText, jsTokTemplateChars, jsTokAutoSemicolon}} {
+		got := portScan(scanner, jsCFaithful(scanner), "&amp;?", jsMask(enabled...))
+		if got.ok || got.pos != 0 || got.frontier != 1 {
+			t.Errorf("mask %v unexpectedly examined the entity: %+v", enabled, got)
+		}
 	}
 }
 

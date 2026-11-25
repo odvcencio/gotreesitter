@@ -26,6 +26,9 @@ func (s Spec) RegenerateForHarness(repoDir, subdir string) error {
 }
 
 var byLanguage = map[string]Spec{
+	"javascript": {
+		File: "tree-sitter-javascript-jsx-text-ampersand.patch",
+	},
 	"make": {
 		File:             "tree-sitter-make-function-variables.patch",
 		RegenerateParser: true,

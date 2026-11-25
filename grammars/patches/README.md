@@ -39,6 +39,14 @@ changes only the TSX scanner. It preserves the Go runtime behavior covered
 by issue #1242. Remove it when the pinned upstream scanner accepts the
 same text and passes the entity boundary tests.
 
+`tree-sitter-javascript-jsx-text-ampersand.patch` is the TSX JSX text patch
+applied to the JavaScript scanner (`src/scanner.c`). It keeps a bare ampersand
+inside JSX text, such as `<p>Org & Team</p>` and `<p>AT&T</p>`, and leaves a
+complete HTML character reference such as `&amp;` as its own token. It changes
+only the scanner, so `parser.c` and the blob stay as pinned, and the oracle
+builds and the Go scanner's C-faithful mode follow it. Remove it when the pinned
+upstream scanner accepts the same text and passes the entity boundary tests.
+
 `tree-sitter-yaml-multiline-quoted-scalars.patch` repairs quoted scalar
 continuation and termination after a line break. It applies to the YAML commit
 pinned in `../languages.lock`. The YAML Go DSL and Go scanner contain the same

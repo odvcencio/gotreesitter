@@ -192,8 +192,10 @@ func (s JavaScriptExternalScanner) Scan(payload any, lexer *gotreesitter.Externa
 
 	if jsValid(validSymbols, jsTokJsxText) && !preferAutoSemicolon {
 		if cf {
-			if jsScanJsxTextC(lexer, symbols) {
-				return true
+			// After looking through a character reference no other external
+			// rule can use this cursor (the patched scanner.c dispatch).
+			if text, atReference := jsScanJsxTextC(lexer, symbols); text || atReference {
+				return text
 			}
 		} else if jsScanJsxText(lexer, symbols) {
 			return true
@@ -571,15 +573,28 @@ func jsScanClosingComment(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCo
 	return true
 }
 
-// jsScanJsxTextC is scan_jsx_text of the pinned C scanner (scanner.c:291-329): the
-// text ends before "<", ">", "{", "}" and "&", and it is a token only when some
-// character in it is not white space or follows white space on its line. The
-// default engine's version treats a bare "&" as text (a deliberate difference).
-func jsScanJsxTextC(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]gotreesitter.Symbol) bool {
+// jsScanJsxTextC is scan_jsx_text of the pinned C scanner after
+// grammars/patches/tree-sitter-javascript-jsx-text-ampersand.patch
+// (src/scanner.c:319-370; the reference scan is scan_jsx_character_reference,
+// 294-317): the text ends before "<", ">", "{" and "}", and it is
+// a token only when some character in it is not white space or follows white
+// space on its line. A bare "&" is text. Before a complete character reference
+// the text ends, and atReference reports that the internal lexer owns the
+// reference.
+func jsScanJsxTextC(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]gotreesitter.Symbol) (text, atReference bool) {
 	sawText := false
 	atNewline := false
 	for lexer.Lookahead() != 0 && lexer.Lookahead() != '<' && lexer.Lookahead() != '>' &&
-		lexer.Lookahead() != '{' && lexer.Lookahead() != '}' && lexer.Lookahead() != '&' {
+		lexer.Lookahead() != '{' && lexer.Lookahead() != '}' {
+		if lexer.Lookahead() == '&' {
+			lexer.MarkEnd()
+			if jsScanHTMLCharacterReference(lexer) {
+				lexer.SetResultSymbol(symbols[jsTokJsxText])
+				return sawText, true
+			}
+			sawText, atNewline = true, false
+			continue
+		}
 		isWspace := cIsSpace(lexer.Lookahead())
 		if lexer.Lookahead() == '\n' {
 			atNewline = true
@@ -591,8 +606,11 @@ func jsScanJsxTextC(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]go
 		}
 		lexer.Advance(false)
 	}
+	if sawText {
+		lexer.MarkEnd()
+	}
 	lexer.SetResultSymbol(symbols[jsTokJsxText])
-	return sawText
+	return sawText, false
 }
 
 func jsScanJsxText(lexer *gotreesitter.ExternalLexer, symbols *[jsTokenCount]gotreesitter.Symbol) bool {
