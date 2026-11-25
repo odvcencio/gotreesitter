@@ -105,6 +105,45 @@ when `build` does not bind a job's result.
 The sections below are dated records. Where one says that a job blocks every
 pull request, the table above now decides.
 
+## Pinned-C query tests, November 24, 2026
+
+Before this change, no job in either tier ran the tests that compare query
+results with pinned C. Every `cgo_harness` step passes a fixed `-run` list,
+and none named `TestParityQueryMatchOrderGuard`, `TestParityQuerySemantics` or
+a `TestParityQueryExact*` test. The search covered `.github/workflows/`,
+`.github/scripts/`, `cgo_harness/docker/` and `scripts/`; the graduation gate
+and the ccore and scanner scripts build the harness binary but run only their
+own tests.
+
+The smoke step of the `parity-cgo` job (light tier: every pull request and
+push, and manual and nightly runs) now also runs these tests:
+
+| Test | What it checks |
+|---|---|
+| `TestQueryCorpus` | Every record of `internal/query/testdata/cases.jsonl` (254 cases in 8 languages) against pinned C. It also checks that the corpus holds every guard case and every semantics case. |
+| `TestParityQueryMatchOrderGuard` | The ordered matches of the 31 guard cases equal pinned C. The 2 known differences skip. |
+| `TestParityQuerySemantics` | The 103 query-semantics cases. The 3 known differences skip. |
+
+Cost was measured on 24 November 2026 in the parity image (Linux arm64 Docker
+on Oscar's Mac, 2 CPUs, smoke mode):
+
+- 4.0 s when the C grammars of the smoke languages are already built, as they
+  are in the job.
+- 8.0 s with no C grammar built.
+- 1.5 s with every C grammar built.
+
+These tests add four grammars to the smoke step: json, hare, luau and squirrel.
+In the exhaustive parity job on the same day, each of the four loaded in
+0.47 to 0.98 s.
+
+`internal/query` and the pure-Go tier `TestQueryCorpusCurrentMatcher`
+(`roottest/query`) run in the `query` race lane: in `packages_no_race`
+(light tier) and in `race_packages` (heavy tier).
+
+Still run by no job: the `TestParityQueryExact*` tests and
+`TestParityQueryPointRangeEmptyNodeBoundaries`
+(`cgo_harness/parity_query_exact_test.go`, `parity_query_top50_test.go`).
+
 ## ts2go blob freshness, November 24, 2026
 
 An audit on 24 November 2026 found that 194 of the 200 checked ts2go blobs
