@@ -1624,7 +1624,7 @@ func TestNativeUnaryWrapperFlatteningProfileCensus(t *testing.T) {
 			t.Fatalf("F# unary-wrapper symbol %d = %q, want %q", symbol, language.SymbolNames[symbol], want)
 		}
 	}
-	if got, want := rule.WrapperPreGotoState, gotreesitter.StateID(4258); got != want {
+	if got, want := rule.WrapperPreGotoState, gotreesitter.StateID(6714); got != want {
 		t.Fatalf("F# wrapper pre-goto state = %d, want %d", got, want)
 	}
 

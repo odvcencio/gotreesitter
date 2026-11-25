@@ -164,15 +164,17 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	},
 	// F# has one declaration-name state where C omits a same-span unary
 	// long_identifier below long_identifier_or_op. Expression identifiers and
-	// dotted long identifiers retain the wrapper.
+	// dotted long identifiers retain the wrapper. Re-derived on blob 58a08eb2
+	// (tree-sitter-fsharp b576ecf7ced0): the declaration-name wrapper of
+	// "let simple = Alpha" and "let x = 1" now has pre-goto state 6714.
 	"fsharp": {
-		blobSHA256: mustRuntimeProfileSHA256("409f32a1a287c9f2a385dc96bea03ed8b700bc9bfe92c50f91eed538519475ae"),
+		blobSHA256: mustRuntimeProfileSHA256("58a08eb2c83d76bb3b1dcf249a18729982b77758becb68b66efa9808fdbfa652"),
 		nativeUnaryWrapperFlattening: []nativeUnaryWrapperFlatteningProfile{
 			{
 				publicParent:        "long_identifier_or_op",
 				wrapper:             "long_identifier",
 				leaf:                "identifier",
-				wrapperPreGotoState: 4258,
+				wrapperPreGotoState: 6714,
 			},
 		},
 	},

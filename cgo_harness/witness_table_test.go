@@ -187,6 +187,18 @@ string GetOutput()
 		rows: []witness{w("open-then-let", "open Namespace.Module\nlet simple = Alpha\n")},
 	},
 	{
+		// Issue #1581: named_module takes optional("rec") and import_decl takes
+		// optional("type") from ionide/tree-sitter-fsharp b576ecf on.
+		name: "FSharpModuleRecAndOpenType", lang: "fsharp", label: "issue-1581",
+		rows: []witness{
+			w("module-rec-dotted", "module rec Acme.Demo\nlet x = 1\n"),
+			w("module-rec-access-modifier", "module internal rec Acme.Demo\nlet x = 1\n"),
+			w("module-rec-attribute", "[<AutoOpen>]\nmodule rec Acme.Demo\nlet x = 1\n"),
+			w("module-rec-single-segment", "module rec Demo\nlet x = 1\n"),
+			w("open-type", "open type System.Math\n"),
+		},
+	},
+	{
 		name: "ObjcNativeAlternativeSelection", lang: "objc", label: "objc-native-selection",
 		rows: []witness{
 			w("encode_type", `void f(id coder) { [coder encodeValueOfObjCType: @encode(NSUInteger) at: 0]; }
