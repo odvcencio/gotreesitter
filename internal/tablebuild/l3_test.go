@@ -214,13 +214,19 @@ func TestL3ClosureOrderDoesNotMatter(t *testing.T) {
 	}
 }
 
-// TestL3TableInvariants checks what the records cannot show: the state ids
-// that the actions and gotos name exist, states 0 and 1 stay first, the
-// other states are ordered by descending entry count, and every action list
-// offset names a list.
+// TestL3TableInvariants checks what the records cannot show, on the
+// unmerged table: see checkTableInvariants.
 func TestL3TableInvariants(t *testing.T) {
 	b := newL3Build(t, "json", readTestdataGrammar(t, "json"), 14, ascendingVariables)
-	table := b.tables.ParseTable
+	checkTableInvariants(t, b.tables, b.layout)
+}
+
+// checkTableInvariants checks that the state ids that the actions and gotos
+// name exist, states 0 and 1 stay first, the other states are ordered by
+// descending entry count, and every action list offset names a list.
+func checkTableInvariants(t *testing.T, tables *Tables, layout *Layout) {
+	t.Helper()
+	table := tables.ParseTable
 	n := uint32(len(table.States))
 	prev := -1
 	for i := range table.States {
@@ -250,17 +256,17 @@ func TestL3TableInvariants(t *testing.T) {
 		prev = size
 	}
 	offsets := map[uint32]bool{}
-	for _, e := range b.layout.ParseActions {
+	for _, e := range layout.ParseActions {
 		offsets[e.Offset] = true
 	}
-	for i, row := range b.layout.ParseTable {
+	for i, row := range layout.ParseTable {
 		for sym, v := range row {
-			if sym < b.layout.TokenCount && v != 0 && !offsets[uint32(v)] {
+			if sym < layout.TokenCount && v != 0 && !offsets[uint32(v)] {
 				t.Errorf("state %d symbol %d names offset %d, which starts no list", i, sym, v)
 			}
 		}
 	}
-	if fmt.Sprint(b.layout.ParseActions[0]) != fmt.Sprint(ActionListEntry{Actions: []RenderedAction{}}) {
-		t.Errorf("offset 0 is %+v, want the empty list", b.layout.ParseActions[0])
+	if fmt.Sprint(layout.ParseActions[0]) != fmt.Sprint(ActionListEntry{Actions: []RenderedAction{}}) {
+		t.Errorf("offset 0 is %+v, want the empty list", layout.ParseActions[0])
 	}
 }
