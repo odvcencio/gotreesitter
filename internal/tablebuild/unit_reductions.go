@@ -1,16 +1,11 @@
 package tablebuild
 
-import (
-	"errors"
-
-	"github.com/odvcencio/gotreesitter/internal/lexbuild"
-)
+import "github.com/odvcencio/gotreesitter/internal/lexbuild"
 
 // This file ports build_tables/minimize_parse_table.rs: fn
-// minimize_parse_table and fn Minimizer::remove_unit_reductions. reorder.go
-// ports remove_unused_states and reorder_states_by_descending_size. The merge
-// of compatible states (merge_compatible_states and the functions it calls)
-// is not ported yet.
+// minimize_parse_table and fn Minimizer::remove_unit_reductions. merge.go
+// ports merge_compatible_states and the functions it calls; reorder.go ports
+// remove_unused_states and reorder_states_by_descending_size.
 
 // OptLevel is generate.rs: struct OptLevel, a set of bit flags. The
 // generator's default is OptMergeStates; its --disable-optimizations flag
@@ -20,26 +15,40 @@ type OptLevel uint32
 // OptMergeStates is OptLevel::MergeStates.
 const OptMergeStates OptLevel = 1 << 0
 
-// ErrMergeNotPorted is returned for OptMergeStates: merge_compatible_states
-// is not ported yet, and a faithful build does not fall back to another merge.
-var ErrMergeNotPorted = errors.New("tablebuild: merge_compatible_states is not ported yet; build with OptLevel 0 (the generator's --disable-optimizations)")
-
-// minimizer is minimize_parse_table.rs: struct Minimizer. The token conflict
-// map and the keywords are read only by the merge.
+// minimizer is minimize_parse_table.rs: struct Minimizer, without the
+// string pool (the generator reads it only for its debug log). The lexical
+// grammar, the token conflict map and the keywords are read only by the
+// merge.
 type minimizer struct {
-	parseTable    *InternedTable
-	syntaxGrammar *lexbuild.SyntaxGrammar
-	simpleAliases AliasMap
+	parseTable       *InternedTable
+	syntaxGrammar    *lexbuild.SyntaxGrammar
+	lexicalGrammar   *lexbuild.LexicalGrammar
+	tokenConflictMap *lexbuild.Analysis
+	keywords         lexbuild.TokenSet
+	simpleAliases    AliasMap
 
-	unitReductionStates int // the states that removeUnitReductions skips over
+	stats               *TableStats
+	mergeWork           int64 // the count of bMergeWork
+	unitReductionStates int   // the states that removeUnitReductions skips over
 }
 
-// minimizeParseTable is minimize_parse_table.rs: fn minimize_parse_table. It
-// fills the counts of stats as the passes run.
-func minimizeParseTable(parseTable *InternedTable, sg *lexbuild.SyntaxGrammar, simpleAliases AliasMap, optimizations OptLevel, stats *TableStats) error {
-	m := &minimizer{parseTable: parseTable, syntaxGrammar: sg, simpleAliases: simpleAliases}
+// minimizeParseTable is minimize_parse_table.rs: fn minimize_parse_table.
+// tokenConflictMap is the analysis that holds the token conflict map
+// (lexbuild.Analysis.DoesConflict); keywords is its keyword set. It fills the
+// counts of stats as the passes run.
+func minimizeParseTable(parseTable *InternedTable, sg *lexbuild.SyntaxGrammar, lg *lexbuild.LexicalGrammar, simpleAliases AliasMap, tokenConflictMap *lexbuild.Analysis, keywords lexbuild.TokenSet, optimizations OptLevel, stats *TableStats) error {
+	m := &minimizer{
+		parseTable:       parseTable,
+		syntaxGrammar:    sg,
+		lexicalGrammar:   lg,
+		tokenConflictMap: tokenConflictMap,
+		keywords:         keywords,
+		simpleAliases:    simpleAliases,
+		stats:            stats,
+	}
 	if optimizations&OptMergeStates != 0 {
-		return ErrMergeNotPorted
+		m.mergeCompatibleStates()
+		stats.MergeWork = m.mergeWork
 	}
 	if err := m.removeUnitReductions(); err != nil {
 		return err

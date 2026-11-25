@@ -23,8 +23,17 @@ type Tables struct {
 // TableStats holds counts of the passes after the search (measurements for
 // the pull request; the generator logs some of them).
 type TableStats struct {
-	RawStates             int // states of the raw table
-	RawActionLists        int // distinct action lists after intern_table
+	RawStates      int // states of the raw table
+	RawActionLists int // distinct action lists after intern_table
+	// The merge (OptMergeStates only): the groups by parse item set core, the
+	// groups after the split by states_conflict, the calls of the split by
+	// state_successors_differ (the last one splits nothing), the states after
+	// merge_compatible_states, and the count of bMergeWork.
+	CoreGroups            int
+	GroupsAfterConflicts  int
+	SuccessorPasses       int
+	StatesAfterMerge      int
+	MergeWork             int64
 	UnitReductionStates   int // states that remove_unit_reductions skips over
 	AfterUnitReductions   int // pool lists after remove_unit_reductions
 	AfterUnusedStates     int // states after remove_unused_states
@@ -34,14 +43,11 @@ type TableStats struct {
 }
 
 // BuildTables is build_tables.rs: fn build_tables up to
-// ActionListPool::canonicalize, without the lex tables. With optimizations
-// 0 it builds the table that the generator writes with
-// --disable-optimizations; OptMergeStates returns ErrMergeNotPorted.
+// ActionListPool::canonicalize, without the lex tables. With OptMergeStates
+// (the generator's default) it builds the parse table of the generator's
+// parser.c; with optimizations 0 it builds the table that the generator
+// writes with --disable-optimizations.
 func BuildTables(g *PreparedGrammar, variableInfo []VariableInfo, optimizations OptLevel) (*Tables, error) {
-	if optimizations&OptMergeStates != 0 {
-		// Refused before the search, which can take long.
-		return nil, ErrMergeNotPorted
-	}
 	raw, err := BuildRawTables(g, variableInfo)
 	if err != nil {
 		return nil, err
@@ -58,8 +64,14 @@ func finishTables(g *PreparedGrammar, raw *RawTables, optimizations OptLevel) (*
 		parseTable := internTable(raw.Table)
 		out.ParseTable = parseTable
 		out.Stats.RawActionLists = parseTable.ActionLists.Len()
-		if err := minimizeParseTable(parseTable, g.Syntax, g.DefaultAliases, optimizations, &out.Stats); err != nil {
+		var minimizeErr error
+		if err := guardSize(func() {
+			minimizeErr = minimizeParseTable(parseTable, g.Syntax, g.Lex, g.DefaultAliases, raw.Analysis, raw.Analysis.Keywords(), optimizations, &out.Stats)
+		}); err != nil {
 			return err
+		}
+		if minimizeErr != nil {
+			return minimizeErr
 		}
 		// build_lex_table and populate_external_lex_states: not ported yet.
 		out.Stats.FragileEntries = markFragileTokens(parseTable, raw.Analysis)
