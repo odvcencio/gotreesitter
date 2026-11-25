@@ -48,9 +48,26 @@ type lexRange struct {
 	hi rune
 }
 
+// conditionResult is a lexer condition of the generated C: nonEOF holds the
+// lookahead values for which it holds before the end of input, and eof whether
+// it holds at the end of input. At the end of input C's ts_lex reads lookahead
+// 0 and eof true (lib/src/lexer.c sets data.lookahead to 0 there), so every
+// test of lookahead is evaluated at 0: `lookahead == 0` holds, `lookahead != 0`
+// does not, and a character-set helper holds exactly when its set contains 0.
 type conditionResult struct {
 	nonEOF []lexRange
 	eof    bool
+}
+
+// holdsAtEndOfInput reports whether a test of lookahead against ranges holds at
+// the end of input, where C's lookahead is 0.
+func holdsAtEndOfInput(ranges []lexRange) bool {
+	for _, r := range ranges {
+		if r.lo <= 0 && 0 <= r.hi {
+			return true
+		}
+	}
+	return false
 }
 
 type cTokenKind int
@@ -986,10 +1003,18 @@ func parseLexCaseBlock(block string, enums map[string]int, charSets map[string][
 			st.Accept = SymbolID(sym)
 			st.HasAccept = true
 		case lexActionAdvance:
-			addTransition(&st, conditionResult{nonEOF: universeRanges()}, action.next, false)
+			// An unconditional step is taken at the end of input too.
+			addTransition(&st, conditionResult{nonEOF: universeRanges(), eof: true}, action.next, false)
 		case lexActionSkip:
-			addTransition(&st, conditionResult{nonEOF: universeRanges()}, action.next, true)
+			addTransition(&st, conditionResult{nonEOF: universeRanges(), eof: true}, action.next, true)
 		case lexActionAdvanceMap:
+			// ADVANCE_MAP compares lookahead with each key, so a key 0
+			// matches at the end of input.
+			for _, tr := range action.mapTransitions {
+				if st.EOF < 0 && tr.Lo <= 0 && 0 <= tr.Hi {
+					st.EOF = tr.Next
+				}
+			}
 			st.Transitions = append(st.Transitions, action.mapTransitions...)
 		case lexActionEndState:
 			return st, nil
@@ -1466,7 +1491,7 @@ func (p *condParser) parseAtom() (condOperand, error) {
 					kind: operandCondition,
 					condition: conditionResult{
 						nonEOF: ranges,
-						eof:    false,
+						eof:    holdsAtEndOfInput(ranges),
 					},
 				}, nil
 			}
@@ -1540,7 +1565,7 @@ func (p *condParser) parseSetContains() (condOperand, error) {
 		kind: operandCondition,
 		condition: conditionResult{
 			nonEOF: ranges,
-			eof:    false,
+			eof:    holdsAtEndOfInput(ranges),
 		},
 	}, nil
 }
@@ -1567,7 +1592,7 @@ func compareOperands(left condOperand, op cTokenKind, right condOperand) (condit
 
 	return conditionResult{
 		nonEOF: ranges,
-		eof:    false,
+		eof:    holdsAtEndOfInput(ranges),
 	}, nil
 }
 
