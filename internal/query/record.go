@@ -1,4 +1,4 @@
-package cquery
+package query
 
 import (
 	"strconv"

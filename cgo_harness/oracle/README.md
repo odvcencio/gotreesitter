@@ -39,8 +39,8 @@ pinned one. The graduation gate builds its harness with the tag (item 6).
 with their flags, pattern map, patterns, step offsets, negated fields and
 repeat symbols), which the public API does not expose. No existing function
 changes, so every `query.c` line number from the pinned commit still holds.
-`TestCQueryCorpus` reads the tables for the L1 and L2 records of
-`internal/cquery/testdata/cases.jsonl`.
+`TestQueryCorpus` reads the tables for the L1 and L2 records of
+`internal/query/testdata/cases.jsonl`.
 `LICENSE` preserves the binding
 notice, and `RUNTIME_LICENSE` preserves the upstream runtime notice.
 Diagnostic work-count builds apply their separate versioned instrumentation

@@ -1,4 +1,4 @@
-// Package cquery is the start of a function-by-function port of tree-sitter's
+// Package query is the start of a function-by-function port of tree-sitter's
 // query compiler, pattern analysis and query cursor (query.c in the pinned C
 // runtime, tree-sitter 0.27.1). The port is compared with pinned C record by
 // record, in five layers:
@@ -16,10 +16,10 @@
 // This stage holds the record types, their stable text forms, the
 // first-difference comparison, the tree digest and the reader and writer of
 // corpus 1 (testdata/cases.jsonl), which stores pinned C's records for each
-// case. The harness test TestCQueryCorpus in cgo_harness writes and checks the
+// case. The harness test TestQueryCorpus in cgo_harness writes and checks the
 // corpus against pinned C; roottest/query compares the current matcher with
 // it.
 //
 // The package uses the standard library only and does not import the root
 // package.
-package cquery
+package query

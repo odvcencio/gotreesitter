@@ -1,4 +1,4 @@
-package cquery
+package query
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ const corpusPath = "testdata/cases.jsonl"
 
 // TestCorpusFile checks corpus 1 as a file: every case is classified and
 // carries pinned C's records, and the file is in the form WriteCorpus writes.
-// The harness test TestCQueryCorpus in cgo_harness checks the records
+// The harness test TestQueryCorpus in cgo_harness checks the records
 // themselves against pinned C.
 func TestCorpusFile(t *testing.T) {
 	cases, err := ReadCorpus(corpusPath)
@@ -29,7 +29,7 @@ func TestCorpusFile(t *testing.T) {
 			ids[IDSource(id)]++
 		}
 		if !strings.HasPrefix(c.Tree, "sha256:") {
-			t.Errorf("%s has no tree digest: run TestCQueryCorpus with GTS_CQUERY_UPDATE=1", c.ID())
+			t.Errorf("%s has no tree digest: run TestQueryCorpus with GTS_QUERY_CORPUS_UPDATE=1", c.ID())
 		}
 		accepted := c.Accepted()
 		switch {
@@ -60,7 +60,7 @@ func TestCorpusFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(data, again) {
-		t.Fatal("cases.jsonl is not in the form WriteCorpus writes; rewrite it with TestCQueryCorpus")
+		t.Fatal("cases.jsonl is not in the form WriteCorpus writes; rewrite it with TestQueryCorpus")
 	}
 }
 

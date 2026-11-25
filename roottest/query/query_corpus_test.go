@@ -8,106 +8,106 @@ import (
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
-	"github.com/odvcencio/gotreesitter/internal/cquery"
+	"github.com/odvcencio/gotreesitter/internal/query"
 )
 
-// cqueryCorpusPath is corpus 1 of the query cursor port: pinned C's records
-// for each case, written by TestCQueryCorpus in cgo_harness.
-const cqueryCorpusPath = "../../internal/cquery/testdata/cases.jsonl"
+// queryCorpusPath is corpus 1 of the query cursor port: pinned C's records
+// for each case, written by TestQueryCorpus in cgo_harness.
+const queryCorpusPath = "../../internal/query/testdata/cases.jsonl"
 
-// cqueryEntry names the entry points of the current matcher that a case
+// matcherEntry names the entry points of the current matcher that a case
 // runs through.
-type cqueryEntry uint8
+type matcherEntry uint8
 
 const (
-	cqueryExecute cqueryEntry = 1 << iota
-	cqueryNextMatch
-	cqueryBoth = cqueryExecute | cqueryNextMatch
+	matcherExecute matcherEntry = 1 << iota
+	matcherNextMatch
+	matcherBoth = matcherExecute | matcherNextMatch
 )
 
-func (e cqueryEntry) String() string {
+func (e matcherEntry) String() string {
 	switch e {
-	case cqueryExecute:
+	case matcherExecute:
 		return "Execute"
-	case cqueryNextMatch:
+	case matcherNextMatch:
 		return "NextMatch"
-	case cqueryBoth:
+	case matcherBoth:
 		return "Execute and NextMatch"
 	}
 	return "none"
 }
 
-// cqueryGap is a known difference between the current matcher and pinned C:
+// matcherGap is a known difference between the current matcher and pinned C:
 // the case's class and the entry points whose ordered matches (L3) differ.
-type cqueryGap struct {
+type matcherGap struct {
 	class   string
-	entries cqueryEntry
+	entries matcherEntry
 }
 
-// cqueryKnownGaps lists, by case id, every usable corpus case whose ordered
+// matcherKnownGaps lists, by case id, every usable corpus case whose ordered
 // matches from the current matcher differ from pinned C's. The test fails when
 // a case outside the list differs (a regression) and when a listed case
-// equals C (remove it). The port in internal/cquery is meant to empty it.
+// equals C (remove it). The port in internal/query is meant to empty it.
 // On 24 November 2026 the list held the 20 review cases that the review of
 // PR 1734 found wrong, the two guard cases marked known, and three queries
 // that pinned C rejects and Go compiles.
-var cqueryKnownGaps = map[string]cqueryGap{
-	"review:X01": {"alternation hold", cqueryBoth},
-	"review:X02": {"alternation hold", cqueryBoth},
-	"review:X03": {"alternation hold", cqueryBoth},
-	"review:X16": {"alternation hold", cqueryBoth},
+var matcherKnownGaps = map[string]matcherGap{
+	"review:X01": {"alternation hold", matcherBoth},
+	"review:X02": {"alternation hold", matcherBoth},
+	"review:X03": {"alternation hold", matcherBoth},
+	"review:X16": {"alternation hold", matcherBoth},
 
-	"review:X09": {"capture dropped in quantified group", cqueryBoth},
-	"review:X10": {"capture dropped in quantified group", cqueryBoth},
+	"review:X09": {"capture dropped in quantified group", matcherBoth},
+	"review:X10": {"capture dropped in quantified group", matcherBoth},
 
-	"guard:K02_longest_match_subset_drop": {"longest-match subset drop", cqueryBoth},
-	"review:J18":                          {"longest-match subset drop", cqueryBoth},
+	"guard:K02_longest_match_subset_drop": {"longest-match subset drop", matcherBoth},
+	"review:J18":                          {"longest-match subset drop", matcherBoth},
 
-	"review:M1":  {"merge finish", cqueryBoth},
-	"review:M3":  {"merge finish", cqueryBoth},
-	"review:X17": {"merge finish", cqueryBoth},
+	"review:M1":  {"merge finish", matcherBoth},
+	"review:M3":  {"merge finish", matcherBoth},
+	"review:X17": {"merge finish", matcherBoth},
 
-	"review:A29": {"non-adjacent repetition", cqueryBoth},
-	"review:J04": {"non-adjacent repetition", cqueryBoth},
-	"review:J05": {"non-adjacent repetition", cqueryBoth},
-	"review:J28": {"non-adjacent repetition", cqueryBoth},
-	"review:P11": {"non-adjacent repetition", cqueryBoth},
+	"review:A29": {"non-adjacent repetition", matcherBoth},
+	"review:J04": {"non-adjacent repetition", matcherBoth},
+	"review:J05": {"non-adjacent repetition", matcherBoth},
+	"review:J28": {"non-adjacent repetition", matcherBoth},
+	"review:P11": {"non-adjacent repetition", matcherBoth},
 
-	"guard:K01_order_across_roots": {"order across roots and patterns", cqueryBoth},
-	"review:J22":                   {"order across roots and patterns", cqueryBoth},
-	"review:J33":                   {"order across roots and patterns", cqueryBoth},
-	"review:X22":                   {"order across roots and patterns", cqueryBoth},
-	"review:X23":                   {"order across roots and patterns", cqueryBoth},
+	"guard:K01_order_across_roots": {"order across roots and patterns", matcherBoth},
+	"review:J22":                   {"order across roots and patterns", matcherBoth},
+	"review:J33":                   {"order across roots and patterns", matcherBoth},
+	"review:X22":                   {"order across roots and patterns", matcherBoth},
+	"review:X23":                   {"order across roots and patterns", matcherBoth},
 
-	"review:A11": {"trailing anchor", cqueryBoth},
+	"review:A11": {"trailing anchor", matcherBoth},
 
 	// Pinned C rejects these queries as impossible patterns; Go compiles
 	// them (the known notes in cgo_harness/parity_query_semantics_test.go).
-	"semantics:S040": {"supertype patterns", cqueryBoth},
-	"semantics:S051": {"supertype patterns", cqueryBoth},
-	"semantics:S099": {"wildcards and ERROR nodes", cqueryBoth},
+	"semantics:S040": {"supertype patterns", matcherBoth},
+	"semantics:S051": {"supertype patterns", matcherBoth},
+	"semantics:S099": {"wildcards and ERROR nodes", matcherBoth},
 }
 
-// TestCQueryCorpusCurrentMatcher parses each usable corpus input with Go, runs
+// TestQueryCorpusCurrentMatcher parses each usable corpus input with Go, runs
 // the corpus query through Query.Execute and through QueryCursor.NextMatch,
 // and compares the ordered matches with pinned C's L3 records.
-func TestCQueryCorpusCurrentMatcher(t *testing.T) {
-	cases, err := cquery.ReadCorpus(cqueryCorpusPath)
+func TestQueryCorpusCurrentMatcher(t *testing.T) {
+	cases, err := query.ReadCorpus(queryCorpusPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := cquery.Validate(cases); err != nil {
+	if err := query.Validate(cases); err != nil {
 		t.Fatal(err)
 	}
 
 	type tally struct{ equal, differ, unusable int }
-	bySource := map[cqueryEntry]map[string]*tally{}
-	count := func(entry cqueryEntry, c *cquery.Case, outcome string) {
+	bySource := map[matcherEntry]map[string]*tally{}
+	count := func(entry matcherEntry, c *query.Case, outcome string) {
 		if bySource[entry] == nil {
 			bySource[entry] = map[string]*tally{}
 		}
 		for _, id := range c.IDs {
-			source := cquery.IDSource(id)
+			source := query.IDSource(id)
 			if bySource[entry][source] == nil {
 				bySource[entry][source] = &tally{}
 			}
@@ -122,29 +122,29 @@ func TestCQueryCorpusCurrentMatcher(t *testing.T) {
 		}
 	}
 
-	differing := map[string]cqueryGap{}
+	differing := map[string]matcherGap{}
 	details := map[string]string{}
 	for i := range cases {
 		c := &cases[i]
 		if !c.Usable {
-			count(cqueryExecute, c, "unusable")
-			count(cqueryNextMatch, c, "unusable")
-			if digest, err := cqueryGoTreeDigest(c); err == nil && digest == c.Tree {
-				t.Errorf("%s: the corpus marks the case unusable, but the Go tree now has pinned C's digest; rerun TestCQueryCorpus with GTS_CQUERY_UPDATE=1", c.ID())
+			count(matcherExecute, c, "unusable")
+			count(matcherNextMatch, c, "unusable")
+			if digest, err := corpusGoTreeDigest(c); err == nil && digest == c.Tree {
+				t.Errorf("%s: the corpus marks the case unusable, but the Go tree now has pinned C's digest; rerun TestQueryCorpus with GTS_QUERY_CORPUS_UPDATE=1", c.ID())
 			}
 			continue
 		}
-		got, err := cqueryCurrentMatcher(c)
+		got, err := runCurrentMatcher(c)
 		if err != nil {
 			t.Errorf("%s: %v", c.ID(), err)
 			continue
 		}
-		var gap cqueryEntry
+		var gap matcherEntry
 		for _, run := range []struct {
-			entry   cqueryEntry
+			entry   matcherEntry
 			records []string
 			err     string
-		}{{cqueryExecute, got.execute, got.compileErr}, {cqueryNextMatch, got.nextMatch, got.compileErr}} {
+		}{{matcherExecute, got.execute, got.compileErr}, {matcherNextMatch, got.nextMatch, got.compileErr}} {
 			outcome := "equal"
 			switch {
 			case !c.Accepted() && run.err == "":
@@ -154,7 +154,7 @@ func TestCQueryCorpusCurrentMatcher(t *testing.T) {
 				outcome = "differ"
 				details[c.ID()] += fmt.Sprintf("\n    %s: Go rejects the query: %s", run.entry, run.err)
 			case c.Accepted():
-				if d, ok := cquery.FirstDifference(cquery.LayerMatches, c.L3, run.records); ok {
+				if d, ok := query.FirstDifference(query.LayerMatches, c.L3, run.records); ok {
 					outcome = "differ"
 					details[c.ID()] += fmt.Sprintf("\n    %s: %s", run.entry, d)
 				}
@@ -165,13 +165,13 @@ func TestCQueryCorpusCurrentMatcher(t *testing.T) {
 			count(run.entry, c, outcome)
 		}
 		if gap != 0 {
-			differing[c.ID()] = cqueryGap{class: c.Class, entries: gap}
+			differing[c.ID()] = matcherGap{class: c.Class, entries: gap}
 		}
 	}
 
 	var problems []string
 	for id, gap := range differing {
-		known, ok := cqueryKnownGaps[id]
+		known, ok := matcherKnownGaps[id]
 		switch {
 		case !ok:
 			problems = append(problems, fmt.Sprintf("%s (%s) differs from pinned C through %s:%s", id, gap.class, gap.entries, details[id]))
@@ -179,14 +179,14 @@ func TestCQueryCorpusCurrentMatcher(t *testing.T) {
 			problems = append(problems, fmt.Sprintf("%s: known gap %s (%s), now %s (%s):%s", id, known.entries, known.class, gap.entries, gap.class, details[id]))
 		}
 	}
-	for id, known := range cqueryKnownGaps {
+	for id, known := range matcherKnownGaps {
 		if _, ok := differing[id]; !ok {
-			problems = append(problems, fmt.Sprintf("%s (%s) now equals pinned C through %s, or is no longer usable; remove it from cqueryKnownGaps", id, known.class, known.entries))
+			problems = append(problems, fmt.Sprintf("%s (%s) now equals pinned C through %s, or is no longer usable; remove it from matcherKnownGaps", id, known.class, known.entries))
 		}
 	}
 	sort.Strings(problems)
 
-	for _, entry := range []cqueryEntry{cqueryExecute, cqueryNextMatch} {
+	for _, entry := range []matcherEntry{matcherExecute, matcherNextMatch} {
 		sources := make([]string, 0, len(bySource[entry]))
 		for source := range bySource[entry] {
 			sources = append(sources, source)
@@ -198,13 +198,13 @@ func TestCQueryCorpusCurrentMatcher(t *testing.T) {
 		}
 	}
 	if len(problems) > 0 {
-		t.Errorf("the current matcher's differences from pinned C changed:\n  %s\nThe differences today, as cqueryKnownGaps:\n%s",
-			strings.Join(problems, "\n  "), cqueryFormatGaps(differing))
+		t.Errorf("the current matcher's differences from pinned C changed:\n  %s\nThe differences today, as matcherKnownGaps:\n%s",
+			strings.Join(problems, "\n  "), formatMatcherGaps(differing))
 	}
 }
 
-// cqueryFormatGaps prints gaps as the source of cqueryKnownGaps, by class.
-func cqueryFormatGaps(gaps map[string]cqueryGap) string {
+// formatMatcherGaps prints gaps as the source of matcherKnownGaps, by class.
+func formatMatcherGaps(gaps map[string]matcherGap) string {
 	ids := make([]string, 0, len(gaps))
 	for id := range gaps {
 		ids = append(ids, id)
@@ -215,7 +215,7 @@ func cqueryFormatGaps(gaps map[string]cqueryGap) string {
 		}
 		return ids[i] < ids[j]
 	})
-	names := map[cqueryEntry]string{cqueryExecute: "cqueryExecute", cqueryNextMatch: "cqueryNextMatch", cqueryBoth: "cqueryBoth"}
+	names := map[matcherEntry]string{matcherExecute: "matcherExecute", matcherNextMatch: "matcherNextMatch", matcherBoth: "matcherBoth"}
 	var b strings.Builder
 	for _, id := range ids {
 		fmt.Fprintf(&b, "\t%q: {%q, %s},\n", id, gaps[id].class, names[gaps[id].entries])
@@ -223,33 +223,33 @@ func cqueryFormatGaps(gaps map[string]cqueryGap) string {
 	return b.String()
 }
 
-// cqueryMatcherRecords are the current matcher's L3 records for one case.
-type cqueryMatcherRecords struct {
+// matcherRecords are the current matcher's L3 records for one case.
+type matcherRecords struct {
 	execute    []string
 	nextMatch  []string
 	compileErr string
 }
 
-// cqueryCurrentMatcher parses the case's input with Go, checks that the tree
+// runCurrentMatcher parses the case's input with Go, checks that the tree
 // still has pinned C's digest, and runs the query through Execute and
 // NextMatch.
-func cqueryCurrentMatcher(c *cquery.Case) (cqueryMatcherRecords, error) {
-	var out cqueryMatcherRecords
+func runCurrentMatcher(c *query.Case) (matcherRecords, error) {
+	var out matcherRecords
 	src := []byte(c.Input)
-	tree, lang, err := cqueryParse(c.Language, src)
+	tree, lang, err := parseCorpusInput(c.Language, src)
 	if err != nil {
 		return out, err
 	}
 	defer tree.Release()
-	if digest := cqueryTreeDigest(tree.RootNode(), lang); digest != c.Tree {
-		return out, fmt.Errorf("the Go tree (%s) no longer equals pinned C's tree (%s), so the matches cannot be compared; check the parser, then rerun TestCQueryCorpus", digest, c.Tree)
+	if digest := goTreeDigest(tree.RootNode(), lang); digest != c.Tree {
+		return out, fmt.Errorf("the Go tree (%s) no longer equals pinned C's tree (%s), so the matches cannot be compared; check the parser, then rerun TestQueryCorpus", digest, c.Tree)
 	}
 	q, err := gotreesitter.NewQuery(c.Query, lang)
 	if err != nil {
 		out.compileErr = strings.SplitN(err.Error(), "\n", 2)[0]
 		return out, nil
 	}
-	out.execute = cqueryMatchRecords(q.Execute(tree), lang)
+	out.execute = matcherMatchRecords(q.Execute(tree), lang)
 	cursor := q.Exec(tree.RootNode(), lang, src)
 	var matches []gotreesitter.QueryMatch
 	for {
@@ -259,22 +259,22 @@ func cqueryCurrentMatcher(c *cquery.Case) (cqueryMatcherRecords, error) {
 		}
 		matches = append(matches, m)
 	}
-	out.nextMatch = cqueryMatchRecords(matches, lang)
+	out.nextMatch = matcherMatchRecords(matches, lang)
 	return out, nil
 }
 
-// cqueryMatchRecords converts matches to L3 records, with the fields the
+// matcherMatchRecords converts matches to L3 records, with the fields the
 // harness's exactQueryMatch compares apart from text. Captures without a node
 // are left out, as there.
-func cqueryMatchRecords(matches []gotreesitter.QueryMatch, lang *gotreesitter.Language) []string {
+func matcherMatchRecords(matches []gotreesitter.QueryMatch, lang *gotreesitter.Language) []string {
 	out := make([]string, 0, len(matches))
 	for _, m := range matches {
-		rec := cquery.Match{Pattern: m.PatternIndex}
+		rec := query.Match{Pattern: m.PatternIndex}
 		for _, c := range m.Captures {
 			if c.Node == nil {
 				continue
 			}
-			rec.Captures = append(rec.Captures, cquery.Capture{
+			rec.Captures = append(rec.Captures, query.Capture{
 				Name: c.Name, Type: c.Node.Type(lang), Named: c.Node.IsNamed(),
 				StartByte: c.Node.StartByte(), EndByte: c.Node.EndByte(),
 			})
@@ -284,9 +284,9 @@ func cqueryMatchRecords(matches []gotreesitter.QueryMatch, lang *gotreesitter.La
 	return out
 }
 
-// cqueryParse parses src with the language's supported backend, as the
+// parseCorpusInput parses src with the language's supported backend, as the
 // harness's parseWithGo does for a fresh parse.
-func cqueryParse(name string, src []byte) (*gotreesitter.Tree, *gotreesitter.Language, error) {
+func parseCorpusInput(name string, src []byte) (*gotreesitter.Tree, *gotreesitter.Language, error) {
 	var entry *grammars.LangEntry
 	for _, e := range grammars.AllLanguages() {
 		if e.Name == name {
@@ -326,19 +326,19 @@ func cqueryParse(name string, src []byte) (*gotreesitter.Tree, *gotreesitter.Lan
 	return tree, lang, nil
 }
 
-func cqueryGoTreeDigest(c *cquery.Case) (string, error) {
-	tree, lang, err := cqueryParse(c.Language, []byte(c.Input))
+func corpusGoTreeDigest(c *query.Case) (string, error) {
+	tree, lang, err := parseCorpusInput(c.Language, []byte(c.Input))
 	if err != nil {
 		return "", err
 	}
 	defer tree.Release()
-	return cqueryTreeDigest(tree.RootNode(), lang), nil
+	return goTreeDigest(tree.RootNode(), lang), nil
 }
 
-// cqueryTreeDigest feeds a Go tree to the corpus tree digest, with the facts
+// goTreeDigest feeds a Go tree to the corpus tree digest, with the facts
 // the harness's compareNodes compares.
-func cqueryTreeDigest(root *gotreesitter.Node, lang *gotreesitter.Language) string {
-	h := cquery.NewTreeHasher()
+func goTreeDigest(root *gotreesitter.Node, lang *gotreesitter.Language) string {
+	h := query.NewTreeHasher()
 	var walk func(n *gotreesitter.Node, depth int, field string)
 	walk = func(n *gotreesitter.Node, depth int, field string) {
 		typ := n.Type(lang)
@@ -348,7 +348,7 @@ func cqueryTreeDigest(root *gotreesitter.Node, lang *gotreesitter.Language) stri
 			typ = ""
 		}
 		count := n.ChildCount()
-		h.Add(cquery.TreeNode{
+		h.Add(query.TreeNode{
 			Depth: depth, Field: field, Type: typ, Named: n.IsNamed(), Missing: n.IsMissing(),
 			StartByte: n.StartByte(), EndByte: n.EndByte(), ChildCount: count,
 		})

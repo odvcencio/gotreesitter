@@ -10,35 +10,35 @@ import (
 	"testing"
 
 	"github.com/odvcencio/gotreesitter/grammars"
-	"github.com/odvcencio/gotreesitter/internal/cquery"
+	"github.com/odvcencio/gotreesitter/internal/query"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
-// cqueryCorpusPath is corpus 1 of the query cursor port.
-const cqueryCorpusPath = "../internal/cquery/testdata/cases.jsonl"
+// queryCorpusPath is corpus 1 of the query cursor port.
+const queryCorpusPath = "../internal/query/testdata/cases.jsonl"
 
-// TestCQueryCorpus recomputes every record of corpus 1
-// (internal/cquery/testdata/cases.jsonl) from pinned C and fails on a stale
+// TestQueryCorpus recomputes every record of corpus 1
+// (internal/query/testdata/cases.jsonl) from pinned C and fails on a stale
 // record, printing the first differing record. Run one language at a time:
 //
-//	go test -tags treesitter_c_parity -run '^TestCQueryCorpus$/^json$' .
+//	go test -tags treesitter_c_parity -run '^TestQueryCorpus$/^json$' .
 //
-// GTS_CQUERY_UPDATE=1 rewrites the records of the languages that ran instead
-// of comparing them, and adds the cases of matchOrderGuardCases and
+// GTS_QUERY_CORPUS_UPDATE=1 rewrites the records of the languages that ran
+// instead of comparing them, and adds the cases of matchOrderGuardCases and
 // parityQuerySemanticsCases that the corpus lacks (class "unclassified": a
-// person assigns the class). GTS_CQUERY_PRINT=<id>,<id> (or "all") logs a
-// case's records from pinned C.
-func TestCQueryCorpus(t *testing.T) {
-	cases, err := cquery.ReadCorpus(cqueryCorpusPath)
+// person assigns the class). GTS_QUERY_CORPUS_PRINT=<id>,<id> (or "all")
+// logs a case's records from pinned C.
+func TestQueryCorpus(t *testing.T) {
+	cases, err := query.ReadCorpus(queryCorpusPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	update := os.Getenv("GTS_CQUERY_UPDATE") == "1"
-	printIDs := cqueryPrintSet(os.Getenv("GTS_CQUERY_PRINT"))
+	update := os.Getenv("GTS_QUERY_CORPUS_UPDATE") == "1"
+	printIDs := queryCorpusPrintSet(os.Getenv("GTS_QUERY_CORPUS_PRINT"))
 
-	added := cquerySyncSourceCases(&cases)
+	added := queryCorpusSyncSourceCases(&cases)
 	if len(added) > 0 && !update {
-		t.Errorf("the corpus lacks %d cases or ids of the guard and semantics lists; rerun with GTS_CQUERY_UPDATE=1:\n  %s",
+		t.Errorf("the corpus lacks %d cases or ids of the guard and semantics lists; rerun with GTS_QUERY_CORPUS_UPDATE=1:\n  %s",
 			len(added), strings.Join(added, "\n  "))
 	}
 
@@ -60,7 +60,7 @@ func TestCQueryCorpus(t *testing.T) {
 					continue
 				}
 				t.Run(c.ID(), func(t *testing.T) {
-					got := cqueryRecordsFromC(t, c)
+					got := queryCorpusRecordsFromPinned(t, c)
 					if printIDs["all"] || printIDs[c.ID()] {
 						t.Logf("%s records from pinned C:\n%s", c.ID(), got.format())
 					}
@@ -75,22 +75,22 @@ func TestCQueryCorpus(t *testing.T) {
 	}
 
 	if update {
-		if err := cquery.WriteCorpus(cqueryCorpusPath, cases); err != nil {
+		if err := query.WriteCorpus(queryCorpusPath, cases); err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("wrote %d cases to %s", len(cases), cqueryCorpusPath)
+		t.Logf("wrote %d cases to %s", len(cases), queryCorpusPath)
 	}
 }
 
-// cqueryCRecords are one case's records as pinned C produces them.
-type cqueryCRecords struct {
+// queryCorpusRecords are one case's records as pinned C produces them.
+type queryCorpusRecords struct {
 	usable bool
 	tree   string
 	l1, l2 []string
 	l3, l4 []string
 }
 
-func (r cqueryCRecords) store(c *cquery.Case) {
+func (r queryCorpusRecords) store(c *query.Case) {
 	c.Usable = r.usable
 	c.Tree = r.tree
 	c.L1 = r.l1
@@ -99,7 +99,7 @@ func (r cqueryCRecords) store(c *cquery.Case) {
 	c.L4 = r.l4
 }
 
-func (r cqueryCRecords) check(t *testing.T, c *cquery.Case) {
+func (r queryCorpusRecords) check(t *testing.T, c *query.Case) {
 	t.Helper()
 	if c.Usable != r.usable {
 		t.Errorf("stale usable flag: corpus %v, pinned C and Go trees now compare %v", c.Usable, r.usable)
@@ -110,28 +110,28 @@ func (r cqueryCRecords) check(t *testing.T, c *cquery.Case) {
 	// The corpus side is "want" here: each record it stores is what pinned C
 	// must still produce.
 	for _, layer := range []struct {
-		name         cquery.Layer
+		name         query.Layer
 		corpus, from []string
 	}{
-		{cquery.LayerSteps, c.L1, r.l1},
-		{cquery.LayerAnalysis, c.L2, r.l2},
-		{cquery.LayerMatches, c.L3, r.l3},
-		{cquery.LayerCaptures, c.L4, r.l4},
+		{query.LayerSteps, c.L1, r.l1},
+		{query.LayerAnalysis, c.L2, r.l2},
+		{query.LayerMatches, c.L3, r.l3},
+		{query.LayerCaptures, c.L4, r.l4},
 	} {
-		if d, ok := cquery.FirstDifference(layer.name, layer.corpus, layer.from); ok {
+		if d, ok := query.FirstDifference(layer.name, layer.corpus, layer.from); ok {
 			t.Errorf("stale record: %s (want is the corpus, got is pinned C)", d)
 		}
 	}
 }
 
-func (r cqueryCRecords) format() string {
+func (r queryCorpusRecords) format() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "usable=%v tree=%s\n", r.usable, r.tree)
 	for _, layer := range []struct {
-		name    cquery.Layer
+		name    query.Layer
 		records []string
-	}{{cquery.LayerSteps, r.l1}, {cquery.LayerAnalysis, r.l2}, {cquery.LayerMatches, r.l3}, {cquery.LayerCaptures, r.l4}} {
-		fmt.Fprintf(&b, "%s (%s):\n", layer.name, cquery.Digest(layer.records))
+	}{{query.LayerSteps, r.l1}, {query.LayerAnalysis, r.l2}, {query.LayerMatches, r.l3}, {query.LayerCaptures, r.l4}} {
+		fmt.Fprintf(&b, "%s (%s):\n", layer.name, query.Digest(layer.records))
 		for _, rec := range layer.records {
 			fmt.Fprintf(&b, "  %s\n", rec)
 		}
@@ -139,7 +139,7 @@ func (r cqueryCRecords) format() string {
 	return b.String()
 }
 
-func cqueryPrintSet(raw string) map[string]bool {
+func queryCorpusPrintSet(raw string) map[string]bool {
 	set := make(map[string]bool)
 	for _, id := range strings.Split(raw, ",") {
 		if id = strings.TrimSpace(id); id != "" {
@@ -149,13 +149,13 @@ func cqueryPrintSet(raw string) map[string]bool {
 	return set
 }
 
-// cqueryRecordsFromC parses the case's input with Go and pinned C, checks
-// that the trees are structurally equal (compareNodes), and computes pinned
-// C's records for the query.
-func cqueryRecordsFromC(t *testing.T, c *cquery.Case) cqueryCRecords {
+// queryCorpusRecordsFromPinned parses the case's input with Go and pinned C,
+// checks that the trees are structurally equal (compareNodes), and computes
+// pinned C's records for the query.
+func queryCorpusRecordsFromPinned(t *testing.T, c *query.Case) queryCorpusRecords {
 	t.Helper()
 	src := []byte(c.Input)
-	var r cqueryCRecords
+	var r queryCorpusRecords
 
 	cLang, err := ParityCLanguage(c.Language)
 	if err != nil {
@@ -171,7 +171,7 @@ func cqueryRecordsFromC(t *testing.T, c *cquery.Case) cqueryCRecords {
 		t.Fatal("C parser returned nil tree")
 	}
 	defer cTree.Close()
-	r.tree = cqueryCTreeDigest(cTree.RootNode())
+	r.tree = pinnedTreeDigest(cTree.RootNode())
 
 	goTree, goLang, goErr := parseWithGo(parityCase{name: c.Language, source: c.Input}, src, nil)
 	if goErr != nil {
@@ -186,27 +186,27 @@ func cqueryRecordsFromC(t *testing.T, c *cquery.Case) cqueryCRecords {
 		}
 	}
 
-	cq, qErr := sitter.NewQuery(cLang, c.Query)
+	oracleQuery, qErr := sitter.NewQuery(cLang, c.Query)
 	if qErr != nil {
-		r.l2 = []string{cquery.Verdict{ErrorKind: cqueryErrorKind(qErr.Kind), ErrorOffset: uint32(qErr.Offset)}.String()}
+		r.l2 = []string{query.Verdict{ErrorKind: queryErrorKindName(qErr.Kind), ErrorOffset: uint32(qErr.Offset)}.String()}
 		return r
 	}
-	defer cq.Close()
-	r.l1 = cqueryStepRecords(cq, cLang)
-	r.l2 = append([]string{cquery.Verdict{Accepted: true}.String()}, cqueryAnalysisRecords(cq, cLang)...)
-	r.l3 = cqueryMatchRecords(collectCExactQueryMatches(t, cLang, cTree, c.Query, src))
-	r.l4 = cqueryCaptureStream(cq, cTree, src)
+	defer oracleQuery.Close()
+	r.l1 = pinnedStepRecords(oracleQuery, cLang)
+	r.l2 = append([]string{query.Verdict{Accepted: true}.String()}, pinnedAnalysisRecords(oracleQuery, cLang)...)
+	r.l3 = queryCorpusMatchRecords(collectCExactQueryMatches(t, cLang, cTree, c.Query, src))
+	r.l4 = pinnedCaptureStream(oracleQuery, cTree, src)
 	return r
 }
 
-// cqueryCTreeDigest feeds pinned C's tree to the corpus tree digest, with the
+// pinnedTreeDigest feeds pinned C's tree to the corpus tree digest, with the
 // facts compareNodes compares.
-func cqueryCTreeDigest(root *sitter.Node) string {
-	h := cquery.NewTreeHasher()
+func pinnedTreeDigest(root *sitter.Node) string {
+	h := query.NewTreeHasher()
 	var walk func(n *sitter.Node, depth int, field string)
 	walk = func(n *sitter.Node, depth int, field string) {
 		count := n.ChildCount()
-		h.Add(cquery.TreeNode{
+		h.Add(query.TreeNode{
 			Depth: depth, Field: field, Type: n.Kind(), Named: n.IsNamed(), Missing: n.IsMissing(),
 			StartByte: uint32(n.StartByte()), EndByte: uint32(n.EndByte()), ChildCount: int(count),
 		})
@@ -218,7 +218,7 @@ func cqueryCTreeDigest(root *sitter.Node) string {
 	return h.Sum()
 }
 
-func cqueryErrorKind(kind sitter.QueryErrorKind) string {
+func queryErrorKindName(kind sitter.QueryErrorKind) string {
 	switch kind {
 	case sitter.QueryErrorSyntax:
 		return "syntax"
@@ -238,48 +238,48 @@ func cqueryErrorKind(kind sitter.QueryErrorKind) string {
 	return fmt.Sprintf("kind%d", int(kind))
 }
 
-func cquerySymbol(lang *sitter.Language, id uint32) cquery.Symbol {
-	return cquery.Symbol{ID: uint16(id), Name: lang.NodeKindForId(uint16(id))}
+func pinnedSymbol(lang *sitter.Language, id uint32) query.Symbol {
+	return query.Symbol{ID: uint16(id), Name: lang.NodeKindForId(uint16(id))}
 }
 
-func cqueryField(lang *sitter.Language, id uint32) cquery.Symbol {
-	return cquery.Symbol{ID: uint16(id), Name: lang.FieldNameForId(uint16(id))}
+func pinnedField(lang *sitter.Language, id uint32) query.Symbol {
+	return query.Symbol{ID: uint16(id), Name: lang.FieldNameForId(uint16(id))}
 }
 
-var cqueryQuantifierNames = map[sitter.CaptureQuantifier]cquery.Quantifier{
-	sitter.CaptureQuantifierZero:       cquery.QuantifierZero,
-	sitter.CaptureQuantifierZeroOrOne:  cquery.QuantifierZeroOrOne,
-	sitter.CaptureQuantifierZeroOrMore: cquery.QuantifierZeroOrMore,
-	sitter.CaptureQuantifierOne:        cquery.QuantifierOne,
-	sitter.CaptureQuantifierOneOrMore:  cquery.QuantifierOneOrMore,
+var pinnedQuantifierNames = map[sitter.CaptureQuantifier]query.Quantifier{
+	sitter.CaptureQuantifierZero:       query.QuantifierZero,
+	sitter.CaptureQuantifierZeroOrOne:  query.QuantifierZeroOrOne,
+	sitter.CaptureQuantifierZeroOrMore: query.QuantifierZeroOrMore,
+	sitter.CaptureQuantifierOne:        query.QuantifierOne,
+	sitter.CaptureQuantifierOneOrMore:  query.QuantifierOneOrMore,
 }
 
-// cqueryStepRecords returns pinned C's L1 records: capture names, the
+// pinnedStepRecords returns pinned C's L1 records: capture names, the
 // quantifiers other than zero, patterns, the pattern map, steps and step
 // offsets, read through the query_steps.patch accessor.
-func cqueryStepRecords(q *sitter.Query, lang *sitter.Language) []string {
+func pinnedStepRecords(q *sitter.Query, lang *sitter.Language) []string {
 	var out []string
 	for i, name := range q.CaptureNames() {
-		out = append(out, cquery.CaptureName{ID: i, Name: name}.String())
+		out = append(out, query.CaptureName{ID: i, Name: name}.String())
 	}
 	for p := uint(0); p < q.PatternCount(); p++ {
 		for capture, quantifier := range q.CaptureQuantifiers(p) {
 			if quantifier != sitter.CaptureQuantifierZero {
-				out = append(out, cquery.CaptureQuantifier{Pattern: int(p), Capture: capture, Quantifier: cqueryQuantifierNames[quantifier]}.String())
+				out = append(out, query.CaptureQuantifier{Pattern: int(p), Capture: capture, Quantifier: pinnedQuantifierNames[quantifier]}.String())
 			}
 		}
 	}
 	for i, row := range q.QueryTableRows(sitter.QueryTablePatterns) {
-		out = append(out, cquery.Pattern{Index: i, StepOffset: row[0], StepCount: row[1], StartByte: row[2], EndByte: row[3]}.String())
+		out = append(out, query.Pattern{Index: i, StepOffset: row[0], StepCount: row[1], StartByte: row[2], EndByte: row[3]}.String())
 	}
 	for i, row := range q.QueryTableRows(sitter.QueryTablePatternMap) {
-		out = append(out, cquery.PatternEntry{Index: i, Step: int(row[0]), Pattern: int(row[1]), Rooted: row[2] != 0}.String())
+		out = append(out, query.PatternEntry{Index: i, Step: int(row[0]), Pattern: int(row[1]), Rooted: row[2] != 0}.String())
 	}
 	negated := q.QueryTableRows(sitter.QueryTableNegatedFields)
 	for i, row := range q.QueryTableRows(sitter.QueryTableSteps) {
-		step := cquery.Step{
+		step := query.Step{
 			Index:             i,
-			Symbol:            cquerySymbol(lang, row[0]),
+			Symbol:            pinnedSymbol(lang, row[0]),
 			Depth:             uint16(row[6]),
 			AlternativeIndex:  uint16(row[7]),
 			Named:             row[9]&sitter.QueryStepIsNamed != 0,
@@ -292,37 +292,37 @@ func cqueryStepRecords(q *sitter.Query, lang *sitter.Language) []string {
 			AlternativeIsSkip: row[9]&sitter.QueryStepAlternativeIsSkip != 0,
 		}
 		if row[1] != 0 {
-			step.Supertype = cquerySymbol(lang, row[1])
+			step.Supertype = pinnedSymbol(lang, row[1])
 		}
 		if row[2] != 0 {
-			step.Field = cqueryField(lang, row[2])
+			step.Field = pinnedField(lang, row[2])
 		}
 		for _, id := range row[3:6] {
-			if uint16(id) != cquery.NoStep {
+			if uint16(id) != query.NoStep {
 				step.CaptureIDs = append(step.CaptureIDs, uint16(id))
 			}
 		}
 		for j := int(row[8]); j < len(negated) && negated[j][0] != 0; j++ {
-			step.NegatedFields = append(step.NegatedFields, cqueryField(lang, negated[j][0]))
+			step.NegatedFields = append(step.NegatedFields, pinnedField(lang, negated[j][0]))
 		}
 		out = append(out, step.String())
 	}
 	for _, row := range q.QueryTableRows(sitter.QueryTableStepOffsets) {
-		out = append(out, cquery.StepOffset{ByteOffset: row[0], Step: int(row[1])}.String())
+		out = append(out, query.StepOffset{ByteOffset: row[0], Step: int(row[1])}.String())
 	}
 	return out
 }
 
-// cqueryAnalysisRecords returns pinned C's L2 records after the verdict: the
+// pinnedAnalysisRecords returns pinned C's L2 records after the verdict: the
 // rooted and non-local flags per pattern, the three analysis flags per step,
 // and the repeat symbols of rootless patterns.
-func cqueryAnalysisRecords(q *sitter.Query, lang *sitter.Language) []string {
+func pinnedAnalysisRecords(q *sitter.Query, lang *sitter.Language) []string {
 	var out []string
 	for p := uint(0); p < q.PatternCount(); p++ {
-		out = append(out, cquery.PatternAnalysis{Pattern: int(p), Rooted: q.IsPatternRooted(p), NonLocal: q.IsPatternNonLocal(p)}.String())
+		out = append(out, query.PatternAnalysis{Pattern: int(p), Rooted: q.IsPatternRooted(p), NonLocal: q.IsPatternNonLocal(p)}.String())
 	}
 	for i, row := range q.QueryTableRows(sitter.QueryTableSteps) {
-		out = append(out, cquery.StepAnalysis{
+		out = append(out, query.StepAnalysis{
 			Step:                    i,
 			ContainsCaptures:        row[9]&sitter.QueryStepContainsCaptures != 0,
 			RootPatternGuaranteed:   row[9]&sitter.QueryStepRootPatternGuaranteed != 0,
@@ -330,29 +330,29 @@ func cqueryAnalysisRecords(q *sitter.Query, lang *sitter.Language) []string {
 		}.String())
 	}
 	for _, row := range q.QueryTableRows(sitter.QueryTableRepeatSymbols) {
-		out = append(out, cquery.RepeatSymbol{Symbol: cquerySymbol(lang, row[0])}.String())
+		out = append(out, query.RepeatSymbol{Symbol: pinnedSymbol(lang, row[0])}.String())
 	}
 	return out
 }
 
-// cqueryMatchRecords converts the harness's exact matches (pinned C's
+// queryCorpusMatchRecords converts the harness's exact matches (pinned C's
 // ordered matches after the binding's text predicates) to L3 records.
-func cqueryMatchRecords(matches []exactQueryMatch) []string {
+func queryCorpusMatchRecords(matches []exactQueryMatch) []string {
 	out := make([]string, 0, len(matches))
 	for _, m := range matches {
-		rec := cquery.Match{Pattern: m.PatternIndex}
+		rec := query.Match{Pattern: m.PatternIndex}
 		for _, c := range m.Captures {
-			rec.Captures = append(rec.Captures, cquery.Capture{Name: c.Name, Type: c.Type, Named: c.Named, StartByte: c.StartByte, EndByte: c.EndByte})
+			rec.Captures = append(rec.Captures, query.Capture{Name: c.Name, Type: c.Type, Named: c.Named, StartByte: c.StartByte, EndByte: c.EndByte})
 		}
 		out = append(out, rec.String())
 	}
 	return out
 }
 
-// cqueryCaptureStream returns pinned C's L4 records: the binding's Captures
+// pinnedCaptureStream returns pinned C's L4 records: the binding's Captures
 // iterator (ts_query_cursor_next_capture after the text predicates), one
 // record per returned capture.
-func cqueryCaptureStream(q *sitter.Query, tree *sitter.Tree, src []byte) []string {
+func pinnedCaptureStream(q *sitter.Query, tree *sitter.Tree, src []byte) []string {
 	cursor := sitter.NewQueryCursor()
 	defer cursor.Close()
 	names := q.CaptureNames()
@@ -368,10 +368,10 @@ func cqueryCaptureStream(q *sitter.Query, tree *sitter.Tree, src []byte) []strin
 		if int(c.Index) < len(names) {
 			name = names[c.Index]
 		}
-		out = append(out, cquery.StreamCapture{
+		out = append(out, query.StreamCapture{
 			Pattern: int(m.PatternIndex),
 			Index:   int(index),
-			Capture: cquery.Capture{
+			Capture: query.Capture{
 				Name: name, Type: c.Node.Kind(), Named: c.Node.IsNamed(),
 				StartByte: uint32(c.Node.StartByte()), EndByte: uint32(c.Node.EndByte()),
 			},
@@ -379,37 +379,37 @@ func cqueryCaptureStream(q *sitter.Query, tree *sitter.Tree, src []byte) []strin
 	}
 }
 
-// cquerySourceCase is one case of a source list that the corpus must hold.
-type cquerySourceCase struct {
+// queryCorpusSourceCase is one case of a source list that the corpus must hold.
+type queryCorpusSourceCase struct {
 	id        string
 	semantics bool
-	key       cquery.Key
+	key       query.Key
 }
 
-// cquerySourceCases lists the guard cases and the semantics cases. A
+// queryCorpusSourceCases lists the guard cases and the semantics cases. A
 // semantics case without its own source runs on the language's smoke sample,
 // as TestParityQuerySemantics does.
-func cquerySourceCases() []cquerySourceCase {
-	var out []cquerySourceCase
+func queryCorpusSourceCases() []queryCorpusSourceCase {
+	var out []queryCorpusSourceCase
 	for _, tc := range matchOrderGuardCases {
-		out = append(out, cquerySourceCase{id: "guard:" + tc.id, key: cquery.Key{Language: tc.lang, Query: tc.query, Input: tc.source}})
+		out = append(out, queryCorpusSourceCase{id: "guard:" + tc.id, key: query.Key{Language: tc.lang, Query: tc.query, Input: tc.source}})
 	}
 	for _, tc := range parityQuerySemanticsCases {
 		src := tc.source
 		if src == "" {
 			src = grammars.ParseSmokeSample(tc.lang)
 		}
-		out = append(out, cquerySourceCase{semantics: true, key: cquery.Key{Language: tc.lang, Query: tc.query, Input: src}})
+		out = append(out, queryCorpusSourceCase{semantics: true, key: query.Key{Language: tc.lang, Query: tc.query, Input: src}})
 	}
 	return out
 }
 
-// cquerySyncSourceCases adds to cases every source case and id that it
+// queryCorpusSyncSourceCases adds to cases every source case and id that it
 // lacks and returns a description of each addition. A source case whose
 // language, query and input equal an existing case's adds its id to that
 // case. A semantics case gets the next free id semantics:S<n>.
-func cquerySyncSourceCases(cases *[]cquery.Case) []string {
-	byKey := make(map[cquery.Key]int)
+func queryCorpusSyncSourceCases(cases *[]query.Case) []string {
+	byKey := make(map[query.Key]int)
 	nextSemantics := 1
 	for i := range *cases {
 		c := &(*cases)[i]
@@ -421,15 +421,15 @@ func cquerySyncSourceCases(cases *[]cquery.Case) []string {
 			}
 		}
 	}
-	hasSource := func(c *cquery.Case, source string) bool {
+	hasSource := func(c *query.Case, source string) bool {
 		for _, id := range c.IDs {
-			if cquery.IDSource(id) == source {
+			if query.IDSource(id) == source {
 				return true
 			}
 		}
 		return false
 	}
-	hasID := func(c *cquery.Case, want string) bool {
+	hasID := func(c *query.Case, want string) bool {
 		for _, id := range c.IDs {
 			if id == want {
 				return true
@@ -438,7 +438,7 @@ func cquerySyncSourceCases(cases *[]cquery.Case) []string {
 		return false
 	}
 	var added []string
-	for _, sc := range cquerySourceCases() {
+	for _, sc := range queryCorpusSourceCases() {
 		i, ok := byKey[sc.key]
 		if ok {
 			c := &(*cases)[i]
@@ -459,8 +459,8 @@ func cquerySyncSourceCases(cases *[]cquery.Case) []string {
 			id = fmt.Sprintf("semantics:S%03d", nextSemantics)
 			nextSemantics++
 		}
-		*cases = append(*cases, cquery.Case{
-			IDs: []string{id}, Language: sc.key.Language, Class: cquery.Unclassified,
+		*cases = append(*cases, query.Case{
+			IDs: []string{id}, Language: sc.key.Language, Class: query.Unclassified,
 			Query: sc.key.Query, Input: sc.key.Input,
 		})
 		byKey[sc.key] = len(*cases) - 1
