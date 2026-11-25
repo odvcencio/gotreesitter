@@ -340,9 +340,10 @@ type QueryCursor struct {
 
 	workBudget int
 
-	// orderScratch holds the buffers that order the matches of one pattern
-	// at one node; it is reused across nodes.
-	orderScratch queryOrderScratch[*Node, QueryCapture]
+	// orderScratch holds the buffers that reorder the matches of one pattern
+	// at one node. It is nil until matches first need reordering, and is
+	// reused across nodes.
+	orderScratch *queryOrderScratch[*Node, QueryCapture]
 
 	hasMaxStartDepth bool
 	maxStartDepth    uint32
@@ -362,6 +363,9 @@ type queryExecBuffer struct {
 	matches        []QueryMatch
 	readerMatches  []queryReaderMatch[QueryCapture]
 	readerWorklist []queryReaderWorkItem[*Node]
+	// order holds the buffers that reorder a pattern's matches; it is nil
+	// until a pattern's matches first need reordering.
+	order *queryOrderScratch[*Node, QueryCapture]
 }
 
 // NewQuery compiles query source (tree-sitter .scm format) against a language.
@@ -671,8 +675,8 @@ func (q *Query) executeNodeIntoBuffer(root *Node, lang *Language, source []byte,
 			return result
 		}
 	}
-	buf.readerMatches, buf.readerWorklist = executeQueryWithReader(
-		q, root, lang, source, publicQueryReader{}, buf.readerMatches, buf.readerWorklist,
+	buf.readerMatches, buf.readerWorklist, buf.order = executeQueryWithReader(
+		q, root, lang, source, publicQueryReader{}, buf.readerMatches, buf.readerWorklist, buf.order,
 	)
 	buf.matches = slices.Grow(buf.matches, len(buf.readerMatches))
 	for _, match := range buf.readerMatches {
@@ -992,10 +996,10 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 				if pat.steps[0].quantifier == queryQuantifierZeroOrMore || pat.steps[0].quantifier == queryQuantifierOneOrMore {
 					captureSets = q.matchPatternPostorderAll(&pat, c.currentNode, c.currentParent, c.currentChildIdx, c.lang, c.source, budget)
 				} else {
-					captureSets = q.matchPatternAll(&pat, c.currentNode, c.lang, c.source, budget, &c.orderScratch)
+					captureSets, c.orderScratch = q.matchPatternAll(&pat, c.currentNode, c.lang, c.source, budget, c.orderScratch)
 				}
 			} else {
-				captureSets = q.matchPatternAll(&pat, c.currentNode, c.lang, c.source, budget, &c.orderScratch)
+				captureSets, c.orderScratch = q.matchPatternAll(&pat, c.currentNode, c.lang, c.source, budget, c.orderScratch)
 			}
 			if budget.tripped() {
 				c.didExceedMatchLim = true

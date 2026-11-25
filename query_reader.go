@@ -72,16 +72,19 @@ type queryReaderWorkItem[N comparable] struct {
 // executeQueryWithReader is the sole non-streaming matcher traversal. dst and
 // worklist are caller-owned reusable buffers; returned captures hold reader
 // value nodes directly.
-func executeQueryWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, root N, lang *Language, source []byte, reader R, dst []queryReaderMatch[C], worklist []queryReaderWorkItem[N]) ([]queryReaderMatch[C], []queryReaderWorkItem[N]) {
+//
+// scratch holds the buffers that reorder a pattern's matches when they need
+// it; it is allocated on first use and returned, so callers that run queries
+// repeatedly can keep it. It may be nil.
+func executeQueryWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, root N, lang *Language, source []byte, reader R, dst []queryReaderMatch[C], worklist []queryReaderWorkItem[N], scratch *queryOrderScratch[N, C]) ([]queryReaderMatch[C], []queryReaderWorkItem[N], *queryOrderScratch[N, C]) {
 	dst = dst[:0]
 	worklist = worklist[:0]
 	if q == nil || lang == nil || reader.IsNil(root) {
-		return dst, worklist
+		return dst, worklist, scratch
 	}
 	if q.rootCandidatesBySymbol == nil && q.rootFallbackCandidates == nil {
 		q.buildRootPatternIndex()
 	}
-	var scratch queryOrderScratch[N, C]
 	worklist = append(worklist, queryReaderWorkItem[N]{node: root, childIdx: -1})
 	for len(worklist) > 0 {
 		last := len(worklist) - 1
@@ -104,7 +107,7 @@ func executeQueryWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Que
 				if pattern.steps[0].quantifier == queryQuantifierZeroOrMore || pattern.steps[0].quantifier == queryQuantifierOneOrMore {
 					captureSets = matchPatternPostorderAllWithReader(q, pattern, node, item.parent, item.childIdx, lang, source, budget, reader)
 				} else {
-					captureSets = matchPatternAllWithReader(q, pattern, node, lang, source, budget, &scratch, reader)
+					captureSets, scratch = matchPatternAllWithReader(q, pattern, node, lang, source, budget, scratch, reader)
 				}
 				for _, captures := range captureSets {
 					dst = append(dst, queryReaderMatch[C]{PatternIndex: patternIndex, Captures: captures})
@@ -126,13 +129,14 @@ func executeQueryWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Que
 				continue
 			}
 			pattern := &q.patterns[patternIndex]
-			captures := matchPatternAllWithReader(q, pattern, node, lang, source, newQueryMatchBudget(defaultQueryMatchWorkBudget), &scratch, reader)
+			var captures [][]C
+			captures, scratch = matchPatternAllWithReader(q, pattern, node, lang, source, newQueryMatchBudget(defaultQueryMatchWorkBudget), scratch, reader)
 			for _, set := range captures {
 				dst = append(dst, queryReaderMatch[C]{PatternIndex: patternIndex, Captures: set})
 			}
 		}
 	}
-	return dst, worklist
+	return dst, worklist, scratch
 }
 
 // publicQueryReader preserves the public Node/QueryCapture representation as

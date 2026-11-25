@@ -115,20 +115,19 @@ func cloneQueryCaptures(captures []QueryCapture) []QueryCapture {
 }
 
 // matchPatternAll returns the matches of pat rooted at node, in the order the
-// C query cursor returns them (see orderQueryCompletions). scratch must not
-// be nil; it holds the finish points while the matches collect.
-func (q *Query) matchPatternAll(pat *Pattern, node *Node, lang *Language, source []byte, budget *queryMatchBudget, scratch *queryOrderScratch[*Node, QueryCapture]) [][]QueryCapture {
+// C query cursor returns them (see orderQueryCompletions), and scratch, which
+// ordering allocates on first use. scratch may be nil.
+func (q *Query) matchPatternAll(pat *Pattern, node *Node, lang *Language, source []byte, budget *queryMatchBudget, scratch *queryOrderScratch[*Node, QueryCapture]) ([][]QueryCapture, *queryOrderScratch[*Node, QueryCapture]) {
 	if len(pat.steps) == 0 {
-		return nil
+		return nil, scratch
 	}
 	if pat.steps[0].quantifier == queryQuantifierZeroOrMore {
-		return q.matchRootZeroOrMorePatternAll(pat, node, lang, source)
+		return q.matchRootZeroOrMorePatternAll(pat, node, lang, source), scratch
 	}
 	if pat.steps[0].quantifier == queryQuantifierOneOrMore {
-		return nil
+		return nil, scratch
 	}
 
-	scratch.finishes = scratch.finishes[:0]
 	var matches [][]QueryCapture
 	q.matchStepsAllWithParentPredicates(pat.steps, 0, node, nil, -1, lang, source, pat.predicates, nil, budget, func(captures []QueryCapture, finish queryFinish[*Node]) {
 		if !q.matchesPredicates(pat.predicates, captures, lang, source) {
@@ -136,8 +135,13 @@ func (q *Query) matchPatternAll(pat *Pattern, node *Node, lang *Language, source
 		}
 		captures = q.applyDirectives(pat.predicates, captures, source)
 		captures = q.filterDisabledCaptures(captures)
-		queryNoteFinish(scratch, len(matches), captures, finish, publicQueryReader{})
-		matches = append(matches, cloneQueryCaptures(captures))
+		if len(captures) == 0 && !queryStepsHaveCaptures(pat.steps) {
+			// C merges matches without captures into one, so where they
+			// finish does not matter.
+			matches = append(matches, nil)
+			return
+		}
+		matches = append(matches, queryCapturesWithFinish(captures, finish, publicQueryReader{}))
 	})
 	return orderQueryCompletions(matches, scratch, publicQueryReader{})
 }
