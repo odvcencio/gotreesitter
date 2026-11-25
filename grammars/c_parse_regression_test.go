@@ -23,12 +23,36 @@ func TestParseFileCUnknownHeaderTypeCastKeepsCallBranch(t *testing.T) {
 	assertCCastUnknownTypeIsCallExpression(t, []byte("void f(void) { x = (clusterState)(y); }\n"), "clusterState")
 }
 
+// The existing engine turns `(local_t)(y)` into a cast because local_t is a
+// typedef in the file. Pinned C parses it as a call, and ParseFile gives C's
+// tree because the C certificate lists the table-v1 provider. This test checks
+// the existing engine's rewrite, with the registered C token source.
 func TestParseFileCLocalTypedefCastStaysCastExpression(t *testing.T) {
-	assertCCastLocalTypedefStaysCast(t, []byte("typedef int local_t;\nvoid f(void) { x = (local_t)(y); }\n"), "local_t")
+	src := []byte("typedef int local_t;\nvoid f(void) { x = (local_t)(y); }\n")
+	assertCCastLocalTypedefStaysCast(t, parseCExistingEngine(t, src), src, "local_t")
 }
 
 func TestParseFileCHeaderTypeCastWithoutArgumentListStaysCastExpression(t *testing.T) {
-	assertCCastLocalTypedefStaysCast(t, []byte("void f(int content_size) { x = (off_t)content_size; }\n"), "off_t")
+	src := []byte("void f(int content_size) { x = (off_t)content_size; }\n")
+	bt, err := ParseFile("parser.c", src)
+	if err != nil {
+		t.Fatalf("ParseFile error: %v", err)
+	}
+	assertCCastLocalTypedefStaysCast(t, bt, src, "off_t")
+}
+
+// parseCExistingEngine parses src as ParseFile did before the core served C
+// registry requests: the registered C token source on the existing engine.
+func parseCExistingEngine(t *testing.T, src []byte) *gotreesitter.BoundTree {
+	t.Helper()
+	lang := CLanguage()
+	parser := gotreesitter.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	tree, err := parser.ParseWithTokenSource(src, NewCTokenSourceOrEOF(src, lang))
+	if err != nil || tree == nil {
+		t.Fatalf("ParseWithTokenSource: tree %v, error %v", tree != nil, err)
+	}
+	return gotreesitter.Bind(tree)
 }
 
 func TestParseFileCCommentFollowedByDeclarationKeepsDeclarationBounds(t *testing.T) {
@@ -282,18 +306,14 @@ func assertCCastUnknownTypeIsCallExpression(t *testing.T, src []byte, wantIdent 
 	}
 }
 
-func assertCCastLocalTypedefStaysCast(t *testing.T, src []byte, wantIdent string) {
+func assertCCastLocalTypedefStaysCast(t *testing.T, bt *gotreesitter.BoundTree, src []byte, wantIdent string) {
 	t.Helper()
-	bt, err := ParseFile("parser.c", src)
-	if err != nil {
-		t.Fatalf("ParseFile error: %v", err)
-	}
 	defer bt.Release()
 
 	lang := CLanguage()
 	root := bt.RootNode()
 	if root == nil {
-		t.Fatal("ParseFile returned nil root for C cast expression")
+		t.Fatal("nil root for C cast expression")
 	}
 	if root.HasError() {
 		t.Fatalf("expected error-free C parse tree, got %s", root.SExpr(lang))

@@ -21,13 +21,23 @@ go get github.com/odvcencio/gotreesitter
 
 gotreesitter loads the same parse-table format that tree-sitter's C runtime uses. `ts2go` extracts grammar tables from upstream `parser.c` files, compresses them into binary blobs, and deserializes them on first use. 206 grammars ship in the registry.
 
-The current release is **v0.58.0**. 34 grammars now parse by default through
-`ccore`, the C-faithful parser core, among them C, TypeScript, JSON, Python,
-Rust, Ruby, Kotlin, Elixir, Erlang, CSS, TOML and Objective-C. Each passed a
-graduation gate: trees and subtree reuse equal pinned C, and time and memory at
-or below the existing engine. The other grammars keep the existing engine. No
-API call changes, but trees for these grammars now match C where v0.57.0 did
-not (see the upgrade notes). To keep the existing engine for one parser:
+The current release is **v0.58.0**, in which 34 grammars parse by default
+through `ccore`, the C-faithful parser core. On `main`, 61 grammars do (one for
+each record in `testdata/ccore_certificates.json`), among them C, TypeScript,
+JSON, Python, Rust, Ruby, Kotlin, Elixir, Erlang, CSS, TOML and Objective-C.
+Each passed a graduation gate: trees and subtree reuse equal pinned C, and time
+and memory at or below the existing engine. The other grammars keep the
+existing engine. No API call changes, but trees for these grammars now match C
+where v0.57.0 did not (see the upgrade notes).
+
+On `main` the default also holds for the registry helpers: `LangEntry.Parse`,
+`ParseContext` and `ParseStrict`, `grammars.ParseFile` and `ParseFilePooled`,
+and the highlighter from `LangEntry.NewHighlighter`. For C, the registry
+attaches a hand-written Go token source; when the core serves the request it
+lexes with the grammar's own tables instead, so these helpers give the same tree
+as `Parser.Parse`. In v0.58.0 they kept C on the existing engine.
+
+To keep the existing engine for one parser:
 
 ```go
 parser := gotreesitter.NewParser(lang)
