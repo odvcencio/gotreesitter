@@ -2,6 +2,7 @@ package grammargen
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -271,5 +272,117 @@ func TestExportGrammarJSONRuleOrder(t *testing.T) {
 		if g2.RuleOrder[i] != name {
 			t.Errorf("RuleOrder[%d]: got %q, want %q", i, g2.RuleOrder[i], name)
 		}
+	}
+}
+
+// precedenceLevelsJSON returns the "precedences" field of a grammar.json
+// document, re-encoded so that two documents compare by content.
+func precedenceLevelsJSON(t *testing.T, data []byte) string {
+	t.Helper()
+	var doc struct {
+		Precedences json.RawMessage `json:"precedences"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("decode grammar.json: %v", err)
+	}
+	if len(doc.Precedences) == 0 {
+		return ""
+	}
+	var levels any
+	if err := json.Unmarshal(doc.Precedences, &levels); err != nil {
+		t.Fatalf("decode precedences: %v", err)
+	}
+	out, err := json.Marshal(levels)
+	if err != nil {
+		t.Fatalf("encode precedences: %v", err)
+	}
+	return string(out)
+}
+
+// TestExportGrammarJSONPrecedencesRoundTrip imports a grammar.json whose
+// precedences hold named (STRING) and rule (SYMBOL) entries, exports it, and
+// imports the export again. The precedence levels must survive both steps.
+func TestExportGrammarJSONPrecedencesRoundTrip(t *testing.T) {
+	src := []byte(`{
+  "name": "prec_levels",
+  "rules": {
+    "expression": {"type": "CHOICE", "members": [
+      {"type": "SYMBOL", "name": "binary"},
+      {"type": "SYMBOL", "name": "unary"},
+      {"type": "SYMBOL", "name": "number"}]},
+    "binary": {"type": "CHOICE", "members": [
+      {"type": "PREC_LEFT", "value": "add", "content": {"type": "SEQ", "members": [
+        {"type": "SYMBOL", "name": "expression"}, {"type": "STRING", "value": "+"}, {"type": "SYMBOL", "name": "expression"}]}},
+      {"type": "PREC_LEFT", "value": "mul", "content": {"type": "SEQ", "members": [
+        {"type": "SYMBOL", "name": "expression"}, {"type": "STRING", "value": "*"}, {"type": "SYMBOL", "name": "expression"}]}}]},
+    "unary": {"type": "PREC", "value": "neg", "content": {"type": "SEQ", "members": [
+      {"type": "STRING", "value": "-"}, {"type": "SYMBOL", "name": "expression"}]}},
+    "number": {"type": "PATTERN", "value": "[0-9]+"}
+  },
+  "extras": [{"type": "PATTERN", "value": "\\s"}],
+  "conflicts": [],
+  "precedences": [
+    [{"type": "STRING", "value": "neg"}, {"type": "STRING", "value": "mul"}, {"type": "STRING", "value": "add"}],
+    [{"type": "SYMBOL", "name": "unary"}, {"type": "SYMBOL", "name": "binary"}]
+  ],
+  "externals": [],
+  "inline": [],
+  "supertypes": []
+}`)
+	want := [][]PrecEntry{
+		{{Name: "neg"}, {Name: "mul"}, {Name: "add"}},
+		{{IsSymbol: true, Name: "unary"}, {IsSymbol: true, Name: "binary"}},
+	}
+
+	g1, err := ImportGrammarJSON(src)
+	if err != nil {
+		t.Fatalf("ImportGrammarJSON(source): %v", err)
+	}
+	if !reflect.DeepEqual(g1.Precedences, want) {
+		t.Fatalf("import read precedences %v, want %v", g1.Precedences, want)
+	}
+
+	data, err := ExportGrammarJSON(g1)
+	if err != nil {
+		t.Fatalf("ExportGrammarJSON: %v", err)
+	}
+	if got, want := precedenceLevelsJSON(t, data), precedenceLevelsJSON(t, src); got != want {
+		t.Fatalf("exported precedences = %s, want %s", got, want)
+	}
+
+	g2, err := ImportGrammarJSON(data)
+	if err != nil {
+		t.Fatalf("ImportGrammarJSON(export): %v", err)
+	}
+	if !reflect.DeepEqual(g2.Precedences, want) {
+		t.Fatalf("precedences after export and import = %v, want %v", g2.Precedences, want)
+	}
+	again, err := ExportGrammarJSON(g2)
+	if err != nil {
+		t.Fatalf("ExportGrammarJSON(second): %v", err)
+	}
+	if string(again) != string(data) {
+		t.Fatalf("export is not stable across a second round trip:\nfirst:  %s\nsecond: %s", data, again)
+	}
+}
+
+// TestExportGrammarJSONMarkdownPrecedences checks the three symbol
+// precedence levels that MarkdownGrammar declares (setext headings and
+// indented code over _block) through an export and import.
+func TestExportGrammarJSONMarkdownPrecedences(t *testing.T) {
+	g := MarkdownGrammar()
+	if len(g.Precedences) != 3 {
+		t.Fatalf("MarkdownGrammar declares %d precedence levels, want 3", len(g.Precedences))
+	}
+	data, err := ExportGrammarJSON(g)
+	if err != nil {
+		t.Fatalf("ExportGrammarJSON: %v", err)
+	}
+	g2, err := ImportGrammarJSON(data)
+	if err != nil {
+		t.Fatalf("ImportGrammarJSON: %v", err)
+	}
+	if !reflect.DeepEqual(g2.Precedences, g.Precedences) {
+		t.Fatalf("precedences after export and import = %v, want %v", g2.Precedences, g.Precedences)
 	}
 }

@@ -17,6 +17,7 @@ import (
 //	  "rules": { ... },
 //	  "extras": [...],
 //	  "conflicts": [...],
+//	  "precedences": [...],
 //	  "externals": [...],
 //	  "inline": [...],
 //	  "supertypes": [...]
@@ -46,6 +47,10 @@ func ExportGrammarJSON(g *Grammar) ([]byte, error) {
 	// Conflicts.
 	out.Conflicts = g.Conflicts
 
+	// Precedences: each level lists named precedences (STRING) and rules
+	// (SYMBOL) from highest to lowest, as ImportGrammarJSON reads them.
+	out.Precedences = exportPrecedenceLevels(g.Precedences)
+
 	// Externals.
 	for _, ext := range g.Externals {
 		out.Externals = append(out.Externals, exportRule(ext))
@@ -57,6 +62,9 @@ func ExportGrammarJSON(g *Grammar) ([]byte, error) {
 	}
 	if out.Conflicts == nil {
 		out.Conflicts = [][]string{}
+	}
+	if out.Precedences == nil {
+		out.Precedences = [][]interface{}{}
 	}
 	if out.Externals == nil {
 		out.Externals = []interface{}{}
@@ -88,10 +96,33 @@ type exportGrammar struct {
 	Rules        *orderedRules          `json:"rules"`
 	Extras       []interface{}          `json:"extras"`
 	Conflicts    [][]string             `json:"conflicts"`
+	Precedences  [][]interface{}        `json:"precedences"`
 	Externals    []interface{}          `json:"externals"`
 	Inline       []string               `json:"inline"`
 	Supertypes   []string               `json:"supertypes"`
 	Gotreesitter *grammarJSONExtensions `json:"gotreesitter,omitempty"`
+}
+
+// exportPrecedenceLevels converts the Grammar's precedence levels to the
+// grammar.json form: a STRING entry for a named precedence and a SYMBOL entry
+// for a rule.
+func exportPrecedenceLevels(levels [][]PrecEntry) [][]interface{} {
+	if len(levels) == 0 {
+		return nil
+	}
+	out := make([][]interface{}, 0, len(levels))
+	for _, level := range levels {
+		entries := make([]interface{}, 0, len(level))
+		for _, e := range level {
+			if e.IsSymbol {
+				entries = append(entries, map[string]interface{}{"type": "SYMBOL", "name": e.Name})
+				continue
+			}
+			entries = append(entries, map[string]interface{}{"type": "STRING", "value": e.Name})
+		}
+		out = append(out, entries)
+	}
+	return out
 }
 
 // orderedRules preserves rule order when marshaling to JSON.
