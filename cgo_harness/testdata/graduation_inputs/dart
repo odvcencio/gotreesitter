@@ -1,0 +1,59 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+typedef Mapper<T, R> = R Function(T value);
+
+enum Color { red, green, blue }
+
+@@repeat
+class Account<T extends Comparable<T>> {
+  final String name;
+  int balance = 0;
+  final List<T> history = <T>[];
+  final Map<String, List<int>> index = {};
+
+  Account(this.name, [this.balance = 0]);
+
+  int deposit(int amount) {
+    if (amount <= 0) {
+      throw ArgumentError('invalid amount: $amount');
+    }
+    balance += amount;
+    return balance;
+  }
+
+  String describe() => 'Account ${name} holds ${balance + 1} units';
+
+  Future<int> total(Iterable<int> values) async {
+    var sum = 0;
+    for (final v in values) {
+      sum += v;
+    }
+    return sum;
+  }
+}
+
+int classify(Color c, int n) {
+  switch (c) {
+    case Color.red:
+      return n + 1;
+    case Color.green:
+      return n * 2;
+    default:
+      return math.max(n, 0);
+  }
+}
+
+List<R> mapAll<T, R>(List<T> items, Mapper<T, R> f) {
+  final out = <R>[];
+  for (var i = 0; i < items.length; i++) {
+    out.add(f(items[i]));
+  }
+  return out;
+}
+
+@@end
+void main() {
+  final a = Account<int>('main', 10);
+  print(a.describe());
+}
