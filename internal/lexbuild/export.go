@@ -168,3 +168,13 @@ func (a *Analysis) DoesOverlap(i, j int) bool { return a.conflicts.doesOverlap(i
 
 // Coincident is coincident_tokens.rs: fn CoincidentTokenIndex::contains.
 func (a *Analysis) Coincident(x, y Symbol) bool { return a.coinc.containsPair(x, y) }
+
+// EOFAction is the end-of-input action of a lex state (tables.rs: struct
+// LexState, the field eof_action): the target of the statement
+// "if (eof) ADVANCE(n);" that render.rs: fn add_lex_state writes. ok is false
+// when the state has none. Table.Step gives the step that the rendered state
+// takes at the end of input, which can also come from another statement.
+func (t *Table) EOFAction(state int) (target int, ok bool) {
+	s := &t.t.states[state]
+	return int(s.eof.state), s.hasEOF
+}
