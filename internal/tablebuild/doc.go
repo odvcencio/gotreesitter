@@ -14,6 +14,10 @@
 //	node_types.rs: fn get_variable_info, fn get_supertype_symbol_map (varinfo.go)
 //	prepare_grammar.rs: fn prepare_grammar, the last two steps (prepare.go)
 //
+// The subpackage ref reads the output of the unmodified generator (parser.c,
+// parser-noopt.c and the node types file) as canonical records per layer, and
+// names the first record where a build differs from it.
+//
 // # Order
 //
 // Where the generator iterates a hash map or orders by an interned string id,

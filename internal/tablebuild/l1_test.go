@@ -49,8 +49,9 @@ import (
 // pure-Go mode every terminal, external and non-inlined non-terminal is taken
 // as used, and reference mode reports a grammar for which that differs.
 //
-// This comparison moves onto the shared comparer of internal/tablebuild/ref
-// when that lands.
+// This test keeps its own records and digests. Moving it onto the shared
+// comparer of internal/tablebuild/ref, which also defines L1 records, is
+// follow-up work.
 
 const (
 	l1RefEnv = "TABLEBUILD_L1_REF"
