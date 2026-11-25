@@ -1,9 +1,6 @@
 package tablebuild
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -33,15 +30,13 @@ import (
 // Two modes:
 //
 //  1. Pure-Go (default): the port's records are compared with committed
-//     digests: testdata/json/digests.json (the reference set of stage 0) and
-//     testdata/go/l2.digests.json (the L2 sections only; Go's full digest
-//     file would hold every state of the unmerged table).
+//     digests, the files of stage 0 (testdata/<grammar>/digests.json[.gz]),
+//     of which only the L2 sections are read.
 //  2. Reference mode, with TABLEBUILD_REF set to a reference set written by
 //     cgo_harness/docker/tablebuild_reference.sh: the test reads
 //     <grammar>/parser.c through cmd/ts2go (TABLEBUILD_TS2GO names a built
 //     ts2go binary; without it the test runs go run ./cmd/ts2go), compares
-//     full lines and prints both sides of the first differing record. With
-//     -l2.update it writes testdata/go/l2.digests.json.
+//     full lines and prints both sides of the first differing record.
 //
 // Numbering the symbols, aliases and fields of the records takes parts of
 // render.rs that a later stage ports in full (fn init, symbols_for_alias,
@@ -56,8 +51,6 @@ const (
 	l2RefEnv   = "TABLEBUILD_REF"
 	l2TS2GoEnv = "TABLEBUILD_TS2GO"
 )
-
-var l2Update = flag.Bool("l2.update", false, "rewrite testdata/go/l2.digests.json from the reference set (needs "+l2RefEnv+")")
 
 var l2Grammars = []string{"json", "go"}
 
@@ -259,11 +252,8 @@ func isL2(section string) bool { return strings.HasPrefix(section, "L2 ") }
 // l2Digests returns the committed L2 digests of a grammar.
 func l2Digests(t *testing.T, name string) map[string][]string {
 	t.Helper()
-	path := filepath.Join("testdata", name, "digests.json")
-	if _, err := os.Stat(path); err != nil {
-		path = filepath.Join("testdata", name, "l2.digests.json")
-	}
-	f, err := ref.ReadDigestFile(path)
+	dir := filepath.Join("testdata", name)
+	f, _, err := ref.ReadDigestDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +264,7 @@ func l2Digests(t *testing.T, name string) map[string][]string {
 		}
 	}
 	if len(want) == 0 {
-		t.Fatalf("%s has no L2 sections", path)
+		t.Fatalf("%s has no L2 sections", dir)
 	}
 	return want
 }
@@ -288,9 +278,6 @@ func TestL2(t *testing.T) {
 			port := b.records()
 			logL2(t, b, port)
 			if refRoot == "" {
-				if *l2Update {
-					t.Fatalf("-l2.update needs %s", l2RefEnv)
-				}
 				if d := ref.CompareDigests(port, l2Digests(t, name)); d != nil {
 					t.Fatalf("L2 differs from the committed digests:\n%s", d)
 				}
@@ -299,10 +286,6 @@ func TestL2(t *testing.T) {
 			refL2 := ref.Without(l2Reference(t, refRoot, name, grammarJSON), func(s string) bool { return !isL2(s) })
 			if d := ref.Compare(port, refL2); d != nil {
 				t.Errorf("L2 differs from %s:\n%s", filepath.Join(refRoot, name, "parser.c"), d)
-			}
-			if *l2Update && name != "json" {
-				writeL2Digests(t, refRoot, name, refL2)
-				return
 			}
 			if d := ref.CompareDigests(refL2, l2Digests(t, name)); d != nil {
 				t.Errorf("the committed L2 digests differ from the reference (reference shown as port):\n%s", d)
@@ -352,47 +335,4 @@ func l2Reference(t *testing.T, root, name string, grammarJSON []byte) []string {
 		t.Fatal(err)
 	}
 	return strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
-}
-
-// writeL2Digests writes testdata/<name>/l2.digests.json: the L2 sections of
-// the reference with the header of the reference set.
-func writeL2Digests(t *testing.T, root, name string, refL2 []string) {
-	t.Helper()
-	dir := filepath.Join(root, name)
-	manifest, err := os.ReadFile(filepath.Join(dir, "MANIFEST"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := &ref.DigestFile{Grammar: name, Sources: map[string]string{}, Sections: ref.SectionDigests(refL2)}
-	for _, l := range strings.Split(string(manifest), "\n") {
-		fs := strings.Fields(l)
-		switch {
-		case len(fs) >= 2 && fs[0] == "commit":
-			f.Commit = fs[1]
-		case len(fs) >= 3 && fs[0] == "cli" && fs[1] == "0.27.1":
-			f.Generator = strings.Join(fs[2:], " ")
-		}
-	}
-	for _, src := range []string{"parser.c", "parser-pinned.c", "src/grammar.json"} {
-		b, err := os.ReadFile(filepath.Join(dir, src))
-		if err != nil {
-			t.Fatal(err)
-		}
-		sum := sha256.Sum256(b)
-		f.Sources[src] = hex.EncodeToString(sum[:])
-	}
-	pinned, err := os.ReadFile(filepath.Join(dir, "parser-pinned.c"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	generated, err := os.ReadFile(filepath.Join(dir, "parser.c"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	f.Eligible = ref.CompareGenerated(pinned, generated).Equal
-	path := filepath.Join("testdata", name, "l2.digests.json")
-	if err := os.WriteFile(path, f.Marshal(), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("wrote %s (%d records)", path, len(refL2))
 }
