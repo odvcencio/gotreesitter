@@ -148,35 +148,36 @@ emit_from_log() {
 decline_check() {
   local lang=$1 deny=$2; shift 2
   local seen=0 total=0 bad="" summary="" reason n entry missing=""
-  declare -A sum=() have=()
+  local reasons=" "
   local log line list
   for log in "$@"; do
     [ -f "$log" ] || continue
     while IFS= read -r line; do
       entry=$(field "$line" item)
       case "$entry" in 1|2|3) ;; *) continue ;; esac
-      seen=$((seen + 1)); have[$entry]=1
+      seen=$((seen + 1)); kv_set have "$entry" 1
       list=$(field "$line" declines)
       [ -z "$list" ] && continue
       IFS=',' read -ra parts <<<"$list"
       for p in "${parts[@]}"; do
         reason=${p%%=*}; n=${p#*=}
-        sum[$reason]=$(( ${sum[$reason]:-0} + n ))
+        [[ "$reasons" == *" $reason "* ]] || reasons+="$reason "
+        kv_set sum "$reason" $(( $(kv_get sum "$reason") + n ))
       done
     done < <(grep -a '^GRADDECL ' "$log")
   done
   if [ "$seen" -eq 0 ]; then printf 'na\tdeclines=unknown\tno decline counters (items 1 to 3 did not run)\n'; return; fi
-  if [ "${GRAD_NEGATIVE:-}" = 4 ]; then sum[negative_check]=1; fi
-  for reason in "${!sum[@]}"; do
-    total=$((total + sum[$reason]))
-    summary+="${reason}=${sum[$reason]},"
+  if [ "${GRAD_NEGATIVE:-}" = 4 ]; then [[ "$reasons" == *" negative_check "* ]] || reasons+="negative_check "; kv_set sum negative_check 1; fi
+  for reason in $reasons; do
+    total=$((total + $(kv_get sum "$reason")))
+    summary+="${reason}=$(kv_get sum "$reason"),"
     entry=$(awk -F'\t' -v l="$lang" -v r="$reason" '$0 !~ /^#/ && $1 == l && $2 == r && $3 != "" {print $3; exit}' "$deny" 2>/dev/null)
-    if [ -z "$entry" ] && [ -z "$bad" ]; then bad="$reason (${sum[$reason]} declines, no deny entry with a reopening condition)"; fi
+    if [ -z "$entry" ] && [ -z "$bad" ]; then bad="$reason ($(kv_get sum "$reason") declines, no deny entry with a reopening condition)"; fi
   done
   summary=${summary%,}
   if [ -n "$bad" ]; then printf 'fail\tdeclines=%s\t%s\n' "$summary" "$bad"; return; fi
   # Item 4 speaks for items 1 to 3. A run that left one of them out cannot pass it.
-  for entry in 1 2 3; do [ -n "${have[$entry]:-}" ] || missing+="$entry "; done
+  for entry in 1 2 3; do [ -n "$(kv_get have "$entry")" ] || missing+="$entry "; done
   if [ -n "$missing" ]; then printf 'na\tdeclines=%s counters_read=%s\tno decline counters of item(s) %s\n' "${summary:-0}" "$seen" "${missing% }"; return; fi
   if [ "$total" -eq 0 ]; then printf 'pass\tdeclines=0 counters_read=%s\t\n' "$seen"; return; fi
   printf 'pass\tdeclines=%s all_denied=true\t\n' "$summary"
@@ -198,6 +199,31 @@ source_child_status() {
 
 # median <numbers...>
 median() { printf '%s\n' "$@" | sort -n | awk '{a[NR]=$1} END {if (NR) print a[int((NR+1)/2)]}'; }
+
+# kv_set <table> <key> <value> and kv_get <table> <key>: a small map kept in
+# variables named kv_<table>_<key>. bash 3.2 (macOS) has no associative arrays.
+# A key keeps its letters, digits and underscores; any other character becomes _.
+kv_name() { printf 'kv_%s_%s' "$1" "${2//[^A-Za-z0-9_]/_}"; }
+kv_set() { local n; n=$(kv_name "$1" "$2"); printf -v "$n" '%s' "$3"; }
+kv_get() { local n; n=$(kv_name "$1" "$2"); printf '%s' "${!n:-}"; }
+
+# run_killable <seconds> <command...>: runs the command and kills it (SIGKILL)
+# after the time limit; the exit code is 137 for a killed command, as with
+# "timeout -s KILL". macOS has no timeout(1), so a watcher process does the job.
+run_killable() {
+  local secs=$1; shift
+  if command -v timeout >/dev/null 2>&1; then timeout -s KILL "$secs" "$@"; return; fi
+  local pid wpid rc
+  "$@" &
+  pid=$!
+  ( sleep "$secs"; kill -KILL "$pid" 2>/dev/null ) &
+  wpid=$!
+  wait "$pid"; rc=$?
+  pkill -P "$wpid" 2>/dev/null
+  kill "$wpid" 2>/dev/null
+  wait "$wpid" 2>/dev/null
+  return "$rc"
+}
 
 if [ "${1:-}" = "--self-test" ]; then
   d=$(mktemp -d); trap 'rm -rf "$d"' EXIT
@@ -239,6 +265,8 @@ if [ "${1:-}" = "--self-test" ]; then
   ok "decline with a deny entry passes" "$(decline_check x "$d/deny" "$d/d1.log" | cut -f1)" "pass"
   ok "deny entry without a reopening condition fails" "$(decline_check x "$d/deny_noreopen" "$d/d1.log" | cut -f1)" "fail"
   ok "deny entry of another language fails" "$(decline_check y "$d/deny" "$d/d1.log" | cut -f1)" "fail"
+  printf '%s\n' 'GRADDECL item=1 served_fresh=2 declines=a=2,b=1' 'GRADDECL item=2 served_fresh=1 declines=a=3' 'GRADDECL item=3 served_fresh=1 declines=' >"$d/dmulti.log"
+  ok "declines of several reasons add up" "$(decline_check x /dev/null "$d/dmulti.log" | cut -f2)" "declines=a=5,b=1"
   ok "no counters is n/a" "$(decline_check x "$d/deny" "$d/pass.log" | cut -f1)" "na"
   ok "counters of one item only is n/a" "$(decline_check x "$d/deny" "$d/dmissing.log" | cut -f1)" "na"
   ok "the n/a names the missing items" "$(decline_check x "$d/deny" "$d/dmissing.log" | cut -f3)" "no decline counters of item(s) 1 3"
@@ -442,8 +470,6 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
     9)
       runs=${GRAD_RSS_RUNS:-3}
       if [[ ! "$runs" =~ ^[1-9][0-9]*$ ]]; then emit "$lang" 9 fail "runs=$runs" "runs must be positive"; stop_if_needed 9; continue; fi
-      declare -A rss=() killed=()
-      for work in fresh edits1000; do for arm in route default; do rss[$work.$arm]=""; done; done
       fail9=""; na9=""; source9=""; bytes9=""
       # Prepare the 1,000 edits once, outside the timed runs: checking each edit
       # with pinned C on a 1 MiB source can take most of a run's time limit.
@@ -454,7 +480,7 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
         for work in fresh edits1000; do
           arms="route default"; [ $((r % 2)) = 0 ] && arms="default route"
           for arm in $arms; do
-            GRAD_RSS_ARM=$arm GRAD_RSS_WORK=$work timeout -s KILL "${GRAD_RSS_TIMEOUT:-480}" "$hbin" -test.run '^TestGraduationRSSChild$' -test.count=1 -test.v -test.timeout=40m >"$out/item9-$work-$arm-$r.log" 2>&1
+            GRAD_RSS_ARM=$arm GRAD_RSS_WORK=$work run_killable "${GRAD_RSS_TIMEOUT:-480}" "$hbin" -test.run '^TestGraduationRSSChild$' -test.count=1 -test.v -test.timeout=40m >"$out/item9-$work-$arm-$r.log" 2>&1
             child_rc=$?
             line=$(grep -a '^GRADRSS ' "$out/item9-$work-$arm-$r.log" | tail -n 1)
             kb=$(field "$line" maxrss_kb)
@@ -468,25 +494,26 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
               # A killed process can only report a lower bound.
               pl=$(grep -a '^GRADPROG ' "$out/item9-$work-$arm-$r.log" | tail -n 1)
               kb=$(field "$pl" maxrss_kb)
-              if [ -z "$kb" ]; then fail9="$work/$arm run $r gave no maximum resident set size"; else rss[$work.$arm]+="$kb "; killed[$work.$arm]+="$r(after $(field "$pl" edits) edits) "; fi
-            else rss[$work.$arm]+="$kb "; fi
+              if [ -z "$kb" ]; then fail9="$work/$arm run $r gave no maximum resident set size"; else kv_set rss "$work.$arm" "$(kv_get rss "$work.$arm")$kb "; kv_set killed "$work.$arm" "$(kv_get killed "$work.$arm")$r(after $(field "$pl" edits) edits) "; fi
+            else kv_set rss "$work.$arm" "$(kv_get rss "$work.$arm")$kb "; fi
           done
         done
       done
       if [ -n "$fail9" ]; then emit "$lang" 9 fail "runs=$runs source=$source9 bytes=$bytes9" "$fail9"; elif [ -n "$na9" ]; then emit "$lang" 9 na "runs=$runs source=$source9 bytes=$bytes9" "$na9"; else
         status=pass; first=""; nums="runs=$runs source=$source9 bytes=$bytes9"
         for work in fresh edits1000; do
-          read -r -a route_values <<< "${rss[$work.route]}"
-          read -r -a default_values <<< "${rss[$work.default]}"
-          mr=$(median "${route_values[@]}"); ml=$(median "${default_values[@]}")
+          rss_route=$(kv_get rss "$work.route"); rss_default=$(kv_get rss "$work.default")
+          # The values are plain numbers: word splitting gives one argument each.
+          mr=$(median $rss_route); ml=$(median $rss_default)
           [ "${GRAD_NEGATIVE:-}" = 9 ] && mr=$((ml + 1))
-          if [ -n "${killed[$work.route]:-}" ]; then status=na; first="$work: route did not finish; its $mr KB value is a lower bound"; fi
-          nums+=" ${work}_1MiB_route=${mr}KB(${rss[$work.route]% }) ${work}_1MiB_default=${ml}KB(${rss[$work.default]% })"
+          if [ -n "$(kv_get killed "$work.route")" ]; then status=na; first="$work: route did not finish; its $mr KB value is a lower bound"; fi
+          nums+=" ${work}_1MiB_route=${mr}KB(${rss_route% }) ${work}_1MiB_default=${ml}KB(${rss_default% })"
           for arm in route default; do
-            [ -n "${killed[$work.$arm]:-}" ] && nums+=" ${work}_${arm}_killed_runs=${killed[$work.$arm]% }(values are lower bounds)"
+            killed_runs=$(kv_get killed "$work.$arm")
+            [ -n "$killed_runs" ] && nums+=" ${work}_${arm}_killed_runs=${killed_runs% }(values are lower bounds)"
           done
           if [ "$mr" -gt "$ml" ]; then
-            if [ -n "${killed[$work.default]:-}" ]; then [ "$status" = fail ] || status=na; [ -z "$first" ] && first="$work: default engine was killed; its lower bound $ml KB is below the route's $mr KB"
+            if [ -n "$(kv_get killed "$work.default")" ]; then [ "$status" = fail ] || status=na; [ -z "$first" ] && first="$work: default engine was killed; its lower bound $ml KB is below the route's $mr KB"
             else status=fail; [ -z "$first" ] && first="$work: route median $mr KB, default engine $ml KB"; fi
           fi
         done
