@@ -252,12 +252,21 @@ type LexTables struct {
 	Keyword *Table // nil without a word token
 	// LexState is the lex state of each parse state, in Main.
 	LexState []uint32
+	// TokenSets counts the distinct token sets of the parse states after the
+	// keywords are replaced by the word token, and Groups the groups that
+	// merge_token_set leaves (each gets an entry state of Main before
+	// minimize_lex_table). Measurements; the generator logs neither.
+	TokenSets, Groups int
 }
 
-// BuildLexTables is build_lex_table.rs: fn build_lex_table. states holds the
-// valid tokens of each parse state as the generator has them when it builds
-// the lex table (after the error state is filled in and parse states are
-// merged). Reserved words are not ported.
+// BuildLexTables is build_lex_table.rs: fn build_lex_table. states holds, for
+// each parse state, the tokens that the generator reads from it: the keys of
+// its terminal entries chained with its reserved words, as the generator has
+// them when it builds the lex table (after the error state is filled in and
+// parse states are merged). The caller builds the sets (internal/tablebuild
+// holds the parse states); this function drops the tokens that are neither
+// terminals nor the end token and replaces each keyword by the word token, as
+// the generator does.
 func (p *Prepared) BuildLexTables(a *Analysis, states []TokenSet) (*LexTables, error) {
 	var lt *LexTables
 	var lerr error
@@ -285,6 +294,7 @@ func (p *Prepared) buildLexTables(a *Analysis, states []TokenSet) (*LexTables, e
 		ids    []uint32
 	}
 	var groups []*group
+	distinct := map[string]bool{} // read only by key: its order reaches no result
 	for i := range states {
 		var tokens TokenSet
 		for _, tok := range states[i].symbols() {
@@ -298,6 +308,7 @@ func (p *Prepared) buildLexTables(a *Analysis, states []TokenSet) (*LexTables, e
 				tokens.Insert(tok)
 			}
 		}
+		distinct[tokens.Key()] = true
 		did := false
 		for _, g := range groups {
 			if a.mergeTokenSet(&g.tokens, &tokens) {
@@ -332,7 +343,7 @@ func (p *Prepared) buildLexTables(a *Analysis, states []TokenSet) (*LexTables, e
 		return nil, err
 	}
 
-	out := &LexTables{LexState: lexState}
+	out := &LexTables{LexState: lexState, TokenSets: len(distinct), Groups: len(groups)}
 	var err error
 	if out.Main, err = p.newTable(main); err != nil {
 		return nil, err

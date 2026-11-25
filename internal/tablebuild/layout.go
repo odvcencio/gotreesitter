@@ -16,8 +16,8 @@ import (
 // generator writes a C identifier that the compiler turns into a number, the
 // port keeps the identifier, because sorting by identifier decides some
 // orders (the supertype map and the non-terminal alias map), and then
-// resolves it to its number. The lex functions, the lex modes and the
-// external scanner tables are not ported yet.
+// resolves it to its number. lex_layout.go ports the parts that number the
+// lexer: the lex functions, the lex modes and the external scanner tables.
 //
 // # Order
 //
@@ -141,6 +141,21 @@ type Layout struct {
 	SmallParseTable    []uint16 // ts_small_parse_table
 	SmallParseTableMap []uint32 // ts_small_parse_table_map
 	ParseActions       []ActionListEntry
+
+	// LexModes is ts_lex_modes: one entry per parse state.
+	LexModes []LexMode
+	// MainLex and KeywordLex are ts_lex and ts_lex_keywords. RenderTables
+	// fills them; Render, which has no lex tables, leaves them nil.
+	// KeywordLex is nil without a word token.
+	MainLex, KeywordLex []LexState
+	// KeywordCaptureToken is the symbol id of the word token (0 without
+	// one).
+	KeywordCaptureToken uint16
+	// ExternalScannerSymbolMap is ts_external_scanner_symbol_map and
+	// ExternalScannerStates ts_external_scanner_states (row 0 empty); both
+	// are nil without external tokens.
+	ExternalScannerSymbolMap []uint16
+	ExternalScannerStates    [][]bool
 }
 
 // supertypeEntry is one entry of render.rs: Generator::supertype_map, a
@@ -150,10 +165,10 @@ type supertypeEntry struct {
 	subtypes   []ChildType
 }
 
-// generator is render.rs: struct Generator, without the C buffer and the lex
-// tables.
+// generator is render.rs: struct Generator, without the C buffer.
 type generator struct {
 	parseTable                     *InternedTable
+	lexTables                      *lexbuild.LexTables // nil: no lex functions
 	largeStateCount                int
 	syntaxGrammar                  *lexbuild.SyntaxGrammar
 	lexicalGrammar                 *lexbuild.LexicalGrammar
@@ -178,13 +193,21 @@ type generator struct {
 
 // Render is render.rs: fn render_c_code and fn Generator::generate, for the
 // numbered tables. It reads the parse table of BuildTables, the prepared
-// grammar, and the supertype map of GetSupertypeSymbolMap.
+// grammar, and the supertype map of GetSupertypeSymbolMap. It has no lex
+// tables, so it writes no lex functions; RenderTables writes them too.
 func Render(table *InternedTable, g *PreparedGrammar, supertypeSymbolMap []SupertypeSubtypes, abiVersion int) (*Layout, error) {
+	return render(table, nil, g, supertypeSymbolMap, abiVersion)
+}
+
+// render is Render with the lex tables of a build (nil: none). A panic of
+// panicLikeGenerator becomes its *GeneratorPanicError.
+func render(table *InternedTable, lexTables *lexbuild.LexTables, g *PreparedGrammar, supertypeSymbolMap []SupertypeSubtypes, abiVersion int) (*Layout, error) {
 	if abiVersion < ABIVersionMin || abiVersion > ABIVersionMax {
 		return nil, &ABIVersionError{abiVersion}
 	}
 	gen := &generator{
 		parseTable:         table,
+		lexTables:          lexTables,
 		syntaxGrammar:      g.Syntax,
 		lexicalGrammar:     g.Lex,
 		defaultAliases:     g.DefaultAliases,
@@ -192,7 +215,16 @@ func Render(table *InternedTable, g *PreparedGrammar, supertypeSymbolMap []Super
 		abiVersion:         abiVersion,
 		out:                &Layout{ABIVersion: abiVersion},
 	}
-	return gen.generate()
+	var out *Layout
+	err := catchGeneratorPanic(func() error {
+		var err error
+		out, err = gen.generate()
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // generate is render.rs: fn Generator::generate, the calls that number.
@@ -222,7 +254,10 @@ func (g *generator) generate() (*Layout, error) {
 		g.addSupertypeMap()
 	}
 
-	// add_lex_function, add_character_set and add_lex_modes: not ported yet.
+	if err := g.addLexFunctions(); err != nil {
+		return nil, err
+	}
+	g.addLexModes()
 
 	if g.abiVersion >= abiVersionWithReservedWords && len(g.reservedWordSets) > 1 {
 		g.addReservedWordSets()
@@ -232,7 +267,12 @@ func (g *generator) generate() (*Layout, error) {
 	if err := g.addParseTable(); err != nil {
 		return nil, err
 	}
-	// The external scanner tables and add_parser_export: not ported yet.
+
+	if len(g.syntaxGrammar.ExternalTokens) > 0 {
+		g.addExternalScannerSymbolMap()
+		g.addExternalScannerStatesList()
+	}
+	g.addKeywordCaptureToken()
 	return g.out, nil
 }
 
