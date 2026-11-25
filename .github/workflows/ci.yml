@@ -997,7 +997,7 @@ jobs:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
-    timeout-minutes: 18
+    timeout-minutes: 21
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -1035,6 +1035,16 @@ jobs:
         run: |
           go test ./grammargen -race -count=1 -timeout 15m \
             -skip '^(TestLexMinimizeParityAcrossGrammars|TestImportedKotlinSwiftGrammarConstructors|TestMarkdownGrammarCommonMarkParity|TestMarkdownFencedCodeBlockContentParity|TestShippedBlobsNonTerminalAliasMapInventory|TestKotlinGrammarExtendSmoke|TestSwiftGrammarExtendSmoke|TestSwiftGrammarBlobParity|TestGrammargenOwnedBlobsAreReproducible)$'
+
+      # The Markdown extension test pins the external-token rows that block
+      # extending MarkdownGrammar: plain body lines are asserted, and the known
+      # gaps must still differ (a fix fails it with a request to assert them).
+      # It generates the Markdown tables twice, about 115 s under -race, so it
+      # skips unless GTS_RUN_TABLE_LIMIT_REPRO=1 and runs here without -race.
+      - name: Test grammargen Markdown extension rows (known gaps)
+        env:
+          GTS_RUN_TABLE_LIMIT_REPRO: '1'
+        run: go test ./grammargen -run '^TestMarkdownGrammarExtensionExternalRows$' -count=1 -timeout 5m
 
   # Light tier: every code run, draft or not. The job id keeps its old name
   # because tooling may refer to it; the display name no longer says draft.
