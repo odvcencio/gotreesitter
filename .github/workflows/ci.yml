@@ -1348,6 +1348,9 @@ jobs:
           if [ "$W5_LANGUAGE" = tsx ] && [ "${PR_NUMBER:-}" = 1689 ] && [ "$BASE_SHA" = 015bed1454fa1d199e0fd8537896ba6f38ebec4d ]; then
             w5_options+=(--approved-tsx-ccore-1689)
           fi
+          if [ "$W5_LANGUAGE" = java ] && [ "${PR_NUMBER:-}" = 1766 ] && [ "$BASE_SHA" = b4a67bd616e0351d7e21e0bd7e0e4cbf44e9364a ]; then
+            w5_options+=(--approved-java-ccore-1766)
+          fi
           bash scripts/run_editor_latency_gate.sh \
             --base "$BASE_SHA" --output "$RUNNER_TEMP/w5-editor-latency" \
             --languages "$W5_LANGUAGE" ${w5_options[@]+"${w5_options[@]}"}
