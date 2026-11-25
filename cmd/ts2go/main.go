@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/odvcencio/gotreesitter"
 )
 
 func main() {
@@ -23,7 +25,9 @@ func main() {
 	reservedWordsOnly := flag.Bool("reservedwords-only", false, "batch mode: only (re)generate *_reserved_words_gen.go sidecars; never touch blobs, register stubs, or the embedded loader aggregate")
 	aliasMapOnly := flag.Bool("alias-map-only", false, "refresh only nonterminal alias metadata in the existing -output blob from -input parser.c")
 	lexExactOnly := flag.Bool("lexexact-only", false, "write the exact-lexer record (-outdir/lex_exact/<name>.lexx and <name>_lex_exact_gen.go) of the shipped blob at -output from -input parser.c; never writes the blob")
-	only := flag.String("only", "", "-lexstates-only/-reservedwords-only mode: comma-separated list of manifest language names to restrict to (ignored by plain batch mode, which always processes every manifest entry)")
+	only := flag.String("only", "", "-lexstates-only/-reservedwords-only/-fetch-sources mode: comma-separated list of manifest language names to restrict to (ignored by plain batch mode, which always processes every manifest entry)")
+	fetchSources := flag.String("fetch-sources", "", "batch mode: write the pinned, patched parser.c of every manifest entry that ts2go converts to <dir>/<name>/parser.c for the blob freshness check; never writes blobs")
+	jobs := flag.Int("jobs", 4, "-fetch-sources mode: concurrent fetches")
 	tablebuildRecords := flag.String("tablebuild-records", "", "write the internal/tablebuild/ref record lines of -input parser.c to this file (strict reader); never writes a blob")
 	tablebuildTables := flag.String("tablebuild-tables", "L4", "-tablebuild-records: L4 for a parser.c, L3 for a parser-noopt.c")
 	flag.Parse()
@@ -46,6 +50,22 @@ func main() {
 	if *lexExactOnly && (*manifest != "" || *lexStatesOnly || *reservedWordsOnly || *aliasMapOnly || *input == "" || *output == "" || *outdir == "") {
 		fmt.Fprintln(os.Stderr, "-lexexact-only requires -input parser.c, -output <blob path> and -outdir, and no other mode")
 		os.Exit(2)
+	}
+
+	if *fetchSources != "" {
+		if *manifest == "" || *outdir != "" || *lexStatesOnly || *reservedWordsOnly || *aliasMapOnly || *lexExactOnly {
+			fmt.Fprintln(os.Stderr, "-fetch-sources requires -manifest and no -outdir or other mode")
+			os.Exit(2)
+		}
+		var names []string
+		if *only != "" {
+			names = strings.Split(*only, ",")
+		}
+		if err := RunFetchSources(*manifest, *fetchSources, names, *jobs); err != nil {
+			fmt.Fprintf(os.Stderr, "fetch-sources: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	if *manifest != "" {
@@ -134,17 +154,13 @@ func main() {
 	blobName := blobBase + ".bin"
 	blobPath := filepath.Join(blobDir, blobName)
 
-	lang := BuildLanguage(grammar)
-	if err := applyCertifiedConflictPolicyProfiles(source, grammar, lang); err != nil {
-		fmt.Fprintf(os.Stderr, "certified conflict policy: %v\n", err)
-		os.Exit(1)
-	}
+	var compactLang func(*gotreesitter.Language)
 	if *compact {
-		NewLanguageCompactor().CompactLanguage(lang)
+		compactLang = NewLanguageCompactor().CompactLanguage
 	}
-	blob, err := EncodeLanguageBlob(lang)
+	blob, err := encodeConvertedBlob(grammar, source, compactLang)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "encode blob: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 	if err := os.WriteFile(blobPath, blob, 0644); err != nil {

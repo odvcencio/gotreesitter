@@ -28,7 +28,7 @@ type AuthzedTokenSource struct {
 	identifierSym gotreesitter.Symbol
 	newlineSym    gotreesitter.Symbol
 	semicolonSym  gotreesitter.Symbol
-	nullSym       gotreesitter.Symbol // \0
+	nullSym       gotreesitter.Symbol // the NUL token, named "\\0" or "\x00"
 
 	// Keywords (identifier-like tokens with special symbol IDs)
 	importSym     gotreesitter.Symbol
@@ -136,7 +136,9 @@ func NewAuthzedTokenSource(src []byte, lang *gotreesitter.Language) (*AuthzedTok
 	ts.identifierSym = tl.require("identifier")
 	ts.newlineSym = tl.require("\n")
 	ts.semicolonSym = tl.require(";")
-	ts.nullSym = tl.optional("\\0")
+	// The NUL token's name: blobs converted before July 2026 spell it with a
+	// backslash ("\\0"); a fresh conversion carries the NUL byte itself.
+	ts.nullSym = tl.optional("\\0", "\x00")
 
 	// Keywords
 	ts.importSym = tl.require("import")

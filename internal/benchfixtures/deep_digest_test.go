@@ -82,3 +82,12 @@ func TestDeepTreeInspectionRecordsNodeKindsDefensively(t *testing.T) {
 		t.Fatalf("inspection leaked mutable coverage: %v", again.NodeKinds)
 	}
 }
+
+// The NUL token digests as "" in both spellings that blobs use for its name.
+func TestDeepDigestTypeNameReadsBothNULSpellings(t *testing.T) {
+	for name, want := range map[string]string{"\\0": "", "\x00": "", "": "", "0": "0", "\\": "\\", "end": "end"} {
+		if got := deepDigestTypeName(name); got != want {
+			t.Errorf("deepDigestTypeName(%q) = %q, want %q", name, got, want)
+		}
+	}
+}

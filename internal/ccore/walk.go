@@ -25,13 +25,14 @@ func (w *digestWriter) str(s string) {
 func (w *digestWriter) u32(v uint32) { w.buf = binary.LittleEndian.AppendUint32(w.buf, v) }
 
 // DigestRecord writes one node the same way on both sides. norm removes
-// backslashes from the name, and reads the name \0 (a table that spells the NUL
-// token with a backslash) as the empty name that C's cgo string conversion
-// gives for it.
+// backslashes from the name, and reads the NUL token's name as the empty name
+// that C's cgo string conversion gives for it, in both spellings: \0 (a table
+// that spells the NUL token with a backslash) and the NUL byte (a table that
+// a current conversion wrote).
 func DigestRecord(buf []byte, kind string, startByte, endByte, sr, sc, er, ec uint32, named, extra, missing, changes bool, children uint32, norm bool) []byte {
 	w := digestWriter{buf: buf}
 	if norm {
-		if kind == "\\0" {
+		if kind == "\\0" || kind == "\x00" {
 			kind = ""
 		}
 		kind = strings.ReplaceAll(kind, "\\", "")

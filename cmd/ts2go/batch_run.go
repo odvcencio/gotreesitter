@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/internal/grammarpatch"
 	"golang.org/x/sync/errgroup"
 )
@@ -100,18 +101,17 @@ func RunBatchManifest(manifestPath, outDir, pkg string, compact bool) error {
 			blobName := fileBase + ".bin"
 			blobPath := filepath.Join(blobDir, blobName)
 
-			lang := BuildLanguage(grammar)
-			if err := applyCertifiedConflictPolicyProfiles(source, grammar, lang); err != nil {
-				return fmt.Errorf("%s: certified conflict policy: %w", entry.Name, err)
-			}
+			var compactLang func(*gotreesitter.Language)
 			if compact {
-				mu.Lock()
-				compactor.CompactLanguage(lang)
-				mu.Unlock()
+				compactLang = func(lang *gotreesitter.Language) {
+					mu.Lock()
+					compactor.CompactLanguage(lang)
+					mu.Unlock()
+				}
 			}
-			blob, err := EncodeLanguageBlob(lang)
+			blob, err := encodeConvertedBlob(grammar, source, compactLang)
 			if err != nil {
-				return fmt.Errorf("%s: encode blob: %w", entry.Name, err)
+				return fmt.Errorf("%s: %w", entry.Name, err)
 			}
 			if err := os.WriteFile(blobPath, blob, 0644); err != nil {
 				return fmt.Errorf("%s: write %s: %w", entry.Name, blobPath, err)
@@ -166,6 +166,12 @@ func applyUpstreamGrammarPatch(entry ManifestEntry, repoDir, manifestDir string)
 	for _, patchPath := range upstreamGrammarPatchPaths(entry.Name, manifestDir) {
 		if _, err := os.Stat(patchPath); err != nil {
 			return fmt.Errorf("read patch %s: %w", patchPath, err)
+		}
+		// git -C reads a relative patch path from repoDir, not from here: a
+		// relative -manifest such as grammars/languages.lock gave a relative path.
+		patchPath, err := filepath.Abs(patchPath)
+		if err != nil {
+			return err
 		}
 		for _, args := range [][]string{{"apply", "--check", patchPath}, {"apply", patchPath}} {
 			cmd := exec.Command("git", append([]string{"-C", repoDir}, args...)...)

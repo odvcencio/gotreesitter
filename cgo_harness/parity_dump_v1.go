@@ -278,7 +278,9 @@ func dumpV1GoType(node *gotreesitter.Node, lang *gotreesitter.Language) string {
 		return ""
 	}
 	typ := node.Type(lang)
-	if typ == "\\0" {
+	// The NUL token: C's name for it converts to "" through cgo. Older blobs
+	// spell it "\\0"; a fresh conversion carries the NUL byte.
+	if typ == "\\0" || typ == "\x00" {
 		return ""
 	}
 	return typ
