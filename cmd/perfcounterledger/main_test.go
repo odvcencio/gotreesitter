@@ -69,3 +69,88 @@ func TestLedgerRejectsRouteDeclineOrFixtureChange(t *testing.T) {
 		t.Fatal("edit fallback changed without regeneration")
 	}
 }
+
+func ledgerWithFull(c counters) ledger {
+	return ledger{Schema: schema, Rows: []row{{Language: "go", Route: "default", Fixture: "real_sample",
+		FixtureSHA256: "source", SessionSHA256: "session", Full: &c}}}
+}
+
+func TestStaleDetectsChangesTheRatchetAccepts(t *testing.T) {
+	base := counters{Tokens: 100, NewNodes: 100, MaxLiveVersions: 4, MultiVersionTokenSharePPM: 500,
+		ReusedBytes: 100, BlockSplices: 10, StopReason: "accepted", RootEnd: 10, InputBytes: 10}
+	for _, tc := range []struct {
+		name, counter string
+		change        func(*counters)
+	}{
+		{"share_ppm", "multi_version_token_share_ppm", func(c *counters) { c.MultiVersionTokenSharePPM = 900 }},
+		{"new_nodes_fall_10_percent", "new_nodes", func(c *counters) { c.NewNodes = 90 }},
+		{"reused_bytes_rise", "reused_bytes", func(c *counters) { c.ReusedBytes = 150 }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			now := base
+			tc.change(&now)
+			want, got := ledgerWithFull(base), ledgerWithFull(now)
+			if err := compare(want, got); err != nil {
+				t.Fatalf("the one-sided check rejected an allowed change: %v", err)
+			}
+			moved, err := staleCells(want, got)
+			if err != nil || len(moved) != 1 || moved[0].Counter != tc.counter {
+				t.Fatalf("stale cells = %v, %v; want one %s cell", moved, err, tc.counter)
+			}
+			if err := checkStale(want, got, &strings.Builder{}); err == nil {
+				t.Fatal("stale mode passed a changed counter")
+			}
+		})
+	}
+}
+
+func TestStalePassesOnIdenticalLedgers(t *testing.T) {
+	c := counters{Tokens: 1, StopReason: "accepted"}
+	var out strings.Builder
+	if err := checkStale(ledgerWithFull(c), ledgerWithFull(c), &out); err != nil || out.Len() != 0 {
+		t.Fatalf("identical ledgers: err=%v output=%q", err, out.String())
+	}
+}
+
+func TestStaleReportIsOrderedAndEndsWithRegenerationCommand(t *testing.T) {
+	a := counters{Tokens: 100, NewNodes: 100, StopReason: "accepted"}
+	b := a
+	b.NewNodes = 90
+	b.Tokens = 101
+	want := ledger{Schema: schema, Rows: []row{
+		{Language: "a", Route: "default", Full: &a}, {Language: "b", Route: "default", Full: &a}}}
+	got := ledger{Schema: schema, Rows: []row{
+		{Language: "a", Route: "default", Full: &b}, {Language: "b", Route: "default", Full: &b}}}
+	var out strings.Builder
+	err := checkStale(want, got, &out)
+	if err == nil {
+		t.Fatal("stale ledger passed")
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	wantLines := []string{
+		"a default full tokens 100 -> 101",
+		"a default full new_nodes 100 -> 90",
+		"b default full tokens 100 -> 101",
+		"b default full new_nodes 100 -> 90",
+	}
+	for i, w := range wantLines {
+		if lines[i] != w {
+			t.Fatalf("line %d = %q, want %q", i, lines[i], w)
+		}
+	}
+	if last := lines[len(lines)-1]; !strings.Contains(last, regenerateCommand) {
+		t.Fatalf("last line %q lacks the regeneration command", last)
+	}
+	if !strings.Contains(err.Error(), "2 rows") {
+		t.Fatalf("error %q does not count rows", err)
+	}
+}
+
+func TestStaleStructureChangeIsAnError(t *testing.T) {
+	c := counters{}
+	want := ledgerWithFull(c)
+	got := ledger{Schema: schema}
+	if _, err := staleCells(want, got); err == nil {
+		t.Fatal("row count change passed")
+	}
+}

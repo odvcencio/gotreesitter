@@ -74,7 +74,7 @@ when `build` does not bind a job's result.
 | `parity_report` | light | PR, push, manual run, nightly | yes |  |
 | `perf_scan_budget` | light | PR, push, manual run, nightly | yes |  |
 | `glr_gss_demotion_scaling_gate` | light | PR, push, manual run, nightly | yes |  |
-| `counter_ledger` | light | PR, push, manual run, nightly | yes |  |
+| `counter_ledger` | light | PR, push, manual run, nightly | yes | the light tier gates on the one-sided 2% check and prints a `::notice::` when the committed file differs from a fresh measurement; a heavy run fails on any difference (`--stale fail`) |
 | `draft-correctness` | light | PR, push, manual run, nightly | yes |  |
 | `freshness` | light | PR, push, manual run, nightly | yes |  |
 | `apidiff` | light | PR, push, manual run, nightly | yes |  |

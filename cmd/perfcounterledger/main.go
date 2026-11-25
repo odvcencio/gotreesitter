@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -78,14 +79,21 @@ func main() {
 	output := flag.String("output", filepath.Join("internal", "benchfixtures", "counter_ledger.json"), "ledger JSON path")
 	child := flag.String("child-route", "", "internal route process")
 	langs := flag.String("langs", "all", "comma-separated diagnostic scope, or all")
+	stale := flag.String("stale", "", "report counters that differ from the committed file in either direction: notice (print a ::notice:: after the ratchet check, do not fail) or fail (fail on any difference)")
 	flag.Parse()
-	if err := run(*write, *child, *langs, *output); err != nil {
+	if err := run(*write, *child, *langs, *output, *stale); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(write bool, child, langs, output string) error {
+func run(write bool, child, langs, output, stale string) error {
+	if stale != "" && stale != "notice" && stale != "fail" {
+		return fmt.Errorf("--stale must be notice or fail, got %q", stale)
+	}
+	if stale != "" && (write || child != "" || langs != "all") {
+		return fmt.Errorf("--stale needs a check of all languages without --write")
+	}
 	if child != "" {
 		rows, err := collect(child, langs)
 		if err != nil {
@@ -133,10 +141,26 @@ func run(write bool, child, langs, output string) error {
 	if err := json.Unmarshal(baseline, &want); err != nil {
 		return err
 	}
+	if stale == "fail" {
+		// A stale file fails in either direction, so this report replaces the
+		// one-sided check.
+		if err := checkStale(want, got, os.Stdout); err != nil {
+			return err
+		}
+		fmt.Printf("counter ledger is current: %d rows, %d languages\n", len(got.Rows), len(got.Rows)/2)
+		return nil
+	}
 	if err := compare(want, got); err != nil {
 		return err
 	}
 	fmt.Printf("counter ledger passed: %d rows, %d languages\n", len(got.Rows), len(got.Rows)/2)
+	if stale == "notice" {
+		var report strings.Builder
+		if err := checkStale(want, got, &report); err != nil {
+			fmt.Print(report.String())
+			fmt.Printf("::notice title=counter ledger is stale::%s%%0A%s\n", err.Error(), regenerateCommand)
+		}
+	}
 	return nil
 }
 
@@ -399,4 +423,86 @@ func compareCounters(old, now *counters) error {
 		return fmt.Errorf("parse completion or error state changed")
 	}
 	return nil
+}
+
+// regenerateCommand rewrites the committed ledger from the current tree.
+const regenerateCommand = "GOMAXPROCS=1 GOWORK=off go run ./cmd/perfcounterledger --write --langs all"
+
+// staleCell is one counter that differs between the committed ledger and a
+// fresh measurement.
+type staleCell struct {
+	Language, Route, Phase, Counter, Old, New string
+	rowIndex                                  int
+}
+
+// counterCells lists every recorded field of c in a fixed order.
+func counterCells(c *counters) [][2]string {
+	return [][2]string{
+		{"tokens", fmt.Sprint(c.Tokens)}, {"new_nodes", fmt.Sprint(c.NewNodes)},
+		{"max_live_versions", fmt.Sprint(c.MaxLiveVersions)},
+		{"multi_version_token_share_ppm", fmt.Sprint(c.MultiVersionTokenSharePPM)},
+		{"reused_bytes", fmt.Sprint(c.ReusedBytes)}, {"block_splices", fmt.Sprint(c.BlockSplices)},
+		{"stop_reason", c.StopReason}, {"root_end", fmt.Sprint(c.RootEnd)},
+		{"input_bytes", fmt.Sprint(c.InputBytes)}, {"has_error", fmt.Sprint(c.HasError)},
+	}
+}
+
+// staleCells returns every counter that differs in either direction, in row
+// order (language, route), then full before edits, then counter order. A change
+// of schema, row set, fixture identity, route, or decline reason is an error:
+// those need a reviewed regeneration, and the ratchet check reports them.
+func staleCells(want, got ledger) ([]staleCell, error) {
+	if want.Schema != schema || got.Schema != schema || len(want.Rows) != len(got.Rows) {
+		return nil, fmt.Errorf("counter ledger schema or row count changed")
+	}
+	var cells []staleCell
+	add := func(i int, a row, phase string, x, y *counters) {
+		xs, ys := counterCells(x), counterCells(y)
+		for k := range xs {
+			if xs[k][1] != ys[k][1] {
+				cells = append(cells, staleCell{a.Language, a.Route, phase, xs[k][0], xs[k][1], ys[k][1], i})
+			}
+		}
+	}
+	for i := range want.Rows {
+		a, b := want.Rows[i], got.Rows[i]
+		if a.Language != b.Language || a.Route != b.Route || a.Fixture != b.Fixture ||
+			a.FixtureSHA256 != b.FixtureSHA256 || a.SessionSHA256 != b.SessionSHA256 ||
+			a.DeclineReason != b.DeclineReason || (a.Full == nil) != (b.Full == nil) || len(a.Edits) != len(b.Edits) {
+			return nil, fmt.Errorf("ledger row %d (%s %s) identity, decline, or phase set changed", i, a.Language, a.Route)
+		}
+		if a.Full != nil {
+			add(i, a, "full", a.Full, b.Full)
+		}
+		for s := range a.Edits {
+			before, after := a.Edits[s], b.Edits[s]
+			if before.Step != after.Step || before.Kind != after.Kind ||
+				before.Route != after.Route || before.DeclineReason != after.DeclineReason {
+				return nil, fmt.Errorf("%s %s edit %d route or operation changed", a.Language, a.Route, s+1)
+			}
+			add(i, a, fmt.Sprintf("edit%d", before.Step), &before.Counters, &after.Counters)
+		}
+	}
+	return cells, nil
+}
+
+// checkStale writes one line per moved counter and the regeneration command to
+// out, and returns an error when the committed ledger differs from got.
+func checkStale(want, got ledger, out io.Writer) error {
+	cells, err := staleCells(want, got)
+	if err != nil {
+		return err
+	}
+	if len(cells) == 0 {
+		return nil
+	}
+	rows := map[int]bool{}
+	langs := map[string]bool{}
+	for _, c := range cells {
+		rows[c.rowIndex] = true
+		langs[c.Language] = true
+		fmt.Fprintf(out, "%s %s %s %s %s -> %s\n", c.Language, c.Route, c.Phase, c.Counter, c.Old, c.New)
+	}
+	fmt.Fprintf(out, "regenerate with: %s\n", regenerateCommand)
+	return fmt.Errorf("counter ledger is stale: %d rows in %d languages differ from a fresh measurement", len(rows), len(langs))
 }

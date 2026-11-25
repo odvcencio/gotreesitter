@@ -1379,10 +1379,15 @@ jobs:
           cache: ${{ runner.environment != 'self-hosted' }}
           go-version-file: go.mod
 
+      # One measurement serves both checks. The one-sided ratchet check gates a
+      # pull request. The light tier also reports a stale committed file as a
+      # notice; the heavy tier fails on any difference, in either direction.
       - name: Check deterministic parser counters for 206 grammars
+        env:
+          LEDGER_STALE_MODE: ${{ needs.exhaustive_parity_scope.outputs.tier == 'heavy' && 'fail' || 'notice' }}
         run: |
           GOWORK=off go test ./cmd/perfcounterledger -count=1
-          GOMAXPROCS=1 GOWORK=off go run ./cmd/perfcounterledger
+          GOMAXPROCS=1 GOWORK=off go run ./cmd/perfcounterledger --stale "$LEDGER_STALE_MODE"
 
   # Heavy tier, manual runs only (its condition before the tiers).
   v1_edit_sessions:
