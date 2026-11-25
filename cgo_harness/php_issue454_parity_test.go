@@ -154,6 +154,10 @@ func TestParityIssue454PHPWholeTreeFallback(t *testing.T) {
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	compactParser := gotreesitter.NewParser(goLang)
 	compactParser.SetAdmissionCandidateRoute(true)
+	// The certified core serves PHP by default. This part tests the compact
+	// candidate's fallback, so certification telemetry keeps the request off
+	// the core while the compact candidate stays eligible.
+	compactParser.SetCompactCertificationTelemetry(true)
 	compactTree, err := compactParser.Parse(edited)
 	if err != nil {
 		t.Fatalf("PHP issue #454 compact parse failed: %v", err)
