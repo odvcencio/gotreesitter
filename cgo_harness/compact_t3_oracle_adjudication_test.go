@@ -941,8 +941,8 @@ func compactT3GoNodeType(node *gotreesitter.Node, lang *gotreesitter.Language) s
 		return ""
 	}
 	// A zero-terminator sentinel type has no meaningful name; treat it the
-	// same way parity_dump_v1.go's dumpV1GoType does.
-	if typ := node.Type(lang); typ != "\\0" {
+	// same way parity_dump_v1.go's dumpV1GoType does, in both spellings.
+	if typ := node.Type(lang); typ != "\\0" && typ != "\x00" {
 		return typ
 	}
 	return ""

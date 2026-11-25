@@ -101,6 +101,14 @@ func TestDigestRecordNormalizesNames(t *testing.T) {
 	if string(b) != string(c) {
 		t.Fatal("normalized name differs from the plain name")
 	}
+	// The NUL token: C reads its name as "". Older blobs spell it \0, and a
+	// current conversion carries the NUL byte; both normalize to "".
+	empty := DigestRecord(nil, "", 0, 0, 0, 0, 0, 0, false, false, false, false, 0)
+	for _, name := range []string{"\\0", "\x00"} {
+		if got := DigestRecord(nil, name, 0, 0, 0, 0, 0, 0, false, false, false, false, 0); string(got) != string(empty) {
+			t.Errorf("normalized NUL name %q differs from the empty name", name)
+		}
+	}
 }
 
 // TestTreeLifetime: the store surface of the wrapper. Trees are copied, edited
