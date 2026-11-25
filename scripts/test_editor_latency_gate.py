@@ -406,6 +406,47 @@ class Java1766ExceptionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "production inputs changed"):
                 gate.validate_java_1766_exception(Path("."), gate.JAVA_1766_BASE, "f" * 40)
 
+class JavaScript1770ExceptionTests(unittest.TestCase):
+    def setUp(self):
+        self.fixtures = [{"language": "javascript", "sha256": gate.JAVASCRIPT_1770_FIXTURE}]
+        self.oracles = [{
+            "language": "javascript",
+            "base_oracle": dict(gate.JAVASCRIPT_1770_ORACLE),
+            "oracle": dict(gate.JAVASCRIPT_1770_ORACLE),
+        }]
+        self.rows = [
+            {"language": "javascript", "workload": workload, "step": step,
+             "counter": counter, "before": before, "after": after}
+            for workload, step, counter, before, after in sorted(gate.JAVASCRIPT_1770_ROWS)
+        ]
+
+    def approved(self, rows):
+        return gate.javascript_1770_approved_rows(
+            self.fixtures, gate.JAVASCRIPT_1770_MANIFEST, gate.JAVASCRIPT_1770_BASE, self.oracles, rows)
+
+    def test_only_the_approved_rows_match(self):
+        extra = dict(self.rows[-1], step=99)
+        self.assertEqual(self.approved(self.rows + [extra]), self.rows)
+        for changed in (self.rows[:-1], self.rows + [self.rows[0]],
+                        self.rows[:-1] + [dict(self.rows[-1], after=self.rows[-1]["after"] + 1)]):
+            with self.assertRaisesRegex(ValueError, "approved rows changed"):
+                self.approved(changed)
+
+    def test_rejects_other_language_base_or_oracle(self):
+        with self.assertRaisesRegex(ValueError, "fixture or base mismatch"):
+            gate.javascript_1770_approved_rows(self.fixtures, gate.JAVASCRIPT_1770_MANIFEST, "0" * 40, self.oracles, self.rows)
+        with self.assertRaisesRegex(ValueError, "fixture or base mismatch"):
+            gate.javascript_1770_approved_rows([{"language": "tsx", "sha256": gate.JAVASCRIPT_1770_FIXTURE}],
+                                               gate.JAVASCRIPT_1770_MANIFEST, gate.JAVASCRIPT_1770_BASE, self.oracles, self.rows)
+        self.oracles[0]["oracle"]["grammar_patch_identity"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "oracle mismatch"):
+            self.approved(self.rows)
+        with mock.patch.object(gate, "git", return_value="f" * 40), \
+                mock.patch.object(gate.subprocess, "run"), \
+                mock.patch.object(gate.subprocess, "check_output", side_effect=[b"", b"ccore_bind.go\0"]):
+            with self.assertRaisesRegex(ValueError, "production inputs changed"):
+                gate.validate_javascript_1770_exception(Path("."), gate.JAVASCRIPT_1770_BASE, "f" * 40)
+
 class GateTests(unittest.TestCase):
     def powershell_synthetic_approval(self):
         receipts = {}
