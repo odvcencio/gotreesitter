@@ -108,6 +108,20 @@ declarations stable nodes and preserves extension-specific lines as
   A grammar JSON-only change with unchanged externals can usually follow the
   normal `grammar.json -> grammargen Go DSL -> blob -> parity` path.
 
+- Each shipped ts2go blob must equal a fresh conversion of its pinned,
+  patched `parser.c` by the current `cmd/ts2go`, compared as decoded tables.
+  The heavy CI tier checks this (`ts2go_blob_freshness`); the blobs that are
+  stale today are listed in `cmd/ts2go/testdata/blob_freshness_allowlist.txt`,
+  and a PR that regenerates one removes its line. To run the check locally:
+
+  ```sh
+  go run ./cmd/ts2go -manifest grammars/languages.lock -fetch-sources /tmp/ts2go-sources
+  GTS_TS2GO_SOURCES=/tmp/ts2go-sources go test ./cmd/ts2go -run '^TestTS2GoBlobFreshness$' -count=1 -v
+  ```
+
+  The fetch regenerates `parser.c` for the patched grammars, so it needs npm
+  and `tree-sitter` 0.24.7 (the parity image has both).
+
 Manual refresh:
 
 ```sh

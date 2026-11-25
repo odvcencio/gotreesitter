@@ -98,11 +98,52 @@ when `build` does not bind a job's result.
 | `compact-t3-oracle-cgo` | heavy | PR with `ci:full`, manual run, nightly | yes |  |
 | `merge-event-census-cgo` | heavy | PR with `ci:full`, manual run, nightly | yes |  |
 | `grammar-lock-stamp-receipts-cgo` | heavy | PR with `ci:full`, manual run, nightly | yes |  |
+| `ts2go_blob_freshness` | heavy | PR with `ci:full`, manual run, nightly | yes | a source cache miss fetches about 200 pinned grammars |
 | `perf-regression` | heavy | PR with `ci:full` | no |  |
 | `nightly_failure_issue` | reporting | nightly, after `build` | no | never changes the verdict |
 
 The sections below are dated records. Where one says that a job blocks every
 pull request, the table above now decides.
+
+## ts2go blob freshness, November 24, 2026
+
+An audit on 24 November 2026 found that 194 of the 200 checked ts2go blobs
+were stale: their decoded tables differed from a fresh conversion of the same
+pinned `parser.c` by the current `cmd/ts2go`. The `freshness` job checks names
+and counts across the lock, the blobs and the loaders, and reproducibility only
+for the blobs that grammargen owns. Nothing converted a pinned `parser.c`, so
+three converter fixes (`38c452fe7`, `c2d10fb03`, `9c955f3d2`) changed
+converter output and left the shipped blobs as they were.
+
+The heavy-tier job `ts2go_blob_freshness` runs
+`TestTS2GoBlobFreshness` (`cmd/ts2go/blob_freshness_test.go`). For every lock
+entry that ts2go converts, it decodes the shipped blob and a fresh conversion
+of the pinned, patched `parser.c`, and compares the exported tables. It does
+not compare bytes, because a blob without a version header differs in bytes
+even when its tables match. It reports each grammar as equal or stale with
+its difference classes (the test file defines them), in name order.
+
+- **Allowlist.** `cmd/ts2go/testdata/blob_freshness_allowlist.txt` lists the
+  stale grammars with their classes. The test fails when a stale blob is not
+  listed, when a listed blob is no longer stale, or when a listed blob's
+  classes change. The list can only shrink: a pull request that regenerates a
+  blob removes its line.
+- **Exempt grammars.** `less` and `perl` are left out by name
+  (`freshnessExempt` in `cmd/ts2go/sources.go`). The shipped Less blob comes
+  from a regenerated `parser.c`, not the one committed at the pinned commit,
+  and the pinned Perl commit has no committed `parser.c`. The grammargen-owned
+  blobs (`go`, `regex`, `swift`, `yaml`) are covered by the `freshness` job.
+- **Sources.** `go run ./cmd/ts2go -manifest grammars/languages.lock
+  -fetch-sources <dir>` fetches each pinned commit, applies the grammar patch
+  as batch mode does, and keeps only `parser.c`. The job caches that folder
+  under a key built from the lock file, the grammar patches and the fetch
+  code, and fetches on a miss inside the parity image, which carries the
+  tree-sitter CLI and npm that the patched grammars need. The test reads only
+  the cache and refuses an entry whose recorded commit or patch digest does
+  not match the lock.
+- **Unit tests.** The `cmd` race lane and `packages_no_race` run the
+  classification, the allowlist ratchet and the cache checks without the
+  sources; the full test skips there.
 
 ## internal/ccore equality job and race lanes, November 10, 2026
 

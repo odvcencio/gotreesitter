@@ -1631,6 +1631,7 @@ jobs:
       - ccore-equality-cgo
       - parity-cgo-exhaustive
       - freshness
+      - ts2go_blob_freshness
       - pr_commit_buildability
       - wasm_cross_build
       - wasm_tinygo_build
@@ -1735,6 +1736,7 @@ jobs:
           CCORE_EQUALITY_CGO_RESULT: ${{ needs.ccore-equality-cgo.result }}
           EXHAUSTIVE_PARITY_RESULT: ${{ needs.parity-cgo-exhaustive.result }}
           FRESHNESS_RESULT: ${{ needs.freshness.result }}
+          TS2GO_BLOB_FRESHNESS_RESULT: ${{ needs.ts2go_blob_freshness.result }}
           PR_COMMIT_BUILDABILITY_RESULT: ${{ needs.pr_commit_buildability.result }}
           WASM_CROSS_BUILD_RESULT: ${{ needs.wasm_cross_build.result }}
           WASM_TINYGO_BUILD_RESULT: ${{ needs.wasm_tinygo_build.result }}
@@ -1844,6 +1846,7 @@ jobs:
           require_heavy "race_root" "$RACE_ROOT_RESULT"
           require_heavy "race_packages" "$RACE_PACKAGES_RESULT"
           require_heavy "grammargen_stable" "$GRAMMARGEN_STABLE_RESULT"
+          require_heavy "ts2go_blob_freshness" "$TS2GO_BLOB_FRESHNESS_RESULT"
           if [ "$IS_MANUAL_RUN" = "true" ]; then
             require_heavy "v1_edit_sessions" "$V1_EDIT_SESSIONS_RESULT"
           fi
@@ -2129,6 +2132,84 @@ jobs:
             echo "::error::Count mismatch — lock: $lock_count, blobs: $blob_count, gen: $gen_count"
             exit 1
           fi
+
+  # The freshness job above checks names and counts; nothing in it converts a
+  # pinned parser.c. This job compares every shipped ts2go blob with a fresh
+  # conversion of its pinned, patched parser.c by the current converter
+  # (decoded tables, not bytes): TestTS2GoBlobFreshness in
+  # cmd/ts2go/blob_freshness_test.go. The blobs that are stale today are
+  # listed with their difference classes in
+  # cmd/ts2go/testdata/blob_freshness_allowlist.txt; the test fails when a
+  # blob that is not listed is stale, when a listed blob is no longer stale,
+  # or when a listed blob's classes change, so the list can only shrink.
+  # The pinned sources (about 200 parser.c files) come from a cache keyed by
+  # the lock file, the grammar patches and the fetch code. A miss fetches them
+  # in the parity image, which carries the tree-sitter CLI and npm that the
+  # patched grammars need to regenerate parser.c. The test itself reads only
+  # the cache.
+  ts2go_blob_freshness:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.tier == 'heavy'
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.GTS_ISOLATED_RUNNER_LABELS != '' && fromJSON(vars.GTS_ISOLATED_RUNNER_LABELS) || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Prepare job-owned Go cache and scratch
+        if: runner.environment == 'self-hosted'
+        run: bash .github/scripts/prepare_runner.sh
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          cache: ${{ runner.environment != 'self-hosted' }}
+          go-version-file: go.mod
+
+      - name: Restore the pinned grammar sources
+        id: sources
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/ts2go-sources
+          key: ts2go-sources-v1-${{ hashFiles('grammars/languages.lock', 'grammars/patches/*.patch', 'internal/grammarpatch/*.go', 'cmd/ts2go/sources.go') }}
+
+      - name: Fetch the pinned grammar sources
+        if: steps.sources.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p harness_out/ts2go-sources
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-ts2go-sources \
+            --out-root "${RUNNER_TEMP}/ts2go-sources-harness" \
+            --memory 6g --gomemlimit 4GiB --cpus 2 --wall-timeout 30m \
+            -- "cd /workspace && go run ./cmd/ts2go -manifest grammars/languages.lock -fetch-sources /workspace/harness_out/ts2go-sources -jobs 8"
+          rm -rf "${RUNNER_TEMP}/ts2go-sources"
+          mv harness_out/ts2go-sources "${RUNNER_TEMP}/ts2go-sources"
+          du -sh "${RUNNER_TEMP}/ts2go-sources"
+
+      # Saved right after the fetch, so a failing comparison below still
+      # leaves the sources cached for the next run.
+      - name: Cache the pinned grammar sources
+        if: steps.sources.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/ts2go-sources
+          key: ts2go-sources-v1-${{ hashFiles('grammars/languages.lock', 'grammars/patches/*.patch', 'internal/grammarpatch/*.go', 'cmd/ts2go/sources.go') }}
+
+      - name: Compare shipped blobs with fresh conversions
+        env:
+          GTS_TS2GO_SOURCES: ${{ runner.temp }}/ts2go-sources
+          GTS_TS2GO_FRESHNESS_REPORT: ${{ runner.temp }}/ts2go-blob-freshness.jsonl
+        run: |
+          set -euo pipefail
+          status=0
+          go test ./cmd/ts2go -run '^TestTS2GoBlobFreshness$' -count=1 -v -timeout 30m 2>&1 | tee "${RUNNER_TEMP}/ts2go-blob-freshness.txt" || status=$?
+          {
+            echo "### ts2go blob freshness"
+            echo
+            echo '```'
+            grep -E 'checked [0-9]+ grammars|stale by class|blob_freshness_test.go:[0-9]+: [a-z0-9_]+: ' "${RUNNER_TEMP}/ts2go-blob-freshness.txt" | sed -E 's/^ +//; s/^blob_freshness_test.go:[0-9]+: //' || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
   # gotreesitter's README and wasm/README both promise cross-compilation to
   # GOOS=js and GOOS=wasip1 with no CGo and no C toolchain, but no CI lane

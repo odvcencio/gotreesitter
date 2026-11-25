@@ -65,6 +65,7 @@ var ciJobTiers = map[string]string{
 	"compact-t3-oracle-cgo":              "heavy",
 	"merge-event-census-cgo":             "heavy",
 	"grammar-lock-stamp-receipts-cgo":    "heavy",
+	"ts2go_blob_freshness":               "heavy",
 	"perf-regression":                    "heavy",
 
 	"ccore-equality-cgo":    "scoped",
