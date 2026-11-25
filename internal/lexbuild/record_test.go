@@ -17,7 +17,7 @@ import (
 // token set that the port computes.
 func TestLexbuildRecordEqualsC(t *testing.T) {
 	root := refDir(t)
-	for _, name := range refGrammars {
+	for _, name := range recordGrammars {
 		t.Run(name, func(t *testing.T) {
 			ref := loadRef(t, root, name)
 			p, err := Prepare(ref.jsonBytes)

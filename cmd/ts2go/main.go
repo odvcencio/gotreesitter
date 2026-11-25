@@ -24,7 +24,20 @@ func main() {
 	aliasMapOnly := flag.Bool("alias-map-only", false, "refresh only nonterminal alias metadata in the existing -output blob from -input parser.c")
 	lexExactOnly := flag.Bool("lexexact-only", false, "write the exact-lexer record (-outdir/lex_exact/<name>.lexx and <name>_lex_exact_gen.go) of the shipped blob at -output from -input parser.c; never writes the blob")
 	only := flag.String("only", "", "-lexstates-only/-reservedwords-only mode: comma-separated list of manifest language names to restrict to (ignored by plain batch mode, which always processes every manifest entry)")
+	tablebuildRecords := flag.String("tablebuild-records", "", "write the internal/tablebuild/ref record lines of -input parser.c to this file (strict reader); never writes a blob")
+	tablebuildTables := flag.String("tablebuild-tables", "L4", "-tablebuild-records: L4 for a parser.c, L3 for a parser-noopt.c")
 	flag.Parse()
+	if *tablebuildRecords != "" {
+		if *input == "" || *manifest != "" || *output != "" {
+			fmt.Fprintln(os.Stderr, "-tablebuild-records requires -input parser.c and no -output or -manifest")
+			os.Exit(2)
+		}
+		if err := RunTablebuildRecords(*input, *tablebuildRecords, *name, *tablebuildTables); err != nil {
+			fmt.Fprintf(os.Stderr, "tablebuild-records: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *aliasMapOnly && (*manifest != "" || *lexStatesOnly || *reservedWordsOnly) {
 		fmt.Fprintln(os.Stderr, "-alias-map-only requires single-file -input and -output")
 		os.Exit(2)

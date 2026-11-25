@@ -45,6 +45,17 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 # bump needs its own parity validation pass and stays out of this change.
 RUN npm --global --loglevel=warn install tree-sitter-cli@0.24.7
 
+# The table-build reference set (cgo_harness/docker/tablebuild_reference.sh)
+# needs the unmodified generator at two versions: v0.27.1, which
+# internal/lexbuild ports, and v0.25.8, which wrote the pinned Go parser.c.
+# Each lives under its own prefix and is not on PATH, so every other harness
+# path keeps running the global 0.24.7 above.
+RUN for v in 0.27.1 0.25.8; do \
+      npm --global --prefix "/opt/tree-sitter-cli/$v" --loglevel=warn install "tree-sitter-cli@$v" \
+      && "/opt/tree-sitter-cli/$v/bin/tree-sitter" --version | grep -F "tree-sitter $v" \
+      || exit 1; \
+    done
+
 WORKDIR /workspace
 
 ENV PATH="/usr/local/go/bin:${PATH}"
