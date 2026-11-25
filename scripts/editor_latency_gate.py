@@ -340,8 +340,8 @@ def tsx_1689_approved_rows(fixtures, manifest_sha, base_revision, identities, fa
 # 20,000 bytes or more instead of 1,400 to 7,800, with one node built instead
 # of thousands. The exception is bound to the base commit and to the reviewed
 # head below.
-JAVA_1766_BASE = "bb1dea7d64f5583c030fd437b8c6fac2bc3fc959"
-JAVA_1766_REVIEWED = "66d21e2c05038c3792f420674acb4aa7c1f29c57"
+JAVA_1766_BASE = "d021e04ae67f71981e54272ee2ec87cd406f5491"
+JAVA_1766_REVIEWED = "234257ff1f6e1a6b7112c840b06984787e242ad6"
 JAVA_1766_EXCEPTION = "java-ccore-1766"
 JAVA_1766_FIXTURE = "9b9efbdd7e6c1dd5c505bf3dd9e93d4247948a95833eb6f7edf5bbe897f25140"
 JAVA_1766_MANIFEST = "110352e799c54aced0f169e3852d1f58d6ff7d33abf4412a4cc21842cdf7bd37"
