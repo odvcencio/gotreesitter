@@ -1,4 +1,9 @@
-"""Independent campaign-side observer for the npm TypeScript grammar family."""
+"""Independent campaign-side observer for patched grammar sources.
+
+Two recipes: the npm TypeScript grammar family, whose patches change grammar
+inputs and regenerate parser.c, and scanner-only patches, which change the
+external scanner and compile the parser.c committed at the pinned commit.
+"""
 
 import base64
 import gzip
@@ -16,6 +21,13 @@ import urllib.request
 
 RECIPE_REPO = "https://github.com/tree-sitter/tree-sitter-typescript"
 PIN = "scripts/w5_tree_sitter_cli_linux_amd64.json"
+# Scanner-only recipes: repository -> grammar subdir. A patch may change only
+# <subdir>/scanner.c, and the replay compiles the committed <subdir>/parser.c.
+SCANNER_ONLY_RECIPES = {"https://github.com/tree-sitter/tree-sitter-javascript": "src"}
+
+
+def scanner_only(lock):
+    return SCANNER_ONLY_RECIPES.get(lock["repo"]) == lock["subdir"]
 
 
 def check(ok, reason):
@@ -40,9 +52,9 @@ def role_recipe(root, revision, name):
     ]
     check(len(rows) == 1 and len(rows[0]) >= 4, "missing role lock")
     lang, repo, commit, subdir = rows[0][:4]
+    generated = repo == RECIPE_REPO and subdir in ("tsx/src", "typescript/src")
     check(
-        repo == RECIPE_REPO
-        and subdir in ("tsx/src", "typescript/src")
+        (generated or SCANNER_ONLY_RECIPES.get(repo) == subdir)
         and re.fullmatch("[0-9a-f]{40}", commit),
         "unsupported upstream generation recipe",
     )
@@ -54,10 +66,16 @@ def role_recipe(root, revision, name):
         match = re.fullmatch(r'\s*(File|RegenerateParser|ExtraFile):\s*(true|"[\w.-]+"),', line)
         check(match and match[1] not in fields, "unsupported role patch expression")
         fields[match[1]] = json.loads(match[2])
-    check(fields.get("RegenerateParser") is True and "File" in fields, "unsupported generator recipe")
-    config = dict(File=fields["File"], RegenerateParser=True, GeneratorVersion="")
-    if "ExtraFile" in fields:
-        config["ExtraFile"] = fields["ExtraFile"]
+    if generated:
+        check(fields.get("RegenerateParser") is True and "File" in fields, "unsupported generator recipe")
+        config = dict(File=fields["File"], RegenerateParser=True, GeneratorVersion="")
+        if "ExtraFile" in fields:
+            config["ExtraFile"] = fields["ExtraFile"]
+    else:
+        # The Go loader marshals grammarpatch.Spec in field order, with
+        # RegenerateParser false and an empty GeneratorVersion.
+        check(set(fields) == {"File"}, "unsupported scanner-only recipe")
+        config = dict(File=fields["File"], RegenerateParser=False, GeneratorVersion="")
     patches = []
     for filename in (config["File"], config.get("ExtraFile")):
         if filename:
@@ -185,6 +203,25 @@ def observe(upstream, root, role_revision, name, cold, pin, cli_archive, js_arch
         "/grammar/" + dialect,
         ["/tools/tree-sitter", "generate"],
     )
+    compiled = compile_bound(src, subdir, cold, image, cpu, workspace)
+    return dict(
+        schema="w5-parent-source-replay-v1",
+        role_revision=role_revision,
+        locked=lock,
+        patch_identity=identity,
+        patches=[dict(file=n, sha256=sha(b)) for n, b in patches],
+        tree=tree,
+        package_lock_sha256=sha(lockbytes),
+        generator_sha256=sha(cli),
+        generator_version=pin["version"],
+        image=image,
+        **compiled,
+    )
+
+
+def compile_bound(src, subdir, cold, image, cpu, workspace):
+    """Compile parser.c and scanner.c the way the private oracle does, with no
+    network and a read-only source tree, and bind the result to the oracle."""
     output = workspace / "compiled"
     output.mkdir()
     cmd = """set -eu
@@ -220,21 +257,61 @@ cmp /out/cc-before /out/cc-after
         13 <= abi <= 15 and parser in sources and artifact == cold["grammar_artifact_sha256"],
         "independent compiler output differs from private oracle",
     )
+    return dict(compiler=[cc_path, cc_hash], abi=abi, sources=sources, artifact=artifact)
+
+
+def observe_scanner_only(upstream, root, role_revision, name, cold, image, cpu, workspace):
+    lock, patches, identity = role_recipe(root, role_revision, name)
+    check(scanner_only(lock), "not a scanner-only recipe")
+    for key, value in lock.items():
+        check(cold["language" if key == "language" else "grammar_" + key] == value, "role lock mismatch")
+    check(cold["grammar_patch_identity"] == identity, "role patch identity mismatch")
+    commit, subdir = lock["commit"], lock["subdir"]
+    tree = git(upstream, "rev-parse", commit + "^{tree}").decode().strip()
+    src = workspace / "source"
+    src.mkdir()
+    # Copy the committed grammar sources: ordinary files only, no links.
+    for row in git(upstream, "ls-tree", "-r", "-z", commit, "--", subdir).split(b"\0"):
+        if not row:
+            continue
+        meta, rel = row.split(b"\t", 1)
+        mode, kind, _ = meta.split()
+        rel = rel.decode()
+        check(kind == b"blob" and mode in (b"100644", b"100755"), "grammar source is not an ordinary file")
+        check(not Path(rel).is_absolute() and ".." not in Path(rel).parts, "invalid grammar source path")
+        file = src / rel
+        file.parent.mkdir(exist_ok=True, parents=True)
+        file.write_bytes(git(upstream, "show", commit + ":" + rel))
+    check((src / subdir / "parser.c").is_file() and (src / subdir / "scanner.c").is_file(), "missing committed parser or scanner")
+    for _, blob in patches:
+        files = subprocess.check_output(["git", "apply", "--numstat", "-z", "-"], input=blob, cwd=src)
+        changed = [row.split(b"\t", 2)[-1].decode() for row in files.split(b"\0") if row]
+        check(
+            changed
+            and set(changed) <= {subdir + "/scanner.c"}
+            and not re.search(
+                rb"^(old mode|new mode|new file mode|deleted file mode|rename |copy )", blob, re.M
+            ),
+            "patch exceeds supported source recipe",
+        )
+        subprocess.run(
+            ["git", "apply", "--whitespace=nowarn", "-"],
+            cwd=src,
+            input=blob,
+            check=True,
+            env={**os.environ, "GIT_CEILING_DIRECTORIES": str(workspace)},
+        )
+    compiled = compile_bound(src, subdir, cold, image, cpu, workspace)
     return dict(
         schema="w5-parent-source-replay-v1",
+        recipe="scanner-only",
         role_revision=role_revision,
         locked=lock,
         patch_identity=identity,
         patches=[dict(file=n, sha256=sha(b)) for n, b in patches],
         tree=tree,
-        package_lock_sha256=sha(lockbytes),
-        generator_sha256=sha(cli),
-        generator_version=pin["version"],
-        compiler=[cc_path, cc_hash],
         image=image,
-        abi=abi,
-        sources=sources,
-        artifact=artifact,
+        **compiled,
     )
 
 
@@ -252,6 +329,8 @@ def prepare(root, revision, base, trusted_revision, name, cold, image, cpu):
         upstream = directory / "upstream"
         subprocess.run(["git", "init", "--bare", "--quiet", upstream], check=True)
         git(upstream, "fetch", "--quiet", "--depth=1", lock["repo"], lock["commit"])
+        if scanner_only(lock):
+            return observe_scanner_only(upstream, root, revision, name, cold, image, cpu, directory)
         package_lock = json.loads(git(upstream, "show", lock["commit"] + ":package-lock.json"))
         js_url = package_lock["packages"]["node_modules/tree-sitter-javascript"]["resolved"]
         check(
