@@ -1,6 +1,6 @@
 //go:build !gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"strings"
@@ -74,7 +74,7 @@ func TestKotlinCompactCertificationObjectDeclarationDeclinesUnderShippedProfile(
 		t.Fatalf("production tree lost object_declaration (issue #93 regressed independently of this file): %s", productionSExpr)
 	}
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidate.SetCompactCertificationTelemetry(true)
@@ -138,7 +138,7 @@ func TestKotlinCompactCertificationObjectDeclarationAcceptsProductionTreeWhenSpl
 
 	lang.CompactConvergedReductionSplitDropsCertified = true
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)
@@ -188,7 +188,7 @@ func TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe(t *testing.T)
 	lang.CompactConvergedReductionSplitDropsCertified = true
 	lang.CompactPrimaryAcceptanceDerivationCertified = false
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)

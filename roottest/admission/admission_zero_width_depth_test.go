@@ -1,6 +1,6 @@
 //go:build gts_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"testing"
@@ -117,7 +117,7 @@ func requireAdmissionDepthRatchet(t *testing.T, fixtures []admissionDepthFixture
 
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			got, err := candidate.Parse(source)
 			if err != nil {
 				t.Fatal(err)

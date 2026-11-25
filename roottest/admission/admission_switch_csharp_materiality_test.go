@@ -1,6 +1,6 @@
 //go:build !gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"crypto/sha256"
@@ -75,7 +75,7 @@ func TestAdmissionCandidateCSharpMaterialityOnlyAcceptance(t *testing.T) {
 		t.Fatalf("inspect production tree: %v", err)
 	}
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)

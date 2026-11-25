@@ -137,7 +137,7 @@ func TestRootAllowlistGrowthAllowsOnlyNamedAdapters(t *testing.T) {
 	}
 }
 
-// TestAdapterFilesBudgetAndTags: the budget is 648 plus the number of files of
+// TestAdapterFilesBudgetAndTags: the budget is 619 plus the number of files of
 // the named list that exist in the root, and none of them has a //go:build
 // line (the tag-atom check only rejects atoms it does not know).
 func TestAdapterFilesBudgetAndTags(t *testing.T) {
@@ -159,7 +159,29 @@ func TestAdapterFilesBudgetAndTags(t *testing.T) {
 			}
 		}
 	}
-	if rootBudget != 648+exist {
-		t.Errorf("budget %d, want 648 plus %d existing adapter files = %d", rootBudget, exist, 648+exist)
+	if rootBudget != 619+exist {
+		t.Errorf("budget %d, want 619 plus %d existing adapter files = %d", rootBudget, exist, 619+exist)
+	}
+}
+
+func TestCheckFuzzSeedsKeepsCorpusWithMovedTest(t *testing.T) {
+	src := []byte("package x\n\nfunc FuzzA(f *testing.F) {}\nfunc FuzzB(f *testing.F) {}\nfunc TestC(t *testing.T) {}\n")
+	base := func(name string) []string {
+		if name == "FuzzA" {
+			return []string{"0356fb4b2b12b429", "b6ad4e543dd49c7e"}
+		}
+		return nil // FuzzB had no seed files
+	}
+	moved := func(name string) []string { return base(name) }
+	if err := checkFuzzSeeds(src, base, moved); err != nil {
+		t.Fatalf("corpus moved with the test: %v", err)
+	}
+	left := func(string) []string { return nil }
+	if err := checkFuzzSeeds(src, base, left); err == nil || !strings.Contains(err.Error(), "FuzzA") {
+		t.Fatalf("corpus left behind: got %v, want an error naming FuzzA", err)
+	}
+	partial := func(string) []string { return []string{"0356fb4b2b12b429"} }
+	if err := checkFuzzSeeds(src, base, partial); err == nil {
+		t.Fatal("partial corpus: want an error")
 	}
 }

@@ -1,6 +1,6 @@
 //go:build gts_parsercorephase0 && !gts_no_parsercorephase0
 
-package gotreesitter_test
+package parse_test
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 )
 
 func TestTokenInvariantLookaheadSkippedExtraGap(t *testing.T) {
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	g := grammargen.NewGrammar("token_invariant_gap")
 	g.Define("program", grammargen.Seq(grammargen.Str("a"), grammargen.Sym("word")))
 	g.Define("word", grammargen.Pat("[xy]"))

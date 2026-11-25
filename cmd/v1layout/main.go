@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-const rootBudget = 650
+const rootBudget = 621
 
 // adapterFiles is the named exception to "root files may only shrink" (owner
 // decision 6 of the ccore route design). Exactly these root file names may be
@@ -32,7 +32,7 @@ const rootBudget = 650
 // know, so TestAdapterFilesBudgetAndTags checks that the files of this list
 // that exist carry no //go:build line. The first two arrive with the adapters and equality
 // tests; the others arrive with the route and public tree. The budget above
-// counts only the files that exist: 648 before the exception plus the two
+// counts only the files that exist: 619 before the exception plus the two
 // files that have landed.
 var adapterFiles = []string{
 	"ccore_bind.go",
@@ -396,7 +396,62 @@ func checkMoveInventory(root, base string) (int, error) {
 		if !reflect.DeepEqual(before, after) {
 			return moves, fmt.Errorf("test inventory changed in move %s -> %s: before %v, after %v", fields[1], fields[2], before, after)
 		}
+		if err := checkFuzzSeeds(newer,
+			func(name string) []string {
+				return gitSeedNames(root, base, filepath.Join(filepath.Dir(fields[1]), "testdata", "fuzz", name))
+			},
+			func(name string) []string {
+				return dirSeedNames(root, filepath.Join(filepath.Dir(fields[2]), "testdata", "fuzz", name))
+			},
+		); err != nil {
+			return moves, fmt.Errorf("move %s -> %s: %w", fields[1], fields[2], err)
+		}
 		moves++
 	}
 	return moves, nil
+}
+
+var fuzzFuncPattern = regexp.MustCompile(`(?m)^func (Fuzz\w+)\(`)
+
+// checkFuzzSeeds requires every Fuzz function in a moved file to keep its seed
+// corpus: when the base has seed files for it beside the old file, the head
+// must have the same file names beside the new file. Go reads seeds only from
+// the test's own package directory, so a corpus left behind stops running.
+func checkFuzzSeeds(src []byte, baseSeeds, headSeeds func(name string) []string) error {
+	for _, m := range fuzzFuncPattern.FindAllSubmatch(src, -1) {
+		name := string(m[1])
+		want := baseSeeds(name)
+		if len(want) == 0 {
+			continue
+		}
+		if got := headSeeds(name); !reflect.DeepEqual(want, got) {
+			return fmt.Errorf("%s seed corpus testdata/fuzz/%s must move with it: base has %v, head has %v", name, name, want, got)
+		}
+	}
+	return nil
+}
+
+func gitSeedNames(root, base, dir string) []string {
+	cmd := exec.Command("git", "ls-tree", "--name-only", base, filepath.ToSlash(dir)+"/")
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, line := range strings.Fields(string(out)) {
+		names = append(names, filepath.Base(line))
+	}
+	sort.Strings(names)
+	return names
+}
+
+func dirSeedNames(root, dir string) []string {
+	entries, _ := os.ReadDir(filepath.Join(root, dir))
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	sort.Strings(names)
+	return names
 }

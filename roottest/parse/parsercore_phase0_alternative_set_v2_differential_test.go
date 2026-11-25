@@ -1,6 +1,6 @@
 //go:build gts_parsercorephase0
 
-package gotreesitter_test
+package parse_test
 
 // The B4b stage 2b class-1 differential regression witness (spec.b4b-
 // alternative-set.v2 section 7 class 1, and the stage 2b gate). Stage 2a
@@ -32,7 +32,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"testing"
 
@@ -83,7 +82,7 @@ func runV2OptInDeciderDifferential(t testing.TB, name string, lang *gts.Language
 	restoreRecording := core.SetAlternativeSetRecordingEnabledForTest(true)
 	defer restoreRecording()
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidate.SetCompactCertificationTelemetry(true)
@@ -153,10 +152,10 @@ func TestB4bV2OptInDeciderDifferentialCertifiedLanguages(t *testing.T) {
 		source     string
 		load       func() *gts.Language
 	}{
-		{name: "bash", corpusPath: filepath.Join("testdata", "compact_converged_split", "bash.sh"), load: grammars.BashLanguage},
-		{name: "erlang", corpusPath: filepath.Join("testdata", "compact_converged_split", "erlang.erl"), load: grammars.ErlangLanguage},
+		{name: "bash", corpusPath: repoRootPath("testdata", "compact_converged_split", "bash.sh"), load: grammars.BashLanguage},
+		{name: "erlang", corpusPath: repoRootPath("testdata", "compact_converged_split", "erlang.erl"), load: grammars.ErlangLanguage},
 		{name: "haskell", source: grammars.ParseSmokeSample("haskell"), load: grammars.HaskellLanguage},
-		{name: "javascript", corpusPath: filepath.Join("testdata", "compact_converged_split", "javascript.js"), load: grammars.JavascriptLanguage},
+		{name: "javascript", corpusPath: repoRootPath("testdata", "compact_converged_split", "javascript.js"), load: grammars.JavascriptLanguage},
 		{name: "python", source: "def greet(name):\n    return f\"hello {name}\"\n\nprint(greet(\"world\"))\n", load: grammars.PythonLanguage},
 	}
 	for _, test := range tests {

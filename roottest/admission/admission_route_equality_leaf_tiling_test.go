@@ -1,10 +1,11 @@
 //go:build !gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -43,7 +44,7 @@ type routeEqualityWitness struct {
 // v7 tranche B2) can reuse it from a *testing.F during corpus setup.
 func loadRouteEqualityWitnesses(t testing.TB) map[string]routeEqualityWitness {
 	t.Helper()
-	raw, err := os.ReadFile(compactT3RouteEqualityWitnessManifestPath)
+	raw, err := os.ReadFile(repoRootPath(filepath.FromSlash(compactT3RouteEqualityWitnessManifestPath)))
 	if err != nil {
 		t.Fatalf("read witness manifest: %v", err)
 	}
@@ -95,7 +96,7 @@ func TestCompactRouteHTMLErroneousEndTagByteGapDeclines(t *testing.T) {
 		t.Fatal("production HasError=false, want true for <a></a^>")
 	}
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)
@@ -132,7 +133,7 @@ func TestCompactRouteAcceptedHiddenDoctypeLeafTiles(t *testing.T) {
 	}
 	defer productionTree.Release()
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)
@@ -241,7 +242,7 @@ func TestCompactRouteAdjudicatesFalseCleanWitnesses(t *testing.T) {
 			lang := entry.Language()
 			source := []byte(witness.SourceUTF8)
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			parser := gts.NewParser(lang)
 			parser.SetAdmissionCandidateRoute(true)
 			tree, err := parser.Parse(source)
@@ -283,7 +284,7 @@ func TestCompactRoutePreservesRecoverySiblingSelection(t *testing.T) {
 	lang := grammars.JavascriptLanguage()
 	source := []byte("const f = (a) => a + 1#&\nclass A { m() { return 1 } }\n\n")
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
 	tree, err := parser.Parse(source)
@@ -308,7 +309,7 @@ func TestCompactRouteAuthenticatesRecoveryAliasFromReduction(t *testing.T) {
 	lang.CompactRecoveryTerminalAliasRules = nil
 	source := []byte("const f = (a) =. + + 1;\nclass A { m() { return 1 } }\n\n")
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	parser := gts.NewParser(&lang)
 	parser.SetAdmissionCandidateRoute(true)
 	tree, err := parser.Parse(source)
@@ -329,7 +330,7 @@ func TestCompactRouteAuthenticatesRecoveryAliasFromReduction(t *testing.T) {
 
 func TestCompactRouteHTMLSelectsLockedCErrorAbsorb(t *testing.T) {
 	lang := grammars.HtmlLanguage()
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
 	tree, err := parser.Parse([]byte("<html><bodyHello</body></html>\n"))
@@ -354,7 +355,7 @@ func TestCompactRouteScalaMissingInsertionWinsOverAbsorb(t *testing.T) {
 	gts.EnableArenaBreakdown(true)
 	t.Cleanup(func() { gts.EnableArenaBreakdown(false) })
 	lang := grammars.ScalaLanguage()
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
 	tree, err := parser.Parse([]byte("(y; "))
@@ -445,7 +446,7 @@ func TestCompactRouteAcceptedRootLeafCoverageGapDeclines(t *testing.T) {
 				t.Fatalf("production HasError=false, want true for %q", src)
 			}
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
 			// Keep the request off the certified core, which serves HTML by default.
@@ -521,7 +522,7 @@ func TestCompactRouteAcceptedRootTrailingErrorExtraDeclines(t *testing.T) {
 		t.Run(test.source, func(t *testing.T) {
 			source := []byte(test.source)
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
 			// Keep the request off the certified core, which serves HTML by default.
@@ -591,7 +592,7 @@ func TestCompactRouteCleanTrailingExtraStillRoutesNatively(t *testing.T) {
 			}
 			defer productionTree.Release()
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
 			// Keep the request off the certified core, which serves HTML by default.

@@ -1,6 +1,6 @@
 //go:build gts_parsercorephase0 && !gts_no_parsercorephase0
 
-package gotreesitter_test
+package parse_test
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 )
 
 func TestTokenInvariantUnicodeLookaheadContinuation(t *testing.T) {
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	for _, grouped := range []bool{false, true} {
 		name := "flat"
 		if grouped {

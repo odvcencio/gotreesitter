@@ -1,6 +1,6 @@
 //go:build gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"strings"
@@ -18,7 +18,7 @@ func TestAdmissionSwitchDefaultBuildFallsBackLoudly(t *testing.T) {
 	restore := gts.AdmissionCandidateRouteDefault()
 	defer gts.SetAdmissionCandidateRouteDefault(restore)
 	gts.SetAdmissionCandidateRouteDefault(false)
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 
 	parser, source := newAdmissionDFAParser(t)
 	parser.SetAdmissionCandidateRoute(true)

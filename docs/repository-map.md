@@ -8,7 +8,7 @@ Use the [root file-name prefix tables](#root-file-name-prefixes) to find current
 
 ## Root file limits
 
-`cmd/v1layout` fails when the root holds more than `rootBudget` Go files (650 now).
+`cmd/v1layout` fails when the root holds more than `rootBudget` Go files (621 now).
 A PR that completes one of these moves (or, for 500, makes the first such move) must lower `rootBudget` to the matching limit or below:
 
 | Root `.go` files at most | Applies after |
@@ -91,9 +91,9 @@ The root `gotreesitter` package holds the engine and the public API in one packa
 | `ccore_*` | Adapters from a `*Language` to `internal/ccore` (`ccore_bind.go`, `ccore_scanner.go`). They export nothing |
 | `parsestate_*` | Parse-state replay and compact-differential support |
 | `work_*` | GLR/GSS work-count instrumentation, gated by `gts_workcount` |
-| `admission_switch*` | The compact-vs-production admission decision and candidate scoring |
+| `admission_switch*` | The compact-vs-production admission decision and candidate scoring. Most of the exported-API tests are in `roottest/admission` |
 | `admission_census*`, `admission_scorecard*` | Admission census counters (`admission_census.go`) and scorecard tests |
-| `admission_route*` | Route-equality regression coverage between engines |
+| `admission_route*` | Route-equality regression coverage between engines. The tests are in `roottest/admission` |
 | other `admission_*` | Targeted admission regressions (corpus, recovery, zero-width, and so on) |
 
 ### GLR and forest
@@ -120,7 +120,7 @@ fresh-tree verification.
 | --- | --- |
 | `incremental*` | Edit application, reuse admission, splice/settle paths |
 | `w1*` | Incremental splice correctness gates (leading, sibling). The block-splice test is in `roottest/parse` |
-| `compact_incremental*`, `compact_nested_reuse*`, `compact_reuse*`, `compact_recovery*` | Compact-route incremental reuse and dependency proofs |
+| `compact_incremental*`, `compact_nested_reuse*`, `compact_reuse*`, `compact_recovery*` | Compact-route incremental reuse and dependency proofs. `compact_nested_reuse*` lookahead tests and `compact_recovery_incremental_admission_test.go` are in `roottest/admission` |
 | `oedit_*` | Differential sweep tests for leading-splice and range normalization |
 | `included_ranges*` | Injection-aware included-range tracking |
 
@@ -168,14 +168,14 @@ fresh-tree verification.
 | `arena*` | Slab arena allocation and lifetime |
 | `raw_shape*` | Compact/raw node storage shape |
 | `merge_event*` | GSS merge-event census |
-| `reference_atlas*` | `gts_workcount`-gated reference-atlas tracing |
+| `reference_atlas*` | `gts_workcount`-gated reference-atlas tracing. The test is in `roottest/parse` |
 
 ### Test, benchmark, and census support
 
 | Prefix | Owns |
 | --- | --- |
 | `benchmark*` | In-package benchmarks (see [benchmarks.md](benchmarks.md) for the canonical results) |
-| `fuzz_*` | Fuzz targets (`go test -fuzz`). The parser and scanner-grammar fuzz targets are in `roottest/parse` |
+| `fuzz_*` | Fuzz targets (`go test -fuzz`). The parser and scanner-grammar fuzz targets are in `roottest/parse`. `fuzz_admission_route_equality_test.go` and its seeds are in `roottest/admission` |
 | `race_*` | Race-lane build-tag stubs |
 | `perf_*` | Perf-counter and perf-metrics instrumentation |
 | `large_*` | The blob wire form of large-state goto tables and its test |
@@ -193,7 +193,7 @@ fresh-tree verification.
 | `cgo_harness/` | C oracle, parity, race, corpus, work-count, and certified timing harnesses |
 | `cmd/` | Maintainer and user CLIs such as `ts2go`, `tsquery`, `benchgate`, and `parity_report` |
 | `taproot/`, `grep/` | Higher-level consumers and helper packages |
-| `roottest/` | Root-package black-box test packages (`bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package. A root test file moves here when it uses only the exported API, needs no hook from `export_test.go`, and is not named by a CI step that runs the root package. Files that read the root's `testdata/` or source files use a `../../` path |
+| `roottest/` | Root-package black-box test packages (`admission`, `bench`, `highlight`, `parse`, `query`) split out so `go test ./...` and CI race lanes can target them independently of the root package. A root test file moves here when it uses only the exported API, needs no hook from `export_test.go`, and is not run by a CI step that cannot be retargeted; a CI step that names a moved test runs the new package in the same PR. Moved files reach files that stay in the root through `repoRootPath` (a copy sits in each package's `helpers_copies_test.go`), and a fuzz test's `testdata/fuzz/<Name>/` seed corpus moves with it (`cmd/v1layout` checks this) |
 | `parser_result_test/` | Black-box tests (`package parserresult_test`) for the result-compatibility tier; kept separate from the root package so census and dispatcher tests cannot depend on unexported internals |
 | `cmd/parity_report/parity_report.pgo` | Current profile-guided optimization (PGO) input. CI uses `-pgo=cmd/parity_report/parity_report.pgo`. Its generator, inputs, and notes are in `cmd/pgo_repdriver/`. |
 | `.github/policy/` | The release policy (`release.arb`, `release.test.arb`) that `.github/workflows/release.yml` runs directly by path |

@@ -1,6 +1,6 @@
 //go:build !gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"os"
@@ -68,7 +68,7 @@ func TestAdmissionCandidateRoutesEOFSiblingsWithoutProfileGrant(t *testing.T) {
 
 			legacyLanguage := cloneAdmissionTestLanguage(loaded)
 			legacyLanguage.CompactEOFAcceptNoActionSiblingsCertified = true
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			legacy := gts.NewParser(legacyLanguage)
 			legacy.SetAdmissionCandidateRoute(true)
 			legacyTree, err := legacy.Parse(source)
@@ -99,7 +99,7 @@ func TestAdmissionCandidateRoutesEOFSiblingsWithoutProfileGrant(t *testing.T) {
 
 			candidateLanguage := cloneAdmissionTestLanguage(loaded)
 			candidateLanguage.CompactEOFAcceptNoActionSiblingsCertified = false
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			candidate := gts.NewParser(candidateLanguage)
 			candidate.SetAdmissionCandidateRoute(true)
 			candidateTree, err := candidate.Parse(source)

@@ -1,6 +1,6 @@
 //go:build gts_workcount
 
-package gotreesitter_test
+package parse_test
 
 import (
 	"testing"

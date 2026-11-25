@@ -1,6 +1,6 @@
 //go:build gts_parsercorephase0 && !gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	gts "github.com/odvcencio/gotreesitter"

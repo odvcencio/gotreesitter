@@ -1,4 +1,4 @@
-package gotreesitter_test
+package admission_test
 
 import (
 	"strings"
@@ -79,7 +79,7 @@ func TestAdmissionGenericConflictFamilyNoDivergence(t *testing.T) {
 			}
 			prodSExpr := prodTree.RootNode().SExpr(lang)
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			cand := gts.NewParser(lang)
 			cand.SetAdmissionCandidateRoute(true)
 			candTree, err := cand.Parse(src)
@@ -127,7 +127,7 @@ func TestAdmissionGenericConflictFamilyNoDivergence(t *testing.T) {
 	}
 	for _, fixture := range genericConflictFamily {
 		src := []byte("package p\n\nfunc f() {\n\t_ = " + fixture.expr + "\n}\n")
-		gts.ResetAdmissionCandidateCountersForTest()
+		gts.ResetAdmissionCandidateCounters()
 		cand := gts.NewParser(lang)
 		cand.SetAdmissionCandidateRoute(true)
 		tree, err := cand.Parse(src)

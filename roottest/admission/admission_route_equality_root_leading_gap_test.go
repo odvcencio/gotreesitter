@@ -1,6 +1,6 @@
 //go:build !gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"strings"
@@ -74,7 +74,7 @@ func TestCompactRouteRootLeadingGapDeclines(t *testing.T) {
 				t.Fatalf("production root startByte=%d, want %d for %q", got, c.wantStart, c.source)
 			}
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
 			candidate.SetCompactCertificationTelemetry(true)
@@ -175,7 +175,7 @@ func TestCompactRouteLeadingCommentStillServes(t *testing.T) {
 			}
 			defer productionTree.Release()
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
 			candidateTree, err := candidate.Parse(source)

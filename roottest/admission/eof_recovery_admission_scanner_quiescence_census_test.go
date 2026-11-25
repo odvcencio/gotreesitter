@@ -1,6 +1,6 @@
 //go:build !gts_no_parsercorephase0 && gts_eof_recovery_admission_contract
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"testing"
@@ -30,7 +30,7 @@ func TestEOFRecoveryAdmissionCensusRecordsScannerQuiescenceMechanism(t *testing.
 
 	gts.EOFRecoveryAdmissionCensusReset()
 	t.Cleanup(gts.EOFRecoveryAdmissionCensusReset)
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
@@ -93,7 +93,7 @@ func TestEOFRecoveryAdmissionCensusRecordsScannerQuiescenceMechanism(t *testing.
 	// admission. Zero receipts is the census statement that the quiescence
 	// route stays confined to the one frontier shape it proves.
 	gts.EOFRecoveryAdmissionCensusReset()
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	goParser := gts.NewParser(grammars.GoLanguage())
 	goParser.SetAdmissionCandidateRoute(true)
 	goTree, err := goParser.Parse([]byte(grammars.ParseSmokeSample("go")))

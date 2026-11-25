@@ -1,12 +1,11 @@
 //go:build !gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"crypto/sha256"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -26,12 +25,12 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 	}{
 		{
 			name:       "bash",
-			corpusPath: filepath.Join("testdata", "compact_converged_split", "bash.sh"),
+			corpusPath: repoRootPath("testdata", "compact_converged_split", "bash.sh"),
 			load:       grammars.BashLanguage,
 		},
 		{
 			name:       "erlang",
-			corpusPath: filepath.Join("testdata", "compact_converged_split", "erlang.erl"),
+			corpusPath: repoRootPath("testdata", "compact_converged_split", "erlang.erl"),
 			load:       grammars.ErlangLanguage,
 		},
 		{
@@ -41,7 +40,7 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 		},
 		{
 			name:       "javascript",
-			corpusPath: filepath.Join("testdata", "compact_converged_split", "javascript.js"),
+			corpusPath: repoRootPath("testdata", "compact_converged_split", "javascript.js"),
 			// Source repository: https://github.com/tree-sitter/tree-sitter-javascript
 			// Source commit/path: 58404d8cf191d69f2674a8fd507bd5776f46cb11 test/tags/functions.js.
 			sourceSHA: "0bbd2cdb0a0492055e442c44b533797386ec9c8aeb7ce8a4d0f5f5a4681e3b90",
@@ -93,7 +92,7 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 			}
 			defer productionTree.Release()
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
 			candidate.SetCompactCertificationTelemetry(true)
@@ -160,7 +159,7 @@ func TestAdmissionCandidateSelectedLineageSplitsMatchProduction(t *testing.T) {
 			}
 			defer productionTree.Release()
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
 			candidateTree, err := candidate.Parse(source)
@@ -251,7 +250,7 @@ func TestAdmissionCandidatePlatformModifierWitnessNowClean(t *testing.T) {
 		t.Fatalf("production tree = %s, want %s", productionSExpr, want)
 	}
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidate.SetCompactCertificationTelemetry(true)
@@ -274,7 +273,7 @@ func TestAdmissionCandidateSelectedLineageJuliaFailsClosed(t *testing.T) {
 		sourcePath   = "testdata/compact_selected_lineage/julia_utils.jl"
 		sourceSHA256 = "d81017a2d640f6c84f2ca2a7030687049b7334bdb75ad5c50302b29052ecf79c"
 	)
-	source, err := os.ReadFile(sourcePath)
+	source, err := os.ReadFile(repoRootPath(sourcePath))
 	if err != nil {
 		t.Fatalf("read Julia selected-lineage witness: %v", err)
 	}
@@ -294,7 +293,7 @@ func TestAdmissionCandidateSelectedLineageJuliaFailsClosed(t *testing.T) {
 	}
 	defer productionTree.Release()
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)

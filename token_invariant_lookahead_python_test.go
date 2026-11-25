@@ -10,7 +10,7 @@ import (
 )
 
 func TestTokenInvariantPythonNumericControls(t *testing.T) {
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	for _, tc := range []struct {
 		name, before, after string
 		offset              uint32

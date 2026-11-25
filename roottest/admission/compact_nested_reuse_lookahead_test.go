@@ -1,6 +1,6 @@
 //go:build !gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	gts "github.com/odvcencio/gotreesitter"
@@ -11,7 +11,7 @@ import (
 
 // A changed token after unchanged padding can invalidate an earlier reduction.
 func TestCompactNestedReuseChangedReductionLookahead(t *testing.T) {
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	g := grammargen.NewGrammar("nested_lookahead")
 	g.Define("program", grammargen.Repeat1(grammargen.Sym("statement")))
 	g.Define("statement", grammargen.Seq(grammargen.Sym("_expression"), grammargen.Str(";")))

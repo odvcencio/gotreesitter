@@ -1,6 +1,6 @@
 //go:build gts_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"bytes"
@@ -28,7 +28,7 @@ func TestCompactJavaScriptRecoveryIncrementalReuse(t *testing.T) {
 	edited := append([]byte(nil), source[:editOffset]...)
 	edited = append(edited, source[editOffset+1:]...)
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
 	oldTree, err := parser.Parse(source)

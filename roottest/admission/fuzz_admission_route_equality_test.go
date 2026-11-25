@@ -1,6 +1,6 @@
 //go:build !gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"fmt"
@@ -215,7 +215,7 @@ func exerciseAdmissionRouteEquality(t *testing.T, lp admissionRouteEqualityLangu
 		}
 	}()
 
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 	compactTree, err := lp.compact.Parse(src)
 	if err != nil {
 		t.Fatalf("lang=%s compact-lane Parse: %v (input=%s)", lp.name, err, previewRouteEqualityInput(src))

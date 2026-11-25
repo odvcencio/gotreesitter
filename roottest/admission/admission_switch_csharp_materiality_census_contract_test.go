@@ -1,6 +1,6 @@
 //go:build !gts_no_parsercorephase0 && gts_derivation_set_census
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"testing"
@@ -20,7 +20,7 @@ func TestAdmissionCandidateCSharpMaterialityNonVacuityContract(t *testing.T) {
 	}
 	gts.DerivationSetCensusReset()
 	t.Cleanup(gts.DerivationSetCensusReset)
-	gts.ResetAdmissionCandidateCountersForTest()
+	gts.ResetAdmissionCandidateCounters()
 
 	parser := gts.NewParser(grammars.CSharpLanguage())
 	parser.SetAdmissionCandidateRoute(true)

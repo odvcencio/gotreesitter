@@ -5,6 +5,8 @@ package parse_test
 // keeps the originals for the tests that remain there.
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -122,4 +124,33 @@ func ironwoodParseNoFatal(t *testing.T, name, src string) (*gotreesitter.Tree, *
 		t.Fatalf("%s parse failed: %v", name, err)
 	}
 	return tree, lang
+}
+
+// from parser_external_scanner_incremental_test.go
+func requireAuthenticatedTokenInvariantReuse(t *testing.T, profile gotreesitter.IncrementalParseProfile) {
+	t.Helper()
+	if profile.ReuseUnsupported || profile.TokenInvariantDependencyChecks != 1 ||
+		profile.ReusedSubtrees == 0 || profile.ReparseNanos != 0 || profile.NewNodesAllocated != 0 {
+		t.Fatalf("edit did not use authenticated whole-tree reuse: %+v", profile)
+	}
+}
+
+// repoRootPath joins elements onto the module root, found by walking up from
+// the working directory to go.mod. Tests moved out of the root directory use
+// it to reach files that stay at the root.
+func repoRootPath(elem ...string) string {
+	dir, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return filepath.Join(append([]string{dir}, elem...)...)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			panic("go.mod not found above working directory")
+		}
+		dir = parent
+	}
 }

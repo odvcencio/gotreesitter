@@ -1,6 +1,6 @@
 //go:build !gts_no_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"strings"
@@ -90,7 +90,7 @@ func TestCompactRouteLexerSkippedByteGapDeclines(t *testing.T) {
 				t.Fatalf("production HasError=%t, want %t for %q", got, wantError, c.source)
 			}
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
 			candidateTree, err := candidate.Parse(source)

@@ -1,6 +1,6 @@
 //go:build gts_parsercorephase0
 
-package gotreesitter_test
+package admission_test
 
 import (
 	"strings"
@@ -57,7 +57,7 @@ func TestCompactRouteSwiftShiftComparisonGapIsNotATilingDefect(t *testing.T) {
 			lang := entry.Language()
 			source := []byte(witness.SourceUTF8)
 
-			gts.ResetAdmissionCandidateCountersForTest()
+			gts.ResetAdmissionCandidateCounters()
 			parser := gts.NewParser(lang)
 			parser.SetAdmissionCandidateRoute(true)
 			tree, err := parser.Parse(source)
