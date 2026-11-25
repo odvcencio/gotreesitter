@@ -26,10 +26,12 @@ var (
 	bTableEntries  = &budget{what: "entries of the parse table before merging", limit: 1 << 23}
 	bClosureWork   = &budget{what: "item insertions by the closures of the parse states", limit: 1 << 28}
 	bLookaheadSets = &budget{what: "distinct lookahead sets", limit: 1 << 18}
+
+	bMergeWork = &budget{what: "state pairs compared and states visited while merging parse states", limit: 1 << 28}
 )
 
 // allBudgets lists the budgets in the order of the documentation table.
-var allBudgets = []*budget{bInlineSteps, bInlineScratch, bInlineWork, bAliasWork, bParseStates, bTableEntries, bClosureWork, bLookaheadSets}
+var allBudgets = []*budget{bInlineSteps, bInlineScratch, bInlineWork, bAliasWork, bParseStates, bTableEntries, bClosureWork, bLookaheadSets, bMergeWork}
 
 type tooLarge struct{ err *lexbuild.SizeError }
 
