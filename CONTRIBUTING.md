@@ -125,3 +125,10 @@ The maintainer workflow (lanes, counter ledger, gate presets) is in [AGENTS.md](
   variables.
 - [docs/authoring-languages.md](docs/authoring-languages.md): adding a grammar.
 - [docs/repository-map.md](docs/repository-map.md): where files live.
+
+The counter ledger (`internal/benchfixtures/counter_ledger.json`) has two
+checks. A pull request fails only when a counter gets worse by more than 2%.
+It gets a notice when the file differs from a fresh measurement in any other
+way, and the heavy tier fails on that difference. To refresh the file from the
+current tree, run `GOMAXPROCS=1 GOWORK=off go run ./cmd/perfcounterledger --write --langs all`
+and put the whole diff in the pull request body.
