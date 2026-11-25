@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / 'internal/coracle'
 PATCH = ROOT / 'oracle/binding_compat.patch'
 COUNTERS_PATCH = ROOT / 'oracle/subtree_counters.patch'
+QUERY_STEPS_PATCH = ROOT / 'oracle/query_steps.patch'
 
 
 def sha(data):
@@ -42,6 +43,8 @@ def verify():
         raise SystemExit('binding compatibility patch differs from the recorded patch')
     if manifest['subtree_counters_patch_sha256'] != sha(COUNTERS_PATCH.read_bytes()):
         raise SystemExit('subtree counters patch differs from the recorded patch')
+    if manifest['query_steps_patch_sha256'] != sha(QUERY_STEPS_PATCH.read_bytes()):
+        raise SystemExit('query steps patch differs from the recorded patch')
     if manifest['files'] != files(DEST):
         raise SystemExit('vendored oracle bytes differ from the recorded sources')
     print('C oracle source provenance verified')
@@ -80,6 +83,9 @@ def refresh():
         # Test-only creation counters, compiled in only under the define
         # GTS_SUBTREE_COUNTERS (Go build tag gts_subtree_counters).
         subprocess.run(['git', 'apply', '--unsafe-paths', '--directory=' + str(stage), str(COUNTERS_PATCH)], check=True, cwd=tmp)
+        # Read-only access to a compiled query's tables (steps, pattern map,
+        # analysis flags), appended to query.c; no existing function changes.
+        subprocess.run(['git', 'apply', '--unsafe-paths', '--directory=' + str(stage), str(QUERY_STEPS_PATCH)], check=True, cwd=tmp)
         manifest = {
             'schema': 'gts-c-oracle-sources/v1', 'pins': contract,
             'binding_repository': 'https://github.com/tree-sitter/go-tree-sitter.git',
@@ -88,7 +94,8 @@ def refresh():
             'runtime_include_tree_oid': git(repos['runtime'], 'rev-parse', 'HEAD:lib/include').decode().strip(),
             'runtime_license_sha256': sha((repos['runtime'] / 'LICENSE').read_bytes()),
             'binding_patch_sha256': sha(PATCH.read_bytes()),
-            'subtree_counters_patch_sha256': sha(COUNTERS_PATCH.read_bytes()), 'files': files(stage),
+            'subtree_counters_patch_sha256': sha(COUNTERS_PATCH.read_bytes()),
+            'query_steps_patch_sha256': sha(QUERY_STEPS_PATCH.read_bytes()), 'files': files(stage),
         }
         (stage / 'upstream.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
         if DEST.exists():

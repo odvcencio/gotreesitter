@@ -882,7 +882,7 @@ jobs:
             package_filter: '/grammars/(grammar_blobs|internal/[^/]+|lean|python|swift)$'
             test_filter: ''
           - name: query
-            package_filter: '/roottest/query$'
+            package_filter: '/roottest/query$|/internal/query$'
             test_filter: ''
           - name: highlight
             package_filter: '/roottest/highlight$'
@@ -2961,6 +2961,11 @@ jobs:
         # node's HasError flag on this ring (cgo_harness/parity_cgo_test.go).
         # Measured at zero divergences across the smoke languages before it
         # was turned on here; the top-50 ring stays flag-off until measured.
+        # The pinned-C query tests (TestQueryCorpus checks every record of
+        # internal/query/testdata/cases.jsonl; the match-order guard and the
+        # query-semantics cases) ran in no job before 24 November 2026. They
+        # add about 3 s of grammar builds (json, hare, luau, squirrel) and a
+        # few seconds of tests; see docs/ci-gate-coverage.md.
         run: |
           GTS_PARITY_MODE=smoke \
           GTS_PARITY_COMPARE_HAS_ERROR=1 \
@@ -2974,7 +2979,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 20m \
-            --run '^TestCOracleVendoredSources$|^TestCOracleGrammarCompileFlagsMatchRecordedFlags$|^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandLockedC$|^TestTsxJsxTextEntityEditAndUndoLockedC$|^TestGraduatedTSXContextualArrowMatchesPinnedC$'
+            --run '^TestCOracleVendoredSources$|^TestCOracleGrammarCompileFlagsMatchRecordedFlags$|^TestIncrementalCReuseEOFInvalidatesHTTPSections$|^TestIncrementalCReuseEOFInvalidatesDartLibrary$|^TestIncrementalCReuseLedgerReadDependencies$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestTsxJsxTextEqualsLockedC$|^TestTsxJsxTextAmpersandLockedC$|^TestTsxJsxTextEntityEditAndUndoLockedC$|^TestGraduatedTSXContextualArrowMatchesPinnedC$|^TestQueryCorpus$|^TestParityQueryMatchOrderGuard$|^TestParityQuerySemantics$'
 
       - name: JavaScript and TypeScript contextual lookahead against locked C
         run: |
