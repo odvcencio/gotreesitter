@@ -9,6 +9,8 @@ import (
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 )
 
 func parseTestTree(t *testing.T, source string) (*gotreesitter.Tree, *gotreesitter.Language) {
@@ -239,66 +241,119 @@ func TestRuntimeLanguageUsesRegisteredTokenSourceFactory(t *testing.T) {
 	}
 }
 
+// The bridge parses a registry language with its registered token-source
+// factory, fresh and then incrementally over UTF-16, and the incremental tree
+// must equal a fresh parse of the edited source on whichever route serves it.
+//
+// On the default route the language's certificate decides. When it lists the
+// table-v1 scan provider (C's does), the certified core serves both parses: it
+// lexes with the grammar's own tables, so the factory is called once per parse
+// and its source is never read. The core runs no fresh-result check of the
+// existing engine; its incremental result equals a fresh parse by
+// certification, and it reparses fresh any incremental result that has an
+// error. Without the grant the existing engine serves both parses.
+//
+// On the existing engine (the core route switched off), a span-changing edit
+// needs a fresh-result check, and that check must build its source with the
+// registered factory from the edited source: the factory is called a third
+// time.
 func TestRuntimeLanguageIncrementalUTF16UsesRegisteredTokenSourceFactory(t *testing.T) {
 	entry := grammars.DetectLanguageByName("c")
 	if entry == nil {
 		t.Skip("C is not included in this grammar subset")
 	}
-	loaded := newRuntimeLanguage("c", entry.Language())
-	if loaded.tokenSourceFactory == nil {
-		t.Fatal("C runtime language did not retain its registered token-source factory")
-	}
+	sum, _ := entry.Language().GrammarBlobSHA256()
+	cert, certifiedBlob := certified.Blobs[sum]
+	granted := certifiedBlob && cert.HasProvider("table-v1")
+	for _, tc := range []struct {
+		name     string
+		routeOff bool
+	}{{"default_route", false}, {"existing_engine", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			core := granted && !tc.routeOff
+			loaded := newRuntimeLanguage("c", entry.Language())
+			if loaded.tokenSourceFactory == nil {
+				t.Fatal("C runtime language did not retain its registered token-source factory")
+			}
+			factory := loaded.tokenSourceFactory
+			var factorySources []string
+			loaded.tokenSourceFactory = func(source []byte) gotreesitter.TokenSource {
+				factorySources = append(factorySources, string(source))
+				return factory(source)
+			}
+			newParser := func() *gotreesitter.Parser {
+				p := gotreesitter.NewParser(loaded.language)
+				if tc.routeOff {
+					p.SetAdmissionCandidateRoute(false)
+				}
+				return p
+			}
+			parser := newParser()
+			oldSource := units(`char *s = "gotreesitter";`)
+			newSource := units(`char *s = "treesitter";`)
+			served0, declined0 := bridgeCoreCounts()
+			oldTree, err := loaded.parseUTF16Units(parser, oldSource, nil)
+			if err != nil {
+				t.Fatalf("parse old source: %v", err)
+			}
+			if oldTree == nil {
+				t.Fatal("parse old source returned no tree")
+			}
+			defer oldTree.Release()
 
-	factory := loaded.tokenSourceFactory
-	var factorySources []string
-	loaded.tokenSourceFactory = func(source []byte) gotreesitter.TokenSource {
-		factorySources = append(factorySources, string(source))
-		return factory(source)
+			edit, changed := utf16EditBetween(oldSource, newSource)
+			if !changed || !oldTree.EditUTF16(edit, newSource) {
+				t.Fatalf("apply UTF-16 edit: changed=%v edit=%+v", changed, edit)
+			}
+			served1, _ := bridgeCoreCounts()
+			newTree, err := loaded.parseUTF16Units(parser, newSource, oldTree)
+			if err != nil {
+				t.Fatalf("incremental parse: %v", err)
+			}
+			if newTree == nil {
+				t.Fatal("incremental parse returned no tree")
+			}
+			defer newTree.Release()
+			served2, declined2 := bridgeCoreCounts()
+			if newTree.RootNode() == nil || newTree.RootNode().HasError() {
+				t.Fatalf("incremental parse returned invalid tree: %v", newTree.RootNode())
+			}
+			wantSources := []string{`char *s = "gotreesitter";`, `char *s = "treesitter";`}
+			if !core {
+				wantSources = append(wantSources, `char *s = "treesitter";`) // the fresh-result check
+			}
+			if !reflect.DeepEqual(factorySources, wantSources) {
+				t.Fatalf("factory sources (core=%t) = %q, want %q", core, factorySources, wantSources)
+			}
+			switch {
+			case core && (served1-served0 != 1 || served2-served1 != 1 || declined2 != declined0):
+				t.Fatalf("core: served full %d and incremental %d, declined %d; want 1, 1 and 0", served1-served0, served2-served1, declined2-declined0)
+			case !core && served2 != served0:
+				t.Fatalf("existing engine: the core served %d requests, want 0", served2-served0)
+			}
+			fresh, err := loaded.parseUTF16Units(newParser(), newSource, nil)
+			if err != nil {
+				t.Fatalf("fresh parse: %v", err)
+			}
+			defer fresh.Release()
+			gotJSON, gotTruncated := buildJSONTree(newTree, loaded.language, newTree.RootNode(), maxTreeNodes)
+			wantJSON, wantTruncated := buildJSONTree(fresh, loaded.language, fresh.RootNode(), maxTreeNodes)
+			if gotTruncated || wantTruncated || !reflect.DeepEqual(gotJSON, wantJSON) {
+				t.Fatalf("incremental UTF-16 tree differs from fresh: got=%+v want=%+v", gotJSON, wantJSON)
+			}
+			t.Logf("core=%t factory calls=%d; incremental UTF-16 tree equals fresh", core, len(factorySources))
+		})
 	}
-	parser := gotreesitter.NewParser(loaded.language)
-	oldSource := units(`char *s = "gotreesitter";`)
-	newSource := units(`char *s = "treesitter";`)
-	oldTree, err := loaded.parseUTF16Units(parser, oldSource, nil)
-	if err != nil {
-		t.Fatalf("parse old source: %v", err)
-	}
-	if oldTree == nil {
-		t.Fatal("parse old source returned no tree")
-	}
-	defer oldTree.Release()
+}
 
-	edit, changed := utf16EditBetween(oldSource, newSource)
-	if !changed || !oldTree.EditUTF16(edit, newSource) {
-		t.Fatalf("apply UTF-16 edit: changed=%v edit=%+v", changed, edit)
+// bridgeCoreCounts is the number of requests the certified core served, fresh
+// and incremental, and the number it declined, since the process started.
+func bridgeCoreCounts() (served, declined int64) {
+	d, f, i := bind.RouteCounters()
+	for _, v := range d {
+		declined += v
 	}
-	newTree, err := loaded.parseUTF16Units(parser, newSource, oldTree)
-	if err != nil {
-		t.Fatalf("incremental parse: %v", err)
-	}
-	if newTree == nil {
-		t.Fatal("incremental parse returned no tree")
-	}
-	defer newTree.Release()
-	if newTree.RootNode() == nil || newTree.RootNode().HasError() {
-		t.Fatalf("incremental parse returned invalid tree: %v", newTree.RootNode())
-	}
-	// A span-changing edit requires a fresh result check. The verification
-	// must use the registered factory with the edited source too.
-	wantSources := []string{`char *s = "gotreesitter";`, `char *s = "treesitter";`, `char *s = "treesitter";`}
-	if !reflect.DeepEqual(factorySources, wantSources) {
-		t.Fatalf("full, incremental, and verification factory sources = %q, want %q", factorySources, wantSources)
-	}
-	fresh, err := loaded.parseUTF16Units(gotreesitter.NewParser(loaded.language), newSource, nil)
-	if err != nil {
-		t.Fatalf("fresh parse: %v", err)
-	}
-	defer fresh.Release()
-	gotJSON, gotTruncated := buildJSONTree(newTree, loaded.language, newTree.RootNode(), maxTreeNodes)
-	wantJSON, wantTruncated := buildJSONTree(fresh, loaded.language, fresh.RootNode(), maxTreeNodes)
-	if gotTruncated || wantTruncated || !reflect.DeepEqual(gotJSON, wantJSON) {
-		t.Fatalf("incremental UTF-16 tree differs from fresh: got=%+v want=%+v", gotJSON, wantJSON)
-	}
-	t.Log("full, incremental, and verification factory calls=3; incremental UTF-16 tree equals fresh")
+	return f + i, declined
 }
 
 func TestRuntimeLanguageKeepsGoOnDFA(t *testing.T) {
