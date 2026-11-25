@@ -1,0 +1,249 @@
+# Layer L1 digests: record key, tab, first 8 bytes of SHA-256 of the record line (key, tab, value).
+# Written by TestL1 with -l1.update from the pinned parser.c and node-types.json.
+# LANGUAGE_VERSION 15
+alias alias_sym_emphasis	be843e8f557313bf
+alias alias_sym_html_tag	e519f83ff51a5676
+alias alias_sym_image_description	decfbec12e81334b
+alias alias_sym_link_text	241402d00cef828e
+alias_map aux_sym__inline	6956b10c968821e9
+alias_map aux_sym__inline_no_link	be9ab14e38101c54
+alias_map sym__emphasis_star	e0ac422b162fe1a2
+alias_map sym__emphasis_star_no_link	7b499f532a9924e3
+alias_map sym__emphasis_underscore	8da9b9d9871decc6
+alias_map sym__emphasis_underscore_no_link	0feebb2fd4592c14
+alias_map sym__html_tag	94839da169373891
+field_names	aa667f52d7f2f98a
+node "!"/anon	bd9aad3f9177298a
+node "#"/anon	1b7307d28ed05d68
+node "$"/anon	2bdb47cc2926af0b
+node "%"/anon	81266cd0e791ce73
+node "&"/anon	67c7667597e67169
+node "'"/anon	40f37a7d07d9f520
+node "("/anon	fa4e0c504e37358a
+node ")"/anon	0c7b35a39895cc3b
+node "*"/anon	ab28fdf913fabbe8
+node "+"/anon	e477c42b925f8cb3
+node ","/anon	60cb867deb5b14bd
+node "-"/anon	921e9c0ae6678f82
+node "-->"/anon	c972ace79a439a79
+node "."/anon	3eb0efb8f38b2b46
+node "/"/anon	f0c786e769094f75
+node ":"/anon	ea21f2397fc8f8d6
+node ";"/anon	053d4533d88e3860
+node "<!--"/anon	f8d506c3e8c8c131
+node "<![CDATA["/anon	29562c73ae433521
+node "<"/anon	5d8e2b508e1043a1
+node "<?"/anon	c7e66e2c20ed3b02
+node "="/anon	9726d66bb87f3622
+node ">"/anon	1923a45c2af64fd7
+node "?"/anon	33624f1c7027e801
+node "?>"/anon	da70b091d41e959a
+node "@"/anon	c29b24618608ec32
+node "["/anon	904b87a7bc764181
+node "\""/anon	45d11b808d66bb24
+node "\\"/anon	8ac9c95a8b4e24c0
+node "]"/anon	daf2870e83219fdb
+node "]]>"/anon	f0bc2228edc0915a
+node "^"/anon	d1a49606f9f207a3
+node "_"/anon	d64ddc5a73a48cd6
+node "`"/anon	1035aeb52caa125e
+node "backslash_escape"/named	e3da5650ddddbb16
+node "code_span"/named	6205f840dccbf2b0
+node "code_span"/named children	b79dec83637638f1
+node "code_span_delimiter"/named	3f8e89fd6e1de23f
+node "collapsed_reference_link"/named	d8023a3ef1cdac09
+node "collapsed_reference_link"/named children	c5f5fef39a600511
+node "email_autolink"/named	723aa73016976a5a
+node "emphasis"/named	33f13c2ac4187ff4
+node "emphasis"/named children	a519dbd214ed2571
+node "emphasis_delimiter"/named	c8013e8ac1b7899a
+node "entity_reference"/named	69354d7e8b91397f
+node "full_reference_link"/named	179394ba14d20097
+node "full_reference_link"/named children	0ca3a30f466b2fad
+node "hard_line_break"/named	7e26dbb534a98d4d
+node "html_tag"/named	644351080899a627
+node "image"/named	cd1728a03f9e1c16
+node "image"/named children	0308d20156582478
+node "image_description"/named	593768cbf54c9d37
+node "image_description"/named children	91423a250eff52be
+node "inline"/named	48455a883a6c07fd
+node "inline"/named children	a740bf8d022e82b0
+node "inline_link"/named	45b65b985e0714e2
+node "inline_link"/named children	6a9d77ffe1161ddf
+node "latex_block"/named	798a8fad55bafb76
+node "latex_block"/named children	c79e1c1e731a320d
+node "latex_span_delimiter"/named	2765a15f66989eaf
+node "link_destination"/named	63827ca05e21dec2
+node "link_destination"/named children	3b127ec4a03fda34
+node "link_label"/named	9a1b220524291b76
+node "link_label"/named children	6b04dd6a3a3bde15
+node "link_text"/named	5090d41f51d70f05
+node "link_text"/named children	793db74001e19772
+node "link_title"/named	8a03f6ba647ae24a
+node "link_title"/named children	b2a202e3f7403ee8
+node "numeric_character_reference"/named	8da52e05690173fd
+node "shortcut_link"/named	e359d490f249e891
+node "shortcut_link"/named children	8d907dff03a061ec
+node "strikethrough"/named	c928ac5994d31879
+node "strikethrough"/named children	35a6631e3785d5e0
+node "strong_emphasis"/named	06f1778deae4b798
+node "strong_emphasis"/named children	f25b8032eb779ccf
+node "uri_autolink"/named	c84efc471e7072b0
+node "{"/anon	5d155769e131f9a7
+node "|"/anon	bf93de1b50b6423e
+node "}"/anon	462118a67e927f15
+node "~"/anon	d3a1c6ac0ca78148
+production_info	0354a8a9df42f095
+production_info	37431f3b9cb49814
+production_info	3ba00ec786a66f74
+production_info	c325d320b5760048
+production_info	d6df5970eab33bf7
+production_info	ff5db6b21f235572
+symbol anon_sym_AMP	9717652cf8d10767
+symbol anon_sym_AT	7e018d722df4c619
+symbol anon_sym_BANG	802f92b1c79e46b4
+symbol anon_sym_BQUOTE	a15a8f75c3339990
+symbol anon_sym_BSLASH	66eaf56bd98d9371
+symbol anon_sym_CARET	0a01d1355300a440
+symbol anon_sym_COLON	f2ed3603c0ec5b87
+symbol anon_sym_COMMA	d9fb60e94777f047
+symbol anon_sym_DASH	564e284edfacd632
+symbol anon_sym_DASH_DASH_GT	699d34c6fac810b7
+symbol anon_sym_DOLLAR	10d644fdf33b229f
+symbol anon_sym_DOT	70fde07db7b11312
+symbol anon_sym_DQUOTE	5269e2bf919ce4fe
+symbol anon_sym_EQ	ed3ea840df5aca91
+symbol anon_sym_GT	f5350a0fedf26f8c
+symbol anon_sym_LBRACE	51eb1a592746e9cc
+symbol anon_sym_LBRACK	464c4abebc649ebd
+symbol anon_sym_LPAREN	29e359af8aa21de7
+symbol anon_sym_LT	abf49026d0749990
+symbol anon_sym_LT_BANG_DASH_DASH	8e688c0b7ada9ee7
+symbol anon_sym_LT_BANG_LBRACKCDATA_LBRACK	c2f98921e0e278a9
+symbol anon_sym_LT_QMARK	e7d98b884dc3fa88
+symbol anon_sym_PERCENT	7c1e95b7d834f487
+symbol anon_sym_PIPE	bc61f309fcc516dd
+symbol anon_sym_PLUS	986e2a1a83e1090d
+symbol anon_sym_POUND	2a7459b606f56a81
+symbol anon_sym_QMARK	158538f4dee20864
+symbol anon_sym_QMARK_GT	0621b3cf5e47e2ec
+symbol anon_sym_RBRACE	d4bcce57062f5865
+symbol anon_sym_RBRACK	8a318e407ed25110
+symbol anon_sym_RBRACK_RBRACK_GT	2bb5c51961dc47c0
+symbol anon_sym_RPAREN	18d466c2d2a4bb9a
+symbol anon_sym_SEMI	cb408b4261ae5302
+symbol anon_sym_SLASH	0592af652c9aff65
+symbol anon_sym_SQUOTE	7eb40ba3f7d6304f
+symbol anon_sym_STAR	ccb60b71ffbdcabe
+symbol anon_sym_TILDE	477e314e310a7f46
+symbol anon_sym__	fa68a782807d2511
+symbol aux_sym__attribute_value_repeat1	938d7ff15620bb97
+symbol aux_sym__attribute_value_repeat2	48065b818ed0abb7
+symbol aux_sym__attribute_value_token1	a71aae98d17675de
+symbol aux_sym__declaration_repeat1	e9fde36aee877db2
+symbol aux_sym__declaration_token1	956cfcd459f18f22
+symbol aux_sym__html_comment_repeat1	c3ce88ae2f078913
+symbol aux_sym__inline	4da82ca589a744f2
+symbol aux_sym__inline_base_repeat1	1c5fd1b7d47a5d2c
+symbol aux_sym__inline_no_link	1c22187ed46abf98
+symbol aux_sym__inline_no_star	cc7dec5e185ef755
+symbol aux_sym__inline_no_star_no_link	37d7a921cc26df60
+symbol aux_sym__inline_no_tilde	7f8b33123b693a86
+symbol aux_sym__inline_no_tilde_no_link	1d9641f5c5d3ab22
+symbol aux_sym__inline_no_underscore	b99e16d848e36741
+symbol aux_sym__inline_no_underscore_no_link	da2e14479f50fd1a
+symbol aux_sym__open_tag_repeat1	ae305732541a2dbb
+symbol aux_sym__processing_instruction_repeat1	c3b4a14d234995ec
+symbol aux_sym__tag_name_repeat1	fa2d65469a0e373e
+symbol aux_sym__whitespace_token1	69a9f4d41e806226
+symbol aux_sym_code_span_repeat1	a669019fa03a4995
+symbol aux_sym_inline_link_repeat1	23166e546dc3d6cc
+symbol aux_sym_latex_block_repeat1	84726c4baa8a50e3
+symbol aux_sym_link_destination_repeat1	7a36865f1b71e488
+symbol aux_sym_link_destination_repeat2	0f041d77a97310f0
+symbol aux_sym_link_label_repeat1	d7645c72da1d10bc
+symbol aux_sym_link_title_repeat1	425ea6629eb58b88
+symbol aux_sym_link_title_repeat2	f1700eb098fba17f
+symbol aux_sym_link_title_repeat3	d5f5e43511a12d6a
+symbol sym__attribute	4c01f8a001364a17
+symbol sym__attribute_name	c030bf21542f6778
+symbol sym__attribute_value	6845fc179a8a5d9a
+symbol sym__backslash_escape	1baa4c48bafdf8f8
+symbol sym__cdata_section	58151b4931562a22
+symbol sym__closing_tag	982c73cd11e938f8
+symbol sym__code_span_close	62f0ebc09b6f2781
+symbol sym__code_span_start	83f6b5ab5dde4bf5
+symbol sym__declaration	65900cfc06617c67
+symbol sym__digits	88d567a59edb544c
+symbol sym__emphasis_close_star	20a61342d2f2cbf8
+symbol sym__emphasis_close_underscore	783190e1cc819461
+symbol sym__emphasis_open_star	8c96277087cd090f
+symbol sym__emphasis_open_underscore	2363cbb016f3b120
+symbol sym__emphasis_star	de1e3ba71d81429c
+symbol sym__emphasis_star_no_link	59ec7871207d2518
+symbol sym__emphasis_underscore	b589da3d8ece9594
+symbol sym__emphasis_underscore_no_link	bf0a9169f0e9e2eb
+symbol sym__error	49b6e6f4330eed98
+symbol sym__html_comment	f52599ccc46995c5
+symbol sym__html_tag	7c0f77604280e563
+symbol sym__image_collapsed_reference_link	1a3eecbb97f11f88
+symbol sym__image_description	08f4baf6e1464baa
+symbol sym__image_description_non_empty	a572b934417aac1c
+symbol sym__image_full_reference_link	63bf64e5cc94529a
+symbol sym__image_inline_link	00777f373654f872
+symbol sym__image_shortcut_link	4fe9d437e34fabbb
+symbol sym__inline_base	ff86ffb69d3ff749
+symbol sym__inline_element	897bb799baf737ab
+symbol sym__inline_element_no_link	8d900f2a0832cfe2
+symbol sym__inline_element_no_star	c4fa8eb02cb534cf
+symbol sym__inline_element_no_star_no_link	3eccdb43310b590e
+symbol sym__inline_element_no_tilde	6b8aa1f918fb8843
+symbol sym__inline_element_no_tilde_no_link	3940b7b87dd8deba
+symbol sym__inline_element_no_underscore	c50b194aeb0779eb
+symbol sym__inline_element_no_underscore_no_link	d12fe699fc0ae971
+symbol sym__last_token_punctuation	ec3f850b53c0d544
+symbol sym__last_token_whitespace	bafbaea368d4e1d5
+symbol sym__latex_span_close	77d8603c0dd6a550
+symbol sym__latex_span_start	cf9b6d6d78d042fd
+symbol sym__link_destination_parenthesis	f4534458e0241f05
+symbol sym__link_text	becc967c56f6dd85
+symbol sym__link_text_non_empty	58f0bcfc9ddcbbb7
+symbol sym__newline_token	c378d8f2248b082b
+symbol sym__open_tag	399e7642f5dd80f2
+symbol sym__processing_instruction	43d6358abe689ca8
+symbol sym__soft_line_break	9a270d54f9ee0bf9
+symbol sym__strikethrough	1b0190d64f01df23
+symbol sym__strikethrough_close	c9f3e773c590bd20
+symbol sym__strikethrough_no_link	2a4fba633e85f1ad
+symbol sym__strikethrough_open	9d5d9f167a7b0626
+symbol sym__strong_emphasis_star	51b3f9e56912d518
+symbol sym__strong_emphasis_star_no_link	dce9bab0564746d3
+symbol sym__strong_emphasis_underscore	618c1ff80477e4dc
+symbol sym__strong_emphasis_underscore_no_link	677e2c49efc06153
+symbol sym__tag_name	119840f628f35abb
+symbol sym__text_base	9321bf68c9a87506
+symbol sym__text_inline_no_link	c5d510675ea403f6
+symbol sym__text_no_angle	c66eabfc754eb67f
+symbol sym__trigger_error	4015c36aa08eaf7f
+symbol sym__unclosed_span	643372c71fdf5836
+symbol sym__whitespace	f76837dc67bc6ab0
+symbol sym__whitespace_ge_2	006b9b91820d1319
+symbol sym__word	320b0fb543b9ec87
+symbol sym__word_no_digit	6747dbe2711a5de8
+symbol sym_backslash_escape	e41f651daa1818e6
+symbol sym_code_span	3a0de845563af2e4
+symbol sym_collapsed_reference_link	ceba550769524fe2
+symbol sym_email_autolink	39dd054551df1959
+symbol sym_entity_reference	74e46aa3d936c4f9
+symbol sym_full_reference_link	7d47935ca129266c
+symbol sym_hard_line_break	51a4fcd1e9031769
+symbol sym_image	57864edeaa29ae1b
+symbol sym_inline	9f9edc224cd3468e
+symbol sym_inline_link	439a6c6738e96bd5
+symbol sym_latex_block	806b0d04a9ec28a5
+symbol sym_link_destination	d3c87d434519ea21
+symbol sym_link_label	2a7660e409c8fcce
+symbol sym_link_title	00e0dac52974a63e
+symbol sym_numeric_character_reference	eccaab316d3814ef
+symbol sym_shortcut_link	7f3e6b2ecaca0b5a
+symbol sym_uri_autolink	925f2d2a5d7607e8

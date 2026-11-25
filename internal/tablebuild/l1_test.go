@@ -60,7 +60,7 @@ const (
 
 var l1Update = flag.Bool("l1.update", false, "rewrite testdata/<grammar>/l1.digests from the pinned reference (needs "+l1RefEnv+")")
 
-var l1Grammars = []string{"json", "go"}
+var l1Grammars = []string{"json", "go", "markdown", "markdown_inline"}
 
 // l1Difference is a set of records where the pinned reference differs from
 // the port for a known reason.

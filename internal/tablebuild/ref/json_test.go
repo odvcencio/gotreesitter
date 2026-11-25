@@ -60,7 +60,7 @@ func loadJSONBlob(t *testing.T) *gts.Language {
 // digests of the committed reference, so the pure-Go tier reads the input the
 // reference was built from.
 func TestGrammarJSONEqualsDigests(t *testing.T) {
-	for _, grammar := range []string{"json", "go"} {
+	for _, grammar := range []string{"json", "go", "markdown", "markdown_inline"} {
 		t.Run(grammar, func(t *testing.T) {
 			f := committedDigests(t, grammar)
 			b, err := os.ReadFile(filepath.Join("..", "testdata", grammar, "grammar.json"))
