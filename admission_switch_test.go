@@ -6180,8 +6180,8 @@ func TestCcoreShortcutPolicyKeepsFirstForestEditNative(t *testing.T) {
 	}
 }
 
-// C++ has no production certificate. With a scratch certificate the core route
-// keeps the whole `if consteval` input, as pinned C does (issue #1633).
+// Under the test's own certificate the core route keeps the whole
+// `if consteval` input, as pinned C does (issue #1633).
 // cgo_harness/ccore_cpp_consteval_c_test.go checks the same inputs against C.
 func TestCcoreCppConstevalKeepsLaterDefinitions(t *testing.T) {
 	defer ccoreCertifyAll()()
