@@ -47,6 +47,9 @@ type Parser struct {
 	// incremental parsing (reuse.go, edit.go)
 	rn                []reusableEntry
 	rnLastExt         Handle // C ReusableNode.last_external_token
+	reuseCheck        bool   // tests: cross-check the external-token shortcut (SetReuseCheck)
+	reuseChecked      int
+	reuseDiffered     int
 	reuseActive       bool
 	reusedNodes       int
 	reusedBytes       uint64
@@ -578,7 +581,7 @@ func (p *Parser) advance(version int, allowReuse bool, lastPosition uint32) bool
 					p.heads[version].status = headForestShifted
 				}
 				if didReuse {
-					p.rnAdvance()
+					p.rnAdvanceAfterShift(version, lookahead)
 				}
 				return true
 			case ActionReduce:
