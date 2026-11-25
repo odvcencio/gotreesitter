@@ -182,9 +182,32 @@ func TestCSharpDispatchBlockerRoutes(t *testing.T) {
 				t.Fatalf("production native authority=%t, want %t", production.ParseRuntime().NativeRecoveredStructureAuthoritative, witness.wantNative)
 			}
 
+			// The certified core serves C# on the compact route and reproduces
+			// the locked-C tree. Check that first (core_route below). The
+			// existing-engine comparison that this test was written for needs
+			// the core switched off, which the certification telemetry
+			// setting does.
+			coreBefore, coreFallbackBefore := gotreesitter.AdmissionCandidateCounters()
+			coreParser := gotreesitter.NewParser(language)
+			coreParser.SetAdmissionCandidateRoute(true)
+			coreTree, err := coreParser.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer coreTree.Release()
+			coreAfter, coreFallbackAfter := gotreesitter.AdmissionCandidateCounters()
+			if mode := csharpDispatchCompactMode(coreBefore, coreFallbackBefore, coreAfter, coreFallbackAfter); mode != "accepted" {
+				t.Fatalf("core_route mode=%s, want accepted (the certificate serves C#)", mode)
+			}
+			if diff := csharpDispatchAssertReceipt(t, "core_route", coreTree, language, cTree, cDigest); diff != nil {
+				t.Fatalf("core_route divergence from locked C: %+v", diff)
+			}
+			csharpDispatchCheckDigest(t, "core_route", coreTree, language, witness.wantCDigest)
+
 			routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 			compactParser := gotreesitter.NewParser(language)
 			compactParser.SetAdmissionCandidateRoute(true)
+			compactParser.SetCompactCertificationTelemetry(true)
 			compact, err := compactParser.Parse(source)
 			if err != nil {
 				t.Fatal(err)

@@ -63,6 +63,10 @@ func TestCSharpIssue454RecoveredStructureNeedsNoSourceReconstruction(t *testing.
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	compactParser := gotreesitter.NewParser(lang)
 	compactParser.SetAdmissionCandidateRoute(true)
+	// The certified core serves C# by default. This check is about the compact
+	// candidate's fallback, so certification telemetry keeps the request off the
+	// core while the compact candidate stays eligible.
+	compactParser.SetCompactCertificationTelemetry(true)
 	compact, err := compactParser.Parse(compactSource)
 	if err != nil {
 		t.Fatal(err)

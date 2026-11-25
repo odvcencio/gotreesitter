@@ -14,7 +14,12 @@ import (
 func TestIssue454CSharpFreshAndIncrementalConverge(t *testing.T) {
 	lang := grammars.CSharpLanguage()
 	source := issue454CSharpSource(137 * 1024)
+	// The certified core serves C# by default and reuses the old tree. This test
+	// checks the present engine's external-scanner fallback, so the old tree and
+	// the incremental parse stay on that engine. The fresh comparison parser stays
+	// on the default route, so the trees are still compared across engines.
 	parser := gotreesitter.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
 
 	want := issue454CSharpParseShape(t, parser, lang, source)
 	if want.hasError {
@@ -84,7 +89,9 @@ func TestIssue454CSharpFreshAndIncrementalConverge(t *testing.T) {
 				NewEndPoint: gotreesitter.Point{Row: point.Row, Column: point.Column + test.newCols},
 			})
 
-			incremental, profile, err := gotreesitter.NewParser(lang).ParseIncrementalProfiled(test.edited, oldTree)
+			incrementalParser := gotreesitter.NewParser(lang)
+			incrementalParser.SetAdmissionCandidateRoute(false)
+			incremental, profile, err := incrementalParser.ParseIncrementalProfiled(test.edited, oldTree)
 			if err != nil {
 				t.Fatalf("ParseIncrementalProfiled: %v", err)
 			}
