@@ -28,10 +28,12 @@ var (
 	bLookaheadSets = &budget{what: "distinct lookahead sets", limit: 1 << 18}
 
 	bMergeWork = &budget{what: "state pairs compared and states visited while merging parse states", limit: 1 << 28}
+
+	bFragileWork = &budget{what: "terminal pairs compared while marking fragile tokens", limit: 1 << 30}
 )
 
 // allBudgets lists the budgets in the order of the documentation table.
-var allBudgets = []*budget{bInlineSteps, bInlineScratch, bInlineWork, bAliasWork, bParseStates, bTableEntries, bClosureWork, bLookaheadSets, bMergeWork}
+var allBudgets = []*budget{bInlineSteps, bInlineScratch, bInlineWork, bAliasWork, bParseStates, bTableEntries, bClosureWork, bLookaheadSets, bMergeWork, bFragileWork}
 
 type tooLarge struct{ err *lexbuild.SizeError }
 

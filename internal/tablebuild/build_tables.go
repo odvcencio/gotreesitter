@@ -1,18 +1,26 @@
 package tablebuild
 
-import "github.com/odvcencio/gotreesitter/internal/lexbuild"
+import (
+	"time"
+
+	"github.com/odvcencio/gotreesitter/internal/lexbuild"
+)
 
 // This file ports build_tables.rs: fn build_tables after
 // populate_used_symbols (error_state.go ports the part before it), and fn
-// mark_fragile_tokens. build_lex_table and populate_external_lex_states are
-// not ported yet: the lex state and the external lex state of every parse
-// state stay 0, and no external lex state is listed.
+// mark_fragile_tokens. lex.go ports build_lex_table and
+// populate_external_lex_states.
 
-// Tables is build_tables.rs: struct Tables, without the lex tables: the
-// parse table after minimize_parse_table, mark_fragile_tokens and
-// ActionListPool::canonicalize.
+// Tables is build_tables.rs: struct Tables: the parse table after
+// minimize_parse_table, build_lex_table, populate_external_lex_states,
+// mark_fragile_tokens and ActionListPool::canonicalize, and the lex tables.
 type Tables struct {
 	ParseTable *InternedTable
+	// LexTables holds the main and keyword lex tables (Tables::main_lex_table
+	// and keyword_lex_table; Keyword is nil without a word token) with the
+	// large character sets that render.rs reads, and the lex state of each
+	// parse state.
+	LexTables *lexbuild.LexTables
 	// Raw is the build before ActionListPool::intern_table. Its parse table is
 	// moved into ParseTable: Raw.Table holds no states.
 	Raw *RawTables
@@ -40,6 +48,18 @@ type TableStats struct {
 	FragileEntries        int // terminal entries that mark_fragile_tokens marks
 	CanonicalActionLists  int // pool lists after canonicalize
 	StatesAfterMinimizing int // states of the final table
+	// The lex stage: the distinct token sets of the parse states (keywords
+	// replaced by the word token), the groups that merge_token_set leaves,
+	// the states of the main and keyword lex tables, the external lex
+	// states, the count of bFragileWork, and the time of build_lex_table,
+	// populate_external_lex_states and mark_fragile_tokens.
+	LexTokenSets      int
+	LexGroups         int
+	MainLexStates     int
+	KeywordLexStates  int
+	ExternalLexStates int
+	FragileWork       int64
+	LexTime           time.Duration
 }
 
 // BuildTables is build_tables.rs: fn build_tables up to
@@ -73,8 +93,25 @@ func finishTables(g *PreparedGrammar, raw *RawTables, optimizations OptLevel) (*
 		if minimizeErr != nil {
 			return minimizeErr
 		}
-		// build_lex_table and populate_external_lex_states: not ported yet.
-		out.Stats.FragileEntries = markFragileTokens(parseTable, raw.Analysis)
+		lexStart := time.Now()
+		lex, err := buildLexTable(parseTable, g, raw.Analysis)
+		if err != nil {
+			return err
+		}
+		out.LexTables = lex
+		populateExternalLexStates(parseTable, g.Syntax)
+		if err := guardSize(func() {
+			out.Stats.FragileEntries, out.Stats.FragileWork = markFragileTokens(parseTable, raw.Analysis)
+		}); err != nil {
+			return err
+		}
+		out.Stats.LexTime = time.Since(lexStart)
+		out.Stats.LexTokenSets, out.Stats.LexGroups = lex.TokenSets, lex.Groups
+		out.Stats.MainLexStates = lex.Main.NumStates()
+		if lex.Keyword != nil {
+			out.Stats.KeywordLexStates = lex.Keyword.NumStates()
+		}
+		out.Stats.ExternalLexStates = len(parseTable.ExternalLexStates)
 		parseTable.ActionLists.canonicalize(parseTable.States)
 		out.Stats.CanonicalActionLists = parseTable.ActionLists.Len()
 		out.Stats.StatesAfterMinimizing = len(parseTable.States)
@@ -106,34 +143,37 @@ func catchGeneratorPanic(f func() error) (err error) {
 
 // markFragileTokens is build_tables.rs: fn mark_fragile_tokens. A terminal
 // entry is not reusable when another (or the same) valid terminal of its
-// state overlaps it (token_conflicts.rs: fn does_overlap). It returns the
-// number of entries it marked.
-func markFragileTokens(parseTable *InternedTable, a *lexbuild.Analysis) int {
+// state overlaps it (token_conflicts.rs: fn does_overlap). lexbuild's
+// Analysis.Fragile is the generator's loop over one state: for each valid
+// terminal, the valid terminals in turn until one overlaps it. The loop is
+// quadratic in the valid terminals of a state; it charges that square to
+// bFragileWork before each state. It returns the number of entries it
+// marked and the count of bFragileWork.
+func markFragileTokens(parseTable *InternedTable, a *lexbuild.Analysis) (int, int64) {
 	marked := 0
-	var validTerminalIndices []uint32
+	var work int64
 	for si := range parseTable.States {
 		state := &parseTable.States[si]
-		validTerminalIndices = validTerminalIndices[:0]
+		var valid lexbuild.TokenSet
+		n := 0
 		for _, e := range state.TerminalEntries {
 			if e.Symbol.IsTerminal() {
-				validTerminalIndices = append(validTerminalIndices, e.Symbol.Index)
+				valid.Insert(e.Symbol)
+				n++
 			}
 		}
+		work += int64(n) * int64(n)
+		bFragileWork.checkWork(work)
+		fragile := a.Fragile(&valid)
 		for k := range state.TerminalEntries {
 			e := &state.TerminalEntries[k]
-			if !e.Symbol.IsTerminal() {
-				continue
-			}
-			for _, i := range validTerminalIndices {
-				if a.DoesOverlap(int(i), int(e.Symbol.Index)) {
-					if e.ID.Reusable() {
-						marked++
-					}
-					e.ID.setReusable(false)
-					break
+			if e.Symbol.IsTerminal() && fragile.Contains(e.Symbol) {
+				if e.ID.Reusable() {
+					marked++
 				}
+				e.ID.setReusable(false)
 			}
 		}
 	}
-	return marked
+	return marked, work
 }
