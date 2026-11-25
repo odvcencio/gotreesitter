@@ -57,6 +57,10 @@ func TestCompactRecoveryJavaScriptIncrementalCOracle(t *testing.T) {
 
 	goParser := gotreesitter.NewParser(goLanguage)
 	goParser.SetAdmissionCandidateRoute(true)
+	// The certified core serves JavaScript by default. This test is about the
+	// compact candidate's recovery tree, so certification telemetry keeps the
+	// request off the core while the compact candidate stays eligible.
+	goParser.SetCompactCertificationTelemetry(true)
 	initialRoutedBefore, initialFallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	goInitial, err := goParser.Parse(original)
 	if err != nil {
@@ -193,8 +197,12 @@ func TestCompactRecoveryJavaScriptInsertionRegression(t *testing.T) {
 		NewEndPoint: pointAtOffset(source, ampersand+1),
 	}
 
+	// The certified core serves JavaScript by default. Both candidate parsers
+	// below test the compact candidate, so certification telemetry keeps their
+	// requests off the core while the compact candidate stays eligible.
 	parser := gotreesitter.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
+	parser.SetCompactCertificationTelemetry(true)
 	oldTree, err := parser.Parse(withoutAmpersand)
 	if err != nil {
 		t.Fatalf("compact Go insertion base parse: %v", err)
@@ -211,6 +219,7 @@ func TestCompactRecoveryJavaScriptInsertionRegression(t *testing.T) {
 
 	candidateFreshParser := gotreesitter.NewParser(lang)
 	candidateFreshParser.SetAdmissionCandidateRoute(true)
+	candidateFreshParser.SetCompactCertificationTelemetry(true)
 	candidateFresh, err := candidateFreshParser.Parse(source)
 	if err != nil {
 		t.Fatal(err)
