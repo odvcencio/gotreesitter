@@ -1,0 +1,346 @@
+# Layer L1 digests: record key, tab, first 8 bytes of SHA-256 of the record line (key, tab, value).
+# Written by TestL1 with -l1.update from the pinned parser.c and node-types.json.
+# LANGUAGE_VERSION 15
+alias alias_sym_inline	e3ed5a3cc9fa6adc
+alias alias_sym_pipe_table_align_left	c1339b10e1795992
+alias alias_sym_pipe_table_align_right	c953ed5b54786271
+alias alias_sym_pipe_table_header	b8b19f275b6b44bf
+alias_map aux_sym_document_repeat1	f606da9d4205f426
+alias_map aux_sym_paragraph_repeat1	f5e8edc1c3704878
+alias_map sym__line	d87e709a5f515f0f
+alias_map sym__section2	696a7f522bae6d03
+alias_map sym__section3	bf7ae96cd440a4bc
+alias_map sym__section4	fbddd075ad099420
+alias_map sym__section5	d30ccd1442582c61
+alias_map sym__section6	2c5c46c2074c7ac4
+alias_map sym_pipe_table_row	404af40fe3e1af7a
+field_names	9488d3422bf80d08
+node "!"/anon	bd9aad3f9177298a
+node "#"/anon	1b7307d28ed05d68
+node "$"/anon	2bdb47cc2926af0b
+node "%"/anon	81266cd0e791ce73
+node "&"/anon	67c7667597e67169
+node "'"/anon	40f37a7d07d9f520
+node "("/anon	fa4e0c504e37358a
+node ")"/anon	0c7b35a39895cc3b
+node "*"/anon	ab28fdf913fabbe8
+node "+"/anon	e477c42b925f8cb3
+node ","/anon	60cb867deb5b14bd
+node "-"/anon	921e9c0ae6678f82
+node "-->"/anon	c972ace79a439a79
+node "."/anon	3eb0efb8f38b2b46
+node "/"/anon	f0c786e769094f75
+node ":"/anon	ea21f2397fc8f8d6
+node ";"/anon	053d4533d88e3860
+node "<"/anon	5d8e2b508e1043a1
+node "="/anon	9726d66bb87f3622
+node ">"/anon	1923a45c2af64fd7
+node "?"/anon	33624f1c7027e801
+node "?>"/anon	da70b091d41e959a
+node "@"/anon	c29b24618608ec32
+node "["/anon	904b87a7bc764181
+node "\""/anon	45d11b808d66bb24
+node "\\"/anon	8ac9c95a8b4e24c0
+node "]"/anon	daf2870e83219fdb
+node "]]>"/anon	f0bc2228edc0915a
+node "^"/anon	d1a49606f9f207a3
+node "_"/anon	d64ddc5a73a48cd6
+node "`"/anon	1035aeb52caa125e
+node "atx_h1_marker"/named	e08acfe26a3b3a72
+node "atx_h2_marker"/named	c2329241eb11e7bd
+node "atx_h3_marker"/named	263ec437df4d4b78
+node "atx_h4_marker"/named	736eda0e3aeabb48
+node "atx_h5_marker"/named	defe60c34d6e5e4a
+node "atx_h6_marker"/named	63fc02df91ab3166
+node "atx_heading"/named	d0682c9027cadfc2
+node "atx_heading"/named children	6e29be64fcae3bb2
+node "atx_heading"/named field heading_content	29bb7a87df45a5df
+node "backslash_escape"/named	e3da5650ddddbb16
+node "block_continuation"/named	49b16d6fe271e770
+node "block_quote"/named	9a8e16b3ff435495
+node "block_quote"/named children	804ddc905972c041
+node "block_quote_marker"/named	c6ebff9f8f7817e7
+node "code_fence_content"/named	0f7ad84098a7b024
+node "code_fence_content"/named children	d64901a34a4a6d08
+node "document"/named	1d277122ed2c3d57
+node "document"/named children	821eb472e37092d3
+node "entity_reference"/named	69354d7e8b91397f
+node "fenced_code_block"/named	3dd4de9f662efa5c
+node "fenced_code_block"/named children	576ff65c96d90886
+node "fenced_code_block_delimiter"/named	2d50d2cb14a9279a
+node "html_block"/named	4aafa670a3dc2a51
+node "html_block"/named children	b34a224f501c2704
+node "indented_code_block"/named	ab37c34c501a0e73
+node "indented_code_block"/named children	a82896c03ac2737c
+node "info_string"/named	517aebad55168b27
+node "info_string"/named children	9be1bfcc54e03182
+node "inline"/named	48455a883a6c07fd
+node "inline"/named children	53ffa2e3c685dff4
+node "language"/named	4f282b41481d00b6
+node "language"/named children	154dc04a0f72e068
+node "link_destination"/named	63827ca05e21dec2
+node "link_destination"/named children	3b127ec4a03fda34
+node "link_label"/named	9a1b220524291b76
+node "link_label"/named children	590dbff1fb8c7e35
+node "link_reference_definition"/named	40144d28e0c53f68
+node "link_reference_definition"/named children	6b8cb50c782339d8
+node "link_title"/named	8a03f6ba647ae24a
+node "link_title"/named children	c346c1b2f3bec123
+node "list"/named	b8839c00d3720027
+node "list"/named children	95029fff3aca68ab
+node "list_item"/named	26d7321cc2a67c91
+node "list_item"/named children	f2a1ea6410b0b67b
+node "list_marker_dot"/named	b716b10f8da6aec9
+node "list_marker_minus"/named	dc1923d6e4107fb8
+node "list_marker_parenthesis"/named	91ac15650ed48320
+node "list_marker_plus"/named	3d7ebc1171d5a532
+node "list_marker_star"/named	6833e3f7f4c38dad
+node "minus_metadata"/named	507c8ae62346b980
+node "numeric_character_reference"/named	8da52e05690173fd
+node "paragraph"/named	d2ff486eb7ff85ac
+node "paragraph"/named children	793abf73735bd916
+node "pipe_table"/named	6983c762b9aed41c
+node "pipe_table"/named children	3c5b2e28fac2f198
+node "pipe_table_align_left"/named	034af108b64c6b40
+node "pipe_table_align_right"/named	fd0a3fb49fa5b5da
+node "pipe_table_cell"/named	5e3dd98942a48996
+node "pipe_table_delimiter_cell"/named	f03d9b3e02f7e621
+node "pipe_table_delimiter_cell"/named children	dee05469b934183e
+node "pipe_table_delimiter_row"/named	438e0942f6cf4d05
+node "pipe_table_delimiter_row"/named children	4a190fdb75651a30
+node "pipe_table_header"/named	5bcfabd38492a67a
+node "pipe_table_header"/named children	92c6bf9832e15b7b
+node "pipe_table_row"/named	2bff47ece685dbca
+node "pipe_table_row"/named children	4dc23b9153813f42
+node "plus_metadata"/named	c32049d822456406
+node "section"/named	082fa13f7ff97c3f
+node "section"/named children	a105a3fbcd6e67d7
+node "setext_h1_underline"/named	45eda2bfa0ca24f2
+node "setext_h2_underline"/named	bc51065f048f9de8
+node "setext_heading"/named	623b1a81a50d271b
+node "setext_heading"/named children	7612d5e5cefc8749
+node "setext_heading"/named field heading_content	b2d8e07a3e24b5b1
+node "task_list_marker_checked"/named	07f72c08170bbd88
+node "task_list_marker_unchecked"/named	00378bc5b2268938
+node "thematic_break"/named	d1562cf9b790228e
+node "thematic_break"/named children	4bc660e7efd59156
+node "{"/anon	5d155769e131f9a7
+node "|"/anon	bf93de1b50b6423e
+node "}"/anon	462118a67e927f15
+node "~"/anon	d3a1c6ac0ca78148
+production_info	15cc6d2ac4935b05
+production_info	2c864ffd9e773245
+production_info	30668f1ad83bd3f0
+production_info	6c41d15c756ef34b
+production_info	a2cfb16d8d6bdff5
+production_info	b0521015c79d7031
+production_info	b128d0b230af602f
+production_info	be24453673baff05
+production_info	c4f08b10550e0885
+production_info	c54283a41a981673
+production_info	caa5d561068de303
+production_info	d4b5ff3700831597
+production_info	d6df5970eab33bf7
+production_info	e88acda81dfec2c0
+symbol anon_sym_AMP	9717652cf8d10767
+symbol anon_sym_AT	7e018d722df4c619
+symbol anon_sym_BANG	802f92b1c79e46b4
+symbol anon_sym_BQUOTE	a15a8f75c3339990
+symbol anon_sym_BSLASH	66eaf56bd98d9371
+symbol anon_sym_CARET	0a01d1355300a440
+symbol anon_sym_COLON	f2ed3603c0ec5b87
+symbol anon_sym_COMMA	d9fb60e94777f047
+symbol anon_sym_DASH	564e284edfacd632
+symbol anon_sym_DASH_DASH_GT	699d34c6fac810b7
+symbol anon_sym_DOLLAR	10d644fdf33b229f
+symbol anon_sym_DOT	70fde07db7b11312
+symbol anon_sym_DQUOTE	5269e2bf919ce4fe
+symbol anon_sym_EQ	ed3ea840df5aca91
+symbol anon_sym_GT	f5350a0fedf26f8c
+symbol anon_sym_LBRACE	51eb1a592746e9cc
+symbol anon_sym_LBRACK	464c4abebc649ebd
+symbol anon_sym_LPAREN	29e359af8aa21de7
+symbol anon_sym_LT	abf49026d0749990
+symbol anon_sym_PERCENT	7c1e95b7d834f487
+symbol anon_sym_PIPE	bc61f309fcc516dd
+symbol anon_sym_PLUS	986e2a1a83e1090d
+symbol anon_sym_POUND	2a7459b606f56a81
+symbol anon_sym_QMARK	158538f4dee20864
+symbol anon_sym_QMARK_GT	0621b3cf5e47e2ec
+symbol anon_sym_RBRACE	d4bcce57062f5865
+symbol anon_sym_RBRACK	8a318e407ed25110
+symbol anon_sym_RBRACK_RBRACK_GT	2bb5c51961dc47c0
+symbol anon_sym_RPAREN	18d466c2d2a4bb9a
+symbol anon_sym_SEMI	cb408b4261ae5302
+symbol anon_sym_SLASH	0592af652c9aff65
+symbol anon_sym_SQUOTE	7eb40ba3f7d6304f
+symbol anon_sym_STAR	ccb60b71ffbdcabe
+symbol anon_sym_TILDE	477e314e310a7f46
+symbol anon_sym__	fa68a782807d2511
+symbol aux_sym__html_block_1_repeat1	ee440715bce735ce
+symbol aux_sym__html_block_2_repeat1	08db3ffd41b67bdf
+symbol aux_sym__html_block_3_repeat1	e7d114d089114b37
+symbol aux_sym__html_block_4_repeat1	dbf5e934f0e41f6e
+symbol aux_sym__html_block_5_repeat1	aa34dbf8fe71014b
+symbol aux_sym__html_block_6_repeat1	f05c0835d23a2a2f
+symbol aux_sym__indented_chunk_repeat1	969025342d98f46d
+symbol aux_sym__line_repeat1	f374a0013ad3cf9e
+symbol aux_sym__list_dot_repeat1	b322afd7365ddecd
+symbol aux_sym__list_minus_repeat1	3f49d912dba9c8b9
+symbol aux_sym__list_parenthesis_repeat1	e22bc3b26e89bbd5
+symbol aux_sym__list_plus_repeat1	24710c80fd057412
+symbol aux_sym__list_star_repeat1	c02210b4befc5aad
+symbol aux_sym__section1_repeat1	d2bd3f1ae1202a7d
+symbol aux_sym__section2_repeat1	ab47899047adf3e2
+symbol aux_sym__section3_repeat1	8aab5761d84138aa
+symbol aux_sym__section4_repeat1	5d63ffa2be40c212
+symbol aux_sym__section5_repeat1	e182df775ca2ee75
+symbol aux_sym__word_token1	09c0fb3211948aaf
+symbol aux_sym__word_token2	00a7b342ca3d8082
+symbol aux_sym__word_token3	3373961765706c5a
+symbol aux_sym_block_quote_repeat1	f2d99bc24e1175f4
+symbol aux_sym_code_fence_content_repeat1	5db4ce23a5e9c99f
+symbol aux_sym_document_repeat1	d432317a49d47f4e
+symbol aux_sym_document_repeat2	b354e262bc7c4475
+symbol aux_sym_indented_code_block_repeat1	7425b49d6e02d999
+symbol aux_sym_info_string_repeat1	47f296e418c305d3
+symbol aux_sym_info_string_repeat2	b8f65a7e09d6eb21
+symbol aux_sym_language_repeat1	695f02b9fe3e26fd
+symbol aux_sym_link_destination_repeat1	7a36865f1b71e488
+symbol aux_sym_link_destination_repeat2	0f041d77a97310f0
+symbol aux_sym_link_label_repeat1	d7645c72da1d10bc
+symbol aux_sym_link_title_repeat1	425ea6629eb58b88
+symbol aux_sym_link_title_repeat2	f1700eb098fba17f
+symbol aux_sym_link_title_repeat3	d5f5e43511a12d6a
+symbol aux_sym_paragraph_repeat1	37cd91a17267d52d
+symbol aux_sym_pipe_table_cell_repeat1	8a1268882af3ddb5
+symbol aux_sym_pipe_table_delimiter_cell_repeat1	932e2b2c4b27491e
+symbol aux_sym_pipe_table_delimiter_row_repeat1	d982f8ebaa617ba2
+symbol aux_sym_pipe_table_repeat1	e4878053c3de28b8
+symbol aux_sym_pipe_table_row_repeat1	2caff641959b45db
+symbol sym__atx_heading1	74a7e9f449984a4e
+symbol sym__atx_heading2	ee8d589f9ea5e8fe
+symbol sym__atx_heading3	966bd2a1ab023bb7
+symbol sym__atx_heading4	ec986401f3b29594
+symbol sym__atx_heading5	58aed64646d75a73
+symbol sym__atx_heading6	8af2e80e5dbd791a
+symbol sym__atx_heading_content	6c40ed4aef9960db
+symbol sym__backslash_escape	1baa4c48bafdf8f8
+symbol sym__blank_line	ee660de42040a8dd
+symbol sym__blank_line_start	1cd4c4c6fa35a699
+symbol sym__block	985cc9eed90f1588
+symbol sym__block_close	e348560331b2d960
+symbol sym__block_not_section	237d4dd1f1b74bdb
+symbol sym__block_quote_start	6ef608b62e7638fe
+symbol sym__close_block	a113f1b15c7fd8a4
+symbol sym__eof	88eb3bf9fc5b02c6
+symbol sym__error	49b6e6f4330eed98
+symbol sym__fenced_code_block_end_backtick	bf711d18bdf9b8f1
+symbol sym__fenced_code_block_end_tilde	5b18a0f32f13ace5
+symbol sym__fenced_code_block_start_backtick	1a5a91dfe7f4d088
+symbol sym__fenced_code_block_start_tilde	b607107f20ef5ce0
+symbol sym__html_block_1	a9d251587abba9e1
+symbol sym__html_block_1_end	7978c949440f05ec
+symbol sym__html_block_1_start	7a93a05864174be3
+symbol sym__html_block_2	7f41c9f77f4dbbce
+symbol sym__html_block_2_start	fcf053901a9843b0
+symbol sym__html_block_3	fe7bed6e5706204b
+symbol sym__html_block_3_start	7e611098573c4ff7
+symbol sym__html_block_4	6c581ee32c264d3b
+symbol sym__html_block_4_start	ccc7da524ffe7aac
+symbol sym__html_block_5	73bf2f0b66ede9ba
+symbol sym__html_block_5_start	93461111162e4e7e
+symbol sym__html_block_6	efc0733b2c3a7e0c
+symbol sym__html_block_6_start	e29a41691d702c02
+symbol sym__html_block_7	4b1d988479164d25
+symbol sym__html_block_7_start	6986f54e5afe579d
+symbol sym__indented_chunk	a966c2c769a75e35
+symbol sym__indented_chunk_start	2d795ae056d427cd
+symbol sym__last_token_punctuation	ec3f850b53c0d544
+symbol sym__line	57828bf336e7cce3
+symbol sym__line_ending	aa93b32e7d3909f8
+symbol sym__link_destination_parenthesis	f4534458e0241f05
+symbol sym__list_dot	5427f5d3b1551033
+symbol sym__list_item_content	056bec92c49a89b5
+symbol sym__list_item_dot	0d620d17cf9649a3
+symbol sym__list_item_minus	c651803692146077
+symbol sym__list_item_parenthesis	00304721a5cd12a1
+symbol sym__list_item_plus	23a0412a2fdcd240
+symbol sym__list_item_star	0e7f94bfae8d2297
+symbol sym__list_marker_dot	48e80b652d08f393
+symbol sym__list_marker_dot_dont_interrupt	c587f4d2f9c3e423
+symbol sym__list_marker_minus	6b30f6c96644067b
+symbol sym__list_marker_minus_dont_interrupt	d7e2281200bfac1a
+symbol sym__list_marker_parenthesis	5d1ca2ddbfe241ae
+symbol sym__list_marker_parenthesis_dont_interrupt	d991f428ae1b302d
+symbol sym__list_marker_plus	3cb8c9122bfee040
+symbol sym__list_marker_plus_dont_interrupt	c5d55bcd57f80bbf
+symbol sym__list_marker_star	1f8d358fd91cad03
+symbol sym__list_marker_star_dont_interrupt	15ce934c9520e403
+symbol sym__list_minus	e48fb0b3c1d993a6
+symbol sym__list_parenthesis	4b075f1629d80c67
+symbol sym__list_plus	87f13883ac9331b7
+symbol sym__list_star	3da844cc3973063d
+symbol sym__newline	aaf6436324ded68f
+symbol sym__no_indented_chunk	ac58224bde3f6d68
+symbol sym__pipe_table_line_ending	5c874a3cdc4756f4
+symbol sym__pipe_table_newline	c45a39b1749bc19d
+symbol sym__pipe_table_start	e20312cc7dc17453
+symbol sym__section1	a3c8f9560815525c
+symbol sym__section2	ea9f9cf64485770d
+symbol sym__section3	fab2d451334b4732
+symbol sym__section4	b576d96186cfd04e
+symbol sym__section5	b9258d2ef3a0eff4
+symbol sym__section6	b28e7e570cfce040
+symbol sym__setext_heading1	b89c30f99014442b
+symbol sym__setext_heading2	6d5a2a90aa808857
+symbol sym__soft_line_break	9a270d54f9ee0bf9
+symbol sym__soft_line_ending	8f3bdbb9caa1cdc9
+symbol sym__text_inline_no_link	c5d510675ea403f6
+symbol sym__text_no_angle	c66eabfc754eb67f
+symbol sym__thematic_break	e67a50f024789d31
+symbol sym__trigger_error	4015c36aa08eaf7f
+symbol sym__whitespace	f76837dc67bc6ab0
+symbol sym__word	320b0fb543b9ec87
+symbol sym_atx_h1_marker	3f18a50c856932bb
+symbol sym_atx_h2_marker	4a3467b838da6b7c
+symbol sym_atx_h3_marker	19f7877ae80469ad
+symbol sym_atx_h4_marker	8876b425c0737244
+symbol sym_atx_h5_marker	bcc5a6052e81da4e
+symbol sym_atx_h6_marker	c717d7b634bb0b0c
+symbol sym_backslash_escape	e41f651daa1818e6
+symbol sym_block_continuation	3475c31b88f91b01
+symbol sym_block_quote	78917a173e5616d2
+symbol sym_code_fence_content	110d55b3c47c9bbb
+symbol sym_document	581630b12aba4019
+symbol sym_entity_reference	74e46aa3d936c4f9
+symbol sym_fenced_code_block	8b2a69348ae773a8
+symbol sym_html_block	79b7b8263c514c0d
+symbol sym_indented_code_block	9c472fd47f707f80
+symbol sym_info_string	fad1675469bc84e1
+symbol sym_language	1c66fbe959bb7345
+symbol sym_link_destination	d3c87d434519ea21
+symbol sym_link_label	2a7660e409c8fcce
+symbol sym_link_reference_definition	c01078316bc109b8
+symbol sym_link_title	00e0dac52974a63e
+symbol sym_list	930ca53e84638552
+symbol sym_list_marker_dot	00c0af1cf9c0c24b
+symbol sym_list_marker_minus	49c08cd7f7cd146f
+symbol sym_list_marker_parenthesis	728cd24b6cad25a6
+symbol sym_list_marker_plus	7b73ae46628f1fba
+symbol sym_list_marker_star	70db9adf9fdff1ad
+symbol sym_minus_metadata	74187f0315dc5cb3
+symbol sym_numeric_character_reference	eccaab316d3814ef
+symbol sym_paragraph	324dcfbea8e5002d
+symbol sym_pipe_table	e9c4816e8ded6d6b
+symbol sym_pipe_table_cell	f6ce3ee100dc3f00
+symbol sym_pipe_table_delimiter_cell	3feaf02be52909e8
+symbol sym_pipe_table_delimiter_row	f2615d02be0f8f17
+symbol sym_pipe_table_row	49797df2a32d579f
+symbol sym_plus_metadata	de934e1f0d181a26
+symbol sym_section	7ea45e11a6015b1c
+symbol sym_setext_h1_underline	c711ba115decd870
+symbol sym_setext_h2_underline	bcadec286cf0a627
+symbol sym_task_list_marker_checked	8b140ba8f1b3a631
+symbol sym_task_list_marker_unchecked	35b09a53c3589044
+symbol sym_thematic_break	1c71bc8409dddac6
