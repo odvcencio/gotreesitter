@@ -1,0 +1,13 @@
+<?php
+@@repeat
+function compute_total($items, $rate)
+{
+    $total = 0;
+    foreach ($items as $item) {
+        $total += $item->price * $rate + 12;
+    }
+    return $total;
+}
+$result = compute_total($orders, 3);
+$message = "total: " . $result;
+@@end
