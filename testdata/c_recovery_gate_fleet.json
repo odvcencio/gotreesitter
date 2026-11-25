@@ -547,10 +547,10 @@
     },
     {
       "grammar": "fish",
-      "capable": false,
-      "default": false,
-      "reason": "external scanner requires precise ExternalLexStates",
-      "external_lex_state_rows": 0,
+      "capable": true,
+      "default": true,
+      "reason": "",
+      "external_lex_state_rows": 8,
       "external_lex_states_sidecar": false
     },
     {
