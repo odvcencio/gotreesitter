@@ -21,7 +21,7 @@ The table does not decide policy. The admission switch, the allowlist, per-parse
 | `included_ranges` | no (open) | E-D2 | Included ranges. Compact lexes the whole source and does not apply ranges. |
 | `observer` | no (open) | E-D3 | A logger, a GLR trace, an ambiguity profile, or GOT_PARSE_PROGRESS events. Compact emits none of these events. |
 | `work_limits` | no (open) | E-D4 | Explicit ParseWorkLimits. Compact keeps separate work counters and must not spend work before a legacy limit trips. |
-| `forest_route` | no (open) | E-D6 | A language that defaults to the GSS-forest route, unless its parser forces the compact route, and ParseForestExperimental. The forest engine serves these requests. |
+| `forest_route` | no (open) | E-D6 | A language that defaults to the GSS-forest route, unless its parser forces the compact route, and ParseForestExperimental. The forest engine serves these requests. The C-faithful core serves one scoped case: a built-in DFA request whose only open mode is this one, on a blob whose certificate carries both the Forest and the Incr modes. The core then serves the default fresh parse and its reparses; ParseForestExperimental stays on the forest engine. |
 | `measurement` | no (open) | D-A3 | The benchmark-only modes: no tree, no tree with external checkpoints, and no result compatibility. They measure legacy internals. |
 | `scanner_state_reuse` | no (open) | E-E1 | Incremental reuse with an external scanner that is not stateless. Compact reuse needs a stateless scanner. |
 | `old_tree_reuse` | no (open) | E-E7 | Incremental reuse of an old tree that compact did not build, whose root has an error, that lacks a replay proof, that has no recorded edit, or that belongs to another language. |
