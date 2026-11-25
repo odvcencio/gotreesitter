@@ -1014,20 +1014,23 @@ type closeableTokenSource interface {
 // request enters the core route. It runs after the source is built and checked.
 // It returns the source the present engine must run with (the fallback of a
 // trusted wrapper, otherwise ts itself), the factory with wrapper results
-// removed, and whether the request is qualified: the source is the trusted
-// wrapper, bound to this parser's language and to source, and the language's
-// certificate lists the table-backed provider. A request that is not qualified
-// stays on the present engine, and the source is never consumed by this check.
-func (p *Parser) classifyCoreScanTokenSource(source []byte, ts TokenSource, factory TokenSourceFactory) (TokenSource, TokenSourceFactory, bool) {
+// removed, whether the request is marked (the source is the trusted wrapper,
+// bound to this parser's language and to source), and whether it is qualified
+// (marked, and the language's certificate lists the table-backed provider). A
+// request that is not qualified stays on the present engine, and the source is
+// never consumed by this check. A marked request that is not qualified is one
+// the core declines: the caller counts it with ccoreCountProviderDecline where
+// the core would have been asked.
+func (p *Parser) classifyCoreScanTokenSource(source []byte, ts TokenSource, factory TokenSourceFactory) (_ TokenSource, _ TokenSourceFactory, marked, qualified bool) {
 	t, ok := ts.(*coreScanTokenSource)
 	if !ok || t == nil {
-		return ts, unwrapCoreScanFactory(factory), false
+		return ts, unwrapCoreScanFactory(factory), false, false
 	}
 	factory = unwrapCoreScanFactory(factory)
-	if t.lang != p.language || !sameSourceBytes(t.src, source) || !p.ccoreTableProviderQualified() {
-		return t.fallback, factory, false
+	if t.lang != p.language || !sameSourceBytes(t.src, source) {
+		return t.fallback, factory, false, false
 	}
-	return t.fallback, factory, true
+	return t.fallback, factory, true, p.ccoreTableProviderQualified()
 }
 
 func manageTokenSourceLifetime(ts TokenSource) func() {
@@ -1052,7 +1055,7 @@ func (p *Parser) parseWithTokenSourceRun(source []byte, ts TokenSource, reparseF
 	if ts == nil {
 		return nil, ErrNoTokenSource
 	}
-	ts, reparseFactory, qualified := p.classifyCoreScanTokenSource(source, ts, reparseFactory)
+	ts, reparseFactory, marked, qualified := p.classifyCoreScanTokenSource(source, ts, reparseFactory)
 	// Phase-3 dual-route admission switch (admission_switch.go). This entry
 	// point honors the switch, but a caller-supplied token source is never
 	// eligible: the compact candidate route reproduces the production DFA token
@@ -1069,6 +1072,8 @@ func (p *Parser) parseWithTokenSourceRun(source []byte, ts TokenSource, reparseF
 			manageTokenSourceLifetime(ts)()
 			return tree, nil
 		}
+	} else if marked {
+		p.ccoreCountProviderDecline()
 	}
 	if !p.recoveryInitialOnly {
 		if tree, ok := p.attemptAdmissionCandidateFullParse(source, nil, false); ok {
@@ -1122,7 +1127,7 @@ func (p *Parser) parseIncrementalWithTokenSourceRun(source []byte, oldTree *Tree
 	if ts == nil {
 		return nil, ErrNoTokenSource
 	}
-	ts, reparseFactory, qualified := p.classifyCoreScanTokenSource(source, ts, reparseFactory)
+	ts, reparseFactory, marked, qualified := p.classifyCoreScanTokenSource(source, ts, reparseFactory)
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
@@ -1143,6 +1148,8 @@ func (p *Parser) parseIncrementalWithTokenSourceRun(source []byte, oldTree *Tree
 		if tree, ok := p.ccoreReparseProvider(source, oldTree, ccoreTableProvider); ok {
 			return tree, nil
 		}
+	} else if marked {
+		p.ccoreCountProviderDecline()
 	}
 	return p.parseIncrementalWithTokenSourceChanged(source, oldTree, ts, reparseFactory)
 }
@@ -2798,7 +2805,7 @@ func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
-	ts, _, qualified := p.classifyCoreScanTokenSource(source, ts, nil)
+	ts, _, marked, qualified := p.classifyCoreScanTokenSource(source, ts, nil)
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
@@ -2817,6 +2824,8 @@ func (p *Parser) parseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 		if tree, ok := p.ccoreReparseProvider(source, oldTree, ccoreTableProvider); ok {
 			return tree, p.ccoreServedProfile(tree, oldTree, source, started), nil
 		}
+	} else if marked {
+		p.ccoreCountProviderDecline()
 	}
 	return p.parseIncrementalWithTokenSourceChangedProfiled(source, oldTree, ts)
 }

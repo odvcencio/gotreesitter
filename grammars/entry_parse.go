@@ -22,7 +22,11 @@ func (e *LangEntry) NewParser() *gotreesitter.Parser {
 }
 
 // Parse parses src using the registered token source, or the DFA lexer if none
-// is registered. Release every non-nil returned tree.
+// is registered. For a grammar whose certificate lists the table-v1 scan
+// provider, the C-faithful core serves the request as it serves Parser.Parse:
+// it lexes with the grammar's own tables and does not read the token source,
+// so the tree equals the one Parser.Parse gives. Release every non-nil
+// returned tree.
 func (e *LangEntry) Parse(src []byte) (*gotreesitter.Tree, error) {
 	return e.parse(context.Background(), src, false)
 }

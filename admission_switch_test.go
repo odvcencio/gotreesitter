@@ -5522,6 +5522,7 @@ type scanOutcome struct {
 	served, scans  int64
 	probes         int
 	expectedDigest string
+	declines       map[string]int64
 }
 
 func scanSource(t *testing.T, name string) []byte {
@@ -5573,11 +5574,12 @@ func scanRun(t *testing.T, langName string, call scanCall, variant string, grant
 		t.Fatalf("%s/%s: %v", call.name, variant, err)
 	}
 	defer tree.Release() // an unchanged reparse returns the old tree with a handle of its own
-	_, fresh := gts.CcoreTestCounters()
+	declines, fresh := gts.CcoreTestCounters()
 	_, incr := gts.CcoreTestIncr()
 	out := scanOutcome{
 		digest: ccoreWalkDigest(tree, lang), expectedDigest: ccoreWalkDigest(want, lang),
 		nexts: rig.nexts(), served: fresh + incr, scans: gts.CcoreTestProviderScans(), probes: len(rig.probes),
+		declines: declines,
 	}
 	if len(rig.probes) > 0 {
 		out.closedFirst = rig.probes[0].closed
@@ -5591,7 +5593,9 @@ var scanLangs = []string{"json", "python"}
 // give its own tree, the parser reads it, and the core serves nothing. This
 // holds for a plain stream, for a type that embeds the trusted wrapper, for a
 // wrapper made over other bytes or for another language, and for a wrapper over
-// a blob whose certificate lists no provider.
+// a blob whose certificate lists no provider. Only the last is a request the
+// core declines: it is counted once as provider_not_granted, and the others are
+// ordinary streams that count no such decline.
 func TestCoreScanTokenSourceNeverReplacesAStream(t *testing.T) {
 	for _, langName := range scanLangs {
 		for _, call := range scanCalls() {
@@ -5617,6 +5621,16 @@ func TestCoreScanTokenSourceNeverReplacesAStream(t *testing.T) {
 				if variant != "embedded" && got.closedFirst != 1 {
 					t.Errorf("%s/%s/%s: the first source was closed %d times, want 1", langName, call.name, variant, got.closedFirst)
 				}
+				wantDeclines := int64(0)
+				if variant == "no_grant" {
+					wantDeclines = 1
+				}
+				if n := got.declines["provider_not_granted"]; n != wantDeclines {
+					t.Errorf("%s/%s/%s: provider_not_granted counted %d times, want %d (declines %v)", langName, call.name, variant, n, wantDeclines, got.declines)
+				}
+			}
+			if n := control.declines["provider_not_granted"]; n != 0 {
+				t.Errorf("%s/%s control: provider_not_granted counted %d times, want 0", langName, call.name, n)
 			}
 		}
 	}
@@ -5936,10 +5950,14 @@ func TestCoreScanJavaWrapperKeepsTheEOFExtraProof(t *testing.T) {
 }
 
 // C and C++ mark their registered token source for the core scan provider, as
-// Java does. C's blob is certified, but its record lists no provider, so
-// LangEntry.Parse stays on the present engine: the tree is the one the unwrapped
-// source gives, and the core serves nothing and the provider answers no scan.
-func TestCoreScanCAndCppWithoutAGrantAreUnchanged(t *testing.T) {
+// Java does, and each follows its generated certificate. A record that lists the
+// table-v1 provider has LangEntry.Parse served by the core, with the provider
+// answering its scans and no decline. A record without it keeps LangEntry.Parse
+// on the present engine and counts one provider_not_granted decline. A blob
+// with no record keeps it on the present engine and counts nothing, as
+// Parser.Parse counts nothing for such a blob. On this valid input the tree is
+// the one the unwrapped source gives in every case.
+func TestCoreScanCAndCppFollowTheirProviderGrants(t *testing.T) {
 	for _, name := range []string{"c", "cpp"} {
 		t.Run(name, func(t *testing.T) {
 			entry := grammars.DetectLanguageByName(name)
@@ -5947,6 +5965,9 @@ func TestCoreScanCAndCppWithoutAGrantAreUnchanged(t *testing.T) {
 				t.Fatalf("%s has no registered token source factory", name)
 			}
 			lang := entry.Language()
+			sha, _ := lang.GrammarBlobSHA256()
+			cert, hasCert := certified.Blobs[sha]
+			granted := hasCert && cert.HasProvider("table-v1")
 			src := []byte("#include <stdio.h>\nint main(void) {\n  int x = 1;\n  return x + 2;\n}\n")
 			raw, err := grammars.NewCTokenSource(src, lang)
 			if err != nil {
@@ -5963,8 +5984,21 @@ func TestCoreScanCAndCppWithoutAGrantAreUnchanged(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer got.Release()
-			if served, scans := coreScanJavaCounts(); served != 0 || scans != 0 {
-				t.Fatalf("core serves %d, provider scans %d, want none", served, scans)
+			served, scans := coreScanJavaCounts()
+			declines, _ := gts.CcoreTestCounters()
+			switch {
+			case granted:
+				if served != 1 || scans == 0 || len(declines) != 0 {
+					t.Fatalf("with the grant: core serves %d, provider scans %d, declines %v, want 1, some and none", served, scans, declines)
+				}
+			case hasCert:
+				if served != 0 || scans != 0 || declines["provider_not_granted"] != 1 {
+					t.Fatalf("without the grant: core serves %d, provider scans %d, declines %v, want none and one provider_not_granted", served, scans, declines)
+				}
+			default:
+				if served != 0 || scans != 0 || len(declines) != 0 {
+					t.Fatalf("without a certificate: core serves %d, provider scans %d, declines %v, want none", served, scans, declines)
+				}
 			}
 			if ccoreWalkDigest(got, lang) != ccoreWalkDigest(want, lang) {
 				t.Fatal("LangEntry.Parse differs from the unwrapped source's tree")

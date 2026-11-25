@@ -1046,6 +1046,21 @@ func (p *Parser) ccoreProviderQualified(id string) bool {
 	return ok && a.grants(id)
 }
 
+// ccoreCountProviderDecline counts why the core does not serve a request whose
+// token source is marked for the table-backed provider and bound to the
+// request, in ccoreDeclines with the other declines. It counts where a fresh
+// parse with the built-in lexer counts its own (ccoreFirstFresh): only when this
+// parser could use the core at all, so a language that is not certified, a
+// parser whose route is off, and a parser the present engine made for its own
+// recovery count nothing. The reason is the admission's, for example
+// provider_not_granted for a certificate that lists no provider.
+func (p *Parser) ccoreCountProviderDecline() {
+	if ccoreUnset() || p.recoveryInitialOnly || p.ccoreSuppressed() || !p.ccoreEligibleFor(ccoreSourceProvider) {
+		return
+	}
+	p.ccoreAdmitProvider(ccoreTableProvider) // counts the reason when it declines
+}
+
 // ccoreParser takes a core parser of the language from its pool. Each public
 // Parser that runs gets a parser (and a scanner hook) of its own: a parser is
 // out of the pool while it parses.
@@ -4160,8 +4175,10 @@ func init() {
 // language's certificate lists the provider and the request is for the same
 // language and the same source bytes (the same slice start and length). In every
 // other case the fallback runs on the present engine, as it would without the
-// mark. The library that mints the mark states that fallback produces the token
-// stream of lang's own lexer for src; the parser does not check it.
+// mark; a request for the same language and bytes that the core declines is
+// counted with its reason (ccoreCountProviderDecline). The library that mints
+// the mark states that fallback produces the token stream of lang's own lexer
+// for src; the parser does not check it.
 //
 // The returned value delegates Next and its other methods to fallback. A nil
 // fallback gives nil.
