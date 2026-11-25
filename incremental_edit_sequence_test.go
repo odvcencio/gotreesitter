@@ -705,7 +705,11 @@ func TestRetryStopReasonFreshVerificationSkippedWhereTheProofWouldSkipIt(t *test
 	source = append(source, []byte("}\n// ")...)
 	edited := append(bytes.Clone(source), 'w')
 
+	// This test counts the fresh verification streams of the present engine's
+	// incremental path. The certified core serves Java by default and has no such
+	// verification, so every parser here stays on the present engine.
 	plain := gts.NewParser(lang)
+	plain.SetAdmissionCandidateRoute(false)
 	old, err := plain.ParseWithTokenSource(source, grammars.NewJavaTokenSourceOrEOF(source, lang))
 	if err != nil || old == nil || old.RootNode().HasError() {
 		t.Fatalf("initial parse: %v", err)
@@ -725,6 +729,7 @@ func TestRetryStopReasonFreshVerificationSkippedWhereTheProofWouldSkipIt(t *test
 		return grammars.NewJavaTokenSourceOrEOF(src, lang), nil
 	}
 	verify := func(p *gts.Parser, expire bool) *gts.Tree {
+		p.SetAdmissionCandidateRoute(false)
 		freshStreams = 0
 		return gts.RetryCutOperationForTests(p, func() *gts.Tree {
 			if expire {
