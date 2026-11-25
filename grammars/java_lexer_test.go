@@ -195,6 +195,9 @@ func TestJavaEOFCommentAppendUsesEditedFreshWitness(t *testing.T) {
 func TestJavaEOFCommentAppendKeepsSourceSensitiveMergeVerification(t *testing.T) {
 	lang := JavaLanguage()
 	parser := gotreesitter.NewParser(lang)
+	// The certified core serves Java by default and never takes the present engine's
+	// end-of-file comment path; this test checks that path's verification.
+	parser.SetAdmissionCandidateRoute(false)
 	source := []byte("class Main {}\n// @interfac")
 	old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, lang))
 	if err != nil {
@@ -241,6 +244,9 @@ func TestJavaEOFCommentAppendKeepsExplicitStopVerification(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			lang := JavaLanguage()
 			parser := gotreesitter.NewParser(lang)
+			// The certified core serves Java by default and never takes the present
+			// engine's end-of-file comment path; this test checks that path's verification.
+			parser.SetAdmissionCandidateRoute(false)
 			configure(parser)
 			source := []byte("class Main {}\n// x")
 			old, err := parser.ParseWithTokenSource(source, NewJavaTokenSourceOrEOF(source, lang))
