@@ -1630,7 +1630,7 @@
       "capable": true,
       "default": true,
       "reason": "",
-      "external_lex_state_rows": 106,
+      "external_lex_state_rows": 110,
       "external_lex_states_sidecar": true
     },
     {
