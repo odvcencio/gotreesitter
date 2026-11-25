@@ -13,6 +13,7 @@ var errSelectedStoreQueryMissingUnsupported = errors.New("selected-store query r
 type selectedStoreQueryBuffer struct {
 	matches  []queryReaderMatch[queryValueCapture[core.SelectedNodeID]]
 	worklist []queryReaderWorkItem[core.SelectedNodeID]
+	order    *queryOrderScratch[core.SelectedNodeID, queryValueCapture[core.SelectedNodeID]]
 	ranges   []HighlightRange
 	resolved []HighlightRange
 }
@@ -214,7 +215,7 @@ func executeSelectedStoreQuery(
 		buffer = &selectedStoreQueryBuffer{}
 	}
 	reader := selectedStoreQueryReader{store: store}
-	buffer.matches, buffer.worklist = executeQueryWithReader(
+	buffer.matches, buffer.worklist, buffer.order = executeQueryWithReader(
 		q,
 		store.Root(),
 		lang,
@@ -222,6 +223,7 @@ func executeSelectedStoreQuery(
 		reader,
 		buffer.matches[:0],
 		buffer.worklist[:0],
+		buffer.order,
 	)
 	return buffer.matches, nil
 }

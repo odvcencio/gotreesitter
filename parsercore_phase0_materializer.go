@@ -1989,7 +1989,7 @@ func (v *nativeNodeViews) executeQuery(q *Query, n *Node, lang *Language, source
 		return dst, false
 	}
 	reader := &nativeViewQueryReader{selectedStoreQueryReader: selectedStoreQueryReader{store: v.snapshot.Store()}, views: v}
-	matches, _ := executeQueryWithReader(q, core.SelectedNodeID(n.rawShape), lang, source, reader, nil, nil)
+	matches, _, _ := executeQueryWithReader(q, core.SelectedNodeID(n.rawShape), lang, source, reader, nil, nil, nil)
 	for _, match := range matches {
 		dst = append(dst, QueryMatch{PatternIndex: match.PatternIndex, Captures: match.Captures})
 	}

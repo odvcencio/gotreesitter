@@ -1,8 +1,10 @@
 package gotreesitter
 
 import (
+	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -3994,4 +3996,590 @@ func BenchmarkQuantifiedRootMetadata(b *testing.B) {
 			b.Fatal("quantified root reported local")
 		}
 	}
+}
+
+// Alternation results and quote-led groups (C query.c: every completion of a
+// structured alternation arm, and grouped sibling sequences led by a string).
+// Symbols of the language used by the alternation-result and quote-led-group
+// tests. Each shape reduces one real highlight pattern to a few nodes.
+//
+// The SQL, Julia, Thrift and Vue tests run on hand-built trees, so their
+// expected orders pin this repository's ordering rule, not C output. The
+// cgo_harness tests TestParityQueryExactAlternationResults,
+// TestParityQueryQuoteLedSiblings and TestParityQueryMatchOrderGuard compare
+// the real grammars with pinned C.
+const (
+	arIdentifier Symbol = iota + 1
+	arStatement
+	arParameters
+	arParameter
+	arType
+	arWhere
+	arCurly
+	arOpenBrace
+	arCloseBrace
+	arComma
+	arColon
+	arDirectiveValue
+	arElement
+	arNamespaceDecl
+	arNamespaceScope
+	arNamespace
+	arProgram
+	arBlock
+	arFunction
+	arCall
+	arOther
+	arArray
+	arNumber
+	arString
+	arTrue
+	arFalse
+	arOpenBracket
+	arCloseBracket
+	arNull
+)
+
+func alternationResultsLanguage() *Language {
+	names := []struct {
+		name  string
+		named bool
+	}{
+		{"", false},
+		{"identifier", true},
+		{"statement", true},
+		{"parameters", true},
+		{"parameter", true},
+		{"type", true},
+		{"where_expression", true},
+		{"curly_expression", true},
+		{"{", false},
+		{"}", false},
+		{",", false},
+		{":", false},
+		{"directive_value", true},
+		{"element", true},
+		{"namespace_declaration", true},
+		{"namespace_scope", true},
+		{"namespace", true},
+		{"program", true},
+		{"block", true},
+		{"function_declaration", true},
+		{"call_expression", true},
+		{"other", true},
+		{"array", true},
+		{"number", true},
+		{"string", true},
+		{"true", true},
+		{"false", true},
+		{"[", false},
+		{"]", false},
+		{"null", true},
+	}
+	lang := &Language{Name: "test_alternation_results", FieldNames: []string{""}}
+	for _, n := range names {
+		lang.SymbolNames = append(lang.SymbolNames, n.name)
+		lang.SymbolMetadata = append(lang.SymbolMetadata, SymbolMetadata{Name: n.name, Visible: true, Named: n.named})
+	}
+	return lang
+}
+
+// arNode describes a node of a hand-built tree: a leaf carries text, any other
+// node carries children.
+type arNode struct {
+	sym  Symbol
+	text string
+	kids []arNode
+}
+
+func arLeaf(sym Symbol, text string) arNode    { return arNode{sym: sym, text: text} }
+func arTree(sym Symbol, kids ...arNode) arNode { return arNode{sym: sym, kids: kids} }
+
+func buildAlternationResultsTree(lang *Language, root arNode) *Tree {
+	var src []byte
+	var build func(n arNode) *Node
+	build = func(n arNode) *Node {
+		named := lang.SymbolMetadata[n.sym].Named
+		if len(n.kids) == 0 {
+			start := uint32(len(src))
+			src = append(src, n.text...)
+			end := uint32(len(src))
+			src = append(src, ' ')
+			return leaf(n.sym, named, start, end)
+		}
+		children := make([]*Node, len(n.kids))
+		for i, k := range n.kids {
+			children[i] = build(k)
+		}
+		return parent(n.sym, named, children, make([]FieldID, len(children)))
+	}
+	rootNode := build(root)
+	return NewTree(rootNode, src, lang)
+}
+
+func formatAlternationMatch(m QueryMatch, src []byte) string {
+	parts := make([]string, len(m.Captures))
+	for i, c := range m.Captures {
+		parts[i] = fmt.Sprintf("%s=%s@%d", c.Name, c.Node.Text(src), c.Node.StartByte())
+	}
+	return fmt.Sprintf("p%d[%s]", m.PatternIndex, strings.Join(parts, " "))
+}
+
+// alternationResults runs a query through Execute and through a drained
+// Exec(...).NextMatch(), requires both to agree, and returns the formatted
+// ordered match vector.
+func alternationResults(t *testing.T, pattern string, root arNode) []string {
+	t.Helper()
+	lang := alternationResultsLanguage()
+	tree := buildAlternationResultsTree(lang, root)
+	q, err := NewQuery(pattern, lang)
+	if err != nil {
+		t.Fatalf("NewQuery(%q): %v", pattern, err)
+	}
+	var bulk []string
+	for _, m := range q.Execute(tree) {
+		bulk = append(bulk, formatAlternationMatch(m, tree.Source()))
+	}
+	var streamed []string
+	cursor := q.Exec(tree.RootNode(), lang, tree.Source())
+	for {
+		m, ok := cursor.NextMatch()
+		if !ok {
+			break
+		}
+		streamed = append(streamed, formatAlternationMatch(m, tree.Source()))
+	}
+	if !slices.Equal(bulk, streamed) {
+		t.Fatalf("Execute and Exec.NextMatch disagree\n  Execute: %q\n  NextMatch: %q", bulk, streamed)
+	}
+	return bulk
+}
+
+func requireAlternationResults(t *testing.T, got, want []string) {
+	t.Helper()
+	if !slices.Equal(got, want) {
+		t.Fatalf("matches\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+func arSQLParameter(text string) arNode {
+	return arTree(arParameter, arTree(arType, arLeaf(arIdentifier, text)))
+}
+
+const arSQLQuery = `([
+  (statement (type (identifier) @type.builtin))
+  (statement (parameters (parameter (type (identifier) @type.builtin))))
+] (#match? @type.builtin "^text$"))`
+
+// A structured arm delivers every child match, in the pre-order position of
+// the node each finished on; a failed predicate on
+// a middle sibling neither ends the arm nor hides the later sibling.
+func TestAlternationStructuredArmDeliversEveryCompletionSQL(t *testing.T) {
+	stmt := arTree(arStatement,
+		arTree(arParameters, arSQLParameter("text"), arSQLParameter("other"), arSQLParameter("text")),
+		arTree(arType, arLeaf(arIdentifier, "text")),
+	)
+	got := alternationResults(t, arSQLQuery, stmt)
+	// Source: "text other text text ": the parameters read at 0, 5, 11 and the
+	// direct return type at 16.
+	requireAlternationResults(t, got, []string{
+		"p0[type.builtin=text@0]",
+		"p0[type.builtin=text@11]",
+		"p0[type.builtin=text@16]",
+	})
+}
+
+func TestAlternationStructuredArmAdjacentPassingSiblingsSQL(t *testing.T) {
+	stmt := arTree(arStatement,
+		arTree(arParameters, arSQLParameter("text"), arSQLParameter("text")),
+	)
+	got := alternationResults(t, arSQLQuery, stmt)
+	requireAlternationResults(t, got, []string{
+		"p0[type.builtin=text@0]",
+		"p0[type.builtin=text@5]",
+	})
+}
+
+const arJuliaQuery = `(where_expression [(curly_expression (_) @type) (_) @type] .)`
+
+func TestAlternationStructuredArmDeliversEveryCompletionJulia(t *testing.T) {
+	where := arTree(arWhere,
+		arLeaf(arIdentifier, "x"),
+		arTree(arCurly, arLeaf(arOpenBrace, "{"), arLeaf(arIdentifier, "A"), arLeaf(arComma, ","), arLeaf(arIdentifier, "B"), arLeaf(arCloseBrace, "}")),
+	)
+	got := alternationResults(t, arJuliaQuery, where)
+	// "x { A , B } ": the curly node starts at 2, A at 4, B at 8.
+	requireAlternationResults(t, got, []string{
+		"p0[type={ A , B }@2]",
+		"p0[type=A@4]",
+		"p0[type=B@8]",
+	})
+}
+
+func TestAlternationStructuredArmTrailingAnchorJulia(t *testing.T) {
+	curly := arTree(arCurly, arLeaf(arOpenBrace, "{"), arLeaf(arIdentifier, "A"), arLeaf(arCloseBrace, "}"))
+	// A later named operand ends the curly node's claim on the trailing anchor.
+	later := arTree(arWhere, arLeaf(arIdentifier, "x"), curly, arLeaf(arIdentifier, "y"))
+	got := alternationResults(t, arJuliaQuery, later)
+	requireAlternationResults(t, got, []string{"p0[type=y@8]"})
+
+	// A trailing anonymous token does not take the anchor from the last named child.
+	token := arTree(arWhere, arLeaf(arIdentifier, "x"), curly, arLeaf(arComma, ","))
+	got = alternationResults(t, arJuliaQuery, token)
+	requireAlternationResults(t, got, []string{
+		"p0[type={ A }@2]",
+		"p0[type=A@4]",
+	})
+}
+
+const arThriftQuery = `(namespace_declaration
+  (namespace_scope) @tag
+  [(namespace) @namespace (_ (identifier) @namespace)])`
+
+// The capture made before the alternation appears in every result.
+func TestAlternationStructuredArmKeepsPrefixCapturesThrift(t *testing.T) {
+	decl := arTree(arNamespaceDecl,
+		arLeaf(arNamespaceScope, "s"),
+		arTree(arNamespace, arLeaf(arIdentifier, "a"), arLeaf(arIdentifier, "b")),
+	)
+	got := alternationResults(t, arThriftQuery, decl)
+	// "s a b ": scope at 0, namespace at 2, a at 2, b at 4.
+	requireAlternationResults(t, got, []string{
+		"p0[tag=s@0 namespace=a b@2]",
+		"p0[tag=s@0 namespace=a@2]",
+		"p0[tag=s@0 namespace=b@4]",
+	})
+}
+
+func TestAlternationStructuredArmOnlyWildcardParentThrift(t *testing.T) {
+	decl := arTree(arNamespaceDecl,
+		arLeaf(arNamespaceScope, "s"),
+		arTree(arBlock, arLeaf(arIdentifier, "a"), arLeaf(arIdentifier, "b")),
+	)
+	got := alternationResults(t, arThriftQuery, decl)
+	requireAlternationResults(t, got, []string{
+		"p0[tag=s@0 namespace=a@2]",
+		"p0[tag=s@0 namespace=b@4]",
+	})
+}
+
+// Two arms that finish with the same captures give one match.
+func TestAlternationIdenticalStructuredArmsGiveOneMatch(t *testing.T) {
+	stmt := arTree(arStatement, arTree(arType, arLeaf(arIdentifier, "text")))
+	got := alternationResults(t, `[(statement (type (identifier) @v)) (statement (type (identifier) @v))]`, stmt)
+	requireAlternationResults(t, got, []string{"p0[v=text@0]"})
+}
+
+// Different capture names on the same node are different results.
+func TestAlternationStructuredArmsWithDifferentCapturesStaySeparate(t *testing.T) {
+	stmt := arTree(arStatement, arTree(arType, arLeaf(arIdentifier, "text")))
+	got := alternationResults(t, `[(statement (type (identifier) @a)) (statement (type (identifier) @b))]`, stmt)
+	requireAlternationResults(t, got, []string{"p0[a=text@0]", "p0[b=text@0]"})
+}
+
+func TestQuoteLedGroupIsSiblingSequenceVue(t *testing.T) {
+	const pattern = `(":" . (directive_value) @variable.member)`
+	cases := []struct {
+		name string
+		tree arNode
+		want []string
+	}{
+		{"direct neighbour", arTree(arElement, arLeaf(arColon, ":"), arLeaf(arDirectiveValue, "key")), []string{"p0[variable.member=key@2]"}},
+		{"anonymous token between", arTree(arElement, arLeaf(arColon, ":"), arLeaf(arComma, ","), arLeaf(arDirectiveValue, "key")), []string{"p0[variable.member=key@4]"}},
+		{"named node between", arTree(arElement, arLeaf(arColon, ":"), arLeaf(arOther, "x"), arLeaf(arDirectiveValue, "key")), nil},
+		{"colon last", arTree(arElement, arLeaf(arDirectiveValue, "key"), arLeaf(arColon, ":")), nil},
+		{
+			"first colon matches, second does not",
+			arTree(arElement, arLeaf(arColon, ":"), arLeaf(arDirectiveValue, "key"), arLeaf(arColon, ":"), arLeaf(arOther, "x"), arLeaf(arDirectiveValue, "late")),
+			[]string{"p0[variable.member=key@2]"},
+		},
+		{
+			"value in another parent",
+			arTree(arProgram, arTree(arElement, arLeaf(arColon, ":")), arTree(arElement, arLeaf(arDirectiveValue, "key"))),
+			nil,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			requireAlternationResults(t, alternationResults(t, pattern, tc.tree), tc.want)
+		})
+	}
+}
+
+func TestQuoteLedGroupInsideOuterPatternVue(t *testing.T) {
+	tree := arTree(arProgram, arTree(arElement, arLeaf(arColon, ":"), arLeaf(arDirectiveValue, "key")))
+	got := alternationResults(t, `(element (":" . (directive_value) @v))`, tree)
+	requireAlternationResults(t, got, []string{"p0[v=key@2]"})
+}
+
+func TestQuoteLedGroupCompiledShape(t *testing.T) {
+	lang := alternationResultsLanguage()
+	q, err := NewQuery(`(":" . (directive_value) @v)`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps := q.patterns[0].steps
+	if len(steps) != 3 {
+		t.Fatalf("steps: got %d, want 3 (group root, colon, value)", len(steps))
+	}
+	if !steps[0].synthetic || steps[0].depth != 0 {
+		t.Errorf("step 0: got synthetic=%v depth=%d, want the synthetic group root at depth 0", steps[0].synthetic, steps[0].depth)
+	}
+	if steps[1].textMatch != ":" || steps[1].depth != 1 {
+		t.Errorf("step 1: got %q at depth %d, want the colon at depth 1", steps[1].textMatch, steps[1].depth)
+	}
+	if steps[2].depth != 1 || !steps[2].anchorBefore {
+		t.Errorf("step 2: got depth %d anchorBefore=%v, want a sibling of the colon with an anchor before it", steps[2].depth, steps[2].anchorBefore)
+	}
+}
+
+// A string with nothing after it, a capture or a predicate stays one literal.
+func TestQuoteLedSingleLiteralStaysOneNode(t *testing.T) {
+	lang := alternationResultsLanguage()
+	for _, pattern := range []string{`(":")`, `(":" @c)`, `(":" @c (#eq? @c ":"))`} {
+		q, err := NewQuery(pattern, lang)
+		if err != nil {
+			t.Fatalf("NewQuery(%q): %v", pattern, err)
+		}
+		steps := q.patterns[0].steps
+		if len(steps) != 1 || steps[0].synthetic || steps[0].textMatch != ":" || steps[0].depth != 0 {
+			t.Errorf("%s: got %+v, want one literal step at depth 0", pattern, steps)
+		}
+	}
+	tree := arTree(arElement, arLeaf(arColon, ":"), arLeaf(arDirectiveValue, "key"))
+	got := alternationResults(t, `(":" @c (#eq? @c ":"))`, tree)
+	requireAlternationResults(t, got, []string{"p0[c=:@0]"})
+}
+
+// A structured arm spends the caller's work budget, not a fresh default one.
+func TestAlternationStructuredArmSharesCallerBudget(t *testing.T) {
+	lang := alternationResultsLanguage()
+	var kids []arNode
+	for i := 0; i < 18; i++ {
+		kids = append(kids, arLeaf(arIdentifier, "x"))
+	}
+	kids = append(kids, arLeaf(arFunction, "f"))
+	tree := buildAlternationResultsTree(lang, arTree(arBlock, kids...))
+	q, err := NewQuery(`[(block (identifier) @a (identifier) @b (identifier) @c (function_declaration) @r) (call_expression)]`, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	full := q.Exec(tree.RootNode(), lang, tree.Source())
+	fullCount := 0
+	for {
+		if _, ok := full.NextMatch(); !ok {
+			break
+		}
+		fullCount++
+	}
+	if fullCount != 816 {
+		t.Fatalf("matches with the default budget: got %d, want 816 (choose 3 of 18)", fullCount)
+	}
+	if full.DidExceedMatchLimit() {
+		t.Fatal("default budget: DidExceedMatchLimit is true")
+	}
+
+	limited := q.Exec(tree.RootNode(), lang, tree.Source())
+	limited.SetMatchWorkBudget(100)
+	limitedCount := 0
+	for {
+		if _, ok := limited.NextMatch(); !ok {
+			break
+		}
+		limitedCount++
+	}
+	if !limited.DidExceedMatchLimit() {
+		t.Fatal("budget 100: DidExceedMatchLimit is false, the arm did not use the caller's budget")
+	}
+	if limitedCount >= fullCount {
+		t.Fatalf("budget 100: got %d matches, want fewer than %d", limitedCount, fullCount)
+	}
+}
+
+// The tests below hard-code the match order that the pinned C query cursor
+// (ts_query_cursor_next_match in lib/src/query.c) returns for the real
+// grammar shape each tree reduces; the comment on each test names that shape,
+// and TestParityQueryMatchOrderGuard in cgo_harness checks it against C. C
+// finishes a match on the node where its last step matched, captured or not,
+// or later while a trailing quantifier keeps a waiting state. Matches that
+// finish on the same node keep C's state order. Matches with equal captures
+// are one match unless the captures are zero-width.
+
+func arJSONArray(items ...arNode) arNode {
+	kids := []arNode{arLeaf(arOpenBracket, "[")}
+	for i, item := range items {
+		if i > 0 {
+			kids = append(kids, arLeaf(arComma, ","))
+		}
+		kids = append(kids, item)
+	}
+	kids = append(kids, arLeaf(arCloseBracket, "]"))
+	return arTree(arArray, kids...)
+}
+
+func arJSONWitnessInner() arNode {
+	return arJSONArray(arLeaf(arNumber, "1"), arLeaf(arString, `"x"`), arLeaf(arTrue, "true"))
+}
+
+// [1,"x",true]: the first arm finishes on the uncaptured (true), after the
+// second arm finished on the string.
+func TestQueryAlternationOrderFollowsUncapturedTerminal(t *testing.T) {
+	got := alternationResults(t, `[(array (number) @n (true)) (array (string) @s)]`, arJSONWitnessInner())
+	requireAlternationResults(t, got, []string{
+		`p0[s="x"@6]`,
+		`p0[n=1@2]`,
+	})
+}
+
+// [[1,"x",true],false,false]: both arms finish on each (false), so C
+// interleaves the arms at each suffix match.
+func TestQueryAlternationOrderInterleavesArmsAtSuffix(t *testing.T) {
+	tree := arJSONArray(arJSONWitnessInner(), arLeaf(arFalse, "false"), arLeaf(arFalse, "false"))
+	got := alternationResults(t, `(array [(array (number) @n (true)) (array (string) @s)] (false) @tail)`, tree)
+	requireAlternationResults(t, got, []string{
+		`p0[n=1@4 tail=false@23]`,
+		`p0[s="x"@8 tail=false@23]`,
+		`p0[n=1@4 tail=false@31]`,
+		`p0[s="x"@8 tail=false@31]`,
+	})
+}
+
+// [[1,"x",true],false,false] with an uncaptured suffix: each arm gives one
+// match, finished on the last (false).
+func TestQueryAlternationEqualCapturesAreOneMatch(t *testing.T) {
+	tree := arJSONArray(arJSONWitnessInner(), arLeaf(arFalse, "false"), arLeaf(arFalse, "false"))
+	got := alternationResults(t, `(array [(array (number) @n (true)) (array (string) @s)] (false))`, tree)
+	requireAlternationResults(t, got, []string{
+		`p0[n=1@4]`,
+		`p0[s="x"@8]`,
+	})
+}
+
+// [1,2,"x","y"]: without an alternation, C still orders matches by the node
+// each finished on.
+func TestQueryMatchOrderFollowsFinishNode(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`), arLeaf(arString, `"y"`))
+	got := alternationResults(t, `(array (number) @a (string) @b)`, tree)
+	requireAlternationResults(t, got, []string{
+		`p0[a=1@2 b="x"@10]`,
+		`p0[a=2@6 b="x"@10]`,
+		`p0[a=1@2 b="y"@16]`,
+		`p0[a=2@6 b="y"@16]`,
+	})
+}
+
+// [1,2,"x"]: two ways to match the uncaptured (number) give the same
+// captures, so C returns one match.
+func TestQueryUncapturedChoicesGiveOneMatch(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`))
+	got := alternationResults(t, `(array (number) (string) @b)`, tree)
+	requireAlternationResults(t, got, []string{`p0[b="x"@10]`})
+}
+
+// [1,2,"x","y"] with a trailing (true)?: the state waiting on (true) keeps
+// every match open until the array's last child, so the matches come out by
+// first capture, as in guard case R03.
+func TestQueryTrailingOptionalOrdersByFirstCapture(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`), arLeaf(arString, `"y"`))
+	want := []string{
+		`p0[a=1@2 b="x"@10]`,
+		`p0[a=1@2 b="y"@16]`,
+		`p0[a=2@6 b="x"@10]`,
+		`p0[a=2@6 b="y"@16]`,
+	}
+	for _, quantifier := range []string{"?", "*"} {
+		got := alternationResults(t, `(array (number) @a (string) @b (true)`+quantifier+`)`, tree)
+		requireAlternationResults(t, got, want)
+	}
+}
+
+// [1,true]: the arm with a skipped (string)? finishes on the array's last
+// child, after the other arm finished on (true), as in guard case Q02.
+func TestQuerySkippedOptionalFinishesOnLastChild(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arTrue, "true"))
+	got := alternationResults(t, `[(array (number) @a (string)? @b) (array (true) @t)]`, tree)
+	requireAlternationResults(t, got, []string{`p0[t=true@6]`, `p0[a=1@2]`})
+}
+
+// Equal zero-width captures stay two matches: C skips the duplicate check
+// when the first capture starts at or after the last capture ends, as in
+// guard cases Z01 and Z02. A capture with width still merges.
+func TestQueryEqualZeroWidthCapturesStayTwoMatches(t *testing.T) {
+	zero := arJSONArray(arLeaf(arNumber, ""))
+	got := alternationResults(t, `[(number) @m (number) @m]`, zero)
+	requireAlternationResults(t, got, []string{`p0[m=@2]`, `p0[m=@2]`})
+
+	wide := arJSONArray(arLeaf(arNumber, "1"))
+	got = alternationResults(t, `[(number) @m (number) @m]`, wide)
+	requireAlternationResults(t, got, []string{`p0[m=1@2]`})
+}
+
+// A statement and the call it wraps share a span. C enters the statement
+// first, so the match that finishes on it comes first, as in guard case E01.
+func TestQueryEqualSpanFinishParentFirst(t *testing.T) {
+	tree := arTree(arBlock, arTree(arStatement, arLeaf(arCall, "f()")))
+	got := alternationResults(t, `(block [(statement (call_expression) @c) (statement) @s])`, tree)
+	requireAlternationResults(t, got, []string{`p0[s=f()@0]`, `p0[c=f()@0]`})
+}
+
+// With equal first-capture starts, the match whose first capture is later in
+// pre-order comes first: its state had no captures when the other captured,
+// so C sorted it first. Guard cases T01 and T02 show both shapes.
+func TestQueryEqualFirstCaptureStartLaterCaptureFirst(t *testing.T) {
+	// The identifier starts where its statement starts and ends earlier.
+	pair := func(name, value string) arNode {
+		return arTree(arStatement, arLeaf(arIdentifier, name), arLeaf(arNumber, value))
+	}
+	tree := arTree(arBlock, pair("a", "1"), pair("b", "2"))
+	got := alternationResults(t, `(block [(statement) @p (statement (identifier) @k)] (statement))`, tree)
+	requireAlternationResults(t, got, []string{`p0[k=a@0]`, `p0[p=a 1@0]`})
+
+	// The call has the same span as its statement.
+	calls := arTree(arBlock, arTree(arStatement, arLeaf(arCall, "f()")), arTree(arStatement, arLeaf(arCall, "h()")))
+	got = alternationResults(t, `(block [(statement) @s (statement (call_expression) @c)] (statement))`, calls)
+	requireAlternationResults(t, got, []string{`p0[c=f()@0]`, `p0[s=f()@0]`})
+}
+
+// [1,2,"x",null,"y"]: the skipped (true)? keeps a waiting state with the
+// match's captures, so every match is held until the array's last child,
+// also when the later (null)? matched. Guard case A02 shows the same shape.
+func TestQuerySkippedOptionalBeforeLastStepHoldsMatch(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`), arLeaf(arNull, "null"), arLeaf(arString, `"y"`))
+	want := []string{
+		`p0[a=1@2 b="x"@10]`,
+		`p0[a=1@2 b="y"@23]`,
+		`p0[a=2@6 b="x"@10]`,
+		`p0[a=2@6 b="y"@23]`,
+	}
+	for _, quantifier := range []string{"?", "*"} {
+		got := alternationResults(t, `(array (number) @a (string) @b (true)`+quantifier+` (null)?)`, tree)
+		requireAlternationResults(t, got, want)
+	}
+}
+
+// Three quantified steps in a row hold the match like one. Guard case M01.
+func TestQueryThreeQuantifiedStepsHoldMatch(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`), arLeaf(arNull, "null"), arLeaf(arString, `"y"`), arLeaf(arFalse, "false"))
+	got := alternationResults(t, `(array (number) @a (string) @b (true)? (null)? (false)?)`, tree)
+	requireAlternationResults(t, got, []string{
+		`p0[a=1@2 b="x"@10]`,
+		`p0[a=1@2 b="y"@23]`,
+		`p0[a=2@6 b="x"@10]`,
+		`p0[a=2@6 b="y"@23]`,
+	})
+}
+
+// A captured step after the quantified step ends the hold: the waiting state
+// then has fewer captures than the match, so C finishes each match on its
+// last node. Guard case B01.
+func TestQueryCapturedStepAfterOptionalEndsHold(t *testing.T) {
+	tree := arJSONArray(arLeaf(arNumber, "1"), arLeaf(arNumber, "2"), arLeaf(arString, `"x"`), arLeaf(arString, `"y"`))
+	got := alternationResults(t, `(array (number) @a (true)? (string) @b)`, tree)
+	requireAlternationResults(t, got, []string{
+		`p0[a=1@2 b="x"@10]`,
+		`p0[a=2@6 b="x"@10]`,
+		`p0[a=1@2 b="y"@16]`,
+		`p0[a=2@6 b="y"@16]`,
+	})
 }
