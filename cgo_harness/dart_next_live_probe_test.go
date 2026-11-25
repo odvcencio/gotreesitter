@@ -250,6 +250,11 @@ func TestDartNextLiveArmProbe(t *testing.T) {
 			routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 			compactParser := gotreesitter.NewParser(language)
 			compactParser.SetAdmissionCandidateRoute(true)
+			// The certified core serves Dart by default and gives pinned C's tree. This
+			// probe records the older compact route's own fallback accounting and
+			// digests, so the request stays off the core; the core's equality with
+			// pinned C is covered by the graduation gate.
+			compactParser.SetCompactCertificationTelemetry(true)
 			compact, err := compactParser.Parse(witness.source)
 			if err != nil {
 				t.Fatal(err)
