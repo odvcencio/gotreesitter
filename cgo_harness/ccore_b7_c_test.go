@@ -787,3 +787,64 @@ func b7Session(t *testing.T, lang string) {
 	ccoreCount("TestCcoreB7Session", lang, steps)
 	ccoreExpect(t, steps == 144 && eqFresh == steps && cmpC > 0 && eqC+diffNewErr == cmpC && errSteps > 0 && eqCFresh == errSteps && len(decl) == 0, "%s: session counts", lang)
 }
+
+func TestCcoreTSXOrdinaryEditPreservesParseState(t *testing.T) {
+	lang, cLang := ccoreLanguages(t, "tsx")
+	source, edited := []byte("a<T>y"), []byte("a<T>z")
+	edit := g.InputEdit{
+		StartByte: 4, OldEndByte: 5, NewEndByte: 5,
+		StartPoint: g.Point{Column: 4}, OldEndPoint: g.Point{Column: 5}, NewEndPoint: g.Point{Column: 5},
+	}
+
+	parser := g.NewParser(lang)
+	old, err := parser.Parse(source)
+	if err != nil || old == nil {
+		t.Fatalf("initial TSX parse: %v", err)
+	}
+	defer old.Release()
+
+	reference := sitter.NewParser()
+	defer reference.Close()
+	if err := reference.SetLanguage(cLang); err != nil {
+		t.Fatal(err)
+	}
+	oldC := reference.Parse(source, nil)
+	if oldC == nil {
+		t.Fatal("pinned C returned no initial TSX tree")
+	}
+	defer oldC.Close()
+
+	oldOperator := oldC.RootNode().DescendantForByteRange(1, 2)
+	if oldOperator == nil || oldOperator.Kind() != "<" {
+		t.Fatal("initial C tree lacks the less-than token")
+	}
+	initialState := oldOperator.ParseState()
+	old.Edit(edit)
+	oldC.Edit(gradSitterEdit(edit))
+	_, freshBefore, incrBefore := bind.RouteCounters()
+	next, err := parser.ParseIncremental(edited, old)
+	if err != nil || next == nil {
+		t.Fatalf("incremental TSX parse: %v", err)
+	}
+	defer next.Release()
+	_, freshAfter, incrAfter := bind.RouteCounters()
+	if freshAfter != freshBefore || incrAfter != incrBefore+1 {
+		t.Fatalf("expected one ccore incremental parse, got fresh=%d incremental=%d",
+			freshAfter-freshBefore, incrAfter-incrBefore)
+	}
+
+	nextC := reference.Parse(edited, oldC)
+	if nextC == nil {
+		t.Fatal("pinned C returned no edited TSX tree")
+	}
+	defer nextC.Close()
+	op := next.RootNode().DescendantForByteRange(1, 2)
+	opC := nextC.RootNode().DescendantForByteRange(1, 2)
+	if op == nil || opC == nil || op.Type(lang) != "<" || opC.Kind() != "<" {
+		t.Fatal("incremental tree lacks the less-than token")
+	}
+	if want := opC.ParseState(); want == initialState || uint16(op.PreGotoState()) != want {
+		t.Fatalf("less-than pre-goto state %d, pinned incremental C %d, initial C %d",
+			op.PreGotoState(), want, initialState)
+	}
+}
