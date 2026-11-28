@@ -13,6 +13,9 @@ Rules for sync:
     A second failure edits the same issue and resets the green streak.
   * A passing target with an open issue gets a comment and a streak of N
     green nights. The issue closes at --close-after nights (default 3).
+  * With --discovered-json (the discover job's target list), an open issue
+    whose target is not in that list is closed: the target was removed or
+    moved, so no night can ever pass or fail it.
   * A leg that neither passed nor produced a crash (build error, cancel,
     runner loss) changes nothing.
 
@@ -181,6 +184,22 @@ def cmd_sync(a):
         m = MARKER_RE.search(issue.get("body") or "")
         if m and issue["title"].startswith(TITLE_PREFIX):
             existing[m.group(1)] = (issue["number"], int(m.group(2)))
+    if a.discovered_json:
+        discovered = {f"{t['package']}#{t['target']}" for t in json.loads(a.discovered_json)}
+        if not discovered:
+            print("discovered target list is empty, not closing issues for removed targets", file=sys.stderr)
+        else:
+            for target, (number, _) in sorted(existing.items(), key=lambda kv: kv[1][0]):
+                if target in discovered:
+                    continue
+                print(f"{target}: no longer discovered, close #{number}")
+                try:
+                    gh.run("issue", "comment", str(number), "--body-file", "-",
+                           stdin=f"The nightly run no longer has the fuzz target `{target}` "
+                                 f"(removed or moved). Closing. Run: {a.run_url}")
+                    gh.run("issue", "close", str(number), "--reason", "not planned")
+                except subprocess.CalledProcessError as e:
+                    print(f"{target}: gh failed: {(e.stderr or '').strip()}", file=sys.stderr)
     labeled = False
     for r in results:
         try:
@@ -240,6 +259,8 @@ def main():
     s.add_argument("--sha", default=os.environ.get("GITHUB_SHA", ""))
     s.add_argument("--run-url", default="")
     s.add_argument("--close-after", type=int, default=3)
+    s.add_argument("--discovered-json", default="",
+                   help="JSON list of {package, target} that the run discovered; closes issues for other targets")
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("--issues-json", help="dry-run only: open issues as gh would list them")
     s.set_defaults(fn=cmd_sync)

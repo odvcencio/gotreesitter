@@ -178,8 +178,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CLOSE_AFTER: ${{ github.event.inputs.close_after || '3' }}
+          DISCOVERED_TARGETS: ${{ needs.discover.outputs.targets }}
         run: |
           python3 .github/scripts/fuzz_issues.py sync --results fuzz-results \
             --repo "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            --close-after "$CLOSE_AFTER"
+            --close-after "$CLOSE_AFTER" \
+            --discovered-json "$DISCOVERED_TARGETS"
