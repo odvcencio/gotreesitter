@@ -114,7 +114,9 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 			rawDigest:   "9c04d41835d5bff3fcd1ca7db2f1279508819fcca287942813236091b0c3c088",
 			routeDigest: "9c04d41835d5bff3fcd1ca7db2f1279508819fcca287942813236091b0c3c088",
 			cDigest:     "9c04d41835d5bff3fcd1ca7db2f1279508819fcca287942813236091b0c3c088",
-			compactMode: "fallback", forestAccepted: false,
+			// The core serves this input (the shipped tables equal tree-sitter's);
+			// the earlier blob's compact route declined it.
+			compactMode: "accepted", forestAccepted: false,
 			production: goNextPassSetAll(0), compact: goNextPassSetAll(0), forest: goNextNoPass(), incremental: goNextPassSetAll(0),
 		},
 		{
@@ -128,18 +130,19 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 			production: goNextPassSetAll(0), compact: goNextNoPass(), forest: goNextPassSetAll(0), incremental: goNextPassSetAll(0),
 		},
 		{
-			name:        "new-make-types",
-			source:      []byte("package p\n\nfunc F() {\n\t_ = new(pkg.Type)\n\t_ = new(*T)\n\t_ = make(pkg.Type, 0)\n}\n"),
-			sourceSHA:   "9fc0b1f058672dbf42a643eab2c986e03f71dfc306a3ff0f2835cb9f89575710",
-			rawDigest:   "322f6d6db609c49fb8b09a52d2d9e9ae0853c56d2349bc89a9af1df8c6ca4374",
+			name:      "new-make-types",
+			source:    []byte("package p\n\nfunc F() {\n\t_ = new(pkg.Type)\n\t_ = new(*T)\n\t_ = make(pkg.Type, 0)\n}\n"),
+			sourceSHA: "9fc0b1f058672dbf42a643eab2c986e03f71dfc306a3ff0f2835cb9f89575710",
+			// On tables that equal tree-sitter's the raw route already equals C: the
+			// new()/make() argument pass has nothing to rewrite.
+			rawDigest:   "329fac609c64a2e338b8e0532b63dd6a38e3f1b6da311dab68e0eb3576a664a6",
 			routeDigest: "329fac609c64a2e338b8e0532b63dd6a38e3f1b6da311dab68e0eb3576a664a6",
 			cDigest:     "329fac609c64a2e338b8e0532b63dd6a38e3f1b6da311dab68e0eb3576a664a6",
 			compactMode: "accepted", forestAccepted: true,
-			production:  goNextPassSet{source: goNextPass(0), compat: goNextPass(0), newMake: goNextPass(9)},
+			production:  goNextPassSetAll(0),
 			compact:     goNextNoPass(),
-			forest:      goNextPassSet{source: goNextPass(0), compat: goNextPass(0), newMake: goNextPass(9)},
-			incremental: goNextPassSet{source: goNextPass(0), compat: goNextPass(0), newMake: goNextPass(9)},
-			rawDiff:     goNextDivergence("/source_file/function_declaration[1]/block[3]/statement_list[1]/assignment_statement[0]/expression_list[2]/call_expression[0]/argument_list[1]/selector_expression[1]", "type", "selector_expression", "qualified_type"),
+			forest:      goNextPassSetAll(0),
+			incremental: goNextPassSetAll(0),
 		},
 		{
 			name:        "recovery-control",
@@ -312,7 +315,7 @@ func goNextRunIncludedRanges(t *testing.T, language *gotreesitter.Language, cLan
 	if cDigest != "9c8e5bb506bb345a577beb351f7b9230cca5e2e02cc4fd619e21f607657f290f" {
 		t.Fatalf("included-ranges locked-C digest=%s", cDigest)
 	}
-	goNextCheckRoute(t, "included-ranges", goTree, language, cTree, cDigest, "77b9bfa23a9b7759e3b5dc6865c5859e2240eab9bf3773682fbfe4c9fbe39131", goNextDivergence("/source_file", "shape", "children=10", "children=7"), goNextPassSet{source: goNextPass(0), compat: goNextPass(25), newMake: goNextPass(0)})
+	goNextCheckRoute(t, "included-ranges", goTree, language, cTree, cDigest, "378a09670d502cba00cd61bb8c125cf231e1c5a943527a9d06c34b8c1e9502f7", goNextDivergence("/source_file/expression_statement[0]", "type", "expression_statement", "ERROR"), goNextPassSet{source: goNextPass(0), compat: goNextPass(25), newMake: goNextPass(0)})
 	if got := goTree.RootNode().Type(language); got != "source_file" {
 		t.Fatalf("included-ranges Go root=%q", got)
 	}

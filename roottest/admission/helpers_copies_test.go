@@ -4,6 +4,7 @@ package admission_test
 // Each entry names its source file in a "// from" comment.
 
 import (
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,6 +24,11 @@ func newAdmissionDFAParser(t *testing.T) (*gts.Parser, []byte) {
 			continue
 		}
 		lang := entry.Language()
+		if name == "go" {
+			// The shipped go blob is served by the certified core. These tests
+			// drive the older engine's routing, so they use the frozen artifact.
+			lang = frozengo.Language()
+		}
 		if grammars.EvaluateParseSupport(*entry, lang).Backend != grammars.ParseBackendDFA {
 			continue
 		}
