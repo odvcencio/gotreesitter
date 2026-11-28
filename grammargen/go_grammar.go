@@ -3,7 +3,12 @@
 package grammargen
 
 // GoGrammar returns the go grammar.
-func GoGrammar() *Grammar {
+func GoGrammar() *Grammar { return goGrammar(false) }
+
+// goGrammar builds the go grammar. With core false, statements end at the
+// external _automatic_semicolon token (the shipped recipe). With core true,
+// they end at the terminator of the upstream grammar text.
+func goGrammar(core bool) *Grammar {
 	g := NewGrammar("go")
 
 	g.Define("source_file",
@@ -12,17 +17,11 @@ func GoGrammar() *Grammar {
 				Choice(
 					Seq(
 						Sym("_statement"),
-						Choice(
-							Sym("_automatic_semicolon"),
-							Str(";"),
-						),
+						goTerminator(core),
 					),
 					Seq(
 						Sym("_top_level_declaration"),
-						Choice(
-							Sym("_automatic_semicolon"),
-							Str(";"),
-						),
+						goTerminator(core),
 					),
 				),
 			),
@@ -86,18 +85,12 @@ func GoGrammar() *Grammar {
 					Sym("import_spec"),
 					Repeat(
 						Seq(
-							Choice(
-								Sym("_automatic_semicolon"),
-								Str(";"),
-							),
+							goTerminator(core),
 							Sym("import_spec"),
 						),
 					),
 					Choice(
-						Choice(
-							Sym("_automatic_semicolon"),
-							Str(";"),
-						),
+						goTerminator(core),
 						Blank(),
 					),
 				),
@@ -123,10 +116,7 @@ func GoGrammar() *Grammar {
 					Repeat(
 						Seq(
 							Sym("const_spec"),
-							Choice(
-								Sym("_automatic_semicolon"),
-								Str(";"),
-							),
+							goTerminator(core),
 						),
 					),
 					Str(")"),
@@ -220,10 +210,7 @@ func GoGrammar() *Grammar {
 			Repeat(
 				Seq(
 					Sym("var_spec"),
-					Choice(
-						Sym("_automatic_semicolon"),
-						Str(";"),
-					),
+					goTerminator(core),
 				),
 			),
 			Str(")"),
@@ -439,10 +426,7 @@ func GoGrammar() *Grammar {
 							),
 							Repeat(
 								Seq(
-									Choice(
-										Sym("_automatic_semicolon"),
-										Str(";"),
-									),
+									goTerminator(core),
 									Choice(
 										Sym("type_spec"),
 										Sym("type_alias"),
@@ -450,10 +434,7 @@ func GoGrammar() *Grammar {
 								),
 							),
 							Choice(
-								Choice(
-									Sym("_automatic_semicolon"),
-									Str(";"),
-								),
+								goTerminator(core),
 								Blank(),
 							),
 						),
@@ -637,18 +618,12 @@ func GoGrammar() *Grammar {
 					Sym("field_declaration"),
 					Repeat(
 						Seq(
-							Choice(
-								Sym("_automatic_semicolon"),
-								Str(";"),
-							),
+							goTerminator(core),
 							Sym("field_declaration"),
 						),
 					),
 					Choice(
-						Choice(
-							Sym("_automatic_semicolon"),
-							Str(";"),
-						),
+						goTerminator(core),
 						Blank(),
 					),
 				),
@@ -709,18 +684,12 @@ func GoGrammar() *Grammar {
 					Sym("_interface_elem"),
 					Repeat(
 						Seq(
-							Choice(
-								Sym("_automatic_semicolon"),
-								Str(";"),
-							),
+							goTerminator(core),
 							Sym("_interface_elem"),
 						),
 					),
 					Choice(
-						Choice(
-							Sym("_automatic_semicolon"),
-							Str(";"),
-						),
+						goTerminator(core),
 						Blank(),
 					),
 				),
@@ -843,19 +812,13 @@ func GoGrammar() *Grammar {
 				Sym("_statement"),
 				Repeat(
 					Seq(
-						Choice(
-							Sym("_automatic_semicolon"),
-							Str(";"),
-						),
+						goTerminator(core),
 						Sym("_statement"),
 					),
 				),
 				Choice(
 					Seq(
-						Choice(
-							Sym("_automatic_semicolon"),
-							Str(";"),
-						),
+						goTerminator(core),
 						Choice(
 							Alias(
 								Sym("empty_labeled_statement"),
@@ -2681,9 +2644,11 @@ func GoGrammar() *Grammar {
 		[]string{"type_parameter_declaration", "_simple_type", "generic_type", "_expression"},
 	)
 
-	g.SetExternals(
-		Sym("_automatic_semicolon"),
-	)
+	if !core {
+		g.SetExternals(
+			Sym("_automatic_semicolon"),
+		)
+	}
 
 	g.SetInline("_type", "_type_identifier", "_field_identifier", "_package_identifier", "_top_level_declaration", "_string_literal", "_interface_elem")
 
@@ -2724,27 +2689,34 @@ func GoGrammar() *Grammar {
 
 	g.SetSupertypes("_expression", "_type", "_simple_type", "_statement", "_simple_statement")
 
-	g.SeparateErrorLexMode = true
+	if !core {
+		g.SeparateErrorLexMode = true
 
-	g.RecoveryLookaheadTokens = []string{
-		":",
+		g.RecoveryLookaheadTokens = []string{
+			":",
+		}
 	}
 
 	return g
 }
 
-// GoCoreGrammar builds Go's grammar with an internal line-terminator lexer for
-// ccore. It uses the same syntax rules as GoGrammar.
+// goTerminator is the end of a statement or declaration. The upstream text
+// writes choice("\n", ";", "\0") at each use; the shipped recipe replaces the
+// newline and NUL alternatives with the external _automatic_semicolon token.
+func goTerminator(core bool) *Rule {
+	if core {
+		return Choice(Pat(`\n`), Str(";"), Str("\x00"))
+	}
+	return Choice(Sym("_automatic_semicolon"), Str(";"))
+}
+
+// GoCoreGrammar builds Go's grammar as the upstream grammar text states it:
+// no external token, and the terminator choice("\n", ";", "\0") at each use.
+// internal/tablebuild builds its tables.
 func GoCoreGrammar() *Grammar {
-	g := GoGrammar()
-	g.Externals = nil
-	// The pinned C lexer consumes adjacent newlines as one terminator. The
-	// NUL alternative remains distinct from the physical end-of-input token.
-	g.Define("_automatic_semicolon", Choice(Pat(`\n+`), Str("\x00")))
-	g.Inline = append(g.Inline, "_automatic_semicolon")
-	g.ExplicitLexerEOF = true
-	g.CCompatibleParseActions = true
-	// Keep an aliased field identifier out of a linear repeat's rotation slots.
-	g.BinaryRepeatForParents = []string{"field_declaration"}
+	g := goGrammar(true)
+	g.TableBuilder = TableBuilderTreeSitter
+	// tree-sitter-go's tree-sitter.json, version 0.25.0.
+	g.Version = [3]uint8{0, 25, 0}
 	return g
 }

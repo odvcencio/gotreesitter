@@ -3,17 +3,17 @@
 package cgoharness
 
 import (
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
 func TestGoCompactRecoveryVersionTurnsLockedC(t *testing.T) {
 	gts.ResetAdmissionCandidateCounters()
 	// Require the actual artifact profile without adding diagnostic grants.
-	language := *grammars.GoLanguage()
+	language := *frozengo.Language()
 	if !language.CompactOwnedEOFRecoveryCertified {
 		t.Fatal("Go artifact has no owned EOF recovery profile")
 	}

@@ -83,7 +83,7 @@ func TestStage6JavaScriptCompactCertification(t *testing.T) {
 			edited[offset] = '2'
 			edit := gotreesitter.InputEdit{
 				StartByte: uint32(offset), OldEndByte: uint32(offset + 1), NewEndByte: uint32(offset + 1),
-				StartPoint: pointAtOffset(tc.source, offset), OldEndPoint: pointAtOffset(tc.source, offset + 1), NewEndPoint: pointAtOffset(edited, offset + 1),
+				StartPoint: pointAtOffset(tc.source, offset), OldEndPoint: pointAtOffset(tc.source, offset+1), NewEndPoint: pointAtOffset(edited, offset+1),
 			}
 			fresh.Edit(edit)
 			incremental, profile, err := parser.ParseIncrementalProfiled(edited, fresh)

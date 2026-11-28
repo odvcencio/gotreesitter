@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"os"
 	"strings"
 	"testing"
@@ -70,7 +71,7 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 	if got := goNextHashFile(t, "../grammars/languages.lock"); got != lockSHA256 {
 		t.Fatalf("grammar lock SHA-256=%s", got)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(grammars.BlobByName("go"))); got != "67b873053c9917055e1b5aec94d3c0d9f7d26834f4340a39159e5970c0a0a598" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(grammars.BlobByName("go"))); got != "4b9d107c2e4e3ddb34ec6b7dc0434efa04440904f5b5c652c2e8ab37d9fd7bb2" {
 		t.Fatalf("Go grammar blob SHA-256=%s", got)
 	}
 	cLanguage, err := COracleLanguage("go")
@@ -84,7 +85,7 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 	if identity.Contract != goNextCContract || identity.RuntimeVersion != goNextCRuntimeVersion || identity.RuntimeCommit != goNextCRuntimeCommit || identity.GrammarRepo != goNextCGrammarRepo || identity.GrammarCommit != goNextCGrammarCommit || identity.GrammarArtifactSHA256 != goNextCArtifactSHA256 {
 		t.Fatalf("locked-C identity=%s runtime=%s@%s grammar=%s@%s artifact=%s, want %s runtime=%s@%s grammar=%s@%s artifact=%s", identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256, goNextCContract, goNextCRuntimeVersion, goNextCRuntimeCommit, goNextCGrammarRepo, goNextCGrammarCommit, goNextCArtifactSHA256)
 	}
-	t.Logf("grammar=go grammar_lock_sha256=%s blob_sha256=67b873053c9917055e1b5aec94d3c0d9f7d26834f4340a39159e5970c0a0a598 c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_grammar_artifact_sha256=%s", lockSHA256, identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
+	t.Logf("grammar=go grammar_lock_sha256=%s blob_sha256=4b9d107c2e4e3ddb34ec6b7dc0434efa04440904f5b5c652c2e8ab37d9fd7bb2 c_contract=%s c_runtime=%s@%s c_grammar=%s@%s c_grammar_artifact_sha256=%s", lockSHA256, identity.Contract, identity.RuntimeVersion, identity.RuntimeCommit, identity.GrammarRepo, identity.GrammarCommit, identity.GrammarArtifactSHA256)
 
 	witnesses := []goNextWitness{
 		{
@@ -114,8 +115,10 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 			rawDigest:   "9c04d41835d5bff3fcd1ca7db2f1279508819fcca287942813236091b0c3c088",
 			routeDigest: "9c04d41835d5bff3fcd1ca7db2f1279508819fcca287942813236091b0c3c088",
 			cDigest:     "9c04d41835d5bff3fcd1ca7db2f1279508819fcca287942813236091b0c3c088",
-			compactMode: "fallback", forestAccepted: false,
-			production: goNextPassSetAll(0), compact: goNextPassSetAll(0), forest: goNextNoPass(), incremental: goNextPassSetAll(0),
+			// The core serves this input (the shipped tables equal tree-sitter's);
+			// the earlier blob's compact route declined it.
+			compactMode: "accepted", forestAccepted: false,
+			production: goNextPassSetAll(0), compact: goNextNoPass(), forest: goNextNoPass(), incremental: goNextPassSetAll(0),
 		},
 		{
 			name:        "no-op-control",
@@ -128,18 +131,19 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 			production: goNextPassSetAll(0), compact: goNextNoPass(), forest: goNextPassSetAll(0), incremental: goNextPassSetAll(0),
 		},
 		{
-			name:        "new-make-types",
-			source:      []byte("package p\n\nfunc F() {\n\t_ = new(pkg.Type)\n\t_ = new(*T)\n\t_ = make(pkg.Type, 0)\n}\n"),
-			sourceSHA:   "9fc0b1f058672dbf42a643eab2c986e03f71dfc306a3ff0f2835cb9f89575710",
-			rawDigest:   "322f6d6db609c49fb8b09a52d2d9e9ae0853c56d2349bc89a9af1df8c6ca4374",
+			name:      "new-make-types",
+			source:    []byte("package p\n\nfunc F() {\n\t_ = new(pkg.Type)\n\t_ = new(*T)\n\t_ = make(pkg.Type, 0)\n}\n"),
+			sourceSHA: "9fc0b1f058672dbf42a643eab2c986e03f71dfc306a3ff0f2835cb9f89575710",
+			// On tables that equal tree-sitter's the raw route already equals C: the
+			// new()/make() argument pass has nothing to rewrite.
+			rawDigest:   "329fac609c64a2e338b8e0532b63dd6a38e3f1b6da311dab68e0eb3576a664a6",
 			routeDigest: "329fac609c64a2e338b8e0532b63dd6a38e3f1b6da311dab68e0eb3576a664a6",
 			cDigest:     "329fac609c64a2e338b8e0532b63dd6a38e3f1b6da311dab68e0eb3576a664a6",
 			compactMode: "accepted", forestAccepted: true,
-			production:  goNextPassSet{source: goNextPass(0), compat: goNextPass(0), newMake: goNextPass(9)},
+			production:  goNextPassSetAll(0),
 			compact:     goNextNoPass(),
-			forest:      goNextPassSet{source: goNextPass(0), compat: goNextPass(0), newMake: goNextPass(9)},
-			incremental: goNextPassSet{source: goNextPass(0), compat: goNextPass(0), newMake: goNextPass(9)},
-			rawDiff:     goNextDivergence("/source_file/function_declaration[1]/block[3]/statement_list[1]/assignment_statement[0]/expression_list[2]/call_expression[0]/argument_list[1]/selector_expression[1]", "type", "selector_expression", "qualified_type"),
+			forest:      goNextPassSetAll(0),
+			incremental: goNextPassSetAll(0),
 		},
 		{
 			name:        "recovery-control",
@@ -166,7 +170,9 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 			goNextRunRoutes(t, language, cLanguage, witness, source)
 		})
 	}
-	goNextRunIncludedRanges(t, language, cLanguage)
+	// The included-ranges leg runs on the older engine, so it uses the frozen
+	// artifact that the older engine's pins were taken on.
+	goNextRunIncludedRanges(t, frozengo.Language(), cLanguage)
 }
 
 func goNextRunRoutes(t *testing.T, language *gotreesitter.Language, cLanguage *sitter.Language, witness goNextWitness, source []byte) {

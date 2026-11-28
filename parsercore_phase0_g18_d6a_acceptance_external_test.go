@@ -120,7 +120,7 @@ func g18D6aTargets(t *testing.T) []g18D6aTarget {
 	}
 	targets := make([]g18D6aTarget, 0, 9)
 	for _, fixture := range fixtures {
-		targets = append(targets, g18D6aTarget{"go", fixture.Fixture.ID, fixture.Source, grammars.GoLanguage})
+		targets = append(targets, g18D6aTarget{"go", fixture.Fixture.ID, fixture.Source, func() *gts.Language { return frozenCompactGoLanguage(t) }})
 	}
 	targets = append(targets,
 		g18D6aTarget{"erlang", "macro_function_clauses", []byte("-module(m).\n-define(FN, foo(0) -> zero; foo(N) when N > 0 -> pos; foo(_) -> neg).\n?FN.\n"), grammars.ErlangLanguage},
@@ -417,7 +417,7 @@ func TestG18D6bGrammargenLRNoCommonDerivationFallsBack(t *testing.T) {
 		t.Fatal("grammargen_lr fixture is unavailable")
 	}
 
-	language := g18D6aCloneLanguage(grammars.GoLanguage())
+	language := g18D6aCloneLanguage(frozenCompactGoLanguage(t))
 	language.CompactConvergedReductionSplitDropsCertified = false
 	// Inspect one candidate frontier and fallback, without recovery retries.
 	language.CompactOwnedEOFRecoveryCertified = false
@@ -465,7 +465,7 @@ func TestG18D6bGrammargenLRNoCommonDerivationFallsBack(t *testing.T) {
 		t.Fatalf("candidate tree is not exact locked-C parity: %v", err)
 	}
 
-	productionLanguage := g18D6aCloneLanguage(grammars.GoLanguage())
+	productionLanguage := g18D6aCloneLanguage(frozenCompactGoLanguage(t))
 	productionParser := gts.NewParser(productionLanguage)
 	productionParser.SetAdmissionCandidateRoute(false)
 	production, err := productionParser.Parse(fixture.Source)

@@ -65,7 +65,7 @@ func writeTwice(t *testing.T, name string, args ...string) scannercert.Report {
 }
 
 func TestRunWritesOneDeterministicReportPerGrammar(t *testing.T) {
-	for _, name := range []string{"lua", "go"} {
+	for _, name := range []string{"lua", "css"} {
 		report := writeTwice(t, name, "-session=false")
 		corpus, err := scannercert.LoadCorpus(root, name, scannercert.CorpusOptions{})
 		if err != nil {
@@ -103,12 +103,12 @@ func TestRunPrintsASingleReportToStandardOutput(t *testing.T) {
 
 // The command fails any report whose parse the recorder changed, so these
 // grammars must come out transparent. Each has a different mix of the optional
-// scanner interfaces the recorder forwards: stateless and failure-preserving
-// (go), failure-retaining with checkpoints (swift), checkpoints that preserve
+// scanner interfaces the recorder forwards: css (it took the place of go, which
+// has no external scanner now), failure-retaining with checkpoints (swift), checkpoints that preserve
 // failures (html), checkpoint identity (scala), an error-mode retry opinion
 // (matlab), a packed-GSS opinion (dart), and none (bash, lua).
 func TestRecordingLeavesTheParseUnchanged(t *testing.T) {
-	for _, name := range []string{"go", "swift", "html", "scala", "matlab", "dart", "bash", "lua"} {
+	for _, name := range []string{"css", "swift", "html", "scala", "matlab", "dart", "bash", "lua"} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			if _, _, err := runCLI(t, "-language", name, "-session=false", "-out", dir); err != nil {
@@ -257,7 +257,7 @@ func TestListNamesGrammarsThatHaveAScannerAndASample(t *testing.T) {
 	for _, name := range strings.Fields(stdout) {
 		listed[name] = true
 	}
-	for _, name := range []string{"lua", "yaml", "bash", "go"} {
+	for _, name := range []string{"lua", "yaml", "bash", "css"} {
 		if !listed[name] {
 			t.Fatalf("-list omits %s: %q", name, stdout)
 		}

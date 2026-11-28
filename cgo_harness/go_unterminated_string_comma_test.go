@@ -4,15 +4,15 @@ package cgoharness
 
 import (
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
 func TestGoUnterminatedStringCommaMatchesLockedC(t *testing.T) {
-	lang := grammars.GoLanguage()
+	lang := frozengo.Language()
 	cLang, err := COracleLanguage("go")
 	if err != nil {
 		t.Fatal(err)

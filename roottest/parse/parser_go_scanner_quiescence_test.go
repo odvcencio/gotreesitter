@@ -24,6 +24,7 @@ package parse_test
 import (
 	"bytes"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -126,7 +127,7 @@ func w4TreeIsGenuinelyClean(root *gts.Node, editedLen int) bool {
 // incremental == fresh byte-for-byte on every freshly-clean ASI-edge site and
 // that the scanner gate never blocks or rejects Go reuse.
 func TestGoScannerQuiescenceOracleSweep(t *testing.T) {
-	lang := grammars.GoLanguage()
+	lang := frozengo.Language()
 	editClasses := []string{"insert", "delete", "replace"}
 
 	var totalSites, cleanSites, reusedSites int
@@ -229,7 +230,7 @@ func TestGoScannerQuiescenceOracleSweep(t *testing.T) {
 // ReuseRejectScannerUnquiescent is 0. This is the measured basis for the W4
 // binding-constraint verdict.
 func TestGoNearTopInsertScannerGateNotBinding(t *testing.T) {
-	lang := grammars.GoLanguage()
+	lang := frozengo.Language()
 	var b bytes.Buffer
 	b.WriteString("package p\n\n")
 	for i := 0; i < 60; i++ {

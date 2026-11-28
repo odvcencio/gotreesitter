@@ -2,12 +2,12 @@ package parsercorephase0_test
 
 import (
 	"errors"
+	"os"
 	"reflect"
 	"slices"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
@@ -176,7 +176,18 @@ func (a gotreesitterTableAdapter) lookup(state core.StateID, symbol core.Symbol)
 // too. Only `type_identifier` renumbers, 229 -> 225, because the table
 // dropped 4 symbols overall (233 -> 229) ahead of it.
 func TestRealGoTableAdapterPreservesPinnedProperties(t *testing.T) {
-	lang := grammars.GoLanguage()
+	// The pinned cells are those of the frozen Go artifact (../frozengo/go.bin, the
+	// blob that declares _automatic_semicolon), which the compact scheduler was
+	// certified against. The shipped go blob is built from upstream's grammar
+	// text and numbers its states and symbols differently.
+	frozen, err := os.ReadFile("../frozengo/go.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lang, err := gts.LoadLanguage(frozen)
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter := gotreesitterTableAdapter{language: lang}
 	compact, err := core.New(adapter, core.Limits{MaxDerivations: 8, MaxPopPaths: 8})
 	if err != nil {

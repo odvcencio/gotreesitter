@@ -204,9 +204,14 @@ var knownPreExistingSymbolDrift = map[string]map[string]string{}
 // (angular, astro, blade, html, svelte, vue for blade_scanner.go; arduino,
 // cpp, cuda, hlsl for rawstring_scanner.go) are checked normally through
 // their own scanner files via the one-level indirection resolved below.
+//
+// go_scanner.go is listed too: it is registered for no language. The shipped go
+// blob has no external token; the type serves only the compact scheduler's
+// frozen Go artifact.
 var scannerHelperFiles = map[string]bool{
 	"blade_scanner.go":     true,
 	"rawstring_scanner.go": true,
+	"go_scanner.go":        true,
 }
 
 // scannerFileLanguageOverrides maps a *_scanner.go file name to its
@@ -262,7 +267,6 @@ var loadBoundLanguagesWithDedicatedPinTests = map[string]bool{
 	"cpp":             true,
 	"elixir":          true,
 	"elm":             true,
-	"go":              true,
 	"haskell":         true,
 	"julia":           true,
 	"lua":             true,

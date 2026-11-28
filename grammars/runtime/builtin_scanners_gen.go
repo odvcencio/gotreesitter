@@ -50,7 +50,6 @@ func RegisterBuiltinScanners() {
 	RegisterGitcommitSupport()
 	RegisterGleamSupport()
 	RegisterGnSupport()
-	RegisterGoSupport()
 	RegisterGodot_resourceSupport()
 	RegisterHackSupport()
 	RegisterHaskellSupport()

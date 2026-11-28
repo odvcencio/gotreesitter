@@ -3,6 +3,7 @@
 package cgoharness
 
 import (
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -17,7 +18,7 @@ func TestGoCompactDeclineProfileReportsSelectedTreeReuse(t *testing.T) {
 		if test.spec.Name != "same_line_length_change" {
 			continue
 		}
-		lang := canonicalIncrementalGoLanguage(t, "go")
+		lang := frozengo.Language()
 		cParser := sitter.NewParser()
 		t.Cleanup(cParser.Close)
 		if err := cParser.SetLanguage(loadCanonicalGoCLanguage(t)); err != nil {

@@ -410,10 +410,9 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"dispatch.go.compat-walk",
 				"dispatch.go.new-make-type",
 			},
-			rewrittenSubpasses: []string{
-				"dispatch.go",
-				"dispatch.go.new-make-type",
-			},
+			// The shipped Go tables equal tree-sitter's, so the raw tree already
+			// types the argument and the pass reaches the node and rewrites nothing.
+			rewrittenSubpasses: []string{},
 		},
 		{
 			// Pins the Kotlin arm's recovered-root subpass id and its

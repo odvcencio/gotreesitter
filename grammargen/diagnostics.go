@@ -1106,6 +1106,9 @@ func generateWithReportCtx(bgCtx context.Context, g *Grammar, opts reportBuildOp
 	if opts.disableLexStateMinimize {
 		bgCtx = withLexMinimizeDisabled(bgCtx)
 	}
+	if g.TableBuilder != "" {
+		return generateWithTableBuilder(g, opts)
+	}
 	report := &GenerateReport{}
 	trace := newPhaseTrace(g)
 

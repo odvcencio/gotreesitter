@@ -441,7 +441,7 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 
 func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(t *testing.T) {
 	source := parserCoreGenericRewriteSource(t)
-	if !grammars.GoLanguage().CompactConvergedReductionSplitDropsCertified {
+	if !frozenCompactGoLanguage(t).CompactConvergedReductionSplitDropsCertified {
 		t.Fatal("authenticated Go diagnostic lost its exact-blob split-drop certificate")
 	}
 	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
@@ -487,7 +487,7 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 		}) || len(result.GenericScheduler.Elections) != 1036 || len(result.GenericScheduler.Rounds) != 2435 || len(result.GenericScheduler.NoActionDrops) != 166 || len(result.GenericScheduler.ExternalShifts) != 83 {
 		t.Fatalf("acceptance receipt drifted: result=%+v acceptance=%+v", result, acceptance)
 	}
-	inspection, err := benchfixtures.InspectGoTree(result.MaterializedTree.RootNode(), grammars.GoLanguage())
+	inspection, err := benchfixtures.InspectGoTree(result.MaterializedTree.RootNode(), frozenCompactGoLanguage(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -499,15 +499,15 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 		t.Fatalf("selected nodes=%d, receipt=%d", selectedNodes, acceptance.SelectedNodes)
 	}
 	root := result.MaterializedTree.RootNode()
-	if inspection.SHA256 != "b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1" || root.Type(grammars.GoLanguage()) != "source_file" || root.StartByte() != 0 || root.EndByte() != uint32(len(source)) || root.HasError() {
-		t.Fatalf("materialized tree drifted: digest=%s root=%s %d..%d has_error=%v", inspection.SHA256, root.Type(grammars.GoLanguage()), root.StartByte(), root.EndByte(), root.HasError())
+	if inspection.SHA256 != "b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1" || root.Type(frozenCompactGoLanguage(t)) != "source_file" || root.StartByte() != 0 || root.EndByte() != uint32(len(source)) || root.HasError() {
+		t.Fatalf("materialized tree drifted: digest=%s root=%s %d..%d has_error=%v", inspection.SHA256, root.Type(frozenCompactGoLanguage(t)), root.StartByte(), root.EndByte(), root.HasError())
 	}
 	runtime := result.MaterializedTree.ParseRuntime()
 	if runtime.StopReason != gotreesitter.ParseStopAccepted || runtime.Truncated || runtime.SourceLen != uint32(len(source)) || runtime.ExpectedEOFByte != uint32(len(source)) || runtime.RootEndByte != uint32(len(source)) || !runtime.LastTokenWasEOF {
 		t.Fatalf("materialized runtime is not an authenticated full-span accept: %s", runtime.Summary())
 	}
 	edited := append(append([]byte(nil), source...), '\n')
-	fallback, profile, err := gotreesitter.NewParser(grammars.GoLanguage()).ParseIncrementalProfiled(edited, result.MaterializedTree)
+	fallback, profile, err := gotreesitter.NewParser(frozenCompactGoLanguage(t)).ParseIncrementalProfiled(edited, result.MaterializedTree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -530,7 +530,7 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 		if err != nil || next.MaterializedTree == nil || !reflect.DeepEqual(result.GenericScheduler, next.GenericScheduler) {
 			t.Fatalf("acceptance run %d drifted: next=%+v err=%v", run, next.GenericScheduler, err)
 		}
-		nextInspection, inspectErr := benchfixtures.InspectGoTree(next.MaterializedTree.RootNode(), grammars.GoLanguage())
+		nextInspection, inspectErr := benchfixtures.InspectGoTree(next.MaterializedTree.RootNode(), frozenCompactGoLanguage(t))
 		nextRoot := next.MaterializedTree.RootNode()
 		nextRuntime := next.MaterializedTree.ParseRuntime()
 		if inspectErr != nil || nextInspection.SHA256 != inspection.SHA256 || nextRoot.StartByte() != 0 || nextRoot.EndByte() != uint32(len(source)) || nextRoot.HasError() ||
@@ -591,7 +591,7 @@ func TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite(t *testing.T) {
 			result.MaterializedTree.Release()
 			t.Fatalf("run %d summary aggregates drifted: result=%+v acceptance=%+v", run, result, acceptance)
 		}
-		inspection, inspectErr := benchfixtures.InspectGoTree(result.MaterializedTree.RootNode(), grammars.GoLanguage())
+		inspection, inspectErr := benchfixtures.InspectGoTree(result.MaterializedTree.RootNode(), frozenCompactGoLanguage(t))
 		root := result.MaterializedTree.RootNode()
 		selectedNodes := uint64(0)
 		for _, count := range inspection.NodeKinds {

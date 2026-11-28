@@ -127,7 +127,7 @@ func reportV2Differential(t *testing.T, result v2DifferentialResult) {
 // reusing the same frozen, authenticated embedded fixtures as
 // TestDiagnosticParserCoreCanonicalAdmissions.
 func TestB4bV2OptInDeciderDifferentialCanonicalFixtures(t *testing.T) {
-	lang := grammars.GoLanguage()
+	lang := frozenCompactGoLanguage(t)
 	loaded, err := benchfixtures.LoadGoFullParseFixtures()
 	if err != nil {
 		t.Fatalf("load canonical Go fixtures: %v", err)

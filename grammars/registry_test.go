@@ -11,6 +11,13 @@ func isRegisteredLanguage(name string) bool {
 	return lookupByName(name) != nil
 }
 
+// tableBuilderBlobs are the grammargen-owned blobs that grammargen builds with
+// internal/tablebuild (Grammar.TableBuilder). Their tables equal the
+// tree-sitter generator's, so a decoded Language is not marked
+// GeneratedByGrammargen: that flag selects the runtime's handling of tables
+// that the legacy generator wrote.
+var tableBuilderBlobs = map[string]bool{"go": true}
+
 func TestGrammargenBlobProvenance(t *testing.T) {
 	for _, name := range []string{"go", "regex", "swift"} {
 		t.Run(name, func(t *testing.T) {
@@ -30,6 +37,12 @@ func TestGrammargenBlobProvenance(t *testing.T) {
 			lang := entry.Language()
 			if lang == nil {
 				t.Fatal("registry language loader returned nil")
+			}
+			if tableBuilderBlobs[name] {
+				if lang.GeneratedByGrammargen {
+					t.Fatal("decoded blob built by the tree-sitter table builder is marked GeneratedByGrammargen")
+				}
+				return
 			}
 			if !lang.GeneratedByGrammargen {
 				t.Fatal("decoded blob is not marked GeneratedByGrammargen")

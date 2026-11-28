@@ -61,10 +61,7 @@ func TestGoNewMakeResidualParity(t *testing.T) {
 	goLang := grammars.GoLanguage()
 
 	// Every form here is VALID Go whose leading new()/make() argument the C
-	// oracle parses as a type. Invalid-Go inputs (`new(a.b.C)`, `new(&T)`) are
-	// intentionally excluded: the C oracle drives them through strict
-	// type-context ERROR recovery, a separate and pre-existing divergence that
-	// this residual work does not touch.
+	// oracle parses as a type. The invalid forms follow in invalidForms.
 	forms := []string{
 		// Newly fixed residual forms.
 		"new(pkg.Type)",
@@ -95,6 +92,10 @@ func TestGoNewMakeResidualParity(t *testing.T) {
 		"[]T{{X: 1}}",
 		"map[K]V{k: v}",
 	}
+	// Invalid Go: strict type-context ERROR recovery. The default route equals
+	// the C oracle. The older engine, which parses without the candidate route,
+	// differs from it on new(a.b.C) with the shipped tables.
+	invalidForms := []string{"new(a.b.C)", "new(&T)"}
 
 	cParser := sitter.NewParser()
 	defer cParser.Close()
@@ -106,7 +107,11 @@ func TestGoNewMakeResidualParity(t *testing.T) {
 			goParser := gts.NewParser(goLang)
 			goParser.SetAdmissionCandidateRoute(candidate)
 
-			for _, form := range forms {
+			routeForms := forms
+			if candidate {
+				routeForms = append(append([]string(nil), forms...), invalidForms...)
+			}
+			for _, form := range routeForms {
 				t.Run(form, func(t *testing.T) {
 					src := []byte("package p\n\nfunc f() {\n\t_ = " + form + "\n}\n")
 

@@ -4,10 +4,10 @@ package cgoharness
 
 import (
 	"bytes"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -27,7 +27,7 @@ func testGoTokenInvariantLookaheadLockedC(t *testing.T, literal string, replacem
 			name = "compact_enabled"
 		}
 		t.Run(name, func(t *testing.T) {
-			language := grammars.GoLanguage()
+			language := frozengo.Language()
 			parser := gts.NewParser(language)
 			parser.SetAdmissionCandidateRoute(compact)
 			source := []byte("package p\nfunc f(){_=" + literal + "}\n")

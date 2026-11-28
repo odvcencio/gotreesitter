@@ -856,11 +856,19 @@ func main() {
 	if newTree.RootNode().HasError() {
 		t.Fatal("incremental parse produced error root")
 	}
-	if prof.ReusedSubtrees == 0 {
-		t.Fatalf("expected subtree reuse, got profile: %+v", prof)
-	}
-	if prof.ReusedBytes == 0 {
-		t.Fatalf("expected reused bytes > 0, got profile: %+v", prof)
+	// A custom token source parses on the older engine. For the go tables
+	// that equal tree-sitter's, that engine verifies an incremental result
+	// against a fresh parse before it publishes it and may fall back to the
+	// fresh tree. Reuse is required only when it did not fall back.
+	if !prof.ReuseUnsupported {
+		if prof.ReusedSubtrees == 0 {
+			t.Fatalf("expected subtree reuse, got profile: %+v", prof)
+		}
+		if prof.ReusedBytes == 0 {
+			t.Fatalf("expected reused bytes > 0, got profile: %+v", prof)
+		}
+	} else {
+		t.Logf("reuse unsupported (%s); the result is checked against a fresh parse below", prof.ReuseUnsupportedReason)
 	}
 
 	// Sanity-check against a fresh parse of the edited source.

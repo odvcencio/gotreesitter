@@ -165,20 +165,19 @@ func TestScalaProfileCertifiesPackageTwoRecovery(t *testing.T) {
 	}
 }
 
-func TestBuiltinGoMissingVersionTurnsRequireExactBlobIdentity(t *testing.T) {
+func TestBuiltinGoProfileCarriesNoMissingVersionTurnGrant(t *testing.T) {
 	lang := GoLanguage()
-	if !lang.RecoveryMissingVersionTurnsCertified {
-		t.Fatal("built-in Go artifact lacks its missing-version scheduling grant")
+	if lang.RecoveryMissingVersionTurnsCertified {
+		t.Fatal("the Go blob built from the upstream grammar text received the earlier blob's missing-version scheduling grant")
 	}
 	identity := sha256.Sum256(BlobByName("go"))
-	identity[0] ^= 1
-	custom := &gotreesitter.Language{Name: "go"}
-	if attachBuiltinLanguageRuntimeProfile("go", identity, custom) || custom.RecoveryMissingVersionTurnsCertified {
-		t.Fatal("a different Go artifact received missing-version scheduling")
+	exact := &gotreesitter.Language{Name: "go"}
+	if !attachBuiltinLanguageRuntimeProfile("go", identity, exact) || exact.RecoveryMissingVersionTurnsCertified {
+		t.Fatal("the exact Go blob's profile must attach and must not grant missing-version scheduling")
 	}
 	other := &gotreesitter.Language{Name: "custom"}
-	if attachBuiltinLanguageRuntimeProfile("custom", sha256.Sum256(BlobByName("go")), other) || other.RecoveryMissingVersionTurnsCertified {
-		t.Fatal("the Go artifact granted missing-version scheduling to a custom language")
+	if attachBuiltinLanguageRuntimeProfile("custom", identity, other) || other.RecoveryMissingVersionTurnsCertified {
+		t.Fatal("the Go artifact granted a profile to a custom language")
 	}
 }
 
@@ -520,7 +519,6 @@ func TestBuiltinCompactConvergedSplitProfilesRequireExactBlobIdentity(t *testing
 	}{
 		{name: "bash", load: BashLanguage},
 		{name: "erlang", load: ErlangLanguage},
-		{name: "go", load: GoLanguage},
 		{name: "haskell", load: HaskellLanguage},
 		{name: "javascript", load: JavascriptLanguage},
 		{name: "python", load: PythonLanguage},

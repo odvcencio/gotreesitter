@@ -112,33 +112,27 @@ Set `TREE_SITTER_JS_RUNTIME=native` to use the native runtime in Tree-sitter
 The canonical JSON keeps external token declarations. Register a compatible Go
 external scanner when you load the generated blob.
 
-Go's blob is generated without `-lr-split`:
+Go's blob is built by `internal/tablebuild`, which ports the tree-sitter
+generator's table builder (release v0.27.1). The Go grammar sets
+`Grammar.TableBuilder` to `grammargen.TableBuilderTreeSitter`: the builder reads
+the grammar's `grammar.json` text (`ExportGrammarJSON`) and nothing else, and it
+has no `-lr-split` option.
 
 ```sh
 go run ./cmd/grammargen emit go -bin grammars/grammar_blobs/go.bin
 ```
 
-`-lr-split` is a no-op for the current `go` grammar shape (byte-identical
-output with or without the flag) up until it has an external symbol. As soon
-as `GoGrammar()` declares one (`_automatic_semicolon`, see
-grammars/go_scanner.go), `-lr-split` stops being a no-op. It then produces a
-markedly different, larger LR(1) table via `usePreciseExternalBuilder` in
-lr.go. That table hangs (unbounded C-recovery-cost-competition full-parse
-retries) on ordinary inputs as small as `if err != nil { foo() }`. Keep Go on
-the plain LALR path (no `-lr-split`) unless that interaction is specifically
-investigated and fixed.
+`GoCoreGrammar()` writes the upstream grammar text rule for rule, with no
+external token. `TestGoCoreGrammarEqualsPinnedGrammarJSON` compares it with
+tree-sitter-go's pinned `grammar.json`, and `TestGoCoreBlobEqualsPinnedTables`
+compares the built tables with the pinned `parser.c`. `GoGrammar()` is the
+older recipe with the external `_automatic_semicolon` token (see
+grammars/go_scanner.go); it stays for grammars that extend it.
 
 Generate the YAML ccore candidate from the owned DSL:
 
 ```sh
 go run ./cmd/grammargen emit yaml-core -bin yaml-core.bin
-```
-
-Generate the Go ccore candidate from the same DSL with the internal
-line-terminator lexer:
-
-```sh
-go run ./cmd/grammargen emit go-core -bin go-core.bin
 ```
 
 ## Go DSL

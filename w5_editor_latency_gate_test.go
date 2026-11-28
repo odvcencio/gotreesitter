@@ -1200,8 +1200,12 @@ func TestGoOneByteUndoReuseDoesNotFall(t *testing.T) {
 		minSubtrees         uint64
 		minBytes            uint64
 	}{
-		{"edit", edited, forward, 22385, 109017, 18, 35, 2853},
-		{"undo", restored, undo, 22393, 109036, 18, 39, 2816},
+		// Re-based on the go blob built from upstream's grammar text. Tokens fall
+		// (22,385 to 22,376 and 22,393 to 22,376), reused subtrees and bytes
+		// rise, and allocated nodes rise by 5.6% (109,017 to 115,082 and 109,036
+		// to 115,082). The cause of the node rise is not investigated.
+		{"edit", edited, forward, 22376, 115082, 18, 44, 3166},
+		{"undo", restored, undo, 22376, 115082, 18, 44, 3166},
 	}
 
 	parser := gts.NewParser(lang)

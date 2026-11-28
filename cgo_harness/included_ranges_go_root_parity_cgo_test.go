@@ -32,12 +32,12 @@ package cgoharness
 //        -run TestIncludedRangesGo -v
 
 import (
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"os"
 	"path/filepath"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -241,7 +241,7 @@ func loadIncludedRangesGoFixture(t *testing.T) []byte {
 // the per-geometry note before citing any row as evidence.
 func TestIncludedRangesGoRootParity(t *testing.T) {
 	cLang := loadCanonicalGoCLanguage(t)
-	goLang := grammars.GoLanguage()
+	goLang := frozengo.Language()
 	if goLang == nil {
 		t.Skip("go grammar unavailable")
 	}
@@ -283,7 +283,7 @@ func TestIncludedRangesGoRootParity(t *testing.T) {
 // the route is at span or child-count parity.
 func TestIncludedRangesGoArmGuardsRootSymbol(t *testing.T) {
 	cLang := loadCanonicalGoCLanguage(t)
-	goLang := grammars.GoLanguage()
+	goLang := frozengo.Language()
 	if goLang == nil {
 		t.Skip("go grammar unavailable")
 	}

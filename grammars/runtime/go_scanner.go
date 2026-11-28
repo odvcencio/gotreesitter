@@ -57,9 +57,11 @@ var goExternalScannerSpec = ExternalScannerSpec{
 	},
 }
 
-func init() {
-	RegisterExternalScannerSpec(goExternalScannerSpec)
-}
+// The scanner is not registered. The shipped go blob is built from upstream's
+// grammar text, which has no external token, so no language binds it. The
+// type remains for the compact scheduler's frozen Go artifact
+// (parsercore_phase0_driver.go, parserCoreCertifiedGoBlob), which keeps the
+// blob that declares the external.
 
 // GoExternalScanner resolves the Go grammar's `terminator` rule — automatic
 // semicolon insertion (ASI) — via an external scanner instead of a plain DFA

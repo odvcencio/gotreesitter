@@ -120,32 +120,15 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			reduceSymbols: []gotreesitter.Symbol{173},
 		}},
 	},
-	// The canonical compact corpus certifies Go's converged-path split drops
-	// against the production parser and the tree-sitter C oracle.
-	// The owned EOF bundle requires its executed recovery route before publication.
+	// The go blob is built from upstream's grammar text by internal/tablebuild,
+	// so its tables equal tree-sitter's. It carries no recovery, compact or
+	// alias grants: those were certified against the earlier go blob (see
+	// parserCoreCertifiedGoBlob in the root package) and say nothing about
+	// these tables. It keeps the small-source reuse shadow, which qualifies each
+	// reuse at run time against the language instance.
 	"go": {
 		smallSourceReuseShadow: true,
-		// Re-certified 2026-10-24 against grammars/grammar_blobs/go.bin
-		// SHA-256 9ad1f8d7d0f2b9aa32c61bd8295b56177caabb0ae2fb8dd4617559ee0f71fed4,
-		// regenerated with cmd/grammargen (no -lr-split; -lr-split
-		// interacts badly with the Go external ASI scanner, see
-		// grammargen/README.md "Go's blob is generated without -lr-split").
-		// The compact/converged-split-drops and owned-EOF-recovery
-		// certifications were re-validated against this blob via the
-		// cgo_harness Go compact/recovery receipts (TestGoCompactIncrementalExecution*,
-		// TestGoCompactRecoveryVersionTurnsLockedC, TestStage6GoCompactCertification).
-		blobSHA256:                 mustRuntimeProfileSHA256("67b873053c9917055e1b5aec94d3c0d9f7d26834f4340a39159e5970c0a0a598"),
-		compactConvergedSplitDrops: true,
-		compactOwnedEOFRecovery:    true,
-		// Let the absorbing version compete before the eagerly shifted
-		// missing-target version, matching C's assignment-error election.
-		recoveryMissingVersionTurns: true,
-		// Locked C exposes these aliased DFA leaves even when error recovery
-		// pops them before the enclosing string production can reduce.
-		visibleTerminalAliases: []visibleTerminalAliasProfile{
-			{internalName: "_raw_string_literal_token1", publicName: "raw_string_literal_content"},
-			{internalName: "_interpreted_string_literal_token1", publicName: "interpreted_string_literal_content"},
-		},
+		blobSHA256:             mustRuntimeProfileSHA256("4b9d107c2e4e3ddb34ec6b7dc0434efa04440904f5b5c652c2e8ab37d9fd7bb2"),
 	},
 	// Re-certified 2026-09-20 against grammars/grammar_blobs/erlang.bin
 	// SHA-256 aa63243bd946d324bfb335d84c162cbaf8cc9922feef71de17296a18186ecedf
