@@ -5,11 +5,11 @@ package cgoharness
 import (
 	"crypto/sha256"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"os"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -34,7 +34,7 @@ func TestGoIssue490FragmentBoundaryLockedC(t *testing.T) {
 		}
 		return source
 	}
-	language := grammars.GoLanguage()
+	language := frozengo.Language()
 	if language == nil {
 		t.Fatal("Go grammar unavailable")
 	}

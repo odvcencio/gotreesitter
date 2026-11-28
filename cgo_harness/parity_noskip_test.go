@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	sitter "github.com/tree-sitter/go-tree-sitter"
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
 func dumpGoTree(n *gotreesitter.Node, lang *gotreesitter.Language, depth int) string {

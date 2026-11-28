@@ -6,10 +6,10 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
@@ -63,7 +63,7 @@ func TestGoCognociente137KiBTopEditLockedC(t *testing.T) {
 						{name: "delete", source: deleted, oldEnd: site + 1, newEnd: site, wantHasError: true},
 					} {
 						t.Run(change.name, func(t *testing.T) {
-							language := grammars.GoLanguage()
+							language := frozengo.Language()
 							parser := gts.NewParser(language)
 							parser.SetAdmissionCandidateRoute(route.candidate)
 							old, err := parser.Parse(source)
@@ -216,7 +216,7 @@ func cognocienteGo137KiBSource() []byte {
 
 // These small witnesses pin the lexer boundary separately from the full edit.
 func TestGoMalformedDeclarationPrefixLockedC(t *testing.T) {
-	language := grammars.GoLanguage()
+	language := frozengo.Language()
 	cLanguage := loadCanonicalGoCLanguage(t)
 	for _, body := range []string{":= a + b", ":= a + b\nfmt.Println(\"f0\", x)\nreturn x", ":= 1", ": a + b", "= a + b"} {
 		for _, candidate := range []bool{false, true} {
@@ -265,7 +265,7 @@ func TestGoAssignmentTargetEdits16SitesLockedC(t *testing.T) {
 	if len(sites) < 16 {
 		t.Fatal("assignment witness has fewer than 16 distinct sites")
 	}
-	language := grammars.GoLanguage()
+	language := frozengo.Language()
 	cLanguage := loadCanonicalGoCLanguage(t)
 	for _, candidate := range []bool{false, true} {
 		for _, kind := range []string{"insert", "replace", "delete"} {

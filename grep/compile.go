@@ -54,28 +54,48 @@ func CompilePattern(lang *gotreesitter.Language, pattern string) (*CompiledPatte
 		phLookup[mv.Placeholder] = mv
 	}
 
-	// Stage 2: Parse the preprocessed pattern using the target language grammar.
-	tree, err := parseSnippet(lang, []byte(preprocessed))
-	if err != nil {
-		return nil, fmt.Errorf("compile: parse: %w", err)
+	// Stage 2: Parse the preprocessed pattern using the target language
+	// grammar, inside the grammar's snippet context when it has one and the
+	// pattern parses there without an error.
+	var (
+		interesting *gotreesitter.Node
+		src         []byte
+	)
+	if ctx := snippetContextFor(lang); ctx != "" {
+		at := strings.Index(ctx, grammars.SnippetPlaceholder)
+		full := []byte(ctx[:at] + preprocessed + ctx[at+len(grammars.SnippetPlaceholder):])
+		if ctxTree, err := parseSnippet(lang, full); err == nil && ctxTree != nil {
+			ctxBound := gotreesitter.Bind(ctxTree)
+			defer ctxBound.Release()
+			if n := findInRegion(ctxBound.RootNode(), uint32(at), uint32(at+len(preprocessed)), lang); n != nil && !n.HasError() {
+				interesting, src = n, full
+			}
+		}
 	}
-	bt := gotreesitter.Bind(tree)
-	defer bt.Release()
+	if interesting == nil {
+		tree, err := parseSnippet(lang, []byte(preprocessed))
+		if err != nil {
+			return nil, fmt.Errorf("compile: parse: %w", err)
+		}
+		bt := gotreesitter.Bind(tree)
+		defer bt.Release()
 
-	root := bt.RootNode()
-	if root == nil {
-		return nil, fmt.Errorf("compile: parse produced nil tree")
+		root := bt.RootNode()
+		if root == nil {
+			return nil, fmt.Errorf("compile: parse produced nil tree")
+		}
+
+		// Stage 3: Find the interesting subtree and translate to S-expression.
+		interesting = findInterestingNode(root, lang)
+		src = []byte(preprocessed)
 	}
-
-	// Stage 3: Find the interesting subtree and translate to S-expression.
-	interesting := findInterestingNode(root, lang)
 	if interesting == nil {
 		return nil, fmt.Errorf("compile: no meaningful syntax found in pattern")
 	}
 
 	tc := &treeCompiler{
 		lang:     lang,
-		source:   []byte(preprocessed),
+		source:   src,
 		mvars:    phLookup,
 		literals: make(map[string]string),
 	}
@@ -393,4 +413,58 @@ func sortStrings(ss []string) {
 			ss[j], ss[j-1] = ss[j-1], ss[j]
 		}
 	}
+}
+
+// snippetContextFor returns the snippet context of the registered language
+// that lang is, or "".
+func snippetContextFor(lang *gotreesitter.Language) string {
+	for _, e := range grammars.AllLanguages() {
+		if e.Language() == lang {
+			return grammars.SnippetContext(e.Name)
+		}
+	}
+	return ""
+}
+
+// findInRegion returns the node that stands for the snippet that sits at bytes
+// [start, end) of a parsed snippet context: the smallest node that encloses the
+// region, or, when it holds exactly one named child inside the region, that
+// child, with trivial statement wrappers removed. It returns nil when no node
+// lies inside the region.
+func findInRegion(root *gotreesitter.Node, start, end uint32, lang *gotreesitter.Language) *gotreesitter.Node {
+	n := root
+	for n != nil {
+		var next *gotreesitter.Node
+		for i := 0; i < n.NamedChildCount(); i++ {
+			c := n.NamedChild(i)
+			if c.StartByte() <= start && end <= c.EndByte() {
+				next = c
+				break
+			}
+		}
+		if next == nil {
+			break
+		}
+		n = next
+	}
+	if n == nil {
+		return nil
+	}
+	if n.StartByte() >= start && n.EndByte() <= end {
+		return unwrapTrivial(n, lang)
+	}
+	var inside []*gotreesitter.Node
+	for i := 0; i < n.NamedChildCount(); i++ {
+		c := n.NamedChild(i)
+		if c.StartByte() >= start && c.EndByte() <= end {
+			inside = append(inside, c)
+		}
+	}
+	switch len(inside) {
+	case 0:
+		return nil
+	case 1:
+		return unwrapTrivial(inside[0], lang)
+	}
+	return n
 }

@@ -59,7 +59,7 @@ func TestPublicCcoreChangedRangesAgainstC(t *testing.T) {
 	e := ccoreDiffEdit(oldBytes, newBytes)
 	old.Edit(g.InputEdit{
 		StartByte: e.StartByte, OldEndByte: e.OldEndByte, NewEndByte: e.NewEndByte,
-		StartPoint: g.Point{Row: e.StartRow, Column: e.StartCol},
+		StartPoint:  g.Point{Row: e.StartRow, Column: e.StartCol},
 		OldEndPoint: g.Point{Row: e.OldEndRow, Column: e.OldEndCol},
 		NewEndPoint: g.Point{Row: e.NewEndRow, Column: e.NewEndCol},
 	})
@@ -91,7 +91,7 @@ func TestPublicCcoreChangedRangesAgainstC(t *testing.T) {
 				want = append(want, g.Range{
 					StartByte: uint32(r.StartByte), EndByte: uint32(r.EndByte),
 					StartPoint: g.Point{Row: uint32(r.StartPoint.Row), Column: uint32(r.StartPoint.Column)},
-					EndPoint: g.Point{Row: uint32(r.EndPoint.Row), Column: uint32(r.EndPoint.Column)},
+					EndPoint:   g.Point{Row: uint32(r.EndPoint.Row), Column: uint32(r.EndPoint.Column)},
 				})
 			}
 			if langName == "css" && (len(want) != 0 || len(old.ChangedRanges()) == 0) {

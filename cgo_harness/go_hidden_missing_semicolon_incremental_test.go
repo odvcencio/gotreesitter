@@ -6,10 +6,10 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -26,7 +26,7 @@ func TestGoHiddenMissingSemicolonEditsMatchLockedC(t *testing.T) {
 	if site != 20 {
 		t.Fatalf("separator byte=%d, want 20", site)
 	}
-	language := grammars.GoLanguage()
+	language := frozengo.Language()
 	if language == nil {
 		t.Fatal("Go grammar unavailable")
 	}

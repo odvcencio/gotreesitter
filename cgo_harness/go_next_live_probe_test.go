@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"os"
 	"strings"
 	"testing"
@@ -169,7 +170,9 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 			goNextRunRoutes(t, language, cLanguage, witness, source)
 		})
 	}
-	goNextRunIncludedRanges(t, language, cLanguage)
+	// The included-ranges leg runs on the older engine, so it uses the frozen
+	// artifact that the older engine's pins were taken on.
+	goNextRunIncludedRanges(t, frozengo.Language(), cLanguage)
 }
 
 func goNextRunRoutes(t *testing.T, language *gotreesitter.Language, cLanguage *sitter.Language, witness goNextWitness, source []byte) {

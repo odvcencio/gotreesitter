@@ -707,3 +707,53 @@ func TestCompilePattern_SExprPreservesStructure(t *testing.T) {
 		}
 	}
 }
+
+// With the Go snippet context the pattern parses as a call; without it the
+// bare top-level text is a type conversion, as in pinned tree-sitter-go.
+func TestCompilePattern_SnippetContextChangesGoCall(t *testing.T) {
+	lang := testLang(t, "go")
+	with, err := CompilePattern(lang, `fmt.Println($X)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(with.SExpr, "call_expression") || strings.Contains(with.SExpr, "type_conversion_expression") {
+		t.Fatalf("with context: %s", with.SExpr)
+	}
+	saved := grammars.SnippetContexts["go"]
+	delete(grammars.SnippetContexts, "go")
+	defer func() { grammars.SnippetContexts["go"] = saved }()
+	without, err := CompilePattern(lang, `fmt.Println($X)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(without.SExpr, "type_conversion_expression") {
+		t.Fatalf("without context: %s", without.SExpr)
+	}
+}
+
+// A snippet that is invalid inside the context falls back to the bare parse.
+func TestCompilePattern_SnippetContextFallsBackToBareParse(t *testing.T) {
+	lang := testLang(t, "go")
+	cp, err := CompilePattern(lang, `func $F() {}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cp.SExpr, "function_declaration") {
+		t.Fatalf("SExpr: %s", cp.SExpr)
+	}
+}
+
+// A grammar with no snippet context parses the bare pattern.
+func TestCompilePattern_NoSnippetContextIsUnaffected(t *testing.T) {
+	if got := grammars.SnippetContext("python"); got != "" {
+		t.Fatalf("python has a snippet context %q", got)
+	}
+	lang := testLang(t, "python")
+	cp, err := CompilePattern(lang, `$X + $Y`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cp.SExpr, "binary_operator") {
+		t.Fatalf("SExpr: %s", cp.SExpr)
+	}
+}
