@@ -14,7 +14,7 @@ run-name: >-
 
 on:
   push:
-    branches: [main, fix/top50-parity-burndown]
+    branches: [main]
     paths-ignore:
       - '*.md'
       - 'LICENSE'
