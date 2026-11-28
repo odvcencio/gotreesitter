@@ -22,7 +22,7 @@ go get github.com/odvcencio/gotreesitter
 gotreesitter loads the same parse-table format that tree-sitter's C runtime uses. `ts2go` extracts grammar tables from upstream `parser.c` files, compresses them into binary blobs, and deserializes them on first use. 206 grammars ship in the registry.
 
 The current release is **v0.58.0**, in which 34 grammars parse by default
-through `ccore`, the C-faithful parser core. On `main`, 61 grammars do (one for
+through `ccore`, the C-faithful parser core. On `main`, 71 grammars do (one for
 each record in `testdata/ccore_certificates.json`), among them C, TypeScript,
 JSON, Python, Rust, Ruby, Kotlin, Elixir, Erlang, CSS, TOML and Objective-C.
 Each passed a graduation gate: trees and subtree reuse equal pinned C, and time

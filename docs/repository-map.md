@@ -13,8 +13,8 @@ A PR that completes one of these moves (or, for 500, makes the first such move) 
 
 | Root `.go` files at most | Applies after |
 | --- | --- |
-| 650 | The external tests move into `tests/api/`, and the benchmark helpers move into `internal/benchfixtures`. |
-| 550 | `tests/regress/` and a corpus store exist. Each converted language drops its codename tests, one language per PR. |
+| 650 | The external tests move into `roottest/`, and the benchmark helpers move into `internal/benchfixtures`. |
+| 550 | A regression-test folder (under `roottest/`) and a corpus store exist. Each converted language drops its codename tests, one language per PR. |
 | 550, and at most 60 top-level files in `grammars/` | Generated grammar shims are merged by build constraint, subset registration files are generated, and the public grammar tests are relocated. |
 | 500 | A PR moves an existing engine subsystem into `internal/` (its engine phase has closed) with its supporting root files. The root holds at most 500 `.go` files after that PR and after every later one. |
 | 120 | The legacy files and their tests are deleted. |
@@ -32,7 +32,7 @@ For each move:
 3. Land large moves after a release tag and provide active lanes with a rebase script.
 4. Preserve the test inventory and update package-aware selectors.
 5. Lower the budget in the same PR.
-   Convert one language per PR when moving language tests into `tests/regress/`, and remove the converted codename tests in that PR.
+   Convert one language per PR when moving language tests into `roottest/`, and remove the converted codename tests in that PR.
 6. Move an existing engine subsystem into `internal/` only after its engine phase closes, and move its supporting root files with it.
 
 Copy benchmark inputs into `internal/benchfixtures/testdata` before moving source files that benchmarks read.

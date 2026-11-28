@@ -186,8 +186,9 @@ its difference classes (the test file defines them), in name order.
 
 ## internal/ccore equality job and race lanes, November 10, 2026
 
-`internal/ccore` is the new parser core. Nothing in the library calls it
-yet; these gates cover it before a parse route exists.
+`internal/ccore` is the new parser core. As of November 10, 2026, nothing in
+the library called it yet; these gates covered it before a parse route existed.
+Since then, certified grammars are served by the core through the public routes.
 
 | Gate | What it runs | What it proves |
 |---|---|---|
