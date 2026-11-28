@@ -1,0 +1,7 @@
+CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT NOT NULL, balance INTEGER DEFAULT 0);
+@@repeat
+INSERT INTO accounts (id, name, balance) VALUES (1, 'alpha', 120);
+UPDATE accounts SET balance = balance + 25 WHERE id = 1;
+SELECT id, name, balance FROM accounts WHERE balance > 100 ORDER BY name;
+DELETE FROM accounts WHERE balance < 0;
+@@end

@@ -6,30 +6,47 @@ import (
 	ts "github.com/odvcencio/gotreesitter"
 )
 
+// The certified core serves SQL by default and returns pinned C's tree for this
+// input: the select statement, an ERROR node, and the trailing comment as three
+// root children. The present engine folds the comment into the statement.
 func TestSQLTrailingCommaAtEOFRecoversStatementPrefix(t *testing.T) {
 	src := []byte("SELECT a::int,\n-- x\n")
-	parser := ts.NewParser(SqlLanguage())
-	tree, err := parser.Parse(src)
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	root := tree.RootNode()
-	if root == nil {
-		t.Fatal("missing root node")
-	}
-	if tree.ParseStopReason() != ts.ParseStopAccepted {
-		t.Fatalf("stop=%s runtime=%s", tree.ParseStopReason(), tree.ParseRuntime().Summary())
-	}
-	if !root.HasError() {
-		t.Fatalf("expected recovered SQL tree to retain error flag, got %s", root.SExpr(SqlLanguage()))
-	}
-	if got := root.ChildCount(); got != 1 {
-		t.Fatalf("root child count = %d, want 1; tree=%s", got, root.SExpr(SqlLanguage()))
-	}
-	if first := root.Child(0); first == nil || first.Type(SqlLanguage()) != "select_statement" {
-		t.Fatalf("first child = %v, want select_statement; tree=%s", first, root.SExpr(SqlLanguage()))
-	} else if !first.HasError() {
-		t.Fatalf("recovered select_statement should retain error flag; tree=%s", root.SExpr(SqlLanguage()))
+	for _, tc := range []struct {
+		name      string
+		coreRoute bool
+		children  int
+	}{
+		{name: "default_route_equals_c", coreRoute: true, children: 3},
+		{name: "present_engine", coreRoute: false, children: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parser := ts.NewParser(SqlLanguage())
+			if !tc.coreRoute {
+				parser.SetAdmissionCandidateRoute(false)
+			}
+			tree, err := parser.Parse(src)
+			if err != nil {
+				t.Fatalf("parse failed: %v", err)
+			}
+			root := tree.RootNode()
+			if root == nil {
+				t.Fatal("missing root node")
+			}
+			if tree.ParseStopReason() != ts.ParseStopAccepted {
+				t.Fatalf("stop=%s runtime=%s", tree.ParseStopReason(), tree.ParseRuntime().Summary())
+			}
+			if !root.HasError() {
+				t.Fatalf("expected recovered SQL tree to retain error flag, got %s", root.SExpr(SqlLanguage()))
+			}
+			if got := root.ChildCount(); got != tc.children {
+				t.Fatalf("root child count = %d, want %d; tree=%s", got, tc.children, root.SExpr(SqlLanguage()))
+			}
+			if first := root.Child(0); first == nil || first.Type(SqlLanguage()) != "select_statement" {
+				t.Fatalf("first child = %v, want select_statement; tree=%s", first, root.SExpr(SqlLanguage()))
+			} else if !tc.coreRoute && !first.HasError() {
+				t.Fatalf("recovered select_statement should retain error flag; tree=%s", root.SExpr(SqlLanguage()))
+			}
+		})
 	}
 }
 
