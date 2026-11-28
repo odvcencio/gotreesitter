@@ -253,8 +253,8 @@ func TestGraduationRanges(t *testing.T) {
 		}
 	}
 	// tallies[phase][kind]: phases are the fresh parse, the range-only reparse and
-	// the reparse after an edit; kind 0 is a set whose C tree has no error, kind 1 a
-	// set whose C tree has an error. A reparse of an error tree is a fresh parse on
+	// the reparse after an edit; kind 0 is a step whose C trees (old and result) have
+	// no error, kind 1 a step where either has one. A reparse of an error tree is a fresh parse on
 	// the core today (the error-edit limit), so the incremental phases of kind 1 are
 	// reported and do not gate; the fresh phase gates both kinds.
 	var tallies [3][2]gradRangeTally
@@ -307,7 +307,11 @@ func TestGraduationRanges(t *testing.T) {
 		if err != nil || next == nil {
 			t.Fatalf("%s: range-only reparse: %v", set.name, err)
 		}
-		rr := &tallies[1][kind]
+		rkind := kind
+		if cNext.RootNode().HasError() {
+			rkind = 1 // the result has an error: C reused, the route reparses fresh (result_has_error)
+		}
+		rr := &tallies[1][rkind]
 		rr.steps++
 		if df, di := moved(fa, ia); df+di != 1 {
 			rr.declined++
@@ -359,7 +363,11 @@ func TestGraduationRanges(t *testing.T) {
 		if err != nil || eTree == nil || cEdited == nil {
 			t.Fatalf("%s: edit in range: %v", set.name, err)
 		}
-		er := &tallies[2][kind]
+		ekind := kind
+		if cEdited.RootNode().HasError() {
+			ekind = 1
+		}
+		er := &tallies[2][ekind]
 		er.steps++
 		if df, di := moved(fa, ia); df+di != 1 {
 			er.declined++
