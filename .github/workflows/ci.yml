@@ -3014,6 +3014,37 @@ jobs:
             "${contextual_args[@]}" --label ci-contextual-lookahead-javascript-original \
             --run '^TestJavaScriptIssue1429CParity$|^TestJavaScriptContextualSuffixCParity$'
 
+      - name: Witnesses of superseded issues against locked C
+        # Each witness runs through the default public routes (Parser.Parse and
+        # LangEntry.Parse) and must equal pinned C: #1336 (less), #1337 (java),
+        # #1559 and #1633 (cpp), #1556 (haxe work counters), #1581 (fsharp),
+        # #1529 (inputs without a final newline) and the #1531 samples that
+        # pass. The last entry runs the certified-core tests of #1559 and
+        # #1633 (build tag gts_ccore_test_certify), which no job named before.
+        # A run passes only when the named test printed its own PASS line, so a
+        # misspelled name or a skipped test fails the step.
+        run: |
+          witness_args=(
+            --no-build --memory 4g --gomemlimit 3GiB --cpus 1
+            --goflags -p=1 --test-parallel 1 --timeout 10m
+          )
+          witnesses=(
+            "less|TestSupersededLessMalformedSlashMatchesPinnedC|cgo treesitter_c_parity"
+            "java|TestSupersededJavaMalformedQuoteMatchesPinnedC|cgo treesitter_c_parity"
+            "cpp|TestSupersededCppSkippedBytesMatchPinnedC|cgo treesitter_c_parity"
+            "haxe|TestSupersededHaxeRecoveryWorkIsLinear|cgo treesitter_c_parity"
+            "fsharp|TestSupersededFSharpModuleRecAndOpenTypeMatchPinnedC|cgo treesitter_c_parity"
+            "eof|TestSupersededEOFNewlineWitnessesMatchPinnedC|cgo treesitter_c_parity"
+            "real-samples|TestSupersededRealSampleMatchesPinnedC|cgo treesitter_c_parity"
+            "cpp-certified-core|TestCcoreCppConstevalAndSkippedBytesMatchPinnedC|cgo treesitter_c_parity gts_ccore_test_certify"
+          )
+          for entry in "${witnesses[@]}"; do
+            IFS='|' read -r label test tags <<<"$entry"
+            bash cgo_harness/docker/run_parity_in_docker.sh \
+              "${witness_args[@]}" --label "ci-superseded-${label}" \
+              -- "cd /workspace/cgo_harness && go test . -tags '${tags}' -run '^${test}\$' -count=1 -v -timeout 10m 2>&1 | tee /tmp/witness.out; test \${PIPESTATUS[0]} -eq 0 && grep -q -- '^--- PASS: ${test} ' /tmp/witness.out"
+          done
+
       - name: Generated CSS immediate tokens against locked C
         run: |
           bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/css-immediate-reference" --langs css

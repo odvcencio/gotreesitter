@@ -952,3 +952,333 @@ func TestCcoreRouteStatesMinimize(t *testing.T) {
 	differs(cur)
 	fmt.Printf("CCSTATESMIN lang=%s bytes=%d input=%q first=%s\n", name, len(cur), cur, detail)
 }
+
+// Witnesses of issues that the certified core superseded (#1336, #1337, #1559,
+// #1633, #1581, #1529, #1531, #1556). Each runs through the default public
+// routes, Parser.Parse and LangEntry.Parse, with no candidate switch and no test
+// certificate, and compares with pinned C. A language that the core serves by
+// default must also show the core serving both parses (the route counter).
+//
+// SUPERSEDED_MEASURE=1 logs a difference as a line "SUPERSEDED ... DIFF" instead
+// of failing, so one run can list which witnesses still differ from C.
+
+type supersededWitness struct {
+	lang, name string
+	src        []byte
+	core       bool                                            // the core must serve both parses
+	check      func(t *testing.T, n *g.Node, lang *g.Language) // extra shape check on the Go root
+}
+
+func supersededReport(t *testing.T, w supersededWitness, format string, args ...any) {
+	t.Helper()
+	msg := fmt.Sprintf(format, args...)
+	if os.Getenv("SUPERSEDED_MEASURE") != "" {
+		fmt.Printf("SUPERSEDED lang=%s name=%s DIFF %s\n", w.lang, w.name, msg)
+		return
+	}
+	t.Errorf("%s: %s", w.name, msg)
+}
+
+func supersededRun(t *testing.T, w supersededWitness) {
+	t.Helper()
+	gl, cl := ccoreLanguages(t, w.lang)
+	ct := compactT3ParseC(t, cl, w.src)
+	defer ct.Close()
+	cRoot := ct.RootNode()
+	want, err := canonicalCTreeInspection(cRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := grammars.DetectLanguageByName(w.lang)
+	routes := []struct {
+		name  string
+		parse func([]byte) (*g.Tree, error)
+	}{
+		{"Parser.Parse", func(b []byte) (*g.Tree, error) { return g.NewParser(gl).Parse(b) }},
+		{"LangEntry.Parse", entry.Parse},
+	}
+	for _, r := range routes {
+		_, before, _ := bind.RouteCounters()
+		tree, err := r.parse(w.src)
+		if err != nil || tree == nil {
+			t.Fatalf("%s: %v", r.name, err)
+		}
+		_, after, _ := bind.RouteCounters()
+		root := tree.RootNode()
+		got, gerr := benchfixtures.InspectGoTree(root, gl)
+		var problems []string
+		if gerr != nil {
+			problems = append(problems, "digest: "+gerr.Error())
+		}
+		if w.core && after-before != 1 {
+			problems = append(problems, fmt.Sprintf("core served %d parses, want 1", after-before))
+		}
+		if tree.ParseStopReason() != g.ParseStopAccepted {
+			problems = append(problems, "stop reason "+string(tree.ParseStopReason()))
+		}
+		if int(root.EndByte()) != len(w.src) {
+			problems = append(problems, fmt.Sprintf("root ends at %d of %d", root.EndByte(), len(w.src)))
+		}
+		if root.HasError() != cRoot.HasError() {
+			problems = append(problems, fmt.Sprintf("HasError Go=%v C=%v", root.HasError(), cRoot.HasError()))
+		}
+		if gerr == nil && got.SHA256 != want.SHA256 {
+			problems = append(problems, fmt.Sprintf("digest Go %.12s C %.12s", got.SHA256, want.SHA256))
+			if d := FirstDivergenceDumpV1(root, gl, cRoot); d != nil {
+				problems = append(problems, fmt.Sprintf("first divergence %+v", *d))
+			}
+		}
+		if w.check != nil {
+			w.check(t, root, gl)
+		}
+		fmt.Printf("SUPERSEDED lang=%s name=%s route=%s bytes=%d root_children=%d c_root_children=%d has_error=%v core_served=%d problems=%d\n",
+			w.lang, w.name, r.name, len(w.src), root.ChildCount(), cRoot.ChildCount(), root.HasError(), after-before, len(problems))
+		if len(problems) > 0 {
+			supersededReport(t, w, "%s: %s", r.name, strings.Join(problems, "; "))
+		}
+		tree.Release()
+	}
+}
+
+func supersededTopLevel(want int) func(*testing.T, *g.Node, *g.Language) {
+	return func(t *testing.T, n *g.Node, lang *g.Language) {
+		t.Helper()
+		if n.ChildCount() != want {
+			t.Errorf("root has %d children, want %d", n.ChildCount(), want)
+		}
+	}
+}
+
+func supersededHasChild(kind string) func(*testing.T, *g.Node, *g.Language) {
+	return func(t *testing.T, n *g.Node, lang *g.Language) {
+		t.Helper()
+		for i := 0; i < n.ChildCount(); i++ {
+			if n.Child(i).Type(lang) == kind {
+				return
+			}
+		}
+		t.Errorf("no %s child under the root", kind)
+	}
+}
+
+func supersededLessSource() []byte {
+	var b strings.Builder
+	for i := 0; i < 80; i++ {
+		fmt.Fprintf(&b, ".rule%d {\n  padding: 10px;\n  color: red;\n}\n", i)
+	}
+	clean := b.String()
+	at := strings.Index(clean, "padding:") + len("padding:")
+	return []byte(clean[:at] + "/" + clean[at:])
+}
+
+func supersededJavaSource() []byte {
+	var b strings.Builder
+	b.WriteString("class Session {\n")
+	for i := 0; i < 20; i++ {
+		fmt.Fprintf(&b, "static int fn%d(int x) { return x + %d; }\n", i, i)
+	}
+	b.WriteString("}\n")
+	clean := b.String()
+	return []byte(clean[:632] + "\"" + clean[632:])
+}
+
+// Issue #1336: the C root has 80 top-level rules; fresh Go nested them.
+func TestSupersededLessMalformedSlashMatchesPinnedC(t *testing.T) {
+	supersededRun(t, supersededWitness{"less", "issue1336_malformed_slash", supersededLessSource(), true, supersededTopLevel(80)})
+}
+
+// Issue #1337: the C root has a class_declaration child; fresh Go had an ERROR.
+func TestSupersededJavaMalformedQuoteMatchesPinnedC(t *testing.T) {
+	supersededRun(t, supersededWitness{"java", "issue1337_quote_at_632", supersededJavaSource(), true, supersededHasChild("class_declaration")})
+}
+
+// Issues #1559 and #1633: inputs that the legacy route cut short with
+// no_stacks_alive (or gave an empty root). The first four come from #1633; the
+// rest are the minimized inputs of #1559 (a macro between strings, a close-angle
+// run, a bar after a bracket, a hash after a paren).
+func TestSupersededCppSkippedBytesMatchPinnedC(t *testing.T) {
+	ce := "constexpr int ce(int x) {\n    if consteval {\n        return 1;\n    } else {\n        return x;\n    }\n}\n"
+	for _, c := range []struct{ name, src string }{
+		{"issue1633_if_consteval", "void f() { if consteval { } }"},
+		{"issue1633_if_not_consteval", "void f() { if !consteval { } }"},
+		{"issue1633_definitions_after_consteval", "void before() {}\n" + ce + "void after1() { f(); }\nvoid after2() {}\n"},
+		{"issue1633_consteval_in_namespace", "namespace n {\n" + ce + "int inside() { return 2; }\nint last() { return 3; }\n}\nvoid after() {}\n"},
+		{"issue1559_macro_between_strings", "void f(){ log(\"a: %\" PRIx64 \"\\n\", x); }"},
+		{"issue1559_close_angle_run", "i[]>>&;"},
+		{"issue1559_bracket_then_bar", "[c]|"},
+		{"issue1559_hash_after_paren", "(v)#f D#i"},
+		{"issue1559_hash_then_number", "X#g 1L"},
+		{"issue1559_brace_then_hash", "}d o#f"},
+		{"issue1559_string_then_backslash", ",\"\"P\\n"},
+		{"issue1559_shift_in_parens", "int f(){ return (a >> 8) | ((b & 0x80) << 1); }\n"},
+		{"issue1559_ctor_initializer", "struct S { S(int t) : _M_t(t) {} int _M_t; };\n"},
+		{"issue1559_visibility_default", "namespace std _GLIBCXX_VISIBILITY(default) { int x; }\n"},
+		{"issue1559_define_elif", "#if 1\n#define X 201907L\n#elif 0\n#endif\nint y;\n"},
+	} {
+		supersededRun(t, supersededWitness{"cpp", c.name, []byte(c.src), true, nil})
+	}
+}
+
+// Issue #1581: the pinned grammar parses `module rec` as a named_module and
+// `open type` with the type keyword inside import_decl.
+func TestSupersededFSharpModuleRecAndOpenTypeMatchPinnedC(t *testing.T) {
+	supersededRun(t, supersededWitness{"fsharp", "issue1581_module_rec", []byte("module rec Acme.Demo\nlet x = 1\n"), false, supersededHasChild("named_module")})
+	openType := []byte("module M\nopen type System.Math\n")
+	supersededRun(t, supersededWitness{"fsharp", "issue1581_open_type", openType, false, func(t *testing.T, n *g.Node, lang *g.Language) {
+		var find func(*g.Node) *g.Node
+		find = func(n *g.Node) *g.Node {
+			if n.Type(lang) == "import_decl" {
+				return n
+			}
+			for i := 0; i < n.ChildCount(); i++ {
+				if f := find(n.Child(i)); f != nil {
+					return f
+				}
+			}
+			return nil
+		}
+		imp := find(n)
+		if imp == nil {
+			t.Fatal("no import_decl")
+		}
+		for i := 0; i < imp.ChildCount(); i++ {
+			if c := imp.Child(i); c.Type(lang) == "long_identifier" {
+				if got := string(openType[c.StartByte():c.EndByte()]); got != "System.Math" {
+					t.Errorf("import_decl long_identifier is %q, want System.Math", got)
+				}
+				return
+			}
+		}
+		t.Error("import_decl has no long_identifier child")
+	}})
+}
+
+// Issue #1556: recovery on a run of invalid tokens. The input is Haxe `@`, then
+// n copies of `%`, then `U`. The core's work counters (tokens lexed, steps =
+// shifts + reductions, records allocated) must grow by at most 2.2
+// per doubling of n. The tree at the smallest n equals pinned C, and the default
+// route serves a parse of the largest n from the core with a root that covers it.
+func TestSupersededHaxeRecoveryWorkIsLinear(t *testing.T) {
+	gl, cl := ccoreLanguages(t, "haxe")
+	input := func(n int) []byte { return []byte("@" + strings.Repeat("%", n) + "U") }
+	supersededRun(t, supersededWitness{"haxe", "issue1556_n1000", input(1000), true, nil})
+	type work struct{ tokens, steps, records int }
+	var prev work
+	for n := 1000; n <= 32000; n *= 2 {
+		src := input(n)
+		p := ccoreNew(gl)
+		if stop := p.Parse(src, nil); stop != "" {
+			t.Fatalf("n=%d: core stopped: %s", n, stop)
+		}
+		steps, tokens, _, _, _ := p.Stats()
+		leaves, nodes, copies := p.RecordSources()
+		cur := work{tokens, steps, leaves + nodes + copies}
+		if int(p.RootEnd()) != len(src) {
+			t.Fatalf("n=%d: root ends at %d of %d", n, p.RootEnd(), len(src))
+		}
+		fmt.Printf("SUPERSEDED-WORK lang=haxe n=%d tokens=%d steps=%d records=%d\n", n, cur.tokens, cur.steps, cur.records)
+		if n > 1000 {
+			for _, c := range []struct {
+				name      string
+				now, then int
+			}{{"tokens", cur.tokens, prev.tokens}, {"steps", cur.steps, prev.steps}, {"records", cur.records, prev.records}} {
+				if ratio := float64(c.now) / float64(c.then); ratio > 2.2 {
+					t.Errorf("n=%d: %s grew x%.2f over n=%d, want at most x2.2", n, c.name, ratio, n/2)
+				}
+			}
+		}
+		prev = cur
+	}
+	big := input(32000)
+	ct := compactT3ParseC(t, cl, big)
+	defer ct.Close()
+	_, before, _ := bind.RouteCounters()
+	tree, err := g.NewParser(gl).Parse(big)
+	if err != nil || tree == nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	_, after, _ := bind.RouteCounters()
+	if after-before != 1 || tree.ParseStopReason() != g.ParseStopAccepted || int(tree.RootNode().EndByte()) != len(big) || int(ct.RootNode().EndByte()) != len(big) {
+		t.Fatalf("n=32000: core served %d, stop %s, root end %d", after-before, tree.ParseStopReason(), tree.RootNode().EndByte())
+	}
+}
+
+// Issue #1529: valid input without a final newline. These are the witnesses of
+// the issue's languages that equal pinned C on main (HasError and the full tree
+// digest). The others of the issue's set still differ and are not listed: asm,
+// awk, bitbake, disassembly, earthfile, fennel, gitattributes, gitignore, http,
+// hyprlang, ledger, nginx, nushell, pug, tlaplus and vimdoc.
+var supersededEOFWitnesses = []struct{ lang, src string }{
+	{"chatito", "%[greet]\n    hi"},
+	{"make", "all:\n\t@echo hi"},
+	{"beancount", "2024-01-01 open Assets:Bank"},
+	{"cylc", "[scheduling]"},
+	{"desktop", "[Desktop Entry]\nEncoding=UTF-8\nType=Application\nName=Weston\nComment=Wayland Compostitor\nExec=weston\nIcon=weston\nTerminal=false\nCategories=Utility;"},
+	{"git_config", "[core]\n\tbare = false"},
+	{"ini", "[section]\nkey = value"},
+	{"kconfig", "config FOO\n  bool \"Enable foo\""},
+	{"ninja", "rule cc\n  command = gcc"},
+	{"robot", "*** Test Cases ***\nTest\n  Log  hello"},
+	{"ssh_config", "Host example\n  User admin"},
+	{"fish", "echo hi"},
+	{"markdown", "# title"},
+	{"requirements", "requests==2.0"},
+	{"editorconfig", "root ="},
+	{"commonlisp", "(defun "},
+}
+
+func TestSupersededEOFNewlineWitnessesMatchPinnedC(t *testing.T) {
+	for _, w := range supersededEOFWitnesses {
+		w := w
+		t.Run(w.lang+"/"+fmt.Sprintf("%x", sha256.Sum256([]byte(w.src)))[:6], func(t *testing.T) {
+			core := map[string]bool{"chatito": true, "make": true, "cylc": true, "desktop": true, "git_config": true, "ini": true,
+				"kconfig": true, "ssh_config": true, "markdown": true, "editorconfig": true, "commonlisp": true}[w.lang]
+			supersededRun(t, supersededWitness{w.lang, "issue1529_no_final_newline", []byte(w.src), core, nil})
+		})
+	}
+}
+
+// supersededRealSample reads the committed real sample of a language
+// (internal/benchfixtures/real_corpus.json, role "sample").
+func supersededRealSample(t *testing.T, lang string) []byte {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "internal", "benchfixtures", "real_corpus.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		Entries []struct {
+			Language      string `json:"language"`
+			Role          string `json:"role"`
+			CommittedPath string `json:"committed_path"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range manifest.Entries {
+		if e.Language == lang && e.Role == "sample" && e.CommittedPath != "" {
+			data, err := os.ReadFile(filepath.Join("..", "internal", "benchfixtures", e.CommittedPath))
+			if err != nil {
+				t.Fatal(err)
+			}
+			return data
+		}
+	}
+	t.Fatalf("no committed real sample for %s", lang)
+	return nil
+}
+
+// Issue #1531: the committed real samples of kotlin and norg are clean in pinned
+// C and equal it on the default route. Agda and haskell still report errors that
+// pinned C does not; djot is not run (a live C parse of it can corrupt the C heap).
+func TestSupersededRealSampleMatchesPinnedC(t *testing.T) {
+	for _, lang := range []string{"kotlin", "norg"} {
+		lang := lang
+		t.Run(lang, func(t *testing.T) {
+			src := supersededRealSample(t, lang)
+			supersededRun(t, supersededWitness{lang, "issue1531_real_sample", src, lang == "kotlin", nil})
+		})
+	}
+}
