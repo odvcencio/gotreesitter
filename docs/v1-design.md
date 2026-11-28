@@ -54,7 +54,7 @@ This membership defines the top 50 for D7, D13, and the v1.0 release gate.
 
 `internal/ccore` implements the C-faithful parser core and imports only the standard library.
 The root adapters build its tables and scanner bindings from a `*Language`.
-No public API reaches the core; only tests parse through it.
+Certified grammars (those with a record in `testdata/ccore_certificates.json`) are served by the core through the public routes by default; how far each route reaches the core is being measured.
 
 The lanes and the rule of one active PR per lane are in [AGENTS.md](../AGENTS.md#lanes).
 
