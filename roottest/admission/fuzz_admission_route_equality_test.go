@@ -10,6 +10,7 @@ import (
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 )
 
 // routeEqualityFuzzLanguages is the curated language set this fuzzer drives:
@@ -70,6 +71,12 @@ type admissionRouteEqualityLanguage struct {
 const routeEqualityFuzzMaxInputBytes = 4096
 
 // FuzzAdmissionRouteEquality is the campaign v7 tranche B2 generative gate.
+// When the certified core serves a parse (read from bind.RouteCounters), the
+// v1 invariants are the oracle: no panic, the root covers the input or the
+// stop reason explains the gap, an ERROR root has HasError, and an
+// incremental reparse after one deterministic edit equals a fresh parse. The
+// compact-versus-legacy comparison below remains for the languages the core
+// does not serve (go, swift, haskell).
 // An accepted compact tree must equal production unless a byte-exact witness
 // carries a pinned C deep digest. Certified recovery has a separate C gate.
 // The shared locked-C manifest supplies every byte-exact exception and its
@@ -156,9 +163,10 @@ func FuzzAdmissionRouteEquality(f *testing.F) {
 	})
 }
 
-// FuzzJavaScriptAdmissionRouteEquality keeps live compact recovery mutations
-// on JavaScript. The C differential owns recovered-tree equality because
-// production can disagree with C on both structure and the error result.
+// FuzzJavaScriptAdmissionRouteEquality keeps live recovery mutations on
+// JavaScript. The core serves JavaScript, so the v1 invariants apply (see
+// FuzzAdmissionRouteEquality). The C differential owns recovered-tree
+// equality.
 func FuzzJavaScriptAdmissionRouteEquality(f *testing.F) {
 	f.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 	entry := grammars.DetectLanguageByName("javascript")
@@ -197,6 +205,9 @@ func FuzzJavaScriptAdmissionRouteEquality(f *testing.F) {
 	f.Add([]byte("a; # ; b"))
 	f.Add([]byte("function f(, b) { return a + b; }"))
 	f.Add([]byte("const x = a ? b :;c;"))
+	// Nightly input of 27 Nov 2026 (#1800): the core and the legacy engine
+	// disagree on the recovered tree; the core follows pinned C.
+	f.Add([]byte("function A!0{A"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
 		if len(src) >= routeEqualityFuzzMaxInputBytes {
@@ -216,6 +227,7 @@ func exerciseAdmissionRouteEquality(t *testing.T, lp admissionRouteEqualityLangu
 	}()
 
 	gts.ResetAdmissionCandidateCounters()
+	_, coreBefore, _ := bind.RouteCounters()
 	compactTree, err := lp.compact.Parse(src)
 	if err != nil {
 		t.Fatalf("lang=%s compact-lane Parse: %v (input=%s)", lp.name, err, previewRouteEqualityInput(src))
@@ -224,6 +236,15 @@ func exerciseAdmissionRouteEquality(t *testing.T, lp admissionRouteEqualityLangu
 		t.Fatalf("lang=%s compact-lane Parse returned a nil tree with no error (input=%s)", lp.name, previewRouteEqualityInput(src))
 	}
 	defer compactTree.Release()
+
+	// A certified grammar is served by the certified core, which follows
+	// pinned C on malformed input; the legacy engine, the other side of the
+	// comparison below, does not. For those parses the v1 invariants are the
+	// oracle, not legacy equality.
+	if _, coreAfter, _ := bind.RouteCounters(); coreAfter > coreBefore {
+		assertCoreServedInvariants(t, lp, src, compactTree)
+		return
+	}
 
 	routed, _ := gts.AdmissionCandidateCounters()
 	if routed != 1 {
@@ -253,6 +274,108 @@ func exerciseAdmissionRouteEquality(t *testing.T, lp admissionRouteEqualityLangu
 	}
 
 	assertAdmissionRouteEquality(t, lp, src, compactTree, productionTree)
+}
+
+// assertCoreServedInvariants checks the v1 invariants (docs/v1-design.md,
+// invariant gate) on a parse that the certified core served:
+//
+//  1. the root covers the input, or the stop reason explains the gap;
+//  2. an ERROR root implies HasError();
+//  3. an incremental reparse after one deterministic edit equals a fresh
+//     parse of the edited source (D8).
+//
+// The caller has already established that Parse returned without a panic.
+func assertCoreServedInvariants(t *testing.T, lp admissionRouteEqualityLanguage, src []byte, tree *gts.Tree) {
+	t.Helper()
+	root := tree.RootNode()
+	if root == nil {
+		if len(src) != 0 {
+			t.Fatalf("lang=%s bytes=%d core returned a nil root for non-empty input (input=%s)", lp.name, len(src), previewRouteEqualityInput(src))
+		}
+		return
+	}
+	if root.IsError() && !root.HasError() {
+		t.Fatalf("lang=%s bytes=%d ERROR root without HasError (input=%s)", lp.name, len(src), previewRouteEqualityInput(src))
+	}
+	if int(root.EndByte()) != len(src) && !coreStopExplainsGap(tree) {
+		t.Fatalf("lang=%s bytes=%d root ends at byte %d with stop reason %s, which does not explain the gap (input=%s)",
+			lp.name, len(src), root.EndByte(), tree.ParseStopReason(), previewRouteEqualityInput(src))
+	}
+
+	edited, edit := routeEqualityDeterministicEdit(src)
+	tree.Edit(edit)
+	incremental, err := lp.compact.ParseIncremental(edited, tree)
+	if err != nil || incremental == nil {
+		t.Fatalf("lang=%s incremental reparse: tree=%v err=%v (input=%s)", lp.name, incremental != nil, err, previewRouteEqualityInput(src))
+	}
+	defer incremental.Release()
+	fresh, err := lp.compact.Parse(edited)
+	if err != nil || fresh == nil {
+		t.Fatalf("lang=%s fresh parse of edited source: tree=%v err=%v (input=%s)", lp.name, fresh != nil, err, previewRouteEqualityInput(src))
+	}
+	defer fresh.Release()
+	ir, fr := incremental.RootNode(), fresh.RootNode()
+	if (ir == nil) != (fr == nil) {
+		t.Fatalf("lang=%s incremental root nilness differs from fresh after edit %+v (input=%s)", lp.name, edit, previewRouteEqualityInput(src))
+	}
+	if ir == nil {
+		return
+	}
+	if ir.HasError() != fr.HasError() {
+		t.Fatalf("lang=%s HasError incremental=%t fresh=%t after edit %+v (input=%s)",
+			lp.name, ir.HasError(), fr.HasError(), edit, previewRouteEqualityInput(src))
+	}
+	if diff := routeEqualityFirstDivergence(ir, fr, lp.lang, "root"); diff != "" {
+		t.Fatalf("lang=%s incremental differs from fresh after edit %+v: %s (input=%s)", lp.name, edit, diff, previewRouteEqualityInput(src))
+	}
+}
+
+// coreStopExplainsGap reports whether the parse recorded a reason for ending
+// before the end of the input.
+func coreStopExplainsGap(tree *gts.Tree) bool {
+	if tree.ParseStoppedEarly() || tree.ParseRuntime().Truncated {
+		return true
+	}
+	switch tree.ParseStopReason() {
+	case gts.ParseStopNone, gts.ParseStopAccepted:
+		return false
+	}
+	return true
+}
+
+// routeEqualityDeterministicEdit inserts one byte, '0', at a position that
+// depends only on the input, and returns the edited source with its edit.
+func routeEqualityDeterministicEdit(src []byte) ([]byte, gts.InputEdit) {
+	sum := 0
+	for _, b := range src {
+		sum += int(b)
+	}
+	pos := sum % (len(src) + 1)
+	pointAt := func(b []byte, n int) gts.Point {
+		var p gts.Point
+		for _, c := range b[:n] {
+			if c == '\n' {
+				p.Row++
+				p.Column = 0
+			} else {
+				p.Column++
+			}
+		}
+		return p
+	}
+	start := pointAt(src, pos)
+	edited := make([]byte, 0, len(src)+1)
+	edited = append(edited, src[:pos]...)
+	edited = append(edited, '0')
+	edited = append(edited, src[pos:]...)
+	return edited, gts.InputEdit{
+		StartByte:   uint32(pos),
+		OldEndByte:  uint32(pos),
+		NewEndByte:  uint32(pos + 1),
+		StartPoint:  start,
+		OldEndPoint: start,
+		NewEndPoint: pointAt(edited, pos+1),
+	}
 }
 
 // seedAdmissionRouteEqualityCorpus commits the B2 seed corpus: the 20-witness
@@ -365,6 +488,13 @@ func seedAdmissionRouteEqualityCorpus(f *testing.F, languages []admissionRouteEq
 	// Issue #984 pins both byte-exact Erlang forms after route graduation.
 	f.Add([]byte("000\"0A!A \"A\"=0:A0!)A\"0%0000"), langIndex["erlang"])
 	f.Add([]byte("000\"0A!A \"A\"=0:A0!)A\"0%0000\n"), langIndex["erlang"])
+
+	// Nightly inputs of 27 Nov 2026 (#1801, #1800). The certified core serves
+	// these grammars and follows pinned C on malformed input, so the legacy
+	// engine's tree is not the oracle; the v1 invariants are.
+	f.Add([]byte("0A"), langIndex["python"])
+	f.Add([]byte("function A!0{A"), langIndex["javascript"])
+	f.Add([]byte("0)0A"), langIndex["bash"])
 }
 
 // routeEqualityTreeCarriesNativeRecoveryNode reports whether root contains a

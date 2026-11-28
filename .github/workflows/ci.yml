@@ -3237,6 +3237,7 @@ jobs:
             --run '^TestParityIncrementalParse$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestIssue454DiffIncrementalLockedC$'
 
       - name: CGo Structural Parity Exhaustive (Corpus)
+        if: ${{ !cancelled() }}
         run: |
           GTS_PARITY_MODE=exhaustive \
           bash cgo_harness/docker/run_parity_in_docker.sh \
@@ -3252,6 +3253,7 @@ jobs:
             --run '^TestParityCorpusFreshParse$'
 
       - name: CGo Highlight + YAML Parity Exhaustive
+        if: ${{ !cancelled() }}
         run: |
           GTS_PARITY_MODE=exhaustive \
           bash cgo_harness/docker/run_parity_in_docker.sh \
