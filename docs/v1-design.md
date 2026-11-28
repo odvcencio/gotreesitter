@@ -72,6 +72,7 @@ Require all of these results on the candidate commit:
 
 1. Generate a receipt with zero unexplained fresh mismatches against the C commit pinned at M1.
 2. Pass the invariant gate for the 72-step session and 16 sites per edit class.
+   For a certificate with the ErrReuse mode, a step on an error tree follows the error half of D8: the shipped parser serves it incrementally, and its incremental tree equals C's incremental tree and its fresh tree equals C's fresh tree.
 3. On each incremental step, require the shipped parser's subtree reuse count to equal C's count on the same tree history.
    Require positive reuse on clean steps once scanner certification covers the scanner class.
    A same-length edit may return the old tree without a parse when the result equals C's in everything a caller can see. The shortcut must reuse every byte.
