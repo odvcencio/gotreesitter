@@ -1609,14 +1609,16 @@ jobs:
 
             # Every exhaustive test compares against the locked C oracle, so a
             # change to its pin (cgo_harness/go.mod) or its vendored runtime
-            # runs the sweep too.
-            exhaustive_pattern='^(parser_result_.*\.go|parser_recover_c.*\.go|parser_result_test/.*\.go|cgo_harness/(parity_cgo_test|parity_gate_ratchet_test)\.go|cgo_harness/go\.mod|cgo_harness/internal/coracle/.*)$'
+            # runs the sweep too. A certificate moves a grammar to the core, so
+            # a change to the certificate file, its generated map
+            # (internal/ccore/certified/), or the cap-pressure test starts it.
+            exhaustive_pattern='^(parser_result_.*\.go|parser_recover_c.*\.go|parser_result_test/.*\.go|cgo_harness/(parity_cgo_test|parity_gate_ratchet_test|parity_glr_cap_pressure_test)\.go|cgo_harness/go\.mod|cgo_harness/internal/coracle/.*|testdata/ccore_certificates\.json|internal/ccore/certified/.*)$'
             if grep -Eq "$exhaustive_pattern" "$changed_files"; then
               run_exhaustive=true
               {
                 echo "### Exhaustive parity trigger"
                 echo
-                echo "Running exhaustive CGo parity because this PR touches parser-result, C-recovery, C-oracle, or parity-degradation gate files:"
+                echo "Running exhaustive CGo parity because this PR touches parser-result, C-recovery, C-oracle, certificate, or parity-degradation gate files:"
                 echo
                 grep -E "$exhaustive_pattern" "$changed_files" | sed 's/^/- `/' | sed 's/$/`/'
               } >> "$GITHUB_STEP_SUMMARY"
@@ -1624,7 +1626,7 @@ jobs:
               {
                 echo "### Exhaustive parity trigger"
                 echo
-                echo "No parser-result, C-recovery, C-oracle, or parity-degradation gate files changed; exhaustive CGo parity is skipped."
+                echo "No parser-result, C-recovery, C-oracle, certificate, or parity-degradation gate files changed; exhaustive CGo parity is skipped."
               } >> "$GITHUB_STEP_SUMMARY"
             fi
             ccore_scope
