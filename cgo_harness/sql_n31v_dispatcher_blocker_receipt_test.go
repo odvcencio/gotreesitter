@@ -88,6 +88,12 @@ func TestSQLN31vDispatcherBlockerRoutes(t *testing.T) {
 	parse := func(route string, candidate bool, fn func(*gots.Parser) (*gots.Tree, error)) {
 		parser := gots.NewParser(goLang)
 		parser.SetAdmissionCandidateRoute(candidate)
+		if candidate {
+			// The certified core serves SQL by default; certification
+			// telemetry keeps it from pre-empting the compact scheduler
+			// that this receipt pins.
+			parser.SetCompactCertificationTelemetry(true)
+		}
 		tree, err := fn(parser)
 		if err != nil {
 			t.Fatal(err)
@@ -137,6 +143,10 @@ func TestSQLN31vDispatcherBlockerRoutes(t *testing.T) {
 	}
 
 	incParser := gots.NewParser(goLang)
+	// The certified core serves SQL by default and reparses this error result
+	// fresh, with no dispatch pass. This receipt pins the present engine's
+	// incremental reuse, so it runs with the core route off.
+	incParser.SetAdmissionCandidateRoute(false)
 	oldTree, err := incParser.Parse(base)
 	if err != nil {
 		t.Fatal(err)
