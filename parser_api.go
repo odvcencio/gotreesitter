@@ -2190,6 +2190,13 @@ func (p *Parser) ParseWithTokenSourceFactoryStrict(source []byte, factory TokenS
 // links of shared nodes, so do not read oldTree from another goroutine during
 // the call. After the call, read the returned tree instead of oldTree.
 //
+// Whether nodes are shared depends on the engine, so do not use pointer
+// equality of *Node values between the two trees to find unchanged subtrees.
+// A tree built by the certified core shares none: every node of the new tree
+// is a new value, as in the C runtime's node API. To find what stayed the
+// same, compare symbol, byte range and child count at the same position, or
+// use DiffChangedRanges.
+//
 //go:noinline
 func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	// A reparse of unchanged source returns oldTree before any engine runs,

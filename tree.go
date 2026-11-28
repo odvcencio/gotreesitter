@@ -5723,6 +5723,11 @@ func (t *Tree) Edits() []InputEdit {
 // ChangedRanges converts this tree's recorded edits into changed source
 // ranges, in the coordinates of the final source (the state after every
 // recorded edit has been applied). Overlapping ranges are coalesced.
+//
+// The edits belong to the tree on which Tree.Edit was called. A tree returned
+// by a parse has recorded none, so ChangedRanges on the new tree returns nil.
+// Call it on the edited old tree, before or after the reparse, or use
+// DiffChangedRanges to compare the two trees.
 func (t *Tree) ChangedRanges() []Range {
 	if t == nil || len(t.edits) == 0 {
 		return nil
@@ -6487,6 +6492,11 @@ func shiftPointAfterEdit(p Point, edit InputEdit, rowDelta int64) Point {
 // algorithm. Other tree pairs use a comparison of their public nodes. The
 // ranges describe syntax changes. Use Tree.ChangedRanges on the edited old
 // tree if you also need the source ranges of text edits.
+//
+// For the comparison of public nodes, a parent with the same symbol and a
+// different number of children reports the span between its unchanged leading
+// and trailing children, so a block inserted or removed between two items
+// reports about that block and not the whole parent.
 func DiffChangedRanges(oldTree, newTree *Tree) []Range {
 	if oldTree == nil || newTree == nil {
 		return nil
@@ -6513,10 +6523,16 @@ func diffNodes(oldNode, newNode *Node, ranges *[]Range) {
 		return
 	}
 
-	// If they differ at the symbol level or child count, the entire range is changed.
-	if oldNode.Symbol() != newNode.Symbol() ||
-		oldNode.ChildCount() != newNode.ChildCount() {
+	// A different symbol changes the entire range.
+	if oldNode.Symbol() != newNode.Symbol() {
 		addChangedRange(oldNode, newNode, ranges)
+		return
+	}
+
+	// The same symbol with a different child count: keep the unchanged
+	// children at the start and at the end out of the range.
+	if oldNode.ChildCount() != newNode.ChildCount() {
+		diffChildLists(oldNode, newNode, ranges)
 		return
 	}
 
@@ -6532,6 +6548,55 @@ func diffNodes(oldNode, newNode *Node, ranges *[]Range) {
 		oldChild := oldNode.Child(i)
 		newChild := newNode.Child(i)
 		diffNodes(oldChild, newChild, ranges)
+	}
+}
+
+// diffChildLists reports the changed range of two nodes that have the same
+// symbol and different child counts. The children at the start of both lists
+// that are structurally equal, and those at the end of both lists, are not
+// part of the range, so a block inserted or removed between two items
+// reports about that block and not the whole parent. The old tree is
+// expected to have been edited, so unchanged children after the edit sit at
+// the same offsets as their counterparts in the new tree. When no child at
+// either end matches, the whole span of both nodes is reported.
+func diffChildLists(oldNode, newNode *Node, ranges *[]Range) {
+	oldCount, newCount := oldNode.ChildCount(), newNode.ChildCount()
+	limit := min(oldCount, newCount)
+	prefix := 0
+	for prefix < limit && nodesStructurallyEqual(oldNode.Child(prefix), newNode.Child(prefix)) {
+		prefix++
+	}
+	suffix := 0
+	for suffix < limit-prefix && nodesStructurallyEqual(oldNode.Child(oldCount-1-suffix), newNode.Child(newCount-1-suffix)) {
+		suffix++
+	}
+	if prefix == 0 && suffix == 0 {
+		addChangedRange(oldNode, newNode, ranges)
+		return
+	}
+	// The children between the matched ends, from either list, make one range.
+	var span *Range
+	widen := func(n *Node) {
+		r := Range{StartByte: n.StartByte(), EndByte: n.EndByte(), StartPoint: n.StartPoint(), EndPoint: n.EndPoint()}
+		if span == nil {
+			span = &r
+			return
+		}
+		if r.StartByte < span.StartByte {
+			span.StartByte, span.StartPoint = r.StartByte, r.StartPoint
+		}
+		if r.EndByte > span.EndByte {
+			span.EndByte, span.EndPoint = r.EndByte, r.EndPoint
+		}
+	}
+	for i := prefix; i < oldCount-suffix; i++ {
+		widen(oldNode.Child(i))
+	}
+	for i := prefix; i < newCount-suffix; i++ {
+		widen(newNode.Child(i))
+	}
+	if span != nil {
+		*ranges = append(*ranges, *span)
 	}
 }
 
