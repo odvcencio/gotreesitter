@@ -2614,6 +2614,16 @@ func TestCcoreIncrFallbackCases(t *testing.T) {
 			return out, tree
 		}},
 	}
+	// With the ErrReuse mode the two error cases are served incrementally.
+	for _, c := range cases {
+		if c.name == "old_has_error" || c.name == "result_has_error" {
+			withBit := c
+			withBit.name += "_with_err_reuse"
+			withBit.modes |= certified.ErrReuse
+			withBit.want = ""
+			cases = append(cases, withBit)
+		}
+	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			defer gts.CcoreTestCertify(c.modes, "ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState")()

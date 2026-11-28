@@ -28,7 +28,8 @@ const (
 	Incr       = certified.Incr
 	Ranges     = certified.Ranges
 	Forest     = certified.Forest
-	knownModes = Fresh | Recover | Scan | Incr | Ranges | Forest
+	ErrReuse   = certified.ErrReuse
+	knownModes = Fresh | Recover | Scan | Incr | Ranges | Forest | ErrReuse
 )
 
 // Record is one certificate: a blob, the modes it is certified for, and the

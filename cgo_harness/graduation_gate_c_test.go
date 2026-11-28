@@ -44,6 +44,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind/bindtest"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -85,6 +86,7 @@ func gradLoad(t *testing.T) *gradCtx {
 	sum, _ := gl.GrammarBlobSHA256()
 	c := &gradCtx{name: name, entry: grammars.DetectLanguageByName(name), lang: gl, cLang: cl, blob: fmt.Sprintf("%x", sum)}
 	gradAssertDefaultArm(t, c)
+	gradErrReuseOn = gradErrReuse(gl)
 	return c
 }
 
@@ -118,6 +120,37 @@ func (s *gradService) begin() (map[string]int64, int64, int64) {
 	_, f, i := bind.RouteCounters()
 	return bind.IncrFallbacks(), f, i
 }
+
+// gradErrReuseOn says that the certificate under test carries the ErrReuse mode
+// (in a census run, that --err-reuse certified the grammar with it). Set by gradLoad.
+var gradErrReuseOn bool
+
+// gradErrReuse reads the ErrReuse mode of the language: the certificate's own in a
+// gate run, the census's GRAD_ERR_REUSE=1 in a census run.
+func gradErrReuse(lang *g.Language) bool {
+	if gradCensus() {
+		return os.Getenv("GRAD_ERR_REUSE") == "1"
+	}
+	sha, ok := lang.GrammarBlobSHA256()
+	return ok && certified.Blobs[sha].Modes&certified.ErrReuse != 0
+}
+
+// gradServiceValid is the rule for how the route may serve one edited reparse.
+// A reparse served incrementally is always valid. A fresh parse is valid only as
+// the declared fallback for an error tree: the old tree has an error
+// (old_has_error), or the clean old tree gave an error result (result_has_error).
+// With the ErrReuse mode there is no such fallback: an error step is served
+// incrementally, as C serves it, so any fresh parse is invalid.
+func gradServiceValid(errReuse, oldError, resultError, incr, fresh bool, reason string) bool {
+	if incr {
+		return true
+	}
+	if !fresh || errReuse {
+		return false
+	}
+	return (reason == "old_has_error" && oldError) || (reason == "result_has_error" && !oldError && resultError)
+}
+
 func (s *gradService) end(id string, before map[string]int64, f0, i0 int64, oldError bool, next *g.Tree) bool {
 	_, f1, i1 := bind.RouteCounters()
 	after := bind.IncrFallbacks()
@@ -142,7 +175,8 @@ func (s *gradService) end(id string, before map[string]int64, f0, i0 int64, oldE
 	if fresh {
 		s.fresh++
 	}
-	valid := incr || (fresh && ((reason == "old_has_error" && oldError) || (reason == "result_has_error" && !oldError && next != nil && next.RootNode().HasError())))
+	resultError := next != nil && next.RootNode().HasError()
+	valid := gradServiceValid(gradErrReuseOn, oldError, resultError, incr, fresh, reason)
 	if !valid {
 		s.invalid++
 		if s.first == "" {
@@ -553,6 +587,14 @@ func TestGraduationInvariants(t *testing.T) {
 	steps, okEq, okErr, okCov, okAlloc := 0, 0, 0, 0, 0
 	var service gradService
 	first := ""
+	// With the ErrReuse mode, a step on an error tree follows the split rule: the
+	// incremental tree equals C's incremental tree and the fresh tree equals C's
+	// fresh tree. C itself can give two different trees at such a step.
+	errReuse := gradErrReuseOn
+	cpar := gradCParser(t, c, nil)
+	defer cpar.Close()
+	var cTree *sitter.Tree
+	var stepOldErr bool
 	note := func(id, what string) {
 		if first == "" {
 			first = id + ": " + what
@@ -564,7 +606,16 @@ func TestGraduationInvariants(t *testing.T) {
 		if err != nil || fresh == nil {
 			t.Fatalf("%s: fresh parse: %v", id, err)
 		}
-		if !gradNeg(2) && ccoreLegacyDigest(next, c.lang) == ccoreLegacyDigest(fresh, c.lang) && next.RootNode().HasError() == fresh.RootNode().HasError() {
+		errStep := errReuse && (stepOldErr || next.RootNode().HasError() || cTree.RootNode().HasError())
+		eq := ccoreLegacyDigest(next, c.lang) == ccoreLegacyDigest(fresh, c.lang) && next.RootNode().HasError() == fresh.RootNode().HasError()
+		if errStep {
+			freshC := cpar.Parse(src, nil)
+			nIncr, _ := gradFirstDiv(next, c, cTree)
+			nFresh, _ := gradFirstDiv(fresh, c, freshC)
+			freshC.Close()
+			eq = nIncr == 0 && nFresh == 0
+		}
+		if !gradNeg(2) && eq {
 			okEq++
 		} else {
 			note(id, "incremental tree differs from fresh parse")
@@ -608,9 +659,18 @@ func TestGraduationInvariants(t *testing.T) {
 				if tree != nil {
 					tree.Release()
 				}
+				if cTree != nil {
+					cTree.Close()
+				}
 				next, err = p.Parse(st.src)
+				cTree = cpar.Parse(st.src, nil)
 			} else {
 				oldError := tree.RootNode().HasError()
+				stepOldErr = oldError
+				cTree.Edit(gradSitterEdit(*st.edit))
+				cn := cpar.Parse(st.src, cTree)
+				cTree.Close()
+				cTree = cn
 				tree.Edit(*st.edit)
 				before, f0, i0 := service.begin()
 				next, err = p.ParseIncremental(st.src, tree)
@@ -629,6 +689,10 @@ func TestGraduationInvariants(t *testing.T) {
 		}
 		if tree != nil {
 			tree.Release()
+		}
+		if cTree != nil {
+			cTree.Close()
+			cTree = nil
 		}
 	}
 	chain, sites := gradChain(sample), gradSites(sample)
@@ -687,6 +751,35 @@ func gradIncrementalVerdict(c gradIncrementalCounts) (string, string) {
 		return "na", fmt.Sprintf("steps=%d edits=%d record_steps=%d", c.steps, c.edits, c.recordSteps)
 	default:
 		return "pass", ""
+	}
+}
+
+// TestGraduationServiceRule pins gradServiceValid: a failing and a passing case for
+// each of the two certificate states. Without ErrReuse a fresh parse is valid as the
+// declared fallback for an error tree. With ErrReuse the same fresh parse is invalid,
+// and an error step must be served incrementally.
+func TestGraduationServiceRule(t *testing.T) {
+	gradRun(t)
+	for _, tc := range []struct {
+		name                                     string
+		errReuse, oldErr, resultErr, incr, fresh bool
+		reason                                   string
+		want                                     bool
+	}{
+		{"no bit, clean step served incrementally", false, false, false, true, false, "", true},
+		{"no bit, old error, fresh fallback", false, true, true, false, true, "old_has_error", true},
+		{"no bit, result error, fresh fallback", false, false, true, false, true, "result_has_error", true},
+		{"no bit, fresh parse with the wrong reason", false, true, true, false, true, "result_has_error", false},
+		{"no bit, fresh parse for another reason", false, false, false, false, true, "edits_not_carried", false},
+		{"bit, error step served incrementally (passing case)", true, true, true, true, false, "", true},
+		{"bit, clean step to error served incrementally", true, false, true, true, false, "", true},
+		{"bit, old error, fresh fallback (failing case)", true, true, true, false, true, "old_has_error", false},
+		{"bit, result error, fresh fallback (failing case)", true, false, true, false, true, "result_has_error", false},
+		{"bit, nothing served", true, true, true, false, false, "", false},
+	} {
+		if got := gradServiceValid(tc.errReuse, tc.oldErr, tc.resultErr, tc.incr, tc.fresh, tc.reason); got != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
+		}
 	}
 }
 

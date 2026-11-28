@@ -18,6 +18,9 @@
 #                     for example table-v1; "none" lists no provider). A grammar whose
 #                     registry entry has a token-source factory must then be served on
 #                     every route that uses it; with "none" item 0 fails and names the route.
+#   --err-reuse       with --report --census only: certify the grammar with the ErrReuse mode, so
+#                     that items 2, 3 and 5 serve error-tree steps incrementally and compare them
+#                     with C's incremental tree. A gate run reads the mode from the certificate.
 #   --census          with --report only: run the items for a grammar that has
 #                     no certificate. Item 0 is still printed as it is, and
 #                     the other items run under the test certification. The
@@ -72,7 +75,7 @@
 #
 # Needs: go with cgo, the pinned C oracle (cgo_harness/docker/run_parity_in_docker.sh sets it up).
 set -uo pipefail
-unset CCORE_REPORT_ONLY CCORE_UPDATE_GOLDEN GRAD_NEGATIVE GRAD_CENSUS GRAD_CANDIDATE GRAD_CANDIDATE_PROVIDERS GTS_ADMISSION_CANDIDATE
+unset CCORE_REPORT_ONLY CCORE_UPDATE_GOLDEN GRAD_NEGATIVE GRAD_CENSUS GRAD_CANDIDATE GRAD_CANDIDATE_PROVIDERS GRAD_ERR_REUSE GTS_ADMISSION_CANDIDATE
 
 # result_line <log> <item>: the last GRADRESULT line of an item in a log.
 result_line() { grep -a "^GRADRESULT item=$2 " "$1" 2>/dev/null | tail -n 1; }
@@ -297,6 +300,8 @@ if [ "${1:-}" = "--self-test" ]; then
   ok "report mode runs the later items" "$(grep -c 'item=2' <<<"$out")" "1"
   out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --census json 2>&1); rc=$?
   ok "--census without --report is refused" "$rc" "2"
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --report --err-reuse json 2>&1); rc=$?
+  ok "--err-reuse without --census is refused" "$rc" "2"
   out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --report --candidate table-v1 json 2>&1); rc=$?
   ok "--candidate without --census is refused" "$rc" "2"
   out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --items 0 json 2>&1); rc=$?
@@ -315,7 +320,7 @@ if [ "${1:-}" = "--self-test" ]; then
   exit "$fails"
 fi
 
-report=0; census=0; candidate=""; items="1,2,3,4,5,6,7,8,9,10"; negative=""; race=1; selftestgate=0; lang=""; items_set=0
+report=0; census=0; candidate=""; items="1,2,3,4,5,6,7,8,9,10"; negative=""; race=1; selftestgate=0; lang=""; items_set=0; errreuse=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --report) report=1 ;;
@@ -323,6 +328,7 @@ while [ $# -gt 0 ]; do
     --negative) negative=$2; shift ;;
     --no-race) race=0 ;;
     --census) census=1 ;;
+    --err-reuse) errreuse=1 ;;
     --candidate) candidate=$2; shift ;;
     --self-test-gate) selftestgate=1 ;;
     -*) echo "graduation_gate.sh: unknown option $1" >&2; exit 2 ;;
@@ -338,7 +344,9 @@ stop_if_needed() { if [ "$report" = 0 ] && [ "$LAST_STATUS" != pass ]; then echo
 if [ "$census" = 1 ] && [ "$report" = 0 ]; then echo "graduation_gate.sh: --census needs --report" >&2; exit 2; fi
 if [ "$items_set" = 1 ] && [ "$report" = 0 ]; then echo "graduation_gate.sh: --items needs --report (a gate run runs every item)" >&2; exit 2; fi
 if [ "$census" = 0 ] && [ "${CCORE_VIEWS+x}" = x ]; then echo "graduation_gate.sh: CCORE_VIEWS is for --report --census; the gate measures the default views switch" >&2; exit 2; fi
+if [ "$errreuse" = 1 ] && [ "$census" = 0 ]; then echo "graduation_gate.sh: --err-reuse needs --report --census" >&2; exit 2; fi
 if [ "$census" = 1 ]; then export GRAD_CENSUS=1; fi
+if [ "$errreuse" = 1 ]; then export GRAD_ERR_REUSE=1; fi
 if [ -n "$candidate" ]; then
   if [ "$census" = 0 ]; then echo "graduation_gate.sh: --candidate needs --report --census" >&2; exit 2; fi
   export GRAD_CANDIDATE=1

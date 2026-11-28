@@ -15,7 +15,7 @@ Apply the rules D6 to D13 and all correctness, performance, graduation, and rele
 | --- | --- |
 | D6 | Add no language-name comparisons in engine files. Use grammar-owned hooks, conflict policies, and compatibility passes keyed by artifact identity. |
 | D7 | Graduate each language through the allowlist. Flip the global default only after all top-50 languages graduate, and only in `v1.0.0-rc.1`. |
-| D8 | Require incremental results to equal fresh Go results. Use a fresh parse wherever this invariant remains unproven. |
+| D8 | For a tree without an error, require the incremental result to equal the fresh Go result; use a fresh parse wherever this invariant remains unproven. For a tree with an error (the old tree or the result has one), require the incremental result to equal pinned C's incremental result and the fresh result to equal pinned C's fresh result; C's two results can differ, and then the core's do too. A certificate turns this on with the ErrReuse mode. |
 | D9 | Move the engine into `internal/`. Keep a generated facade of defined types at the root. Put scanner-facing types in a leaf package. |
 | D10 | Gate performance with deterministic counters first, then randomized timing. Work counters must not rise; reuse counters must not fall. |
 | D11 | Keep the v1 API small. Move diagnostics into `internal/diag`; the sibling `cgo_harness` module can import that path. |

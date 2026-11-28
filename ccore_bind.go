@@ -638,11 +638,12 @@ func buildCcoreConvTables(lang *Language) *ccoreConvTables {
 
 // The mode bits of a certificate. They equal internal/ccore/certgen.
 const (
-	ccoreModeFresh   = certified.Fresh
-	ccoreModeRecover = certified.Recover
-	ccoreModeScan    = certified.Scan
-	ccoreModeIncr    = certified.Incr
-	ccoreModeRanges  = certified.Ranges
+	ccoreModeFresh    = certified.Fresh
+	ccoreModeRecover  = certified.Recover
+	ccoreModeScan     = certified.Scan
+	ccoreModeIncr     = certified.Incr
+	ccoreModeRanges   = certified.Ranges
+	ccoreModeErrReuse = certified.ErrReuse
 )
 
 // ccoreTestParserHook is test-only (nil in production): it is called with a
@@ -2313,7 +2314,7 @@ func ccoreDiffChangedRanges(oldTree, newTree *Tree) ([]Range, bool) {
 		out[i] = Range{
 			StartByte: r.StartByte, EndByte: r.EndByte,
 			StartPoint: Point{Row: r.StartRow, Column: r.StartCol},
-			EndPoint: Point{Row: r.EndRow, Column: r.EndCol},
+			EndPoint:   Point{Row: r.EndRow, Column: r.EndCol},
 		}
 	}
 	return out, true
@@ -2444,7 +2445,7 @@ func (p *Parser) ccoreRun(adm ccoreAdmission, source []byte, old *ccore.Tree) (t
 		tableScan = ccore.NewTableScan(st.base, source)
 		scan = tableScan
 	}
-	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan, p.ccoreIncludedRanges(), adm.forestElection)
+	ct, stop, resultErr := ccoreParseCore(cp, old, source, scan, p.ccoreIncludedRanges(), adm.forestElection, adm.modes&ccoreModeErrReuse != 0)
 	if adm.forestElection != nil && stop != "" {
 		adm.forestElection.Stop = stop
 	}
@@ -2628,7 +2629,7 @@ func (p *Parser) ccoreFirstFresh(source []byte) (*Tree, bool) {
 }
 
 // ccoreParseCore parses with an optional old core tree.
-func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore.ScanProvider, included []ccore.Range, forest *ccore.ForestElection) (ct *ccore.Tree, stop string, resultErr bool) {
+func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore.ScanProvider, included []ccore.Range, forest *ccore.ForestElection, errReuse bool) (ct *ccore.Tree, stop string, resultErr bool) {
 	if forest != nil {
 		ct, stop = cp.ParseFreshForest(source, forest)
 	} else if len(included) != 0 {
@@ -2639,7 +2640,10 @@ func ccoreParseCore(cp *ccore.Parser, old *ccore.Tree, source []byte, scan ccore
 	if stop != "" || ct == nil || ct.Root() == 0 {
 		return ct, stop, false
 	}
-	return ct, "", old != nil && ct.Reader().ErrorCost(ct.Root()) > 0
+	// Without the ErrReuse mode an incremental result with an error is not kept: a
+	// fresh parse decides. With it the result stands, as in C (C/parser.c:2128
+	// ts_parser_parse returns the incremental tree whatever its error cost).
+	return ct, "", !errReuse && old != nil && ct.Reader().ErrorCost(ct.Root()) > 0
 }
 
 // ccoreEditsDescribe reports whether the edits, applied in order to oldSrc,
@@ -2807,7 +2811,11 @@ func (p *Parser) ccoreOldFor(adm ccoreAdmission, old *Tree, source []byte) (*cco
 	}
 	// "Has an error" is C's test: the error cost of the stored root is above zero
 	// (ts_subtree_error_cost(root) > 0, the same value that sets HasError).
-	if rd := st.ct.Reader(); rd.ErrorCost(st.ct.Root()) > 0 {
+	// With the ErrReuse mode the old tree is used whatever its error cost, as in
+	// C (C/parser.c:2163-2165 resets the reusable node at the root of any old tree;
+	// ts_parser__reuse_node, C/parser.c:753, refuses only the subtrees that have
+	// changes, are errors, are missing or are fragile, and descends into them).
+	if rd := st.ct.Reader(); adm.modes&ccoreModeErrReuse == 0 && rd.ErrorCost(st.ct.Root()) > 0 {
 		return nil, ccoreIncrOldHasError
 	}
 	return st.ct, -1
