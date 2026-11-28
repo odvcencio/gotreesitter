@@ -9,7 +9,7 @@
 #                     item, exit 0. Without it the script is the
 #                     gate: it exits 1 at the first item that does not pass and
 #                     skips the later items.
-#   --items 1,2,3     run only these items (default: 1 to 10)
+#   --items 1,2,3     run only these items (default: 1 to 10, and 11 when the certificate grants Ranges)
 #   --negative <n>    self-check: corrupt one expectation of item n; the item
 #                     must then fail (sets GRAD_NEGATIVE=<n>)
 #   --no-race         skip the -race build of item 8
@@ -58,6 +58,12 @@
 #     engine's; each run is a child process that resets the peak after its setup and
 #     keeps its heap within 32 MiB of what it holds (a soft memory limit)
 #   10 time, 20 paired rounds at 32 KiB, 137 KiB and 1 MiB, median at or below the default engine's
+#   11 included ranges against pinned C: eight range sets of the committed sample; for each, the
+#     fresh parse, a range-only reparse and a reparse after an edit in range equal C's public
+#     tree and subtree records, and the core serves each. It is part of a gate run only when the
+#     certificate of the blob carries the Ranges bit (bit 16, read from item 0's modes). Without
+#     the bit it runs only on request (--report --census --items 11), which certifies the grammar
+#     for it. No shipped certificate has the bit.
 #
 # Environment
 #   GRAD_CORPUS_DIR   folder with <language>/<file> parity-corpus inputs (required by item 1)
@@ -278,6 +284,11 @@ if [ "${1:-}" = "--self-test" ]; then
   ok "missing corpus in gate" "$(report=0; emit_from_log x 1 "$d/corpus.log" 0 | cut -d' ' -f4)" "n/a"
   ok "missing corpus in report" "$(report=1; emit_from_log x 1 "$d/corpus.log" 0 | cut -d' ' -f4)" "pass"
   ok "median" "$(median 5 1 3)" "3"
+  printf '%s\n' 'GRADRESULT item=11 status=fail sets=6 fresh_steps=6 fresh_served=6 first="x: records differ"' >"$d/ranges.log"
+  ok "a failing ranges item keeps its first input" "$(emit_from_log x 11 "$d/ranges.log" 0 | grep -c 'x: records differ')" "1"
+  ok "a ranges item that did not print fails" "$(emit_from_log x 11 "$d/crash.log" 2 | cut -d' ' -f4)" "fail"
+  out=$(env -u CCORE_VIEWS -u GRAD_CENSUS -u GRAD_NEGATIVE bash "$0" --report --items 11 --self-test-gate 2>&1); rc=$?
+  ok "--items 11 is accepted" "$rc" "0"
   printf '%s\n' 'GRADRESULT item=0 status=fail blob=ab modes=0 need=3 first="not served"' >"$d/served.log"
   printf '%s\n' 'GRADRESULT item=10 status=pending rounds=20 first="same-length cell pending"' >"$d/pend.log"
   ok "a pending cell prints pending" "$(emit_from_log x 10 "$d/pend.log" 0 | cut -d' ' -f4)" "pending"
@@ -363,11 +374,16 @@ else
   out=$(mktemp -d) || exit 2
 fi
 trap 'printf "graduation_gate.sh: logs=%s\n" "$out"' EXIT
-if [[ ! "$items" =~ ^([0-9]|10)(,([0-9]|10))*$ ]]; then echo "graduation_gate.sh: invalid item list: $items" >&2; exit 2; fi
-if [ -n "$negative" ] && [[ ! "$negative" =~ ^([0-9]|10)$ ]]; then echo "graduation_gate.sh: invalid negative item: $negative" >&2; exit 2; fi
+if [[ ! "$items" =~ ^([0-9]|1[01])(,([0-9]|1[01]))*$ ]]; then echo "graduation_gate.sh: invalid item list: $items" >&2; exit 2; fi
+if [ -n "$negative" ] && [[ ! "$negative" =~ ^([0-9]|1[01])$ ]]; then echo "graduation_gate.sh: invalid negative item: $negative" >&2; exit 2; fi
 export GOWORK=off GOMAXPROCS=${GOMAXPROCS:-1} GRAD_LANG=$lang
 [ -n "$negative" ] && export GRAD_NEGATIVE=$negative
-want() { [[ ",$items," == *",$1,"* ]]; }
+ranges_granted=0
+# want <item>: item 11 also runs, with the default item list, when the certificate has the Ranges bit.
+want() {
+  [[ ",$items," == *",$1,"* ]] && return 0
+  [ "$1" = 11 ] && [ "$items_set" = 0 ] && [ "$ranges_granted" != 0 ]
+}
 
 hbin="$out/harness.test"; rbin="$out/root.test"; rrace="$out/root.race.test"
 need_harness=1
@@ -396,6 +412,8 @@ run_harness 0 TestGraduationServed
 observed_views=$(field "$(result_line "$LOG" 0)" views)
 case "$observed_views" in true|false) views=$observed_views ;; esac
 emit_from_log "$lang" 0 "$LOG" $RC
+modes0=$(field "$(result_line "$LOG" 0)" modes)
+[[ "$modes0" =~ ^[0-9]+$ ]] && ranges_granted=$(( modes0 & 16 ))
 if [ "$LAST_STATUS" != pass ] && [ "$census" = 0 ]; then
   if [ "$report" = 1 ]; then
     for i in $(tr ',' ' ' <<<"$items"); do [ "$i" = 0 ] || emit "$lang" "$i" na "not run" "item 0 did not pass: the grammar is not served by the core by default"; done
@@ -404,7 +422,7 @@ if [ "$LAST_STATUS" != pass ] && [ "$census" = 0 ]; then
   echo "graduation_gate.sh: item 0 did not pass; all items skipped" >&2; exit 1
 fi
 
-for item in 1 2 3 4 5 6 7 8 9 10; do
+for item in 1 2 3 4 5 6 7 8 9 10 11; do
   want $item || continue
   case $item in
     1) run_harness 1 TestGraduationFresh; emit_from_log "$lang" 1 "$LOG" $RC ;;
@@ -521,6 +539,7 @@ for item in 1 2 3 4 5 6 7 8 9 10; do
       fi
       unset GRAD_RSS_EDITS_FILE ;;
     10) run_harness 10 TestGraduationTime; emit_from_log "$lang" 10 "$LOG" $RC ;;
+    11) run_harness 11 TestGraduationRanges; emit_from_log "$lang" 11 "$LOG" $RC ;;
   esac
   stop_if_needed "$item"
 done
