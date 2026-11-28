@@ -4,11 +4,11 @@ package cgoharness
 
 import (
 	"bytes"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"strings"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -22,7 +22,7 @@ func TestGoCompactIncrementalExecutionLargeDirtyRegionParity(t *testing.T) {
 		StartPoint: pointAtOffset(source, start), OldEndPoint: pointAtOffset(source, end),
 		NewEndPoint: pointAtOffset(edited, end),
 	}
-	lang := grammars.GoLanguage()
+	lang := frozengo.Language()
 	initialParser := gts.NewParser(lang)
 	initialParser.SetAdmissionCandidateRoute(true)
 	old, err := initialParser.Parse(source)

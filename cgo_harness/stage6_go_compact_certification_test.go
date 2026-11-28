@@ -4,6 +4,7 @@ package cgoharness
 
 import (
 	"bytes"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"strings"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestStage6GoCompactCertification(t *testing.T) {
 		{name: "type_switch", source: []byte("package p\nfunc f(x any) { switch v := x.(type) { case int: _ = v; default: } }\n"), wantRoute: true},
 		{name: "recovery", source: []byte("package main\nfunc f( {\n\treturn 1\n}\n"), wantReasonPart: "recovery"},
 	}
-	language := grammars.GoLanguage()
+	language := frozengo.Language()
 	cLanguage, err := ParityCLanguage("go")
 	if err != nil {
 		t.Fatal(err)

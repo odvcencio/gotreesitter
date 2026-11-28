@@ -4,10 +4,10 @@ package cgoharness
 
 import (
 	"bytes"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -26,7 +26,7 @@ func TestGoCompactIncrementalExecutionParity(t *testing.T) {
 			offset := bytes.Index(source, []byte(tc.before))
 			edited := bytes.Replace(source, []byte(tc.before), []byte(tc.after), 1)
 			edit := gts.InputEdit{StartByte: uint32(offset), OldEndByte: uint32(offset + len(tc.before)), NewEndByte: uint32(offset + len(tc.after)), StartPoint: pointAtOffset(source, offset), OldEndPoint: pointAtOffset(source, offset+len(tc.before)), NewEndPoint: pointAtOffset(edited, offset+len(tc.after))}
-			language := grammars.GoLanguage()
+			language := frozengo.Language()
 			parser := gts.NewParser(language)
 			parser.SetAdmissionCandidateRoute(true)
 			old, err := parser.Parse(source)
@@ -107,7 +107,7 @@ func TestGoCompactIncrementalExecutionParity(t *testing.T) {
 
 func TestGoCompactIncrementalExecutionRepeatedSameWidthParity(t *testing.T) {
 	source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")
-	lang := grammars.GoLanguage()
+	lang := frozengo.Language()
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
 	old, err := parser.Parse(source)

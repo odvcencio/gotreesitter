@@ -5,7 +5,7 @@ package cgoharness
 import (
 	"bytes"
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 	"testing"
 )
@@ -14,7 +14,7 @@ func TestGoCompactNestedReuseLockedC(t *testing.T) {
 	source := []byte("func a(){_=1}")
 	edited := []byte("func a(){_=x}")
 	edit := gts.InputEdit{StartByte: 11, OldEndByte: 12, NewEndByte: 12, StartPoint: pointAtOffset(source, 11), OldEndPoint: pointAtOffset(source, 12), NewEndPoint: pointAtOffset(edited, 12)}
-	lang := grammars.GoLanguage()
+	lang := frozengo.Language()
 	p := gts.NewParser(lang)
 	p.SetAdmissionCandidateRoute(true)
 	old, err := p.Parse(source)
@@ -87,7 +87,7 @@ func TestGoCompactNestedReuseBoundaryLockedC(t *testing.T) {
 				// Insert at the exact end of the old parameter list.
 				edit = gts.InputEdit{StartByte: 8, OldEndByte: 8, NewEndByte: 11, StartPoint: pointAtOffset(source, 8), OldEndPoint: pointAtOffset(source, 8), NewEndPoint: pointAtOffset(edited, 11)}
 			}
-			lang := grammars.GoLanguage()
+			lang := frozengo.Language()
 			p := gts.NewParser(lang)
 			p.SetAdmissionCandidateRoute(true)
 			old, err := p.Parse(source)
@@ -158,7 +158,7 @@ func TestGoCompactNestedReuseChangedLookaheadLockedC(t *testing.T) {
 		edited := bytes.Replace(source, []byte(";"), []byte("* c ;"), 1)
 		start := len(source) - 1
 		edit := gts.InputEdit{StartByte: uint32(start), OldEndByte: uint32(start + 1), NewEndByte: uint32(start + 5), StartPoint: pointAtOffset(source, start), OldEndPoint: pointAtOffset(source, start+1), NewEndPoint: pointAtOffset(edited, start+5)}
-		lang := grammars.GoLanguage()
+		lang := frozengo.Language()
 		p := gts.NewParser(lang)
 		p.SetAdmissionCandidateRoute(true)
 		old, err := p.Parse(source)
