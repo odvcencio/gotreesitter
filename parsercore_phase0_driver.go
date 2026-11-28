@@ -772,7 +772,13 @@ type diagnosticParserCoreDecline struct {
 	detail   string
 }
 
-//go:embed grammars/grammar_blobs/go.bin
+// parserCoreCertifiedGoBlob is the Go artifact that the compact scheduler was
+// certified against: the blob that declares the external _automatic_semicolon
+// token, bound to GoExternalScanner. It is a frozen copy. The shipped go blob
+// is built from upstream's grammar text (no external token) and is not this
+// artifact, so the compact scheduler declines it.
+//
+//go:embed internal/frozengo/go.bin
 var parserCoreCertifiedGoBlob []byte
 
 func (e *diagnosticParserCoreDecline) Error() string { return string(e.boundary) + ": " + e.detail }

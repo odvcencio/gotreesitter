@@ -3,6 +3,7 @@ package gotreesitter_test
 import (
 	"bytes"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"os"
 	"strconv"
 	"strings"
@@ -854,10 +855,16 @@ func BenchmarkGoParseIncrementalRandomSingleByteEdit(b *testing.B) {
 }
 
 func TestLanguageCopyDoesNotAuthenticate(t *testing.T) {
-	gotreesitter.RunLanguageCopyDoesNotAuthenticate(t, grammars.GoLanguage())
+	gotreesitter.RunLanguageCopyDoesNotAuthenticate(t, frozengo.Language())
 }
 
-func TestScannerAdaptationRevokesProducer(t *testing.T) {
+// TestGoWithoutScannerHasNoProducerKey: the go blob has no external token, so no
+// scanner is registered for it and no producer key is issued. The earlier go
+// blob's scanner was the one that carried the producer key, and this test
+// pinned that scanner adaptation revoked it. The frozen artifact keeps that
+// scanner (internal/frozengo), but adaptation by registry name needs a
+// registered scanner, so the revocation path is no longer reachable here.
+func TestGoWithoutScannerHasNoProducerKey(t *testing.T) {
 	language, err := grammars.LoadLanguage("go", grammars.BlobByName("go"))
 	if err != nil {
 		t.Fatal(err)
@@ -865,15 +872,15 @@ func TestScannerAdaptationRevokesProducer(t *testing.T) {
 	if language.SmallSourceReuseAuthority == nil {
 		t.Fatal("decoded Go is missing its grant")
 	}
-	gotreesitter.AssertLanguageProducerKey(t, language, true)
-	if !grammars.AdaptScannerForLanguage("go", language) {
-		t.Fatal("Go scanner adaptation failed")
+	gotreesitter.AssertLanguageProducerKey(t, language, false)
+	if grammars.AdaptScannerForLanguage("go", language) {
+		t.Fatal("Go has no external scanner to adapt")
 	}
 	gotreesitter.AssertLanguageProducerKey(t, language, false)
 }
 
 func TestAuthenticatedNativeReuseWitness(t *testing.T) {
-	gotreesitter.RunAuthenticatedNativeReuseWitness(t, grammars.GoLanguage())
+	gotreesitter.RunAuthenticatedNativeReuseWitness(t, frozengo.Language())
 }
 
 func scratchHandOutGoSource(n int) []byte {

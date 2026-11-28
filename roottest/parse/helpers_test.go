@@ -254,7 +254,9 @@ func issue454UncertifiedLanguage(original *gts.Language) *gts.Language {
 		}
 	}
 	language := clone.Addr().Interface().(*gts.Language)
-	language.ExternalScanner = issue454UncertifiedReadScanner{original.ExternalScanner}
+	if original.ExternalScanner != nil {
+		language.ExternalScanner = issue454UncertifiedReadScanner{original.ExternalScanner}
+	}
 	return language
 }
 

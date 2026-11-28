@@ -4,6 +4,7 @@ package admission_test
 
 import (
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"sort"
 	"testing"
 
@@ -130,6 +131,12 @@ func FuzzAdmissionRouteEquality(f *testing.F) {
 			f.Fatalf("curated route-equality language %q is not registered", name)
 		}
 		lang := entry.Language()
+		if name == "go" {
+			// The shipped go blob is served by the certified core. This fuzzer
+			// compares the compact route with the older engine, so it uses the
+			// frozen artifact that the compact scheduler was certified against.
+			lang = frozengo.Language()
+		}
 		if lang == nil {
 			f.Fatalf("curated route-equality language %q resolved a nil Language", name)
 		}

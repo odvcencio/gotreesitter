@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 // TestCompactAcceptanceDerivationTreesEqual covers the structural axes
@@ -22,7 +21,7 @@ import (
 // test would need to hand-construct that exact ambiguity, which the real
 // witness already does more faithfully.
 func TestCompactAcceptanceDerivationTreesEqual(t *testing.T) {
-	lang := grammars.GoLanguage()
+	lang := frozenCompactGoLanguage(t)
 
 	parse := func(t *testing.T, source string) *gts.Tree {
 		t.Helper()

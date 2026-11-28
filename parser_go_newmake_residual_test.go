@@ -33,10 +33,11 @@ type newMakeCorpusEntry struct {
 //   - base: bare-identifier forms fixed by PR #384 (`new(T)`).
 //   - composite: unambiguous composite types already correct pre-#384; kept as
 //     regression controls (the retag must never disturb them).
-//   - invalid-divergent: invalid Go (`new(a.b.C)`, `new(&T)`) where the C
-//     oracle drives strict type-context ERROR recovery. gotreesitter keeps a
-//     clean expression parse; this change does NOT touch these, so they stay a
-//     documented, pre-existing divergence (matchesC=false).
+//   - invalid-error: invalid Go (`new(a.b.C)`, `new(&T)`) where the C oracle
+//     drives strict type-context ERROR recovery. The shipped blob is built from
+//     upstream's grammar text and recovers the same way; the tree must carry an
+//     error (cgo_harness TestGoNewMakeResidualParity compares it with C). The
+//     earlier blob kept a clean expression parse here.
 var goNewMakeDiffCorpus = []newMakeCorpusEntry{
 	// fixed-residual (this change)
 	{"new(pkg.Type)", "(qualified_type (package_identifier) (type_identifier))", true, "fixed-residual"},
@@ -69,9 +70,9 @@ var goNewMakeDiffCorpus = []newMakeCorpusEntry{
 	{"new([3]T)", "(array_type (int_literal) (type_identifier))", true, "composite"},
 	{"new(pkg.Type[int])", "(generic_type (qualified_type (package_identifier) (type_identifier)) (type_arguments (type_elem (type_identifier))))", true, "composite"},
 	{"make([]pkg.Type, 0)", "(slice_type (qualified_type (package_identifier) (type_identifier)))", true, "composite"},
-	// invalid-divergent (documented pre-existing divergence; untouched here)
-	{"new(a.b.C)", "(selector_expression (selector_expression (identifier) (field_identifier)) (field_identifier))", false, "invalid-divergent"},
-	{"new(&T)", "(unary_expression (identifier))", false, "invalid-divergent"},
+	// invalid-error (the tree has an error, as in the C oracle)
+	{"new(a.b.C)", "", true, "invalid-error"},
+	{"new(&T)", "", true, "invalid-error"},
 }
 
 // TestParseGoNewMakeTypeArgumentDiffCorpus is the durable scorecard for the Go
@@ -85,6 +86,12 @@ func TestParseGoNewMakeTypeArgumentDiffCorpus(t *testing.T) {
 			src := "package p\n\nfunc f() {\n\t_ = " + e.form + "\n}\n"
 			tree, lang := parseGo(t, src)
 			root := tree.RootNode()
+			if e.note == "invalid-error" {
+				if !root.HasError() {
+					t.Fatalf("%s: invalid Go parsed without an error; root=%s", e.form, root.SExpr(lang))
+				}
+				return
+			}
 			assertNoErrorOrMissing(t, lang, root, e.form)
 
 			call := findNamedChild(lang, root, "call_expression")
@@ -109,6 +116,9 @@ func TestParseGoNewMakeTypeArgumentDiffCorpus(t *testing.T) {
 	}
 	t.Logf("Go new/make DIFF corpus: %d/%d forms byte-match the C oracle (%d documented invalid-Go divergences)",
 		matchC, len(goNewMakeDiffCorpus), len(goNewMakeDiffCorpus)-matchC)
+	if matchC != len(goNewMakeDiffCorpus) {
+		t.Fatalf("%d forms are recorded as differing from the C oracle; the shipped Go tables equal it", len(goNewMakeDiffCorpus)-matchC)
+	}
 }
 
 // TestParseGoNewMakeResidualCompositeLiteralGuards is the composite-literal

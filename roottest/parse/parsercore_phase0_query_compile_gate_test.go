@@ -5,6 +5,7 @@ package parse_test
 import (
 	"crypto/sha256"
 	"fmt"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"reflect"
 	"testing"
 
@@ -64,7 +65,8 @@ func TestDiagnosticParserCoreSummaryAcceptsExactQueryCompile(t *testing.T) {
 	if err := fixture.Fixture.VerifySource(fixture.Source); err != nil {
 		t.Fatal(err)
 	}
-	blobHash := sha256.Sum256(grammars.BlobByName("go"))
+	// The compact scheduler runs on its frozen Go artifact, not on the shipped blob.
+	blobHash := sha256.Sum256(frozengo.Blob())
 	if fmt.Sprintf("%x", blobHash) != parserCoreQueryCompileGrammarSHA256 {
 		t.Fatalf("Go grammar identity drifted: %x", blobHash)
 	}
@@ -148,7 +150,7 @@ func runDiagnosticParserCoreQueryCompile(t *testing.T, fixture benchfixtures.Loa
 	}
 	root := result.MaterializedTree.RootNode()
 	runtime := result.MaterializedTree.ParseRuntime()
-	inspection, inspectErr := benchfixtures.InspectGoTree(root, grammars.GoLanguage())
+	inspection, inspectErr := benchfixtures.InspectGoTree(root, frozenCompactGoLanguage(t))
 	if inspectErr != nil || inspection.SHA256 != parserCoreQueryCompileTreeSHA256 || root.StartByte() != 0 || root.EndByte() != uint32(len(fixture.Source)) || root.HasError() || runtime.StopReason != gotreesitter.ParseStopAccepted || runtime.Truncated || runtime.SourceLen != uint32(len(fixture.Source)) || runtime.ExpectedEOFByte != uint32(len(fixture.Source)) || runtime.RootEndByte != uint32(len(fixture.Source)) || !runtime.LastTokenWasEOF {
 		t.Fatalf("query_compile exactness failed: digest=%s root=%d..%d error=%v runtime=%s inspect_err=%v", inspection.SHA256, root.StartByte(), root.EndByte(), root.HasError(), runtime.Summary(), inspectErr)
 	}
@@ -172,3 +174,8 @@ func parserCoreQueryCompileComparisonAtOrAbove(got, limit parserCoreQueryCompile
 	return got.shifts >= limit.shifts || got.reductions >= limit.reductions || got.paths >= limit.paths ||
 		got.payloads >= limit.payloads || got.links >= limit.links || got.leaves >= limit.leaves || got.parents >= limit.parents
 }
+
+// frozenCompactGoLanguage returns the Go artifact that the compact scheduler was
+// certified against, as the registry loaded it before the shipped go blob was
+// built from upstream's grammar text.
+func frozenCompactGoLanguage(t testing.TB) *gotreesitter.Language { return frozengo.Language() }

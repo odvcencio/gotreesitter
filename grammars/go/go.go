@@ -11,9 +11,9 @@ import (
 )
 
 // BlobSHA256 identifies the packaged grammar artifact.
-const BlobSHA256 = "67b873053c9917055e1b5aec94d3c0d9f7d26834f4340a39159e5970c0a0a598"
+const BlobSHA256 = "4b9d107c2e4e3ddb34ec6b7dc0434efa04440904f5b5c652c2e8ab37d9fd7bb2"
 
-func init() { grammarruntime.RegisterGoSupport(); grammarruntime.RegisterBlob("go", grammarblobs.Go) }
+func init() { ; grammarruntime.RegisterBlob("go", grammarblobs.Go) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
 func Language() *gotreesitter.Language { return grammarruntime.Language("go.bin") }

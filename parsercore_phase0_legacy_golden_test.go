@@ -245,7 +245,7 @@ func TestDiagnosticParserCoreSeedMatchesImmutableLegacyGolden(t *testing.T) {
 	const historicalBlob = "df63fc35604c4e4e7a484abde9eb2110b61640045601c23991723f323a48310d"
 	const currentBlob = "67b873053c9917055e1b5aec94d3c0d9f7d26834f4340a39159e5970c0a0a598"
 	if want.GrammarSHA256 != historicalBlob || got.GrammarSHA256 != currentBlob ||
-		legacyGoldenHash(sha256.Sum256(grammars.BlobByName("go"))) != currentBlob {
+		legacyGoldenHash(sha256.Sum256(frozenCompactGoBlob(t))) != currentBlob {
 		t.Fatal("legacy/current grammar identity changed")
 	}
 	want.GrammarSHA256 = currentBlob

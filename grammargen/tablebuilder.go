@@ -24,6 +24,9 @@ func generateWithTableBuilder(g *Grammar, opts reportBuildOptions) (*GenerateRep
 	if g.TableBuilder != TableBuilderTreeSitter {
 		return nil, fmt.Errorf("unknown table builder %q", g.TableBuilder)
 	}
+	if g.EnableLRSplitting {
+		return nil, fmt.Errorf("the tree-sitter table builder has no LR split option; drop -lr-split")
+	}
 	text, err := ExportGrammarJSON(g)
 	if err != nil {
 		return nil, fmt.Errorf("export grammar.json: %w", err)

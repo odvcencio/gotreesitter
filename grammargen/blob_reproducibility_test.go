@@ -33,11 +33,10 @@ var blobReproducibilityCases = []blobReproducibilityCase{
 		name:     "go",
 		blobPath: "../grammars/grammar_blobs/go.bin",
 		lrSplit:  false,
-		// -lr-split is not safe for Go: it interacts with the external
-		// `_automatic_semicolon` ASI scanner symbol and produces a table
-		// that misparses ordinary single-line if-statements such as
-		// `if err != nil { foo() }` (confirmed 2026-09-20; see
-		// grammargen/README.md "Go's blob is generated without -lr-split").
+		// The recipe is GoCoreGrammar: upstream's grammar text, built by
+		// internal/tablebuild (Grammar.TableBuilder), which has no LR split
+		// option. TestGoCoreBlobEqualsPinnedTables compares the same build
+		// with the pinned parser.c.
 	},
 	{
 		// regex.bin imports tree-sitter-regex's own resolved grammar.json
@@ -189,7 +188,7 @@ func buildReproducibilityGrammar(tc blobReproducibilityCase) (*Grammar, string, 
 func builtinGrammarByName(name string) (func() *Grammar, bool) {
 	switch name {
 	case "go":
-		return GoGrammar, true
+		return GoCoreGrammar, true
 	case "swift":
 		return SwiftGrammar, true
 	case "yaml":

@@ -75,8 +75,8 @@ func TestEveryRegisteredLanguageBinds(t *testing.T) {
 	if step == 1 && registeredTypes != len(registeredScanners) {
 		t.Fatalf("%d languages have a registered scanner in a normal build, want exactly the %d checked ones", registeredTypes, len(registeredScanners))
 	}
-	if step == 1 && !refusedNames["go"] {
-		t.Fatal("the go scanner is not registered in a normal build and must be refused; it was not")
+	if step == 1 && !refusedNames["haskell"] {
+		t.Fatal("the haskell scanner is not registered in a normal build and must be refused; it was not")
 	}
 	if step == 1 && refused == 0 {
 		t.Fatal("no language was refused: the policy is not applied")

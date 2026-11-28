@@ -666,19 +666,6 @@ var scannerSpecCases = []scannerSpecCase{
 		bind:           scannerBinder(ElmExternalScanner{}, func(s ElmExternalScanner) ([]int, any) { return s.externalToToken, s.symbols }),
 	},
 	{
-		// Unlike every other language here, this external is not ported from an
-		// upstream C scanner.c (upstream tree-sitter-go has none); see
-		// goExternalScannerSpec's doc comment in go_scanner.go for why grammargen
-		// invents it.
-		lang: "go",
-		externals: []string{
-			"_automatic_semicolon",
-		},
-		tokenCount:     goTokenCount,
-		defaultSymbols: goDefaultSymTable,
-		bind:           scannerBinder(GoExternalScanner{}, func(s GoExternalScanner) ([]int, any) { return s.externalToToken, s.symbols }),
-	},
-	{
 		lang:   "haskell",
 		commit: "0975ef72fc3c47b530309ca93937d7d143523628",
 		externals: []string{

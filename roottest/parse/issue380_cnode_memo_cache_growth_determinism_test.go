@@ -26,6 +26,7 @@ package parse_test
 
 import (
 	"bytes"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"os"
 	"testing"
 
@@ -48,7 +49,7 @@ func issue380CNodeMemoGrowthScenario(t *testing.T) (cacheLen int, thrash uint32)
 	if err != nil {
 		t.Fatalf("read tree.go: %v", err)
 	}
-	lang := grammars.GoLanguage()
+	lang := frozengo.Language()
 	const insertOffset = 200
 
 	parser := gotreesitter.NewParser(lang)
@@ -126,7 +127,7 @@ func TestCNodeMemoCacheAdaptiveGrowthDeterministicAcrossFreshParsers(t *testing.
 // permanent 16384-entry allocation.
 func TestCNodeMemoCacheStaysSmallForCleanFullParse(t *testing.T) {
 	files := []string{"tree.go", "parser.go", "lexer.go"}
-	lang := grammars.GoLanguage()
+	lang := frozengo.Language()
 	for _, f := range files {
 		f := f
 		t.Run(f, func(t *testing.T) {

@@ -126,9 +126,15 @@ fields, and node names.
 ## Go ownership
 
 Go is Tier 1 and Own. Its canonical grammar source is
-[go_grammar.go](../grammargen/go_grammar.go). Its canonical external scanner
-is [go_scanner.go](../grammars/runtime/go_scanner.go), which resolves automatic
-semicolon insertion (ASI).
+[go_grammar.go](../grammargen/go_grammar.go), `GoCoreGrammar()`: the text of
+tree-sitter-go's `grammar.json`, with no external token. The shipped blob is
+built from that text by `internal/tablebuild`, the port of the tree-sitter
+generator's table builder (release v0.27.1), through the recipe field
+`Grammar.TableBuilder`. The tables equal the generator's `parser.c` for the
+pinned grammar commit. The scanner for the earlier recipe's
+`_automatic_semicolon` token, [go_scanner.go](../grammars/runtime/go_scanner.go),
+is no longer registered; it stays for the compact scheduler's frozen Go
+artifact (`internal/frozengo/go.bin`).
 
 Regenerate the blob with:
 
@@ -136,14 +142,8 @@ Regenerate the blob with:
 go run ./cmd/grammargen -bin grammars/grammar_blobs/go.bin go
 ```
 
-Do not pass `-lr-split`. Go declares one external symbol
-(`_automatic_semicolon`). An external symbol switches `-lr-split` to
-`usePreciseExternalBuilder` in `grammargen/lr.go`. That builder produces a
-table that misparses ordinary single-line if-statements, for example
-`if err != nil { foo() }`. The statement's `{ foo() }`
-block attaches as an orphaned sibling, not as the `if` statement's body. See
-[grammargen/README.md](../grammargen/README.md#authoring-commands) for the
-mechanism.
+The builder has no `-lr-split` option, and `cmd/grammargen` fails if you pass
+it for Go.
 
 Run the focused evidence with:
 

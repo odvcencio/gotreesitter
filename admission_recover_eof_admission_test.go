@@ -188,7 +188,7 @@ func TestAdmissionRecoverEOFUnfinishedYAMLIncrementalFallsBackCorrectly(t *testi
 // publishes (source_file (ERROR)). The compact route must fold its finished
 // trees in that acceptance order, not in header order.
 func TestAdmissionRecoverEOFTieKeepsFirstFinishedTreeAsIncumbent(t *testing.T) {
-	lang := grammars.GoLanguage()
+	lang := frozenCompactGoLanguage(t)
 	tree, telemetry, ok, reason := gts.TryCompactRecoverEOFAcceptTelemetryForTest(
 		gts.NewParser(lang), []byte(","),
 	)

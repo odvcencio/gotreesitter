@@ -61,10 +61,10 @@ func TestGoNewMakeResidualParity(t *testing.T) {
 	goLang := grammars.GoLanguage()
 
 	// Every form here is VALID Go whose leading new()/make() argument the C
-	// oracle parses as a type. Invalid-Go inputs (`new(a.b.C)`, `new(&T)`) are
-	// intentionally excluded: the C oracle drives them through strict
-	// type-context ERROR recovery, a separate and pre-existing divergence that
-	// this residual work does not touch.
+	// oracle parses as a type, except the last two. Those two are invalid Go:
+	// the C oracle drives them through strict type-context ERROR recovery. The
+	// earlier go blob diverged from C there. The shipped blob is built from
+	// upstream's grammar text and recovers the same way, so they are compared.
 	forms := []string{
 		// Newly fixed residual forms.
 		"new(pkg.Type)",
@@ -94,6 +94,9 @@ func TestGoNewMakeResidualParity(t *testing.T) {
 		"&Pattern{}",
 		"[]T{{X: 1}}",
 		"map[K]V{k: v}",
+		// Invalid Go: strict type-context ERROR recovery.
+		"new(a.b.C)",
+		"new(&T)",
 	}
 
 	cParser := sitter.NewParser()

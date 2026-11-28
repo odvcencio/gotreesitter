@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/odvcencio/gotreesitter/internal/ccore"
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"github.com/odvcencio/gotreesitter/internal/scanmode"
 	"math/rand"
 	"os"
@@ -55,6 +56,11 @@ func newAdmissionDFAParser(t *testing.T) (*gts.Parser, []byte) {
 			continue
 		}
 		lang := entry.Language()
+		if name == "go" {
+			// The shipped go blob is served by the certified core. These tests
+			// drive the older engine's routing, so they use the frozen artifact.
+			lang = frozengo.Language()
+		}
 		if grammars.EvaluateParseSupport(*entry, lang).Backend != grammars.ParseBackendDFA {
 			continue
 		}
@@ -647,6 +653,14 @@ func requireCompactFootprintReleased(t *testing.T, p *gts.Parser, label string) 
 // cannot rank the two arms by dynamic precedence, so it never reaches an
 // accepted EOF frontier at all ("did not accept EOF") rather than hitting a
 // hard scheduler error mid-run.
+// frozenCompactGoBlob returns the frozen compact-scheduler Go blob.
+func frozenCompactGoBlob(t testing.TB) []byte { return frozengo.Blob() }
+
+// frozenCompactGoLanguage returns the Go artifact that the compact scheduler was
+// certified against, as the registry loaded it before the shipped go blob was
+// built from upstream's grammar text.
+func frozenCompactGoLanguage(t testing.TB) *gts.Language { return frozengo.Language() }
+
 func TestAdmissionCandidateStorageReleasedOnAcceptanceGateDecline(t *testing.T) {
 	src := "package p\n\n" +
 		"type Foo[T any] struct {\n\tV T\n}\n\n" +
@@ -656,7 +670,7 @@ func TestAdmissionCandidateStorageReleasedOnAcceptanceGateDecline(t *testing.T) 
 		"\t_ = a\n" +
 		"\t_ = b\n" +
 		"}\n"
-	lang := grammars.GoLanguage()
+	lang := frozenCompactGoLanguage(t)
 	parser := gts.NewParser(lang)
 	tree, ok, reason := gts.TryCompactFullParseRouteForTest(parser, []byte(src))
 	if ok || tree != nil {
@@ -758,7 +772,7 @@ func TestAdmissionCandidateGoTypeConversionFailsClosed(t *testing.T) {
 		"\t_ = a\n" +
 		"\t_ = b\n" +
 		"}\n"
-	lang := grammars.GoLanguage()
+	lang := frozengo.Language()
 
 	prod := gts.NewParser(lang)
 	prod.SetAdmissionCandidateRoute(false)

@@ -1,11 +1,11 @@
 package admission_test
 
 import (
+	"github.com/odvcencio/gotreesitter/internal/frozengo"
 	"strings"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 // genericConflictFixture is one member of the Go generic-instantiation /
@@ -57,10 +57,7 @@ var genericConflictFamily = []genericConflictFixture{
 // reports how the family splits between routed and declined so the coverage
 // bound is measured, not assumed.
 func TestAdmissionGenericConflictFamilyNoDivergence(t *testing.T) {
-	lang := grammars.GoLanguage()
-	if lang == nil {
-		t.Skip("Go language unavailable")
-	}
+	lang := frozengo.Language()
 	var routed, declined int
 	for _, fixture := range genericConflictFamily {
 		fixture := fixture
