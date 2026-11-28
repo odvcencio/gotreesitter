@@ -91,6 +91,7 @@ Require all of these results on the candidate commit:
    Page bytes are reported alongside and do not gate, because a store grows by whole record pages of about 300 KiB and one heavy edit late in a session adds a page that later edits reuse.
    The owner decided this on 21 Nov 2026.
 9. Preserve highlight and tags parity, including supertype and `MISSING` patterns.
+10. Included ranges, for a certificate that carries the Ranges mode: for eight range sets cut from the committed sample (among them two ranges that both start at a positive offset), the fresh parse with ranges, a range-only reparse and a reparse after an edit in range each equal pinned C's tree and subtree records and are served by the core. A reparse step whose C trees have an error is reported and does not gate until the ErrReuse mode covers it.
 
 Add the language to the allowlist in the PR that publishes its receipt.
 
