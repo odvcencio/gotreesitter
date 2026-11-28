@@ -93,15 +93,22 @@ func testCcoreIncludedRangesPublicRoutes(t *testing.T, name string, lang *g.Lang
 
 	parser.SetIncludedRanges(goRanges(before))
 	_, fresh0, incr0 := bind.RouteCounters()
-	ungranted, err := parse()
-	if err != nil || ungranted == nil {
-		t.Fatalf("ungranted parse: %v", err)
+	// A grammar whose shipped certificate carries the Ranges bit is served
+	// without help; the check that the core declines ranges without the bit
+	// applies to the others.
+	sha, _ := lang.GrammarBlobSHA256()
+	if certified.Blobs[sha].Modes&certified.Ranges == 0 {
+		ungranted, err := parse()
+		if err != nil || ungranted == nil {
+			t.Fatalf("ungranted parse: %v", err)
+		}
+		ungranted.Release()
+		_, fresh1, incr1 := bind.RouteCounters()
+		if fresh1 != fresh0 || incr1 != incr0 {
+			t.Fatal("the core served ranges without a range certificate")
+		}
 	}
-	ungranted.Release()
 	_, fresh1, incr1 := bind.RouteCounters()
-	if fresh1 != fresh0 || incr1 != incr0 {
-		t.Fatal("the core served ranges without a range certificate")
-	}
 
 	modes := uint8(certified.Fresh | certified.Recover | certified.Incr | certified.Ranges)
 	if lang.ExternalScanner != nil {

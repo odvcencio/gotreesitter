@@ -6085,6 +6085,22 @@ func TestCoreScanTokenSourceIncludedRanges(t *testing.T) {
 		{"ordinary source", "stream", ccoreModesIncr | certified.Ranges, []string{ccore.TableScanID}},
 	} {
 		t.Run(control.name, func(t *testing.T) {
+			if control.modes&certified.Ranges == 0 {
+				// The control needs a blob without the range grant. The shipped
+				// certificate of JSON carries it, so clear the bit for this run.
+				blob, _ := lang.GrammarBlobSHA256()
+				previous, present := certified.Blobs[blob]
+				cleared := previous
+				cleared.Modes &^= certified.Ranges
+				certified.Blobs[blob] = cleared
+				defer func() {
+					if present {
+						certified.Blobs[blob] = previous
+					} else {
+						delete(certified.Blobs, blob)
+					}
+				}()
+			}
 			defer gts.CcoreTestCertifyProviders(control.modes, control.grants, checked...)()
 			p := ccoreRouteParser(lang)
 			p.SetIncludedRanges(after)
