@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog>
+@@repeat
+  <item id="101" kind="book">
+    <title>Parsing in Pure Go</title>
+    <price currency="USD">12.50</price>
+    <note>stock level 40 units</note>
+  </item>
+@@end
+</catalog>
