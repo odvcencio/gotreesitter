@@ -58,7 +58,7 @@
 #     engine's; each run is a child process that resets the peak after its setup and
 #     keeps its heap within 32 MiB of what it holds (a soft memory limit)
 #   10 time, 20 paired rounds at 32 KiB, 137 KiB and 1 MiB, median at or below the default engine's
-#   11 included ranges against pinned C: six range sets of the committed sample; for each, the
+#   11 included ranges against pinned C: eight range sets of the committed sample; for each, the
 #     fresh parse, a range-only reparse and a reparse after an edit in range equal C's public
 #     tree and subtree records, and the core serves each. It is part of a gate run only when the
 #     certificate of the blob carries the Ranges bit (bit 16, read from item 0's modes). Without
