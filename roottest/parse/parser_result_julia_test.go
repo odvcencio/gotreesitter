@@ -220,7 +220,45 @@ func TestJuliaTrailingCommaAssignmentTupleCompatibility(t *testing.T) {
 		t.Fatal("JuliaLanguage returned nil")
 	}
 	source := []byte("function f()\n    minarg, maxarg, = T_IFUNC[iidx]\nend\n")
-	parser := gotreesitter.NewParser(lang)
+	t.Run("present_engine", func(t *testing.T) {
+		parser := gotreesitter.NewParser(lang)
+		parser.SetAdmissionCandidateRoute(false)
+		checkJuliaTrailingCommaTuple(t, parser, lang, source)
+	})
+	t.Run("default_route", func(t *testing.T) {
+		parser := gotreesitter.NewParser(lang)
+		tree, err := parser.Parse(source)
+		if err != nil {
+			t.Fatalf("Parse returned error: %v", err)
+		}
+		defer tree.Release()
+		// The core returns pinned C's shape for the stray "=": an ERROR node
+		// of text "=" with one child, the operator.
+		if !tree.RootNode().HasError() {
+			t.Fatalf("root HasError=false, want true; tree:\n%s", tree.RootNode().SExpr(lang))
+		}
+		tuple := findNodeByText(tree.RootNode(), lang, source, "open_tuple", "minarg, maxarg, = T_IFUNC[iidx]")
+		if tuple == nil {
+			t.Fatalf("open_tuple not found:\n%s", tree.RootNode().SExpr(lang))
+		}
+		if got, want := tuple.ChildCount(), 6; got != want {
+			t.Fatalf("open_tuple child count = %d, want %d; tree:\n%s", got, want, tree.RootNode().SExpr(lang))
+		}
+		stray := tuple.Child(4)
+		if got := stray.Type(lang); got != "ERROR" {
+			t.Fatalf("open_tuple child[4] = %q, want ERROR; tree:\n%s", got, tree.RootNode().SExpr(lang))
+		}
+		if got := stray.Text(source); got != "=" {
+			t.Fatalf("open_tuple ERROR text = %q, want %q", got, "=")
+		}
+		if got, want := stray.ChildCount(), 1; got != want {
+			t.Fatalf("open_tuple ERROR child count = %d, want %d; tree:\n%s", got, want, tree.RootNode().SExpr(lang))
+		}
+	})
+}
+
+func checkJuliaTrailingCommaTuple(t *testing.T, parser *gotreesitter.Parser, lang *gotreesitter.Language, source []byte) {
+	t.Helper()
 	tree, err := parser.Parse(source)
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)

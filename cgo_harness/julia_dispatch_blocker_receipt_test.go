@@ -145,6 +145,10 @@ func TestJuliaDispatchBlockerReceiptRoutes(t *testing.T) {
 			routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 			compactParser := gotreesitter.NewParser(goLanguage)
 			compactParser.SetAdmissionCandidateRoute(true)
+			// The certified core serves Julia by default; certification
+			// telemetry keeps it from pre-empting the compact scheduler
+			// that this receipt pins.
+			compactParser.SetCompactCertificationTelemetry(true)
 			compact, err := compactParser.Parse(source)
 			if err != nil {
 				t.Fatal(err)
