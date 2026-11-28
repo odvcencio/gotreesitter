@@ -15,7 +15,7 @@ Apply the rules D6 to D13 and all correctness, performance, graduation, and rele
 | --- | --- |
 | D6 | Add no language-name comparisons in engine files. Use grammar-owned hooks, conflict policies, and compatibility passes keyed by artifact identity. |
 | D7 | Graduate each language through the allowlist. Flip the global default only after all top-50 languages graduate, and only in `v1.0.0-rc.1`. |
-| D8 | Require incremental results to equal fresh Go results. Use a fresh parse wherever this invariant remains unproven. |
+| D8 | For a tree without an error, require the incremental result to equal the fresh Go result; use a fresh parse wherever this invariant remains unproven. For a tree with an error (the old tree or the result has one), require the incremental result to equal pinned C's incremental result and the fresh result to equal pinned C's fresh result; C's two results can differ, and then the core's do too. A certificate turns this on with the ErrReuse mode. |
 | D9 | Move the engine into `internal/`. Keep a generated facade of defined types at the root. Put scanner-facing types in a leaf package. |
 | D10 | Gate performance with deterministic counters first, then randomized timing. Work counters must not rise; reuse counters must not fall. |
 | D11 | Keep the v1 API small. Move diagnostics into `internal/diag`; the sibling `cgo_harness` module can import that path. |
@@ -72,6 +72,7 @@ Require all of these results on the candidate commit:
 
 1. Generate a receipt with zero unexplained fresh mismatches against the C commit pinned at M1.
 2. Pass the invariant gate for the 72-step session and 16 sites per edit class.
+   For a certificate with the ErrReuse mode, a step on an error tree follows the error half of D8: the shipped parser serves it incrementally, and its incremental tree equals C's incremental tree and its fresh tree equals C's fresh tree.
 3. On each incremental step, require the shipped parser's subtree reuse count to equal C's count on the same tree history.
    Require positive reuse on clean steps once scanner certification covers the scanner class.
    A same-length edit may return the old tree without a parse when the result equals C's in everything a caller can see. The shortcut must reuse every byte.

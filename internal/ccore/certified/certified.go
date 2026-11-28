@@ -19,6 +19,7 @@ const (
 	Incr                      // a parse with an old tree
 	Ranges                    // included ranges
 	Forest                    // fresh native forest epochs
+	ErrReuse                  // reuse of an old tree that has an error, and an incremental result that has one
 )
 
 // ShortcutPolicy controls the token-stable incremental shortcut.

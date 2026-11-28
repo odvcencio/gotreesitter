@@ -29,6 +29,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/ccore"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind"
 	"github.com/odvcencio/gotreesitter/internal/ccore/bind/bindtest"
+	"github.com/odvcencio/gotreesitter/internal/ccore/certified"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -54,7 +55,11 @@ func ccoreConfigureViews(t testing.TB) func() {
 
 func ccoreRouteCertify(t testing.TB) func() {
 	restoreViews := ccoreConfigureViews(t)
-	restore, err := bindtest.CertifyForTests(1|2|4|8, []string{"ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState"}, nil)
+	modes := uint8(1 | 2 | 4 | 8)
+	if os.Getenv("GRAD_ERR_REUSE") == "1" { // --report --census --err-reuse: certify with the ErrReuse mode
+		modes |= certified.ErrReuse
+	}
+	restore, err := bindtest.CertifyForTests(modes, []string{"ImmediateTokens", "ZeroWidthTokens", "LayoutFallbackLexState", "AfterWhitespaceLexState"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

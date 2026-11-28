@@ -79,7 +79,13 @@ func TestRenderAcceptsForestAndRejectsUnknownModes(t *testing.T) {
 		t.Fatalf("forest certificate was not emitted: %v", err)
 	}
 
-	record.Modes |= certified.Forest << 1
+	record.Modes |= certified.ErrReuse
+	source, err = Render([]Record{record})
+	if err != nil || !strings.Contains(string(source), "Cert{Modes: 111,") {
+		t.Fatalf("ErrReuse certificate was not emitted: %v", err)
+	}
+
+	record.Modes |= certified.ErrReuse << 1
 	if _, err := Render([]Record{record}); err == nil || !strings.Contains(err.Error(), "unknown mode bits") {
 		t.Fatalf("unknown mode was not rejected: %v", err)
 	}
