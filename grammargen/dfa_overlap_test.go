@@ -497,21 +497,23 @@ func TestBuildLexDFADoesNotAddUnavailableTerminalExtraToMode(t *testing.T) {
 	}
 }
 
-func TestLineBreakOnlyRuleDetectsOptionalCRLF(t *testing.T) {
-	newline, err := expandPatternRule(`\r?\n`)
-	if err != nil {
-		t.Fatalf("expand newline pattern: %v", err)
-	}
-	if !isLineBreakOnlyRule(newline) {
-		t.Fatalf(`\r?\n should be line-break-only`)
-	}
-
-	whitespace, err := expandPatternRule(`\s`)
-	if err != nil {
-		t.Fatalf("expand whitespace pattern: %v", err)
-	}
-	if isLineBreakOnlyRule(whitespace) {
-		t.Fatalf(`\s should not be line-break-only`)
+func TestLineBreakOnlyRule(t *testing.T) {
+	for _, test := range []struct {
+		pattern string
+		want    bool
+	}{
+		{`\r?\n`, true},
+		{`\n+`, true},
+		{`\s`, false},
+		{`[ \n]+`, false},
+	} {
+		rule, err := expandPatternRule(test.pattern)
+		if err != nil {
+			t.Fatalf("expand %q: %v", test.pattern, err)
+		}
+		if got := isLineBreakOnlyRule(rule); got != test.want {
+			t.Errorf("isLineBreakOnlyRule(%q) = %t, want %t", test.pattern, got, test.want)
+		}
 	}
 }
 

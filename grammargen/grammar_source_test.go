@@ -29,6 +29,7 @@ func TestExtendGrammarCopiesImportMetadata(t *testing.T) {
 	base.CCompatibleParseActions = true
 	base.EnableLRSplitting = true
 	base.BinaryRepeatMode = true
+	base.BinaryRepeatForParents = []string{"program"}
 	base.FlattenGeneratedRepeatAux = true
 	base.ReuseRepeatAuxForParents = []string{"program", "statement_list"}
 	base.PreferExpressionOperatorIdentifierReduces = true
@@ -46,6 +47,7 @@ func TestExtendGrammarCopiesImportMetadata(t *testing.T) {
 	extended := ExtendGrammar("extended", base, func(g *Grammar) {
 		g.Rules["identifier"].Value = `[A-Z]+`
 		g.DefaultAliasDisplays[0] = "_updated_capture"
+		g.BinaryRepeatForParents[0] = "statement"
 		g.Extras[0].Value = `[ \t]+`
 		g.Externals[0].Value = "_different_external"
 		g.ReservedWordSets[0].Rules[0].Value = "when"
@@ -63,6 +65,9 @@ func TestExtendGrammarCopiesImportMetadata(t *testing.T) {
 	}
 	if base.DefaultAliasDisplays[0] != "_capture_expression" || extended.DefaultAliasDisplays[0] != "_updated_capture" {
 		t.Fatal("extension did not copy default alias displays independently")
+	}
+	if !slices.Equal(extended.BinaryRepeatForParents, []string{"statement"}) || !slices.Equal(base.BinaryRepeatForParents, []string{"program"}) {
+		t.Fatalf("extension did not copy binary-repeat parents independently: base %v, extension %v", base.BinaryRepeatForParents, extended.BinaryRepeatForParents)
 	}
 	if !extended.FlattenGeneratedRepeatAux {
 		t.Fatalf("extension did not inherit generated repeat flattening flag")
@@ -146,6 +151,7 @@ func TestEmitGrammarGoIncludesImportMetadata(t *testing.T) {
 	g.RecoveryLookaheadTokens = []string{":"}
 	g.EnableLRSplitting = true
 	g.BinaryRepeatMode = true
+	g.BinaryRepeatForParents = []string{"program"}
 	g.FlattenGeneratedRepeatAux = true
 	g.ReuseRepeatAuxForParents = []string{"program"}
 	g.PreferExpressionOperatorIdentifierReduces = true
@@ -179,6 +185,7 @@ func TestEmitGrammarGoIncludesImportMetadata(t *testing.T) {
 		"g.RecoveryLookaheadTokens = []string{",
 		"g.EnableLRSplitting = true",
 		"g.BinaryRepeatMode = true",
+		"g.BinaryRepeatForParents = []string{",
 		"g.FlattenGeneratedRepeatAux = true",
 		"g.ReuseRepeatAuxForParents = []string{",
 		"\"program\"",

@@ -81,6 +81,7 @@ type Grammar struct {
 	RecoveryLookaheadTokens                    []string      // additional terminals allowed by reduce-follow and missing-token lookahead analysis
 	EnableLRSplitting                          bool          // opt-in: attempt LR(1) state splitting for merge pathology
 	BinaryRepeatMode                           bool          // use tree-sitter's binary repeat helper shape (aux→seq(aux,aux)|inner)
+	BinaryRepeatForParents                     []string      // use binary repeats only for these parent rules when BinaryRepeatMode is off
 	FlattenGeneratedRepeatAux                  bool          // allow generated repeat helpers to participate in hidden-choice flattening
 	ReuseRepeatAuxForParents                   []string      // parent rule names whose repeat helpers may be shared by canonical body
 	PreserveKeywordIdentifierConflicts         bool          // keep keyword-as-identifier S/R ambiguity for grammars like Fortran
@@ -350,6 +351,7 @@ func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Gram
 		RecoveryLookaheadTokens:            append([]string(nil), base.RecoveryLookaheadTokens...),
 		EnableLRSplitting:                  base.EnableLRSplitting,
 		BinaryRepeatMode:                   base.BinaryRepeatMode,
+		BinaryRepeatForParents:             append([]string(nil), base.BinaryRepeatForParents...),
 		FlattenGeneratedRepeatAux:          base.FlattenGeneratedRepeatAux,
 		ReuseRepeatAuxForParents:           make([]string, len(base.ReuseRepeatAuxForParents)),
 		PreserveKeywordIdentifierConflicts: base.PreserveKeywordIdentifierConflicts,

@@ -152,10 +152,15 @@ type symbolTable struct {
 	repeatAuxByKey      map[string]string // canonical repeat body key → generated aux rule
 	repeatAuxReuseRules map[string]bool
 	binaryRepeatMode    bool // use tree-sitter binary repeat helper shape
+	binaryRepeatParents map[string]bool
 	flattenRepeatAux    bool
 	choiceLiftThreshold int // if >0, lift inline CHOICE nodes exceeding this width
 	stringTokenPrecs    map[string]int
 	gRules              map[string]*Rule // raw grammar rules — used by prepareRule for transitive analysis
+}
+
+func (st *symbolTable) binaryRepeatFor(parentName string) bool {
+	return st.binaryRepeatMode || st.binaryRepeatParents[parentName]
 }
 
 const inlinePatternSymbolPrefix = "\x00inline_pattern:"
@@ -333,6 +338,7 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 	st := newSymbolTable()
 	st.grammarName = g.Name
 	st.binaryRepeatMode = g.BinaryRepeatMode
+	st.binaryRepeatParents = stringSetFromSlice(g.BinaryRepeatForParents)
 	st.flattenRepeatAux = g.FlattenGeneratedRepeatAux
 	if len(g.ReuseRepeatAuxForParents) > 0 {
 		st.repeatAuxReuseRules = make(map[string]bool, len(g.ReuseRepeatAuxForParents))
@@ -513,7 +519,7 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		// When a hidden rule's entire body is repeat1, tree-sitter converts
 		// the rule itself into the repetition binary tree instead of
 		// introducing another auxiliary rule.
-		rule = expandTopLevelRepeat(cloneRule(rule), name, st.binaryRepeatMode)
+		rule = expandTopLevelRepeat(cloneRule(rule), name, st.binaryRepeatFor(name))
 		processed := prepareRule(rule, name, st, auxRules, auxOrigins, &auxCounter)
 		processedRules[name] = processed
 	}
@@ -2156,7 +2162,7 @@ func prepareRule(r *Rule, parentName string, st *symbolTable, auxRules map[strin
 		// extract it into an auxiliary nonterminal to prevent the repeat
 		// helper from creating N² productions (where N = choice width).
 		preparedInner = maybeExtractWideChoice(preparedInner, parentName, st, auxRules, auxOrigins, counter)
-		if st.binaryRepeatMode {
+		if st.binaryRepeatFor(parentName) {
 			auxName := ensureRepeatAuxBinary(parentName, preparedInner, st, auxRules, counter)
 			recordAuxOrigin(auxOrigins, auxName, parentName)
 			return Choice(Sym(auxName), Blank())
@@ -2168,7 +2174,7 @@ func prepareRule(r *Rule, parentName string, st *symbolTable, auxRules map[strin
 	case RuleRepeat1:
 		preparedInner := prepareRule(cloneRule(r.Children[0]), parentName, st, auxRules, auxOrigins, counter)
 		preparedInner = maybeExtractWideChoice(preparedInner, parentName, st, auxRules, auxOrigins, counter)
-		if st.binaryRepeatMode {
+		if st.binaryRepeatFor(parentName) {
 			auxName := ensureRepeatAuxBinary(parentName, preparedInner, st, auxRules, counter)
 			recordAuxOrigin(auxOrigins, auxName, parentName)
 			return Sym(auxName)
@@ -4702,6 +4708,7 @@ func flattenHiddenChoiceAlts(g *Grammar, generatedHiddenRules map[string]bool) *
 	out.FlattenGeneratedRepeatAux = g.FlattenGeneratedRepeatAux
 	out.ReuseRepeatAuxForParents = append(out.ReuseRepeatAuxForParents, g.ReuseRepeatAuxForParents...)
 	out.BinaryRepeatMode = g.BinaryRepeatMode
+	out.BinaryRepeatForParents = append([]string(nil), g.BinaryRepeatForParents...)
 	out.EnableLRSplitting = g.EnableLRSplitting
 	out.PreserveKeywordIdentifierConflicts = g.PreserveKeywordIdentifierConflicts
 	out.PreferExpressionOperatorIdentifierReduces = g.PreferExpressionOperatorIdentifierReduces
@@ -5507,6 +5514,7 @@ func expandInlineRules(g *Grammar) *Grammar {
 	out.Supertypes = g.Supertypes
 	out.Precedences = g.Precedences
 	out.BinaryRepeatMode = g.BinaryRepeatMode
+	out.BinaryRepeatForParents = append([]string(nil), g.BinaryRepeatForParents...)
 	out.FlattenGeneratedRepeatAux = g.FlattenGeneratedRepeatAux
 	out.ReuseRepeatAuxForParents = append(out.ReuseRepeatAuxForParents, g.ReuseRepeatAuxForParents...)
 	out.EnableLRSplitting = g.EnableLRSplitting

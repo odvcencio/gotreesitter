@@ -134,6 +134,13 @@ Generate the YAML ccore candidate from the owned DSL:
 go run ./cmd/grammargen emit yaml-core -bin yaml-core.bin
 ```
 
+Generate the Go ccore candidate from the same DSL with the internal
+line-terminator lexer:
+
+```sh
+go run ./cmd/grammargen emit go-core -bin go-core.bin
+```
+
 ## Go DSL
 
 The first defined rule is the start rule. Names beginning with `_` are hidden
