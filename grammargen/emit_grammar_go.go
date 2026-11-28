@@ -135,6 +135,12 @@ func EmitGrammarGo(g *Grammar, pkgName, funcName string) ([]byte, error) {
 	if g.ExternalLexerOnly {
 		fmt.Fprintln(&buf, "\tg.ExternalLexerOnly = true")
 	}
+	if g.Version != ([3]uint8{}) {
+		fmt.Fprintf(&buf, "\tg.Version = [3]uint8{%d, %d, %d}\n\n", g.Version[0], g.Version[1], g.Version[2])
+	}
+	if g.TableBuilder != "" {
+		fmt.Fprintf(&buf, "\tg.TableBuilder = %s\n\n", goString(g.TableBuilder))
+	}
 	if g.ExplicitLexerEOF {
 		fmt.Fprint(&buf, "\tg.ExplicitLexerEOF = true\n\n")
 	}

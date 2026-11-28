@@ -3,6 +3,7 @@ package grammargen
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 )
 
 // ExportGrammarJSON serializes a Grammar struct to the tree-sitter grammar.json
@@ -76,6 +77,11 @@ func ExportGrammarJSON(g *Grammar) ([]byte, error) {
 		out.Supertypes = []string{}
 	}
 
+	// Reserved word sets, in order: the first is the global set.
+	if len(g.ReservedWordSets) > 0 {
+		out.Reserved = &orderedReserved{sets: g.ReservedWordSets}
+	}
+
 	if g.WantsForest {
 		out.Gotreesitter = &grammarJSONExtensions{WantsForest: g.WantsForest}
 	}
@@ -100,6 +106,7 @@ type exportGrammar struct {
 	Externals    []interface{}          `json:"externals"`
 	Inline       []string               `json:"inline"`
 	Supertypes   []string               `json:"supertypes"`
+	Reserved     *orderedReserved       `json:"reserved,omitempty"`
 	Gotreesitter *grammarJSONExtensions `json:"gotreesitter,omitempty"`
 }
 
@@ -115,14 +122,45 @@ func exportPrecedenceLevels(levels [][]PrecEntry) [][]interface{} {
 		entries := make([]interface{}, 0, len(level))
 		for _, e := range level {
 			if e.IsSymbol {
-				entries = append(entries, map[string]interface{}{"type": "SYMBOL", "name": e.Name})
+				entries = append(entries, jsonObject{"type": "SYMBOL", "name": e.Name})
 				continue
 			}
-			entries = append(entries, map[string]interface{}{"type": "STRING", "value": e.Name})
+			entries = append(entries, jsonObject{"type": "STRING", "value": e.Name})
 		}
 		out = append(out, entries)
 	}
 	return out
+}
+
+// orderedReserved marshals reserved word sets as a JSON object in set order.
+type orderedReserved struct {
+	sets []ReservedWordSet
+}
+
+func (o *orderedReserved) MarshalJSON() ([]byte, error) {
+	buf := []byte{'{'}
+	for i, set := range o.sets {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		key, err := json.Marshal(set.Name)
+		if err != nil {
+			return nil, err
+		}
+		members := make([]interface{}, len(set.Rules))
+		for j, r := range set.Rules {
+			members[j] = exportRule(r)
+		}
+		val, err := json.Marshal(members)
+		if err != nil {
+			return nil, err
+		}
+		buf = append(buf, key...)
+		buf = append(buf, ':')
+		buf = append(buf, val...)
+	}
+	buf = append(buf, '}')
+	return buf, nil
 }
 
 // orderedRules preserves rule order when marshaling to JSON.
@@ -154,8 +192,75 @@ func (o *orderedRules) MarshalJSON() ([]byte, error) {
 	return buf, nil
 }
 
-// exportRule converts a Rule to its JSON representation as a map.
+// jsonObject is a JSON object whose keys keep the order of the text that
+// tree-sitter writes: "type" first, then the keys of the rule in the order its
+// JavaScript constructor sets them (ALIAS: content, named, value; the other
+// rules: name, value, content, members). A Go map marshals its keys sorted,
+// which puts "name" before "type".
+type jsonObject map[string]interface{}
+
+var jsonKeyOrder = []string{"type", "name", "value", "content", "members", "named"}
+var jsonAliasKeyOrder = []string{"type", "content", "named", "value"}
+
+func (o jsonObject) MarshalJSON() ([]byte, error) {
+	order := jsonKeyOrder
+	if o["type"] == "ALIAS" {
+		order = jsonAliasKeyOrder
+	}
+	buf := []byte{'{'}
+	n := 0
+	emit := func(k string) error {
+		v, ok := o[k]
+		if !ok {
+			return nil
+		}
+		if n > 0 {
+			buf = append(buf, ',')
+		}
+		n++
+		key, err := json.Marshal(k)
+		if err != nil {
+			return err
+		}
+		val, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		buf = append(append(append(buf, key...), ':'), val...)
+		return nil
+	}
+	for _, k := range order {
+		if err := emit(k); err != nil {
+			return nil, err
+		}
+	}
+	// Any other key follows, sorted.
+	var rest []string
+	for k := range o {
+		known := false
+		for _, ok := range order {
+			known = known || ok == k
+		}
+		if !known {
+			rest = append(rest, k)
+		}
+	}
+	sort.Strings(rest)
+	for _, k := range rest {
+		if err := emit(k); err != nil {
+			return nil, err
+		}
+	}
+	return append(buf, '}'), nil
+}
+
+// exportRule converts a Rule to its JSON representation.
 func exportRule(r *Rule) interface{} {
+	return jsonObject(exportRuleMap(r))
+}
+
+// exportRuleMap converts a Rule to a map; exportRule orders its keys.
+func exportRuleMap(r *Rule) map[string]interface{} {
 	if r == nil {
 		return map[string]interface{}{"type": "BLANK"}
 	}

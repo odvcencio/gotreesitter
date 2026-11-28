@@ -99,6 +99,8 @@ type Grammar struct {
 	PriorityInlinePatterns                     []string      // anonymous pattern terminals that should win same-length ties against named tokens
 	DefaultAliasDisplays                       []string      // hidden rule names whose single alias remains visible on recovery nodes
 	PreserveHiddenChoicePassthrough            []string      // hidden choice rules whose single-symbol reductions must not be flattened away
+	Version                                    [3]uint8      // the grammar's semantic version (major, minor, patch; tree-sitter.json); the tree-sitter table builder writes it into the Language
+	TableBuilder                               string        // "" builds tables with the legacy passes; TableBuilderTreeSitter builds them with internal/tablebuild
 	WantsForest                                bool          // opt this grammar's assembled Language into the GSS-forest GLR fast path (see gotreesitter.Language.WantsForest)
 }
 
@@ -352,6 +354,8 @@ func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Gram
 		EnableLRSplitting:                  base.EnableLRSplitting,
 		BinaryRepeatMode:                   base.BinaryRepeatMode,
 		BinaryRepeatForParents:             append([]string(nil), base.BinaryRepeatForParents...),
+		TableBuilder:                       base.TableBuilder,
+		Version:                            base.Version,
 		FlattenGeneratedRepeatAux:          base.FlattenGeneratedRepeatAux,
 		ReuseRepeatAuxForParents:           make([]string, len(base.ReuseRepeatAuxForParents)),
 		PreserveKeywordIdentifierConflicts: base.PreserveKeywordIdentifierConflicts,
