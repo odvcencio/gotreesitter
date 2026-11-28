@@ -31,6 +31,12 @@ func TestJuliaTokenInvariantLineCommentsLockedC(t *testing.T) {
 					language := grammars.JuliaLanguage()
 					parser := gts.NewParser(language)
 					parser.SetAdmissionCandidateRoute(compact)
+					if compact {
+						// The certified core serves Julia by default; certification
+						// telemetry keeps it from pre-empting the compact scheduler
+						// whose shortcut this test pins.
+						parser.SetCompactCertificationTelemetry(true)
+					}
 					cParser := sitter.NewParser()
 					defer cParser.Close()
 					if err := cParser.SetLanguage(cLanguage); err != nil {

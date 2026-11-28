@@ -296,6 +296,10 @@ func TestAdmissionCandidateSelectedLineageJuliaFailsClosed(t *testing.T) {
 	gts.ResetAdmissionCandidateCounters()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
+	// The certified core serves Julia by default; this test checks the
+	// compact scheduler, which certification telemetry keeps the core from
+	// pre-empting.
+	candidate.SetCompactCertificationTelemetry(true)
 	candidateTree, err := candidate.Parse(source)
 	if err != nil {
 		t.Fatalf("candidate parse: %v", err)
