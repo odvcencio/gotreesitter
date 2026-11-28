@@ -13,7 +13,7 @@ A PR that completes one of these moves (or, for 500, makes the first such move) 
 
 | Root `.go` files at most | Applies after |
 | --- | --- |
-| 650 | The external tests move into `tests/api/`, and the benchmark helpers move into `internal/benchfixtures`. |
+| 650 | The external tests move into `roottest/`, and the benchmark helpers move into `internal/benchfixtures`. |
 | 550 | `tests/regress/` and a corpus store exist. Each converted language drops its codename tests, one language per PR. |
 | 550, and at most 60 top-level files in `grammars/` | Generated grammar shims are merged by build constraint, subset registration files are generated, and the public grammar tests are relocated. |
 | 500 | A PR moves an existing engine subsystem into `internal/` (its engine phase has closed) with its supporting root files. The root holds at most 500 `.go` files after that PR and after every later one. |
