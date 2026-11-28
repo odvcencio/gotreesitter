@@ -117,7 +117,7 @@ func TestGoNextLiveArmProbe(t *testing.T) {
 			// The core serves this input (the shipped tables equal tree-sitter's);
 			// the earlier blob's compact route declined it.
 			compactMode: "accepted", forestAccepted: false,
-			production: goNextPassSetAll(0), compact: goNextPassSetAll(0), forest: goNextNoPass(), incremental: goNextPassSetAll(0),
+			production: goNextPassSetAll(0), compact: goNextNoPass(), forest: goNextNoPass(), incremental: goNextPassSetAll(0),
 		},
 		{
 			name:        "no-op-control",
