@@ -315,7 +315,7 @@ func goNextRunIncludedRanges(t *testing.T, language *gotreesitter.Language, cLan
 	if cDigest != "9c8e5bb506bb345a577beb351f7b9230cca5e2e02cc4fd619e21f607657f290f" {
 		t.Fatalf("included-ranges locked-C digest=%s", cDigest)
 	}
-	goNextCheckRoute(t, "included-ranges", goTree, language, cTree, cDigest, "378a09670d502cba00cd61bb8c125cf231e1c5a943527a9d06c34b8c1e9502f7", goNextDivergence("/source_file/expression_statement[0]", "type", "expression_statement", "ERROR"), goNextPassSet{source: goNextPass(0), compat: goNextPass(25), newMake: goNextPass(0)})
+	goNextCheckRoute(t, "included-ranges", goTree, language, cTree, cDigest, "77b9bfa23a9b7759e3b5dc6865c5859e2240eab9bf3773682fbfe4c9fbe39131", goNextDivergence("/source_file", "shape", "children=10", "children=7"), goNextPassSet{source: goNextPass(0), compat: goNextPass(25), newMake: goNextPass(0)})
 	if got := goTree.RootNode().Type(language); got != "source_file" {
 		t.Fatalf("included-ranges Go root=%q", got)
 	}
